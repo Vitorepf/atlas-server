@@ -5,7 +5,7 @@ title: Atlas Self-Construction Codex Review Chain Contract
 status: active
 category: architecture
 priority: 100
-summary: Contract for the non-executing Codex review, signature and merge-action chain after parallel packets complete.
+summary: Contract for the non-executing review, signature and merge-action chain after Codex or provider packet flows complete.
 tags:
   - atlas-ai
   - self-construction
@@ -26,6 +26,7 @@ decisions:
 maintenance:
   - Update before adding any command that records a decision, validates a signature or performs a merge.
 related_paths:
+  - docs/engineering-knowledge-base/self-construction/multi-provider-agent-orchestration-contract.md
   - docs/engineering-knowledge-base/self-construction/parallel-session-plan-contract.md
   - docs/engineering-knowledge-base/self-construction/codex-merge-action-draft-contract.md
   - docs/engineering-knowledge-base/self-construction/codex-merge-authorization-contract.md
@@ -38,10 +39,12 @@ line_limit: 300
 
 # Atlas Self-Construction Codex Review Chain Contract
 
-This contract governs the review chain after the five Codex packet flow reaches
-integration readiness. It exists to prevent a dangerous shortcut: treating a
-ready review artifact, signature request, runbook or merge template as approval
-to change the repository.
+This contract governs the review chain after the five-packet implementation
+flow reaches integration readiness. The first concrete runtime names are
+Codex-oriented, but the chain must also accept normalized evidence from Claude,
+Gemini, local agents and future providers. It exists to prevent a dangerous
+shortcut: treating a ready review artifact, signature request, runbook or merge
+template as approval to change the repository.
 
 ## Codex Final Review Packet
 
@@ -70,7 +73,8 @@ record the decision separately.
 
 Principal integrator checklist:
 
-- confirm every Codex final response names packet and reservation;
+- confirm every provider final response names packet, provider and reservation;
+- confirm provider-specific evidence was normalized to the universal schema;
 - confirm each packet diff only touches allowed files;
 - confirm evidence hashes match reported final evidence;
 - run all required review gates;

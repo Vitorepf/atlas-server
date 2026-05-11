@@ -5,6 +5,11 @@ import os
 from pathlib import Path
 from typing import Any, Mapping
 
+from .managed_env_writer_packet import (
+    validate_managed_env_write_execution_packet,
+    validate_managed_env_writer_packet,
+)
+
 
 SCHEMA_VERSION = "atlas.voice_realtime.managed_env_writer.v1"
 MANAGED_ENV_CONTRACT_SCHEMA_VERSION = "atlas.voice_realtime.managed_env_contract.v1"
@@ -46,7 +51,7 @@ def inspect_managed_env_writer(
     )
     ready_for_write_implementation = env_ready and launch_contract_available
 
-    return {
+    return validate_managed_env_writer_packet({
         "schema_version": SCHEMA_VERSION,
         "status": "ready_for_write_implementation" if ready_for_write_implementation else "blocked",
         "writer_id": "livekit_agents_managed_env_writer",
@@ -84,7 +89,7 @@ def inspect_managed_env_writer(
             "VOICE_DAEMON_MANAGED_ENV_WRITE_BLOCKED",
         ],
         "next_action": "implement_reviewed_env_file_write_execution" if ready_for_write_implementation else "fix_managed_env_writer_prerequisites",
-    }
+    })
 
 
 def execute_managed_env_write(
@@ -125,7 +130,7 @@ def execute_managed_env_write(
     can_write = writer_ready and authorization_ready and path_ready and manifest_ready
 
     if not can_write:
-        return {
+        return validate_managed_env_write_execution_packet({
             "schema_version": WRITE_EXECUTION_SCHEMA_VERSION,
             "status": "blocked",
             "write_execution_implemented": True,
@@ -147,14 +152,14 @@ def execute_managed_env_write(
                 "VOICE_DAEMON_MANAGED_ENV_WRITE_BLOCKED",
             ],
             "next_action": "fix_managed_env_write_execution_prerequisites",
-        }
+        })
 
     rendered = _render_env_manifest(manifest)
     target_path.parent.mkdir(parents=True, exist_ok=True)
     target_path.write_text(rendered, encoding="utf-8")
     os.chmod(target_path, 0o600)
 
-    return {
+    return validate_managed_env_write_execution_packet({
         "schema_version": WRITE_EXECUTION_SCHEMA_VERSION,
         "status": "written_placeholder_env",
         "write_execution_implemented": True,
@@ -178,7 +183,7 @@ def execute_managed_env_write(
             "VOICE_DAEMON_MANAGED_ENV_WRITE_EXECUTED",
         ],
         "next_action": "implement_supervised_subprocess_launch_with_written_env",
-    }
+    })
 
 
 def _safe_env_key(value: object) -> bool:

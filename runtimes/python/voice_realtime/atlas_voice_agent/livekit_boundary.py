@@ -97,8 +97,20 @@ class LiveKitAgentBoundary:
     def readiness(self, hours: int = 24) -> Mapping[str, Any]:
         return self.runtime.readiness(hours=hours)
 
-    def rivals(self, hours: int = 24) -> Mapping[str, Any]:
-        return self.runtime.rivals(hours=hours)
+    def rivals(
+        self,
+        hours: int = 24,
+        *,
+        require_sdk: bool = False,
+        callback_loop_wired: bool = False,
+        production_sdk_loop_wired: bool = False,
+    ) -> Mapping[str, Any]:
+        return self.runtime.rivals(
+            hours=hours,
+            require_sdk=require_sdk,
+            callback_loop_wired=callback_loop_wired,
+            production_sdk_loop_wired=production_sdk_loop_wired,
+        )
 
     def submit_transcribed_turn(self, event: Mapping[str, Any]) -> AtlasVoiceTurnResult:
         self._assert_safe_event(event)

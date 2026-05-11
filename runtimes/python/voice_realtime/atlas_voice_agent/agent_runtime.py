@@ -60,8 +60,20 @@ class AtlasVoiceAgentRuntime:
     def readiness(self, hours: int = 24) -> Mapping[str, Any]:
         return self.client.readiness(hours=hours)
 
-    def rivals(self, hours: int = 24) -> Mapping[str, Any]:
-        return self.client.rivals(hours=hours)
+    def rivals(
+        self,
+        hours: int = 24,
+        *,
+        require_sdk: bool = False,
+        callback_loop_wired: bool = False,
+        production_sdk_loop_wired: bool = False,
+    ) -> Mapping[str, Any]:
+        return self.client.rivals(
+            hours=hours,
+            require_sdk=require_sdk,
+            callback_loop_wired=callback_loop_wired,
+            production_sdk_loop_wired=production_sdk_loop_wired,
+        )
 
     def submit_turn(self, payload: Mapping[str, Any]) -> AtlasVoiceTurnResult:
         response = self.client.submit_turn(payload)

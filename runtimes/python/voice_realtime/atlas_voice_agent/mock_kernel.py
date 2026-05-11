@@ -76,10 +76,11 @@ class MockKernelTransport:
     def _product_loop_check(self, query: Mapping[str, Any]) -> Mapping[str, Any]:
         callback_loop_wired = self._truthy(query.get("callback_loop_wired"))
         production_sdk_loop_wired = self._truthy(query.get("production_sdk_loop_wired"))
+        wired = callback_loop_wired and production_sdk_loop_wired
 
         return {
             "schema_version": "atlas.voice_realtime.product_loop_check.v1",
-            "status": "ready_for_human_review",
+            "status": "ready_for_human_review" if wired else "blocked",
             "surface_id": "voice_realtime",
             "runtime_id": str(query.get("runtime") or "livekit_agents_sdk"),
             "kernel_only": True,
@@ -101,7 +102,7 @@ class MockKernelTransport:
                 "access_token_log_allowed": False,
                 "auto_promotion_allowed": False,
             },
-            "next_action": "submit_voice_production_promotion_for_human_review",
+            "next_action": "submit_voice_production_promotion_for_human_review" if wired else "wire_real_livekit_agents_sdk_loop",
         }
 
     def call_count(self) -> int:
@@ -364,20 +365,89 @@ class MockKernelTransport:
         }
 
     def _readiness(self, query: Mapping[str, Any]) -> Mapping[str, Any]:
+        hours = max(1, min(8760, int(query.get("hours") or 24)))
+
         return {
-            "schema_version": "atlas.voice_realtime.readiness.v1",
+            "schema_version": "atlas.voice.readiness.v1",
             "status": "ready",
             "mock_kernel": True,
-            "hours": max(1, min(8760, int(query.get("hours") or 24))),
+            "hours": hours,
+            "mobile_first": True,
+            "gates": {
+                "ledger_available": True,
+                "required_events_present": True,
+                "latency_slo_clean": True,
+                "raw_audio_forbidden": True,
+                "kernel_decision_per_turn": True,
+                "rivals_voice_ready": False,
+            },
+            "phase0_hardening": {
+                "schema_version": "atlas.voice_realtime.phase0_hardening_gate.v1",
+                "status": "ready",
+                "surface_id": "voice_realtime",
+                "runtime_id": str(query.get("runtime") or "livekit_agents_sdk"),
+                "mobile_first": True,
+                "kernel_only": True,
+                "promotion_allowed": False,
+                "auto_promotion_allowed": False,
+            },
+            "product_loop_check": {
+                "schema_version": "atlas.voice_realtime.product_loop_check_reference.v1",
+                "status": "available_as_runtime_contract",
+                "surface_id": "voice_realtime",
+                "runtime_id": str(query.get("runtime") or "livekit_agents_sdk"),
+                "promotion_allowed": False,
+                "auto_promotion_allowed": False,
+                "daemon_started": False,
+            },
+            "runtime_dependency_summary": {
+                "schema_version": "atlas.voice_realtime.runtime_dependency_summary.v1",
+                "status": "ready",
+                "runtime_id": str(query.get("runtime") or "livekit_agents_sdk"),
+                "operator_managed": True,
+                "auto_install_allowed": False,
+            },
+            "next_action": "collect_real_mobile_voice_usage_before_livekit_production_promotion",
         }
 
     def _rivals(self, query: Mapping[str, Any]) -> Mapping[str, Any]:
         return {
-            "schema_version": "atlas.voice_realtime.rivals.v1",
+            "schema_version": "atlas.voice.rivals.v1",
             "status": "observed",
             "mock_kernel": True,
+            "runtime_id": str(query.get("runtime") or "livekit_agents_sdk"),
             "hours": max(1, min(8760, int(query.get("hours") or 24))),
+            "readiness": self._readiness(query),
+            "require_sdk": self._truthy(query.get("require_sdk")),
+            "callback_loop_wired": self._truthy(query.get("callback_loop_wired")),
+            "production_sdk_loop_wired": self._truthy(query.get("production_sdk_loop_wired")),
             "promotion_allowed": False,
+            "auto_promotion_allowed": False,
+            "daemon_started": False,
+            "direct_provider_call_allowed": False,
+            "direct_tool_execution_allowed": False,
+            "raw_audio_persistence_allowed": False,
+            "runtime_certification": {
+                "schema_version": "atlas.voice_realtime.runtime_certification.v1",
+                "status": "certified_scaffold",
+                "surface_id": "voice_realtime",
+                "runtime_id": str(query.get("runtime") or "livekit_agents_sdk"),
+                "kernel_only": True,
+                "mobile_first": True,
+                "daemon_started": False,
+            },
+            "production_promotion_gate": {
+                "schema_version": "atlas.voice_realtime.production_promotion_gate.v1",
+                "status": "blocked",
+                "surface_id": "voice_realtime",
+                "runtime_id": str(query.get("runtime") or "livekit_agents_sdk"),
+                "kernel_only": True,
+                "mobile_first": True,
+                "human_review_required": True,
+                "promotion_allowed": False,
+                "auto_promotion_allowed": False,
+            },
+            "next_action": "continue_rivals_voice_comparison_without_daemon_start",
         }
 
     def _session_started(self, payload: Mapping[str, Any]) -> Mapping[str, Any]:

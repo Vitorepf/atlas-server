@@ -8,6 +8,39 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from .contract import AtlasVoiceRuntimeContract
+from .payload_safety import reject_forbidden_keys_recursive
+from .turn_payload import UnsafeVoicePayload
+
+
+class DependencyInstallPlanViolation(ValueError):
+    """Raised when a dependency-install plan can weaken runtime boundaries."""
+
+
+FORBIDDEN_DEPENDENCY_INSTALL_PLAN_KEYS = {
+    "access_token",
+    "api_key",
+    "api_secret",
+    "audio",
+    "audio_bytes",
+    "audio_raw",
+    "direct_provider_call",
+    "direct_tool_execution",
+    "env_file_contents",
+    "livekit_token",
+    "pcm",
+    "provider_api_key",
+    "raw_audio",
+    "raw_audio_bytes",
+    "raw_response_text",
+    "response_text",
+    "secret",
+    "secret_value",
+    "token",
+    "tool_args",
+    "tool_call",
+    "tts_text",
+    "wav",
+}
 
 
 def load_dependency_manifest(path: Path | None = None) -> Mapping[str, Any]:
@@ -134,7 +167,7 @@ def build_dependency_install_plan(path: Path | None = None) -> Mapping[str, Any]
         and unsafe_requirements == []
     )
 
-    return {
+    return validate_dependency_install_plan({
         "schema_version": "atlas.voice_realtime.dependency_install_plan.v1",
         "status": "ready_to_install_optional_dependency" if requirements_ready else "blocked",
         "runtime_id": "livekit_agents_sdk",
@@ -180,15 +213,26 @@ def build_dependency_install_plan(path: Path | None = None) -> Mapping[str, Any]
             if requirements_ready
             else "fix_dependency_install_plan"
         ),
-    }
+    })
 
 
 def validate_dependency_install_plan(payload: Mapping[str, Any]) -> Mapping[str, Any]:
     """Validate the Kernel-published dependency install plan without executing it."""
 
+    try:
+        reject_forbidden_keys_recursive(
+            payload,
+            FORBIDDEN_DEPENDENCY_INSTALL_PLAN_KEYS,
+            label="dependency_install_plan",
+        )
+    except UnsafeVoicePayload as exc:
+        raise DependencyInstallPlanViolation(str(exc)) from exc
+
     errors: list[str] = []
     if payload.get("schema_version") != "atlas.voice_realtime.dependency_install_plan.v1":
         errors.append("invalid_schema_version")
+    if payload.get("status") not in {"ready_to_install_optional_dependency", "blocked"}:
+        errors.append("invalid_status")
     if payload.get("surface_id") != "voice_realtime":
         errors.append("invalid_surface_id")
     if payload.get("runtime_id") != "livekit_agents_sdk":
@@ -207,6 +251,26 @@ def validate_dependency_install_plan(payload: Mapping[str, Any]) -> Mapping[str,
         errors.append("kernel_only_required")
     if payload.get("mobile_first") is not True:
         errors.append("mobile_first_required")
+
+    status = str(payload.get("status") or "")
+    always_required = ["requirements_file", "next_action"]
+    ready_required = ["install_command", "verify_command", "activation_gate"] if status == "ready_to_install_optional_dependency" else []
+    for key in [*always_required, *ready_required]:
+        if not isinstance(payload.get(key), str) or str(payload.get(key)).strip() == "":
+            errors.append(f"{key}_required")
+
+    if payload.get("requirements_sha256") is not None:
+        digest = str(payload.get("requirements_sha256"))
+        if len(digest) != 64 or any(char not in "0123456789abcdef" for char in digest.lower()):
+            errors.append("requirements_sha256_must_be_hex_sha256")
+
+    for key in ["expected_packages", "expected_requirements", "requirements_packages", "missing_requirements", "unsafe_requirements"]:
+        if not isinstance(payload.get(key), list):
+            errors.append(f"{key}_must_be_list")
+
+    install_command = str(payload.get("install_command") or "")
+    if install_command != "" and ("pip install" not in install_command or "-r " not in install_command):
+        errors.append("install_command_must_be_requirements_only")
 
     gates = payload.get("gates")
     if not isinstance(gates, Mapping):
@@ -228,12 +292,7 @@ def validate_dependency_install_plan(payload: Mapping[str, Any]) -> Mapping[str,
             errors.append(f"missing_forbidden_shortcut:{shortcut}")
 
     if errors:
-        return {
-            "schema_version": "atlas.voice_realtime.dependency_install_plan_validation.v1",
-            "status": "invalid",
-            "errors": errors,
-            "trusted": False,
-        }
+        raise DependencyInstallPlanViolation(";".join(errors))
 
     return payload
 

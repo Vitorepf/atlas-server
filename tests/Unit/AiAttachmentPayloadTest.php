@@ -14,6 +14,7 @@ class AiAttachmentPayloadTest extends TestCase
                 'images' => [[
                     'path' => '/Users/example/storage/app/ai/attachments/upload.png',
                     'original_path' => '/Users/example/storage/app/ai/attachments/upload.png',
+                    'original_name' => 'atlas-clipboard-20260511-080900-a1b2.png',
                     'mime_type' => 'image/png',
                     'bytes' => 1234,
                     'sha256' => 'image-hash',
@@ -46,6 +47,7 @@ class AiAttachmentPayloadTest extends TestCase
         $public = AiAttachmentPayload::publicAttachmentsFromPayload($payload);
         $this->assertCount(2, $public);
         $this->assertSame('image', $public[0]['kind']);
+        $this->assertSame('atlas-clipboard-20260511-080900-a1b2.png', $public[0]['name']);
         $this->assertSame('file', $public[1]['kind']);
         $this->assertSame('documento.pdf', $public[1]['name']);
         $this->assertArrayNotHasKey('path', $public[0]);

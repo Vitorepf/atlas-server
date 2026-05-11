@@ -17,11 +17,13 @@ capabilities:
   - governance_gate
 decisions:
   - Multi-session work requires an explicit readiness gate before dispatch.
+  - Multi-session means multi-agent and multi-provider, not only multiple Codex sessions.
   - The gate may recommend preview-only continuation but must not start sessions.
   - Durable parallel execution remains blocked until claims, reservations and evidence persistence exist.
 maintenance:
   - Update before adding durable multi-session dispatch, auto-claim or execution.
 related_paths:
+  - docs/engineering-knowledge-base/self-construction/multi-provider-agent-orchestration-contract.md
   - docs/engineering-knowledge-base/self-construction/packet-queue-contract.md
   - docs/engineering-knowledge-base/self-construction/collision-matrix-contract.md
   - docs/engineering-knowledge-base/self-construction/dependency-unlock-plan-contract.md
@@ -34,7 +36,7 @@ line_limit: 220
 # Atlas Self-Construction Multi-Session Readiness Gate Contract
 
 Multi-Session Readiness Gate answers whether the current packet system is ready
-for multiple AI sessions.
+for multiple AI sessions across one or more providers.
 
 ## Purpose
 
@@ -68,8 +70,21 @@ It must consolidate:
 
 `ready_for_multi_session_preview` is the expected state after the local
 reservation ledger exists and five cold-lane packets are available. It means
-five Codex sessions can be manually started with packet-scoped bootstrap
-commands and durable claims, while automated dispatch remains off.
+five provider sessions can be manually started with packet-scoped bootstrap
+commands and durable claims, while automated dispatch remains off. Those
+sessions may be Codex, Claude, Gemini, local agents or future AIs, as long as
+each consumes the universal packet contract.
+
+## Provider-Neutral Readiness
+
+The gate is provider-neutral. It must check:
+
+- every selected packet has a universal implementation contract;
+- provider-specific instructions are projections, not source of truth;
+- evidence normalization is required before completion;
+- no provider receives broader scope because of long context or strong model
+  capability;
+- no provider can approve, merge, dispatch or mark another provider complete.
 
 ## Hot Work Policy
 

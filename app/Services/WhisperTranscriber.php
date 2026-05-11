@@ -8,12 +8,12 @@ use Throwable;
 
 class WhisperTranscriber
 {
-    public function transcribe(string $audioPath): string
+    public function transcribe(string $audioPath, ?string $languageOverride = null): string
     {
         $binPath = (string) config('atlas.transcription.bin_path');
         $modelPath = (string) config('atlas.transcription.model_path');
         $ffmpegPath = (string) config('atlas.transcription.ffmpeg_path', '/usr/bin/ffmpeg');
-        $language = (string) config('atlas.transcription.language', 'pt');
+        $language = trim((string) ($languageOverride ?? config('atlas.transcription.language', 'pt')));
         $workDir = storage_path('framework/transcriptions/'.uniqid('atlas_', true));
         $normalizedAudioPath = $workDir.'/audio.wav';
         $outputBase = $workDir.'/transcript';
@@ -41,19 +41,22 @@ class WhisperTranscriber
         try {
             $this->normalizeAudio($ffmpegPath, $audioPath, $normalizedAudioPath);
 
-            $process = new Process([
+            $args = [
                 $binPath,
                 '-m',
                 $modelPath,
                 '-f',
                 $normalizedAudioPath,
-                '-l',
-                $language,
                 '-otxt',
                 '-of',
                 $outputBase,
                 '-nt',
-            ]);
+            ];
+            if ($language !== '') {
+                array_splice($args, 5, 0, ['-l', $language]);
+            }
+
+            $process = new Process($args);
             $process->setTimeout(600);
             $process->run();
 

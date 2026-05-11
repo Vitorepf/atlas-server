@@ -6,6 +6,7 @@ from .kernel_client import AtlasKernelClient
 from .kernel_event_normalizer import KernelRuntimeEventNormalizerGuard, kernel_normalizer_contract_report
 from .livekit_sdk_event_bridge import LiveKitSdkEventBridge
 from .livekit_sdk_handlers import LiveKitSdkHandlerRegistry
+from .production_loop_smoke_packet import validate_production_loop_smoke
 from .livekit_worker import LiveKitWorkerResult
 from .turn_payload import UnsafeVoicePayload
 
@@ -45,7 +46,7 @@ class LiveKitProductionLoopRunner:
         bridge_contract = LiveKitSdkEventBridge.contract()
         handler_registry_contract = LiveKitSdkHandlerRegistry.contract()
 
-        return {
+        return validate_production_loop_smoke({
             "schema_version": "atlas.voice_realtime.production_loop_smoke.v1",
             "status": "production_loop_smoke_completed",
             "kernel_only": True,
@@ -68,7 +69,7 @@ class LiveKitProductionLoopRunner:
                 "raw_audio_persistence_allowed": False,
                 "access_token_log_allowed": False,
             },
-        }
+        })
 
     def _active_session_count(self) -> int | None:
         worker = self.bridge.router.adapter.worker

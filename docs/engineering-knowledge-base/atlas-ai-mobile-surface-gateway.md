@@ -20,6 +20,7 @@ decisions:
   - Mobile e surface do Atlas AI, nao domain paralelo.
   - Push e inbox sao delivery/interaction layers auditaveis, nao runtime autônomo.
   - Elevacao de read/plan para danger/execution exige safety, receipt, evidence e aprovacao apropriada.
+  - Durante a fase backend-first, mobile visual fica pending, mas todo backend com impacto mobile deve publicar contrato consumivel.
 maintenance:
   - Atualizar quando mobile auth, inbox, push, discussion bootstrap, domain catalog ou surface adapter mudarem.
 related_paths:
@@ -69,6 +70,26 @@ Mobile nao pode:
 - criar domain/flow local divergente;
 - tratar notification como fonte de verdade;
 - enviar nota humana crua para provider.
+
+## Backend-First / Mobile Pending
+
+Decisao operacional atual: priorizar backend, CLI, API, Kernel, runtimes,
+gates e evidence. O Atlas App/mobile UI fica pendente ate o backend estar
+estavel, mas nao pode virar esquecimento.
+
+Qualquer capability backend com impacto mobile deve declarar um Mobile Pending
+Contract no doc dono ou no AP:
+
+- `mobile_surface_status`: `not_needed`, `pending_contract` ou `implemented`;
+- endpoint/API ou comando CLI que o app consumira;
+- schema version do payload;
+- estados de UI esperados, mesmo que ainda nao implementados;
+- criterio de aceite mobile futuro;
+- doc dono e anti-duplicacoes conhecidas.
+
+Nenhuma capability deve ser marcada como produto completo se precisar de mobile
+e estiver sem contrato. A implementacao mobile futura deve consumir esses
+contratos, nao reinventar fluxo, domain, policy ou runtime local.
 
 ## Componentes Canonicos
 

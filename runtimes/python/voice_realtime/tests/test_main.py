@@ -548,6 +548,114 @@ class AtlasVoiceMainEntrypointTest(unittest.TestCase):
         self.assertNotIn('"raw_audio":', completed.stdout)
         self.assertNotIn('"api_secret"', completed.stdout)
 
+    def test_readiness_can_be_fetched_from_kernel_without_daemon_start(self) -> None:
+        bootstrap_path = write_manifest()
+        runtime_root = Path(__file__).resolve().parents[1]
+
+        completed = subprocess.run(
+            [
+                "python3",
+                "-m",
+                "atlas_voice_agent.main",
+                "--bootstrap",
+                str(bootstrap_path),
+                "--mock-kernel",
+                "--readiness",
+                "--hours",
+                "99999",
+            ],
+            cwd=str(runtime_root),
+            env={**os.environ, "PYTHONPATH": str(runtime_root)},
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        payload = json.loads(completed.stdout)
+
+        self.assertEqual("atlas.voice.readiness.v1", payload["schema_version"])
+        self.assertEqual("ready", payload["status"])
+        self.assertEqual(8760, payload["hours"])
+        self.assertTrue(payload["mock_kernel"])
+        self.assertTrue(payload["gates"]["raw_audio_forbidden"])
+        self.assertFalse(payload["phase0_hardening"]["promotion_allowed"])
+        self.assertFalse(payload["product_loop_check"]["daemon_started"])
+        self.assertNotIn("header.payload.signature", completed.stdout)
+        self.assertNotIn('"raw_audio":', completed.stdout)
+        self.assertNotIn('"api_secret"', completed.stdout)
+
+    def test_rivals_can_be_fetched_from_kernel_without_daemon_start(self) -> None:
+        bootstrap_path = write_manifest()
+        runtime_root = Path(__file__).resolve().parents[1]
+
+        completed = subprocess.run(
+            [
+                "python3",
+                "-m",
+                "atlas_voice_agent.main",
+                "--bootstrap",
+                str(bootstrap_path),
+                "--mock-kernel",
+                "--rivals",
+                "--hours",
+                "0",
+            ],
+            cwd=str(runtime_root),
+            env={**os.environ, "PYTHONPATH": str(runtime_root)},
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        payload = json.loads(completed.stdout)
+
+        self.assertEqual("atlas.voice.rivals.v1", payload["schema_version"])
+        self.assertEqual("observed", payload["status"])
+        self.assertEqual("livekit_agents_sdk", payload["runtime_id"])
+        self.assertEqual(1, payload["hours"])
+        self.assertTrue(payload["mock_kernel"])
+        self.assertFalse(payload["promotion_allowed"])
+        self.assertFalse(payload["daemon_started"])
+        self.assertFalse(payload["direct_provider_call_allowed"])
+        self.assertFalse(payload["direct_tool_execution_allowed"])
+        self.assertFalse(payload["raw_audio_persistence_allowed"])
+        self.assertNotIn("header.payload.signature", completed.stdout)
+        self.assertNotIn('"raw_audio":', completed.stdout)
+        self.assertNotIn('"api_secret"', completed.stdout)
+
+    def test_rivals_forwards_wiring_flags_without_daemon_start(self) -> None:
+        bootstrap_path = write_manifest()
+        runtime_root = Path(__file__).resolve().parents[1]
+
+        completed = subprocess.run(
+            [
+                "python3",
+                "-m",
+                "atlas_voice_agent.main",
+                "--bootstrap",
+                str(bootstrap_path),
+                "--mock-kernel",
+                "--rivals",
+                "--require-sdk",
+                "--callback-loop-wired",
+                "--production-sdk-loop-wired",
+            ],
+            cwd=str(runtime_root),
+            env={**os.environ, "PYTHONPATH": str(runtime_root)},
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        payload = json.loads(completed.stdout)
+
+        self.assertEqual("atlas.voice.rivals.v1", payload["schema_version"])
+        self.assertTrue(payload["require_sdk"])
+        self.assertTrue(payload["callback_loop_wired"])
+        self.assertTrue(payload["production_sdk_loop_wired"])
+        self.assertFalse(payload["daemon_started"])
+        self.assertFalse(payload["promotion_allowed"])
+        self.assertNotIn("header.payload.signature", completed.stdout)
+        self.assertNotIn('"raw_audio":', completed.stdout)
+        self.assertNotIn('"api_secret"', completed.stdout)
+
     def test_token_issuer_plan_can_be_fetched_from_kernel_without_env_write_or_token(self) -> None:
         bootstrap_path = write_manifest()
         runtime_root = Path(__file__).resolve().parents[1]
@@ -748,7 +856,7 @@ class AtlasVoiceMainEntrypointTest(unittest.TestCase):
         payload = json.loads(completed.stdout)
 
         self.assertEqual("atlas.voice_realtime.product_loop_check.v1", payload["schema_version"])
-        self.assertEqual("ready_for_human_review", payload["status"])
+        self.assertEqual("blocked", payload["status"])
         self.assertTrue(payload["kernel_only"])
         self.assertTrue(payload["mobile_first"])
         self.assertFalse(payload["daemon_started"])
@@ -928,7 +1036,69 @@ class AtlasVoiceMainEntrypointTest(unittest.TestCase):
         self.assertEqual("wired", payload["sdk_wiring_contract"]["status"])
         self.assertFalse(payload["guardrails"]["worker_start_allowed_by_this_plan"])
 
+    def test_activation_contract_forwards_production_sdk_loop_wired_flag(self) -> None:
+        bootstrap_path = write_manifest()
+        env_path = write_env_file(bootstrap_path)
+        runtime_root = Path(__file__).resolve().parents[1]
+
+        completed = subprocess.run(
+            [
+                "python3",
+                "-m",
+                "atlas_voice_agent.main",
+                "--env-file",
+                str(env_path),
+                "--activation-contract",
+                "--callback-loop-wired",
+                "--production-sdk-loop-wired",
+            ],
+            cwd=str(runtime_root),
+            env={**os.environ, "PYTHONPATH": str(runtime_root)},
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        payload = json.loads(completed.stdout)
+
+        self.assertEqual("atlas.voice_realtime.activation_contract.v1", payload["schema_version"])
+        self.assertTrue(payload["gates"]["callback_loop_wired"])
+        self.assertTrue(payload["gates"]["production_sdk_loop_wired"])
+        self.assertFalse(payload["worker_plan"]["activation"]["can_start_long_running_worker"])
+
     def test_product_loop_check_aggregates_real_product_path_without_daemon_start(self) -> None:
+        bootstrap_path = write_manifest()
+        env_path = write_env_file(bootstrap_path)
+        runtime_root = Path(__file__).resolve().parents[1]
+        completed = subprocess.run(
+            [
+                "python3",
+                "-m",
+                "atlas_voice_agent.main",
+                "--env-file",
+                str(env_path),
+                "--product-loop-check",
+                "--callback-loop-wired",
+                "--production-sdk-loop-wired",
+            ],
+            cwd=str(runtime_root),
+            env={**os.environ, "PYTHONPATH": str(runtime_root)},
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        payload = json.loads(completed.stdout)
+
+        self.assertEqual("atlas.voice_realtime.product_loop_check.v1", payload["schema_version"])
+        self.assertTrue(payload["gates"]["callback_loop_wired"])
+        self.assertTrue(payload["gates"]["production_sdk_loop_wired"])
+        self.assertTrue(payload["gates"]["worker_start_still_blocked"])
+        self.assertFalse(payload["gates"]["production_review_receipt_valid"])
+        self.assertFalse(payload["gates"]["boolean_approval_is_sufficient"])
+        self.assertFalse(payload["daemon_started"])
+        self.assertFalse(payload["guardrails"]["direct_provider_call_allowed"])
+        self.assertFalse(payload["guardrails"]["auto_promotion_allowed"])
+
+    def test_product_loop_check_cli_requires_explicit_wiring_flags(self) -> None:
         bootstrap_path = write_manifest()
         env_path = write_env_file(bootstrap_path)
         runtime_root = Path(__file__).resolve().parents[1]
@@ -950,14 +1120,10 @@ class AtlasVoiceMainEntrypointTest(unittest.TestCase):
         payload = json.loads(completed.stdout)
 
         self.assertEqual("atlas.voice_realtime.product_loop_check.v1", payload["schema_version"])
-        self.assertTrue(payload["gates"]["callback_loop_wired"])
-        self.assertTrue(payload["gates"]["production_sdk_loop_wired"])
-        self.assertTrue(payload["gates"]["worker_start_still_blocked"])
-        self.assertFalse(payload["gates"]["production_review_receipt_valid"])
-        self.assertFalse(payload["gates"]["boolean_approval_is_sufficient"])
+        self.assertFalse(payload["gates"]["callback_loop_wired"])
+        self.assertFalse(payload["gates"]["production_sdk_loop_wired"])
+        self.assertEqual("blocked", payload["status"])
         self.assertFalse(payload["daemon_started"])
-        self.assertFalse(payload["guardrails"]["direct_provider_call_allowed"])
-        self.assertFalse(payload["guardrails"]["auto_promotion_allowed"])
 
     def test_product_loop_check_accepts_review_receipt_without_starting_daemon(self) -> None:
         bootstrap_path = write_manifest()
@@ -972,6 +1138,8 @@ class AtlasVoiceMainEntrypointTest(unittest.TestCase):
                 "--env-file",
                 str(env_path),
                 "--product-loop-check",
+                "--callback-loop-wired",
+                "--production-sdk-loop-wired",
                 "--production-promotion-review-file",
                 str(review_path),
             ],
@@ -1005,6 +1173,8 @@ class AtlasVoiceMainEntrypointTest(unittest.TestCase):
                 "--env-file",
                 str(env_path),
                 "--product-loop-check",
+                "--callback-loop-wired",
+                "--production-sdk-loop-wired",
                 "--production-promotion-review-file",
                 str(review_path),
                 "--promotion-review-bundle-file",
@@ -1040,6 +1210,8 @@ class AtlasVoiceMainEntrypointTest(unittest.TestCase):
                 "--env-file",
                 str(env_path),
                 "--product-loop-check",
+                "--callback-loop-wired",
+                "--production-sdk-loop-wired",
                 "--production-promotion-review-file",
                 str(review_path),
                 "--promotion-review-bundle-file",
@@ -1074,6 +1246,8 @@ class AtlasVoiceMainEntrypointTest(unittest.TestCase):
                 "--env-file",
                 str(env_path),
                 "--product-loop-check",
+                "--callback-loop-wired",
+                "--production-sdk-loop-wired",
                 "--production-promotion-review-file",
                 str(review_path),
                 "--daemon-implementation-review-file",

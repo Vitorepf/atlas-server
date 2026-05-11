@@ -18,11 +18,13 @@ capabilities:
 decisions:
   - A packet is a bounded work contract, not a suggestion.
   - A packet must be executable by an AI that only receives "continue implementation".
+  - The packet is provider-neutral: Codex, Claude, Gemini, local agents and future AIs must all be able to consume it through adapters.
   - A packet never grants authority beyond its allowed files, gates and evidence requirements.
 maintenance:
   - Update before changing implementation-packet runtime, packet schema or multi-agent handoff behavior.
 related_paths:
   - docs/engineering-knowledge-base/atlas-ai-self-construction-os.md
+  - docs/engineering-knowledge-base/self-construction/multi-provider-agent-orchestration-contract.md
   - docs/engineering-knowledge-base/self-construction/structural-contract-gate.md
   - docs/engineering-knowledge-base/self-construction/work-splitter-contract.md
   - docs/engineering-knowledge-base/self-construction/scope-validator-contract.md
@@ -45,6 +47,11 @@ continue a implementação
 
 The AI must read the packet, implement only that packet, run the required gates
 and return evidence.
+
+This is not a Codex-only artifact. Codex is the first strong implementation
+provider, but the packet is the universal contract for any capable AI executor.
+Provider adapters may rephrase instructions, but they must not change scope,
+allowed files, forbidden files, gates or evidence requirements.
 
 ## Purpose
 
@@ -89,6 +96,12 @@ The packet must answer:
   "acceptance_criteria": [],
   "required_gates": [],
   "required_evidence": [],
+  "provider_contract": {
+    "contract_type": "universal_agent_implementation_packet",
+    "provider_profile": "codex | claude | gemini | local_agent | generic",
+    "adapter_instructions": [],
+    "normalized_final_response_required": true
+  },
   "rollback_policy": "string",
   "dependencies": [],
   "stop_conditions": [],
@@ -110,6 +123,8 @@ The packet must answer:
   unrelated architecture.
 - One AI claims one packet at a time.
 - A packet cannot assign work to files already marked hot by external work.
+- Provider-specific strengths may influence assignment, never authority.
+- A provider adapter may narrow execution instructions but may not widen scope.
 
 ## Required Context
 
@@ -138,6 +153,34 @@ When an AI receives only "continue a implementação", it must:
 8. Produce evidence and residual risk.
 9. Stop if any forbidden file changes.
 ```
+
+## Provider-Neutral Contract
+
+Every implementation packet must be understandable by:
+
+- Codex-like coding agents;
+- Claude-like architecture/review agents;
+- Gemini-like long-context or multimodal agents;
+- local deterministic agents;
+- future providers with equivalent capability.
+
+The universal packet owns the truth. Provider prompts are projections. If a
+provider prompt conflicts with the packet, the packet wins.
+
+## Normalized Final Response
+
+Every AI must return:
+
+- packet id;
+- files changed;
+- commands run;
+- tests/gates result;
+- evidence hash when available;
+- scope deviations, if any;
+- residual risks;
+- next recommended packet, if discovered.
+
+Free-form provider output is not enough for completion.
 
 ## Safe Packet Example
 

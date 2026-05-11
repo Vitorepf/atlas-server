@@ -18,6 +18,7 @@ from .promotion_review_packet import validate_promotion_review_packet
 from .session_lease import AtlasVoiceSessionLease
 from .session_payload import AtlasVoiceSessionPayload
 from .sdk_status import validate_dependency_install_plan
+from .status_packet import validate_readiness_packet, validate_rivals_packet
 from .token_issuer_contract import validate_token_issuer_plan, validate_token_issuer_smoke
 from .turn_payload import AtlasVoiceTurnPayload, UnsafeVoicePayload
 from .wake_word_payload import AtlasVoiceWakeWordPayload
@@ -71,12 +72,32 @@ class AtlasKernelClient:
     def readiness(self, hours: int = 24) -> Mapping[str, Any]:
         bounded_hours = max(1, min(8760, int(hours)))
 
-        return self._get_transport(self.contract.readiness_url, {"hours": bounded_hours})
+        response = self._get_transport(self.contract.readiness_url, {"hours": bounded_hours})
 
-    def rivals(self, hours: int = 24) -> Mapping[str, Any]:
+        return validate_readiness_packet(response)
+
+    def rivals(
+        self,
+        hours: int = 24,
+        *,
+        require_sdk: bool = False,
+        callback_loop_wired: bool = False,
+        production_sdk_loop_wired: bool = False,
+    ) -> Mapping[str, Any]:
         bounded_hours = max(1, min(8760, int(hours)))
 
-        return self._get_transport(self.contract.rivals_url, {"hours": bounded_hours})
+        response = self._get_transport(
+            self.contract.rivals_url,
+            {
+                "runtime": "livekit_agents_sdk",
+                "hours": bounded_hours,
+                "require_sdk": 1 if require_sdk else 0,
+                "callback_loop_wired": 1 if callback_loop_wired else 0,
+                "production_sdk_loop_wired": 1 if production_sdk_loop_wired else 0,
+            },
+        )
+
+        return validate_rivals_packet(response)
 
     def production_promotion_review_packet(
         self,

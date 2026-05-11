@@ -29,6 +29,12 @@ class SupervisedProcessAdapterTest(unittest.TestCase):
         self.assertIn("inspect_supervised_launch_execution", payload["implemented_methods"])
         self.assertIn("execute_pre_start_health_checks", payload["implemented_methods"])
         self.assertIn("inspect_subprocess_start_contract", payload["implemented_methods"])
+        self.assertIn("inspect_reviewed_subprocess_start_execution", payload["implemented_methods"])
+        self.assertIn("inspect_real_start_adapter_disabled_by_default", payload["implemented_methods"])
+        self.assertIn("inspect_real_start_adapter_enablement_gate", payload["implemented_methods"])
+        self.assertIn("inspect_runtime_policy_enablement_review", payload["implemented_methods"])
+        self.assertIn("inspect_real_start_adapter_review_contract", payload["implemented_methods"])
+        self.assertIn("inspect_reviewed_real_start_execution_contract", payload["implemented_methods"])
         self.assertTrue(payload["gates"]["supervisor_execution_ready"])
         self.assertTrue(payload["gates"]["launch_disabled"])
         self.assertTrue(payload["gates"]["secrets_redacted"])
@@ -131,6 +137,82 @@ class SupervisedProcessAdapterTest(unittest.TestCase):
             "start_without_pre_start_health_checks_execution",
             payload["subprocess_start_contract"]["forbidden_shortcuts"],
         )
+        self.assertTrue(payload["gates"]["reviewed_subprocess_start_execution_available"])
+        self.assertEqual(
+            "atlas.voice_realtime.reviewed_subprocess_start_execution.v1",
+            payload["reviewed_subprocess_start_execution"]["schema_version"],
+        )
+        self.assertEqual("blocked", payload["reviewed_subprocess_start_execution"]["status"])
+        self.assertTrue(payload["reviewed_subprocess_start_execution"]["reviewed_subprocess_start_execution_implemented"])
+        self.assertFalse(payload["reviewed_subprocess_start_execution"]["real_subprocess_start_implemented"])
+        self.assertFalse(payload["reviewed_subprocess_start_execution"]["process_launch_attempted"])
+        self.assertFalse(payload["reviewed_subprocess_start_execution"]["daemon_started"])
+        self.assertFalse(payload["reviewed_subprocess_start_execution"]["subprocess_module_imported"])
+        self.assertFalse(payload["reviewed_subprocess_start_execution"]["livekit_sdk_imported"])
+        self.assertFalse(payload["reviewed_subprocess_start_execution"]["gates"]["subprocess_start_contract_ready"])
+        self.assertFalse(payload["reviewed_subprocess_start_execution"]["gates"]["review_authorization_ready"])
+        self.assertTrue(payload["gates"]["real_start_adapter_disabled_available"])
+        self.assertEqual(
+            "atlas.voice_realtime.real_start_adapter_disabled.v1",
+            payload["real_start_adapter_disabled"]["schema_version"],
+        )
+        self.assertEqual("blocked", payload["real_start_adapter_disabled"]["status"])
+        self.assertTrue(payload["real_start_adapter_disabled"]["real_start_adapter_contract_implemented"])
+        self.assertFalse(payload["real_start_adapter_disabled"]["real_start_adapter_enabled"])
+        self.assertFalse(payload["real_start_adapter_disabled"]["real_subprocess_start_implemented"])
+        self.assertFalse(payload["real_start_adapter_disabled"]["process_launch_attempted"])
+        self.assertFalse(payload["real_start_adapter_disabled"]["daemon_started"])
+        self.assertTrue(payload["gates"]["real_start_enablement_gate_available"])
+        self.assertEqual(
+            "atlas.voice_realtime.real_start_enablement_gate.v1",
+            payload["real_start_enablement_gate"]["schema_version"],
+        )
+        self.assertEqual("blocked", payload["real_start_enablement_gate"]["status"])
+        self.assertTrue(payload["real_start_enablement_gate"]["real_start_enablement_gate_implemented"])
+        self.assertFalse(payload["real_start_enablement_gate"]["real_start_adapter_enabled"])
+        self.assertFalse(payload["real_start_enablement_gate"]["start_execution_allowed"])
+        self.assertFalse(payload["real_start_enablement_gate"]["real_subprocess_start_implemented"])
+        self.assertFalse(payload["real_start_enablement_gate"]["process_launch_attempted"])
+        self.assertFalse(payload["real_start_enablement_gate"]["daemon_started"])
+        self.assertTrue(payload["gates"]["runtime_policy_enablement_review_available"])
+        self.assertEqual(
+            "atlas.voice_realtime.runtime_policy_enablement_review.v1",
+            payload["runtime_policy_enablement_review"]["schema_version"],
+        )
+        self.assertEqual("blocked", payload["runtime_policy_enablement_review"]["status"])
+        self.assertTrue(payload["runtime_policy_enablement_review"]["runtime_policy_enablement_review_implemented"])
+        self.assertFalse(payload["runtime_policy_enablement_review"]["runtime_policy_start_enabled"])
+        self.assertFalse(payload["runtime_policy_enablement_review"]["real_start_adapter_enabled"])
+        self.assertFalse(payload["runtime_policy_enablement_review"]["start_execution_allowed"])
+        self.assertFalse(payload["runtime_policy_enablement_review"]["real_subprocess_start_implemented"])
+        self.assertFalse(payload["runtime_policy_enablement_review"]["process_launch_attempted"])
+        self.assertFalse(payload["runtime_policy_enablement_review"]["daemon_started"])
+        self.assertTrue(payload["gates"]["real_start_adapter_review_contract_available"])
+        self.assertEqual(
+            "atlas.voice_realtime.real_start_adapter_review_contract.v1",
+            payload["real_start_adapter_review_contract"]["schema_version"],
+        )
+        self.assertEqual("blocked", payload["real_start_adapter_review_contract"]["status"])
+        self.assertTrue(payload["real_start_adapter_review_contract"]["real_start_adapter_review_contract_implemented"])
+        self.assertFalse(payload["real_start_adapter_review_contract"]["runtime_policy_start_enabled"])
+        self.assertFalse(payload["real_start_adapter_review_contract"]["real_start_adapter_enabled"])
+        self.assertFalse(payload["real_start_adapter_review_contract"]["start_execution_allowed"])
+        self.assertFalse(payload["real_start_adapter_review_contract"]["real_subprocess_start_implemented"])
+        self.assertFalse(payload["real_start_adapter_review_contract"]["process_launch_attempted"])
+        self.assertFalse(payload["real_start_adapter_review_contract"]["daemon_started"])
+        self.assertTrue(payload["gates"]["reviewed_real_start_execution_contract_available"])
+        self.assertEqual(
+            "atlas.voice_realtime.reviewed_real_start_execution_contract.v1",
+            payload["reviewed_real_start_execution_contract"]["schema_version"],
+        )
+        self.assertEqual("blocked", payload["reviewed_real_start_execution_contract"]["status"])
+        self.assertTrue(payload["reviewed_real_start_execution_contract"]["reviewed_real_start_execution_contract_implemented"])
+        self.assertFalse(payload["reviewed_real_start_execution_contract"]["runtime_policy_start_enabled"])
+        self.assertFalse(payload["reviewed_real_start_execution_contract"]["real_start_adapter_enabled"])
+        self.assertFalse(payload["reviewed_real_start_execution_contract"]["start_execution_allowed"])
+        self.assertFalse(payload["reviewed_real_start_execution_contract"]["real_subprocess_start_implemented"])
+        self.assertFalse(payload["reviewed_real_start_execution_contract"]["process_launch_attempted"])
+        self.assertFalse(payload["reviewed_real_start_execution_contract"]["daemon_started"])
         self.assertEqual("blocked_launch_not_implemented", payload["start_attempt"]["status"])
         self.assertFalse(payload["start_attempt"]["process_launch_attempted"])
         self.assertFalse(payload["start_attempt"]["daemon_started"])
@@ -143,6 +225,12 @@ class SupervisedProcessAdapterTest(unittest.TestCase):
         self.assertIn("VOICE_DAEMON_MANAGED_ENV_WRITER_EVALUATED", payload["evidence_events"])
         self.assertIn("VOICE_DAEMON_SUPERVISED_LAUNCH_EVALUATED", payload["evidence_events"])
         self.assertIn("VOICE_DAEMON_SUBPROCESS_START_CONTRACT_EVALUATED", payload["evidence_events"])
+        self.assertIn("VOICE_DAEMON_REVIEWED_SUBPROCESS_START_EVALUATED", payload["evidence_events"])
+        self.assertIn("VOICE_DAEMON_REAL_START_ADAPTER_DECLARED", payload["evidence_events"])
+        self.assertIn("VOICE_DAEMON_REAL_START_ENABLEMENT_GATE_EVALUATED", payload["evidence_events"])
+        self.assertIn("VOICE_DAEMON_RUNTIME_POLICY_ENABLEMENT_REVIEW_EVALUATED", payload["evidence_events"])
+        self.assertIn("VOICE_DAEMON_REAL_START_ADAPTER_REVIEW_CONTRACT_EVALUATED", payload["evidence_events"])
+        self.assertIn("VOICE_DAEMON_REVIEWED_REAL_START_EXECUTION_CONTRACT_EVALUATED", payload["evidence_events"])
 
     def test_blocks_when_supervisor_execution_is_not_ready(self) -> None:
         worker_start = ready_worker_start()
@@ -160,6 +248,12 @@ class SupervisedProcessAdapterTest(unittest.TestCase):
         self.assertTrue(payload["gates"]["managed_env_writer_contract_available"])
         self.assertTrue(payload["gates"]["supervised_launch_execution_contract_available"])
         self.assertTrue(payload["gates"]["subprocess_start_contract_available"])
+        self.assertTrue(payload["gates"]["reviewed_subprocess_start_execution_available"])
+        self.assertTrue(payload["gates"]["real_start_adapter_disabled_available"])
+        self.assertTrue(payload["gates"]["real_start_enablement_gate_available"])
+        self.assertTrue(payload["gates"]["runtime_policy_enablement_review_available"])
+        self.assertTrue(payload["gates"]["real_start_adapter_review_contract_available"])
+        self.assertTrue(payload["gates"]["reviewed_real_start_execution_contract_available"])
         self.assertEqual("blocked", payload["launch_authorization_contract"]["status"])
         self.assertEqual("fix_supervised_process_adapter_prerequisites", payload["next_action"])
 

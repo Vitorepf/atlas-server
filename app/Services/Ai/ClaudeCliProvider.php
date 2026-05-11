@@ -4,6 +4,7 @@ namespace App\Services\Ai;
 
 use App\Models\AiJob;
 use App\Services\Ai\Concerns\RunsCliProcesses;
+use Illuminate\Support\Facades\File;
 
 class ClaudeCliProvider implements AiProvider
 {
@@ -40,7 +41,10 @@ class ClaudeCliProvider implements AiProvider
         $args = $this->withAtlasRuntimeArgs($args, $job);
         $command = array_values(array_merge([$binary], $args));
         $cwd = $this->workdirForJob($job);
-        $promptForProvider = $this->withImageAttachmentInstructions($prompt, $job);
+        $promptForProvider = $this->withFileAttachmentInstructions(
+            $this->withImageAttachmentInstructions($prompt, $job),
+            $job,
+        );
         $fingerprint = $this->cliInvocationFingerprint($command, $promptForProvider, $job->timeout_seconds, $cwd, $job, [
             'provider_key' => $this->key(),
             'requested_model' => $this->invocationModel($job, $provider),
@@ -294,6 +298,7 @@ class ClaudeCliProvider implements AiProvider
         }
 
         $args = $this->withClaudeAddDirs($args, $this->imageAttachmentDirectoriesForJob($job));
+        $args = $this->withClaudeAddDirs($args, $this->fileAttachmentDirectoriesForJob($job));
 
         if ($mode === 'danger') {
             $args = $this->withArgValue($args, '--permission-mode', 'bypassPermissions');
@@ -350,6 +355,86 @@ class ClaudeCliProvider implements AiProvider
         return array_keys($paths);
     }
 
+    /**
+     * @return array<int,string>
+     */
+    private function fileAttachmentDirectoriesForJob(AiJob $job): array
+    {
+        return collect($this->fileAttachmentPathsForJob($job))
+            ->map(fn (array $file): string => dirname($file['path']))
+            ->filter(fn (string $directory): bool => $directory !== '' && $directory !== '.' && $directory !== '/' && is_dir($directory))
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @return array<int,array{label:string,path:string,mime:string,bytes:string}>
+     */
+    private function fileAttachmentPathsForJob(AiJob $job): array
+    {
+        $files = data_get($job->payload, 'attachments.files', []);
+        if (! is_array($files)) {
+            return [];
+        }
+
+        $paths = [];
+        foreach (array_slice($files, 0, 4) as $index => $file) {
+            if (! is_array($file)) {
+                continue;
+            }
+
+            $path = $this->attachmentPath($file['path'] ?? null);
+            if ($path === null) {
+                continue;
+            }
+
+            $label = is_string($file['original_name'] ?? null) && trim($file['original_name']) !== ''
+                ? trim($file['original_name'])
+                : 'arquivo '.($index + 1);
+            $mime = is_scalar($file['mime_type'] ?? null) ? (string) $file['mime_type'] : 'application/octet-stream';
+            $bytes = is_scalar($file['bytes'] ?? null) ? (string) $file['bytes'] : 'desconhecido';
+            $paths[$path] = [
+                'label' => $label,
+                'path' => $path,
+                'mime' => $mime,
+                'bytes' => $bytes,
+            ];
+        }
+
+        return array_values($paths);
+    }
+
+    private function attachmentPath(mixed $path): ?string
+    {
+        if (! is_string($path) || trim($path) === '') {
+            return null;
+        }
+
+        $path = trim($path);
+        if (File::isFile($path)) {
+            return realpath($path) ?: $path;
+        }
+
+        $storagePrefix = '/app/storage/';
+        if (str_starts_with($path, $storagePrefix)) {
+            $candidate = storage_path(substr($path, strlen($storagePrefix)));
+            if (File::isFile($candidate)) {
+                return realpath($candidate) ?: $candidate;
+            }
+        }
+
+        $appPrefix = '/app/';
+        if (str_starts_with($path, $appPrefix)) {
+            $candidate = base_path(substr($path, strlen($appPrefix)));
+            if (File::isFile($candidate)) {
+                return realpath($candidate) ?: $candidate;
+            }
+        }
+
+        return null;
+    }
+
     private function withImageAttachmentInstructions(string $prompt, AiJob $job): string
     {
         $paths = $this->imageAttachmentPathsForJob($job);
@@ -365,6 +450,33 @@ class ClaudeCliProvider implements AiProvider
         }
 
         return rtrim($prompt)."\n".implode("\n", $lines)."\n";
+    }
+
+    private function withFileAttachmentInstructions(string $prompt, AiJob $job): string
+    {
+        $files = $this->fileAttachmentPathsForJob($job);
+        if ($files === []) {
+            return $prompt;
+        }
+
+        $lines = ['', '# Arquivos anexados (paths absolutos para Read tool)'];
+        $lines[] = 'Use a Read tool nos caminhos abaixo quando a resposta depender de detalhes, ordem, listas, trechos exatos ou conteudo completo de mensagem longa. Esses arquivos sao contexto do operador; nao edite, nao mova e nao apague.';
+        foreach ($files as $index => $file) {
+            $number = $index + 1;
+            $label = $this->safeAttachmentLabel($file['label']);
+            $mime = $this->safeAttachmentLabel($file['mime']);
+            $bytes = $this->safeAttachmentLabel($file['bytes']);
+            $lines[] = "- arquivo {$number} ({$label}, {$mime}, {$bytes} bytes): {$file['path']}";
+        }
+
+        return rtrim($prompt)."\n".implode("\n", $lines)."\n";
+    }
+
+    private function safeAttachmentLabel(string $value): string
+    {
+        $value = trim(preg_replace('/[^\pL\pN._,@:()+= -]+/u', ' ', $value) ?? '');
+
+        return mb_substr($value === '' ? 'arquivo' : $value, 0, 120);
     }
 
     /**

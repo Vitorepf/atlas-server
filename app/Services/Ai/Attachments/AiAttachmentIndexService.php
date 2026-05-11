@@ -153,7 +153,8 @@ class AiAttachmentIndexService
                     $excerpt = trim((string) ($page['text_excerpt'] ?? ''));
                     $caption = trim((string) ($page['visual_caption'] ?? ''));
                     $table = trim((string) ($page['table_excerpt'] ?? ''));
-                    $body = trim(implode("\n", array_filter([$caption, $excerpt, $table])));
+                    $tableMarkdown = trim((string) ($page['table_markdown'] ?? ''));
+                    $body = trim(implode("\n", array_filter([$caption, $excerpt, $table, $tableMarkdown])));
                     if ($body === '') {
                         continue;
                     }
@@ -163,6 +164,11 @@ class AiAttachmentIndexService
                         'classification' => $page['classification'] ?? null,
                         'image_count' => $page['image_count'] ?? null,
                         'table_count' => $page['table_count'] ?? null,
+                        'table_confidence' => $page['table_confidence'] ?? null,
+                        'table_column_count' => $page['table_column_count'] ?? null,
+                        'visual_available' => $page['visual_available'] ?? null,
+                        'visual_caption' => $caption !== '' ? $caption : null,
+                        'vision_fallback_recommended' => $page['vision_fallback_recommended'] ?? null,
                     ]);
                 }
                 continue;

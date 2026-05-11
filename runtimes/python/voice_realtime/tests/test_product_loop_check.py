@@ -148,6 +148,8 @@ class ProductLoopCheckTest(unittest.TestCase):
             settings_loaded=True,
             boundary_created=True,
             mock_kernel=False,
+            callback_loop_wired=True,
+            production_sdk_loop_wired=True,
         )
 
         self.assertEqual("atlas.voice_realtime.product_loop_check.v1", payload["schema_version"])
@@ -176,6 +178,12 @@ class ProductLoopCheckTest(unittest.TestCase):
         self.assertTrue(payload["gates"]["managed_env_writer_contract_available"])
         self.assertTrue(payload["gates"]["supervised_launch_execution_contract_available"])
         self.assertTrue(payload["gates"]["subprocess_start_contract_available"])
+        self.assertTrue(payload["gates"]["reviewed_subprocess_start_execution_available"])
+        self.assertTrue(payload["gates"]["real_start_adapter_disabled_available"])
+        self.assertTrue(payload["gates"]["real_start_enablement_gate_available"])
+        self.assertTrue(payload["gates"]["runtime_policy_enablement_review_available"])
+        self.assertTrue(payload["gates"]["real_start_adapter_review_contract_available"])
+        self.assertTrue(payload["gates"]["reviewed_real_start_execution_contract_available"])
         self.assertFalse(payload["gates"]["production_review_receipt_valid"])
         self.assertFalse(payload["gates"]["daemon_implementation_review_valid"])
         self.assertFalse(payload["gates"]["boolean_approval_is_sufficient"])
@@ -273,6 +281,99 @@ class ProductLoopCheckTest(unittest.TestCase):
         self.assertFalse(
             payload["daemon_supervisor_execution"]["supervised_process_adapter"]["subprocess_start_contract"]["daemon_started"]
         )
+        self.assertEqual(
+            "atlas.voice_realtime.reviewed_subprocess_start_execution.v1",
+            payload["daemon_supervisor_execution"]["supervised_process_adapter"]["reviewed_subprocess_start_execution"]["schema_version"],
+        )
+        self.assertTrue(
+            payload["daemon_supervisor_execution"]["supervised_process_adapter"]["reviewed_subprocess_start_execution"]["reviewed_subprocess_start_execution_implemented"]
+        )
+        self.assertFalse(
+            payload["daemon_supervisor_execution"]["supervised_process_adapter"]["reviewed_subprocess_start_execution"]["real_subprocess_start_implemented"]
+        )
+        self.assertFalse(
+            payload["daemon_supervisor_execution"]["supervised_process_adapter"]["reviewed_subprocess_start_execution"]["process_launch_attempted"]
+        )
+        self.assertFalse(
+            payload["daemon_supervisor_execution"]["supervised_process_adapter"]["reviewed_subprocess_start_execution"]["daemon_started"]
+        )
+        self.assertEqual(
+            "atlas.voice_realtime.real_start_adapter_disabled.v1",
+            payload["daemon_supervisor_execution"]["supervised_process_adapter"]["real_start_adapter_disabled"]["schema_version"],
+        )
+        self.assertTrue(
+            payload["daemon_supervisor_execution"]["supervised_process_adapter"]["real_start_adapter_disabled"]["real_start_adapter_contract_implemented"]
+        )
+        self.assertFalse(
+            payload["daemon_supervisor_execution"]["supervised_process_adapter"]["real_start_adapter_disabled"]["real_start_adapter_enabled"]
+        )
+        self.assertFalse(
+            payload["daemon_supervisor_execution"]["supervised_process_adapter"]["real_start_adapter_disabled"]["process_launch_attempted"]
+        )
+        self.assertEqual(
+            "atlas.voice_realtime.real_start_enablement_gate.v1",
+            payload["daemon_supervisor_execution"]["supervised_process_adapter"]["real_start_enablement_gate"]["schema_version"],
+        )
+        self.assertTrue(
+            payload["daemon_supervisor_execution"]["supervised_process_adapter"]["real_start_enablement_gate"]["real_start_enablement_gate_implemented"]
+        )
+        self.assertFalse(
+            payload["daemon_supervisor_execution"]["supervised_process_adapter"]["real_start_enablement_gate"]["real_start_adapter_enabled"]
+        )
+        self.assertFalse(
+            payload["daemon_supervisor_execution"]["supervised_process_adapter"]["real_start_enablement_gate"]["process_launch_attempted"]
+        )
+        self.assertFalse(
+            payload["daemon_supervisor_execution"]["supervised_process_adapter"]["real_start_enablement_gate"]["daemon_started"]
+        )
+        self.assertEqual(
+            "atlas.voice_realtime.runtime_policy_enablement_review.v1",
+            payload["daemon_supervisor_execution"]["supervised_process_adapter"]["runtime_policy_enablement_review"]["schema_version"],
+        )
+        self.assertTrue(
+            payload["daemon_supervisor_execution"]["supervised_process_adapter"]["runtime_policy_enablement_review"]["runtime_policy_enablement_review_implemented"]
+        )
+        self.assertFalse(
+            payload["daemon_supervisor_execution"]["supervised_process_adapter"]["runtime_policy_enablement_review"]["runtime_policy_start_enabled"]
+        )
+        self.assertFalse(
+            payload["daemon_supervisor_execution"]["supervised_process_adapter"]["runtime_policy_enablement_review"]["process_launch_attempted"]
+        )
+        self.assertFalse(
+            payload["daemon_supervisor_execution"]["supervised_process_adapter"]["runtime_policy_enablement_review"]["daemon_started"]
+        )
+        self.assertEqual(
+            "atlas.voice_realtime.real_start_adapter_review_contract.v1",
+            payload["daemon_supervisor_execution"]["supervised_process_adapter"]["real_start_adapter_review_contract"]["schema_version"],
+        )
+        self.assertTrue(
+            payload["daemon_supervisor_execution"]["supervised_process_adapter"]["real_start_adapter_review_contract"]["real_start_adapter_review_contract_implemented"]
+        )
+        self.assertFalse(
+            payload["daemon_supervisor_execution"]["supervised_process_adapter"]["real_start_adapter_review_contract"]["runtime_policy_start_enabled"]
+        )
+        self.assertFalse(
+            payload["daemon_supervisor_execution"]["supervised_process_adapter"]["real_start_adapter_review_contract"]["process_launch_attempted"]
+        )
+        self.assertFalse(
+            payload["daemon_supervisor_execution"]["supervised_process_adapter"]["real_start_adapter_review_contract"]["daemon_started"]
+        )
+        self.assertEqual(
+            "atlas.voice_realtime.reviewed_real_start_execution_contract.v1",
+            payload["daemon_supervisor_execution"]["supervised_process_adapter"]["reviewed_real_start_execution_contract"]["schema_version"],
+        )
+        self.assertTrue(
+            payload["daemon_supervisor_execution"]["supervised_process_adapter"]["reviewed_real_start_execution_contract"]["reviewed_real_start_execution_contract_implemented"]
+        )
+        self.assertFalse(
+            payload["daemon_supervisor_execution"]["supervised_process_adapter"]["reviewed_real_start_execution_contract"]["runtime_policy_start_enabled"]
+        )
+        self.assertFalse(
+            payload["daemon_supervisor_execution"]["supervised_process_adapter"]["reviewed_real_start_execution_contract"]["process_launch_attempted"]
+        )
+        self.assertFalse(
+            payload["daemon_supervisor_execution"]["supervised_process_adapter"]["reviewed_real_start_execution_contract"]["daemon_started"]
+        )
 
         if payload["worker_start"]["status"] == "blocked_pending_human_review":
             self.assertEqual("ready_for_human_review", payload["status"])
@@ -283,6 +384,26 @@ class ProductLoopCheckTest(unittest.TestCase):
         else:
             self.assertEqual("blocked", payload["status"])
 
+    def test_product_loop_check_is_not_wired_without_explicit_wiring_flags(self) -> None:
+        contract = AtlasVoiceRuntimeContract.from_manifest(manifest())
+        payload = build_product_loop_check(
+            contract,
+            env={},
+            settings_loaded=True,
+            boundary_created=True,
+            mock_kernel=False,
+        )
+
+        self.assertFalse(payload["gates"]["callback_loop_wired"])
+        self.assertFalse(payload["gates"]["production_sdk_loop_wired"])
+        self.assertEqual("blocked", payload["status"])
+        self.assertIn(payload["next_action"], [
+            "wire_real_sdk_callback_loop",
+            "wire_production_sdk_loop",
+            "fix_sdk_handler_blueprint_contract",
+            "install_livekit_agents_sdk",
+        ])
+
     def test_product_loop_check_never_treats_mock_kernel_as_product_ready(self) -> None:
         contract = AtlasVoiceRuntimeContract.from_manifest(manifest())
         payload = build_product_loop_check(
@@ -291,6 +412,8 @@ class ProductLoopCheckTest(unittest.TestCase):
             settings_loaded=True,
             boundary_created=True,
             mock_kernel=True,
+            callback_loop_wired=True,
+            production_sdk_loop_wired=True,
         )
 
         self.assertEqual("blocked", payload["status"])
@@ -325,6 +448,8 @@ class ProductLoopCheckTest(unittest.TestCase):
                 settings_loaded=True,
                 boundary_created=True,
                 mock_kernel=False,
+                callback_loop_wired=True,
+                production_sdk_loop_wired=True,
             )
 
         sdk_status = payload["worker_start"]["worker_plan"]["sdk_status"]
@@ -375,6 +500,8 @@ class ProductLoopCheckTest(unittest.TestCase):
                 settings_loaded=True,
                 boundary_created=True,
                 mock_kernel=False,
+                callback_loop_wired=True,
+                production_sdk_loop_wired=True,
             )
 
         self.assertEqual("blocked", payload["status"])
@@ -421,6 +548,8 @@ class ProductLoopCheckTest(unittest.TestCase):
                 settings_loaded=True,
                 boundary_created=True,
                 mock_kernel=False,
+                callback_loop_wired=True,
+                production_sdk_loop_wired=True,
             )
 
         self.assertEqual("blocked", payload["status"])
@@ -484,6 +613,8 @@ class ProductLoopCheckTest(unittest.TestCase):
                 settings_loaded=True,
                 boundary_created=True,
                 mock_kernel=False,
+                callback_loop_wired=True,
+                production_sdk_loop_wired=True,
             )
 
         self.assertEqual("blocked", payload["status"])
@@ -498,6 +629,8 @@ class ProductLoopCheckTest(unittest.TestCase):
             settings_loaded=True,
             boundary_created=True,
             mock_kernel=False,
+            callback_loop_wired=True,
+            production_sdk_loop_wired=True,
             production_promotion_review=valid_review(),
         )
 
@@ -519,6 +652,8 @@ class ProductLoopCheckTest(unittest.TestCase):
             settings_loaded=True,
             boundary_created=True,
             mock_kernel=False,
+            callback_loop_wired=True,
+            production_sdk_loop_wired=True,
             production_promotion_review=valid_review(),
             production_promotion_review_bundle=bundle,
         )
@@ -540,6 +675,8 @@ class ProductLoopCheckTest(unittest.TestCase):
             settings_loaded=True,
             boundary_created=True,
             mock_kernel=False,
+            callback_loop_wired=True,
+            production_sdk_loop_wired=True,
             production_promotion_review=valid_review(),
             daemon_implementation_review=valid_daemon_review(),
         )
@@ -562,6 +699,8 @@ class ProductLoopCheckTest(unittest.TestCase):
             self.assertTrue(payload["gates"]["launch_authorization_contract_ready"])
             self.assertTrue(payload["gates"]["managed_env_writer_contract_available"])
             self.assertTrue(payload["gates"]["subprocess_start_contract_available"])
+            self.assertTrue(payload["gates"]["reviewed_subprocess_start_execution_available"])
+            self.assertTrue(payload["gates"]["real_start_adapter_disabled_available"])
             self.assertEqual(
                 "ready_for_supervisor_execution_implementation",
                 payload["supervised_start_plan"]["supervisor_preflight"]["status"],
@@ -598,6 +737,8 @@ class ProductLoopCheckTest(unittest.TestCase):
             settings_loaded=True,
             boundary_created=True,
             mock_kernel=False,
+            callback_loop_wired=True,
+            production_sdk_loop_wired=True,
         )
 
         self.assertIs(validate_product_loop_check(payload), payload)
@@ -610,6 +751,8 @@ class ProductLoopCheckTest(unittest.TestCase):
             settings_loaded=True,
             boundary_created=True,
             mock_kernel=False,
+            callback_loop_wired=True,
+            production_sdk_loop_wired=True,
         ))
         payload["daemon_started"] = True
 
@@ -624,8 +767,63 @@ class ProductLoopCheckTest(unittest.TestCase):
             settings_loaded=True,
             boundary_created=True,
             mock_kernel=False,
+            callback_loop_wired=True,
+            production_sdk_loop_wired=True,
         ))
         payload["guardrails"]["direct_provider_call_allowed"] = True
+
+        with self.assertRaises(ProductLoopCheckViolation):
+            validate_product_loop_check(payload)
+
+    def test_validate_product_loop_check_rejects_nested_secret_or_raw_payload(self) -> None:
+        contract = AtlasVoiceRuntimeContract.from_manifest(manifest())
+        payload = deepcopy(build_product_loop_check(
+            contract,
+            env={},
+            settings_loaded=True,
+            boundary_created=True,
+            mock_kernel=False,
+            callback_loop_wired=True,
+            production_sdk_loop_wired=True,
+        ))
+        payload["worker_start"]["artifacts"] = {
+            "unsafe": {
+                "access_token": "header.payload.signature",
+            },
+        }
+
+        with self.assertRaises(ProductLoopCheckViolation):
+            validate_product_loop_check(payload)
+
+    def test_validate_product_loop_check_rejects_false_fail_closed_gate(self) -> None:
+        contract = AtlasVoiceRuntimeContract.from_manifest(manifest())
+        payload = deepcopy(build_product_loop_check(
+            contract,
+            env={},
+            settings_loaded=True,
+            boundary_created=True,
+            mock_kernel=False,
+            callback_loop_wired=True,
+            production_sdk_loop_wired=True,
+        ))
+        payload["gates"]["direct_provider_forbidden"] = False
+
+        with self.assertRaises(ProductLoopCheckViolation):
+            validate_product_loop_check(payload)
+
+    def test_validate_product_loop_check_rejects_ready_state_without_wiring(self) -> None:
+        contract = AtlasVoiceRuntimeContract.from_manifest(manifest())
+        payload = deepcopy(build_product_loop_check(
+            contract,
+            env={},
+            settings_loaded=True,
+            boundary_created=True,
+            mock_kernel=False,
+            callback_loop_wired=True,
+            production_sdk_loop_wired=True,
+        ))
+        payload["status"] = "ready_for_human_review"
+        payload["gates"]["callback_loop_wired"] = False
 
         with self.assertRaises(ProductLoopCheckViolation):
             validate_product_loop_check(payload)
@@ -638,6 +836,8 @@ class ProductLoopCheckTest(unittest.TestCase):
             settings_loaded=True,
             boundary_created=True,
             mock_kernel=False,
+            callback_loop_wired=True,
+            production_sdk_loop_wired=True,
         ))
         del payload["gates"]["raw_audio_forbidden"]
 

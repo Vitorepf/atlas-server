@@ -9,8 +9,20 @@ from .managed_env_writer import execute_managed_env_write
 from .supervised_launch_execution import (
     LAUNCH_EXECUTION_AUTHORIZATION_SCHEMA_VERSION,
     PRE_START_HEALTH_CHECKS_AUTHORIZATION_SCHEMA_VERSION,
+    REAL_START_ADAPTER_AUTHORIZATION_SCHEMA_VERSION,
+    REAL_START_ADAPTER_REVIEW_AUTHORIZATION_SCHEMA_VERSION,
+    REAL_START_ENABLEMENT_GATE_AUTHORIZATION_SCHEMA_VERSION,
+    REVIEWED_REAL_START_EXECUTION_AUTHORIZATION_SCHEMA_VERSION,
+    REVIEWED_SUBPROCESS_START_AUTHORIZATION_SCHEMA_VERSION,
+    RUNTIME_POLICY_ENABLEMENT_REVIEW_AUTHORIZATION_SCHEMA_VERSION,
     SUBPROCESS_START_AUTHORIZATION_SCHEMA_VERSION,
     execute_pre_start_health_checks,
+    inspect_real_start_adapter_enablement_gate,
+    inspect_real_start_adapter_disabled_by_default,
+    inspect_real_start_adapter_review_contract,
+    inspect_reviewed_subprocess_start_execution,
+    inspect_reviewed_real_start_execution_contract,
+    inspect_runtime_policy_enablement_review,
     inspect_supervised_launch_execution,
     inspect_subprocess_start_contract,
 )
@@ -83,10 +95,105 @@ def build_pre_start_health_checks_smoke() -> Mapping[str, Any]:
                 "decision_receipt_id": "decision_receipt_pre_start_smoke_start_contract",
             },
         )
+        reviewed_subprocess_start_execution = inspect_reviewed_subprocess_start_execution(
+            subprocess_start_contract=subprocess_start_contract,
+            reviewed_start_authorization={
+                "schema_version": REVIEWED_SUBPROCESS_START_AUTHORIZATION_SCHEMA_VERSION,
+                "status": "approved_for_real_start_implementation_plan",
+                "reviewed_execution_allowed": True,
+                "real_process_start_allowed": False,
+                "subprocess_module_import_allowed": False,
+                "decision_receipt_id": "decision_receipt_pre_start_smoke_reviewed_start",
+            },
+        )
+        real_start_adapter_disabled = inspect_real_start_adapter_disabled_by_default(
+            reviewed_subprocess_start_execution=reviewed_subprocess_start_execution,
+            real_start_adapter_authorization={
+                "schema_version": REAL_START_ADAPTER_AUTHORIZATION_SCHEMA_VERSION,
+                "status": "approved_for_disabled_adapter_contract",
+                "disabled_adapter_contract_allowed": True,
+                "real_process_start_allowed": False,
+                "subprocess_module_import_allowed": False,
+                "start_enabled": False,
+                "decision_receipt_id": "decision_receipt_pre_start_smoke_real_start_adapter",
+            },
+        )
+        real_start_enablement_gate = inspect_real_start_adapter_enablement_gate(
+            real_start_adapter_disabled=real_start_adapter_disabled,
+            enablement_gate_authorization={
+                "schema_version": REAL_START_ENABLEMENT_GATE_AUTHORIZATION_SCHEMA_VERSION,
+                "status": "approved_for_start_enablement_gate",
+                "start_enablement_gate_allowed": True,
+                "start_execution_allowed": False,
+                "process_launch_allowed": False,
+                "subprocess_module_import_allowed": False,
+                "policy_patch_required": True,
+                "human_review_required": True,
+                "rollback_required": True,
+                "decision_receipt_id": "decision_receipt_pre_start_smoke_real_start_enablement_gate",
+            },
+        )
+        runtime_policy_enablement_review = inspect_runtime_policy_enablement_review(
+            real_start_enablement_gate=real_start_enablement_gate,
+            policy_review_authorization={
+                "schema_version": RUNTIME_POLICY_ENABLEMENT_REVIEW_AUTHORIZATION_SCHEMA_VERSION,
+                "status": "approved_for_runtime_policy_enablement_review",
+                "runtime_policy_review_allowed": True,
+                "policy_patch_attached": True,
+                "reviewed_bundle_hash": "d"*64,
+                "human_review_required": True,
+                "rollback_required": True,
+                "start_execution_allowed": False,
+                "process_launch_allowed": False,
+                "subprocess_module_import_allowed": False,
+                "decision_receipt_id": "decision_receipt_pre_start_smoke_runtime_policy_review",
+            },
+        )
+        real_start_adapter_review_contract = inspect_real_start_adapter_review_contract(
+            runtime_policy_enablement_review=runtime_policy_enablement_review,
+            real_start_review_authorization={
+                "schema_version": REAL_START_ADAPTER_REVIEW_AUTHORIZATION_SCHEMA_VERSION,
+                "status": "approved_for_real_start_adapter_review_contract",
+                "real_start_adapter_review_allowed": True,
+                "start_execution_allowed": False,
+                "process_launch_allowed": False,
+                "subprocess_module_import_allowed": False,
+                "pid_file_guard_required": True,
+                "startup_timeout_required": True,
+                "post_start_health_probe_required": True,
+                "stdout_stderr_sanitization_required": True,
+                "rollback_required": True,
+                "decision_receipt_id": "decision_receipt_pre_start_smoke_real_start_adapter_review",
+            },
+        )
+        reviewed_real_start_execution_contract = inspect_reviewed_real_start_execution_contract(
+            real_start_adapter_review_contract=real_start_adapter_review_contract,
+            reviewed_real_start_authorization={
+                "schema_version": REVIEWED_REAL_START_EXECUTION_AUTHORIZATION_SCHEMA_VERSION,
+                "status": "approved_for_reviewed_real_start_execution_contract",
+                "reviewed_real_start_execution_allowed": True,
+                "start_execution_allowed": False,
+                "process_launch_allowed": False,
+                "subprocess_module_import_allowed": False,
+                "final_pre_start_receipt_required": True,
+                "post_start_ready_event_required": True,
+                "rollback_rehearsal_required": True,
+                "decision_receipt_id": "decision_receipt_pre_start_smoke_reviewed_real_start_execution",
+            },
+        )
 
         payload = {
             "schema_version": SCHEMA_VERSION,
-            "status": _status(pre_start_health_checks, subprocess_start_contract),
+            "status": _status(
+                pre_start_health_checks,
+                subprocess_start_contract,
+                reviewed_subprocess_start_execution,
+                real_start_adapter_disabled,
+                real_start_enablement_gate,
+                runtime_policy_enablement_review,
+                real_start_adapter_review_contract,
+                reviewed_real_start_execution_contract,
+            ),
             "surface_id": "voice_realtime",
             "runtime_id": "livekit_agents_sdk",
             "kernel_only": True,
@@ -104,12 +211,24 @@ def build_pre_start_health_checks_smoke() -> Mapping[str, Any]:
             "supervised_launch_execution": launch_execution,
             "pre_start_health_checks": pre_start_health_checks,
             "subprocess_start_contract": subprocess_start_contract,
+            "reviewed_subprocess_start_execution": reviewed_subprocess_start_execution,
+            "real_start_adapter_disabled": real_start_adapter_disabled,
+            "real_start_enablement_gate": real_start_enablement_gate,
+            "runtime_policy_enablement_review": runtime_policy_enablement_review,
+            "real_start_adapter_review_contract": real_start_adapter_review_contract,
+            "reviewed_real_start_execution_contract": reviewed_real_start_execution_contract,
             "gates": {
                 "managed_env_placeholder_written": env_write.get("env_file_written") is True,
                 "managed_env_target_redacted": True,
                 "supervised_launch_ready": launch_execution.get("status") == "ready_for_subprocess_implementation",
                 "pre_start_health_checks_passed": pre_start_health_checks.get("status") == "passed_no_process_start",
                 "subprocess_start_contract_ready": subprocess_start_contract.get("status") == "ready_for_reviewed_subprocess_start_implementation",
+                "reviewed_subprocess_start_execution_ready": reviewed_subprocess_start_execution.get("status") == "ready_for_real_start_implementation",
+                "real_start_adapter_disabled_ready": real_start_adapter_disabled.get("status") == "ready_disabled_by_default",
+                "real_start_enablement_gate_ready": real_start_enablement_gate.get("status") == "ready_for_policy_enablement_review",
+                "runtime_policy_enablement_review_ready": runtime_policy_enablement_review.get("status") == "ready_for_real_start_adapter_review",
+                "real_start_adapter_review_contract_ready": real_start_adapter_review_contract.get("status") == "ready_for_reviewed_real_start_execution_contract",
+                "reviewed_real_start_execution_contract_ready": reviewed_real_start_execution_contract.get("status") == "ready_for_start_execution_implementation",
                 "process_launch_disabled": True,
                 "provider_calls_forbidden": True,
                 "tool_calls_forbidden": True,
@@ -120,6 +239,12 @@ def build_pre_start_health_checks_smoke() -> Mapping[str, Any]:
                 "VOICE_DAEMON_SUPERVISED_LAUNCH_EVALUATED",
                 "VOICE_DAEMON_PRE_START_HEALTH_CHECKS_EVALUATED",
                 "VOICE_DAEMON_SUBPROCESS_START_CONTRACT_EVALUATED",
+                "VOICE_DAEMON_REVIEWED_SUBPROCESS_START_EVALUATED",
+                "VOICE_DAEMON_REAL_START_ADAPTER_DECLARED",
+                "VOICE_DAEMON_REAL_START_ENABLEMENT_GATE_EVALUATED",
+                "VOICE_DAEMON_RUNTIME_POLICY_ENABLEMENT_REVIEW_EVALUATED",
+                "VOICE_DAEMON_REAL_START_ADAPTER_REVIEW_CONTRACT_EVALUATED",
+                "VOICE_DAEMON_REVIEWED_REAL_START_EXECUTION_CONTRACT_EVALUATED",
                 "VOICE_DAEMON_SUBPROCESS_START_BLOCKED",
             ],
         }
@@ -196,10 +321,40 @@ def _redact_env_write(env_write: Mapping[str, Any]) -> Mapping[str, Any]:
 def _status(
     pre_start_health_checks: Mapping[str, Any],
     subprocess_start_contract: Mapping[str, Any],
+    reviewed_subprocess_start_execution: Mapping[str, Any] | None = None,
+    real_start_adapter_disabled: Mapping[str, Any] | None = None,
+    real_start_enablement_gate: Mapping[str, Any] | None = None,
+    runtime_policy_enablement_review: Mapping[str, Any] | None = None,
+    real_start_adapter_review_contract: Mapping[str, Any] | None = None,
+    reviewed_real_start_execution_contract: Mapping[str, Any] | None = None,
 ) -> str:
     if (
         pre_start_health_checks.get("status") == "passed_no_process_start"
         and subprocess_start_contract.get("status") == "ready_for_reviewed_subprocess_start_implementation"
+        and (
+            reviewed_subprocess_start_execution is None
+            or reviewed_subprocess_start_execution.get("status") == "ready_for_real_start_implementation"
+        )
+        and (
+            real_start_adapter_disabled is None
+            or real_start_adapter_disabled.get("status") == "ready_disabled_by_default"
+        )
+        and (
+            real_start_enablement_gate is None
+            or real_start_enablement_gate.get("status") == "ready_for_policy_enablement_review"
+        )
+        and (
+            runtime_policy_enablement_review is None
+            or runtime_policy_enablement_review.get("status") == "ready_for_real_start_adapter_review"
+        )
+        and (
+            real_start_adapter_review_contract is None
+            or real_start_adapter_review_contract.get("status") == "ready_for_reviewed_real_start_execution_contract"
+        )
+        and (
+            reviewed_real_start_execution_contract is None
+            or reviewed_real_start_execution_contract.get("status") == "ready_for_start_execution_implementation"
+        )
     ):
         return "passed_no_process_start"
 

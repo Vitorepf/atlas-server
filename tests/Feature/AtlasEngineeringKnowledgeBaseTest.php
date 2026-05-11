@@ -386,12 +386,18 @@ return new class extends Migration
     }
 };
 PHP);
-        File::put($workspace.'/tests/Feature/AtlasEngineeringFooTest.php', <<<'PHP'
+File::put($workspace.'/tests/Feature/AtlasEngineeringFooTest.php', <<<'PHP'
 <?php
+
+namespace Tests\Feature\Ai;
 
 class AtlasEngineeringFooTest
 {
     public function test_foo_route_is_indexed(): void
+    {
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_validation_report_template_ready_after_all_packets_completed_with_additional_regression_suffix_to_exceed_database_symbol_name_limit(): void
     {
     }
 }
@@ -471,8 +477,24 @@ PHP);
             ]);
             $this->assertDatabaseHas('atlas_engineering_code_symbols', [
                 'symbol_type' => 'test_method',
-                'symbol_name' => 'AtlasEngineeringFooTest::test_foo_route_is_indexed',
+                'symbol_name' => 'Tests\\Feature\\Ai\\AtlasEngineeringFooTest::test_foo_route_is_indexed',
             ]);
+            $longMethodPrefix = 'Tests\\Feature\\Ai\\AtlasEngineeringFooTest::test_command_returns_codex_review_merge_post_execution_action_signed_receipt';
+            $longSymbol = \App\Models\AtlasEngineeringCodeSymbol::query()
+                ->where('symbol_type', 'test_method')
+                ->where('symbol_name', 'like', $longMethodPrefix.'%')
+                ->first();
+            $this->assertNotNull($longSymbol);
+            $this->assertLessThanOrEqual(300, strlen((string) $longSymbol->symbol_name));
+            $this->assertStringStartsWith($longMethodPrefix, (string) $longSymbol->symbol_name);
+            $this->assertStringContainsString(
+                'signature_validation_report_template_ready_after_all_packets_completed',
+                (string) data_get($longSymbol->metadata, 'full_symbol_name'),
+            );
+            $this->assertStringContainsString(
+                'additional_regression_suffix_to_exceed_database_symbol_name_limit',
+                (string) data_get($longSymbol->metadata, 'full_symbol_name'),
+            );
             $this->assertDatabaseHas('atlas_engineering_doc_links', [
                 'target_path' => 'app/Services/Engineering/FooService.php',
                 'status' => 'current',

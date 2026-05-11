@@ -31,6 +31,7 @@ related_paths:
   - docs/engineering-knowledge-base/self-construction/constitution.md
   - docs/engineering-knowledge-base/self-construction/structural-contract-gate.md
   - docs/engineering-knowledge-base/self-construction/ai-implementation-packet-contract.md
+  - docs/engineering-knowledge-base/self-construction/multi-provider-agent-orchestration-contract.md
   - docs/engineering-knowledge-base/self-construction/work-splitter-contract.md
   - docs/engineering-knowledge-base/self-construction/scope-validator-contract.md
   - docs/engineering-knowledge-base/self-construction/assignment-and-claim-contract.md
@@ -79,7 +80,7 @@ related_paths:
   - docs/ap/AP-691-atlas-self-construction-os-contract.md
 owner: atlas-ai
 layer: 0.8-self-construction
-line_limit: 260
+line_limit: 280
 ---
 # Atlas AI Self-Construction OS
 The goal is not "AI writes code". The goal:
@@ -142,6 +143,7 @@ layer becomes compounding engineering power.
 | Constitution | `self-construction/constitution.md` |
 | Structural contract gate | `self-construction/structural-contract-gate.md` |
 | AI implementation packet | `self-construction/ai-implementation-packet-contract.md` |
+| Multi-provider agent orchestration | `self-construction/multi-provider-agent-orchestration-contract.md` |
 | Work splitter | `self-construction/work-splitter-contract.md` |
 | Scope validator | `self-construction/scope-validator-contract.md` |
 | Assignment and claim | `self-construction/assignment-and-claim-contract.md` |
@@ -198,6 +200,12 @@ and Atlas can answer with:
 - rollback;
 - evidence expected;
 - residual risk.
+
+The target is not five copies of one provider. The target is provider-neutral
+construction: Codex, Claude, Gemini, local agents and future tools can all
+consume the same Atlas packet, work in disjoint scopes and return normalized
+evidence. Codex-specific command names are current operational surfaces, not a
+limit of the architecture.
 ## Integration With Existing Atlas
 Self-Construction OS depends on:
 - Documentation OS for canonical law;

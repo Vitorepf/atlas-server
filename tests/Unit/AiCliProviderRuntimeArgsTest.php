@@ -246,6 +246,68 @@ class AiCliProviderRuntimeArgsTest extends TestCase
         $this->assertSame($image, $result->command[array_search('--image', $result->command, true) + 1]);
     }
 
+    public function test_codex_provider_maps_container_storage_image_path_to_local_storage(): void
+    {
+        $binary = $this->fakeCodexBinary();
+        $image = $this->attachmentFixtureRoot.'/mobile-upload.png';
+        File::put($image, base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII='));
+
+        config([
+            'atlas.ai.providers.codex_cli.binary' => $binary,
+            'atlas.ai.providers.codex_cli.args' => ['exec', '--skip-git-repo-check'],
+        ]);
+
+        $containerPath = '/app/storage/'.str_replace('\\', '/', ltrim(str_replace(storage_path(), '', $image), DIRECTORY_SEPARATOR));
+        $result = app(CodexCliProvider::class)->runStreaming($this->job([
+            'attachments' => [
+                'images' => [
+                    ['path' => $containerPath],
+                ],
+            ],
+        ]), 'analise a imagem');
+
+        $this->assertTrue($result->ok, $result->errorMessage ?? '');
+        $this->assertContains('--image', $result->command);
+        $this->assertSame(realpath($image), $result->command[array_search('--image', $result->command, true) + 1]);
+        $this->assertContains('--add-dir', $result->command);
+        $this->assertContains(realpath(dirname($image)), $result->command);
+    }
+
+    public function test_codex_provider_exposes_text_file_attachment_paths_to_prompt(): void
+    {
+        $capturePrompt = $this->attachmentFixtureRoot.'/codex-prompt.txt';
+        $binary = $this->fakeCodexBinary($capturePrompt);
+        $document = $this->attachmentFixtureRoot.'/atlas-long-message.md';
+        File::put($document, "# Mensagem longa\n\nConteudo completo preservado.");
+
+        config([
+            'atlas.ai.providers.codex_cli.binary' => $binary,
+            'atlas.ai.providers.codex_cli.args' => ['exec', '--skip-git-repo-check'],
+        ]);
+
+        $containerPath = '/app/storage/'.str_replace('\\', '/', ltrim(str_replace(storage_path(), '', $document), DIRECTORY_SEPARATOR));
+        $result = app(CodexCliProvider::class)->runStreaming($this->job([
+            'attachments' => [
+                'files' => [
+                    [
+                        'path' => $containerPath,
+                        'original_name' => 'atlas-long-message.md',
+                        'mime_type' => 'text/markdown',
+                        'bytes' => File::size($document),
+                    ],
+                ],
+            ],
+        ]), 'responda a mensagem longa');
+
+        $this->assertTrue($result->ok, $result->errorMessage ?? '');
+        $this->assertContains('--add-dir', $result->command);
+        $this->assertContains(realpath(dirname($document)), $result->command);
+        $prompt = File::get($capturePrompt);
+        $this->assertStringContainsString('Acesso local aos arquivos anexados para Codex', $prompt);
+        $this->assertStringContainsString('atlas-long-message.md', $prompt);
+        $this->assertStringContainsString(realpath($document), $prompt);
+    }
+
     public function test_provider_default_model_identity_is_not_sent_as_cli_model_argument(): void
     {
         $binary = $this->fakeClaudeBinary();
@@ -683,15 +745,19 @@ printf '{"result":"ok"}'
 SH);
     }
 
-    private function fakeCodexBinary(): string
+    private function fakeCodexBinary(?string $capturePromptPath = null): string
     {
-        return $this->fakeExecutable('codex', <<<'SH'
+        $capture = $capturePromptPath
+            ? "stdin=\$(cat)\nprintf '%s' \"\$stdin\" > ".escapeshellarg($capturePromptPath)
+            : ':';
+
+        return $this->fakeExecutable('codex', <<<SH
 #!/usr/bin/env bash
-if [ "$1" = "--version" ]; then
+if [ "\$1" = "--version" ]; then
   printf 'codex fake 1.0'
   exit 0
 fi
-if [ "$1" = "exec" ] && [ "$2" = "--help" ]; then
+if [ "\$1" = "exec" ] && [ "\$2" = "--help" ]; then
   cat <<'HELP'
 Usage: codex exec [OPTIONS] [PROMPT]
   --model <MODEL>
@@ -704,12 +770,13 @@ HELP
   exit 0
 fi
 previous=''
-for arg in "$@"; do
-  if [ "$previous" = "--output-last-message" ]; then
-    printf 'ok' > "$arg"
+for arg in "\$@"; do
+  if [ "\$previous" = "--output-last-message" ]; then
+    printf 'ok' > "\$arg"
   fi
-  previous="$arg"
+  previous="\$arg"
 done
+{$capture}
 printf '{"result":"ok"}'
 SH);
     }

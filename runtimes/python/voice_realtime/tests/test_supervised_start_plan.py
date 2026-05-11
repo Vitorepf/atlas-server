@@ -6,6 +6,10 @@ from atlas_voice_agent.supervised_start_plan import (
     SCHEMA_VERSION,
     build_supervised_start_plan,
 )
+from atlas_voice_agent.supervised_start_plan_packet import (
+    SupervisedStartPlanViolation,
+    validate_supervised_start_plan,
+)
 
 
 def activation_contract(status: str = "ready_to_start_worker") -> dict[str, object]:
@@ -134,6 +138,39 @@ class SupervisedStartPlanTest(unittest.TestCase):
         self.assertEqual("blocked_kernel_normalizer_contract", payload["status"])
         self.assertFalse(payload["start_allowed"])
         self.assertFalse(payload["gates"]["kernel_event_normalizer_required"])
+
+    def test_supervised_start_plan_validator_fails_closed(self) -> None:
+        payload = build_supervised_start_plan(
+            worker_start_status="blocked_unimplemented_start",
+            production_review_valid=True,
+            daemon_implementation_review_valid=True,
+            activation_contract=activation_contract(),
+            production_loop_plan=production_loop_plan(),
+        )
+
+        self.assertIs(validate_supervised_start_plan(payload), payload)
+
+        with self.assertRaisesRegex(SupervisedStartPlanViolation, "start_allowed"):
+            validate_supervised_start_plan({**payload, "start_allowed": True})
+
+        invalid_health = dict(payload)
+        invalid_health["supervisor_health_snapshot"] = {
+            **payload["supervisor_health_snapshot"],
+            "guardrails": {
+                **payload["supervisor_health_snapshot"]["guardrails"],
+                "starts_process": True,
+            },
+        }
+        with self.assertRaisesRegex(SupervisedStartPlanViolation, "starts_process"):
+            validate_supervised_start_plan(invalid_health)
+
+        invalid_nested = dict(payload)
+        invalid_nested["supervisor_preflight"] = {
+            **payload["supervisor_preflight"],
+            "debug": {"raw_audio": "never"},
+        }
+        with self.assertRaisesRegex(SupervisedStartPlanViolation, "forbidden supervised_start_plan keys"):
+            validate_supervised_start_plan(invalid_nested)
 
 
 if __name__ == "__main__":

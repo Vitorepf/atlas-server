@@ -12,6 +12,7 @@ use App\Models\AiThread;
 use App\Models\AiTrace;
 use App\Models\Capture;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
+use App\Services\Ai\Cli\AtlasFileAttachmentService;
 use App\Services\Ai\Telemetry\AiTelemetryCollector;
 use App\Services\Ai\ValueObjects\AiThreadResolution;
 use App\Services\AuditLogService;
@@ -47,6 +48,8 @@ class AiGatewayService
         private readonly FairClaudePolicy $fairClaude,
         private readonly AuditLogService $audit,
         private readonly AtlasEvidenceLedger $ledger,
+        private readonly AtlasFileAttachmentService $fileAttachments,
+        private readonly YouTubeKnowledgeIngestionService $youtubeKnowledge,
     ) {}
 
     public function enqueueInteraction(string $input, array $options = []): AiTrace
@@ -121,6 +124,8 @@ class AiGatewayService
         if ($fairMode) {
             $options['payload']['provider_handoff_disabled_by_fair_mode'] = true;
         }
+        $options = $this->optionsWithYouTubeKnowledge($input, $options);
+        $options = $this->optionsWithPdfQuestionVisuals($input, $options);
         $prompt = $this->prompts->build($input, $options);
         $options = $this->optionsWithPromptContracts($options, $prompt);
         $this->assertProgrammingContextContractsAllowRuntime($options);
@@ -1152,6 +1157,92 @@ PROMPT;
                 $receipt,
             );
         }
+        $options['payload'] = $payload;
+
+        return $options;
+    }
+
+    private function optionsWithPdfQuestionVisuals(string $input, array $options): array
+    {
+        $payload = is_array($options['payload'] ?? null) ? $options['payload'] : [];
+        $attachments = is_array($payload['attachments'] ?? null) ? $payload['attachments'] : [];
+        $files = is_array($attachments['files'] ?? null) ? $attachments['files'] : [];
+        if ($files === []) {
+            return $options;
+        }
+
+        $stats = [
+            'status' => 'skipped',
+            'files_checked' => 0,
+            'files_enriched' => 0,
+            'pages_added' => 0,
+        ];
+
+        $attachments['files'] = collect($files)
+            ->map(function (mixed $file) use ($input, &$stats): mixed {
+                if (! is_array($file)) {
+                    return $file;
+                }
+
+                $mime = strtolower((string) ($file['mime_type'] ?? ''));
+                $name = strtolower((string) ($file['original_name'] ?? ''));
+                if (! str_contains($mime, 'pdf') && ! str_ends_with($name, '.pdf')) {
+                    return $file;
+                }
+
+                $stats['files_checked']++;
+                try {
+                    $enhanced = $this->fileAttachments->enhancePdfForQuery($file, $input, 8);
+                } catch (\Throwable) {
+                    return $file;
+                }
+
+                $added = count((array) data_get($enhanced, 'pdf_query_visualization.added_pages', []));
+                if ($added > 0) {
+                    $stats['files_enriched']++;
+                    $stats['pages_added'] += $added;
+                }
+
+                return $enhanced;
+            })
+            ->values()
+            ->all();
+
+        $payload['attachments'] = $attachments;
+        if ($stats['files_checked'] > 0) {
+            $stats['status'] = $stats['pages_added'] > 0 ? 'enriched' : 'cache_hit_or_no_match';
+            $payload['pdf_question_visualization'] = $stats;
+        }
+        $options['payload'] = $payload;
+
+        return $options;
+    }
+
+    private function optionsWithYouTubeKnowledge(string $input, array $options): array
+    {
+        $payload = is_array($options['payload'] ?? null) ? $options['payload'] : [];
+        if (is_array(data_get($payload, 'youtube_ingestion'))) {
+            return $options;
+        }
+
+        if ($this->youtubeKnowledge->extractUrls($input) === []) {
+            return $options;
+        }
+
+        try {
+            $ingestion = $this->youtubeKnowledge->ingestFromInput($input, [
+                'defer_audio_fallback' => (bool) config('atlas.youtube.defer_audio_fallback', true),
+            ]);
+        } catch (\Throwable $e) {
+            $ingestion = [
+                'schema_version' => 1,
+                'status' => 'failed',
+                'reason' => Str::limit($e->getMessage(), 220, ''),
+                'videos' => [],
+            ];
+        }
+
+        $payload['youtube_ingestion'] = $ingestion;
         $options['payload'] = $payload;
 
         return $options;

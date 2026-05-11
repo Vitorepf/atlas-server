@@ -1,0 +1,146 @@
+---
+id: atlas-ai-self-construction-codex-merge-post-execution-action-persistence-writer-release-fresh-authorization-receipt-draft-template
+type: engineering_knowledge
+title: Atlas Self-Construction Codex Merge Post-Execution Action Persistence Writer Release Fresh Authorization Receipt Draft Template
+status: active
+category: architecture
+priority: 100
+summary: Read-only unsigned receipt draft template for future fresh authorization before any writer re-enable chain.
+tags:
+  - atlas-ai
+  - self-construction
+  - codex-review
+  - merge-governance
+capabilities:
+  - self_construction_os
+  - review_governance
+  - merge_authorization
+decisions:
+  - Fresh authorization receipt draft is not authorization.
+  - A receipt draft must bind request hash, evidence, signer roles, expiration policy and forbidden actions.
+  - It must not accept signatures, create writer files, write ledger, persist receipts, approve, merge or dispatch.
+maintenance:
+  - Update before adding fresh authorization signature request, post-signature runbook or signed receipt surfaces.
+related_paths:
+  - docs/engineering-knowledge-base/self-construction/codex-merge-post-execution-action-persistence-writer-release-fresh-authorization-request-template.md
+  - docs/engineering-knowledge-base/self-construction/codex-merge-post-execution-action-persistence-writer-release-fresh-authorization-signature-request-template.md
+owner: atlas-ai
+layer: 0.8-self-construction
+line_limit: 200
+---
+
+# Atlas Self-Construction Codex Merge Post-Execution Action Persistence Writer Release Fresh Authorization Receipt Draft Template
+
+This document governs the read-only unsigned receipt draft template for a
+future writer release fresh authorization path.
+
+The command is:
+
+```bash
+php artisan atlas:ai:self-construction --codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-receipt-draft-template --json
+```
+
+## Boundary
+
+The template must keep:
+
+- `execution_allowed=false`;
+- `writer_file_creation_allowed=false`;
+- `ledger_write_allowed=false`;
+- `dispatch_allowed=false`;
+- `approval_granted=false`;
+- `merge_allowed=false`;
+- `signature_valid=false`;
+- `receipt_signed=false`;
+- `receipt_persisted=false`.
+
+It must not:
+
+- sign a receipt;
+- accept a signature;
+- validate a signature;
+- persist a receipt;
+- create a writer file;
+- write ledger events;
+- record a decision;
+- approve code;
+- merge;
+- dispatch work.
+
+## Required Upstream Contract
+
+The template depends on the writer release fresh authorization request template.
+
+If the fresh authorization request template is not ready, this surface must return:
+
+```text
+blocked_before_writer_release_fresh_authorization_request_template
+```
+
+## Receipt Claims
+
+The future unsigned receipt draft must claim only that:
+
+- fresh authorization request was reviewed;
+- fresh authorization request hash is bound;
+- required signers are declared;
+- required evidence is declared;
+- hard blocks are declared;
+- writer creation remains forbidden;
+- ledger write remains forbidden;
+- receipt persistence remains forbidden;
+- merge remains forbidden;
+- dispatch remains forbidden.
+
+## Unsigned Receipt Fields
+
+The future draft must include placeholders for:
+
+- receipt id;
+- receipt type;
+- request hash;
+- reviewed evidence hashes;
+- authorized outcome;
+- required signers;
+- signed by;
+- signed at;
+- signature hash;
+- expiration policy.
+
+The template does not fill signature fields and does not make them valid.
+
+## Required Outcome
+
+The only outcome that may proceed toward signature is:
+
+```text
+approve_fresh_authorization_request_for_signature
+```
+
+Denied, incomplete or escalated outcomes must not proceed to signature.
+
+## Expiration Policy
+
+The draft expires if:
+
+- source request changes;
+- hot scope changes;
+- security review changes;
+- required signer changes;
+- monitoring plan changes.
+
+## Human Meaning
+
+This surface answers:
+
+```text
+What would the unsigned fresh authorization receipt contain?
+```
+
+It does not answer:
+
+```text
+Has Atlas authorized, signed, persisted, merged or executed anything?
+```
+
+The answer remains no. This template only defines the future receipt draft.

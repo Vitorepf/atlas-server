@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Any, Mapping
 
+from .supervised_start_plan_packet import validate_supervised_start_plan
+
 
 SCHEMA_VERSION = "atlas.voice_realtime.supervised_start_plan.v1"
 SUPERVISOR_CONTRACT_SCHEMA_VERSION = "atlas.voice_realtime.daemon_supervisor_contract.v1"
@@ -66,7 +68,7 @@ def build_supervised_start_plan(
     }
     supervisor_contract = _supervisor_contract()
 
-    return {
+    return validate_supervised_start_plan({
         "schema_version": SCHEMA_VERSION,
         "status": _status(
             production_review_valid=production_review_valid,
@@ -106,7 +108,7 @@ def build_supervised_start_plan(
             "health_snapshot_starts_process": False,
         },
         "next_action": "implement_supervised_daemon_start" if prerequisites_ready else "fix_supervised_start_prerequisites",
-    }
+    })
 
 
 def _status(

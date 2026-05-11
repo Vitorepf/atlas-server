@@ -7323,6 +7323,6821 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertStringContainsString('Codex review merge post-execution action signed receipt persistence writer release observability contract template is blocked', $output);
     }
 
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_post_monitoring_review_template_blocked_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-post-monitoring-review-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_post_monitoring_review_template.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_post_monitoring_review_template_blocked', data_get($payload, 'status'));
+        $this->assertSame('read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_post_monitoring_review_template', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'writer_file_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'signature_valid'));
+        $this->assertFalse(data_get($payload, 'receipt_signed'));
+        $this->assertFalse(data_get($payload, 'receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'merge_allowed'));
+        $this->assertSame('blocked_before_writer_release_observability_contract_template', data_get($payload, 'review_template.status'));
+        $this->assertSame(5, data_get($payload, 'review_template.allowed_decision_count'));
+        $this->assertContains('request_disable_execution', data_get($payload, 'review_template.allowed_decisions'));
+        $this->assertContains('no_forbidden_merge_attempts', data_get($payload, 'review_template.health_checks'));
+        $this->assertContains('writer_file_creation_by_writer_release_post_monitoring_review_template', data_get($payload, 'review_template.still_forbidden_by_post_monitoring_review_template'));
+        $this->assertContains('codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_post_monitoring_review_template_does_not_dispatch_work', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'review_template_hash'));
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_post_monitoring_review_template_ready_after_all_packets_completed(): void
+    {
+        $packets = [
+            'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001',
+            'AIP-SPLIT-SELF-CONSTRUCTION-PACKET-CONTRACTS-0002',
+            'AIP-SPLIT-SELF-CONSTRUCTION-COMMAND-0003',
+            'AIP-SPLIT-SELF-CONSTRUCTION-SERVICE-0004',
+            'AIP-SPLIT-SELF-CONSTRUCTION-EVIDENCE-0005',
+        ];
+
+        foreach ($packets as $index => $packetId) {
+            $actor = 'codex-'.($index + 1);
+            $session = 'session-'.($index + 1);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--claim-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--json' => true,
+            ]);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--complete-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--reason' => 'packet_scope_finished',
+                '--evidence-hash' => hash('sha256', $packetId),
+                '--json' => true,
+            ]);
+        }
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-post-monitoring-review-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_post_monitoring_review_template_ready', data_get($payload, 'status'));
+        $this->assertSame('ready_as_future_post_monitoring_review_template', data_get($payload, 'review_template.status'));
+        $this->assertSame(5, data_get($payload, 'review_template.allowed_decision_count'));
+        $this->assertFalse(data_get($payload, 'review_template.ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'review_template.writer_file_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'review_template.approval_granted'));
+        $this->assertFalse(data_get($payload, 'review_template.merge_allowed'));
+        $this->assertSame('request_disable_execution', data_get($payload, 'review_template.failure_to_decision_map.forbidden_merge_attempt'));
+        $this->assertContains('writer_release_health_decision_hash', data_get($payload, 'review_template.future_review_outputs'));
+        $this->assertContains('disable_path_verification_hash', data_get($payload, 'review_template.required_review_evidence'));
+    }
+
+    public function test_command_human_output_lists_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_post_monitoring_review_template(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-post-monitoring-review-template' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Review status', $output);
+        $this->assertStringContainsString('Decision count', $output);
+        $this->assertStringContainsString('Writer file creation allowed', $output);
+        $this->assertStringContainsString('Review hash', $output);
+        $this->assertStringContainsString('Codex review merge post-execution action signed receipt persistence writer release post-monitoring review template is blocked', $output);
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_reenable_review_packet_template_blocked_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-reenable-review-packet-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_reenable_review_packet_template.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_reenable_review_packet_template_blocked', data_get($payload, 'status'));
+        $this->assertSame('read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_reenable_review_packet_template', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'writer_file_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'signature_valid'));
+        $this->assertFalse(data_get($payload, 'receipt_signed'));
+        $this->assertFalse(data_get($payload, 'receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'merge_allowed'));
+        $this->assertSame('blocked_before_writer_release_post_monitoring_review_template', data_get($payload, 'reenable_packet.status'));
+        $this->assertSame(10, data_get($payload, 'reenable_packet.requirement_count'));
+        $this->assertContains('fresh_human_authorization_required', data_get($payload, 'reenable_packet.requirements'));
+        $this->assertContains('previous_forbidden_merge_attempt_unresolved', data_get($payload, 'reenable_packet.hard_blocks'));
+        $this->assertContains('writer_file_creation_by_writer_release_reenable_review_packet_template', data_get($payload, 'reenable_packet.still_forbidden_by_reenable_review_packet_template'));
+        $this->assertContains('codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_reenable_review_packet_template_does_not_dispatch_work', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'reenable_packet_hash'));
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_reenable_review_packet_template_ready_after_all_packets_completed(): void
+    {
+        $packets = [
+            'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001',
+            'AIP-SPLIT-SELF-CONSTRUCTION-PACKET-CONTRACTS-0002',
+            'AIP-SPLIT-SELF-CONSTRUCTION-COMMAND-0003',
+            'AIP-SPLIT-SELF-CONSTRUCTION-SERVICE-0004',
+            'AIP-SPLIT-SELF-CONSTRUCTION-EVIDENCE-0005',
+        ];
+
+        foreach ($packets as $index => $packetId) {
+            $actor = 'codex-'.($index + 1);
+            $session = 'session-'.($index + 1);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--claim-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--json' => true,
+            ]);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--complete-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--reason' => 'packet_scope_finished',
+                '--evidence-hash' => hash('sha256', $packetId),
+                '--json' => true,
+            ]);
+        }
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-reenable-review-packet-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_reenable_review_packet_template_ready', data_get($payload, 'status'));
+        $this->assertSame('ready_as_future_reenable_review_packet_template', data_get($payload, 'reenable_packet.status'));
+        $this->assertSame(10, data_get($payload, 'reenable_packet.requirement_count'));
+        $this->assertFalse(data_get($payload, 'reenable_packet.ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'reenable_packet.writer_file_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'reenable_packet.approval_granted'));
+        $this->assertFalse(data_get($payload, 'reenable_packet.merge_allowed'));
+        $this->assertContains('request_new_execution_contract_chain', data_get($payload, 'reenable_packet.allowed_reenable_decisions'));
+        $this->assertContains('fresh_human_authorization_hash', data_get($payload, 'reenable_packet.required_reenable_evidence'));
+        $this->assertContains('writer_release_new_execution_contract_chain_hash', data_get($payload, 'reenable_packet.future_reenable_outputs'));
+    }
+
+    public function test_command_human_output_lists_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_reenable_review_packet_template(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-reenable-review-packet-template' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Re-enable status', $output);
+        $this->assertStringContainsString('Requirement count', $output);
+        $this->assertStringContainsString('Writer file creation allowed', $output);
+        $this->assertStringContainsString('Re-enable hash', $output);
+        $this->assertStringContainsString('Codex review merge post-execution action signed receipt persistence writer release re-enable review packet template is blocked', $output);
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_request_template_blocked_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-request-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_request_template.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_request_template_blocked', data_get($payload, 'status'));
+        $this->assertSame('read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_request_template', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'writer_file_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'signature_valid'));
+        $this->assertFalse(data_get($payload, 'receipt_signed'));
+        $this->assertFalse(data_get($payload, 'receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'approval_granted'));
+        $this->assertFalse(data_get($payload, 'merge_allowed'));
+        $this->assertSame('blocked_before_writer_release_reenable_review_packet_template', data_get($payload, 'authorization_request.status'));
+        $this->assertSame(10, data_get($payload, 'authorization_request.required_evidence_count'));
+        $this->assertSame(3, data_get($payload, 'authorization_request.required_signer_count'));
+        $this->assertContains('fresh_security_review_hash', data_get($payload, 'authorization_request.required_evidence'));
+        $this->assertContains('human_owner', data_get($payload, 'authorization_request.required_signers'));
+        $this->assertContains('fresh_security_review_missing', data_get($payload, 'authorization_request.hard_blocks'));
+        $this->assertContains('writer_file_creation_by_writer_release_fresh_authorization_request_template', data_get($payload, 'authorization_request.still_forbidden_by_fresh_authorization_request_template'));
+        $this->assertContains('codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_request_template_does_not_dispatch_work', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'authorization_request_hash'));
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_request_template_ready_after_all_packets_completed(): void
+    {
+        $packets = [
+            'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001',
+            'AIP-SPLIT-SELF-CONSTRUCTION-PACKET-CONTRACTS-0002',
+            'AIP-SPLIT-SELF-CONSTRUCTION-COMMAND-0003',
+            'AIP-SPLIT-SELF-CONSTRUCTION-SERVICE-0004',
+            'AIP-SPLIT-SELF-CONSTRUCTION-EVIDENCE-0005',
+        ];
+
+        foreach ($packets as $index => $packetId) {
+            $actor = 'codex-'.($index + 1);
+            $session = 'session-'.($index + 1);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--claim-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--json' => true,
+            ]);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--complete-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--reason' => 'packet_scope_finished',
+                '--evidence-hash' => hash('sha256', $packetId),
+                '--json' => true,
+            ]);
+        }
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-request-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_request_template_ready', data_get($payload, 'status'));
+        $this->assertSame('ready_as_future_fresh_authorization_request_template', data_get($payload, 'authorization_request.status'));
+        $this->assertFalse(data_get($payload, 'authorization_request.ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'authorization_request.writer_file_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'authorization_request.approval_granted'));
+        $this->assertFalse(data_get($payload, 'authorization_request.merge_allowed'));
+        $this->assertContains('approve_fresh_authorization_request_for_signature', data_get($payload, 'authorization_request.allowed_authorization_outcomes'));
+        $this->assertContains('writer_release_fresh_authorization_signature_request_hash', data_get($payload, 'authorization_request.future_authorization_outputs'));
+    }
+
+    public function test_command_human_output_lists_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_request_template(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-request-template' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Authorization status', $output);
+        $this->assertStringContainsString('Required signer count', $output);
+        $this->assertStringContainsString('Approval granted', $output);
+        $this->assertStringContainsString('Authorization hash', $output);
+        $this->assertStringContainsString('Codex review merge post-execution action signed receipt persistence writer release fresh authorization request template is blocked', $output);
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_receipt_draft_template_blocked_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-receipt-draft-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_receipt_draft_template.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_receipt_draft_template_blocked', data_get($payload, 'status'));
+        $this->assertSame('read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_receipt_draft_template', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'writer_file_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'signature_valid'));
+        $this->assertFalse(data_get($payload, 'receipt_signed'));
+        $this->assertFalse(data_get($payload, 'receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'approval_granted'));
+        $this->assertFalse(data_get($payload, 'merge_allowed'));
+        $this->assertSame('blocked_before_writer_release_fresh_authorization_request_template', data_get($payload, 'receipt_draft.status'));
+        $this->assertSame(10, data_get($payload, 'receipt_draft.receipt_claim_count'));
+        $this->assertSame('approve_fresh_authorization_request_for_signature', data_get($payload, 'receipt_draft.required_authorized_outcome'));
+        $this->assertContains('signature_hash', data_get($payload, 'receipt_draft.unsigned_receipt_fields'));
+        $this->assertContains('expires_if_hot_scope_changes', data_get($payload, 'receipt_draft.receipt_expiration_policy'));
+        $this->assertContains('writer_file_creation_by_writer_release_fresh_authorization_receipt_draft_template', data_get($payload, 'receipt_draft.still_forbidden_by_fresh_authorization_receipt_draft_template'));
+        $this->assertContains('codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_receipt_draft_template_does_not_dispatch_work', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'receipt_draft_hash'));
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_receipt_draft_template_ready_after_all_packets_completed(): void
+    {
+        $packets = [
+            'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001',
+            'AIP-SPLIT-SELF-CONSTRUCTION-PACKET-CONTRACTS-0002',
+            'AIP-SPLIT-SELF-CONSTRUCTION-COMMAND-0003',
+            'AIP-SPLIT-SELF-CONSTRUCTION-SERVICE-0004',
+            'AIP-SPLIT-SELF-CONSTRUCTION-EVIDENCE-0005',
+        ];
+
+        foreach ($packets as $index => $packetId) {
+            $actor = 'codex-'.($index + 1);
+            $session = 'session-'.($index + 1);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--claim-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--json' => true,
+            ]);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--complete-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--reason' => 'packet_scope_finished',
+                '--evidence-hash' => hash('sha256', $packetId),
+                '--json' => true,
+            ]);
+        }
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-receipt-draft-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_receipt_draft_template_ready', data_get($payload, 'status'));
+        $this->assertSame('ready_as_future_fresh_authorization_receipt_draft_template', data_get($payload, 'receipt_draft.status'));
+        $this->assertFalse(data_get($payload, 'receipt_draft.ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'receipt_draft.writer_file_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'receipt_draft.receipt_signed'));
+        $this->assertFalse(data_get($payload, 'receipt_draft.receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'receipt_draft.approval_granted'));
+        $this->assertFalse(data_get($payload, 'receipt_draft.merge_allowed'));
+        $this->assertContains('request_more_evidence', data_get($payload, 'receipt_draft.invalid_authorized_outcomes'));
+        $this->assertContains('writer_release_fresh_authorization_post_signature_runbook_hash', data_get($payload, 'receipt_draft.future_receipt_outputs'));
+    }
+
+    public function test_command_human_output_lists_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_receipt_draft_template(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-receipt-draft-template' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Receipt status', $output);
+        $this->assertStringContainsString('Receipt signed', $output);
+        $this->assertStringContainsString('Receipt persisted', $output);
+        $this->assertStringContainsString('Receipt draft hash', $output);
+        $this->assertStringContainsString('Codex review merge post-execution action signed receipt persistence writer release fresh authorization receipt draft template is blocked', $output);
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_signature_request_template_blocked_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-signature-request-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_signature_request_template.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_signature_request_template_blocked', data_get($payload, 'status'));
+        $this->assertSame('read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_signature_request_template', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'writer_file_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'signature_valid'));
+        $this->assertFalse(data_get($payload, 'receipt_signed'));
+        $this->assertFalse(data_get($payload, 'receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'approval_granted'));
+        $this->assertFalse(data_get($payload, 'merge_allowed'));
+        $this->assertSame('blocked_before_writer_release_fresh_authorization_receipt_draft_template', data_get($payload, 'signature_request.status'));
+        $this->assertSame(7, data_get($payload, 'signature_request.signable_payload_field_count'));
+        $this->assertSame(3, data_get($payload, 'signature_request.required_signer_count'));
+        $this->assertContains('receipt_draft_hash', data_get($payload, 'signature_request.signable_payload_fields'));
+        $this->assertContains('human_owner', data_get($payload, 'signature_request.required_signers'));
+        $this->assertContains('signature_must_reference_exact_receipt_draft_hash', data_get($payload, 'signature_request.signature_acceptance_conditions'));
+        $this->assertContains('receipt_draft_hash_changed', data_get($payload, 'signature_request.signature_rejection_conditions'));
+        $this->assertContains('writer_file_creation_by_writer_release_fresh_authorization_signature_request_template', data_get($payload, 'signature_request.still_forbidden_by_fresh_authorization_signature_request_template'));
+        $this->assertContains('codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_signature_request_template_does_not_accept_signature', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'signature_request_hash'));
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_signature_request_template_ready_after_all_packets_completed(): void
+    {
+        $packets = [
+            'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001',
+            'AIP-SPLIT-SELF-CONSTRUCTION-PACKET-CONTRACTS-0002',
+            'AIP-SPLIT-SELF-CONSTRUCTION-COMMAND-0003',
+            'AIP-SPLIT-SELF-CONSTRUCTION-SERVICE-0004',
+            'AIP-SPLIT-SELF-CONSTRUCTION-EVIDENCE-0005',
+        ];
+
+        foreach ($packets as $index => $packetId) {
+            $actor = 'codex-'.($index + 1);
+            $session = 'session-'.($index + 1);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--claim-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--json' => true,
+            ]);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--complete-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--reason' => 'packet_scope_finished',
+                '--evidence-hash' => hash('sha256', $packetId),
+                '--json' => true,
+            ]);
+        }
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-signature-request-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_signature_request_template_ready', data_get($payload, 'status'));
+        $this->assertSame('ready_as_future_fresh_authorization_signature_request_template', data_get($payload, 'signature_request.status'));
+        $this->assertFalse(data_get($payload, 'signature_request.ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'signature_request.writer_file_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'signature_request.signature_valid'));
+        $this->assertFalse(data_get($payload, 'signature_request.receipt_signed'));
+        $this->assertFalse(data_get($payload, 'signature_request.receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'signature_request.approval_granted'));
+        $this->assertFalse(data_get($payload, 'signature_request.merge_allowed'));
+        $this->assertContains('signature_must_be_reviewed_by_post_signature_runbook', data_get($payload, 'signature_request.signature_acceptance_conditions'));
+        $this->assertContains('writer_release_fresh_authorization_signed_receipt_template_hash', data_get($payload, 'signature_request.future_signature_outputs'));
+    }
+
+    public function test_command_human_output_lists_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_signature_request_template(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-signature-request-template' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Signature status', $output);
+        $this->assertStringContainsString('Required signer count', $output);
+        $this->assertStringContainsString('Signature valid', $output);
+        $this->assertStringContainsString('Signature request hash', $output);
+        $this->assertStringContainsString('Codex review merge post-execution action signed receipt persistence writer release fresh authorization signature request template is blocked', $output);
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_post_signature_runbook_template_blocked_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-post-signature-runbook-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_post_signature_runbook_template.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_post_signature_runbook_template_blocked', data_get($payload, 'status'));
+        $this->assertSame('read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_post_signature_runbook_template', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'writer_file_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'signature_valid'));
+        $this->assertFalse(data_get($payload, 'receipt_signed'));
+        $this->assertFalse(data_get($payload, 'receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'approval_granted'));
+        $this->assertFalse(data_get($payload, 'merge_allowed'));
+        $this->assertSame('blocked_before_writer_release_fresh_authorization_signature_request_template', data_get($payload, 'runbook.status'));
+        $this->assertSame(8, data_get($payload, 'runbook.step_count'));
+        $this->assertContains('confirm_signature_references_exact_receipt_draft_hash', data_get($payload, 'runbook.steps'));
+        $this->assertContains('external_signature_payload_hash', data_get($payload, 'runbook.required_external_evidence'));
+        $this->assertContains('signature_request_hash_mismatch', data_get($payload, 'runbook.hard_stops'));
+        $this->assertContains('writer_file_creation_by_writer_release_fresh_authorization_post_signature_runbook_template', data_get($payload, 'runbook.still_forbidden_by_fresh_authorization_post_signature_runbook_template'));
+        $this->assertContains('codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_post_signature_runbook_template_does_not_validate_signature', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'runbook_hash'));
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_post_signature_runbook_template_ready_after_all_packets_completed(): void
+    {
+        $packets = [
+            'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001',
+            'AIP-SPLIT-SELF-CONSTRUCTION-PACKET-CONTRACTS-0002',
+            'AIP-SPLIT-SELF-CONSTRUCTION-COMMAND-0003',
+            'AIP-SPLIT-SELF-CONSTRUCTION-SERVICE-0004',
+            'AIP-SPLIT-SELF-CONSTRUCTION-EVIDENCE-0005',
+        ];
+
+        foreach ($packets as $index => $packetId) {
+            $actor = 'codex-'.($index + 1);
+            $session = 'session-'.($index + 1);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--claim-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--json' => true,
+            ]);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--complete-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--reason' => 'packet_scope_finished',
+                '--evidence-hash' => hash('sha256', $packetId),
+                '--json' => true,
+            ]);
+        }
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-post-signature-runbook-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_post_signature_runbook_template_ready', data_get($payload, 'status'));
+        $this->assertSame('ready_as_future_fresh_authorization_post_signature_runbook_template', data_get($payload, 'runbook.status'));
+        $this->assertFalse(data_get($payload, 'runbook.ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'runbook.writer_file_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'runbook.signature_valid'));
+        $this->assertFalse(data_get($payload, 'runbook.receipt_signed'));
+        $this->assertFalse(data_get($payload, 'runbook.receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'runbook.approval_granted'));
+        $this->assertFalse(data_get($payload, 'runbook.merge_allowed'));
+        $this->assertContains('prepare_signed_receipt_template_without_persisting', data_get($payload, 'runbook.steps'));
+        $this->assertContains('writer_release_fresh_authorization_signed_receipt_template_hash', data_get($payload, 'runbook.future_runbook_outputs'));
+    }
+
+    public function test_command_human_output_lists_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_post_signature_runbook_template(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-post-signature-runbook-template' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Runbook status', $output);
+        $this->assertStringContainsString('Step count', $output);
+        $this->assertStringContainsString('Signature valid', $output);
+        $this->assertStringContainsString('Runbook hash', $output);
+        $this->assertStringContainsString('Codex review merge post-execution action signed receipt persistence writer release fresh authorization post-signature runbook template is blocked', $output);
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_signed_receipt_template_blocked_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-signed-receipt-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_signed_receipt_template.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_signed_receipt_template_blocked', data_get($payload, 'status'));
+        $this->assertSame('read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_signed_receipt_template', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'writer_file_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'signature_valid'));
+        $this->assertFalse(data_get($payload, 'receipt_signed'));
+        $this->assertFalse(data_get($payload, 'receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'approval_granted'));
+        $this->assertFalse(data_get($payload, 'merge_allowed'));
+        $this->assertSame('blocked_before_writer_release_fresh_authorization_post_signature_runbook_template', data_get($payload, 'template.status'));
+        $this->assertSame(10, data_get($payload, 'template.template_field_count'));
+        $this->assertContains('source_post_signature_runbook_hash', data_get($payload, 'template.template_fields'));
+        $this->assertContains('fresh_authorization_only', data_get($payload, 'template.receipt_scope'));
+        $this->assertContains('external_signature_payload_hash', data_get($payload, 'template.required_external_evidence'));
+        $this->assertContains('writer_file_creation_by_writer_release_fresh_authorization_signed_receipt_template', data_get($payload, 'template.still_forbidden_by_fresh_authorization_signed_receipt_template'));
+        $this->assertContains('codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_signed_receipt_template_does_not_persist_receipt', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'template_hash'));
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_signed_receipt_template_ready_after_all_packets_completed(): void
+    {
+        $packets = [
+            'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001',
+            'AIP-SPLIT-SELF-CONSTRUCTION-PACKET-CONTRACTS-0002',
+            'AIP-SPLIT-SELF-CONSTRUCTION-COMMAND-0003',
+            'AIP-SPLIT-SELF-CONSTRUCTION-SERVICE-0004',
+            'AIP-SPLIT-SELF-CONSTRUCTION-EVIDENCE-0005',
+        ];
+
+        foreach ($packets as $index => $packetId) {
+            $actor = 'codex-'.($index + 1);
+            $session = 'session-'.($index + 1);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--claim-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--json' => true,
+            ]);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--complete-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--reason' => 'packet_scope_finished',
+                '--evidence-hash' => hash('sha256', $packetId),
+                '--json' => true,
+            ]);
+        }
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-signed-receipt-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_signed_receipt_template_ready', data_get($payload, 'status'));
+        $this->assertSame('ready_as_future_fresh_authorization_signed_receipt_template', data_get($payload, 'template.status'));
+        $this->assertFalse(data_get($payload, 'template.ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'template.writer_file_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'template.signature_valid'));
+        $this->assertFalse(data_get($payload, 'template.receipt_signed'));
+        $this->assertFalse(data_get($payload, 'template.receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'template.approval_granted'));
+        $this->assertFalse(data_get($payload, 'template.merge_allowed'));
+        $this->assertContains('does_not_reenable_writer', data_get($payload, 'template.receipt_scope'));
+        $this->assertContains('writer_release_fresh_authorization_execution_contract_preflight_hash', data_get($payload, 'template.future_template_outputs'));
+    }
+
+    public function test_command_human_output_lists_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_signed_receipt_template(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-signed-receipt-template' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Template status', $output);
+        $this->assertStringContainsString('Receipt signed', $output);
+        $this->assertStringContainsString('Receipt persisted', $output);
+        $this->assertStringContainsString('Template hash', $output);
+        $this->assertStringContainsString('Codex review merge post-execution action signed receipt persistence writer release fresh authorization signed receipt template is blocked', $output);
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_execution_contract_preflight_template_blocked_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-execution-contract-preflight-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_execution_contract_preflight_template.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_execution_contract_preflight_template_blocked', data_get($payload, 'status'));
+        $this->assertSame('read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_execution_contract_preflight_template', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'writer_file_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'signature_valid'));
+        $this->assertFalse(data_get($payload, 'receipt_signed'));
+        $this->assertFalse(data_get($payload, 'receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'approval_granted'));
+        $this->assertFalse(data_get($payload, 'merge_allowed'));
+        $this->assertSame('blocked_before_writer_release_fresh_authorization_signed_receipt_template', data_get($payload, 'preflight.status'));
+        $this->assertSame(10, data_get($payload, 'preflight.blocking_condition_count'));
+        $this->assertSame(8, data_get($payload, 'preflight.required_input_count'));
+        $this->assertContains('fresh_authorization_signed_receipt_template_not_ready', data_get($payload, 'preflight.blocking_conditions'));
+        $this->assertContains('human_execution_authorization_hash', data_get($payload, 'preflight.required_inputs'));
+        $this->assertContains('writer_release_fresh_authorization_execution_contract_template_hash', data_get($payload, 'preflight.future_preflight_outputs'));
+        $this->assertContains('writer_file_creation_by_writer_release_fresh_authorization_execution_contract_preflight_template', data_get($payload, 'preflight.still_forbidden_by_fresh_authorization_execution_contract_preflight_template'));
+        $this->assertContains('codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_execution_contract_preflight_template_does_not_create_writer_file', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'preflight_hash'));
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_execution_contract_preflight_template_ready_after_all_packets_completed(): void
+    {
+        $packets = [
+            'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001',
+            'AIP-SPLIT-SELF-CONSTRUCTION-PACKET-CONTRACTS-0002',
+            'AIP-SPLIT-SELF-CONSTRUCTION-COMMAND-0003',
+            'AIP-SPLIT-SELF-CONSTRUCTION-SERVICE-0004',
+            'AIP-SPLIT-SELF-CONSTRUCTION-EVIDENCE-0005',
+        ];
+
+        foreach ($packets as $index => $packetId) {
+            $actor = 'codex-'.($index + 1);
+            $session = 'session-'.($index + 1);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--claim-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--json' => true,
+            ]);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--complete-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--reason' => 'packet_scope_finished',
+                '--evidence-hash' => hash('sha256', $packetId),
+                '--json' => true,
+            ]);
+        }
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-execution-contract-preflight-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_execution_contract_preflight_template_ready', data_get($payload, 'status'));
+        $this->assertSame('ready_as_future_fresh_authorization_execution_contract_preflight_template', data_get($payload, 'preflight.status'));
+        $this->assertFalse(data_get($payload, 'preflight.ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'preflight.writer_file_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'preflight.signature_valid'));
+        $this->assertFalse(data_get($payload, 'preflight.receipt_signed'));
+        $this->assertFalse(data_get($payload, 'preflight.receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'preflight.approval_granted'));
+        $this->assertFalse(data_get($payload, 'preflight.merge_allowed'));
+        $this->assertContains('fresh_monitoring_plan_hash', data_get($payload, 'preflight.required_inputs'));
+        $this->assertContains('writer_release_fresh_authorization_preflight_rejection_hash', data_get($payload, 'preflight.future_preflight_outputs'));
+    }
+
+    public function test_command_human_output_lists_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_execution_contract_preflight_template(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-execution-contract-preflight-template' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Preflight status', $output);
+        $this->assertStringContainsString('Blocking count', $output);
+        $this->assertStringContainsString('Execution allowed', $output);
+        $this->assertStringContainsString('Preflight hash', $output);
+        $this->assertStringContainsString('Codex review merge post-execution action signed receipt persistence writer release fresh authorization execution contract preflight template is blocked', $output);
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_execution_contract_template_blocked_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-execution-contract-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_execution_contract_template.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_execution_contract_template_blocked', data_get($payload, 'status'));
+        $this->assertSame('read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_execution_contract_template', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'writer_file_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'signature_valid'));
+        $this->assertFalse(data_get($payload, 'receipt_signed'));
+        $this->assertFalse(data_get($payload, 'receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'approval_granted'));
+        $this->assertFalse(data_get($payload, 'merge_allowed'));
+        $this->assertSame('blocked_before_writer_release_fresh_authorization_execution_contract_preflight_template', data_get($payload, 'contract.status'));
+        $this->assertSame(1, data_get($payload, 'contract.blocking_count'));
+        $this->assertContains('writer_release_fresh_authorization_execution_contract_preflight_template_not_ready', data_get($payload, 'contract.blocking_conditions'));
+        $this->assertContains('fresh_authorization_executor_identity', data_get($payload, 'contract.required_actor_evidence'));
+        $this->assertContains('fresh_writer_no_dispatch_authority_evidence_hash', data_get($payload, 'contract.required_recheck_evidence'));
+        $this->assertContains('writer_file_creation_by_writer_release_fresh_authorization_execution_contract_template', data_get($payload, 'contract.still_forbidden_by_fresh_authorization_execution_contract_template'));
+        $this->assertContains('codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_execution_contract_template_does_not_dispatch_work', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'contract_hash'));
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_execution_contract_template_ready_after_all_packets_completed(): void
+    {
+        $packets = [
+            'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001',
+            'AIP-SPLIT-SELF-CONSTRUCTION-PACKET-CONTRACTS-0002',
+            'AIP-SPLIT-SELF-CONSTRUCTION-COMMAND-0003',
+            'AIP-SPLIT-SELF-CONSTRUCTION-SERVICE-0004',
+            'AIP-SPLIT-SELF-CONSTRUCTION-EVIDENCE-0005',
+        ];
+
+        foreach ($packets as $index => $packetId) {
+            $actor = 'codex-'.($index + 1);
+            $session = 'session-'.($index + 1);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--claim-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--json' => true,
+            ]);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--complete-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--reason' => 'packet_scope_finished',
+                '--evidence-hash' => hash('sha256', $packetId),
+                '--json' => true,
+            ]);
+        }
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-execution-contract-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_execution_contract_template_ready', data_get($payload, 'status'));
+        $this->assertSame('blocked_waiting_for_external_fresh_authorization_execution_authority', data_get($payload, 'contract.status'));
+        $this->assertSame(10, data_get($payload, 'contract.blocking_count'));
+        $this->assertFalse(data_get($payload, 'contract.ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'contract.writer_file_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'contract.approval_granted'));
+        $this->assertFalse(data_get($payload, 'contract.merge_allowed'));
+        $this->assertContains('fresh_authorization_execution_still_not_authorized', data_get($payload, 'contract.blocking_conditions'));
+        $this->assertSame('future_writer_reenable_only_after_external_fresh_authorization', data_get($payload, 'contract.execution_scope.allowed_scope'));
+        $this->assertContains('self_reenable_authority', data_get($payload, 'contract.execution_scope.writer_contract_forbidden_capabilities'));
+        $this->assertContains('writer_release_fresh_authorization_post_execution_receipt_hash', data_get($payload, 'contract.future_post_execution_outputs'));
+    }
+
+    public function test_command_human_output_lists_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_execution_contract_template(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-execution-contract-template' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Contract status', $output);
+        $this->assertStringContainsString('Blocking count', $output);
+        $this->assertStringContainsString('Writer file creation allowed', $output);
+        $this->assertStringContainsString('Contract hash', $output);
+        $this->assertStringContainsString('Codex review merge post-execution action signed receipt persistence writer release fresh authorization execution contract template is blocked', $output);
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_disable_contract_template_blocked_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-disable-contract-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_disable_contract_template.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_disable_contract_template_blocked', data_get($payload, 'status'));
+        $this->assertSame('read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_disable_contract_template', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'writer_file_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'signature_valid'));
+        $this->assertFalse(data_get($payload, 'receipt_signed'));
+        $this->assertFalse(data_get($payload, 'receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'approval_granted'));
+        $this->assertFalse(data_get($payload, 'merge_allowed'));
+        $this->assertSame('blocked_before_writer_release_fresh_authorization_execution_contract_template', data_get($payload, 'disable_contract.status'));
+        $this->assertSame(10, data_get($payload, 'disable_contract.trigger_count'));
+        $this->assertContains('fresh_writer_merge_authority_detected', data_get($payload, 'disable_contract.disable_triggers'));
+        $this->assertContains('revoke_fresh_authorization_writer_capability_flag', data_get($payload, 'disable_contract.required_disable_steps'));
+        $this->assertContains('fresh_post_disable_no_merge_authority_evidence_hash', data_get($payload, 'disable_contract.required_disable_evidence'));
+        $this->assertContains('new_fresh_authorization_request_template', data_get($payload, 'disable_contract.reenable_requirements'));
+        $this->assertContains('writer_file_creation_by_writer_release_fresh_authorization_disable_contract_template', data_get($payload, 'disable_contract.still_forbidden_by_fresh_authorization_disable_contract_template'));
+        $this->assertContains('codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_disable_contract_template_does_not_dispatch_work', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'disable_contract_hash'));
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_disable_contract_template_ready_after_all_packets_completed(): void
+    {
+        $packets = [
+            'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001',
+            'AIP-SPLIT-SELF-CONSTRUCTION-PACKET-CONTRACTS-0002',
+            'AIP-SPLIT-SELF-CONSTRUCTION-COMMAND-0003',
+            'AIP-SPLIT-SELF-CONSTRUCTION-SERVICE-0004',
+            'AIP-SPLIT-SELF-CONSTRUCTION-EVIDENCE-0005',
+        ];
+
+        foreach ($packets as $index => $packetId) {
+            $actor = 'codex-'.($index + 1);
+            $session = 'session-'.($index + 1);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--claim-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--json' => true,
+            ]);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--complete-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--reason' => 'packet_scope_finished',
+                '--evidence-hash' => hash('sha256', $packetId),
+                '--json' => true,
+            ]);
+        }
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-disable-contract-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_disable_contract_template_ready', data_get($payload, 'status'));
+        $this->assertSame('ready_as_future_fresh_authorization_disable_template', data_get($payload, 'disable_contract.status'));
+        $this->assertSame(10, data_get($payload, 'disable_contract.trigger_count'));
+        $this->assertFalse(data_get($payload, 'disable_contract.ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'disable_contract.writer_file_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'disable_contract.approval_granted'));
+        $this->assertFalse(data_get($payload, 'disable_contract.merge_allowed'));
+        $this->assertContains('writer_release_fresh_authorization_disable_receipt_hash', data_get($payload, 'disable_contract.future_disable_outputs'));
+        $this->assertContains('new_fresh_execution_contract_template', data_get($payload, 'disable_contract.reenable_requirements'));
+        $this->assertContains('fresh_writer_capability_tests', data_get($payload, 'disable_contract.reenable_requirements'));
+    }
+
+    public function test_command_human_output_lists_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_disable_contract_template(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-disable-contract-template' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Disable status', $output);
+        $this->assertStringContainsString('Trigger count', $output);
+        $this->assertStringContainsString('Writer file creation allowed', $output);
+        $this->assertStringContainsString('Disable hash', $output);
+        $this->assertStringContainsString('Codex review merge post-execution action signed receipt persistence writer release fresh authorization disable contract template is blocked', $output);
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_observability_contract_template_blocked_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-observability-contract-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_observability_contract_template.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_observability_contract_template_blocked', data_get($payload, 'status'));
+        $this->assertSame('read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_observability_contract_template', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'writer_file_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'signature_valid'));
+        $this->assertFalse(data_get($payload, 'receipt_signed'));
+        $this->assertFalse(data_get($payload, 'receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'approval_granted'));
+        $this->assertFalse(data_get($payload, 'merge_allowed'));
+        $this->assertSame('blocked_before_writer_release_fresh_authorization_disable_contract_template', data_get($payload, 'observability_contract.status'));
+        $this->assertSame(12, data_get($payload, 'observability_contract.signal_count'));
+        $this->assertContains('fresh_authorization_forbidden_merge_attempt_detected', data_get($payload, 'observability_contract.required_signals'));
+        $this->assertContains('alert_on_fresh_unexpected_ledger_write', data_get($payload, 'observability_contract.required_alerts'));
+        $this->assertContains('fresh_authorization_metrics_snapshot_hash', data_get($payload, 'observability_contract.required_observability_evidence'));
+        $this->assertContains('writer_file_creation_by_writer_release_fresh_authorization_observability_contract_template', data_get($payload, 'observability_contract.still_forbidden_by_fresh_authorization_observability_contract_template'));
+        $this->assertContains('codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_observability_contract_template_does_not_dispatch_work', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'observability_contract_hash'));
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_observability_contract_template_ready_after_all_packets_completed(): void
+    {
+        $packets = [
+            'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001',
+            'AIP-SPLIT-SELF-CONSTRUCTION-PACKET-CONTRACTS-0002',
+            'AIP-SPLIT-SELF-CONSTRUCTION-COMMAND-0003',
+            'AIP-SPLIT-SELF-CONSTRUCTION-SERVICE-0004',
+            'AIP-SPLIT-SELF-CONSTRUCTION-EVIDENCE-0005',
+        ];
+
+        foreach ($packets as $index => $packetId) {
+            $actor = 'codex-'.($index + 1);
+            $session = 'session-'.($index + 1);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--claim-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--json' => true,
+            ]);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--complete-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--reason' => 'packet_scope_finished',
+                '--evidence-hash' => hash('sha256', $packetId),
+                '--json' => true,
+            ]);
+        }
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-observability-contract-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_observability_contract_template_ready', data_get($payload, 'status'));
+        $this->assertSame('ready_as_future_fresh_authorization_observability_template', data_get($payload, 'observability_contract.status'));
+        $this->assertSame(12, data_get($payload, 'observability_contract.signal_count'));
+        $this->assertFalse(data_get($payload, 'observability_contract.ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'observability_contract.writer_file_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'observability_contract.approval_granted'));
+        $this->assertFalse(data_get($payload, 'observability_contract.merge_allowed'));
+        $this->assertSame(60, data_get($payload, 'observability_contract.minimum_monitoring_window.after_future_reenable_minutes'));
+        $this->assertContains('writer_release_fresh_authorization_post_monitoring_review_hash', data_get($payload, 'observability_contract.future_observability_outputs'));
+        $this->assertContains('fresh_authorization_unexpected_ledger_write_attempt_count', data_get($payload, 'observability_contract.required_metrics'));
+    }
+
+    public function test_command_human_output_lists_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_observability_contract_template(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-observability-contract-template' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Observability status', $output);
+        $this->assertStringContainsString('Signal count', $output);
+        $this->assertStringContainsString('Writer file creation allowed', $output);
+        $this->assertStringContainsString('Observability hash', $output);
+        $this->assertStringContainsString('Codex review merge post-execution action signed receipt persistence writer release fresh authorization observability contract template is blocked', $output);
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_post_monitoring_review_template_blocked_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-post-monitoring-review-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_post_monitoring_review_template.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_post_monitoring_review_template_blocked', data_get($payload, 'status'));
+        $this->assertSame('read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_post_monitoring_review_template', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'writer_file_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'signature_valid'));
+        $this->assertFalse(data_get($payload, 'receipt_signed'));
+        $this->assertFalse(data_get($payload, 'receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'approval_granted'));
+        $this->assertFalse(data_get($payload, 'merge_allowed'));
+        $this->assertSame('blocked_before_writer_release_fresh_authorization_observability_contract_template', data_get($payload, 'review_template.status'));
+        $this->assertSame(5, data_get($payload, 'review_template.allowed_decision_count'));
+        $this->assertContains('request_fresh_authorization_disable_execution', data_get($payload, 'review_template.allowed_decisions'));
+        $this->assertContains('no_fresh_authorization_forbidden_merge_attempts', data_get($payload, 'review_template.health_checks'));
+        $this->assertSame('request_fresh_authorization_disable_execution', data_get($payload, 'review_template.failure_to_decision_map.fresh_authorization_forbidden_merge_attempt'));
+        $this->assertContains('writer_file_creation_by_writer_release_fresh_authorization_post_monitoring_review_template', data_get($payload, 'review_template.still_forbidden_by_fresh_authorization_post_monitoring_review_template'));
+        $this->assertContains('codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_post_monitoring_review_template_does_not_dispatch_work', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'review_template_hash'));
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_post_monitoring_review_template_ready_after_all_packets_completed(): void
+    {
+        $packets = [
+            'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001',
+            'AIP-SPLIT-SELF-CONSTRUCTION-PACKET-CONTRACTS-0002',
+            'AIP-SPLIT-SELF-CONSTRUCTION-COMMAND-0003',
+            'AIP-SPLIT-SELF-CONSTRUCTION-SERVICE-0004',
+            'AIP-SPLIT-SELF-CONSTRUCTION-EVIDENCE-0005',
+        ];
+
+        foreach ($packets as $index => $packetId) {
+            $actor = 'codex-'.($index + 1);
+            $session = 'session-'.($index + 1);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--claim-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--json' => true,
+            ]);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--complete-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--reason' => 'packet_scope_finished',
+                '--evidence-hash' => hash('sha256', $packetId),
+                '--json' => true,
+            ]);
+        }
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-post-monitoring-review-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_post_monitoring_review_template_ready', data_get($payload, 'status'));
+        $this->assertSame('ready_as_future_fresh_authorization_post_monitoring_review_template', data_get($payload, 'review_template.status'));
+        $this->assertSame(5, data_get($payload, 'review_template.allowed_decision_count'));
+        $this->assertFalse(data_get($payload, 'review_template.ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'review_template.writer_file_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'review_template.approval_granted'));
+        $this->assertFalse(data_get($payload, 'review_template.merge_allowed'));
+        $this->assertContains('writer_release_fresh_authorization_health_decision_hash', data_get($payload, 'review_template.future_review_outputs'));
+        $this->assertContains('fresh_authorization_disable_path_verification_hash', data_get($payload, 'review_template.required_review_evidence'));
+        $this->assertContains('fresh_authorization_disable_path_still_available', data_get($payload, 'review_template.health_checks'));
+    }
+
+    public function test_command_human_output_lists_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_post_monitoring_review_template(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-post-monitoring-review-template' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Review status', $output);
+        $this->assertStringContainsString('Decision count', $output);
+        $this->assertStringContainsString('Writer file creation allowed', $output);
+        $this->assertStringContainsString('Review hash', $output);
+        $this->assertStringContainsString('Codex review merge post-execution action signed receipt persistence writer release fresh authorization post-monitoring review template is blocked', $output);
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_health_decision_template_blocked_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-health-decision-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_health_decision_template.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_health_decision_template_blocked', data_get($payload, 'status'));
+        $this->assertSame('read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_health_decision_template', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'writer_file_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'signature_valid'));
+        $this->assertFalse(data_get($payload, 'receipt_signed'));
+        $this->assertFalse(data_get($payload, 'receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'decision_recorded'));
+        $this->assertFalse(data_get($payload, 'approval_granted'));
+        $this->assertFalse(data_get($payload, 'merge_allowed'));
+        $this->assertSame('blocked_before_writer_release_fresh_authorization_post_monitoring_review_template', data_get($payload, 'health_decision.status'));
+        $this->assertSame(5, data_get($payload, 'health_decision.allowed_decision_state_count'));
+        $this->assertContains('request_fresh_authorization_disable_execution', data_get($payload, 'health_decision.allowed_decision_states'));
+        $this->assertContains('selected_review_decision', data_get($payload, 'health_decision.required_decision_evidence'));
+        $this->assertContains('forbidden_merge_or_dispatch_attempt_forces_disable_request', data_get($payload, 'health_decision.decision_policy'));
+        $this->assertContains('writer_file_creation_by_writer_release_fresh_authorization_health_decision_template', data_get($payload, 'health_decision.still_forbidden_by_fresh_authorization_health_decision_template'));
+        $this->assertContains('codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_health_decision_template_does_not_dispatch_work', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'health_decision_hash'));
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_health_decision_template_ready_after_all_packets_completed(): void
+    {
+        $packets = [
+            'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001',
+            'AIP-SPLIT-SELF-CONSTRUCTION-PACKET-CONTRACTS-0002',
+            'AIP-SPLIT-SELF-CONSTRUCTION-COMMAND-0003',
+            'AIP-SPLIT-SELF-CONSTRUCTION-SERVICE-0004',
+            'AIP-SPLIT-SELF-CONSTRUCTION-EVIDENCE-0005',
+        ];
+
+        foreach ($packets as $index => $packetId) {
+            $actor = 'codex-'.($index + 1);
+            $session = 'session-'.($index + 1);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--claim-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--json' => true,
+            ]);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--complete-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--reason' => 'packet_scope_finished',
+                '--evidence-hash' => hash('sha256', $packetId),
+                '--json' => true,
+            ]);
+        }
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-health-decision-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_health_decision_template_ready', data_get($payload, 'status'));
+        $this->assertSame('ready_as_future_fresh_authorization_health_decision_template', data_get($payload, 'health_decision.status'));
+        $this->assertSame(5, data_get($payload, 'health_decision.allowed_decision_state_count'));
+        $this->assertFalse(data_get($payload, 'health_decision.ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'health_decision.writer_file_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'health_decision.decision_recorded'));
+        $this->assertFalse(data_get($payload, 'health_decision.approval_granted'));
+        $this->assertFalse(data_get($payload, 'health_decision.merge_allowed'));
+        $this->assertContains('writer_release_fresh_authorization_new_cycle_request_hash', data_get($payload, 'health_decision.future_decision_outputs'));
+        $this->assertContains('new_fresh_authorization_cycle_requires_full_chain_restart', data_get($payload, 'health_decision.decision_policy'));
+        $this->assertContains('human_reviewer_identity', data_get($payload, 'health_decision.required_decision_evidence'));
+    }
+
+    public function test_command_human_output_lists_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_health_decision_template(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-health-decision-template' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Decision status', $output);
+        $this->assertStringContainsString('Decision state count', $output);
+        $this->assertStringContainsString('Decision recorded', $output);
+        $this->assertStringContainsString('Decision hash', $output);
+        $this->assertStringContainsString('Codex review merge post-execution action signed receipt persistence writer release fresh authorization health decision template is blocked', $output);
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_disable_request_template_blocked_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-disable-request-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_disable_request_template.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_disable_request_template_blocked', data_get($payload, 'status'));
+        $this->assertSame('read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_disable_request_template', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'writer_file_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'signature_valid'));
+        $this->assertFalse(data_get($payload, 'receipt_signed'));
+        $this->assertFalse(data_get($payload, 'receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'decision_recorded'));
+        $this->assertFalse(data_get($payload, 'approval_granted'));
+        $this->assertFalse(data_get($payload, 'merge_allowed'));
+        $this->assertSame('blocked_before_writer_release_fresh_authorization_health_decision_template', data_get($payload, 'disable_request.status'));
+        $this->assertSame(6, data_get($payload, 'disable_request.trigger_count'));
+        $this->assertContains('selected_decision_request_fresh_authorization_disable_execution', data_get($payload, 'disable_request.disable_triggers'));
+        $this->assertContains('disable_request_requires_health_decision_hash', data_get($payload, 'disable_request.disable_request_policy'));
+        $this->assertContains('disable_execution_by_writer_release_fresh_authorization_disable_request_template', data_get($payload, 'disable_request.still_forbidden_by_fresh_authorization_disable_request_template'));
+        $this->assertContains('codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_disable_request_template_does_not_execute_disable', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'disable_request_hash'));
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_disable_request_template_ready_after_all_packets_completed(): void
+    {
+        $packets = [
+            'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001',
+            'AIP-SPLIT-SELF-CONSTRUCTION-PACKET-CONTRACTS-0002',
+            'AIP-SPLIT-SELF-CONSTRUCTION-COMMAND-0003',
+            'AIP-SPLIT-SELF-CONSTRUCTION-SERVICE-0004',
+            'AIP-SPLIT-SELF-CONSTRUCTION-EVIDENCE-0005',
+        ];
+
+        foreach ($packets as $index => $packetId) {
+            $actor = 'codex-'.($index + 1);
+            $session = 'session-'.($index + 1);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--claim-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--json' => true,
+            ]);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--complete-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--reason' => 'packet_scope_finished',
+                '--evidence-hash' => hash('sha256', $packetId),
+                '--json' => true,
+            ]);
+        }
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-disable-request-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_disable_request_template_ready', data_get($payload, 'status'));
+        $this->assertSame('ready_as_future_fresh_authorization_disable_request_template', data_get($payload, 'disable_request.status'));
+        $this->assertSame(6, data_get($payload, 'disable_request.trigger_count'));
+        $this->assertFalse(data_get($payload, 'disable_request.execution_allowed'));
+        $this->assertFalse(data_get($payload, 'disable_request.ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'disable_request.writer_file_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'disable_request.decision_recorded'));
+        $this->assertFalse(data_get($payload, 'disable_request.approval_granted'));
+        $this->assertFalse(data_get($payload, 'disable_request.merge_allowed'));
+        $this->assertContains('writer_release_fresh_authorization_disable_execution_preflight_hash', data_get($payload, 'disable_request.future_disable_request_outputs'));
+        $this->assertContains('disable_request_does_not_execute_disable', data_get($payload, 'disable_request.disable_request_policy'));
+        $this->assertContains('human_reviewer_identity', data_get($payload, 'disable_request.required_disable_request_evidence'));
+    }
+
+    public function test_command_human_output_lists_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_disable_request_template(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-disable-request-template' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Disable request status', $output);
+        $this->assertStringContainsString('Trigger count', $output);
+        $this->assertStringContainsString('Execution allowed', $output);
+        $this->assertStringContainsString('Disable request hash', $output);
+        $this->assertStringContainsString('Codex review merge post-execution action signed receipt persistence writer release fresh authorization disable request template is blocked', $output);
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_request_template_blocked_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-request-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_request_template.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_request_template_blocked', data_get($payload, 'status'));
+        $this->assertSame('read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_request_template', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'writer_file_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'signature_valid'));
+        $this->assertFalse(data_get($payload, 'receipt_signed'));
+        $this->assertFalse(data_get($payload, 'receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'decision_recorded'));
+        $this->assertFalse(data_get($payload, 'approval_granted'));
+        $this->assertFalse(data_get($payload, 'merge_allowed'));
+        $this->assertSame('blocked_before_writer_release_fresh_authorization_health_decision_template', data_get($payload, 'new_cycle_request.status'));
+        $this->assertSame(9, data_get($payload, 'new_cycle_request.requirement_count'));
+        $this->assertContains('new_cycle_requires_new_authorization_request_hash', data_get($payload, 'new_cycle_request.required_restart_requirements'));
+        $this->assertContains('reuse_previous_fresh_authorization_execution_contract_hash', data_get($payload, 'new_cycle_request.reuse_forbidden'));
+        $this->assertContains('new_cycle_request_must_restart_entire_authorization_chain', data_get($payload, 'new_cycle_request.new_cycle_request_policy'));
+        $this->assertContains('authorization_reuse_by_writer_release_fresh_authorization_new_cycle_request_template', data_get($payload, 'new_cycle_request.still_forbidden_by_fresh_authorization_new_cycle_request_template'));
+        $this->assertContains('codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_request_template_does_not_reuse_authorization', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'new_cycle_request_hash'));
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_request_template_ready_after_all_packets_completed(): void
+    {
+        $packets = [
+            'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001',
+            'AIP-SPLIT-SELF-CONSTRUCTION-PACKET-CONTRACTS-0002',
+            'AIP-SPLIT-SELF-CONSTRUCTION-COMMAND-0003',
+            'AIP-SPLIT-SELF-CONSTRUCTION-SERVICE-0004',
+            'AIP-SPLIT-SELF-CONSTRUCTION-EVIDENCE-0005',
+        ];
+
+        foreach ($packets as $index => $packetId) {
+            $actor = 'codex-'.($index + 1);
+            $session = 'session-'.($index + 1);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--claim-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--json' => true,
+            ]);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--complete-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--reason' => 'packet_scope_finished',
+                '--evidence-hash' => hash('sha256', $packetId),
+                '--json' => true,
+            ]);
+        }
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-request-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_request_template_ready', data_get($payload, 'status'));
+        $this->assertSame('ready_as_future_fresh_authorization_new_cycle_request_template', data_get($payload, 'new_cycle_request.status'));
+        $this->assertSame(9, data_get($payload, 'new_cycle_request.requirement_count'));
+        $this->assertFalse(data_get($payload, 'new_cycle_request.ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'new_cycle_request.writer_file_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'new_cycle_request.decision_recorded'));
+        $this->assertFalse(data_get($payload, 'new_cycle_request.approval_granted'));
+        $this->assertFalse(data_get($payload, 'new_cycle_request.merge_allowed'));
+        $this->assertContains('writer_release_fresh_authorization_new_cycle_authorization_request_hash', data_get($payload, 'new_cycle_request.future_new_cycle_outputs'));
+        $this->assertContains('new_cycle_request_does_not_grant_approval', data_get($payload, 'new_cycle_request.new_cycle_request_policy'));
+        $this->assertContains('human_reviewer_identity', data_get($payload, 'new_cycle_request.required_new_cycle_evidence'));
+    }
+
+    public function test_command_human_output_lists_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_request_template(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-request-template' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('New cycle status', $output);
+        $this->assertStringContainsString('Requirement count', $output);
+        $this->assertStringContainsString('Approval granted', $output);
+        $this->assertStringContainsString('New cycle hash', $output);
+        $this->assertStringContainsString('Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle request template is blocked', $output);
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_authorization_request_template_blocked_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-authorization-request-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_authorization_request_template.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_authorization_request_template_blocked', data_get($payload, 'status'));
+        $this->assertSame('read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_authorization_request_template', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'writer_file_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'signature_valid'));
+        $this->assertFalse(data_get($payload, 'receipt_signed'));
+        $this->assertFalse(data_get($payload, 'receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'decision_recorded'));
+        $this->assertFalse(data_get($payload, 'approval_granted'));
+        $this->assertFalse(data_get($payload, 'merge_allowed'));
+        $this->assertSame('blocked_before_writer_release_fresh_authorization_new_cycle_request_template', data_get($payload, 'authorization_request.status'));
+        $this->assertSame(3, data_get($payload, 'authorization_request.required_signer_count'));
+        $this->assertContains('writer_release_fresh_authorization_new_cycle_request_hash', data_get($payload, 'authorization_request.required_authorization_evidence'));
+        $this->assertContains('authorization_request_must_not_reuse_prior_authorization_hashes', data_get($payload, 'authorization_request.authorization_policy'));
+        $this->assertContains('previous_cycle_hashes_are_context_only', data_get($payload, 'authorization_request.fresh_cycle_boundaries'));
+        $this->assertContains('approval_by_writer_release_fresh_authorization_new_cycle_authorization_request_template', data_get($payload, 'authorization_request.still_forbidden_by_fresh_authorization_new_cycle_authorization_request_template'));
+        $this->assertContains('codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_authorization_request_template_does_not_grant_approval', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'authorization_request_hash'));
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_authorization_request_template_ready_after_all_packets_completed(): void
+    {
+        $packets = [
+            'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001',
+            'AIP-SPLIT-SELF-CONSTRUCTION-PACKET-CONTRACTS-0002',
+            'AIP-SPLIT-SELF-CONSTRUCTION-COMMAND-0003',
+            'AIP-SPLIT-SELF-CONSTRUCTION-SERVICE-0004',
+            'AIP-SPLIT-SELF-CONSTRUCTION-EVIDENCE-0005',
+        ];
+
+        foreach ($packets as $index => $packetId) {
+            $actor = 'codex-'.($index + 1);
+            $session = 'session-'.($index + 1);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--claim-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--json' => true,
+            ]);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--complete-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--reason' => 'packet_scope_finished',
+                '--evidence-hash' => hash('sha256', $packetId),
+                '--json' => true,
+            ]);
+        }
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-authorization-request-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_authorization_request_template_ready', data_get($payload, 'status'));
+        $this->assertSame('ready_as_future_fresh_authorization_new_cycle_authorization_request_template', data_get($payload, 'authorization_request.status'));
+        $this->assertSame(3, data_get($payload, 'authorization_request.required_signer_count'));
+        $this->assertFalse(data_get($payload, 'authorization_request.ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'authorization_request.writer_file_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'authorization_request.decision_recorded'));
+        $this->assertFalse(data_get($payload, 'authorization_request.approval_granted'));
+        $this->assertFalse(data_get($payload, 'authorization_request.merge_allowed'));
+        $this->assertContains('writer_release_fresh_authorization_new_cycle_receipt_draft_hash', data_get($payload, 'authorization_request.future_authorization_outputs'));
+        $this->assertContains('authorization_request_does_not_grant_approval', data_get($payload, 'authorization_request.authorization_policy'));
+        $this->assertContains('restart_scope_statement_hash', data_get($payload, 'authorization_request.required_authorization_evidence'));
+    }
+
+    public function test_command_human_output_lists_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_authorization_request_template(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-authorization-request-template' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Authorization status', $output);
+        $this->assertStringContainsString('Required signer count', $output);
+        $this->assertStringContainsString('Approval granted', $output);
+        $this->assertStringContainsString('Authorization hash', $output);
+        $this->assertStringContainsString('Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle authorization request template is blocked', $output);
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_receipt_draft_template_blocked_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-receipt-draft-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_receipt_draft_template.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_receipt_draft_template_blocked', data_get($payload, 'status'));
+        $this->assertSame('read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_receipt_draft_template', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'writer_file_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'signature_valid'));
+        $this->assertFalse(data_get($payload, 'receipt_signed'));
+        $this->assertFalse(data_get($payload, 'receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'decision_recorded'));
+        $this->assertFalse(data_get($payload, 'approval_granted'));
+        $this->assertFalse(data_get($payload, 'merge_allowed'));
+        $this->assertSame('blocked_before_writer_release_fresh_authorization_new_cycle_authorization_request_template', data_get($payload, 'receipt_draft.status'));
+        $this->assertSame(8, data_get($payload, 'receipt_draft.required_receipt_field_count'));
+        $this->assertContains('new_cycle_authorization_request_hash', data_get($payload, 'receipt_draft.required_receipt_fields'));
+        $this->assertContains('receipt_draft_must_be_unsigned', data_get($payload, 'receipt_draft.receipt_policy'));
+        $this->assertContains('receipt_signing_by_writer_release_fresh_authorization_new_cycle_receipt_draft_template', data_get($payload, 'receipt_draft.still_forbidden_by_fresh_authorization_new_cycle_receipt_draft_template'));
+        $this->assertContains('codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_receipt_draft_template_does_not_sign_receipt', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'receipt_draft_hash'));
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_receipt_draft_template_ready_after_all_packets_completed(): void
+    {
+        $packets = [
+            'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001',
+            'AIP-SPLIT-SELF-CONSTRUCTION-PACKET-CONTRACTS-0002',
+            'AIP-SPLIT-SELF-CONSTRUCTION-COMMAND-0003',
+            'AIP-SPLIT-SELF-CONSTRUCTION-SERVICE-0004',
+            'AIP-SPLIT-SELF-CONSTRUCTION-EVIDENCE-0005',
+        ];
+
+        foreach ($packets as $index => $packetId) {
+            $actor = 'codex-'.($index + 1);
+            $session = 'session-'.($index + 1);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--claim-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--json' => true,
+            ]);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--complete-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--reason' => 'packet_scope_finished',
+                '--evidence-hash' => hash('sha256', $packetId),
+                '--json' => true,
+            ]);
+        }
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-receipt-draft-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_receipt_draft_template_ready', data_get($payload, 'status'));
+        $this->assertSame('ready_as_future_fresh_authorization_new_cycle_receipt_draft_template', data_get($payload, 'receipt_draft.status'));
+        $this->assertSame(8, data_get($payload, 'receipt_draft.required_receipt_field_count'));
+        $this->assertFalse(data_get($payload, 'receipt_draft.ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'receipt_draft.writer_file_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'receipt_draft.receipt_signed'));
+        $this->assertFalse(data_get($payload, 'receipt_draft.receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'receipt_draft.approval_granted'));
+        $this->assertFalse(data_get($payload, 'receipt_draft.merge_allowed'));
+        $this->assertContains('writer_release_fresh_authorization_new_cycle_signature_request_hash', data_get($payload, 'receipt_draft.future_receipt_outputs'));
+        $this->assertContains('receipt_draft_must_not_be_persisted', data_get($payload, 'receipt_draft.receipt_policy'));
+        $this->assertContains('required_signer_manifest_hash', data_get($payload, 'receipt_draft.required_receipt_evidence'));
+    }
+
+    public function test_command_human_output_lists_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_receipt_draft_template(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-receipt-draft-template' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Receipt status', $output);
+        $this->assertStringContainsString('Receipt signed', $output);
+        $this->assertStringContainsString('Receipt persisted', $output);
+        $this->assertStringContainsString('Receipt draft hash', $output);
+        $this->assertStringContainsString('Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle receipt draft template is blocked', $output);
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_signature_request_template_blocked_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-signature-request-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_signature_request_template.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_signature_request_template_blocked', data_get($payload, 'status'));
+        $this->assertSame('read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_signature_request_template', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'writer_file_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'signature_valid'));
+        $this->assertFalse(data_get($payload, 'receipt_signed'));
+        $this->assertFalse(data_get($payload, 'receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'decision_recorded'));
+        $this->assertFalse(data_get($payload, 'approval_granted'));
+        $this->assertFalse(data_get($payload, 'merge_allowed'));
+        $this->assertSame('blocked_before_writer_release_fresh_authorization_new_cycle_receipt_draft_template', data_get($payload, 'signature_request.status'));
+        $this->assertSame(3, data_get($payload, 'signature_request.required_signer_count'));
+        $this->assertContains('new_cycle_receipt_draft_hash', data_get($payload, 'signature_request.signature_payload_fields'));
+        $this->assertContains('signature_request_does_not_accept_signature', data_get($payload, 'signature_request.signature_request_policy'));
+        $this->assertContains('signature_acceptance_by_writer_release_fresh_authorization_new_cycle_signature_request_template', data_get($payload, 'signature_request.still_forbidden_by_fresh_authorization_new_cycle_signature_request_template'));
+        $this->assertContains('codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_signature_request_template_does_not_accept_signature', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'signature_request_hash'));
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_signature_request_template_ready_after_all_packets_completed(): void
+    {
+        $packets = [
+            'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001',
+            'AIP-SPLIT-SELF-CONSTRUCTION-PACKET-CONTRACTS-0002',
+            'AIP-SPLIT-SELF-CONSTRUCTION-COMMAND-0003',
+            'AIP-SPLIT-SELF-CONSTRUCTION-SERVICE-0004',
+            'AIP-SPLIT-SELF-CONSTRUCTION-EVIDENCE-0005',
+        ];
+
+        foreach ($packets as $index => $packetId) {
+            $actor = 'codex-'.($index + 1);
+            $session = 'session-'.($index + 1);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--claim-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--json' => true,
+            ]);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--complete-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--reason' => 'packet_scope_finished',
+                '--evidence-hash' => hash('sha256', $packetId),
+                '--json' => true,
+            ]);
+        }
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-signature-request-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_signature_request_template_ready', data_get($payload, 'status'));
+        $this->assertSame('ready_as_future_fresh_authorization_new_cycle_signature_request_template', data_get($payload, 'signature_request.status'));
+        $this->assertSame(3, data_get($payload, 'signature_request.required_signer_count'));
+        $this->assertFalse(data_get($payload, 'signature_request.ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'signature_request.writer_file_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'signature_request.signature_valid'));
+        $this->assertFalse(data_get($payload, 'signature_request.receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'signature_request.approval_granted'));
+        $this->assertFalse(data_get($payload, 'signature_request.merge_allowed'));
+        $this->assertContains('writer_release_fresh_authorization_new_cycle_signed_receipt_template_hash', data_get($payload, 'signature_request.future_signature_outputs'));
+        $this->assertContains('signature_request_does_not_validate_signature', data_get($payload, 'signature_request.signature_request_policy'));
+        $this->assertContains('required_signer_manifest_hash', data_get($payload, 'signature_request.required_signature_request_evidence'));
+    }
+
+    public function test_command_human_output_lists_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_signature_request_template(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-signature-request-template' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Signature status', $output);
+        $this->assertStringContainsString('Required signer count', $output);
+        $this->assertStringContainsString('Signature valid', $output);
+        $this->assertStringContainsString('Signature request hash', $output);
+        $this->assertStringContainsString('Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle signature request template is blocked', $output);
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_post_signature_runbook_template_blocked_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-post-signature-runbook-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_post_signature_runbook_template.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_post_signature_runbook_template_blocked', data_get($payload, 'status'));
+        $this->assertSame('read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_post_signature_runbook_template', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'writer_file_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'signature_valid'));
+        $this->assertFalse(data_get($payload, 'receipt_signed'));
+        $this->assertFalse(data_get($payload, 'receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'decision_recorded'));
+        $this->assertFalse(data_get($payload, 'approval_granted'));
+        $this->assertFalse(data_get($payload, 'merge_allowed'));
+        $this->assertSame('blocked_before_writer_release_fresh_authorization_new_cycle_signature_request_template', data_get($payload, 'runbook.status'));
+        $this->assertSame(8, data_get($payload, 'runbook.step_count'));
+        $this->assertContains('prepare_new_cycle_signed_receipt_template', data_get($payload, 'runbook.runbook_steps'));
+        $this->assertContains('runbook_does_not_accept_signature', data_get($payload, 'runbook.runbook_policy'));
+        $this->assertContains('signature_acceptance_by_writer_release_fresh_authorization_new_cycle_post_signature_runbook_template', data_get($payload, 'runbook.still_forbidden_by_fresh_authorization_new_cycle_post_signature_runbook_template'));
+        $this->assertContains('codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_post_signature_runbook_template_does_not_validate_signature', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'runbook_hash'));
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_post_signature_runbook_template_ready_after_all_packets_completed(): void
+    {
+        $packets = [
+            'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001',
+            'AIP-SPLIT-SELF-CONSTRUCTION-PACKET-CONTRACTS-0002',
+            'AIP-SPLIT-SELF-CONSTRUCTION-COMMAND-0003',
+            'AIP-SPLIT-SELF-CONSTRUCTION-SERVICE-0004',
+            'AIP-SPLIT-SELF-CONSTRUCTION-EVIDENCE-0005',
+        ];
+
+        foreach ($packets as $index => $packetId) {
+            $actor = 'codex-'.($index + 1);
+            $session = 'session-'.($index + 1);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--claim-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--json' => true,
+            ]);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--complete-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--reason' => 'packet_scope_finished',
+                '--evidence-hash' => hash('sha256', $packetId),
+                '--json' => true,
+            ]);
+        }
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-post-signature-runbook-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_post_signature_runbook_template_ready', data_get($payload, 'status'));
+        $this->assertSame('ready_as_future_fresh_authorization_new_cycle_post_signature_runbook_template', data_get($payload, 'runbook.status'));
+        $this->assertSame(8, data_get($payload, 'runbook.step_count'));
+        $this->assertFalse(data_get($payload, 'runbook.ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'runbook.writer_file_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'runbook.signature_valid'));
+        $this->assertFalse(data_get($payload, 'runbook.receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'runbook.approval_granted'));
+        $this->assertFalse(data_get($payload, 'runbook.merge_allowed'));
+        $this->assertContains('writer_release_fresh_authorization_new_cycle_signed_receipt_template_hash', data_get($payload, 'runbook.future_runbook_outputs'));
+        $this->assertContains('signature_payload_integrity_hash', data_get($payload, 'runbook.required_runbook_evidence'));
+        $this->assertContains('runbook_does_not_validate_signature', data_get($payload, 'runbook.runbook_policy'));
+    }
+
+    public function test_command_human_output_lists_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_post_signature_runbook_template(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-post-signature-runbook-template' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Runbook status', $output);
+        $this->assertStringContainsString('Step count', $output);
+        $this->assertStringContainsString('Signature valid', $output);
+        $this->assertStringContainsString('Runbook hash', $output);
+        $this->assertStringContainsString('Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle post-signature runbook template is blocked', $output);
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_signed_receipt_template_blocked_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-signed-receipt-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_signed_receipt_template.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_signed_receipt_template_blocked', data_get($payload, 'status'));
+        $this->assertSame('read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_signed_receipt_template', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'writer_file_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'signature_valid'));
+        $this->assertFalse(data_get($payload, 'receipt_signed'));
+        $this->assertFalse(data_get($payload, 'receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'decision_recorded'));
+        $this->assertFalse(data_get($payload, 'approval_granted'));
+        $this->assertFalse(data_get($payload, 'merge_allowed'));
+        $this->assertSame('blocked_before_writer_release_fresh_authorization_new_cycle_post_signature_runbook_template', data_get($payload, 'template.status'));
+        $this->assertSame(12, data_get($payload, 'template.template_field_count'));
+        $this->assertContains('new_cycle_signed_receipt_id', data_get($payload, 'template.template_fields'));
+        $this->assertContains('fresh_authorization_new_cycle_only', data_get($payload, 'template.receipt_scope'));
+        $this->assertContains('signature_acceptance_by_writer_release_fresh_authorization_new_cycle_signed_receipt_template', data_get($payload, 'template.still_forbidden_by_fresh_authorization_new_cycle_signed_receipt_template'));
+        $this->assertContains('codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_signed_receipt_template_does_not_persist_receipt', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'template_hash'));
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_signed_receipt_template_ready_after_all_packets_completed(): void
+    {
+        $packets = [
+            'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001',
+            'AIP-SPLIT-SELF-CONSTRUCTION-PACKET-CONTRACTS-0002',
+            'AIP-SPLIT-SELF-CONSTRUCTION-COMMAND-0003',
+            'AIP-SPLIT-SELF-CONSTRUCTION-SERVICE-0004',
+            'AIP-SPLIT-SELF-CONSTRUCTION-EVIDENCE-0005',
+        ];
+
+        foreach ($packets as $index => $packetId) {
+            $actor = 'codex-'.($index + 1);
+            $session = 'session-'.($index + 1);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--claim-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--json' => true,
+            ]);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--complete-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--reason' => 'packet_scope_finished',
+                '--evidence-hash' => hash('sha256', $packetId),
+                '--json' => true,
+            ]);
+        }
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-signed-receipt-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_signed_receipt_template_ready', data_get($payload, 'status'));
+        $this->assertSame('ready_as_future_fresh_authorization_new_cycle_signed_receipt_template', data_get($payload, 'template.status'));
+        $this->assertSame(12, data_get($payload, 'template.template_field_count'));
+        $this->assertFalse(data_get($payload, 'template.ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'template.writer_file_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'template.signature_valid'));
+        $this->assertFalse(data_get($payload, 'template.receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'template.approval_granted'));
+        $this->assertFalse(data_get($payload, 'template.merge_allowed'));
+        $this->assertContains('writer_release_fresh_authorization_new_cycle_execution_contract_preflight_hash', data_get($payload, 'template.future_template_outputs'));
+        $this->assertContains('no_previous_cycle_authority_reuse_evidence_hash', data_get($payload, 'template.required_external_evidence'));
+        $this->assertContains('does_not_reuse_previous_authorization', data_get($payload, 'template.receipt_scope'));
+    }
+
+    public function test_command_human_output_lists_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_signed_receipt_template(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-signed-receipt-template' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Template status', $output);
+        $this->assertStringContainsString('Receipt signed', $output);
+        $this->assertStringContainsString('Receipt persisted', $output);
+        $this->assertStringContainsString('Template hash', $output);
+        $this->assertStringContainsString('Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle signed receipt template is blocked', $output);
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_execution_contract_preflight_template_blocked_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-execution-contract-preflight-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_execution_contract_preflight_template.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_execution_contract_preflight_template_blocked', data_get($payload, 'status'));
+        $this->assertSame('read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_execution_contract_preflight_template', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'writer_file_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'signature_valid'));
+        $this->assertFalse(data_get($payload, 'receipt_signed'));
+        $this->assertFalse(data_get($payload, 'receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'decision_recorded'));
+        $this->assertFalse(data_get($payload, 'approval_granted'));
+        $this->assertFalse(data_get($payload, 'merge_allowed'));
+        $this->assertSame('blocked_before_writer_release_fresh_authorization_new_cycle_signed_receipt_template', data_get($payload, 'preflight.status'));
+        $this->assertSame(11, data_get($payload, 'preflight.blocking_condition_count'));
+        $this->assertSame(10, data_get($payload, 'preflight.required_input_count'));
+        $this->assertContains('fresh_authorization_new_cycle_signed_receipt_template_not_ready', data_get($payload, 'preflight.blocking_conditions'));
+        $this->assertContains('new_cycle_authority_reuse_check_hash', data_get($payload, 'preflight.required_inputs'));
+        $this->assertContains('writer_release_fresh_authorization_new_cycle_execution_contract_template_hash', data_get($payload, 'preflight.future_preflight_outputs'));
+        $this->assertContains('writer_file_creation_by_writer_release_fresh_authorization_new_cycle_execution_contract_preflight_template', data_get($payload, 'preflight.still_forbidden_by_fresh_authorization_new_cycle_execution_contract_preflight_template'));
+        $this->assertContains('codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_execution_contract_preflight_template_does_not_create_writer_file', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'preflight_hash'));
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_execution_contract_preflight_template_ready_after_all_packets_completed(): void
+    {
+        $packets = [
+            'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001',
+            'AIP-SPLIT-SELF-CONSTRUCTION-PACKET-CONTRACTS-0002',
+            'AIP-SPLIT-SELF-CONSTRUCTION-COMMAND-0003',
+            'AIP-SPLIT-SELF-CONSTRUCTION-SERVICE-0004',
+            'AIP-SPLIT-SELF-CONSTRUCTION-EVIDENCE-0005',
+        ];
+
+        foreach ($packets as $index => $packetId) {
+            $actor = 'codex-'.($index + 1);
+            $session = 'session-'.($index + 1);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--claim-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--json' => true,
+            ]);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--complete-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--reason' => 'packet_scope_finished',
+                '--evidence-hash' => hash('sha256', $packetId),
+                '--json' => true,
+            ]);
+        }
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-execution-contract-preflight-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_execution_contract_preflight_template_ready', data_get($payload, 'status'));
+        $this->assertSame('ready_as_future_fresh_authorization_new_cycle_execution_contract_preflight_template', data_get($payload, 'preflight.status'));
+        $this->assertFalse(data_get($payload, 'preflight.ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'preflight.writer_file_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'preflight.signature_valid'));
+        $this->assertFalse(data_get($payload, 'preflight.receipt_signed'));
+        $this->assertFalse(data_get($payload, 'preflight.receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'preflight.approval_granted'));
+        $this->assertFalse(data_get($payload, 'preflight.merge_allowed'));
+        $this->assertContains('new_cycle_monitoring_plan_hash', data_get($payload, 'preflight.required_inputs'));
+        $this->assertContains('writer_release_fresh_authorization_new_cycle_preflight_rejection_hash', data_get($payload, 'preflight.future_preflight_outputs'));
+    }
+
+    public function test_command_human_output_lists_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_execution_contract_preflight_template(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-execution-contract-preflight-template' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Preflight status', $output);
+        $this->assertStringContainsString('Blocking count', $output);
+        $this->assertStringContainsString('Execution allowed', $output);
+        $this->assertStringContainsString('Preflight hash', $output);
+        $this->assertStringContainsString('Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle execution contract preflight template is blocked', $output);
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_execution_contract_template_blocked_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-execution-contract-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_execution_contract_template.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_execution_contract_template_blocked', data_get($payload, 'status'));
+        $this->assertSame('read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_execution_contract_template', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'writer_file_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'signature_valid'));
+        $this->assertFalse(data_get($payload, 'receipt_signed'));
+        $this->assertFalse(data_get($payload, 'receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'decision_recorded'));
+        $this->assertFalse(data_get($payload, 'approval_granted'));
+        $this->assertFalse(data_get($payload, 'merge_allowed'));
+        $this->assertSame('blocked_before_writer_release_fresh_authorization_new_cycle_execution_contract_preflight_template', data_get($payload, 'contract.status'));
+        $this->assertSame(1, data_get($payload, 'contract.blocking_count'));
+        $this->assertContains('writer_release_fresh_authorization_new_cycle_execution_contract_preflight_template_not_ready', data_get($payload, 'contract.blocking_conditions'));
+        $this->assertContains('fresh_authorization_new_cycle_executor_identity', data_get($payload, 'contract.required_actor_evidence'));
+        $this->assertContains('new_cycle_writer_no_dispatch_authority_evidence_hash', data_get($payload, 'contract.required_recheck_evidence'));
+        $this->assertContains('writer_file_creation_by_writer_release_fresh_authorization_new_cycle_execution_contract_template', data_get($payload, 'contract.still_forbidden_by_fresh_authorization_new_cycle_execution_contract_template'));
+        $this->assertContains('codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_execution_contract_template_does_not_dispatch_work', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'contract_hash'));
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_execution_contract_template_ready_after_all_packets_completed(): void
+    {
+        $packets = [
+            'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001',
+            'AIP-SPLIT-SELF-CONSTRUCTION-PACKET-CONTRACTS-0002',
+            'AIP-SPLIT-SELF-CONSTRUCTION-COMMAND-0003',
+            'AIP-SPLIT-SELF-CONSTRUCTION-SERVICE-0004',
+            'AIP-SPLIT-SELF-CONSTRUCTION-EVIDENCE-0005',
+        ];
+
+        foreach ($packets as $index => $packetId) {
+            $actor = 'codex-'.($index + 1);
+            $session = 'session-'.($index + 1);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--claim-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--json' => true,
+            ]);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--complete-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--reason' => 'packet_scope_finished',
+                '--evidence-hash' => hash('sha256', $packetId),
+                '--json' => true,
+            ]);
+        }
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-execution-contract-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_execution_contract_template_ready', data_get($payload, 'status'));
+        $this->assertSame('blocked_waiting_for_external_fresh_authorization_new_cycle_execution_authority', data_get($payload, 'contract.status'));
+        $this->assertSame(11, data_get($payload, 'contract.blocking_count'));
+        $this->assertFalse(data_get($payload, 'contract.ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'contract.writer_file_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'contract.approval_granted'));
+        $this->assertFalse(data_get($payload, 'contract.merge_allowed'));
+        $this->assertContains('fresh_authorization_new_cycle_execution_still_not_authorized', data_get($payload, 'contract.blocking_conditions'));
+        $this->assertSame('future_writer_reenable_only_after_external_fresh_authorization_new_cycle', data_get($payload, 'contract.execution_scope.allowed_scope'));
+        $this->assertContains('previous_cycle_authority', data_get($payload, 'contract.execution_scope.writer_contract_forbidden_capabilities'));
+        $this->assertContains('writer_release_fresh_authorization_new_cycle_post_execution_receipt_hash', data_get($payload, 'contract.future_post_execution_outputs'));
+    }
+
+    public function test_command_human_output_lists_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_execution_contract_template(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-execution-contract-template' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Contract status', $output);
+        $this->assertStringContainsString('Blocking count', $output);
+        $this->assertStringContainsString('Writer file creation allowed', $output);
+        $this->assertStringContainsString('Contract hash', $output);
+        $this->assertStringContainsString('Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle execution contract template is blocked', $output);
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_contract_template_blocked_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-contract-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_contract_template.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_contract_template_blocked', data_get($payload, 'status'));
+        $this->assertSame('read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_contract_template', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'writer_file_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'signature_valid'));
+        $this->assertFalse(data_get($payload, 'receipt_signed'));
+        $this->assertFalse(data_get($payload, 'receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'decision_recorded'));
+        $this->assertFalse(data_get($payload, 'approval_granted'));
+        $this->assertFalse(data_get($payload, 'merge_allowed'));
+        $this->assertSame('blocked_before_writer_release_fresh_authorization_new_cycle_execution_contract_template', data_get($payload, 'disable_contract.status'));
+        $this->assertSame(11, data_get($payload, 'disable_contract.trigger_count'));
+        $this->assertContains('previous_cycle_authority_reuse_detected', data_get($payload, 'disable_contract.disable_triggers'));
+        $this->assertContains('rerun_new_cycle_authority_reuse_check', data_get($payload, 'disable_contract.required_disable_steps'));
+        $this->assertContains('new_cycle_post_disable_no_previous_authority_reuse_hash', data_get($payload, 'disable_contract.required_disable_evidence'));
+        $this->assertContains('later_cycle_requires_new_execution_contract_template', data_get($payload, 'disable_contract.reenable_requirements'));
+        $this->assertContains('writer_file_creation_by_writer_release_fresh_authorization_new_cycle_disable_contract_template', data_get($payload, 'disable_contract.still_forbidden_by_fresh_authorization_new_cycle_disable_contract_template'));
+        $this->assertContains('codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_contract_template_does_not_dispatch_work', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'disable_contract_hash'));
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_contract_template_ready_after_all_packets_completed(): void
+    {
+        $packets = [
+            'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001',
+            'AIP-SPLIT-SELF-CONSTRUCTION-PACKET-CONTRACTS-0002',
+            'AIP-SPLIT-SELF-CONSTRUCTION-COMMAND-0003',
+            'AIP-SPLIT-SELF-CONSTRUCTION-SERVICE-0004',
+            'AIP-SPLIT-SELF-CONSTRUCTION-EVIDENCE-0005',
+        ];
+
+        foreach ($packets as $index => $packetId) {
+            $actor = 'codex-'.($index + 1);
+            $session = 'session-'.($index + 1);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--claim-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--json' => true,
+            ]);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--complete-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--reason' => 'packet_scope_finished',
+                '--evidence-hash' => hash('sha256', $packetId),
+                '--json' => true,
+            ]);
+        }
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-contract-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_contract_template_ready', data_get($payload, 'status'));
+        $this->assertSame('ready_as_future_fresh_authorization_new_cycle_disable_template', data_get($payload, 'disable_contract.status'));
+        $this->assertSame(11, data_get($payload, 'disable_contract.trigger_count'));
+        $this->assertFalse(data_get($payload, 'disable_contract.ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'disable_contract.writer_file_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'disable_contract.approval_granted'));
+        $this->assertFalse(data_get($payload, 'disable_contract.merge_allowed'));
+        $this->assertContains('writer_release_fresh_authorization_new_cycle_disable_receipt_hash', data_get($payload, 'disable_contract.future_disable_outputs'));
+        $this->assertContains('later_cycle_requires_new_execution_contract_template', data_get($payload, 'disable_contract.reenable_requirements'));
+        $this->assertContains('later_cycle_requires_writer_capability_tests', data_get($payload, 'disable_contract.reenable_requirements'));
+    }
+
+    public function test_command_human_output_lists_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_contract_template(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-contract-template' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Disable status', $output);
+        $this->assertStringContainsString('Trigger count', $output);
+        $this->assertStringContainsString('Writer file creation allowed', $output);
+        $this->assertStringContainsString('Disable hash', $output);
+        $this->assertStringContainsString('Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable contract template is blocked', $output);
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_observability_contract_template_blocked_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-observability-contract-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_observability_contract_template.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_observability_contract_template_blocked', data_get($payload, 'status'));
+        $this->assertSame('read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_observability_contract_template', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'writer_file_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'signature_valid'));
+        $this->assertFalse(data_get($payload, 'receipt_signed'));
+        $this->assertFalse(data_get($payload, 'receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'decision_recorded'));
+        $this->assertFalse(data_get($payload, 'approval_granted'));
+        $this->assertFalse(data_get($payload, 'merge_allowed'));
+        $this->assertSame('blocked_before_writer_release_fresh_authorization_new_cycle_disable_contract_template', data_get($payload, 'observability_contract.status'));
+        $this->assertSame(13, data_get($payload, 'observability_contract.signal_count'));
+        $this->assertContains('fresh_authorization_new_cycle_forbidden_merge_attempt_detected', data_get($payload, 'observability_contract.required_signals'));
+        $this->assertContains('alert_on_new_cycle_previous_authority_reuse', data_get($payload, 'observability_contract.required_alerts'));
+        $this->assertContains('fresh_authorization_new_cycle_metrics_snapshot_hash', data_get($payload, 'observability_contract.required_observability_evidence'));
+        $this->assertContains('writer_file_creation_by_writer_release_fresh_authorization_new_cycle_observability_contract_template', data_get($payload, 'observability_contract.still_forbidden_by_fresh_authorization_new_cycle_observability_contract_template'));
+        $this->assertContains('codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_observability_contract_template_does_not_dispatch_work', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'observability_contract_hash'));
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_observability_contract_template_ready_after_all_packets_completed(): void
+    {
+        $packets = [
+            'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001',
+            'AIP-SPLIT-SELF-CONSTRUCTION-PACKET-CONTRACTS-0002',
+            'AIP-SPLIT-SELF-CONSTRUCTION-COMMAND-0003',
+            'AIP-SPLIT-SELF-CONSTRUCTION-SERVICE-0004',
+            'AIP-SPLIT-SELF-CONSTRUCTION-EVIDENCE-0005',
+        ];
+
+        foreach ($packets as $index => $packetId) {
+            $actor = 'codex-'.($index + 1);
+            $session = 'session-'.($index + 1);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--claim-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--json' => true,
+            ]);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--complete-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--reason' => 'packet_scope_finished',
+                '--evidence-hash' => hash('sha256', $packetId),
+                '--json' => true,
+            ]);
+        }
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-observability-contract-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_observability_contract_template_ready', data_get($payload, 'status'));
+        $this->assertSame('ready_as_future_fresh_authorization_new_cycle_observability_template', data_get($payload, 'observability_contract.status'));
+        $this->assertSame(13, data_get($payload, 'observability_contract.signal_count'));
+        $this->assertFalse(data_get($payload, 'observability_contract.ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'observability_contract.writer_file_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'observability_contract.approval_granted'));
+        $this->assertFalse(data_get($payload, 'observability_contract.merge_allowed'));
+        $this->assertSame(60, data_get($payload, 'observability_contract.minimum_monitoring_window.after_future_reenable_minutes'));
+        $this->assertTrue(data_get($payload, 'observability_contract.minimum_monitoring_window.requires_previous_authority_reuse_review'));
+        $this->assertContains('fresh_authorization_new_cycle_previous_authority_reuse_attempt_count', data_get($payload, 'observability_contract.required_metrics'));
+        $this->assertContains('writer_release_fresh_authorization_new_cycle_post_monitoring_review_hash', data_get($payload, 'observability_contract.future_observability_outputs'));
+    }
+
+    public function test_command_human_output_lists_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_observability_contract_template(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-observability-contract-template' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Observability status', $output);
+        $this->assertStringContainsString('Signal count', $output);
+        $this->assertStringContainsString('Writer file creation allowed', $output);
+        $this->assertStringContainsString('Observability hash', $output);
+        $this->assertStringContainsString('Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle observability contract template is blocked', $output);
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_post_monitoring_review_template_blocked_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-post-monitoring-review-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_post_monitoring_review_template.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_post_monitoring_review_template_blocked', data_get($payload, 'status'));
+        $this->assertSame('read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_post_monitoring_review_template', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'writer_file_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'signature_valid'));
+        $this->assertFalse(data_get($payload, 'receipt_signed'));
+        $this->assertFalse(data_get($payload, 'receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'decision_recorded'));
+        $this->assertFalse(data_get($payload, 'approval_granted'));
+        $this->assertFalse(data_get($payload, 'merge_allowed'));
+        $this->assertSame('blocked_before_writer_release_fresh_authorization_new_cycle_observability_contract_template', data_get($payload, 'review_template.status'));
+        $this->assertSame(5, data_get($payload, 'review_template.allowed_decision_count'));
+        $this->assertContains('request_fresh_authorization_new_cycle_disable_execution', data_get($payload, 'review_template.allowed_decisions'));
+        $this->assertContains('no_fresh_authorization_new_cycle_previous_authority_reuse_attempts', data_get($payload, 'review_template.health_checks'));
+        $this->assertSame('request_fresh_authorization_new_cycle_disable_execution', data_get($payload, 'review_template.failure_to_decision_map.fresh_authorization_new_cycle_previous_authority_reuse_attempt'));
+        $this->assertContains('fresh_authorization_new_cycle_previous_authority_reuse_review_hash', data_get($payload, 'review_template.required_review_evidence'));
+        $this->assertContains('writer_file_creation_by_writer_release_fresh_authorization_new_cycle_post_monitoring_review_template', data_get($payload, 'review_template.still_forbidden_by_fresh_authorization_new_cycle_post_monitoring_review_template'));
+        $this->assertContains('codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_post_monitoring_review_template_does_not_dispatch_work', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'review_template_hash'));
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_post_monitoring_review_template_ready_after_all_packets_completed(): void
+    {
+        $packets = [
+            'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001',
+            'AIP-SPLIT-SELF-CONSTRUCTION-PACKET-CONTRACTS-0002',
+            'AIP-SPLIT-SELF-CONSTRUCTION-COMMAND-0003',
+            'AIP-SPLIT-SELF-CONSTRUCTION-SERVICE-0004',
+            'AIP-SPLIT-SELF-CONSTRUCTION-EVIDENCE-0005',
+        ];
+
+        foreach ($packets as $index => $packetId) {
+            $actor = 'codex-'.($index + 1);
+            $session = 'session-'.($index + 1);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--claim-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--json' => true,
+            ]);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--complete-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--reason' => 'packet_scope_finished',
+                '--evidence-hash' => hash('sha256', $packetId),
+                '--json' => true,
+            ]);
+        }
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-post-monitoring-review-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_post_monitoring_review_template_ready', data_get($payload, 'status'));
+        $this->assertSame('ready_as_future_fresh_authorization_new_cycle_post_monitoring_review_template', data_get($payload, 'review_template.status'));
+        $this->assertSame(5, data_get($payload, 'review_template.allowed_decision_count'));
+        $this->assertFalse(data_get($payload, 'review_template.ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'review_template.writer_file_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'review_template.decision_recorded'));
+        $this->assertFalse(data_get($payload, 'review_template.merge_allowed'));
+        $this->assertContains('fresh_authorization_new_cycle_previous_authority_reuse_review', data_get($payload, 'review_template.required_review_inputs'));
+        $this->assertContains('writer_release_fresh_authorization_new_cycle_health_decision_hash', data_get($payload, 'review_template.future_review_outputs'));
+    }
+
+    public function test_command_human_output_lists_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_post_monitoring_review_template(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-post-monitoring-review-template' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Review status', $output);
+        $this->assertStringContainsString('Allowed decision count', $output);
+        $this->assertStringContainsString('Writer file creation allowed', $output);
+        $this->assertStringContainsString('Review hash', $output);
+        $this->assertStringContainsString('Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle post-monitoring review template is blocked', $output);
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_health_decision_template_blocked_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-health-decision-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_health_decision_template.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_health_decision_template_blocked', data_get($payload, 'status'));
+        $this->assertSame('read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_health_decision_template', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'writer_file_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'signature_valid'));
+        $this->assertFalse(data_get($payload, 'receipt_signed'));
+        $this->assertFalse(data_get($payload, 'receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'decision_recorded'));
+        $this->assertFalse(data_get($payload, 'approval_granted'));
+        $this->assertFalse(data_get($payload, 'merge_allowed'));
+        $this->assertSame('blocked_before_writer_release_fresh_authorization_new_cycle_post_monitoring_review_template', data_get($payload, 'health_decision.status'));
+        $this->assertSame(5, data_get($payload, 'health_decision.allowed_decision_state_count'));
+        $this->assertContains('request_fresh_authorization_new_cycle_disable_execution', data_get($payload, 'health_decision.allowed_decision_states'));
+        $this->assertContains('fresh_authorization_new_cycle_previous_authority_reuse_review_hash', data_get($payload, 'health_decision.required_decision_evidence'));
+        $this->assertContains('previous_authority_reuse_attempt_forces_disable_request', data_get($payload, 'health_decision.decision_policy'));
+        $this->assertContains('writer_file_creation_by_writer_release_fresh_authorization_new_cycle_health_decision_template', data_get($payload, 'health_decision.still_forbidden_by_fresh_authorization_new_cycle_health_decision_template'));
+        $this->assertContains('codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_health_decision_template_does_not_dispatch_work', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'health_decision_hash'));
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_health_decision_template_ready_after_all_packets_completed(): void
+    {
+        $packets = [
+            'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001',
+            'AIP-SPLIT-SELF-CONSTRUCTION-PACKET-CONTRACTS-0002',
+            'AIP-SPLIT-SELF-CONSTRUCTION-COMMAND-0003',
+            'AIP-SPLIT-SELF-CONSTRUCTION-SERVICE-0004',
+            'AIP-SPLIT-SELF-CONSTRUCTION-EVIDENCE-0005',
+        ];
+
+        foreach ($packets as $index => $packetId) {
+            $actor = 'codex-'.($index + 1);
+            $session = 'session-'.($index + 1);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--claim-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--json' => true,
+            ]);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--complete-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--reason' => 'packet_scope_finished',
+                '--evidence-hash' => hash('sha256', $packetId),
+                '--json' => true,
+            ]);
+        }
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-health-decision-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_health_decision_template_ready', data_get($payload, 'status'));
+        $this->assertSame('ready_as_future_fresh_authorization_new_cycle_health_decision_template', data_get($payload, 'health_decision.status'));
+        $this->assertSame(5, data_get($payload, 'health_decision.allowed_decision_state_count'));
+        $this->assertFalse(data_get($payload, 'health_decision.ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'health_decision.writer_file_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'health_decision.decision_recorded'));
+        $this->assertFalse(data_get($payload, 'health_decision.approval_granted'));
+        $this->assertFalse(data_get($payload, 'health_decision.merge_allowed'));
+        $this->assertContains('writer_release_fresh_authorization_new_cycle_health_decision_hash', data_get($payload, 'health_decision.future_decision_outputs'));
+        $this->assertContains('later_fresh_authorization_cycle_requires_full_chain_restart', data_get($payload, 'health_decision.decision_policy'));
+        $this->assertContains('human_reviewer_identity', data_get($payload, 'health_decision.required_decision_evidence'));
+    }
+
+    public function test_command_human_output_lists_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_health_decision_template(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-health-decision-template' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Decision status', $output);
+        $this->assertStringContainsString('Decision state count', $output);
+        $this->assertStringContainsString('Decision recorded', $output);
+        $this->assertStringContainsString('Decision hash', $output);
+        $this->assertStringContainsString('Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle health decision template is blocked', $output);
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_request_template_blocked_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-request-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_request_template.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_request_template_blocked', data_get($payload, 'status'));
+        $this->assertSame('read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_request_template', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'writer_file_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'signature_valid'));
+        $this->assertFalse(data_get($payload, 'receipt_signed'));
+        $this->assertFalse(data_get($payload, 'receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'decision_recorded'));
+        $this->assertFalse(data_get($payload, 'approval_granted'));
+        $this->assertFalse(data_get($payload, 'merge_allowed'));
+        $this->assertSame('blocked_before_writer_release_fresh_authorization_new_cycle_health_decision_template', data_get($payload, 'disable_request.status'));
+        $this->assertSame(7, data_get($payload, 'disable_request.trigger_count'));
+        $this->assertContains('fresh_authorization_new_cycle_previous_authority_reuse_after_reenable', data_get($payload, 'disable_request.disable_triggers'));
+        $this->assertContains('fresh_authorization_new_cycle_previous_authority_reuse_review_hash', data_get($payload, 'disable_request.required_disable_request_evidence'));
+        $this->assertContains('disable_request_requires_previous_authority_reuse_review', data_get($payload, 'disable_request.disable_request_policy'));
+        $this->assertContains('disable_execution_by_writer_release_fresh_authorization_new_cycle_disable_request_template', data_get($payload, 'disable_request.still_forbidden_by_fresh_authorization_new_cycle_disable_request_template'));
+        $this->assertContains('codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_request_template_does_not_dispatch_work', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'disable_request_hash'));
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_request_template_ready_after_all_packets_completed(): void
+    {
+        $packets = [
+            'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001',
+            'AIP-SPLIT-SELF-CONSTRUCTION-PACKET-CONTRACTS-0002',
+            'AIP-SPLIT-SELF-CONSTRUCTION-COMMAND-0003',
+            'AIP-SPLIT-SELF-CONSTRUCTION-SERVICE-0004',
+            'AIP-SPLIT-SELF-CONSTRUCTION-EVIDENCE-0005',
+        ];
+
+        foreach ($packets as $index => $packetId) {
+            $actor = 'codex-'.($index + 1);
+            $session = 'session-'.($index + 1);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--claim-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--json' => true,
+            ]);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--complete-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--reason' => 'packet_scope_finished',
+                '--evidence-hash' => hash('sha256', $packetId),
+                '--json' => true,
+            ]);
+        }
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-request-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_request_template_ready', data_get($payload, 'status'));
+        $this->assertSame('ready_as_future_fresh_authorization_new_cycle_disable_request_template', data_get($payload, 'disable_request.status'));
+        $this->assertSame(7, data_get($payload, 'disable_request.trigger_count'));
+        $this->assertFalse(data_get($payload, 'disable_request.ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'disable_request.writer_file_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'disable_request.decision_recorded'));
+        $this->assertFalse(data_get($payload, 'disable_request.approval_granted'));
+        $this->assertFalse(data_get($payload, 'disable_request.merge_allowed'));
+        $this->assertContains('writer_release_fresh_authorization_new_cycle_disable_execution_receipt_hash', data_get($payload, 'disable_request.future_disable_request_outputs'));
+        $this->assertContains('disable_request_does_not_execute_disable', data_get($payload, 'disable_request.disable_request_policy'));
+        $this->assertContains('human_reviewer_identity', data_get($payload, 'disable_request.required_disable_request_evidence'));
+    }
+
+    public function test_command_human_output_lists_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_request_template(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-request-template' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Disable request status', $output);
+        $this->assertStringContainsString('Trigger count', $output);
+        $this->assertStringContainsString('Execution allowed', $output);
+        $this->assertStringContainsString('Disable request hash', $output);
+        $this->assertStringContainsString('Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable request template is blocked', $output);
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_preflight_template_blocked_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-preflight-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_preflight_template.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_preflight_template_blocked', data_get($payload, 'status'));
+        $this->assertSame('read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_preflight_template', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'writer_file_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'decision_recorded'));
+        $this->assertFalse(data_get($payload, 'approval_granted'));
+        $this->assertFalse(data_get($payload, 'merge_allowed'));
+        $this->assertSame('blocked_before_writer_release_fresh_authorization_new_cycle_disable_request_template', data_get($payload, 'disable_execution_preflight.status'));
+        $this->assertSame(9, data_get($payload, 'disable_execution_preflight.check_count'));
+        $this->assertContains('previous_authority_reuse_review_present', data_get($payload, 'disable_execution_preflight.required_checks'));
+        $this->assertContains('fresh_authorization_new_cycle_previous_authority_reuse_review_hash', data_get($payload, 'disable_execution_preflight.required_preflight_evidence'));
+        $this->assertContains('preflight_does_not_execute_disable', data_get($payload, 'disable_execution_preflight.preflight_policy'));
+        $this->assertContains('disable_execution_by_writer_release_fresh_authorization_new_cycle_disable_execution_preflight_template', data_get($payload, 'disable_execution_preflight.still_forbidden_by_fresh_authorization_new_cycle_disable_execution_preflight_template'));
+        $this->assertContains('codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_preflight_template_does_not_dispatch_work', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'disable_execution_preflight_hash'));
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_preflight_template_ready_after_all_packets_completed(): void
+    {
+        $packets = [
+            'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001',
+            'AIP-SPLIT-SELF-CONSTRUCTION-PACKET-CONTRACTS-0002',
+            'AIP-SPLIT-SELF-CONSTRUCTION-COMMAND-0003',
+            'AIP-SPLIT-SELF-CONSTRUCTION-SERVICE-0004',
+            'AIP-SPLIT-SELF-CONSTRUCTION-EVIDENCE-0005',
+        ];
+
+        foreach ($packets as $index => $packetId) {
+            $actor = 'codex-'.($index + 1);
+            $session = 'session-'.($index + 1);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--claim-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--json' => true,
+            ]);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--complete-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--reason' => 'packet_scope_finished',
+                '--evidence-hash' => hash('sha256', $packetId),
+                '--json' => true,
+            ]);
+        }
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-preflight-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_preflight_template_ready', data_get($payload, 'status'));
+        $this->assertSame('ready_as_future_fresh_authorization_new_cycle_disable_execution_preflight_template', data_get($payload, 'disable_execution_preflight.status'));
+        $this->assertSame(9, data_get($payload, 'disable_execution_preflight.check_count'));
+        $this->assertFalse(data_get($payload, 'disable_execution_preflight.execution_allowed'));
+        $this->assertFalse(data_get($payload, 'disable_execution_preflight.ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'disable_execution_preflight.writer_file_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'disable_execution_preflight.decision_recorded'));
+        $this->assertFalse(data_get($payload, 'disable_execution_preflight.approval_granted'));
+        $this->assertContains('writer_release_fresh_authorization_new_cycle_disable_execution_receipt_draft_hash', data_get($payload, 'disable_execution_preflight.future_preflight_outputs'));
+        $this->assertContains('preflight_requires_existing_new_cycle_disable_contract_hash', data_get($payload, 'disable_execution_preflight.preflight_policy'));
+        $this->assertContains('human_reviewer_identity', data_get($payload, 'disable_execution_preflight.required_preflight_evidence'));
+    }
+
+    public function test_command_human_output_lists_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_preflight_template(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-preflight-template' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Preflight status', $output);
+        $this->assertStringContainsString('Check count', $output);
+        $this->assertStringContainsString('Execution allowed', $output);
+        $this->assertStringContainsString('Preflight hash', $output);
+        $this->assertStringContainsString('Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution preflight template is blocked', $output);
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_receipt_draft_template_blocked_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-receipt-draft-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_receipt_draft_template.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_receipt_draft_template_blocked', data_get($payload, 'status'));
+        $this->assertSame('read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_receipt_draft_template', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'writer_file_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'receipt_signed'));
+        $this->assertFalse(data_get($payload, 'receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'decision_recorded'));
+        $this->assertFalse(data_get($payload, 'approval_granted'));
+        $this->assertFalse(data_get($payload, 'merge_allowed'));
+        $this->assertSame('blocked_before_writer_release_fresh_authorization_new_cycle_disable_execution_preflight_template', data_get($payload, 'disable_execution_receipt_draft.status'));
+        $this->assertSame(10, data_get($payload, 'disable_execution_receipt_draft.required_receipt_field_count'));
+        $this->assertContains('writer_state_before_hash', data_get($payload, 'disable_execution_receipt_draft.required_receipt_fields'));
+        $this->assertContains('fresh_authorization_new_cycle_previous_authority_reuse_review_hash', data_get($payload, 'disable_execution_receipt_draft.required_receipt_evidence'));
+        $this->assertContains('receipt_draft_does_not_execute_disable', data_get($payload, 'disable_execution_receipt_draft.receipt_policy'));
+        $this->assertContains('disable_execution_by_writer_release_fresh_authorization_new_cycle_disable_execution_receipt_draft_template', data_get($payload, 'disable_execution_receipt_draft.still_forbidden_by_fresh_authorization_new_cycle_disable_execution_receipt_draft_template'));
+        $this->assertContains('codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_receipt_draft_template_does_not_dispatch_work', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'disable_execution_receipt_draft_hash'));
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_receipt_draft_template_ready_after_all_packets_completed(): void
+    {
+        $packets = [
+            'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001',
+            'AIP-SPLIT-SELF-CONSTRUCTION-PACKET-CONTRACTS-0002',
+            'AIP-SPLIT-SELF-CONSTRUCTION-COMMAND-0003',
+            'AIP-SPLIT-SELF-CONSTRUCTION-SERVICE-0004',
+            'AIP-SPLIT-SELF-CONSTRUCTION-EVIDENCE-0005',
+        ];
+
+        foreach ($packets as $index => $packetId) {
+            $actor = 'codex-'.($index + 1);
+            $session = 'session-'.($index + 1);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--claim-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--json' => true,
+            ]);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--complete-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--reason' => 'packet_scope_finished',
+                '--evidence-hash' => hash('sha256', $packetId),
+                '--json' => true,
+            ]);
+        }
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-receipt-draft-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_receipt_draft_template_ready', data_get($payload, 'status'));
+        $this->assertSame('ready_as_future_fresh_authorization_new_cycle_disable_execution_receipt_draft_template', data_get($payload, 'disable_execution_receipt_draft.status'));
+        $this->assertSame(10, data_get($payload, 'disable_execution_receipt_draft.required_receipt_field_count'));
+        $this->assertFalse(data_get($payload, 'disable_execution_receipt_draft.execution_allowed'));
+        $this->assertFalse(data_get($payload, 'disable_execution_receipt_draft.ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'disable_execution_receipt_draft.writer_file_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'disable_execution_receipt_draft.receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'disable_execution_receipt_draft.decision_recorded'));
+        $this->assertContains('writer_release_fresh_authorization_new_cycle_disable_execution_signed_receipt_hash', data_get($payload, 'disable_execution_receipt_draft.future_receipt_outputs'));
+        $this->assertContains('receipt_draft_must_not_be_persisted', data_get($payload, 'disable_execution_receipt_draft.receipt_policy'));
+        $this->assertContains('human_reviewer_identity', data_get($payload, 'disable_execution_receipt_draft.required_receipt_evidence'));
+    }
+
+    public function test_command_human_output_lists_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_receipt_draft_template(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-receipt-draft-template' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Receipt status', $output);
+        $this->assertStringContainsString('Receipt field count', $output);
+        $this->assertStringContainsString('Receipt persisted', $output);
+        $this->assertStringContainsString('Receipt draft hash', $output);
+        $this->assertStringContainsString('Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution receipt draft template is blocked', $output);
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_signed_receipt_template_blocked_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-signed-receipt-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_signed_receipt_template.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_signed_receipt_template_blocked', data_get($payload, 'status'));
+        $this->assertSame('read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_signed_receipt_template', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'writer_file_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'signature_valid'));
+        $this->assertFalse(data_get($payload, 'receipt_signed'));
+        $this->assertFalse(data_get($payload, 'receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'decision_recorded'));
+        $this->assertFalse(data_get($payload, 'approval_granted'));
+        $this->assertSame('blocked_before_writer_release_fresh_authorization_new_cycle_disable_execution_receipt_draft_template', data_get($payload, 'disable_execution_signed_receipt.status'));
+        $this->assertSame(3, data_get($payload, 'disable_execution_signed_receipt.required_signer_count'));
+        $this->assertContains('receipt_draft_hash_match', data_get($payload, 'disable_execution_signed_receipt.required_signature_evidence'));
+        $this->assertContains('signed_receipt_template_does_not_accept_signature', data_get($payload, 'disable_execution_signed_receipt.signature_policy'));
+        $this->assertContains('disable_execution_by_writer_release_fresh_authorization_new_cycle_disable_execution_signed_receipt_template', data_get($payload, 'disable_execution_signed_receipt.still_forbidden_by_fresh_authorization_new_cycle_disable_execution_signed_receipt_template'));
+        $this->assertContains('codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_signed_receipt_template_does_not_dispatch_work', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'disable_execution_signed_receipt_hash'));
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_signed_receipt_template_ready_after_all_packets_completed(): void
+    {
+        $packets = [
+            'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001',
+            'AIP-SPLIT-SELF-CONSTRUCTION-PACKET-CONTRACTS-0002',
+            'AIP-SPLIT-SELF-CONSTRUCTION-COMMAND-0003',
+            'AIP-SPLIT-SELF-CONSTRUCTION-SERVICE-0004',
+            'AIP-SPLIT-SELF-CONSTRUCTION-EVIDENCE-0005',
+        ];
+
+        foreach ($packets as $index => $packetId) {
+            $actor = 'codex-'.($index + 1);
+            $session = 'session-'.($index + 1);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--claim-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--json' => true,
+            ]);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--complete-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--reason' => 'packet_scope_finished',
+                '--evidence-hash' => hash('sha256', $packetId),
+                '--json' => true,
+            ]);
+        }
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-signed-receipt-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_signed_receipt_template_ready', data_get($payload, 'status'));
+        $this->assertSame('ready_as_future_fresh_authorization_new_cycle_disable_execution_signed_receipt_template', data_get($payload, 'disable_execution_signed_receipt.status'));
+        $this->assertSame(3, data_get($payload, 'disable_execution_signed_receipt.required_signer_count'));
+        $this->assertFalse(data_get($payload, 'disable_execution_signed_receipt.execution_allowed'));
+        $this->assertFalse(data_get($payload, 'disable_execution_signed_receipt.signature_valid'));
+        $this->assertFalse(data_get($payload, 'disable_execution_signed_receipt.receipt_signed'));
+        $this->assertFalse(data_get($payload, 'disable_execution_signed_receipt.receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'disable_execution_signed_receipt.decision_recorded'));
+        $this->assertContains('writer_release_fresh_authorization_new_cycle_disable_execution_persistence_preflight_hash', data_get($payload, 'disable_execution_signed_receipt.future_signed_receipt_outputs'));
+        $this->assertContains('signed_receipt_template_must_reference_exact_draft_hash', data_get($payload, 'disable_execution_signed_receipt.signature_policy'));
+        $this->assertContains('human_reviewer_identity', data_get($payload, 'disable_execution_signed_receipt.required_signature_evidence'));
+    }
+
+    public function test_command_human_output_lists_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_signed_receipt_template(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-signed-receipt-template' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Signed receipt status', $output);
+        $this->assertStringContainsString('Required signer count', $output);
+        $this->assertStringContainsString('Signature valid', $output);
+        $this->assertStringContainsString('Signed receipt hash', $output);
+        $this->assertStringContainsString('Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution signed receipt template is blocked', $output);
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_persistence_preflight_template_blocked_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-persistence-preflight-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_persistence_preflight_template.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_persistence_preflight_template_blocked', data_get($payload, 'status'));
+        $this->assertSame('read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_persistence_preflight_template', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'writer_file_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'signature_valid'));
+        $this->assertFalse(data_get($payload, 'receipt_signed'));
+        $this->assertFalse(data_get($payload, 'receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'decision_recorded'));
+        $this->assertFalse(data_get($payload, 'approval_granted'));
+        $this->assertSame('blocked_before_writer_release_fresh_authorization_new_cycle_disable_execution_signed_receipt_template', data_get($payload, 'disable_execution_persistence_preflight.status'));
+        $this->assertSame(9, data_get($payload, 'disable_execution_persistence_preflight.check_count'));
+        $this->assertContains('receipt_persistence_idempotency_key_declared', data_get($payload, 'disable_execution_persistence_preflight.required_checks'));
+        $this->assertContains('append_only_ledger_target_hash', data_get($payload, 'disable_execution_persistence_preflight.required_persistence_evidence'));
+        $this->assertContains('persistence_preflight_does_not_write_ledger', data_get($payload, 'disable_execution_persistence_preflight.persistence_policy'));
+        $this->assertContains('ledger_write_by_writer_release_fresh_authorization_new_cycle_disable_execution_persistence_preflight_template', data_get($payload, 'disable_execution_persistence_preflight.still_forbidden_by_fresh_authorization_new_cycle_disable_execution_persistence_preflight_template'));
+        $this->assertContains('codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_persistence_preflight_template_does_not_dispatch_work', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'disable_execution_persistence_preflight_hash'));
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_persistence_preflight_template_ready_after_all_packets_completed(): void
+    {
+        $packets = [
+            'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001',
+            'AIP-SPLIT-SELF-CONSTRUCTION-PACKET-CONTRACTS-0002',
+            'AIP-SPLIT-SELF-CONSTRUCTION-COMMAND-0003',
+            'AIP-SPLIT-SELF-CONSTRUCTION-SERVICE-0004',
+            'AIP-SPLIT-SELF-CONSTRUCTION-EVIDENCE-0005',
+        ];
+
+        foreach ($packets as $index => $packetId) {
+            $actor = 'codex-'.($index + 1);
+            $session = 'session-'.($index + 1);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--claim-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--json' => true,
+            ]);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--complete-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--reason' => 'packet_scope_finished',
+                '--evidence-hash' => hash('sha256', $packetId),
+                '--json' => true,
+            ]);
+        }
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-persistence-preflight-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_persistence_preflight_template_ready', data_get($payload, 'status'));
+        $this->assertSame('ready_as_future_fresh_authorization_new_cycle_disable_execution_persistence_preflight_template', data_get($payload, 'disable_execution_persistence_preflight.status'));
+        $this->assertSame(9, data_get($payload, 'disable_execution_persistence_preflight.check_count'));
+        $this->assertFalse(data_get($payload, 'disable_execution_persistence_preflight.execution_allowed'));
+        $this->assertFalse(data_get($payload, 'disable_execution_persistence_preflight.ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'disable_execution_persistence_preflight.receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'disable_execution_persistence_preflight.decision_recorded'));
+        $this->assertFalse(data_get($payload, 'disable_execution_persistence_preflight.approval_granted'));
+        $this->assertContains('writer_release_fresh_authorization_new_cycle_disable_execution_append_only_ledger_event_hash', data_get($payload, 'disable_execution_persistence_preflight.future_persistence_outputs'));
+        $this->assertContains('persistence_preflight_requires_idempotency_key', data_get($payload, 'disable_execution_persistence_preflight.persistence_policy'));
+        $this->assertContains('human_reviewer_identity', data_get($payload, 'disable_execution_persistence_preflight.required_persistence_evidence'));
+    }
+
+    public function test_command_human_output_lists_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_persistence_preflight_template(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-persistence-preflight-template' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Persistence preflight status', $output);
+        $this->assertStringContainsString('Check count', $output);
+        $this->assertStringContainsString('Ledger write allowed', $output);
+        $this->assertStringContainsString('Persistence preflight hash', $output);
+        $this->assertStringContainsString('Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution persistence preflight template is blocked', $output);
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_persistence_receipt_template_blocked_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-persistence-receipt-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_persistence_receipt_template.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_persistence_receipt_template_blocked', data_get($payload, 'status'));
+        $this->assertSame('read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_persistence_receipt_template', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'writer_file_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'signature_valid'));
+        $this->assertFalse(data_get($payload, 'receipt_signed'));
+        $this->assertFalse(data_get($payload, 'receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'decision_recorded'));
+        $this->assertFalse(data_get($payload, 'approval_granted'));
+        $this->assertSame('blocked_before_writer_release_fresh_authorization_new_cycle_disable_execution_persistence_preflight_template', data_get($payload, 'disable_execution_persistence_receipt.status'));
+        $this->assertSame(10, data_get($payload, 'disable_execution_persistence_receipt.required_receipt_field_count'));
+        $this->assertContains('append_only_ledger_event_hash', data_get($payload, 'disable_execution_persistence_receipt.required_receipt_fields'));
+        $this->assertContains('receipt_persistence_idempotency_key', data_get($payload, 'disable_execution_persistence_receipt.required_persistence_receipt_evidence'));
+        $this->assertContains('persistence_receipt_does_not_write_ledger', data_get($payload, 'disable_execution_persistence_receipt.persistence_receipt_policy'));
+        $this->assertContains('ledger_write_by_writer_release_fresh_authorization_new_cycle_disable_execution_persistence_receipt_template', data_get($payload, 'disable_execution_persistence_receipt.still_forbidden_by_fresh_authorization_new_cycle_disable_execution_persistence_receipt_template'));
+        $this->assertContains('codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_persistence_receipt_template_does_not_dispatch_work', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'disable_execution_persistence_receipt_hash'));
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_persistence_receipt_template_ready_after_all_packets_completed(): void
+    {
+        $packets = [
+            'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001',
+            'AIP-SPLIT-SELF-CONSTRUCTION-PACKET-CONTRACTS-0002',
+            'AIP-SPLIT-SELF-CONSTRUCTION-COMMAND-0003',
+            'AIP-SPLIT-SELF-CONSTRUCTION-SERVICE-0004',
+            'AIP-SPLIT-SELF-CONSTRUCTION-EVIDENCE-0005',
+        ];
+
+        foreach ($packets as $index => $packetId) {
+            $actor = 'codex-'.($index + 1);
+            $session = 'session-'.($index + 1);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--claim-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--json' => true,
+            ]);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--complete-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--reason' => 'packet_scope_finished',
+                '--evidence-hash' => hash('sha256', $packetId),
+                '--json' => true,
+            ]);
+        }
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-persistence-receipt-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_persistence_receipt_template_ready', data_get($payload, 'status'));
+        $this->assertSame('ready_as_future_fresh_authorization_new_cycle_disable_execution_persistence_receipt_template', data_get($payload, 'disable_execution_persistence_receipt.status'));
+        $this->assertSame(10, data_get($payload, 'disable_execution_persistence_receipt.required_receipt_field_count'));
+        $this->assertFalse(data_get($payload, 'disable_execution_persistence_receipt.execution_allowed'));
+        $this->assertFalse(data_get($payload, 'disable_execution_persistence_receipt.ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'disable_execution_persistence_receipt.receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'disable_execution_persistence_receipt.decision_recorded'));
+        $this->assertFalse(data_get($payload, 'disable_execution_persistence_receipt.approval_granted'));
+        $this->assertContains('writer_release_fresh_authorization_new_cycle_disable_execution_persistence_audit_hash', data_get($payload, 'disable_execution_persistence_receipt.future_persistence_receipt_outputs'));
+        $this->assertContains('persistence_receipt_describes_future_ledger_event_only', data_get($payload, 'disable_execution_persistence_receipt.persistence_receipt_policy'));
+        $this->assertContains('human_reviewer_identity', data_get($payload, 'disable_execution_persistence_receipt.required_persistence_receipt_evidence'));
+    }
+
+    public function test_command_human_output_lists_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_persistence_receipt_template(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-persistence-receipt-template' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Persistence receipt status', $output);
+        $this->assertStringContainsString('Receipt field count', $output);
+        $this->assertStringContainsString('Receipt persisted', $output);
+        $this->assertStringContainsString('Persistence receipt hash', $output);
+        $this->assertStringContainsString('Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution persistence receipt template is blocked', $output);
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_post_persistence_review_template_blocked_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-post-persistence-review-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_post_persistence_review_template.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_post_persistence_review_template_blocked', data_get($payload, 'status'));
+        $this->assertSame('read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_post_persistence_review_template', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'writer_file_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'signature_valid'));
+        $this->assertFalse(data_get($payload, 'receipt_signed'));
+        $this->assertFalse(data_get($payload, 'receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'decision_recorded'));
+        $this->assertFalse(data_get($payload, 'approval_granted'));
+        $this->assertSame('blocked_before_writer_release_fresh_authorization_new_cycle_disable_execution_persistence_receipt_template', data_get($payload, 'disable_execution_post_persistence_review.status'));
+        $this->assertSame(5, data_get($payload, 'disable_execution_post_persistence_review.allowed_review_decision_count'));
+        $this->assertContains('request_disable_execution_evidence_repair', data_get($payload, 'disable_execution_post_persistence_review.allowed_review_decisions'));
+        $this->assertContains('post_persistence_integrity_check_hash', data_get($payload, 'disable_execution_post_persistence_review.required_review_evidence'));
+        $this->assertContains('review_requires_idempotency_key_match', data_get($payload, 'disable_execution_post_persistence_review.review_policy'));
+        $this->assertContains('ledger_write_by_writer_release_fresh_authorization_new_cycle_disable_execution_post_persistence_review_template', data_get($payload, 'disable_execution_post_persistence_review.still_forbidden_by_fresh_authorization_new_cycle_disable_execution_post_persistence_review_template'));
+        $this->assertContains('codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_post_persistence_review_template_does_not_dispatch_work', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'disable_execution_post_persistence_review_hash'));
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_post_persistence_review_template_ready_after_all_packets_completed(): void
+    {
+        $packets = [
+            'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001',
+            'AIP-SPLIT-SELF-CONSTRUCTION-PACKET-CONTRACTS-0002',
+            'AIP-SPLIT-SELF-CONSTRUCTION-COMMAND-0003',
+            'AIP-SPLIT-SELF-CONSTRUCTION-SERVICE-0004',
+            'AIP-SPLIT-SELF-CONSTRUCTION-EVIDENCE-0005',
+        ];
+
+        foreach ($packets as $index => $packetId) {
+            $actor = 'codex-'.($index + 1);
+            $session = 'session-'.($index + 1);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--claim-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--json' => true,
+            ]);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--complete-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--reason' => 'packet_scope_finished',
+                '--evidence-hash' => hash('sha256', $packetId),
+                '--json' => true,
+            ]);
+        }
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-post-persistence-review-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_post_persistence_review_template_ready', data_get($payload, 'status'));
+        $this->assertSame('ready_as_future_fresh_authorization_new_cycle_disable_execution_post_persistence_review_template', data_get($payload, 'disable_execution_post_persistence_review.status'));
+        $this->assertSame(5, data_get($payload, 'disable_execution_post_persistence_review.allowed_review_decision_count'));
+        $this->assertFalse(data_get($payload, 'disable_execution_post_persistence_review.execution_allowed'));
+        $this->assertFalse(data_get($payload, 'disable_execution_post_persistence_review.ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'disable_execution_post_persistence_review.receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'disable_execution_post_persistence_review.decision_recorded'));
+        $this->assertFalse(data_get($payload, 'disable_execution_post_persistence_review.approval_granted'));
+        $this->assertContains('writer_release_fresh_authorization_new_cycle_disable_follow_up_observability_hash', data_get($payload, 'disable_execution_post_persistence_review.future_review_outputs'));
+        $this->assertContains('review_requires_writer_state_still_disabled', data_get($payload, 'disable_execution_post_persistence_review.review_policy'));
+        $this->assertContains('human_reviewer_identity', data_get($payload, 'disable_execution_post_persistence_review.required_review_evidence'));
+    }
+
+    public function test_command_human_output_lists_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_post_persistence_review_template(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-post-persistence-review-template' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Review status', $output);
+        $this->assertStringContainsString('Review decision count', $output);
+        $this->assertStringContainsString('Ledger write allowed', $output);
+        $this->assertStringContainsString('Review hash', $output);
+        $this->assertStringContainsString('Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution post-persistence review template is blocked', $output);
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_follow_up_observability_template_blocked_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-follow-up-observability-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_follow_up_observability_template.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_follow_up_observability_template_blocked', data_get($payload, 'status'));
+        $this->assertSame('read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_follow_up_observability_template', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'writer_file_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'signature_valid'));
+        $this->assertFalse(data_get($payload, 'receipt_signed'));
+        $this->assertFalse(data_get($payload, 'receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'decision_recorded'));
+        $this->assertFalse(data_get($payload, 'approval_granted'));
+        $this->assertSame('blocked_before_writer_release_fresh_authorization_new_cycle_disable_execution_post_persistence_review_template', data_get($payload, 'disable_execution_follow_up_observability.status'));
+        $this->assertSame(8, data_get($payload, 'disable_execution_follow_up_observability.observation_signal_count'));
+        $this->assertContains('no_dispatch_after_disable', data_get($payload, 'disable_execution_follow_up_observability.observation_signals'));
+        $this->assertContains('no_writer_file_creation_evidence_hash', data_get($payload, 'disable_execution_follow_up_observability.required_observation_evidence'));
+        $this->assertContains('observability_requires_no_dispatch_evidence', data_get($payload, 'disable_execution_follow_up_observability.observability_policy'));
+        $this->assertContains('ledger_write_by_writer_release_fresh_authorization_new_cycle_disable_execution_follow_up_observability_template', data_get($payload, 'disable_execution_follow_up_observability.still_forbidden_by_fresh_authorization_new_cycle_disable_execution_follow_up_observability_template'));
+        $this->assertContains('codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_follow_up_observability_template_does_not_dispatch_work', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'disable_execution_follow_up_observability_hash'));
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_follow_up_observability_template_ready_after_all_packets_completed(): void
+    {
+        $packets = [
+            'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001',
+            'AIP-SPLIT-SELF-CONSTRUCTION-PACKET-CONTRACTS-0002',
+            'AIP-SPLIT-SELF-CONSTRUCTION-COMMAND-0003',
+            'AIP-SPLIT-SELF-CONSTRUCTION-SERVICE-0004',
+            'AIP-SPLIT-SELF-CONSTRUCTION-EVIDENCE-0005',
+        ];
+
+        foreach ($packets as $index => $packetId) {
+            $actor = 'codex-'.($index + 1);
+            $session = 'session-'.($index + 1);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--claim-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--json' => true,
+            ]);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--complete-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--reason' => 'packet_scope_finished',
+                '--evidence-hash' => hash('sha256', $packetId),
+                '--json' => true,
+            ]);
+        }
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-follow-up-observability-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_follow_up_observability_template_ready', data_get($payload, 'status'));
+        $this->assertSame('ready_as_future_fresh_authorization_new_cycle_disable_execution_follow_up_observability_template', data_get($payload, 'disable_execution_follow_up_observability.status'));
+        $this->assertSame(8, data_get($payload, 'disable_execution_follow_up_observability.observation_signal_count'));
+        $this->assertFalse(data_get($payload, 'disable_execution_follow_up_observability.execution_allowed'));
+        $this->assertFalse(data_get($payload, 'disable_execution_follow_up_observability.ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'disable_execution_follow_up_observability.receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'disable_execution_follow_up_observability.decision_recorded'));
+        $this->assertFalse(data_get($payload, 'disable_execution_follow_up_observability.approval_granted'));
+        $this->assertContains('writer_release_fresh_authorization_new_cycle_disable_observation_window_report_hash', data_get($payload, 'disable_execution_follow_up_observability.future_observability_outputs'));
+        $this->assertContains('observability_requires_writer_state_still_disabled', data_get($payload, 'disable_execution_follow_up_observability.observability_policy'));
+        $this->assertContains('human_reviewer_identity', data_get($payload, 'disable_execution_follow_up_observability.required_observation_evidence'));
+    }
+
+    public function test_command_human_output_lists_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_follow_up_observability_template(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-follow-up-observability-template' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Observability status', $output);
+        $this->assertStringContainsString('Signal count', $output);
+        $this->assertStringContainsString('Ledger write allowed', $output);
+        $this->assertStringContainsString('Observability hash', $output);
+        $this->assertStringContainsString('Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution follow-up observability template is blocked', $output);
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_evidence_repair_request_template_blocked_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-evidence-repair-request-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_evidence_repair_request_template.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_evidence_repair_request_template_blocked', data_get($payload, 'status'));
+        $this->assertSame('read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_evidence_repair_request_template', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'writer_file_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'signature_valid'));
+        $this->assertFalse(data_get($payload, 'receipt_signed'));
+        $this->assertFalse(data_get($payload, 'receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'decision_recorded'));
+        $this->assertFalse(data_get($payload, 'approval_granted'));
+        $this->assertSame('blocked_before_writer_release_fresh_authorization_new_cycle_disable_execution_follow_up_observability_template', data_get($payload, 'disable_execution_evidence_repair_request.status'));
+        $this->assertSame(6, data_get($payload, 'disable_execution_evidence_repair_request.repair_item_count'));
+        $this->assertContains('missing_no_dispatch_evidence_hash', data_get($payload, 'disable_execution_evidence_repair_request.repair_items'));
+        $this->assertContains('replacement_evidence_hash', data_get($payload, 'disable_execution_evidence_repair_request.required_repair_evidence'));
+        $this->assertContains('repair_request_requires_failed_observation_signal', data_get($payload, 'disable_execution_evidence_repair_request.repair_policy'));
+        $this->assertContains('ledger_write_by_writer_release_fresh_authorization_new_cycle_disable_execution_evidence_repair_request_template', data_get($payload, 'disable_execution_evidence_repair_request.still_forbidden_by_fresh_authorization_new_cycle_disable_execution_evidence_repair_request_template'));
+        $this->assertContains('codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_evidence_repair_request_template_does_not_dispatch_work', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'disable_execution_evidence_repair_request_hash'));
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_evidence_repair_request_template_ready_after_all_packets_completed(): void
+    {
+        $packets = [
+            'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001',
+            'AIP-SPLIT-SELF-CONSTRUCTION-PACKET-CONTRACTS-0002',
+            'AIP-SPLIT-SELF-CONSTRUCTION-COMMAND-0003',
+            'AIP-SPLIT-SELF-CONSTRUCTION-SERVICE-0004',
+            'AIP-SPLIT-SELF-CONSTRUCTION-EVIDENCE-0005',
+        ];
+
+        foreach ($packets as $index => $packetId) {
+            $actor = 'codex-'.($index + 1);
+            $session = 'session-'.($index + 1);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--claim-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--json' => true,
+            ]);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--complete-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--reason' => 'packet_scope_finished',
+                '--evidence-hash' => hash('sha256', $packetId),
+                '--json' => true,
+            ]);
+        }
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-evidence-repair-request-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_evidence_repair_request_template_ready', data_get($payload, 'status'));
+        $this->assertSame('ready_as_future_fresh_authorization_new_cycle_disable_execution_evidence_repair_request_template', data_get($payload, 'disable_execution_evidence_repair_request.status'));
+        $this->assertSame(6, data_get($payload, 'disable_execution_evidence_repair_request.repair_item_count'));
+        $this->assertFalse(data_get($payload, 'disable_execution_evidence_repair_request.execution_allowed'));
+        $this->assertFalse(data_get($payload, 'disable_execution_evidence_repair_request.ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'disable_execution_evidence_repair_request.receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'disable_execution_evidence_repair_request.decision_recorded'));
+        $this->assertFalse(data_get($payload, 'disable_execution_evidence_repair_request.approval_granted'));
+        $this->assertContains('writer_release_fresh_authorization_new_cycle_disable_repair_review_hash', data_get($payload, 'disable_execution_evidence_repair_request.future_repair_outputs'));
+        $this->assertContains('repair_request_requires_replacement_evidence_hash', data_get($payload, 'disable_execution_evidence_repair_request.repair_policy'));
+        $this->assertContains('human_reviewer_identity', data_get($payload, 'disable_execution_evidence_repair_request.required_repair_evidence'));
+    }
+
+    public function test_command_human_output_lists_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_evidence_repair_request_template(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-evidence-repair-request-template' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Repair request status', $output);
+        $this->assertStringContainsString('Repair item count', $output);
+        $this->assertStringContainsString('Ledger write allowed', $output);
+        $this->assertStringContainsString('Repair request hash', $output);
+        $this->assertStringContainsString('Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution evidence repair request template is blocked', $output);
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_repaired_evidence_packet_template_blocked_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-repaired-evidence-packet-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_repaired_evidence_packet_template.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_repaired_evidence_packet_template_blocked', data_get($payload, 'status'));
+        $this->assertSame('read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_repaired_evidence_packet_template', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'writer_file_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'signature_valid'));
+        $this->assertFalse(data_get($payload, 'receipt_signed'));
+        $this->assertFalse(data_get($payload, 'receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'decision_recorded'));
+        $this->assertFalse(data_get($payload, 'approval_granted'));
+        $this->assertSame('blocked_before_writer_release_fresh_authorization_new_cycle_disable_execution_evidence_repair_request_template', data_get($payload, 'disable_execution_repaired_evidence_packet.status'));
+        $this->assertSame(10, data_get($payload, 'disable_execution_repaired_evidence_packet.required_packet_field_count'));
+        $this->assertContains('replacement_evidence_source_hash', data_get($payload, 'disable_execution_repaired_evidence_packet.required_packet_fields'));
+        $this->assertContains('replacement_evidence_hash', data_get($payload, 'disable_execution_repaired_evidence_packet.required_packet_evidence'));
+        $this->assertContains('repaired_packet_requires_replacement_source_hash', data_get($payload, 'disable_execution_repaired_evidence_packet.packet_policy'));
+        $this->assertContains('ledger_write_by_writer_release_fresh_authorization_new_cycle_disable_execution_repaired_evidence_packet_template', data_get($payload, 'disable_execution_repaired_evidence_packet.still_forbidden_by_fresh_authorization_new_cycle_disable_execution_repaired_evidence_packet_template'));
+        $this->assertContains('codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_repaired_evidence_packet_template_does_not_dispatch_work', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'disable_execution_repaired_evidence_packet_hash'));
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_repaired_evidence_packet_template_ready_after_all_packets_completed(): void
+    {
+        $packets = [
+            'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001',
+            'AIP-SPLIT-SELF-CONSTRUCTION-PACKET-CONTRACTS-0002',
+            'AIP-SPLIT-SELF-CONSTRUCTION-COMMAND-0003',
+            'AIP-SPLIT-SELF-CONSTRUCTION-SERVICE-0004',
+            'AIP-SPLIT-SELF-CONSTRUCTION-EVIDENCE-0005',
+        ];
+
+        foreach ($packets as $index => $packetId) {
+            $actor = 'codex-'.($index + 1);
+            $session = 'session-'.($index + 1);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--claim-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--json' => true,
+            ]);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--complete-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--reason' => 'packet_scope_finished',
+                '--evidence-hash' => hash('sha256', $packetId),
+                '--json' => true,
+            ]);
+        }
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-repaired-evidence-packet-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_repaired_evidence_packet_template_ready', data_get($payload, 'status'));
+        $this->assertSame('ready_as_future_fresh_authorization_new_cycle_disable_execution_repaired_evidence_packet_template', data_get($payload, 'disable_execution_repaired_evidence_packet.status'));
+        $this->assertSame(10, data_get($payload, 'disable_execution_repaired_evidence_packet.required_packet_field_count'));
+        $this->assertFalse(data_get($payload, 'disable_execution_repaired_evidence_packet.execution_allowed'));
+        $this->assertFalse(data_get($payload, 'disable_execution_repaired_evidence_packet.ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'disable_execution_repaired_evidence_packet.receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'disable_execution_repaired_evidence_packet.decision_recorded'));
+        $this->assertFalse(data_get($payload, 'disable_execution_repaired_evidence_packet.approval_granted'));
+        $this->assertContains('writer_release_fresh_authorization_new_cycle_disable_repair_review_hash', data_get($payload, 'disable_execution_repaired_evidence_packet.future_packet_outputs'));
+        $this->assertContains('repaired_packet_requires_repair_request_hash', data_get($payload, 'disable_execution_repaired_evidence_packet.packet_policy'));
+        $this->assertContains('human_reviewer_identity', data_get($payload, 'disable_execution_repaired_evidence_packet.required_packet_evidence'));
+    }
+
+    public function test_command_human_output_lists_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_repaired_evidence_packet_template(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-repaired-evidence-packet-template' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Repaired packet status', $output);
+        $this->assertStringContainsString('Packet field count', $output);
+        $this->assertStringContainsString('Ledger write allowed', $output);
+        $this->assertStringContainsString('Repaired packet hash', $output);
+        $this->assertStringContainsString('Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution repaired evidence packet template is blocked', $output);
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_repair_review_template_blocked_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-repair-review-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_repair_review_template.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_repair_review_template_blocked', data_get($payload, 'status'));
+        $this->assertSame('read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_repair_review_template', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'writer_file_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'signature_valid'));
+        $this->assertFalse(data_get($payload, 'receipt_signed'));
+        $this->assertFalse(data_get($payload, 'receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'decision_recorded'));
+        $this->assertFalse(data_get($payload, 'approval_granted'));
+        $this->assertSame('blocked_before_writer_release_fresh_authorization_new_cycle_disable_execution_repaired_evidence_packet_template', data_get($payload, 'disable_execution_repair_review.status'));
+        $this->assertSame(5, data_get($payload, 'disable_execution_repair_review.allowed_repair_review_outcome_count'));
+        $this->assertContains('repair_evidence_rejected_due_to_integrity_gap', data_get($payload, 'disable_execution_repair_review.allowed_repair_review_outcomes'));
+        $this->assertContains('repaired_evidence_integrity_hash', data_get($payload, 'disable_execution_repair_review.required_review_evidence'));
+        $this->assertContains('repair_review_requires_integrity_hash', data_get($payload, 'disable_execution_repair_review.repair_review_policy'));
+        $this->assertContains('ledger_write_by_writer_release_fresh_authorization_new_cycle_disable_execution_repair_review_template', data_get($payload, 'disable_execution_repair_review.still_forbidden_by_fresh_authorization_new_cycle_disable_execution_repair_review_template'));
+        $this->assertContains('codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_repair_review_template_does_not_dispatch_work', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'disable_execution_repair_review_hash'));
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_repair_review_template_ready_after_all_packets_completed(): void
+    {
+        $packets = [
+            'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001',
+            'AIP-SPLIT-SELF-CONSTRUCTION-PACKET-CONTRACTS-0002',
+            'AIP-SPLIT-SELF-CONSTRUCTION-COMMAND-0003',
+            'AIP-SPLIT-SELF-CONSTRUCTION-SERVICE-0004',
+            'AIP-SPLIT-SELF-CONSTRUCTION-EVIDENCE-0005',
+        ];
+
+        foreach ($packets as $index => $packetId) {
+            $actor = 'codex-'.($index + 1);
+            $session = 'session-'.($index + 1);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--claim-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--json' => true,
+            ]);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--complete-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--reason' => 'packet_scope_finished',
+                '--evidence-hash' => hash('sha256', $packetId),
+                '--json' => true,
+            ]);
+        }
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-repair-review-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_repair_review_template_ready', data_get($payload, 'status'));
+        $this->assertSame('ready_as_future_fresh_authorization_new_cycle_disable_execution_repair_review_template', data_get($payload, 'disable_execution_repair_review.status'));
+        $this->assertSame(5, data_get($payload, 'disable_execution_repair_review.allowed_repair_review_outcome_count'));
+        $this->assertFalse(data_get($payload, 'disable_execution_repair_review.execution_allowed'));
+        $this->assertFalse(data_get($payload, 'disable_execution_repair_review.ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'disable_execution_repair_review.receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'disable_execution_repair_review.decision_recorded'));
+        $this->assertFalse(data_get($payload, 'disable_execution_repair_review.approval_granted'));
+        $this->assertContains('writer_release_fresh_authorization_new_cycle_disable_repair_outcome_packet_hash', data_get($payload, 'disable_execution_repair_review.future_repair_review_outputs'));
+        $this->assertContains('repair_review_requires_replacement_source_hash', data_get($payload, 'disable_execution_repair_review.repair_review_policy'));
+        $this->assertContains('human_reviewer_identity', data_get($payload, 'disable_execution_repair_review.required_review_evidence'));
+    }
+
+    public function test_command_human_output_lists_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_repair_review_template(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-repair-review-template' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Repair review status', $output);
+        $this->assertStringContainsString('Review outcome count', $output);
+        $this->assertStringContainsString('Ledger write allowed', $output);
+        $this->assertStringContainsString('Repair review hash', $output);
+        $this->assertStringContainsString('Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution repair review template is blocked', $output);
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_repair_outcome_packet_template_blocked_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-repair-outcome-packet-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_repair_outcome_packet_template.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_repair_outcome_packet_template_blocked', data_get($payload, 'status'));
+        $this->assertSame('read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_repair_outcome_packet_template', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'writer_file_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'signature_valid'));
+        $this->assertFalse(data_get($payload, 'receipt_signed'));
+        $this->assertFalse(data_get($payload, 'receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'decision_recorded'));
+        $this->assertFalse(data_get($payload, 'approval_granted'));
+        $this->assertSame('blocked_before_writer_release_fresh_authorization_new_cycle_disable_execution_repair_review_template', data_get($payload, 'disable_execution_repair_outcome_packet.status'));
+        $this->assertSame(10, data_get($payload, 'disable_execution_repair_outcome_packet.required_outcome_field_count'));
+        $this->assertContains('repair_evidence_accepted_for_later_cycle_request', data_get($payload, 'disable_execution_repair_outcome_packet.allowed_outcome_values'));
+        $this->assertContains('selected_repair_review_outcome', data_get($payload, 'disable_execution_repair_outcome_packet.required_outcome_evidence'));
+        $this->assertContains('repair_outcome_does_not_authorize_later_cycle', data_get($payload, 'disable_execution_repair_outcome_packet.outcome_policy'));
+        $this->assertContains('ledger_write_by_writer_release_fresh_authorization_new_cycle_disable_execution_repair_outcome_packet_template', data_get($payload, 'disable_execution_repair_outcome_packet.still_forbidden_by_fresh_authorization_new_cycle_disable_execution_repair_outcome_packet_template'));
+        $this->assertContains('codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_repair_outcome_packet_template_does_not_dispatch_work', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'disable_execution_repair_outcome_packet_hash'));
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_repair_outcome_packet_template_ready_after_all_packets_completed(): void
+    {
+        $packets = [
+            'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001',
+            'AIP-SPLIT-SELF-CONSTRUCTION-PACKET-CONTRACTS-0002',
+            'AIP-SPLIT-SELF-CONSTRUCTION-COMMAND-0003',
+            'AIP-SPLIT-SELF-CONSTRUCTION-SERVICE-0004',
+            'AIP-SPLIT-SELF-CONSTRUCTION-EVIDENCE-0005',
+        ];
+
+        foreach ($packets as $index => $packetId) {
+            $actor = 'codex-'.($index + 1);
+            $session = 'session-'.($index + 1);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--claim-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--json' => true,
+            ]);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--complete-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--reason' => 'packet_scope_finished',
+                '--evidence-hash' => hash('sha256', $packetId),
+                '--json' => true,
+            ]);
+        }
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-repair-outcome-packet-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_repair_outcome_packet_template_ready', data_get($payload, 'status'));
+        $this->assertSame('ready_as_future_fresh_authorization_new_cycle_disable_execution_repair_outcome_packet_template', data_get($payload, 'disable_execution_repair_outcome_packet.status'));
+        $this->assertSame(10, data_get($payload, 'disable_execution_repair_outcome_packet.required_outcome_field_count'));
+        $this->assertFalse(data_get($payload, 'disable_execution_repair_outcome_packet.execution_allowed'));
+        $this->assertFalse(data_get($payload, 'disable_execution_repair_outcome_packet.ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'disable_execution_repair_outcome_packet.receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'disable_execution_repair_outcome_packet.decision_recorded'));
+        $this->assertFalse(data_get($payload, 'disable_execution_repair_outcome_packet.approval_granted'));
+        $this->assertContains('writer_release_fresh_authorization_later_cycle_request_hash', data_get($payload, 'disable_execution_repair_outcome_packet.future_outcome_outputs'));
+        $this->assertContains('repair_outcome_requires_allowed_outcome_value', data_get($payload, 'disable_execution_repair_outcome_packet.outcome_policy'));
+        $this->assertContains('human_reviewer_identity', data_get($payload, 'disable_execution_repair_outcome_packet.required_outcome_evidence'));
+    }
+
+    public function test_command_human_output_lists_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_repair_outcome_packet_template(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-repair-outcome-packet-template' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Repair outcome status', $output);
+        $this->assertStringContainsString('Outcome field count', $output);
+        $this->assertStringContainsString('Ledger write allowed', $output);
+        $this->assertStringContainsString('Repair outcome hash', $output);
+        $this->assertStringContainsString('Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution repair outcome packet template is blocked', $output);
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_request_template_blocked_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-request-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_request_template.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_request_template_blocked', data_get($payload, 'status'));
+        $this->assertSame('read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_request_template', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'writer_file_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'signature_valid'));
+        $this->assertFalse(data_get($payload, 'receipt_signed'));
+        $this->assertFalse(data_get($payload, 'receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'decision_recorded'));
+        $this->assertFalse(data_get($payload, 'approval_granted'));
+        $this->assertFalse(data_get($payload, 'later_cycle_authorized'));
+        $this->assertFalse(data_get($payload, 'prior_authorization_reuse_allowed'));
+        $this->assertSame('blocked_before_writer_release_fresh_authorization_new_cycle_disable_execution_repair_outcome_packet_template', data_get($payload, 'disable_execution_later_cycle_request.status'));
+        $this->assertSame(10, data_get($payload, 'disable_execution_later_cycle_request.required_request_field_count'));
+        $this->assertContains('prior_authorization_reuse_forbidden', data_get($payload, 'disable_execution_later_cycle_request.required_request_fields'));
+        $this->assertContains('repair_outcome_packet_hash', data_get($payload, 'disable_execution_later_cycle_request.required_request_evidence'));
+        $this->assertContains('later_cycle_request_forbids_prior_authorization_reuse', data_get($payload, 'disable_execution_later_cycle_request.request_policy'));
+        $this->assertContains('authorization_reuse_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_request_template', data_get($payload, 'disable_execution_later_cycle_request.still_forbidden_by_fresh_authorization_new_cycle_disable_execution_later_cycle_request_template'));
+        $this->assertContains('codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_request_template_does_not_dispatch_work', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'disable_execution_later_cycle_request_hash'));
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_request_template_ready_after_all_packets_completed(): void
+    {
+        $packets = [
+            'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001',
+            'AIP-SPLIT-SELF-CONSTRUCTION-PACKET-CONTRACTS-0002',
+            'AIP-SPLIT-SELF-CONSTRUCTION-COMMAND-0003',
+            'AIP-SPLIT-SELF-CONSTRUCTION-SERVICE-0004',
+            'AIP-SPLIT-SELF-CONSTRUCTION-EVIDENCE-0005',
+        ];
+
+        foreach ($packets as $index => $packetId) {
+            $actor = 'codex-'.($index + 1);
+            $session = 'session-'.($index + 1);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--claim-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--json' => true,
+            ]);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--complete-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--reason' => 'packet_scope_finished',
+                '--evidence-hash' => hash('sha256', $packetId),
+                '--json' => true,
+            ]);
+        }
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-request-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_request_template_ready', data_get($payload, 'status'));
+        $this->assertSame('ready_as_future_fresh_authorization_new_cycle_disable_execution_later_cycle_request_template', data_get($payload, 'disable_execution_later_cycle_request.status'));
+        $this->assertSame(10, data_get($payload, 'disable_execution_later_cycle_request.required_request_field_count'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_request.execution_allowed'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_request.ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_request.receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_request.decision_recorded'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_request.approval_granted'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_request.later_cycle_authorized'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_request.prior_authorization_reuse_allowed'));
+        $this->assertContains('writer_release_fresh_authorization_later_cycle_preflight_hash', data_get($payload, 'disable_execution_later_cycle_request.future_request_outputs'));
+        $this->assertContains('later_cycle_request_requires_fresh_authorization', data_get($payload, 'disable_execution_later_cycle_request.request_policy'));
+        $this->assertContains('human_reviewer_identity', data_get($payload, 'disable_execution_later_cycle_request.required_request_evidence'));
+    }
+
+    public function test_command_human_output_lists_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_request_template(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-request-template' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Later cycle request status', $output);
+        $this->assertStringContainsString('Request field count', $output);
+        $this->assertStringContainsString('Ledger write allowed', $output);
+        $this->assertStringContainsString('Later cycle request hash', $output);
+        $this->assertStringContainsString('Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution later-cycle request template is blocked', $output);
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_preflight_template_blocked_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-preflight-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_preflight_template.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_preflight_template_blocked', data_get($payload, 'status'));
+        $this->assertSame('read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_preflight_template', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'writer_file_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'signature_valid'));
+        $this->assertFalse(data_get($payload, 'receipt_signed'));
+        $this->assertFalse(data_get($payload, 'receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'decision_recorded'));
+        $this->assertFalse(data_get($payload, 'approval_granted'));
+        $this->assertFalse(data_get($payload, 'later_cycle_authorized'));
+        $this->assertFalse(data_get($payload, 'prior_authorization_reuse_allowed'));
+        $this->assertSame('blocked_before_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_request_template', data_get($payload, 'disable_execution_later_cycle_preflight.status'));
+        $this->assertSame(12, data_get($payload, 'disable_execution_later_cycle_preflight.preflight_check_count'));
+        $this->assertContains('fresh_authorization_required', data_get($payload, 'disable_execution_later_cycle_preflight.preflight_checks'));
+        $this->assertContains('later_cycle_request_hash', data_get($payload, 'disable_execution_later_cycle_preflight.required_preflight_inputs'));
+        $this->assertContains('prior_authorization_reuse_not_forbidden', data_get($payload, 'disable_execution_later_cycle_preflight.blocking_conditions'));
+        $this->assertContains('later_cycle_preflight_forbids_prior_authorization_reuse', data_get($payload, 'disable_execution_later_cycle_preflight.preflight_policy'));
+        $this->assertContains('later_cycle_authorization_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_preflight_template', data_get($payload, 'disable_execution_later_cycle_preflight.still_forbidden_by_fresh_authorization_new_cycle_disable_execution_later_cycle_preflight_template'));
+        $this->assertContains('codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_preflight_template_does_not_dispatch_work', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'disable_execution_later_cycle_preflight_hash'));
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_preflight_template_ready_after_all_packets_completed(): void
+    {
+        $packets = [
+            'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001',
+            'AIP-SPLIT-SELF-CONSTRUCTION-PACKET-CONTRACTS-0002',
+            'AIP-SPLIT-SELF-CONSTRUCTION-COMMAND-0003',
+            'AIP-SPLIT-SELF-CONSTRUCTION-SERVICE-0004',
+            'AIP-SPLIT-SELF-CONSTRUCTION-EVIDENCE-0005',
+        ];
+
+        foreach ($packets as $index => $packetId) {
+            $actor = 'codex-'.($index + 1);
+            $session = 'session-'.($index + 1);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--claim-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--json' => true,
+            ]);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--complete-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--reason' => 'packet_scope_finished',
+                '--evidence-hash' => hash('sha256', $packetId),
+                '--json' => true,
+            ]);
+        }
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-preflight-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_preflight_template_ready', data_get($payload, 'status'));
+        $this->assertSame('ready_as_future_fresh_authorization_new_cycle_disable_execution_later_cycle_preflight_template', data_get($payload, 'disable_execution_later_cycle_preflight.status'));
+        $this->assertSame(12, data_get($payload, 'disable_execution_later_cycle_preflight.preflight_check_count'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_preflight.execution_allowed'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_preflight.ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_preflight.receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_preflight.decision_recorded'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_preflight.approval_granted'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_preflight.later_cycle_authorized'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_preflight.prior_authorization_reuse_allowed'));
+        $this->assertContains('writer_release_fresh_authorization_later_cycle_authorization_request_hash', data_get($payload, 'disable_execution_later_cycle_preflight.future_preflight_outputs'));
+        $this->assertContains('later_cycle_preflight_requires_scope_and_risk_hashes', data_get($payload, 'disable_execution_later_cycle_preflight.preflight_policy'));
+        $this->assertContains('human_reviewer_identity', data_get($payload, 'disable_execution_later_cycle_preflight.required_preflight_inputs'));
+    }
+
+    public function test_command_human_output_lists_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_preflight_template(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-preflight-template' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Later cycle preflight status', $output);
+        $this->assertStringContainsString('Preflight check count', $output);
+        $this->assertStringContainsString('Ledger write allowed', $output);
+        $this->assertStringContainsString('Later cycle preflight hash', $output);
+        $this->assertStringContainsString('Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution later-cycle preflight template is blocked', $output);
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_request_template_blocked_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-request-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_request_template.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_request_template_blocked', data_get($payload, 'status'));
+        $this->assertSame('read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_request_template', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'writer_file_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'signature_valid'));
+        $this->assertFalse(data_get($payload, 'receipt_signed'));
+        $this->assertFalse(data_get($payload, 'receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'decision_recorded'));
+        $this->assertFalse(data_get($payload, 'approval_granted'));
+        $this->assertFalse(data_get($payload, 'later_cycle_authorized'));
+        $this->assertFalse(data_get($payload, 'prior_authorization_reuse_allowed'));
+        $this->assertSame('blocked_before_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_preflight_template', data_get($payload, 'disable_execution_later_cycle_authorization_request.status'));
+        $this->assertSame(10, data_get($payload, 'disable_execution_later_cycle_authorization_request.required_authorization_request_field_count'));
+        $this->assertContains('non_approval_statement', data_get($payload, 'disable_execution_later_cycle_authorization_request.required_authorization_request_fields'));
+        $this->assertContains('later_cycle_preflight_hash', data_get($payload, 'disable_execution_later_cycle_authorization_request.required_authorization_request_evidence'));
+        $this->assertContains('later_cycle_authorization_request_does_not_grant_approval', data_get($payload, 'disable_execution_later_cycle_authorization_request.authorization_request_policy'));
+        $this->assertContains('approval_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_request_template', data_get($payload, 'disable_execution_later_cycle_authorization_request.still_forbidden_by_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_request_template'));
+        $this->assertContains('codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_request_template_does_not_dispatch_work', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'disable_execution_later_cycle_authorization_request_hash'));
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_request_template_ready_after_all_packets_completed(): void
+    {
+        $packets = [
+            'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001',
+            'AIP-SPLIT-SELF-CONSTRUCTION-PACKET-CONTRACTS-0002',
+            'AIP-SPLIT-SELF-CONSTRUCTION-COMMAND-0003',
+            'AIP-SPLIT-SELF-CONSTRUCTION-SERVICE-0004',
+            'AIP-SPLIT-SELF-CONSTRUCTION-EVIDENCE-0005',
+        ];
+
+        foreach ($packets as $index => $packetId) {
+            $actor = 'codex-'.($index + 1);
+            $session = 'session-'.($index + 1);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--claim-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--json' => true,
+            ]);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--complete-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--reason' => 'packet_scope_finished',
+                '--evidence-hash' => hash('sha256', $packetId),
+                '--json' => true,
+            ]);
+        }
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-request-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_request_template_ready', data_get($payload, 'status'));
+        $this->assertSame('ready_as_future_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_request_template', data_get($payload, 'disable_execution_later_cycle_authorization_request.status'));
+        $this->assertSame(10, data_get($payload, 'disable_execution_later_cycle_authorization_request.required_authorization_request_field_count'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_request.execution_allowed'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_request.ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_request.receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_request.decision_recorded'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_request.approval_granted'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_request.later_cycle_authorized'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_request.prior_authorization_reuse_allowed'));
+        $this->assertContains('writer_release_fresh_authorization_later_cycle_authorization_receipt_draft_hash', data_get($payload, 'disable_execution_later_cycle_authorization_request.future_authorization_request_outputs'));
+        $this->assertContains('later_cycle_authorization_request_requires_explicit_bounds', data_get($payload, 'disable_execution_later_cycle_authorization_request.authorization_request_policy'));
+        $this->assertContains('human_approver_identity', data_get($payload, 'disable_execution_later_cycle_authorization_request.required_authorization_request_evidence'));
+    }
+
+    public function test_command_human_output_lists_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_request_template(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-request-template' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Later cycle authorization request status', $output);
+        $this->assertStringContainsString('Authorization request field count', $output);
+        $this->assertStringContainsString('Approval granted', $output);
+        $this->assertStringContainsString('Later cycle authorization request hash', $output);
+        $this->assertStringContainsString('Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization request template is blocked', $output);
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_receipt_draft_template_blocked_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-receipt-draft-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_receipt_draft_template.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_receipt_draft_template_blocked', data_get($payload, 'status'));
+        $this->assertSame('read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_receipt_draft_template', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'writer_file_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'signature_valid'));
+        $this->assertFalse(data_get($payload, 'receipt_signed'));
+        $this->assertFalse(data_get($payload, 'receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'decision_recorded'));
+        $this->assertFalse(data_get($payload, 'approval_granted'));
+        $this->assertFalse(data_get($payload, 'later_cycle_authorized'));
+        $this->assertFalse(data_get($payload, 'prior_authorization_reuse_allowed'));
+        $this->assertSame('blocked_before_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_request_template', data_get($payload, 'disable_execution_later_cycle_authorization_receipt_draft.status'));
+        $this->assertSame(10, data_get($payload, 'disable_execution_later_cycle_authorization_receipt_draft.required_receipt_draft_field_count'));
+        $this->assertContains('unsigned_receipt_statement', data_get($payload, 'disable_execution_later_cycle_authorization_receipt_draft.required_receipt_draft_fields'));
+        $this->assertContains('later_cycle_authorization_request_hash', data_get($payload, 'disable_execution_later_cycle_authorization_receipt_draft.required_receipt_draft_evidence'));
+        $this->assertContains('later_cycle_authorization_receipt_draft_does_not_sign_receipt', data_get($payload, 'disable_execution_later_cycle_authorization_receipt_draft.receipt_draft_policy'));
+        $this->assertContains('receipt_signature_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_receipt_draft_template', data_get($payload, 'disable_execution_later_cycle_authorization_receipt_draft.still_forbidden_by_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_receipt_draft_template'));
+        $this->assertContains('codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_receipt_draft_template_does_not_dispatch_work', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'disable_execution_later_cycle_authorization_receipt_draft_hash'));
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_receipt_draft_template_ready_after_all_packets_completed(): void
+    {
+        $packets = [
+            'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001',
+            'AIP-SPLIT-SELF-CONSTRUCTION-PACKET-CONTRACTS-0002',
+            'AIP-SPLIT-SELF-CONSTRUCTION-COMMAND-0003',
+            'AIP-SPLIT-SELF-CONSTRUCTION-SERVICE-0004',
+            'AIP-SPLIT-SELF-CONSTRUCTION-EVIDENCE-0005',
+        ];
+
+        foreach ($packets as $index => $packetId) {
+            $actor = 'codex-'.($index + 1);
+            $session = 'session-'.($index + 1);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--claim-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--json' => true,
+            ]);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--complete-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--reason' => 'packet_scope_finished',
+                '--evidence-hash' => hash('sha256', $packetId),
+                '--json' => true,
+            ]);
+        }
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-receipt-draft-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_receipt_draft_template_ready', data_get($payload, 'status'));
+        $this->assertSame('ready_as_future_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_receipt_draft_template', data_get($payload, 'disable_execution_later_cycle_authorization_receipt_draft.status'));
+        $this->assertSame(10, data_get($payload, 'disable_execution_later_cycle_authorization_receipt_draft.required_receipt_draft_field_count'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_receipt_draft.execution_allowed'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_receipt_draft.ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_receipt_draft.receipt_signed'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_receipt_draft.receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_receipt_draft.decision_recorded'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_receipt_draft.approval_granted'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_receipt_draft.later_cycle_authorized'));
+        $this->assertContains('writer_release_fresh_authorization_later_cycle_authorization_signature_request_hash', data_get($payload, 'disable_execution_later_cycle_authorization_receipt_draft.future_receipt_draft_outputs'));
+        $this->assertContains('later_cycle_authorization_receipt_draft_requires_unsigned_receipt_statement', data_get($payload, 'disable_execution_later_cycle_authorization_receipt_draft.receipt_draft_policy'));
+        $this->assertContains('human_approver_identity', data_get($payload, 'disable_execution_later_cycle_authorization_receipt_draft.required_receipt_draft_evidence'));
+    }
+
+    public function test_command_human_output_lists_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_receipt_draft_template(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-receipt-draft-template' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Later cycle authorization receipt draft status', $output);
+        $this->assertStringContainsString('Receipt draft field count', $output);
+        $this->assertStringContainsString('Receipt signed', $output);
+        $this->assertStringContainsString('Later cycle authorization receipt draft hash', $output);
+        $this->assertStringContainsString('Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization receipt draft template is blocked', $output);
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_request_template_blocked_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-signature-request-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_request_template.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_request_template_blocked', data_get($payload, 'status'));
+        $this->assertSame('read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_request_template', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'writer_file_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'signature_valid'));
+        $this->assertFalse(data_get($payload, 'signature_accepted'));
+        $this->assertFalse(data_get($payload, 'receipt_signed'));
+        $this->assertFalse(data_get($payload, 'receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'decision_recorded'));
+        $this->assertFalse(data_get($payload, 'approval_granted'));
+        $this->assertFalse(data_get($payload, 'later_cycle_authorized'));
+        $this->assertSame('blocked_before_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_receipt_draft_template', data_get($payload, 'disable_execution_later_cycle_authorization_signature_request.status'));
+        $this->assertSame(10, data_get($payload, 'disable_execution_later_cycle_authorization_signature_request.required_signature_request_field_count'));
+        $this->assertContains('non_signature_acceptance_statement', data_get($payload, 'disable_execution_later_cycle_authorization_signature_request.required_signature_request_fields'));
+        $this->assertContains('later_cycle_authorization_receipt_draft_hash', data_get($payload, 'disable_execution_later_cycle_authorization_signature_request.required_signature_request_evidence'));
+        $this->assertContains('later_cycle_authorization_signature_request_does_not_accept_signature', data_get($payload, 'disable_execution_later_cycle_authorization_signature_request.signature_request_policy'));
+        $this->assertContains('signature_acceptance_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_request_template', data_get($payload, 'disable_execution_later_cycle_authorization_signature_request.still_forbidden_by_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_request_template'));
+        $this->assertContains('codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_request_template_does_not_dispatch_work', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'disable_execution_later_cycle_authorization_signature_request_hash'));
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_request_template_ready_after_all_packets_completed(): void
+    {
+        $packets = [
+            'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001',
+            'AIP-SPLIT-SELF-CONSTRUCTION-PACKET-CONTRACTS-0002',
+            'AIP-SPLIT-SELF-CONSTRUCTION-COMMAND-0003',
+            'AIP-SPLIT-SELF-CONSTRUCTION-SERVICE-0004',
+            'AIP-SPLIT-SELF-CONSTRUCTION-EVIDENCE-0005',
+        ];
+
+        foreach ($packets as $index => $packetId) {
+            $actor = 'codex-'.($index + 1);
+            $session = 'session-'.($index + 1);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--claim-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--json' => true,
+            ]);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--complete-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--reason' => 'packet_scope_finished',
+                '--evidence-hash' => hash('sha256', $packetId),
+                '--json' => true,
+            ]);
+        }
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-signature-request-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_request_template_ready', data_get($payload, 'status'));
+        $this->assertSame('ready_as_future_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_request_template', data_get($payload, 'disable_execution_later_cycle_authorization_signature_request.status'));
+        $this->assertSame(10, data_get($payload, 'disable_execution_later_cycle_authorization_signature_request.required_signature_request_field_count'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_signature_request.execution_allowed'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_signature_request.ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_signature_request.signature_valid'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_signature_request.signature_accepted'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_signature_request.receipt_signed'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_signature_request.receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_signature_request.approval_granted'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_signature_request.later_cycle_authorized'));
+        $this->assertContains('writer_release_fresh_authorization_later_cycle_authorization_signed_receipt_hash', data_get($payload, 'disable_execution_later_cycle_authorization_signature_request.future_signature_request_outputs'));
+        $this->assertContains('later_cycle_authorization_signature_request_requires_required_signer_identity', data_get($payload, 'disable_execution_later_cycle_authorization_signature_request.signature_request_policy'));
+        $this->assertContains('required_signer_identity', data_get($payload, 'disable_execution_later_cycle_authorization_signature_request.required_signature_request_evidence'));
+    }
+
+    public function test_command_human_output_lists_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_request_template(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-signature-request-template' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Later cycle authorization signature request status', $output);
+        $this->assertStringContainsString('Signature request field count', $output);
+        $this->assertStringContainsString('Signature valid', $output);
+        $this->assertStringContainsString('Later cycle authorization signature request hash', $output);
+        $this->assertStringContainsString('Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization signature request template is blocked', $output);
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_signature_runbook_template_blocked_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-post-signature-runbook-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_signature_runbook_template.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_signature_runbook_template_blocked', data_get($payload, 'status'));
+        $this->assertSame('read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_signature_runbook_template', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'writer_file_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'signature_valid'));
+        $this->assertFalse(data_get($payload, 'signature_accepted'));
+        $this->assertFalse(data_get($payload, 'receipt_signed'));
+        $this->assertFalse(data_get($payload, 'receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'decision_recorded'));
+        $this->assertFalse(data_get($payload, 'approval_granted'));
+        $this->assertFalse(data_get($payload, 'later_cycle_authorized'));
+        $this->assertSame('blocked_before_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_request_template', data_get($payload, 'disable_execution_later_cycle_authorization_post_signature_runbook.status'));
+        $this->assertSame(12, data_get($payload, 'disable_execution_later_cycle_authorization_post_signature_runbook.runbook_step_count'));
+        $this->assertContains('collect_detached_signature_artifact', data_get($payload, 'disable_execution_later_cycle_authorization_post_signature_runbook.runbook_steps'));
+        $this->assertContains('detached_signature_artifact_hash', data_get($payload, 'disable_execution_later_cycle_authorization_post_signature_runbook.required_runbook_inputs'));
+        $this->assertContains('signer_identity_mismatch', data_get($payload, 'disable_execution_later_cycle_authorization_post_signature_runbook.blocking_conditions'));
+        $this->assertContains('later_cycle_authorization_post_signature_runbook_does_not_validate_signature', data_get($payload, 'disable_execution_later_cycle_authorization_post_signature_runbook.post_signature_runbook_policy'));
+        $this->assertContains('signature_validation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_signature_runbook_template', data_get($payload, 'disable_execution_later_cycle_authorization_post_signature_runbook.still_forbidden_by_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_signature_runbook_template'));
+        $this->assertContains('codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_signature_runbook_template_does_not_dispatch_work', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'disable_execution_later_cycle_authorization_post_signature_runbook_hash'));
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_signature_runbook_template_ready_after_all_packets_completed(): void
+    {
+        $packets = [
+            'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001',
+            'AIP-SPLIT-SELF-CONSTRUCTION-PACKET-CONTRACTS-0002',
+            'AIP-SPLIT-SELF-CONSTRUCTION-COMMAND-0003',
+            'AIP-SPLIT-SELF-CONSTRUCTION-SERVICE-0004',
+            'AIP-SPLIT-SELF-CONSTRUCTION-EVIDENCE-0005',
+        ];
+
+        foreach ($packets as $index => $packetId) {
+            $actor = 'codex-'.($index + 1);
+            $session = 'session-'.($index + 1);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--claim-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--json' => true,
+            ]);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--complete-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--reason' => 'packet_scope_finished',
+                '--evidence-hash' => hash('sha256', $packetId),
+                '--json' => true,
+            ]);
+        }
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-post-signature-runbook-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_signature_runbook_template_ready', data_get($payload, 'status'));
+        $this->assertSame('ready_as_future_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_signature_runbook_template', data_get($payload, 'disable_execution_later_cycle_authorization_post_signature_runbook.status'));
+        $this->assertSame(12, data_get($payload, 'disable_execution_later_cycle_authorization_post_signature_runbook.runbook_step_count'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_post_signature_runbook.signature_valid'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_post_signature_runbook.signature_accepted'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_post_signature_runbook.receipt_signed'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_post_signature_runbook.receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_post_signature_runbook.approval_granted'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_post_signature_runbook.later_cycle_authorized'));
+        $this->assertContains('writer_release_fresh_authorization_later_cycle_authorization_signed_receipt_template_hash', data_get($payload, 'disable_execution_later_cycle_authorization_post_signature_runbook.future_runbook_outputs'));
+        $this->assertContains('later_cycle_authorization_post_signature_runbook_requires_signer_identity', data_get($payload, 'disable_execution_later_cycle_authorization_post_signature_runbook.post_signature_runbook_policy'));
+        $this->assertContains('non_validation_statement', data_get($payload, 'disable_execution_later_cycle_authorization_post_signature_runbook.required_runbook_inputs'));
+    }
+
+    public function test_command_human_output_lists_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_signature_runbook_template(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-post-signature-runbook-template' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Later cycle authorization post-signature runbook status', $output);
+        $this->assertStringContainsString('Runbook step count', $output);
+        $this->assertStringContainsString('Signature valid', $output);
+        $this->assertStringContainsString('Later cycle authorization post-signature runbook hash', $output);
+        $this->assertStringContainsString('Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization post-signature runbook template is blocked', $output);
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_validation_report_template_blocked_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-signature-validation-report-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_validation_report_template.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_validation_report_template_blocked', data_get($payload, 'status'));
+        $this->assertSame('read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_validation_report_template', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'writer_file_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'signature_valid'));
+        $this->assertFalse(data_get($payload, 'signature_accepted'));
+        $this->assertFalse(data_get($payload, 'receipt_signed'));
+        $this->assertFalse(data_get($payload, 'receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'decision_recorded'));
+        $this->assertFalse(data_get($payload, 'approval_granted'));
+        $this->assertFalse(data_get($payload, 'later_cycle_authorized'));
+        $this->assertSame('blocked_before_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_signature_runbook_template', data_get($payload, 'disable_execution_later_cycle_authorization_signature_validation_report.status'));
+        $this->assertSame(12, data_get($payload, 'disable_execution_later_cycle_authorization_signature_validation_report.validation_check_count'));
+        $this->assertContains('signature_request_hash_matches_runbook_source', data_get($payload, 'disable_execution_later_cycle_authorization_signature_validation_report.validation_checks'));
+        $this->assertContains('detached_signature_artifact_hash', data_get($payload, 'disable_execution_later_cycle_authorization_signature_validation_report.required_validation_inputs'));
+        $this->assertContains('signature_acceptance_deferred', data_get($payload, 'disable_execution_later_cycle_authorization_signature_validation_report.validation_report_outcomes'));
+        $this->assertContains('later_cycle_authorization_signature_validation_report_does_not_accept_signature', data_get($payload, 'disable_execution_later_cycle_authorization_signature_validation_report.validation_report_policy'));
+        $this->assertContains('signature_acceptance_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_validation_report_template', data_get($payload, 'disable_execution_later_cycle_authorization_signature_validation_report.still_forbidden_by_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_validation_report_template'));
+        $this->assertContains('codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_validation_report_template_does_not_dispatch_work', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'disable_execution_later_cycle_authorization_signature_validation_report_hash'));
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_validation_report_template_ready_after_all_packets_completed(): void
+    {
+        $packets = [
+            'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001',
+            'AIP-SPLIT-SELF-CONSTRUCTION-PACKET-CONTRACTS-0002',
+            'AIP-SPLIT-SELF-CONSTRUCTION-COMMAND-0003',
+            'AIP-SPLIT-SELF-CONSTRUCTION-SERVICE-0004',
+            'AIP-SPLIT-SELF-CONSTRUCTION-EVIDENCE-0005',
+        ];
+
+        foreach ($packets as $index => $packetId) {
+            $actor = 'codex-'.($index + 1);
+            $session = 'session-'.($index + 1);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--claim-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--json' => true,
+            ]);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--complete-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--reason' => 'packet_scope_finished',
+                '--evidence-hash' => hash('sha256', $packetId),
+                '--json' => true,
+            ]);
+        }
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-signature-validation-report-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_validation_report_template_ready', data_get($payload, 'status'));
+        $this->assertSame('ready_as_future_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_validation_report_template', data_get($payload, 'disable_execution_later_cycle_authorization_signature_validation_report.status'));
+        $this->assertSame(12, data_get($payload, 'disable_execution_later_cycle_authorization_signature_validation_report.validation_check_count'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_signature_validation_report.signature_valid'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_signature_validation_report.signature_accepted'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_signature_validation_report.receipt_signed'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_signature_validation_report.receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_signature_validation_report.approval_granted'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_signature_validation_report.later_cycle_authorized'));
+        $this->assertContains('writer_release_fresh_authorization_later_cycle_authorization_signed_receipt_template_hash', data_get($payload, 'disable_execution_later_cycle_authorization_signature_validation_report.future_validation_report_outputs'));
+        $this->assertContains('later_cycle_authorization_signature_validation_report_can_describe_validation_results', data_get($payload, 'disable_execution_later_cycle_authorization_signature_validation_report.validation_report_policy'));
+        $this->assertContains('non_acceptance_statement', data_get($payload, 'disable_execution_later_cycle_authorization_signature_validation_report.required_validation_inputs'));
+    }
+
+    public function test_command_human_output_lists_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_validation_report_template(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-signature-validation-report-template' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Later cycle authorization signature validation report status', $output);
+        $this->assertStringContainsString('Validation check count', $output);
+        $this->assertStringContainsString('Signature accepted', $output);
+        $this->assertStringContainsString('Later cycle authorization signature validation report hash', $output);
+        $this->assertStringContainsString('Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization signature validation report template is blocked', $output);
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_template_blocked_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-signed-receipt-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_template.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_template_blocked', data_get($payload, 'status'));
+        $this->assertSame('read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_template', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'writer_file_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'signature_valid'));
+        $this->assertFalse(data_get($payload, 'signature_accepted'));
+        $this->assertFalse(data_get($payload, 'receipt_signed'));
+        $this->assertFalse(data_get($payload, 'receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'decision_recorded'));
+        $this->assertFalse(data_get($payload, 'approval_granted'));
+        $this->assertFalse(data_get($payload, 'later_cycle_authorized'));
+        $this->assertSame('blocked_before_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_validation_report_template', data_get($payload, 'disable_execution_later_cycle_authorization_signed_receipt_template.status'));
+        $this->assertSame(12, data_get($payload, 'disable_execution_later_cycle_authorization_signed_receipt_template.required_signed_receipt_field_count'));
+        $this->assertContains('later_cycle_authorization_signature_validation_report_hash', data_get($payload, 'disable_execution_later_cycle_authorization_signed_receipt_template.required_signed_receipt_fields'));
+        $this->assertContains('non_persistence_statement', data_get($payload, 'disable_execution_later_cycle_authorization_signed_receipt_template.required_signed_receipt_fields'));
+        $this->assertContains('later_cycle_authorization_signed_receipt_template_does_not_sign_receipt', data_get($payload, 'disable_execution_later_cycle_authorization_signed_receipt_template.signed_receipt_template_policy'));
+        $this->assertContains('receipt_signature_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_template', data_get($payload, 'disable_execution_later_cycle_authorization_signed_receipt_template.still_forbidden_by_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_template'));
+        $this->assertContains('codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_template_does_not_dispatch_work', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'disable_execution_later_cycle_authorization_signed_receipt_template_hash'));
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_template_ready_after_all_packets_completed(): void
+    {
+        $packets = [
+            'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001',
+            'AIP-SPLIT-SELF-CONSTRUCTION-PACKET-CONTRACTS-0002',
+            'AIP-SPLIT-SELF-CONSTRUCTION-COMMAND-0003',
+            'AIP-SPLIT-SELF-CONSTRUCTION-SERVICE-0004',
+            'AIP-SPLIT-SELF-CONSTRUCTION-EVIDENCE-0005',
+        ];
+
+        foreach ($packets as $index => $packetId) {
+            $actor = 'codex-'.($index + 1);
+            $session = 'session-'.($index + 1);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--claim-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--json' => true,
+            ]);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--complete-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--reason' => 'packet_scope_finished',
+                '--evidence-hash' => hash('sha256', $packetId),
+                '--json' => true,
+            ]);
+        }
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-signed-receipt-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_template_ready', data_get($payload, 'status'));
+        $this->assertSame('ready_as_future_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_template', data_get($payload, 'disable_execution_later_cycle_authorization_signed_receipt_template.status'));
+        $this->assertSame(12, data_get($payload, 'disable_execution_later_cycle_authorization_signed_receipt_template.required_signed_receipt_field_count'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_signed_receipt_template.signature_valid'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_signed_receipt_template.signature_accepted'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_signed_receipt_template.receipt_signed'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_signed_receipt_template.receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_signed_receipt_template.approval_granted'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_signed_receipt_template.later_cycle_authorized'));
+        $this->assertContains('writer_release_fresh_authorization_later_cycle_authorization_signed_receipt_preflight_hash', data_get($payload, 'disable_execution_later_cycle_authorization_signed_receipt_template.future_signed_receipt_outputs'));
+        $this->assertContains('later_cycle_authorization_signed_receipt_template_requires_non_authorization_statement', data_get($payload, 'disable_execution_later_cycle_authorization_signed_receipt_template.signed_receipt_template_policy'));
+        $this->assertContains('non_authorization_statement', data_get($payload, 'disable_execution_later_cycle_authorization_signed_receipt_template.required_signed_receipt_fields'));
+    }
+
+    public function test_command_human_output_lists_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_template(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-signed-receipt-template' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Later cycle authorization signed receipt template status', $output);
+        $this->assertStringContainsString('Signed receipt field count', $output);
+        $this->assertStringContainsString('Receipt signed', $output);
+        $this->assertStringContainsString('Later cycle authorization signed receipt template hash', $output);
+        $this->assertStringContainsString('Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization signed receipt template is blocked', $output);
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_preflight_template_blocked_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-signed-receipt-preflight-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_preflight_template.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_preflight_template_blocked', data_get($payload, 'status'));
+        $this->assertSame('read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_preflight_template', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'writer_file_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'signature_valid'));
+        $this->assertFalse(data_get($payload, 'signature_accepted'));
+        $this->assertFalse(data_get($payload, 'receipt_signed'));
+        $this->assertFalse(data_get($payload, 'receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'decision_recorded'));
+        $this->assertFalse(data_get($payload, 'approval_granted'));
+        $this->assertFalse(data_get($payload, 'later_cycle_authorized'));
+        $this->assertSame('blocked_before_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_template', data_get($payload, 'disable_execution_later_cycle_authorization_signed_receipt_preflight.status'));
+        $this->assertSame(12, data_get($payload, 'disable_execution_later_cycle_authorization_signed_receipt_preflight.preflight_check_count'));
+        $this->assertContains('signed_receipt_template_hash_present', data_get($payload, 'disable_execution_later_cycle_authorization_signed_receipt_preflight.preflight_checks'));
+        $this->assertContains('later_cycle_authorization_signed_receipt_template_hash', data_get($payload, 'disable_execution_later_cycle_authorization_signed_receipt_preflight.required_preflight_inputs'));
+        $this->assertContains('receipt_persisted_flag_true', data_get($payload, 'disable_execution_later_cycle_authorization_signed_receipt_preflight.blocking_conditions'));
+        $this->assertContains('later_cycle_authorization_signed_receipt_preflight_does_not_persist_receipt', data_get($payload, 'disable_execution_later_cycle_authorization_signed_receipt_preflight.signed_receipt_preflight_policy'));
+        $this->assertContains('receipt_persistence_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_preflight_template', data_get($payload, 'disable_execution_later_cycle_authorization_signed_receipt_preflight.still_forbidden_by_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_preflight_template'));
+        $this->assertContains('codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_preflight_template_does_not_dispatch_work', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'disable_execution_later_cycle_authorization_signed_receipt_preflight_hash'));
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_preflight_template_ready_after_all_packets_completed(): void
+    {
+        $packets = [
+            'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001',
+            'AIP-SPLIT-SELF-CONSTRUCTION-PACKET-CONTRACTS-0002',
+            'AIP-SPLIT-SELF-CONSTRUCTION-COMMAND-0003',
+            'AIP-SPLIT-SELF-CONSTRUCTION-SERVICE-0004',
+            'AIP-SPLIT-SELF-CONSTRUCTION-EVIDENCE-0005',
+        ];
+
+        foreach ($packets as $index => $packetId) {
+            $actor = 'codex-'.($index + 1);
+            $session = 'session-'.($index + 1);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--claim-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--json' => true,
+            ]);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--complete-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--reason' => 'packet_scope_finished',
+                '--evidence-hash' => hash('sha256', $packetId),
+                '--json' => true,
+            ]);
+        }
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-signed-receipt-preflight-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_preflight_template_ready', data_get($payload, 'status'));
+        $this->assertSame('ready_as_future_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_preflight_template', data_get($payload, 'disable_execution_later_cycle_authorization_signed_receipt_preflight.status'));
+        $this->assertSame(12, data_get($payload, 'disable_execution_later_cycle_authorization_signed_receipt_preflight.preflight_check_count'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_signed_receipt_preflight.signature_valid'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_signed_receipt_preflight.signature_accepted'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_signed_receipt_preflight.receipt_signed'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_signed_receipt_preflight.receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_signed_receipt_preflight.approval_granted'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_signed_receipt_preflight.later_cycle_authorized'));
+        $this->assertContains('writer_release_fresh_authorization_later_cycle_authorization_persistence_preflight_hash', data_get($payload, 'disable_execution_later_cycle_authorization_signed_receipt_preflight.future_preflight_outputs'));
+        $this->assertContains('later_cycle_authorization_signed_receipt_preflight_requires_non_authorization_statement', data_get($payload, 'disable_execution_later_cycle_authorization_signed_receipt_preflight.signed_receipt_preflight_policy'));
+        $this->assertContains('non_persistence_statement', data_get($payload, 'disable_execution_later_cycle_authorization_signed_receipt_preflight.required_preflight_inputs'));
+    }
+
+    public function test_command_human_output_lists_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_preflight_template(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-signed-receipt-preflight-template' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Later cycle authorization signed receipt preflight status', $output);
+        $this->assertStringContainsString('Preflight check count', $output);
+        $this->assertStringContainsString('Receipt persisted', $output);
+        $this->assertStringContainsString('Later cycle authorization signed receipt preflight hash', $output);
+        $this->assertStringContainsString('Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization signed receipt preflight template is blocked', $output);
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_preflight_template_blocked_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-persistence-preflight-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_preflight_template.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_preflight_template_blocked', data_get($payload, 'status'));
+        $this->assertSame('read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_preflight_template', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'writer_file_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'signature_valid'));
+        $this->assertFalse(data_get($payload, 'signature_accepted'));
+        $this->assertFalse(data_get($payload, 'receipt_signed'));
+        $this->assertFalse(data_get($payload, 'receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'decision_recorded'));
+        $this->assertFalse(data_get($payload, 'approval_granted'));
+        $this->assertFalse(data_get($payload, 'later_cycle_authorized'));
+        $this->assertSame('blocked_before_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_preflight_template', data_get($payload, 'disable_execution_later_cycle_authorization_persistence_preflight.status'));
+        $this->assertSame(12, data_get($payload, 'disable_execution_later_cycle_authorization_persistence_preflight.persistence_preflight_check_count'));
+        $this->assertContains('persistence_target_declared_without_write', data_get($payload, 'disable_execution_later_cycle_authorization_persistence_preflight.persistence_preflight_checks'));
+        $this->assertContains('future_persistence_target_name', data_get($payload, 'disable_execution_later_cycle_authorization_persistence_preflight.required_persistence_preflight_inputs'));
+        $this->assertContains('ledger_write_allowed_flag_true', data_get($payload, 'disable_execution_later_cycle_authorization_persistence_preflight.blocking_conditions'));
+        $this->assertContains('later_cycle_authorization_persistence_preflight_does_not_write_ledger', data_get($payload, 'disable_execution_later_cycle_authorization_persistence_preflight.persistence_preflight_policy'));
+        $this->assertContains('receipt_persistence_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_preflight_template', data_get($payload, 'disable_execution_later_cycle_authorization_persistence_preflight.still_forbidden_by_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_preflight_template'));
+        $this->assertContains('codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_preflight_template_does_not_dispatch_work', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'disable_execution_later_cycle_authorization_persistence_preflight_hash'));
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_preflight_template_ready_after_all_packets_completed(): void
+    {
+        $packets = [
+            'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001',
+            'AIP-SPLIT-SELF-CONSTRUCTION-PACKET-CONTRACTS-0002',
+            'AIP-SPLIT-SELF-CONSTRUCTION-COMMAND-0003',
+            'AIP-SPLIT-SELF-CONSTRUCTION-SERVICE-0004',
+            'AIP-SPLIT-SELF-CONSTRUCTION-EVIDENCE-0005',
+        ];
+
+        foreach ($packets as $index => $packetId) {
+            $actor = 'codex-'.($index + 1);
+            $session = 'session-'.($index + 1);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--claim-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--json' => true,
+            ]);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--complete-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--reason' => 'packet_scope_finished',
+                '--evidence-hash' => hash('sha256', $packetId),
+                '--json' => true,
+            ]);
+        }
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-persistence-preflight-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_preflight_template_ready', data_get($payload, 'status'));
+        $this->assertSame('ready_as_future_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_preflight_template', data_get($payload, 'disable_execution_later_cycle_authorization_persistence_preflight.status'));
+        $this->assertSame(12, data_get($payload, 'disable_execution_later_cycle_authorization_persistence_preflight.persistence_preflight_check_count'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_persistence_preflight.signature_valid'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_persistence_preflight.signature_accepted'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_persistence_preflight.receipt_signed'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_persistence_preflight.receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_persistence_preflight.approval_granted'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_persistence_preflight.later_cycle_authorized'));
+        $this->assertContains('writer_release_fresh_authorization_later_cycle_authorization_persistence_receipt_template_hash', data_get($payload, 'disable_execution_later_cycle_authorization_persistence_preflight.future_persistence_preflight_outputs'));
+        $this->assertContains('later_cycle_authorization_persistence_preflight_declares_targets_without_writing', data_get($payload, 'disable_execution_later_cycle_authorization_persistence_preflight.persistence_preflight_policy'));
+        $this->assertContains('future_ledger_target_name', data_get($payload, 'disable_execution_later_cycle_authorization_persistence_preflight.required_persistence_preflight_inputs'));
+    }
+
+    public function test_command_human_output_lists_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_preflight_template(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-persistence-preflight-template' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Later cycle authorization persistence preflight status', $output);
+        $this->assertStringContainsString('Persistence preflight check count', $output);
+        $this->assertStringContainsString('Ledger write allowed', $output);
+        $this->assertStringContainsString('Later cycle authorization persistence preflight hash', $output);
+        $this->assertStringContainsString('Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization persistence preflight template is blocked', $output);
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_receipt_template_blocked_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-persistence-receipt-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_receipt_template.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_receipt_template_blocked', data_get($payload, 'status'));
+        $this->assertSame('read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_receipt_template', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'writer_file_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'signature_valid'));
+        $this->assertFalse(data_get($payload, 'signature_accepted'));
+        $this->assertFalse(data_get($payload, 'receipt_signed'));
+        $this->assertFalse(data_get($payload, 'receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'decision_recorded'));
+        $this->assertFalse(data_get($payload, 'approval_granted'));
+        $this->assertFalse(data_get($payload, 'later_cycle_authorized'));
+        $this->assertSame('blocked_before_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_preflight_template', data_get($payload, 'disable_execution_later_cycle_authorization_persistence_receipt_template.status'));
+        $this->assertSame(12, data_get($payload, 'disable_execution_later_cycle_authorization_persistence_receipt_template.required_persistence_receipt_field_count'));
+        $this->assertContains('later_cycle_authorization_persistence_preflight_hash', data_get($payload, 'disable_execution_later_cycle_authorization_persistence_receipt_template.required_persistence_receipt_fields'));
+        $this->assertContains('non_ledger_write_statement', data_get($payload, 'disable_execution_later_cycle_authorization_persistence_receipt_template.required_persistence_receipt_fields'));
+        $this->assertContains('later_cycle_authorization_persistence_receipt_template_does_not_write_ledger', data_get($payload, 'disable_execution_later_cycle_authorization_persistence_receipt_template.persistence_receipt_template_policy'));
+        $this->assertContains('ledger_write_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_receipt_template', data_get($payload, 'disable_execution_later_cycle_authorization_persistence_receipt_template.still_forbidden_by_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_receipt_template'));
+        $this->assertContains('codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_receipt_template_does_not_dispatch_work', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'disable_execution_later_cycle_authorization_persistence_receipt_template_hash'));
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_receipt_template_ready_after_all_packets_completed(): void
+    {
+        $packets = [
+            'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001',
+            'AIP-SPLIT-SELF-CONSTRUCTION-PACKET-CONTRACTS-0002',
+            'AIP-SPLIT-SELF-CONSTRUCTION-COMMAND-0003',
+            'AIP-SPLIT-SELF-CONSTRUCTION-SERVICE-0004',
+            'AIP-SPLIT-SELF-CONSTRUCTION-EVIDENCE-0005',
+        ];
+
+        foreach ($packets as $index => $packetId) {
+            $actor = 'codex-'.($index + 1);
+            $session = 'session-'.($index + 1);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--claim-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--json' => true,
+            ]);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--complete-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--reason' => 'packet_scope_finished',
+                '--evidence-hash' => hash('sha256', $packetId),
+                '--json' => true,
+            ]);
+        }
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-persistence-receipt-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_receipt_template_ready', data_get($payload, 'status'));
+        $this->assertSame('ready_as_future_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_receipt_template', data_get($payload, 'disable_execution_later_cycle_authorization_persistence_receipt_template.status'));
+        $this->assertSame(12, data_get($payload, 'disable_execution_later_cycle_authorization_persistence_receipt_template.required_persistence_receipt_field_count'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_persistence_receipt_template.signature_valid'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_persistence_receipt_template.signature_accepted'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_persistence_receipt_template.receipt_signed'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_persistence_receipt_template.receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_persistence_receipt_template.approval_granted'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_persistence_receipt_template.later_cycle_authorized'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_persistence_receipt_template.ledger_write_allowed'));
+        $this->assertContains('writer_release_fresh_authorization_later_cycle_authorization_post_persistence_review_hash', data_get($payload, 'disable_execution_later_cycle_authorization_persistence_receipt_template.future_persistence_receipt_outputs'));
+        $this->assertContains('later_cycle_authorization_persistence_receipt_template_requires_non_authorization_statement', data_get($payload, 'disable_execution_later_cycle_authorization_persistence_receipt_template.persistence_receipt_template_policy'));
+        $this->assertContains('future_ledger_operation_hash', data_get($payload, 'disable_execution_later_cycle_authorization_persistence_receipt_template.required_persistence_receipt_fields'));
+    }
+
+    public function test_command_human_output_lists_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_receipt_template(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-persistence-receipt-template' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Later cycle authorization persistence receipt template status', $output);
+        $this->assertStringContainsString('Persistence receipt field count', $output);
+        $this->assertStringContainsString('Receipt persisted', $output);
+        $this->assertStringContainsString('Later cycle authorization persistence receipt template hash', $output);
+        $this->assertStringContainsString('Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization persistence receipt template is blocked', $output);
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_persistence_review_template_blocked_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-post-persistence-review-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_persistence_review_template.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_persistence_review_template_blocked', data_get($payload, 'status'));
+        $this->assertSame('read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_persistence_review_template', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'writer_file_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'signature_valid'));
+        $this->assertFalse(data_get($payload, 'signature_accepted'));
+        $this->assertFalse(data_get($payload, 'receipt_signed'));
+        $this->assertFalse(data_get($payload, 'receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'decision_recorded'));
+        $this->assertFalse(data_get($payload, 'approval_granted'));
+        $this->assertFalse(data_get($payload, 'later_cycle_authorized'));
+        $this->assertSame('blocked_before_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_receipt_template', data_get($payload, 'disable_execution_later_cycle_authorization_post_persistence_review.status'));
+        $this->assertSame(5, data_get($payload, 'disable_execution_later_cycle_authorization_post_persistence_review.allowed_review_decision_count'));
+        $this->assertContains('request_later_cycle_authorization_persistence_evidence_repair', data_get($payload, 'disable_execution_later_cycle_authorization_post_persistence_review.allowed_review_decisions'));
+        $this->assertContains('post_persistence_integrity_check_hash', data_get($payload, 'disable_execution_later_cycle_authorization_post_persistence_review.required_review_evidence'));
+        $this->assertContains('review_requires_later_cycle_authorized_flag_false', data_get($payload, 'disable_execution_later_cycle_authorization_post_persistence_review.review_policy'));
+        $this->assertContains('ledger_write_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_persistence_review_template', data_get($payload, 'disable_execution_later_cycle_authorization_post_persistence_review.still_forbidden_by_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_persistence_review_template'));
+        $this->assertContains('codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_persistence_review_template_does_not_dispatch_work', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'disable_execution_later_cycle_authorization_post_persistence_review_hash'));
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_persistence_review_template_ready_after_all_packets_completed(): void
+    {
+        $packets = [
+            'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001',
+            'AIP-SPLIT-SELF-CONSTRUCTION-PACKET-CONTRACTS-0002',
+            'AIP-SPLIT-SELF-CONSTRUCTION-COMMAND-0003',
+            'AIP-SPLIT-SELF-CONSTRUCTION-SERVICE-0004',
+            'AIP-SPLIT-SELF-CONSTRUCTION-EVIDENCE-0005',
+        ];
+
+        foreach ($packets as $index => $packetId) {
+            $actor = 'codex-'.($index + 1);
+            $session = 'session-'.($index + 1);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--claim-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--json' => true,
+            ]);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--complete-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--reason' => 'packet_scope_finished',
+                '--evidence-hash' => hash('sha256', $packetId),
+                '--json' => true,
+            ]);
+        }
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-post-persistence-review-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_persistence_review_template_ready', data_get($payload, 'status'));
+        $this->assertSame('ready_as_future_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_persistence_review_template', data_get($payload, 'disable_execution_later_cycle_authorization_post_persistence_review.status'));
+        $this->assertSame(5, data_get($payload, 'disable_execution_later_cycle_authorization_post_persistence_review.allowed_review_decision_count'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_post_persistence_review.signature_accepted'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_post_persistence_review.receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_post_persistence_review.ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_post_persistence_review.decision_recorded'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_post_persistence_review.approval_granted'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_post_persistence_review.later_cycle_authorized'));
+        $this->assertContains('writer_release_fresh_authorization_later_cycle_authorization_follow_up_observability_hash', data_get($payload, 'disable_execution_later_cycle_authorization_post_persistence_review.future_review_outputs'));
+        $this->assertContains('review_requires_future_operation_hashes', data_get($payload, 'disable_execution_later_cycle_authorization_post_persistence_review.review_policy'));
+        $this->assertContains('human_reviewer_identity', data_get($payload, 'disable_execution_later_cycle_authorization_post_persistence_review.required_review_evidence'));
+    }
+
+    public function test_command_human_output_lists_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_persistence_review_template(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-post-persistence-review-template' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Later cycle authorization post-persistence review status', $output);
+        $this->assertStringContainsString('Review decision count', $output);
+        $this->assertStringContainsString('Ledger write allowed', $output);
+        $this->assertStringContainsString('Later cycle authorization post-persistence review hash', $output);
+        $this->assertStringContainsString('Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization post-persistence review template is blocked', $output);
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_follow_up_observability_template_blocked_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-follow-up-observability-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_follow_up_observability_template.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_follow_up_observability_template_blocked', data_get($payload, 'status'));
+        $this->assertSame('read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_follow_up_observability_template', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'writer_file_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'signature_valid'));
+        $this->assertFalse(data_get($payload, 'signature_accepted'));
+        $this->assertFalse(data_get($payload, 'receipt_signed'));
+        $this->assertFalse(data_get($payload, 'receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'decision_recorded'));
+        $this->assertFalse(data_get($payload, 'approval_granted'));
+        $this->assertFalse(data_get($payload, 'later_cycle_authorized'));
+        $this->assertSame('blocked_before_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_persistence_review_template', data_get($payload, 'disable_execution_later_cycle_authorization_follow_up_observability.status'));
+        $this->assertSame(8, data_get($payload, 'disable_execution_later_cycle_authorization_follow_up_observability.observation_signal_count'));
+        $this->assertContains('later_cycle_authorization_still_disabled', data_get($payload, 'disable_execution_later_cycle_authorization_follow_up_observability.observation_signals'));
+        $this->assertContains('no_later_cycle_authorization_evidence_hash', data_get($payload, 'disable_execution_later_cycle_authorization_follow_up_observability.required_observation_evidence'));
+        $this->assertContains('observability_requires_no_dispatch_evidence', data_get($payload, 'disable_execution_later_cycle_authorization_follow_up_observability.observability_policy'));
+        $this->assertContains('ledger_write_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_follow_up_observability_template', data_get($payload, 'disable_execution_later_cycle_authorization_follow_up_observability.still_forbidden_by_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_follow_up_observability_template'));
+        $this->assertContains('codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_follow_up_observability_template_does_not_dispatch_work', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'disable_execution_later_cycle_authorization_follow_up_observability_hash'));
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_follow_up_observability_template_ready_after_all_packets_completed(): void
+    {
+        $packets = [
+            'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001',
+            'AIP-SPLIT-SELF-CONSTRUCTION-PACKET-CONTRACTS-0002',
+            'AIP-SPLIT-SELF-CONSTRUCTION-COMMAND-0003',
+            'AIP-SPLIT-SELF-CONSTRUCTION-SERVICE-0004',
+            'AIP-SPLIT-SELF-CONSTRUCTION-EVIDENCE-0005',
+        ];
+
+        foreach ($packets as $index => $packetId) {
+            $actor = 'codex-'.($index + 1);
+            $session = 'session-'.($index + 1);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--claim-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--json' => true,
+            ]);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--complete-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--reason' => 'packet_scope_finished',
+                '--evidence-hash' => hash('sha256', $packetId),
+                '--json' => true,
+            ]);
+        }
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-follow-up-observability-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_follow_up_observability_template_ready', data_get($payload, 'status'));
+        $this->assertSame('ready_as_future_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_follow_up_observability_template', data_get($payload, 'disable_execution_later_cycle_authorization_follow_up_observability.status'));
+        $this->assertSame(8, data_get($payload, 'disable_execution_later_cycle_authorization_follow_up_observability.observation_signal_count'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_follow_up_observability.prior_authorization_reuse_allowed'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_follow_up_observability.receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_follow_up_observability.ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_follow_up_observability.decision_recorded'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_follow_up_observability.approval_granted'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_follow_up_observability.later_cycle_authorized'));
+        $this->assertContains('writer_release_fresh_authorization_later_cycle_authorization_observation_window_hash', data_get($payload, 'disable_execution_later_cycle_authorization_follow_up_observability.future_observability_outputs'));
+        $this->assertContains('observability_requires_no_prior_authorization_reuse_evidence', data_get($payload, 'disable_execution_later_cycle_authorization_follow_up_observability.observability_policy'));
+        $this->assertContains('human_reviewer_identity', data_get($payload, 'disable_execution_later_cycle_authorization_follow_up_observability.required_observation_evidence'));
+    }
+
+    public function test_command_human_output_lists_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_follow_up_observability_template(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-follow-up-observability-template' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Later cycle authorization follow-up observability status', $output);
+        $this->assertStringContainsString('Observation signal count', $output);
+        $this->assertStringContainsString('Later cycle authorized', $output);
+        $this->assertStringContainsString('Later cycle authorization follow-up observability hash', $output);
+        $this->assertStringContainsString('Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization follow-up observability template is blocked', $output);
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_evidence_repair_request_template_blocked_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-evidence-repair-request-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_evidence_repair_request_template.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_evidence_repair_request_template_blocked', data_get($payload, 'status'));
+        $this->assertSame('read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_evidence_repair_request_template', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'writer_file_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'signature_valid'));
+        $this->assertFalse(data_get($payload, 'signature_accepted'));
+        $this->assertFalse(data_get($payload, 'receipt_signed'));
+        $this->assertFalse(data_get($payload, 'receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'decision_recorded'));
+        $this->assertFalse(data_get($payload, 'approval_granted'));
+        $this->assertFalse(data_get($payload, 'later_cycle_authorized'));
+        $this->assertSame('blocked_before_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_follow_up_observability_template', data_get($payload, 'disable_execution_later_cycle_authorization_evidence_repair_request.status'));
+        $this->assertSame(6, data_get($payload, 'disable_execution_later_cycle_authorization_evidence_repair_request.repair_item_count'));
+        $this->assertContains('missing_no_later_cycle_authorization_evidence_hash', data_get($payload, 'disable_execution_later_cycle_authorization_evidence_repair_request.repair_items'));
+        $this->assertContains('replacement_evidence_hash', data_get($payload, 'disable_execution_later_cycle_authorization_evidence_repair_request.required_repair_evidence'));
+        $this->assertContains('repair_request_requires_prior_authorization_reuse_allowed_flag_false', data_get($payload, 'disable_execution_later_cycle_authorization_evidence_repair_request.repair_policy'));
+        $this->assertContains('ledger_write_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_evidence_repair_request_template', data_get($payload, 'disable_execution_later_cycle_authorization_evidence_repair_request.still_forbidden_by_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_evidence_repair_request_template'));
+        $this->assertContains('codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_evidence_repair_request_template_does_not_dispatch_work', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'disable_execution_later_cycle_authorization_evidence_repair_request_hash'));
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_evidence_repair_request_template_ready_after_all_packets_completed(): void
+    {
+        $packets = [
+            'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001',
+            'AIP-SPLIT-SELF-CONSTRUCTION-PACKET-CONTRACTS-0002',
+            'AIP-SPLIT-SELF-CONSTRUCTION-COMMAND-0003',
+            'AIP-SPLIT-SELF-CONSTRUCTION-SERVICE-0004',
+            'AIP-SPLIT-SELF-CONSTRUCTION-EVIDENCE-0005',
+        ];
+
+        foreach ($packets as $index => $packetId) {
+            $actor = 'codex-'.($index + 1);
+            $session = 'session-'.($index + 1);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--claim-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--json' => true,
+            ]);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--complete-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--reason' => 'packet_scope_finished',
+                '--evidence-hash' => hash('sha256', $packetId),
+                '--json' => true,
+            ]);
+        }
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-evidence-repair-request-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_evidence_repair_request_template_ready', data_get($payload, 'status'));
+        $this->assertSame('ready_as_future_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_evidence_repair_request_template', data_get($payload, 'disable_execution_later_cycle_authorization_evidence_repair_request.status'));
+        $this->assertSame(6, data_get($payload, 'disable_execution_later_cycle_authorization_evidence_repair_request.repair_item_count'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_evidence_repair_request.prior_authorization_reuse_allowed'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_evidence_repair_request.receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_evidence_repair_request.ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_evidence_repair_request.decision_recorded'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_evidence_repair_request.approval_granted'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_evidence_repair_request.later_cycle_authorized'));
+        $this->assertContains('writer_release_fresh_authorization_later_cycle_authorization_repaired_evidence_packet_hash', data_get($payload, 'disable_execution_later_cycle_authorization_evidence_repair_request.future_repair_outputs'));
+        $this->assertContains('repair_request_requires_replacement_evidence_hash', data_get($payload, 'disable_execution_later_cycle_authorization_evidence_repair_request.repair_policy'));
+        $this->assertContains('human_reviewer_identity', data_get($payload, 'disable_execution_later_cycle_authorization_evidence_repair_request.required_repair_evidence'));
+    }
+
+    public function test_command_human_output_lists_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_evidence_repair_request_template(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-evidence-repair-request-template' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Later cycle authorization evidence repair request status', $output);
+        $this->assertStringContainsString('Repair item count', $output);
+        $this->assertStringContainsString('Dispatch allowed', $output);
+        $this->assertStringContainsString('Later cycle authorization evidence repair request hash', $output);
+        $this->assertStringContainsString('Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization evidence repair request template is blocked', $output);
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repaired_evidence_packet_template_blocked_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-repaired-evidence-packet-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repaired_evidence_packet_template.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repaired_evidence_packet_template_blocked', data_get($payload, 'status'));
+        $this->assertSame('read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repaired_evidence_packet_template', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'writer_file_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'signature_valid'));
+        $this->assertFalse(data_get($payload, 'signature_accepted'));
+        $this->assertFalse(data_get($payload, 'receipt_signed'));
+        $this->assertFalse(data_get($payload, 'receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'decision_recorded'));
+        $this->assertFalse(data_get($payload, 'approval_granted'));
+        $this->assertFalse(data_get($payload, 'later_cycle_authorized'));
+        $this->assertSame('blocked_before_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_evidence_repair_request_template', data_get($payload, 'disable_execution_later_cycle_authorization_repaired_evidence_packet.status'));
+        $this->assertSame(10, data_get($payload, 'disable_execution_later_cycle_authorization_repaired_evidence_packet.required_packet_field_count'));
+        $this->assertContains('later_cycle_authorization_evidence_repair_request_hash', data_get($payload, 'disable_execution_later_cycle_authorization_repaired_evidence_packet.required_packet_fields'));
+        $this->assertContains('replacement_evidence_source_hash', data_get($payload, 'disable_execution_later_cycle_authorization_repaired_evidence_packet.required_packet_evidence'));
+        $this->assertContains('repaired_packet_requires_prior_authorization_reuse_allowed_flag_false', data_get($payload, 'disable_execution_later_cycle_authorization_repaired_evidence_packet.packet_policy'));
+        $this->assertContains('ledger_write_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repaired_evidence_packet_template', data_get($payload, 'disable_execution_later_cycle_authorization_repaired_evidence_packet.still_forbidden_by_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repaired_evidence_packet_template'));
+        $this->assertContains('codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repaired_evidence_packet_template_does_not_dispatch_work', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'disable_execution_later_cycle_authorization_repaired_evidence_packet_hash'));
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repaired_evidence_packet_template_ready_after_all_packets_completed(): void
+    {
+        $packets = [
+            'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001',
+            'AIP-SPLIT-SELF-CONSTRUCTION-PACKET-CONTRACTS-0002',
+            'AIP-SPLIT-SELF-CONSTRUCTION-COMMAND-0003',
+            'AIP-SPLIT-SELF-CONSTRUCTION-SERVICE-0004',
+            'AIP-SPLIT-SELF-CONSTRUCTION-EVIDENCE-0005',
+        ];
+
+        foreach ($packets as $index => $packetId) {
+            $actor = 'codex-'.($index + 1);
+            $session = 'session-'.($index + 1);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--claim-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--json' => true,
+            ]);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--complete-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--reason' => 'packet_scope_finished',
+                '--evidence-hash' => hash('sha256', $packetId),
+                '--json' => true,
+            ]);
+        }
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-repaired-evidence-packet-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repaired_evidence_packet_template_ready', data_get($payload, 'status'));
+        $this->assertSame('ready_as_future_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repaired_evidence_packet_template', data_get($payload, 'disable_execution_later_cycle_authorization_repaired_evidence_packet.status'));
+        $this->assertSame(10, data_get($payload, 'disable_execution_later_cycle_authorization_repaired_evidence_packet.required_packet_field_count'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_repaired_evidence_packet.prior_authorization_reuse_allowed'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_repaired_evidence_packet.receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_repaired_evidence_packet.ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_repaired_evidence_packet.decision_recorded'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_repaired_evidence_packet.approval_granted'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_repaired_evidence_packet.later_cycle_authorized'));
+        $this->assertContains('writer_release_fresh_authorization_later_cycle_authorization_repair_review_hash', data_get($payload, 'disable_execution_later_cycle_authorization_repaired_evidence_packet.future_packet_outputs'));
+        $this->assertContains('repaired_packet_requires_replacement_source_hash', data_get($payload, 'disable_execution_later_cycle_authorization_repaired_evidence_packet.packet_policy'));
+        $this->assertContains('human_reviewer_identity', data_get($payload, 'disable_execution_later_cycle_authorization_repaired_evidence_packet.required_packet_evidence'));
+    }
+
+    public function test_command_human_output_lists_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repaired_evidence_packet_template(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-repaired-evidence-packet-template' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Later cycle authorization repaired evidence packet status', $output);
+        $this->assertStringContainsString('Packet field count', $output);
+        $this->assertStringContainsString('Ledger write allowed', $output);
+        $this->assertStringContainsString('Later cycle authorization repaired evidence packet hash', $output);
+        $this->assertStringContainsString('Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization repaired evidence packet template is blocked', $output);
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repair_review_template_blocked_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-repair-review-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repair_review_template.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repair_review_template_blocked', data_get($payload, 'status'));
+        $this->assertSame('read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repair_review_template', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'writer_file_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'signature_valid'));
+        $this->assertFalse(data_get($payload, 'signature_accepted'));
+        $this->assertFalse(data_get($payload, 'receipt_signed'));
+        $this->assertFalse(data_get($payload, 'receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'decision_recorded'));
+        $this->assertFalse(data_get($payload, 'approval_granted'));
+        $this->assertFalse(data_get($payload, 'later_cycle_authorized'));
+        $this->assertSame('blocked_before_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repaired_evidence_packet_template', data_get($payload, 'disable_execution_later_cycle_authorization_repair_review.status'));
+        $this->assertSame(5, data_get($payload, 'disable_execution_later_cycle_authorization_repair_review.allowed_repair_review_outcome_count'));
+        $this->assertContains('later_cycle_authorization_repair_evidence_rejected_due_to_integrity_gap', data_get($payload, 'disable_execution_later_cycle_authorization_repair_review.allowed_repair_review_outcomes'));
+        $this->assertContains('later_cycle_authorization_repaired_evidence_integrity_hash', data_get($payload, 'disable_execution_later_cycle_authorization_repair_review.required_review_evidence'));
+        $this->assertContains('repair_review_requires_prior_authorization_reuse_allowed_flag_false', data_get($payload, 'disable_execution_later_cycle_authorization_repair_review.repair_review_policy'));
+        $this->assertContains('ledger_write_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repair_review_template', data_get($payload, 'disable_execution_later_cycle_authorization_repair_review.still_forbidden_by_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repair_review_template'));
+        $this->assertContains('codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repair_review_template_does_not_dispatch_work', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'disable_execution_later_cycle_authorization_repair_review_hash'));
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repair_review_template_ready_after_all_packets_completed(): void
+    {
+        $packets = [
+            'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001',
+            'AIP-SPLIT-SELF-CONSTRUCTION-PACKET-CONTRACTS-0002',
+            'AIP-SPLIT-SELF-CONSTRUCTION-COMMAND-0003',
+            'AIP-SPLIT-SELF-CONSTRUCTION-SERVICE-0004',
+            'AIP-SPLIT-SELF-CONSTRUCTION-EVIDENCE-0005',
+        ];
+
+        foreach ($packets as $index => $packetId) {
+            $actor = 'codex-'.($index + 1);
+            $session = 'session-'.($index + 1);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--claim-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--json' => true,
+            ]);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--complete-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--reason' => 'packet_scope_finished',
+                '--evidence-hash' => hash('sha256', $packetId),
+                '--json' => true,
+            ]);
+        }
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-repair-review-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repair_review_template_ready', data_get($payload, 'status'));
+        $this->assertSame('ready_as_future_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repair_review_template', data_get($payload, 'disable_execution_later_cycle_authorization_repair_review.status'));
+        $this->assertSame(5, data_get($payload, 'disable_execution_later_cycle_authorization_repair_review.allowed_repair_review_outcome_count'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_repair_review.prior_authorization_reuse_allowed'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_repair_review.receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_repair_review.ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_repair_review.decision_recorded'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_repair_review.approval_granted'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_repair_review.later_cycle_authorized'));
+        $this->assertContains('writer_release_fresh_authorization_later_cycle_authorization_persistence_rejection_hash', data_get($payload, 'disable_execution_later_cycle_authorization_repair_review.future_repair_review_outputs'));
+        $this->assertContains('repair_review_requires_replacement_source_hash', data_get($payload, 'disable_execution_later_cycle_authorization_repair_review.repair_review_policy'));
+        $this->assertContains('human_reviewer_identity', data_get($payload, 'disable_execution_later_cycle_authorization_repair_review.required_review_evidence'));
+    }
+
+    public function test_command_human_output_lists_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repair_review_template(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-repair-review-template' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Later cycle authorization repair review status', $output);
+        $this->assertStringContainsString('Review outcome count', $output);
+        $this->assertStringContainsString('Ledger write allowed', $output);
+        $this->assertStringContainsString('Later cycle authorization repair review hash', $output);
+        $this->assertStringContainsString('Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization repair review template is blocked', $output);
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_rejection_template_blocked_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-persistence-rejection-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_rejection_template.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_rejection_template_blocked', data_get($payload, 'status'));
+        $this->assertSame('read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_rejection_template', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'writer_file_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'signature_valid'));
+        $this->assertFalse(data_get($payload, 'signature_accepted'));
+        $this->assertFalse(data_get($payload, 'receipt_signed'));
+        $this->assertFalse(data_get($payload, 'receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'decision_recorded'));
+        $this->assertFalse(data_get($payload, 'approval_granted'));
+        $this->assertFalse(data_get($payload, 'later_cycle_authorized'));
+        $this->assertSame('blocked_before_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repair_review_template', data_get($payload, 'disable_execution_later_cycle_authorization_persistence_rejection.status'));
+        $this->assertSame(10, data_get($payload, 'disable_execution_later_cycle_authorization_persistence_rejection.required_rejection_field_count'));
+        $this->assertContains('repaired_evidence_not_sufficient_for_receipt_persistence', data_get($payload, 'disable_execution_later_cycle_authorization_persistence_rejection.allowed_rejection_reasons'));
+        $this->assertContains('persistence_rejection_rationale', data_get($payload, 'disable_execution_later_cycle_authorization_persistence_rejection.required_rejection_evidence'));
+        $this->assertContains('persistence_rejection_requires_prior_authorization_reuse_allowed_flag_false', data_get($payload, 'disable_execution_later_cycle_authorization_persistence_rejection.rejection_policy'));
+        $this->assertContains('ledger_write_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_rejection_template', data_get($payload, 'disable_execution_later_cycle_authorization_persistence_rejection.still_forbidden_by_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_rejection_template'));
+        $this->assertContains('codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_rejection_template_does_not_dispatch_work', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'disable_execution_later_cycle_authorization_persistence_rejection_hash'));
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_rejection_template_ready_after_all_packets_completed(): void
+    {
+        $packets = [
+            'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001',
+            'AIP-SPLIT-SELF-CONSTRUCTION-PACKET-CONTRACTS-0002',
+            'AIP-SPLIT-SELF-CONSTRUCTION-COMMAND-0003',
+            'AIP-SPLIT-SELF-CONSTRUCTION-SERVICE-0004',
+            'AIP-SPLIT-SELF-CONSTRUCTION-EVIDENCE-0005',
+        ];
+
+        foreach ($packets as $index => $packetId) {
+            $actor = 'codex-'.($index + 1);
+            $session = 'session-'.($index + 1);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--claim-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--json' => true,
+            ]);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--complete-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--reason' => 'packet_scope_finished',
+                '--evidence-hash' => hash('sha256', $packetId),
+                '--json' => true,
+            ]);
+        }
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-persistence-rejection-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_rejection_template_ready', data_get($payload, 'status'));
+        $this->assertSame('ready_as_future_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_rejection_template', data_get($payload, 'disable_execution_later_cycle_authorization_persistence_rejection.status'));
+        $this->assertSame(10, data_get($payload, 'disable_execution_later_cycle_authorization_persistence_rejection.required_rejection_field_count'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_persistence_rejection.prior_authorization_reuse_allowed'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_persistence_rejection.receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_persistence_rejection.ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_persistence_rejection.decision_recorded'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_persistence_rejection.approval_granted'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_persistence_rejection.later_cycle_authorized'));
+        $this->assertContains('writer_release_fresh_authorization_later_cycle_authorization_human_escalation_hash', data_get($payload, 'disable_execution_later_cycle_authorization_persistence_rejection.future_rejection_outputs'));
+        $this->assertContains('persistence_rejection_requires_non_persistence_statement', data_get($payload, 'disable_execution_later_cycle_authorization_persistence_rejection.rejection_policy'));
+        $this->assertContains('human_reviewer_identity', data_get($payload, 'disable_execution_later_cycle_authorization_persistence_rejection.required_rejection_evidence'));
+    }
+
+    public function test_command_human_output_lists_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_rejection_template(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-persistence-rejection-template' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Later cycle authorization persistence rejection status', $output);
+        $this->assertStringContainsString('Rejection field count', $output);
+        $this->assertStringContainsString('Receipt persisted', $output);
+        $this->assertStringContainsString('Later cycle authorization persistence rejection hash', $output);
+        $this->assertStringContainsString('Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization persistence rejection template is blocked', $output);
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template_blocked_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-human-escalation-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template_blocked', data_get($payload, 'status'));
+        $this->assertSame('read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'writer_file_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'signature_valid'));
+        $this->assertFalse(data_get($payload, 'signature_accepted'));
+        $this->assertFalse(data_get($payload, 'receipt_signed'));
+        $this->assertFalse(data_get($payload, 'receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'decision_recorded'));
+        $this->assertFalse(data_get($payload, 'approval_granted'));
+        $this->assertFalse(data_get($payload, 'later_cycle_authorized'));
+        $this->assertFalse(data_get($payload, 'human_notified'));
+        $this->assertFalse(data_get($payload, 'human_task_created'));
+        $this->assertSame('blocked_before_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_rejection_template', data_get($payload, 'disable_execution_later_cycle_authorization_human_escalation.status'));
+        $this->assertSame(10, data_get($payload, 'disable_execution_later_cycle_authorization_human_escalation.required_escalation_field_count'));
+        $this->assertContains('governance_reviewer', data_get($payload, 'disable_execution_later_cycle_authorization_human_escalation.allowed_human_roles'));
+        $this->assertContains('human_escalation_reason', data_get($payload, 'disable_execution_later_cycle_authorization_human_escalation.required_escalation_evidence'));
+        $this->assertContains('human_escalation_does_not_notify_human', data_get($payload, 'disable_execution_later_cycle_authorization_human_escalation.escalation_policy'));
+        $this->assertContains('task_creation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template', data_get($payload, 'disable_execution_later_cycle_authorization_human_escalation.still_forbidden_by_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template'));
+        $this->assertContains('codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template_does_not_dispatch_work', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'disable_execution_later_cycle_authorization_human_escalation_hash'));
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template_ready_after_all_packets_completed(): void
+    {
+        $packets = [
+            'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001',
+            'AIP-SPLIT-SELF-CONSTRUCTION-PACKET-CONTRACTS-0002',
+            'AIP-SPLIT-SELF-CONSTRUCTION-COMMAND-0003',
+            'AIP-SPLIT-SELF-CONSTRUCTION-SERVICE-0004',
+            'AIP-SPLIT-SELF-CONSTRUCTION-EVIDENCE-0005',
+        ];
+
+        foreach ($packets as $index => $packetId) {
+            $actor = 'codex-'.($index + 1);
+            $session = 'session-'.($index + 1);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--claim-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--json' => true,
+            ]);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--complete-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--reason' => 'packet_scope_finished',
+                '--evidence-hash' => hash('sha256', $packetId),
+                '--json' => true,
+            ]);
+        }
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-human-escalation-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template_ready', data_get($payload, 'status'));
+        $this->assertSame('ready_as_future_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template', data_get($payload, 'disable_execution_later_cycle_authorization_human_escalation.status'));
+        $this->assertSame(10, data_get($payload, 'disable_execution_later_cycle_authorization_human_escalation.required_escalation_field_count'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_human_escalation.prior_authorization_reuse_allowed'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_human_escalation.receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_human_escalation.ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_human_escalation.decision_recorded'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_human_escalation.approval_granted'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_human_escalation.later_cycle_authorized'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_human_escalation.human_notified'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_human_escalation.human_task_created'));
+        $this->assertContains('writer_release_fresh_authorization_later_cycle_authorization_manual_decision_request_hash', data_get($payload, 'disable_execution_later_cycle_authorization_human_escalation.future_escalation_outputs'));
+        $this->assertContains('human_escalation_requires_non_dispatch_statement', data_get($payload, 'disable_execution_later_cycle_authorization_human_escalation.escalation_policy'));
+        $this->assertContains('human_reviewer_identity', data_get($payload, 'disable_execution_later_cycle_authorization_human_escalation.required_escalation_evidence'));
+    }
+
+    public function test_command_human_output_lists_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-human-escalation-template' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Later cycle authorization human escalation status', $output);
+        $this->assertStringContainsString('Escalation field count', $output);
+        $this->assertStringContainsString('Dispatch allowed', $output);
+        $this->assertStringContainsString('Later cycle authorization human escalation hash', $output);
+        $this->assertStringContainsString('Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization human escalation template is blocked', $output);
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template_blocked_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-manual-decision-request-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template_blocked', data_get($payload, 'status'));
+        $this->assertSame('read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'writer_file_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'signature_valid'));
+        $this->assertFalse(data_get($payload, 'signature_accepted'));
+        $this->assertFalse(data_get($payload, 'receipt_signed'));
+        $this->assertFalse(data_get($payload, 'receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'decision_recorded'));
+        $this->assertFalse(data_get($payload, 'approval_granted'));
+        $this->assertFalse(data_get($payload, 'later_cycle_authorized'));
+        $this->assertFalse(data_get($payload, 'human_notified'));
+        $this->assertFalse(data_get($payload, 'human_task_created'));
+        $this->assertFalse(data_get($payload, 'manual_decision_requested'));
+        $this->assertSame('blocked_before_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template', data_get($payload, 'disable_execution_later_cycle_authorization_manual_decision_request.status'));
+        $this->assertSame(10, data_get($payload, 'disable_execution_later_cycle_authorization_manual_decision_request.required_decision_request_field_count'));
+        $this->assertContains('reject_later_cycle_authorization', data_get($payload, 'disable_execution_later_cycle_authorization_manual_decision_request.allowed_decision_options'));
+        $this->assertContains('decision_question', data_get($payload, 'disable_execution_later_cycle_authorization_manual_decision_request.required_decision_request_evidence'));
+        $this->assertContains('manual_decision_request_does_not_request_real_decision', data_get($payload, 'disable_execution_later_cycle_authorization_manual_decision_request.decision_request_policy'));
+        $this->assertContains('real_decision_request_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template', data_get($payload, 'disable_execution_later_cycle_authorization_manual_decision_request.still_forbidden_by_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template'));
+        $this->assertContains('codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template_does_not_dispatch_work', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'disable_execution_later_cycle_authorization_manual_decision_request_hash'));
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template_ready_after_all_packets_completed(): void
+    {
+        $packets = [
+            'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001',
+            'AIP-SPLIT-SELF-CONSTRUCTION-PACKET-CONTRACTS-0002',
+            'AIP-SPLIT-SELF-CONSTRUCTION-COMMAND-0003',
+            'AIP-SPLIT-SELF-CONSTRUCTION-SERVICE-0004',
+            'AIP-SPLIT-SELF-CONSTRUCTION-EVIDENCE-0005',
+        ];
+
+        foreach ($packets as $index => $packetId) {
+            $actor = 'codex-'.($index + 1);
+            $session = 'session-'.($index + 1);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--claim-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--json' => true,
+            ]);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--complete-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--reason' => 'packet_scope_finished',
+                '--evidence-hash' => hash('sha256', $packetId),
+                '--json' => true,
+            ]);
+        }
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-manual-decision-request-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template_ready', data_get($payload, 'status'));
+        $this->assertSame('ready_as_future_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template', data_get($payload, 'disable_execution_later_cycle_authorization_manual_decision_request.status'));
+        $this->assertSame(10, data_get($payload, 'disable_execution_later_cycle_authorization_manual_decision_request.required_decision_request_field_count'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_manual_decision_request.prior_authorization_reuse_allowed'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_manual_decision_request.receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_manual_decision_request.ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_manual_decision_request.decision_recorded'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_manual_decision_request.approval_granted'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_manual_decision_request.later_cycle_authorized'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_manual_decision_request.human_notified'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_manual_decision_request.human_task_created'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_manual_decision_request.manual_decision_requested'));
+        $this->assertContains('writer_release_fresh_authorization_later_cycle_authorization_manual_decision_response_hash', data_get($payload, 'disable_execution_later_cycle_authorization_manual_decision_request.future_decision_request_outputs'));
+        $this->assertContains('manual_decision_request_requires_allowed_decision_options', data_get($payload, 'disable_execution_later_cycle_authorization_manual_decision_request.decision_request_policy'));
+        $this->assertContains('human_reviewer_identity', data_get($payload, 'disable_execution_later_cycle_authorization_manual_decision_request.required_decision_request_evidence'));
+    }
+
+    public function test_command_human_output_lists_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-manual-decision-request-template' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Later cycle authorization manual decision request status', $output);
+        $this->assertStringContainsString('Decision field count', $output);
+        $this->assertStringContainsString('Decision requested', $output);
+        $this->assertStringContainsString('Later cycle authorization manual decision request hash', $output);
+        $this->assertStringContainsString('Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization manual decision request template is blocked', $output);
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_response_template_blocked_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-manual-decision-response-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_response_template.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_response_template_blocked', data_get($payload, 'status'));
+        $this->assertSame('read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_response_template', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'writer_file_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'signature_accepted'));
+        $this->assertFalse(data_get($payload, 'receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'decision_recorded'));
+        $this->assertFalse(data_get($payload, 'approval_granted'));
+        $this->assertFalse(data_get($payload, 'later_cycle_authorized'));
+        $this->assertFalse(data_get($payload, 'human_notified'));
+        $this->assertFalse(data_get($payload, 'human_task_created'));
+        $this->assertFalse(data_get($payload, 'manual_decision_requested'));
+        $this->assertFalse(data_get($payload, 'manual_decision_response_recorded'));
+        $this->assertSame('blocked_before_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template', data_get($payload, 'disable_execution_later_cycle_authorization_manual_decision_response.status'));
+        $this->assertSame(10, data_get($payload, 'disable_execution_later_cycle_authorization_manual_decision_response.required_decision_response_field_count'));
+        $this->assertContains('selected_decision_option', data_get($payload, 'disable_execution_later_cycle_authorization_manual_decision_response.required_decision_response_evidence'));
+        $this->assertContains('manual_decision_response_does_not_record_decision', data_get($payload, 'disable_execution_later_cycle_authorization_manual_decision_response.decision_response_policy'));
+        $this->assertContains('decision_recording_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_response_template', data_get($payload, 'disable_execution_later_cycle_authorization_manual_decision_response.still_forbidden_by_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_response_template'));
+        $this->assertContains('codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_response_template_does_not_dispatch_work', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'disable_execution_later_cycle_authorization_manual_decision_response_hash'));
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_response_template_ready_after_all_packets_completed(): void
+    {
+        $packets = [
+            'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001',
+            'AIP-SPLIT-SELF-CONSTRUCTION-PACKET-CONTRACTS-0002',
+            'AIP-SPLIT-SELF-CONSTRUCTION-COMMAND-0003',
+            'AIP-SPLIT-SELF-CONSTRUCTION-SERVICE-0004',
+            'AIP-SPLIT-SELF-CONSTRUCTION-EVIDENCE-0005',
+        ];
+
+        foreach ($packets as $index => $packetId) {
+            $actor = 'codex-response-'.($index + 1);
+            $session = 'session-response-'.($index + 1);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--claim-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--json' => true,
+            ]);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--complete-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--reason' => 'packet_scope_finished',
+                '--evidence-hash' => hash('sha256', 'response-'.$packetId),
+                '--json' => true,
+            ]);
+        }
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-manual-decision-response-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_response_template_ready', data_get($payload, 'status'));
+        $this->assertSame('ready_as_future_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_response_template', data_get($payload, 'disable_execution_later_cycle_authorization_manual_decision_response.status'));
+        $this->assertSame(10, data_get($payload, 'disable_execution_later_cycle_authorization_manual_decision_response.required_decision_response_field_count'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_manual_decision_response.prior_authorization_reuse_allowed'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_manual_decision_response.receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_manual_decision_response.ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_manual_decision_response.decision_recorded'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_manual_decision_response.approval_granted'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_manual_decision_response.later_cycle_authorized'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_manual_decision_response.human_notified'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_manual_decision_response.human_task_created'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_manual_decision_response.manual_decision_response_recorded'));
+        $this->assertContains('reject_later_cycle_authorization', data_get($payload, 'disable_execution_later_cycle_authorization_manual_decision_response.allowed_response_options'));
+        $this->assertContains('writer_release_fresh_authorization_later_cycle_authorization_decision_record_draft_hash', data_get($payload, 'disable_execution_later_cycle_authorization_manual_decision_response.future_decision_response_outputs'));
+        $this->assertContains('manual_decision_response_requires_selected_allowed_option', data_get($payload, 'disable_execution_later_cycle_authorization_manual_decision_response.decision_response_policy'));
+    }
+
+    public function test_command_human_output_lists_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_response_template(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-manual-decision-response-template' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Later cycle authorization manual decision response status', $output);
+        $this->assertStringContainsString('Response field count', $output);
+        $this->assertStringContainsString('Decision recorded', $output);
+        $this->assertStringContainsString('Later cycle authorization manual decision response hash', $output);
+        $this->assertStringContainsString('Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization manual decision response template is blocked', $output);
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_draft_template_blocked_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-draft-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_draft_template.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_draft_template_blocked', data_get($payload, 'status'));
+        $this->assertSame('read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_draft_template', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'writer_file_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'signature_accepted'));
+        $this->assertFalse(data_get($payload, 'receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'decision_recorded'));
+        $this->assertFalse(data_get($payload, 'decision_record_draft_persisted'));
+        $this->assertFalse(data_get($payload, 'approval_granted'));
+        $this->assertFalse(data_get($payload, 'later_cycle_authorized'));
+        $this->assertFalse(data_get($payload, 'human_notified'));
+        $this->assertFalse(data_get($payload, 'human_task_created'));
+        $this->assertFalse(data_get($payload, 'manual_decision_requested'));
+        $this->assertFalse(data_get($payload, 'manual_decision_response_recorded'));
+        $this->assertSame('blocked_before_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_response_template', data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_draft.status'));
+        $this->assertSame(10, data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_draft.required_decision_record_draft_field_count'));
+        $this->assertContains('selected_decision_option', data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_draft.required_decision_record_draft_evidence'));
+        $this->assertContains('decision_record_draft_does_not_record_decision', data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_draft.decision_record_draft_policy'));
+        $this->assertContains('decision_recording_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_draft_template', data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_draft.still_forbidden_by_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_draft_template'));
+        $this->assertContains('codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_draft_template_does_not_dispatch_work', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_draft_hash'));
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_draft_template_ready_after_all_packets_completed(): void
+    {
+        $packets = [
+            'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001',
+            'AIP-SPLIT-SELF-CONSTRUCTION-PACKET-CONTRACTS-0002',
+            'AIP-SPLIT-SELF-CONSTRUCTION-COMMAND-0003',
+            'AIP-SPLIT-SELF-CONSTRUCTION-SERVICE-0004',
+            'AIP-SPLIT-SELF-CONSTRUCTION-EVIDENCE-0005',
+        ];
+
+        foreach ($packets as $index => $packetId) {
+            $actor = 'codex-draft-'.($index + 1);
+            $session = 'session-draft-'.($index + 1);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--claim-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--json' => true,
+            ]);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--complete-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--reason' => 'packet_scope_finished',
+                '--evidence-hash' => hash('sha256', 'draft-'.$packetId),
+                '--json' => true,
+            ]);
+        }
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-draft-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_draft_template_ready', data_get($payload, 'status'));
+        $this->assertSame('ready_as_future_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_draft_template', data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_draft.status'));
+        $this->assertSame(10, data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_draft.required_decision_record_draft_field_count'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_draft.prior_authorization_reuse_allowed'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_draft.receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_draft.ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_draft.decision_recorded'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_draft.decision_record_draft_persisted'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_draft.approval_granted'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_draft.later_cycle_authorized'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_draft.human_notified'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_draft.human_task_created'));
+        $this->assertContains('reject_later_cycle_authorization', data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_draft.allowed_draft_subjects'));
+        $this->assertContains('writer_release_fresh_authorization_later_cycle_authorization_decision_record_persistence_preflight_hash', data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_draft.future_decision_record_draft_outputs'));
+        $this->assertContains('decision_record_draft_requires_selected_allowed_option', data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_draft.decision_record_draft_policy'));
+    }
+
+    public function test_command_human_output_lists_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_draft_template(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-draft-template' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Later cycle authorization decision record draft status', $output);
+        $this->assertStringContainsString('Draft field count', $output);
+        $this->assertStringContainsString('Decision recorded', $output);
+        $this->assertStringContainsString('Later cycle authorization decision record draft hash', $output);
+        $this->assertStringContainsString('Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization decision record draft template is blocked', $output);
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_preflight_template_blocked_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-persistence-preflight-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_preflight_template.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_preflight_template_blocked', data_get($payload, 'status'));
+        $this->assertSame('read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_preflight_template', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'writer_file_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'signature_accepted'));
+        $this->assertFalse(data_get($payload, 'receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'decision_recorded'));
+        $this->assertFalse(data_get($payload, 'decision_record_draft_persisted'));
+        $this->assertFalse(data_get($payload, 'decision_record_persistence_allowed'));
+        $this->assertFalse(data_get($payload, 'approval_granted'));
+        $this->assertFalse(data_get($payload, 'later_cycle_authorized'));
+        $this->assertFalse(data_get($payload, 'human_notified'));
+        $this->assertFalse(data_get($payload, 'human_task_created'));
+        $this->assertFalse(data_get($payload, 'manual_decision_requested'));
+        $this->assertFalse(data_get($payload, 'manual_decision_response_recorded'));
+        $this->assertSame('blocked_before_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_draft_template', data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_persistence_preflight.status'));
+        $this->assertSame(10, data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_persistence_preflight.required_persistence_preflight_check_count'));
+        $this->assertContains('persistence_remains_disallowed', data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_persistence_preflight.required_persistence_preflight_checks'));
+        $this->assertContains('decision_record_persistence_preflight_does_not_allow_persistence', data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_persistence_preflight.persistence_preflight_policy'));
+        $this->assertContains('persistence_allowed_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_preflight_template', data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_persistence_preflight.still_forbidden_by_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_preflight_template'));
+        $this->assertContains('codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_preflight_template_does_not_dispatch_work', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_persistence_preflight_hash'));
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_preflight_template_ready_after_all_packets_completed(): void
+    {
+        $packets = [
+            'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001',
+            'AIP-SPLIT-SELF-CONSTRUCTION-PACKET-CONTRACTS-0002',
+            'AIP-SPLIT-SELF-CONSTRUCTION-COMMAND-0003',
+            'AIP-SPLIT-SELF-CONSTRUCTION-SERVICE-0004',
+            'AIP-SPLIT-SELF-CONSTRUCTION-EVIDENCE-0005',
+        ];
+
+        foreach ($packets as $index => $packetId) {
+            $actor = 'codex-preflight-'.($index + 1);
+            $session = 'session-preflight-'.($index + 1);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--claim-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--json' => true,
+            ]);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--complete-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--reason' => 'packet_scope_finished',
+                '--evidence-hash' => hash('sha256', 'preflight-'.$packetId),
+                '--json' => true,
+            ]);
+        }
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-persistence-preflight-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_preflight_template_ready', data_get($payload, 'status'));
+        $this->assertSame('ready_as_future_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_preflight_template', data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_persistence_preflight.status'));
+        $this->assertSame(10, data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_persistence_preflight.required_persistence_preflight_check_count'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_persistence_preflight.prior_authorization_reuse_allowed'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_persistence_preflight.receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_persistence_preflight.ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_persistence_preflight.decision_recorded'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_persistence_preflight.decision_record_draft_persisted'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_persistence_preflight.decision_record_persistence_allowed'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_persistence_preflight.approval_granted'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_persistence_preflight.later_cycle_authorized'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_persistence_preflight.human_notified'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_persistence_preflight.human_task_created'));
+        $this->assertContains('decision_record_evidence_hash', data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_persistence_preflight.required_persistence_preflight_evidence'));
+        $this->assertContains('writer_release_fresh_authorization_later_cycle_authorization_decision_record_persistence_receipt_hash', data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_persistence_preflight.future_persistence_preflight_outputs'));
+        $this->assertContains('decision_record_persistence_preflight_requires_persistence_allowed_flag_false', data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_persistence_preflight.persistence_preflight_policy'));
+    }
+
+    public function test_command_human_output_lists_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_preflight_template(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-persistence-preflight-template' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Later cycle authorization decision record persistence preflight status', $output);
+        $this->assertStringContainsString('Preflight check count', $output);
+        $this->assertStringContainsString('Persistence allowed', $output);
+        $this->assertStringContainsString('Later cycle authorization decision record persistence preflight hash', $output);
+        $this->assertStringContainsString('Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization decision record persistence preflight template is blocked', $output);
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_receipt_template_blocked_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-persistence-receipt-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_receipt_template.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_receipt_template_blocked', data_get($payload, 'status'));
+        $this->assertSame('read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_receipt_template', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'writer_file_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'signature_accepted'));
+        $this->assertFalse(data_get($payload, 'receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'decision_recorded'));
+        $this->assertFalse(data_get($payload, 'decision_record_draft_persisted'));
+        $this->assertFalse(data_get($payload, 'decision_record_persistence_allowed'));
+        $this->assertFalse(data_get($payload, 'decision_record_persisted'));
+        $this->assertFalse(data_get($payload, 'approval_granted'));
+        $this->assertFalse(data_get($payload, 'later_cycle_authorized'));
+        $this->assertFalse(data_get($payload, 'human_notified'));
+        $this->assertFalse(data_get($payload, 'human_task_created'));
+        $this->assertFalse(data_get($payload, 'manual_decision_requested'));
+        $this->assertFalse(data_get($payload, 'manual_decision_response_recorded'));
+        $this->assertSame('blocked_before_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_preflight_template', data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_persistence_receipt.status'));
+        $this->assertSame(10, data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_persistence_receipt.required_persistence_receipt_field_count'));
+        $this->assertContains('decision_record_draft_hash', data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_persistence_receipt.required_persistence_receipt_evidence'));
+        $this->assertContains('decision_record_persistence_receipt_does_not_persist_decision_record', data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_persistence_receipt.persistence_receipt_policy'));
+        $this->assertContains('decision_record_persistence_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_receipt_template', data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_persistence_receipt.still_forbidden_by_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_receipt_template'));
+        $this->assertContains('codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_receipt_template_does_not_dispatch_work', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_persistence_receipt_hash'));
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_receipt_template_ready_after_all_packets_completed(): void
+    {
+        $packets = [
+            'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001',
+            'AIP-SPLIT-SELF-CONSTRUCTION-PACKET-CONTRACTS-0002',
+            'AIP-SPLIT-SELF-CONSTRUCTION-COMMAND-0003',
+            'AIP-SPLIT-SELF-CONSTRUCTION-SERVICE-0004',
+            'AIP-SPLIT-SELF-CONSTRUCTION-EVIDENCE-0005',
+        ];
+
+        foreach ($packets as $index => $packetId) {
+            $actor = 'codex-receipt-'.($index + 1);
+            $session = 'session-receipt-'.($index + 1);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--claim-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--json' => true,
+            ]);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--complete-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--reason' => 'packet_scope_finished',
+                '--evidence-hash' => hash('sha256', 'receipt-'.$packetId),
+                '--json' => true,
+            ]);
+        }
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-persistence-receipt-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_receipt_template_ready', data_get($payload, 'status'));
+        $this->assertSame('ready_as_future_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_receipt_template', data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_persistence_receipt.status'));
+        $this->assertSame(10, data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_persistence_receipt.required_persistence_receipt_field_count'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_persistence_receipt.prior_authorization_reuse_allowed'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_persistence_receipt.receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_persistence_receipt.ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_persistence_receipt.decision_recorded'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_persistence_receipt.decision_record_draft_persisted'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_persistence_receipt.decision_record_persistence_allowed'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_persistence_receipt.decision_record_persisted'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_persistence_receipt.approval_granted'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_persistence_receipt.later_cycle_authorized'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_persistence_receipt.human_notified'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_persistence_receipt.human_task_created'));
+        $this->assertContains('persistence_receipt_evidence_hash', data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_persistence_receipt.required_persistence_receipt_evidence'));
+        $this->assertContains('writer_release_fresh_authorization_later_cycle_authorization_decision_record_post_persistence_review_hash', data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_persistence_receipt.future_persistence_receipt_outputs'));
+        $this->assertContains('decision_record_persistence_receipt_requires_decision_record_persisted_flag_false', data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_persistence_receipt.persistence_receipt_policy'));
+    }
+
+    public function test_command_human_output_lists_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_receipt_template(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-persistence-receipt-template' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Later cycle authorization decision record persistence receipt status', $output);
+        $this->assertStringContainsString('Receipt field count', $output);
+        $this->assertStringContainsString('Decision record persisted', $output);
+        $this->assertStringContainsString('Later cycle authorization decision record persistence receipt hash', $output);
+        $this->assertStringContainsString('Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization decision record persistence receipt template is blocked', $output);
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_post_persistence_review_template_blocked_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-post-persistence-review-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_post_persistence_review_template.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_post_persistence_review_template_blocked', data_get($payload, 'status'));
+        $this->assertSame('read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_post_persistence_review_template', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'writer_file_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'signature_accepted'));
+        $this->assertFalse(data_get($payload, 'receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'decision_recorded'));
+        $this->assertFalse(data_get($payload, 'decision_record_persistence_accepted'));
+        $this->assertFalse(data_get($payload, 'decision_record_persistence_allowed'));
+        $this->assertFalse(data_get($payload, 'decision_record_persisted'));
+        $this->assertFalse(data_get($payload, 'approval_granted'));
+        $this->assertFalse(data_get($payload, 'later_cycle_authorized'));
+        $this->assertSame('blocked_before_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_receipt_template', data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_post_persistence_review.status'));
+        $this->assertSame(10, data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_post_persistence_review.required_post_persistence_review_check_count'));
+        $this->assertContains('decision_record_was_not_persisted', data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_post_persistence_review.required_post_persistence_review_checks'));
+        $this->assertContains('decision_record_post_persistence_review_does_not_accept_persistence', data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_post_persistence_review.post_persistence_review_policy'));
+        $this->assertContains('persistence_acceptance_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_post_persistence_review_template', data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_post_persistence_review.still_forbidden_by_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_post_persistence_review_template'));
+        $this->assertContains('codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_post_persistence_review_template_does_not_dispatch_work', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_post_persistence_review_hash'));
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_post_persistence_review_template_ready_after_all_packets_completed(): void
+    {
+        $packets = [
+            'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001',
+            'AIP-SPLIT-SELF-CONSTRUCTION-PACKET-CONTRACTS-0002',
+            'AIP-SPLIT-SELF-CONSTRUCTION-COMMAND-0003',
+            'AIP-SPLIT-SELF-CONSTRUCTION-SERVICE-0004',
+            'AIP-SPLIT-SELF-CONSTRUCTION-EVIDENCE-0005',
+        ];
+
+        foreach ($packets as $index => $packetId) {
+            $actor = 'codex-post-review-'.($index + 1);
+            $session = 'session-post-review-'.($index + 1);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--claim-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--json' => true,
+            ]);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--complete-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--reason' => 'packet_scope_finished',
+                '--evidence-hash' => hash('sha256', 'post-review-'.$packetId),
+                '--json' => true,
+            ]);
+        }
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-post-persistence-review-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_post_persistence_review_template_ready', data_get($payload, 'status'));
+        $this->assertSame('ready_as_future_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_post_persistence_review_template', data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_post_persistence_review.status'));
+        $this->assertSame(10, data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_post_persistence_review.required_post_persistence_review_check_count'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_post_persistence_review.prior_authorization_reuse_allowed'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_post_persistence_review.receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_post_persistence_review.ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_post_persistence_review.decision_recorded'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_post_persistence_review.decision_record_persistence_accepted'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_post_persistence_review.decision_record_persisted'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_post_persistence_review.later_cycle_authorized'));
+        $this->assertContains('dispatch_allowed_false', data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_post_persistence_review.required_post_persistence_review_evidence'));
+        $this->assertContains('writer_release_fresh_authorization_later_cycle_authorization_decision_record_persistence_rejection_hash', data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_post_persistence_review.future_post_persistence_review_outputs'));
+        $this->assertContains('decision_record_post_persistence_review_requires_persistence_accepted_flag_false', data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_post_persistence_review.post_persistence_review_policy'));
+    }
+
+    public function test_command_human_output_lists_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_post_persistence_review_template(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-post-persistence-review-template' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Later cycle authorization decision record post-persistence review status', $output);
+        $this->assertStringContainsString('Review check count', $output);
+        $this->assertStringContainsString('Persistence accepted', $output);
+        $this->assertStringContainsString('Later cycle authorization decision record post-persistence review hash', $output);
+        $this->assertStringContainsString('Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization decision record post-persistence review template is blocked', $output);
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_rejection_template_blocked_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-persistence-rejection-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_rejection_template.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_rejection_template_blocked', data_get($payload, 'status'));
+        $this->assertSame('read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_rejection_template', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'writer_file_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'signature_accepted'));
+        $this->assertFalse(data_get($payload, 'receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'decision_recorded'));
+        $this->assertFalse(data_get($payload, 'decision_record_persistence_accepted'));
+        $this->assertFalse(data_get($payload, 'decision_record_persistence_allowed'));
+        $this->assertFalse(data_get($payload, 'decision_record_persisted'));
+        $this->assertFalse(data_get($payload, 'decision_record_persistence_rejected'));
+        $this->assertFalse(data_get($payload, 'decision_record_persistence_rejection_persisted'));
+        $this->assertFalse(data_get($payload, 'approval_granted'));
+        $this->assertFalse(data_get($payload, 'later_cycle_authorized'));
+        $this->assertSame('blocked_before_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_post_persistence_review_template', data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_persistence_rejection.status'));
+        $this->assertSame(10, data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_persistence_rejection.required_rejection_field_count'));
+        $this->assertContains('decision_record_persistence_not_accepted', data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_persistence_rejection.allowed_rejection_reasons'));
+        $this->assertContains('decision_record_persistence_rejection_rationale', data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_persistence_rejection.required_rejection_evidence'));
+        $this->assertContains('decision_record_persistence_rejection_does_not_persist_rejection', data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_persistence_rejection.rejection_policy'));
+        $this->assertContains('persistence_rejection_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_rejection_template', data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_persistence_rejection.still_forbidden_by_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_rejection_template'));
+        $this->assertContains('codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_rejection_template_does_not_dispatch_work', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_persistence_rejection_hash'));
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_rejection_template_ready_after_all_packets_completed(): void
+    {
+        $packets = [
+            'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001',
+            'AIP-SPLIT-SELF-CONSTRUCTION-PACKET-CONTRACTS-0002',
+            'AIP-SPLIT-SELF-CONSTRUCTION-COMMAND-0003',
+            'AIP-SPLIT-SELF-CONSTRUCTION-SERVICE-0004',
+            'AIP-SPLIT-SELF-CONSTRUCTION-EVIDENCE-0005',
+        ];
+
+        foreach ($packets as $index => $packetId) {
+            $actor = 'codex-rejection-'.($index + 1);
+            $session = 'session-rejection-'.($index + 1);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--claim-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--json' => true,
+            ]);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--complete-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--reason' => 'packet_scope_finished',
+                '--evidence-hash' => hash('sha256', 'rejection-'.$packetId),
+                '--json' => true,
+            ]);
+        }
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-persistence-rejection-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_rejection_template_ready', data_get($payload, 'status'));
+        $this->assertSame('ready_as_future_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_rejection_template', data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_persistence_rejection.status'));
+        $this->assertSame(10, data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_persistence_rejection.required_rejection_field_count'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_persistence_rejection.prior_authorization_reuse_allowed'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_persistence_rejection.receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_persistence_rejection.ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_persistence_rejection.decision_recorded'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_persistence_rejection.decision_record_persistence_accepted'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_persistence_rejection.decision_record_persistence_rejected'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_persistence_rejection.decision_record_persistence_rejection_persisted'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_persistence_rejection.later_cycle_authorized'));
+        $this->assertContains('decision_record_persistence_accepted_false', data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_persistence_rejection.required_rejection_evidence'));
+        $this->assertContains('writer_release_fresh_authorization_later_cycle_authorization_decision_record_rejection_integrity_hash', data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_persistence_rejection.future_rejection_outputs'));
+        $this->assertContains('decision_record_persistence_rejection_requires_persistence_accepted_flag_false', data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_persistence_rejection.rejection_policy'));
+    }
+
+    public function test_command_human_output_lists_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_rejection_template(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-persistence-rejection-template' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Later cycle authorization decision record persistence rejection status', $output);
+        $this->assertStringContainsString('Rejection field count', $output);
+        $this->assertStringContainsString('Persistence rejected', $output);
+        $this->assertStringContainsString('Later cycle authorization decision record persistence rejection hash', $output);
+        $this->assertStringContainsString('Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization decision record persistence rejection template is blocked', $output);
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_follow_up_observability_template_blocked_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-follow-up-observability-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_follow_up_observability_template.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_follow_up_observability_template_blocked', data_get($payload, 'status'));
+        $this->assertSame('read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_follow_up_observability_template', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'writer_file_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'signature_accepted'));
+        $this->assertFalse(data_get($payload, 'receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'decision_recorded'));
+        $this->assertFalse(data_get($payload, 'decision_record_persistence_accepted'));
+        $this->assertFalse(data_get($payload, 'decision_record_persistence_allowed'));
+        $this->assertFalse(data_get($payload, 'decision_record_persisted'));
+        $this->assertFalse(data_get($payload, 'decision_record_persistence_rejected'));
+        $this->assertFalse(data_get($payload, 'decision_record_persistence_rejection_persisted'));
+        $this->assertFalse(data_get($payload, 'approval_granted'));
+        $this->assertFalse(data_get($payload, 'later_cycle_authorized'));
+        $this->assertSame('blocked_before_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_rejection_template', data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_follow_up_observability.status'));
+        $this->assertSame(9, data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_follow_up_observability.observation_signal_count'));
+        $this->assertContains('no_persistence_rejection_persisted', data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_follow_up_observability.observation_signals'));
+        $this->assertContains('decision_record_persistence_rejection_persisted_false', data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_follow_up_observability.required_observation_evidence'));
+        $this->assertContains('decision_record_follow_up_observability_does_not_observe_as_persistence', data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_follow_up_observability.observability_policy'));
+        $this->assertContains('observability_persistence_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_follow_up_observability_template', data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_follow_up_observability.still_forbidden_by_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_follow_up_observability_template'));
+        $this->assertContains('codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_follow_up_observability_template_does_not_dispatch_work', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_follow_up_observability_hash'));
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_follow_up_observability_template_ready_after_all_packets_completed(): void
+    {
+        $packets = [
+            'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001',
+            'AIP-SPLIT-SELF-CONSTRUCTION-PACKET-CONTRACTS-0002',
+            'AIP-SPLIT-SELF-CONSTRUCTION-COMMAND-0003',
+            'AIP-SPLIT-SELF-CONSTRUCTION-SERVICE-0004',
+            'AIP-SPLIT-SELF-CONSTRUCTION-EVIDENCE-0005',
+        ];
+
+        foreach ($packets as $index => $packetId) {
+            $actor = 'codex-observe-'.($index + 1);
+            $session = 'session-observe-'.($index + 1);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--claim-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--json' => true,
+            ]);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--complete-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--reason' => 'packet_scope_finished',
+                '--evidence-hash' => hash('sha256', 'observe-'.$packetId),
+                '--json' => true,
+            ]);
+        }
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-follow-up-observability-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_follow_up_observability_template_ready', data_get($payload, 'status'));
+        $this->assertSame('ready_as_future_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_follow_up_observability_template', data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_follow_up_observability.status'));
+        $this->assertSame(9, data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_follow_up_observability.observation_signal_count'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_follow_up_observability.prior_authorization_reuse_allowed'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_follow_up_observability.receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_follow_up_observability.ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_follow_up_observability.decision_recorded'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_follow_up_observability.decision_record_persistence_rejection_persisted'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_follow_up_observability.decision_record_persistence_rejected'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_follow_up_observability.later_cycle_authorized'));
+        $this->assertContains('decision_record_persistence_rejected_false', data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_follow_up_observability.required_observation_evidence'));
+        $this->assertContains('writer_release_fresh_authorization_later_cycle_authorization_decision_record_observation_window_report_hash', data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_follow_up_observability.future_observability_outputs'));
+        $this->assertContains('decision_record_follow_up_observability_requires_rejection_persisted_flag_false', data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_follow_up_observability.observability_policy'));
+    }
+
+    public function test_command_human_output_lists_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_follow_up_observability_template(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-follow-up-observability-template' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Later cycle authorization decision record follow-up observability status', $output);
+        $this->assertStringContainsString('Observation signal count', $output);
+        $this->assertStringContainsString('Ledger write allowed', $output);
+        $this->assertStringContainsString('Later cycle authorization decision record follow-up observability hash', $output);
+        $this->assertStringContainsString('Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization decision record follow-up observability template is blocked', $output);
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_final_non_execution_report_template_blocked_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-final-non-execution-report-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_final_non_execution_report_template.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_final_non_execution_report_template_blocked', data_get($payload, 'status'));
+        $this->assertSame('read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_final_non_execution_report_template', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'writer_file_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'signature_accepted'));
+        $this->assertFalse(data_get($payload, 'receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'decision_recorded'));
+        $this->assertFalse(data_get($payload, 'decision_record_persistence_accepted'));
+        $this->assertFalse(data_get($payload, 'decision_record_persisted'));
+        $this->assertFalse(data_get($payload, 'decision_record_persistence_rejection_persisted'));
+        $this->assertFalse(data_get($payload, 'decision_record_final_non_execution_report_persisted'));
+        $this->assertFalse(data_get($payload, 'approval_granted'));
+        $this->assertFalse(data_get($payload, 'later_cycle_authorized'));
+        $this->assertSame('blocked_before_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_follow_up_observability_template', data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_final_non_execution_report.status'));
+        $this->assertSame(10, data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_final_non_execution_report.required_report_assertion_count'));
+        $this->assertContains('no_final_report_persisted', data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_final_non_execution_report.required_report_assertions'));
+        $this->assertContains('decision_record_final_non_execution_report_persisted_false', data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_final_non_execution_report.required_report_evidence'));
+        $this->assertContains('decision_record_final_non_execution_report_does_not_persist_report', data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_final_non_execution_report.report_policy'));
+        $this->assertContains('report_persistence_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_final_non_execution_report_template', data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_final_non_execution_report.still_forbidden_by_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_final_non_execution_report_template'));
+        $this->assertContains('codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_final_non_execution_report_template_does_not_dispatch_work', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_final_non_execution_report_hash'));
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_final_non_execution_report_template_ready_after_all_packets_completed(): void
+    {
+        $packets = [
+            'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001',
+            'AIP-SPLIT-SELF-CONSTRUCTION-PACKET-CONTRACTS-0002',
+            'AIP-SPLIT-SELF-CONSTRUCTION-COMMAND-0003',
+            'AIP-SPLIT-SELF-CONSTRUCTION-SERVICE-0004',
+            'AIP-SPLIT-SELF-CONSTRUCTION-EVIDENCE-0005',
+        ];
+
+        foreach ($packets as $index => $packetId) {
+            $actor = 'codex-final-report-'.($index + 1);
+            $session = 'session-final-report-'.($index + 1);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--claim-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--json' => true,
+            ]);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--complete-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--reason' => 'packet_scope_finished',
+                '--evidence-hash' => hash('sha256', 'final-report-'.$packetId),
+                '--json' => true,
+            ]);
+        }
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-final-non-execution-report-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_final_non_execution_report_template_ready', data_get($payload, 'status'));
+        $this->assertSame('ready_as_future_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_final_non_execution_report_template', data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_final_non_execution_report.status'));
+        $this->assertSame(10, data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_final_non_execution_report.required_report_assertion_count'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_final_non_execution_report.prior_authorization_reuse_allowed'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_final_non_execution_report.receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_final_non_execution_report.ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_final_non_execution_report.decision_recorded'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_final_non_execution_report.decision_record_final_non_execution_report_persisted'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_final_non_execution_report.later_cycle_authorized'));
+        $this->assertContains('receipt_persisted_false', data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_final_non_execution_report.required_report_evidence'));
+        $this->assertContains('writer_release_fresh_authorization_later_cycle_authorization_archive_index_hash', data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_final_non_execution_report.future_report_outputs'));
+        $this->assertContains('decision_record_final_non_execution_report_requires_report_persisted_flag_false', data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_final_non_execution_report.report_policy'));
+    }
+
+    public function test_command_human_output_lists_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_final_non_execution_report_template(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-final-non-execution-report-template' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Later cycle authorization decision record final non-execution report status', $output);
+        $this->assertStringContainsString('Report assertion count', $output);
+        $this->assertStringContainsString('Execution allowed', $output);
+        $this->assertStringContainsString('Later cycle authorization decision record final non-execution report hash', $output);
+        $this->assertStringContainsString('Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization decision record final non-execution report template is blocked', $output);
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_archive_index_template_blocked_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-archive-index-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_archive_index_template.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_archive_index_template_blocked', data_get($payload, 'status'));
+        $this->assertSame('read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_archive_index_template', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'writer_file_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'signature_accepted'));
+        $this->assertFalse(data_get($payload, 'receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'decision_recorded'));
+        $this->assertFalse(data_get($payload, 'decision_record_persisted'));
+        $this->assertFalse(data_get($payload, 'decision_record_archive_index_persisted'));
+        $this->assertFalse(data_get($payload, 'decision_record_final_non_execution_report_persisted'));
+        $this->assertFalse(data_get($payload, 'approval_granted'));
+        $this->assertFalse(data_get($payload, 'later_cycle_authorized'));
+        $this->assertSame('blocked_before_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_final_non_execution_report_template', data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_archive_index.status'));
+        $this->assertSame(7, data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_archive_index.archive_entry_count'));
+        $this->assertContains('decision_record_final_non_execution_report_hash', data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_archive_index.archive_entries'));
+        $this->assertContains('decision_record_archive_index_persisted_false', data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_archive_index.required_archive_evidence'));
+        $this->assertContains('decision_record_archive_index_does_not_persist_archive_index', data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_archive_index.archive_policy'));
+        $this->assertContains('archive_index_persistence_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_archive_index_template', data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_archive_index.still_forbidden_by_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_archive_index_template'));
+        $this->assertContains('codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_archive_index_template_does_not_dispatch_work', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_archive_index_hash'));
+    }
+
+    public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_archive_index_template_ready_after_all_packets_completed(): void
+    {
+        $packets = [
+            'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001',
+            'AIP-SPLIT-SELF-CONSTRUCTION-PACKET-CONTRACTS-0002',
+            'AIP-SPLIT-SELF-CONSTRUCTION-COMMAND-0003',
+            'AIP-SPLIT-SELF-CONSTRUCTION-SERVICE-0004',
+            'AIP-SPLIT-SELF-CONSTRUCTION-EVIDENCE-0005',
+        ];
+
+        foreach ($packets as $index => $packetId) {
+            $actor = 'codex-archive-index-'.($index + 1);
+            $session = 'session-archive-index-'.($index + 1);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--claim-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--json' => true,
+            ]);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--complete-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--reason' => 'packet_scope_finished',
+                '--evidence-hash' => hash('sha256', 'archive-index-'.$packetId),
+                '--json' => true,
+            ]);
+        }
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-archive-index-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_archive_index_template_ready', data_get($payload, 'status'));
+        $this->assertSame('ready_as_future_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_archive_index_template', data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_archive_index.status'));
+        $this->assertSame(7, data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_archive_index.archive_entry_count'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_archive_index.prior_authorization_reuse_allowed'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_archive_index.receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_archive_index.ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_archive_index.decision_recorded'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_archive_index.decision_record_archive_index_persisted'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_archive_index.later_cycle_authorized'));
+        $this->assertContains('decision_recorded_false', data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_archive_index.required_archive_evidence'));
+        $this->assertContains('writer_release_fresh_authorization_later_cycle_authorization_durable_writer_candidate_hash', data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_archive_index.future_archive_outputs'));
+        $this->assertContains('decision_record_archive_index_requires_archive_index_persisted_flag_false', data_get($payload, 'disable_execution_later_cycle_authorization_decision_record_archive_index.archive_policy'));
+    }
+
+    public function test_command_human_output_lists_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_archive_index_template(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-archive-index-template' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Later cycle authorization decision record archive index status', $output);
+        $this->assertStringContainsString('Archive entry count', $output);
+        $this->assertStringContainsString('Archive index persisted', $output);
+        $this->assertStringContainsString('Later cycle authorization decision record archive index hash', $output);
+        $this->assertStringContainsString('Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization decision record archive index template is blocked', $output);
+    }
+
     public function test_command_returns_codex_start_packet_as_json(): void
     {
         $exit = Artisan::call('atlas:ai:self-construction', [

@@ -154,6 +154,14 @@ class PromotionReviewPacketTest(unittest.TestCase):
             with self.subTest(key=key), self.assertRaises(PromotionReviewPacketViolation):
                 validate_promotion_review_packet(payload)
 
+    def test_rejects_nested_secret_or_raw_payload_before_review(self) -> None:
+        for key in ["provider_api_key", "raw_audio_bytes", "response_text"]:
+            payload = deepcopy(valid_packet())
+            payload["evidence"]["product_loop_check"]["debug"] = {key: "unsafe"}
+
+            with self.subTest(key=key), self.assertRaises(PromotionReviewPacketViolation):
+                validate_promotion_review_packet(payload)
+
 
 if __name__ == "__main__":
     unittest.main()

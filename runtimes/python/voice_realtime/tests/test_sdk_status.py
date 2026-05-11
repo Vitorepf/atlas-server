@@ -9,6 +9,7 @@ from unittest.mock import patch
 
 from atlas_voice_agent.contract import AtlasVoiceRuntimeContract
 from atlas_voice_agent.sdk_status import (
+    DependencyInstallPlanViolation,
     build_dependency_install_plan,
     inspect_livekit_sdk,
     load_dependency_manifest,
@@ -142,11 +143,15 @@ class SdkStatusTest(unittest.TestCase):
         payload = dict(build_dependency_install_plan())
         payload["pip_execution_attempted"] = True
 
-        validated = validate_dependency_install_plan(payload)
+        with self.assertRaisesRegex(DependencyInstallPlanViolation, "pip_execution_must_be_false"):
+            validate_dependency_install_plan(payload)
 
-        self.assertEqual("invalid", validated["status"])
-        self.assertIn("pip_execution_must_be_false", validated["errors"])
-        self.assertFalse(validated["trusted"])
+    def test_dependency_install_plan_validation_rejects_nested_sensitive_material(self) -> None:
+        payload = dict(build_dependency_install_plan())
+        payload["nested"] = {"raw_audio": "base64"}
+
+        with self.assertRaisesRegex(DependencyInstallPlanViolation, "raw_audio"):
+            validate_dependency_install_plan(payload)
 
     def test_dependency_install_plan_blocks_unsafe_requirements(self) -> None:
         manifest_file = tempfile.NamedTemporaryFile("w", encoding="utf-8", delete=False)

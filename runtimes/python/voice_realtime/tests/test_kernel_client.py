@@ -5,6 +5,8 @@ from typing import Any, Mapping
 
 from atlas_voice_agent.contract import AtlasVoiceRuntimeContract
 from atlas_voice_agent.kernel_client import AtlasKernelClient
+from atlas_voice_agent.sdk_status import DependencyInstallPlanViolation
+from atlas_voice_agent.status_packet import VoiceStatusPacketViolation
 from atlas_voice_agent.turn_payload import UnsafeVoicePayload
 
 from test_contract import manifest
@@ -22,6 +24,87 @@ class RecordingTransport:
             return self.response
 
         return {**self.response, "url": url}
+
+
+def readiness_payload(*, status: str = "ledger_unavailable", hours: int = 24) -> Mapping[str, Any]:
+    return {
+        "schema_version": "atlas.voice.readiness.v1",
+        "available": False,
+        "status": status,
+        "hours": hours,
+        "mobile_first": True,
+        "gates": {
+            "ledger_available": False,
+            "required_events_present": False,
+            "latency_slo_clean": False,
+            "raw_audio_forbidden": True,
+            "kernel_decision_per_turn": True,
+            "rivals_voice_ready": False,
+        },
+        "phase0_hardening": {
+            "schema_version": "atlas.voice_realtime.phase0_hardening_gate.v1",
+            "status": "ready",
+            "surface_id": "voice_realtime",
+            "runtime_id": "livekit_agents_sdk",
+            "mobile_first": True,
+            "kernel_only": True,
+            "promotion_allowed": False,
+            "auto_promotion_allowed": False,
+        },
+        "product_loop_check": {
+            "schema_version": "atlas.voice_realtime.product_loop_check_reference.v1",
+            "status": "available_as_runtime_contract",
+            "surface_id": "voice_realtime",
+            "runtime_id": "livekit_agents_sdk",
+            "promotion_allowed": False,
+            "auto_promotion_allowed": False,
+            "daemon_started": False,
+        },
+        "runtime_dependency_summary": {
+            "schema_version": "atlas.voice_realtime.runtime_dependency_summary.v1",
+            "status": "ready",
+            "runtime_id": "livekit_agents_sdk",
+            "operator_managed": True,
+            "auto_install_allowed": False,
+        },
+        "next_action": "run_ledger_migrations_before_voice_readiness",
+    }
+
+
+def rivals_payload(*, status: str = "ledger_unavailable", hours: int = 24) -> Mapping[str, Any]:
+    return {
+        "schema_version": "atlas.voice.rivals.v1",
+        "available": False,
+        "status": status,
+        "hours": hours,
+        "readiness": readiness_payload(status=status, hours=hours),
+        "runtime_certification": {
+            "schema_version": "atlas.voice_realtime.runtime_certification.v1",
+            "status": "certified_scaffold",
+            "surface_id": "voice_realtime",
+            "runtime_id": "livekit_agents_sdk",
+            "kernel_only": True,
+            "mobile_first": True,
+            "daemon_started": False,
+            "product_loop_check": {
+                "schema_version": "atlas.voice_realtime.product_loop_check.v1",
+                "status": "blocked",
+                "daemon_started": False,
+            },
+        },
+        "production_promotion_gate": {
+            "schema_version": "atlas.voice_realtime.production_promotion_gate.v1",
+            "status": "blocked",
+            "surface_id": "voice_realtime",
+            "runtime_id": "livekit_agents_sdk",
+            "mobile_first": True,
+            "kernel_only": True,
+            "human_review_required": True,
+            "promotion_allowed": False,
+            "auto_promotion_allowed": False,
+        },
+        "next_action": "run_ledger_migrations_before_rivals_voice",
+    }
 
 
 class RecordingGetTransport:
@@ -153,9 +236,10 @@ class RecordingGetTransport:
                 "next_action": "run_install_command_then_sdk_check",
             }
         if url.endswith("/runtime/product-loop-check"):
+            wired = query.get("callback_loop_wired") == 1 and query.get("production_sdk_loop_wired") == 1
             return {
                 "schema_version": "atlas.voice_realtime.product_loop_check.v1",
-                "status": "ready_for_human_review",
+                "status": "ready_for_human_review" if wired else "blocked",
                 "surface_id": "voice_realtime",
                 "runtime_id": str(query.get("runtime") or "livekit_agents_sdk"),
                 "kernel_only": True,
@@ -176,7 +260,7 @@ class RecordingGetTransport:
                     "access_token_log_allowed": False,
                     "auto_promotion_allowed": False,
                 },
-                "next_action": "submit_voice_production_promotion_for_human_review",
+                "next_action": "submit_voice_production_promotion_for_human_review" if wired else "wire_real_livekit_agents_sdk_loop",
             }
         if url.endswith("/runtime/token-issuer-plan"):
             return {
@@ -274,6 +358,10 @@ class RecordingGetTransport:
                 },
                 "next_action": "configure_livekit_token_issuer",
             }
+        if url.endswith("/readiness"):
+            return readiness_payload(hours=int(query["hours"]))
+        if url.endswith("/rivals"):
+            return rivals_payload(hours=int(query["hours"]))
 
         return {"status": "ready", "url": url}
 
@@ -370,7 +458,7 @@ class AtlasKernelClientTest(unittest.TestCase):
         get_transport = RecordingGetTransport()
         response = self.client(post_transport, get_transport).readiness(hours=99999)
 
-        self.assertEqual("ready", response["status"])
+        self.assertEqual("ledger_unavailable", response["status"])
         self.assertEqual("http://atlas.test/ai/voice/readiness", get_transport.calls[0][0])
         self.assertEqual(8760, get_transport.calls[0][1]["hours"])
         self.assertEqual([], post_transport.calls)
@@ -380,9 +468,65 @@ class AtlasKernelClientTest(unittest.TestCase):
         get_transport = RecordingGetTransport()
         response = self.client(post_transport, get_transport).rivals(hours=0)
 
-        self.assertEqual("ready", response["status"])
+        self.assertEqual("ledger_unavailable", response["status"])
         self.assertEqual("http://atlas.test/ai/voice/rivals", get_transport.calls[0][0])
+        self.assertEqual("livekit_agents_sdk", get_transport.calls[0][1]["runtime"])
         self.assertEqual(1, get_transport.calls[0][1]["hours"])
+        self.assertEqual(0, get_transport.calls[0][1]["require_sdk"])
+        self.assertEqual(0, get_transport.calls[0][1]["callback_loop_wired"])
+        self.assertEqual(0, get_transport.calls[0][1]["production_sdk_loop_wired"])
+        self.assertEqual([], post_transport.calls)
+
+    def test_rivals_forwards_runtime_product_wiring_flags_to_kernel(self) -> None:
+        post_transport = RecordingTransport()
+        get_transport = RecordingGetTransport()
+        response = self.client(post_transport, get_transport).rivals(
+            hours=24,
+            require_sdk=True,
+            callback_loop_wired=True,
+            production_sdk_loop_wired=True,
+        )
+
+        self.assertEqual("ledger_unavailable", response["status"])
+        self.assertEqual("http://atlas.test/ai/voice/rivals", get_transport.calls[0][0])
+        self.assertEqual("livekit_agents_sdk", get_transport.calls[0][1]["runtime"])
+        self.assertEqual(1, get_transport.calls[0][1]["require_sdk"])
+        self.assertEqual(1, get_transport.calls[0][1]["callback_loop_wired"])
+        self.assertEqual(1, get_transport.calls[0][1]["production_sdk_loop_wired"])
+        self.assertEqual([], post_transport.calls)
+
+    def test_readiness_rejects_kernel_response_that_relaxes_promotion_guardrails(self) -> None:
+        post_transport = RecordingTransport()
+
+        def unsafe_get(url: str, query: Mapping[str, Any]) -> Mapping[str, Any]:
+            payload = dict(readiness_payload(hours=int(query["hours"])))
+            payload["phase0_hardening"] = {
+                **dict(payload["phase0_hardening"]),
+                "promotion_allowed": True,
+            }
+
+            return payload
+
+        with self.assertRaises(VoiceStatusPacketViolation):
+            self.client(post_transport, unsafe_get).readiness()
+
+        self.assertEqual([], post_transport.calls)
+
+    def test_rivals_rejects_kernel_response_that_relaxes_runtime_guardrails(self) -> None:
+        post_transport = RecordingTransport()
+
+        def unsafe_get(url: str, query: Mapping[str, Any]) -> Mapping[str, Any]:
+            payload = dict(rivals_payload(hours=int(query["hours"])))
+            payload["runtime_certification"] = {
+                **dict(payload["runtime_certification"]),
+                "daemon_started": True,
+            }
+
+            return payload
+
+        with self.assertRaises(VoiceStatusPacketViolation):
+            self.client(post_transport, unsafe_get).rivals()
+
         self.assertEqual([], post_transport.calls)
 
     def test_promotion_review_packet_uses_kernel_endpoint_with_runtime_and_bounded_hours(self) -> None:
@@ -431,13 +575,65 @@ class AtlasKernelClientTest(unittest.TestCase):
         self.assertEqual("livekit_agents_sdk", get_transport.calls[0][1]["runtime"])
         self.assertEqual([], post_transport.calls)
 
+    def test_dependency_install_plan_rejects_kernel_payload_with_nested_secret(self) -> None:
+        post_transport = RecordingTransport()
+
+        def get_transport(url: str, query: Mapping[str, Any]) -> Mapping[str, Any]:
+            self.assertTrue(url.endswith("/runtime/dependency-install-plan"))
+            return {
+                "schema_version": "atlas.voice_realtime.dependency_install_plan.v1",
+                "status": "ready_to_install_optional_dependency",
+                "surface_id": "voice_realtime",
+                "runtime_id": str(query.get("runtime") or "livekit_agents_sdk"),
+                "runtime_family": "python_ai_data",
+                "operator_managed": True,
+                "pip_execution_attempted": False,
+                "sdk_imported": False,
+                "daemon_started": False,
+                "kernel_only": True,
+                "mobile_first": True,
+                "requirements_file": "runtimes/python/voice_realtime/requirements-livekit.txt",
+                "requirements_sha256": "d" * 64,
+                "expected_packages": ["livekit-agents"],
+                "expected_requirements": ["livekit-agents>=1.3.12,<2.0.0"],
+                "requirements_packages": ["livekit-agents>=1.3.12,<2.0.0"],
+                "missing_requirements": [],
+                "unsafe_requirements": [],
+                "install_command": "${ATLAS_VOICE_PYTHON_BIN:-python3} -m pip install -r runtimes/python/voice_realtime/requirements-livekit.txt",
+                "verify_command": "python -m atlas_voice_agent.main --sdk-check --require-sdk",
+                "activation_gate": "runtime-certify --require-sdk",
+                "install_policy": "operator_managed",
+                "gates": {
+                    "manifest_available": True,
+                    "requirements_file_declared": True,
+                    "requirements_file_exists": True,
+                    "requirements_match_manifest": True,
+                    "requirements_safe": True,
+                    "pip_not_executed": True,
+                    "sdk_not_imported": True,
+                    "daemon_not_started": True,
+                },
+                "forbidden_shortcuts": [
+                    "run_pip_from_sdk_check",
+                    "install_dependency_without_operator_review",
+                    "import_livekit_during_install_plan",
+                    "start_daemon_after_dependency_install",
+                    "change_kernel_policy_from_dependency_install",
+                ],
+                "nested": {"api_secret": "secret"},
+                "next_action": "run_install_command_then_sdk_check",
+            }
+
+        with self.assertRaisesRegex(DependencyInstallPlanViolation, "api_secret"):
+            self.client(post_transport, get_transport).dependency_install_plan()
+
     def test_product_loop_check_uses_kernel_endpoint_without_daemon_start(self) -> None:
         post_transport = RecordingTransport()
         get_transport = RecordingGetTransport()
         response = self.client(post_transport, get_transport).product_loop_check()
 
         self.assertEqual("atlas.voice_realtime.product_loop_check.v1", response["schema_version"])
-        self.assertEqual("ready_for_human_review", response["status"])
+        self.assertEqual("blocked", response["status"])
         self.assertFalse(response["daemon_started"])
         self.assertTrue(response["gates"]["worker_start_still_blocked"])
         self.assertFalse(response["gates"]["callback_loop_wired"])

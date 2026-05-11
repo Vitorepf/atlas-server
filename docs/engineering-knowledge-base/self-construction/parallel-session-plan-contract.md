@@ -5,7 +5,7 @@ title: Atlas Self-Construction Parallel Session Plan Contract
 status: active
 category: architecture
 priority: 100
-summary: Contract for planning up to five parallel AI sessions from the read-only packet queue.
+summary: Contract for planning up to five parallel AI/provider sessions from the read-only packet queue.
 tags:
   - atlas-ai
   - self-construction
@@ -17,6 +17,7 @@ capabilities:
   - parallel_ai
 decisions:
   - Parallel sessions require a plan before durable reservation or execution.
+  - Session slots are provider-neutral; Codex launch commands are current adapters, not the only valid executor.
   - The plan may assign session slots in preview only, never persist claims.
   - `--codex-launch-plan` may emit ready-to-run Codex start commands, but it must not claim packets or start sessions.
   - `--codex-execution-status` may monitor active/completed sessions, but it must not mutate reservations.
@@ -32,6 +33,7 @@ decisions:
 maintenance:
   - Update before adding durable slot reservation, live dispatch or auto-execution.
 related_paths:
+  - docs/engineering-knowledge-base/self-construction/multi-provider-agent-orchestration-contract.md
   - docs/engineering-knowledge-base/self-construction/packet-queue-contract.md
   - docs/engineering-knowledge-base/self-construction/reservation-ledger-contract.md
   - docs/engineering-knowledge-base/self-construction/ai-session-bootstrap-contract.md
@@ -44,8 +46,8 @@ line_limit: 300
 
 # Atlas Self-Construction Parallel Session Plan Contract
 
-Parallel Session Plan is the read-only plan for running multiple AI sessions
-without making them collide.
+Parallel Session Plan is the read-only plan for running multiple AI sessions,
+possibly across different providers, without making them collide.
 
 ## Purpose
 
@@ -57,6 +59,7 @@ It must define:
 - withheld hot work;
 - per-slot packet-scoped bootstrap command;
 - per-slot Codex start command;
+- per-slot provider profile and adapter command when available;
 - per-slot actor and session id;
 - collision policy;
 - session plan hash.
@@ -76,24 +79,27 @@ It must define:
   "slot_id": "SESSION-SLOT-001",
   "state": "preview_assignable|blocked|withheld|idle",
   "packet_id": "AIP-SPLIT-...",
+  "provider_profile": "codex | claude | gemini | local_agent | generic",
   "bootstrap_command": "php artisan atlas:ai:self-construction --ai-session-bootstrap --packet=AIP-SPLIT-... --json",
   "execution_allowed": false,
   "claim_persisted": false
 }
 ```
 
-## Five-Slot Preview Contract
+## Five-Slot Multi-Provider Preview Contract
 
 When five disjoint cold-lane packets are available, the plan must fill all five
 slots with `preview_assignable` packets and `idle_slot_count=0`. Each slot must
-carry its own `--packet=` bootstrap and scope-validator commands so five Codex
+carry its own `--packet=` bootstrap and scope-validator commands so five AI
 sessions can start from the same human prompt while still receiving different
-packet scopes.
+packet scopes. The sessions may all be Codex, or a mix of Codex, Claude,
+Gemini, local agents and future providers.
 
 ## Codex Launch Plan
 
 `--codex-launch-plan` is the operator-facing launch surface for opening up to
-five Codex sessions:
+five Codex sessions. It is the current concrete adapter for the broader
+multi-provider plan:
 
 ```bash
 php artisan atlas:ai:self-construction --codex-launch-plan --json
@@ -104,7 +110,11 @@ deterministic actor/session names. The launch plan itself must not claim
 packets. Each fresh Codex session claims its packet only when its own start
 command runs.
 
-## Codex Execution Status
+Future provider launch plans must follow the same universal packet contract.
+Provider-specific start commands are adapters over the same packet; they are not
+separate sources of truth.
+
+## Provider Execution Status Boundary
 
 `--codex-execution-status` is the read-only monitor for parallel work:
 
@@ -112,14 +122,15 @@ command runs.
 php artisan atlas:ai:self-construction --codex-execution-status --json
 ```
 
-It must aggregate queue state, reservation status and launch plan state, then
-report active sessions, completed packets, launchable commands and the next
-operator action. It must not claim, release, complete, dispatch or start work.
+It currently reports Codex-reservation state, but the required shape is
+provider-neutral: active sessions, completed packets, launchable commands and
+the next operator action. It must not claim, release, complete, dispatch or
+start work.
 
-## Codex Integration Report
+## Integration Report
 
 `--codex-integration-report` is the read-only handoff surface for the principal
-operator after one or more Codex sessions complete packets:
+operator after one or more provider sessions complete packets:
 
 ```bash
 php artisan atlas:ai:self-construction --codex-integration-report --json
@@ -146,15 +157,15 @@ integration report must therefore keep these boundaries explicit:
 
 The integrator sequence is:
 
-1. Refresh `--codex-execution-status`.
-2. Review each completed session final response contract.
+1. Refresh execution status.
+2. Review each completed session final response contract after evidence normalization.
 3. Verify the evidence hash reported at completion.
 4. Run packet-scoped validators where files changed.
 5. Run focused Self-Construction tests.
 6. Run docs-health, architecture-validate and diff check.
 7. Prepare a human summary before any merge or approval.
 
-## Codex Merge Readiness
+## Merge Readiness
 
 `--codex-merge-readiness` is the read-only gate for the principal operator after
 parallel sessions report completion:
@@ -166,6 +177,7 @@ php artisan atlas:ai:self-construction --codex-merge-readiness --json
 It may return `ready_for_human_merge_review` only when:
 
 - no Codex session is active;
+- no non-Codex provider session is active when provider adapters are enabled;
 - no assignable packet is missing completion;
 - every completed packet has a completion evidence hash;
 - the integration report can list all ready packets.
@@ -193,6 +205,10 @@ The principal integrator chain is governed by
 after all assignable packets are completed and merge-readiness is true, Atlas
 may emit read-only review packets, decision templates, receipt drafts,
 signature requests, post-signature runbooks and merge-action templates.
+
+Codex review naming reflects the first implemented adapter. The review chain
+must still consume normalized evidence from any provider before human/governed
+merge review.
 
 Every review-chain surface must keep approval, signature validation, dispatch
 and merge disabled until a separate explicit human or governed action exists.

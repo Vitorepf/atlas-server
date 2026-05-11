@@ -106,12 +106,26 @@ class AiAttachmentPayload
         return [
             'id' => $sha ?: 'image-'.($index + 1),
             'kind' => 'image',
-            'name' => 'imagem '.($index + 1).self::extensionForMime($mime),
+            'name' => self::displayName($attachment, $index, $mime),
             'mime_type' => $mime,
             'bytes' => is_numeric($attachment['bytes'] ?? null) ? (int) $attachment['bytes'] : null,
             'sha256' => $sha,
             'source' => is_string($attachment['source'] ?? null) ? $attachment['source'] : 'upload',
         ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $attachment
+     */
+    private static function displayName(array $attachment, int $index, string $mime): string
+    {
+        $original = is_string($attachment['original_name'] ?? null)
+            ? trim(basename(str_replace('\\', '/', $attachment['original_name'])))
+            : '';
+
+        return $original !== ''
+            ? mb_substr($original, 0, 160)
+            : 'imagem '.($index + 1).self::extensionForMime($mime);
     }
 
     /**

@@ -31,7 +31,8 @@ self-programming:
 
 - No autonomous runtime implementation in this AP.
 - No auto-merge or self-mutation without human/governance gate.
-- No new provider, daemon, external runtime or parallel memory.
+- No new provider runtime, daemon, external runtime or parallel memory in this AP.
+  Provider-neutral documentation and adapter contracts are allowed.
 - No bypass of APs, SDD, Decision Receipts, Evidence Ledger or docs-health.
 - No claim that Atlas is already self-programming at full autonomy.
 - No structural subsystem runtime before its contract document is complete.
@@ -42,6 +43,7 @@ self-programming:
 - `docs/engineering-knowledge-base/self-construction/constitution.md`
 - `docs/engineering-knowledge-base/self-construction/structural-contract-gate.md`
 - `docs/engineering-knowledge-base/self-construction/ai-implementation-packet-contract.md`
+- `docs/engineering-knowledge-base/self-construction/multi-provider-agent-orchestration-contract.md`
 - `docs/engineering-knowledge-base/self-construction/work-splitter-contract.md`
 - `docs/engineering-knowledge-base/self-construction/scope-validator-contract.md`
 - `docs/engineering-knowledge-base/self-construction/assignment-and-claim-contract.md`
@@ -102,6 +104,9 @@ self-programming:
   Splitter, Scope Validator and other core self-construction subsystems.
 - Docs define packet, split and scope validation contracts so multiple AIs can
   continue implementation without colliding or relying on chat history.
+- Docs define multi-provider orchestration so Codex, Claude, Gemini, local
+  agents and future providers consume the same universal packet through
+  adapters without widening authority.
 - Docs define assignment and claim preview rules so one AI session receives one
   bounded packet without durable claim persistence or hidden execution.
 - Docs define the packet consumption runbook so assigned work returns evidence
@@ -155,6 +160,8 @@ self-programming:
   blocked and withheld work without mutating packet state.
 - Docs define parallel session planning so up to five AI sessions can be
   preview-slotted without claims, ledger writes, dispatch or execution.
+- Docs define provider profiles and evidence normalization so "five Codex" is
+  treated as a current adapter pattern, not the architecture limit.
 - Docs define collision matrix rules so packet overlap and hot scopes are
   detected before parallel claims or execution exist.
 - Docs define dependency unlock planning so completed packets can preview which

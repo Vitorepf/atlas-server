@@ -126,6 +126,31 @@ class LiveKitCallbackRouterTest(unittest.TestCase):
                 "payload": "not-object",
             })
 
+    def test_router_rejects_forbidden_nested_authority_and_raw_payloads(self) -> None:
+        subject = router(RouterTransport())
+
+        with self.assertRaises(UnsafeVoicePayload):
+            subject.route({
+                "callback_kind": "participant_joined",
+                "payload": {
+                    "session_id": "voice_session",
+                    "participant_identity": "mobile:vitor",
+                    "room_name": "atlas-voice-router",
+                    "metadata": {"provider_api_key": "secret"},
+                },
+            })
+
+        with self.assertRaises(UnsafeVoicePayload):
+            subject.route({
+                "callback_kind": "transcript_final",
+                "payload": {
+                    "session_id": "voice_session",
+                    "turn_id": "voice_turn",
+                    "transcript": "continue",
+                    "metadata": {"raw_audio_bytes": "base64"},
+                },
+            })
+
     def test_supported_callbacks_are_stable_for_sdk_loop(self) -> None:
         self.assertEqual([
             "participant_joined",

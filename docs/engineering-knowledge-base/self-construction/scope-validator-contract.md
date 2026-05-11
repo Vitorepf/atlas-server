@@ -23,6 +23,7 @@ maintenance:
   - Update before changing scope classification, packet evidence or blocking violation policies.
 related_paths:
   - docs/engineering-knowledge-base/self-construction/ai-implementation-packet-contract.md
+  - docs/engineering-knowledge-base/self-construction/multi-provider-agent-orchestration-contract.md
   - docs/engineering-knowledge-base/self-construction/work-splitter-contract.md
   - docs/engineering-knowledge-base/self-construction/structural-contract-gate.md
   - docs/ap/AP-691-atlas-self-construction-os-contract.md
@@ -48,7 +49,8 @@ git diff --name-only
 
 and compares it with the packet write contract.
 
-For parallel Codex work, the validator must support packet-scoped validation:
+For parallel AI work, including Codex, Claude, Gemini, local agents and future
+providers, the validator must support packet-scoped validation:
 
 ```bash
 php artisan atlas:ai:self-construction --scope-validator --packet=AIP-SPLIT-... --json

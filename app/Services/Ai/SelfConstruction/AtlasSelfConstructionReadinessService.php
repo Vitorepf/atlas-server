@@ -1477,6 +1477,72 @@ final class AtlasSelfConstructionReadinessService
             ['option' => '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-execution-contract-template --json', 'schema' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_execution_contract_template.v1', 'proves' => 'future signed post-execution action receipt persistence writer release execution contract is templated without creating writer, writing ledger, persisting receipt, approving, merging or dispatching'],
             ['option' => '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-disable-contract-template --json', 'schema' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_disable_contract_template.v1', 'proves' => 'future signed post-execution action receipt persistence writer release disable contract is templated without creating writer, writing ledger, persisting receipt, approving, merging or dispatching'],
             ['option' => '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-observability-contract-template --json', 'schema' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_observability_contract_template.v1', 'proves' => 'future signed post-execution action receipt persistence writer release observability contract is templated without creating writer, writing ledger, persisting receipt, approving, merging or dispatching'],
+            ['option' => '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-post-monitoring-review-template --json', 'schema' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_post_monitoring_review_template.v1', 'proves' => 'future signed post-execution action receipt persistence writer release post-monitoring review is templated without creating writer, writing ledger, persisting receipt, approving, merging or dispatching'],
+            ['option' => '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-reenable-review-packet-template --json', 'schema' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_reenable_review_packet_template.v1', 'proves' => 'future signed post-execution action receipt persistence writer release re-enable review packet is templated without creating writer, writing ledger, persisting receipt, approving, merging or dispatching'],
+            ['option' => '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-request-template --json', 'schema' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_request_template.v1', 'proves' => 'future signed post-execution action receipt persistence writer release fresh authorization request is templated without accepting signature, creating writer, writing ledger, persisting receipt, approving, merging or dispatching'],
+            ['option' => '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-receipt-draft-template --json', 'schema' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_receipt_draft_template.v1', 'proves' => 'future signed post-execution action receipt persistence writer release fresh authorization receipt draft is templated without signing, creating writer, writing ledger, persisting receipt, approving, merging or dispatching'],
+            ['option' => '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-signature-request-template --json', 'schema' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_signature_request_template.v1', 'proves' => 'future signed post-execution action receipt persistence writer release fresh authorization signature request is templated without accepting signature, creating writer, writing ledger, persisting receipt, approving, merging or dispatching'],
+            ['option' => '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-post-signature-runbook-template --json', 'schema' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_post_signature_runbook_template.v1', 'proves' => 'future signed post-execution action receipt persistence writer release fresh authorization post-signature runbook is templated without validating signature, creating writer, writing ledger, persisting receipt, approving, merging or dispatching'],
+            ['option' => '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-signed-receipt-template --json', 'schema' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_signed_receipt_template.v1', 'proves' => 'future signed post-execution action receipt persistence writer release fresh authorization signed receipt is templated without accepting signature, creating writer, writing ledger, persisting receipt, approving, merging or dispatching'],
+            ['option' => '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-execution-contract-preflight-template --json', 'schema' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_execution_contract_preflight_template.v1', 'proves' => 'future signed post-execution action receipt persistence writer release fresh authorization execution contract preflight is templated without accepting signature, creating writer, writing ledger, persisting receipt, approving, merging or dispatching'],
+            ['option' => '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-execution-contract-template --json', 'schema' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_execution_contract_template.v1', 'proves' => 'future signed post-execution action receipt persistence writer release fresh authorization execution contract is templated without creating writer, writing ledger, persisting receipt, approving, merging or dispatching'],
+            ['option' => '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-disable-contract-template --json', 'schema' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_disable_contract_template.v1', 'proves' => 'future signed post-execution action receipt persistence writer release fresh authorization disable contract is templated without creating writer, writing ledger, persisting receipt, approving, merging or dispatching'],
+            ['option' => '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-observability-contract-template --json', 'schema' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_observability_contract_template.v1', 'proves' => 'future signed post-execution action receipt persistence writer release fresh authorization observability contract is templated without creating writer, writing ledger, persisting receipt, approving, merging or dispatching'],
+            ['option' => '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-post-monitoring-review-template --json', 'schema' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_post_monitoring_review_template.v1', 'proves' => 'future signed post-execution action receipt persistence writer release fresh authorization post-monitoring review is templated without creating writer, writing ledger, persisting receipt, approving, merging or dispatching'],
+            ['option' => '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-health-decision-template --json', 'schema' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_health_decision_template.v1', 'proves' => 'future signed post-execution action receipt persistence writer release fresh authorization health decision is templated without recording a decision, creating writer, writing ledger, persisting receipt, approving, merging or dispatching'],
+            ['option' => '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-disable-request-template --json', 'schema' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_disable_request_template.v1', 'proves' => 'future signed post-execution action receipt persistence writer release fresh authorization disable request is templated without executing disable, creating writer, writing ledger, persisting receipt, approving, merging or dispatching'],
+            ['option' => '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-request-template --json', 'schema' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_request_template.v1', 'proves' => 'future signed post-execution action receipt persistence writer release fresh authorization new cycle request is templated without approving, reusing prior authorization, creating writer, writing ledger, persisting receipt, merging or dispatching'],
+            ['option' => '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-authorization-request-template --json', 'schema' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_authorization_request_template.v1', 'proves' => 'future signed post-execution action receipt persistence writer release fresh authorization new cycle authorization request is templated without granting approval, accepting signature, creating writer, writing ledger, persisting receipt, merging or dispatching'],
+            ['option' => '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-receipt-draft-template --json', 'schema' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_receipt_draft_template.v1', 'proves' => 'future signed post-execution action receipt persistence writer release fresh authorization new cycle receipt draft is templated without signing, persisting receipt, creating writer, writing ledger, merging or dispatching'],
+            ['option' => '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-signature-request-template --json', 'schema' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_signature_request_template.v1', 'proves' => 'future signed post-execution action receipt persistence writer release fresh authorization new cycle signature request is templated without accepting signature, validating signature, creating writer, writing ledger, persisting receipt, merging or dispatching'],
+            ['option' => '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-post-signature-runbook-template --json', 'schema' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_post_signature_runbook_template.v1', 'proves' => 'future signed post-execution action receipt persistence writer release fresh authorization new cycle post-signature runbook is templated without accepting or validating signature, creating writer, writing ledger, persisting receipt, merging or dispatching'],
+            ['option' => '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-signed-receipt-template --json', 'schema' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_signed_receipt_template.v1', 'proves' => 'future signed post-execution action receipt persistence writer release fresh authorization new cycle signed receipt is templated without accepting signature, creating writer, writing ledger, persisting receipt, approving, merging or dispatching'],
+            ['option' => '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-execution-contract-preflight-template --json', 'schema' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_execution_contract_preflight_template.v1', 'proves' => 'future signed post-execution action receipt persistence writer release fresh authorization new cycle execution contract preflight is templated without accepting signature, creating writer, writing ledger, persisting receipt, approving, merging or dispatching'],
+            ['option' => '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-execution-contract-template --json', 'schema' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_execution_contract_template.v1', 'proves' => 'future signed post-execution action receipt persistence writer release fresh authorization new cycle execution contract is templated without creating writer, writing ledger, persisting receipt, approving, merging or dispatching'],
+            ['option' => '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-contract-template --json', 'schema' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_contract_template.v1', 'proves' => 'future signed post-execution action receipt persistence writer release fresh authorization new cycle disable contract is templated without creating writer, writing ledger, persisting receipt, approving, merging or dispatching'],
+            ['option' => '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-observability-contract-template --json', 'schema' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_observability_contract_template.v1', 'proves' => 'future signed post-execution action receipt persistence writer release fresh authorization new cycle observability contract is templated without creating writer, writing ledger, persisting receipt, approving, merging or dispatching'],
+            ['option' => '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-post-monitoring-review-template --json', 'schema' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_post_monitoring_review_template.v1', 'proves' => 'future signed post-execution action receipt persistence writer release fresh authorization new cycle post-monitoring review is templated without creating writer, writing ledger, persisting receipt, recording decision, approving, merging or dispatching'],
+            ['option' => '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-health-decision-template --json', 'schema' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_health_decision_template.v1', 'proves' => 'future signed post-execution action receipt persistence writer release fresh authorization new cycle health decision is templated without recording a decision, creating writer, writing ledger, persisting receipt, approving, merging or dispatching'],
+            ['option' => '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-request-template --json', 'schema' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_request_template.v1', 'proves' => 'future signed post-execution action receipt persistence writer release fresh authorization new cycle disable request is templated without executing disable, creating writer, writing ledger, persisting receipt, recording decision, approving, merging or dispatching'],
+            ['option' => '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-preflight-template --json', 'schema' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_preflight_template.v1', 'proves' => 'future signed post-execution action receipt persistence writer release fresh authorization new cycle disable execution preflight is templated without executing disable, creating writer, writing ledger, persisting receipt, recording decision, approving, merging or dispatching'],
+            ['option' => '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-receipt-draft-template --json', 'schema' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_receipt_draft_template.v1', 'proves' => 'future signed post-execution action receipt persistence writer release fresh authorization new cycle disable execution receipt draft is templated without executing disable, mutating writer state, creating writer, writing ledger, persisting receipt, recording decision, approving, merging or dispatching'],
+            ['option' => '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-signed-receipt-template --json', 'schema' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_signed_receipt_template.v1', 'proves' => 'future signed post-execution action receipt persistence writer release fresh authorization new cycle disable execution signed receipt is templated without accepting signature, executing disable, mutating writer state, creating writer, writing ledger, persisting receipt, recording decision, approving, merging or dispatching'],
+            ['option' => '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-persistence-preflight-template --json', 'schema' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_persistence_preflight_template.v1', 'proves' => 'future signed post-execution action receipt persistence writer release fresh authorization new cycle disable execution persistence preflight is templated without writing ledger, persisting receipt, executing disable, mutating writer state, approving, merging or dispatching'],
+            ['option' => '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-persistence-receipt-template --json', 'schema' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_persistence_receipt_template.v1', 'proves' => 'future signed post-execution action receipt persistence writer release fresh authorization new cycle disable execution persistence receipt is templated without writing ledger, persisting receipt, executing disable, mutating writer state, approving, merging or dispatching'],
+            ['option' => '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-post-persistence-review-template --json', 'schema' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_post_persistence_review_template.v1', 'proves' => 'future signed post-execution action receipt persistence writer release fresh authorization new cycle disable execution post-persistence review is templated without writing ledger, persisting receipt, recording decision, executing disable, mutating writer state, approving, merging or dispatching'],
+            ['option' => '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-follow-up-observability-template --json', 'schema' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_follow_up_observability_template.v1', 'proves' => 'future signed post-execution action receipt persistence writer release fresh authorization new cycle disable execution follow-up observability is templated without writing ledger, persisting receipt, recording decision, executing disable, mutating writer state, approving, merging or dispatching'],
+            ['option' => '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-evidence-repair-request-template --json', 'schema' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_evidence_repair_request_template.v1', 'proves' => 'future signed post-execution action receipt persistence writer release fresh authorization new cycle disable execution evidence repair request is templated without writing ledger, persisting receipt, recording decision, executing disable, mutating writer state, approving, merging or dispatching'],
+            ['option' => '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-repaired-evidence-packet-template --json', 'schema' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_repaired_evidence_packet_template.v1', 'proves' => 'future signed post-execution action receipt persistence writer release fresh authorization new cycle disable execution repaired evidence packet is templated without writing ledger, persisting receipt, recording decision, executing disable, mutating writer state, approving, merging or dispatching'],
+            ['option' => '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-repair-review-template --json', 'schema' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_repair_review_template.v1', 'proves' => 'future signed post-execution action receipt persistence writer release fresh authorization new cycle disable execution repair review is templated without writing ledger, persisting receipt, recording decision, executing disable, mutating writer state, approving, merging or dispatching'],
+            ['option' => '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-repair-outcome-packet-template --json', 'schema' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_repair_outcome_packet_template.v1', 'proves' => 'future signed post-execution action receipt persistence writer release fresh authorization new cycle disable execution repair outcome packet is templated without writing ledger, persisting receipt, recording decision, executing disable, mutating writer state, approving, merging or dispatching'],
+            ['option' => '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-request-template --json', 'schema' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_request_template.v1', 'proves' => 'future signed post-execution action receipt persistence writer release fresh authorization new cycle disable execution later-cycle request is templated without writing ledger, persisting receipt, recording decision, authorizing later cycle, reusing prior authorization, executing disable, mutating writer state, approving, merging or dispatching'],
+            ['option' => '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-preflight-template --json', 'schema' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_preflight_template.v1', 'proves' => 'future signed post-execution action receipt persistence writer release fresh authorization new cycle disable execution later-cycle preflight is templated without writing ledger, persisting receipt, recording decision, authorizing later cycle, reusing prior authorization, executing disable, mutating writer state, approving, merging or dispatching'],
+            ['option' => '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-request-template --json', 'schema' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_request_template.v1', 'proves' => 'future signed post-execution action receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization request is templated without granting approval, writing ledger, persisting receipt, recording decision, authorizing later cycle, reusing prior authorization, executing disable, mutating writer state, merging or dispatching'],
+            ['option' => '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-receipt-draft-template --json', 'schema' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_receipt_draft_template.v1', 'proves' => 'future signed post-execution action receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization receipt draft is templated without signing, granting approval, writing ledger, persisting receipt, recording decision, authorizing later cycle, executing disable, mutating writer state, merging or dispatching'],
+            ['option' => '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-signature-request-template --json', 'schema' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_request_template.v1', 'proves' => 'future signed post-execution action receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization signature request is templated without accepting signature, validating signature, granting approval, writing ledger, persisting receipt, authorizing later cycle, executing disable, mutating writer state, merging or dispatching'],
+            ['option' => '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-post-signature-runbook-template --json', 'schema' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_signature_runbook_template.v1', 'proves' => 'future signed post-execution action receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization post-signature runbook is templated without accepting signature, validating signature, signing receipt, granting approval, writing ledger, persisting receipt, authorizing later cycle, executing disable, mutating writer state, merging or dispatching'],
+            ['option' => '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-signature-validation-report-template --json', 'schema' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_validation_report_template.v1', 'proves' => 'future signed post-execution action receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization signature validation report is templated without accepting signature, signing receipt, granting approval, writing ledger, persisting receipt, authorizing later cycle, executing disable, mutating writer state, merging or dispatching'],
+            ['option' => '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-signed-receipt-template --json', 'schema' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_template.v1', 'proves' => 'future signed post-execution action receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization signed receipt is templated without accepting signature, signing receipt, granting approval, writing ledger, persisting receipt, authorizing later cycle, executing disable, mutating writer state, merging or dispatching'],
+            ['option' => '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-signed-receipt-preflight-template --json', 'schema' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_preflight_template.v1', 'proves' => 'future signed post-execution action receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization signed receipt preflight is templated without accepting signature, signing receipt, granting approval, writing ledger, persisting receipt, authorizing later cycle, executing disable, mutating writer state, merging or dispatching'],
+            ['option' => '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-persistence-preflight-template --json', 'schema' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_preflight_template.v1', 'proves' => 'future signed post-execution action receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization persistence preflight is templated without accepting signature, signing receipt, granting approval, writing ledger, persisting receipt, authorizing later cycle, executing disable, mutating writer state, merging or dispatching'],
+            ['option' => '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-persistence-receipt-template --json', 'schema' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_receipt_template.v1', 'proves' => 'future signed post-execution action receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization persistence receipt is templated without accepting signature, signing receipt, granting approval, writing ledger, persisting receipt, authorizing later cycle, executing disable, mutating writer state, merging or dispatching'],
+            ['option' => '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-post-persistence-review-template --json', 'schema' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_persistence_review_template.v1', 'proves' => 'future signed post-execution action receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization post-persistence review is templated without accepting signature, signing receipt, granting approval, writing ledger, persisting receipt, recording decision, authorizing later cycle, executing disable, mutating writer state, merging or dispatching'],
+            ['option' => '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-follow-up-observability-template --json', 'schema' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_follow_up_observability_template.v1', 'proves' => 'future signed post-execution action receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization follow-up observability is templated without accepting signature, signing receipt, granting approval, writing ledger, persisting receipt, recording decision, authorizing later cycle, executing disable, mutating writer state, merging or dispatching'],
+            ['option' => '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-evidence-repair-request-template --json', 'schema' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_evidence_repair_request_template.v1', 'proves' => 'future signed post-execution action receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization evidence repair request is templated without accepting signature, signing receipt, granting approval, writing ledger, persisting receipt, recording decision, authorizing later cycle, executing disable, mutating writer state, merging or dispatching'],
+            ['option' => '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-repaired-evidence-packet-template --json', 'schema' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repaired_evidence_packet_template.v1', 'proves' => 'future signed post-execution action receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization repaired evidence packet is templated without accepting signature, signing receipt, granting approval, writing ledger, persisting receipt, recording decision, authorizing later cycle, executing disable, mutating writer state, merging or dispatching'],
+            ['option' => '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-repair-review-template --json', 'schema' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repair_review_template.v1', 'proves' => 'future signed post-execution action receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization repair review is templated without accepting signature, signing receipt, granting approval, writing ledger, persisting receipt, recording decision, authorizing later cycle, reusing prior authorization, executing disable, mutating writer state, merging or dispatching'],
+            ['option' => '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-persistence-rejection-template --json', 'schema' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_rejection_template.v1', 'proves' => 'future signed post-execution action receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization persistence rejection is templated without accepting signature, signing receipt, granting approval, writing ledger, persisting receipt, recording decision, authorizing later cycle, reusing prior authorization, executing disable, mutating writer state, merging or dispatching'],
+            ['option' => '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-human-escalation-template --json', 'schema' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template.v1', 'proves' => 'future signed post-execution action receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization human escalation is templated without notifying humans, accepting signature, signing receipt, granting approval, writing ledger, persisting receipt, recording decision, authorizing later cycle, reusing prior authorization, executing disable, mutating writer state, merging or dispatching'],
+            ['option' => '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-manual-decision-request-template --json', 'schema' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template.v1', 'proves' => 'future signed post-execution action receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization manual decision request is templated without requesting a real decision, notifying humans, creating tasks, accepting signature, signing receipt, granting approval, writing ledger, persisting receipt, recording decision, authorizing later cycle, reusing prior authorization, executing disable, mutating writer state, merging or dispatching'],
+            ['option' => '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-manual-decision-response-template --json', 'schema' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_response_template.v1', 'proves' => 'future signed post-execution action receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization manual decision response is templated without recording a decision, notifying humans, creating tasks, accepting signature, signing receipt, granting approval, writing ledger, persisting receipt, authorizing later cycle, reusing prior authorization, executing disable, mutating writer state, merging or dispatching'],
+            ['option' => '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-draft-template --json', 'schema' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_draft_template.v1', 'proves' => 'future signed post-execution action receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization decision record draft is templated without recording a decision, notifying humans, creating tasks, accepting signature, signing receipt, granting approval, writing ledger, persisting receipt, authorizing later cycle, reusing prior authorization, executing disable, mutating writer state, merging or dispatching'],
+            ['option' => '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-persistence-preflight-template --json', 'schema' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_preflight_template.v1', 'proves' => 'future signed post-execution action receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization decision record persistence preflight is templated without allowing persistence, recording a decision, notifying humans, creating tasks, accepting signature, signing receipt, granting approval, writing ledger, persisting receipt, authorizing later cycle, reusing prior authorization, executing disable, mutating writer state, merging or dispatching'],
+            ['option' => '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-persistence-receipt-template --json', 'schema' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_receipt_template.v1', 'proves' => 'future signed post-execution action receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization decision record persistence receipt is templated without persisting a decision record, allowing persistence, recording a decision, notifying humans, creating tasks, accepting signature, signing receipt, granting approval, writing ledger, persisting receipt, authorizing later cycle, reusing prior authorization, executing disable, mutating writer state, merging or dispatching'],
+            ['option' => '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-post-persistence-review-template --json', 'schema' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_post_persistence_review_template.v1', 'proves' => 'future signed post-execution action receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization decision record post-persistence review is templated without accepting persistence, persisting a decision record, allowing persistence, recording a decision, notifying humans, creating tasks, accepting signature, signing receipt, granting approval, writing ledger, persisting receipt, authorizing later cycle, reusing prior authorization, executing disable, mutating writer state, merging or dispatching'],
+            ['option' => '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-persistence-rejection-template --json', 'schema' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_rejection_template.v1', 'proves' => 'future signed post-execution action receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization decision record persistence rejection is templated without rejecting persistence as an action, accepting persistence, persisting a rejection, persisting a decision record, allowing persistence, recording a decision, notifying humans, creating tasks, accepting signature, signing receipt, granting approval, writing ledger, persisting receipt, authorizing later cycle, reusing prior authorization, executing disable, mutating writer state, merging or dispatching'],
+            ['option' => '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-follow-up-observability-template --json', 'schema' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_follow_up_observability_template.v1', 'proves' => 'future signed post-execution action receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization decision record follow-up observability is templated without observing as persistence, rejecting persistence as an action, accepting persistence, persisting a rejection, persisting a decision record, allowing persistence, recording a decision, notifying humans, creating tasks, accepting signature, signing receipt, granting approval, writing ledger, persisting receipt, authorizing later cycle, reusing prior authorization, executing disable, mutating writer state, merging or dispatching'],
+            ['option' => '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-final-non-execution-report-template --json', 'schema' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_final_non_execution_report_template.v1', 'proves' => 'future signed post-execution action receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization decision record final non-execution report is templated without reporting as persistence, observing as persistence, rejecting persistence as an action, accepting persistence, persisting a report, persisting a rejection, persisting a decision record, allowing persistence, recording a decision, notifying humans, creating tasks, accepting signature, signing receipt, granting approval, writing ledger, persisting receipt, authorizing later cycle, reusing prior authorization, executing disable, mutating writer state, merging or dispatching'],
+            ['option' => '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-archive-index-template --json', 'schema' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_archive_index_template.v1', 'proves' => 'future signed post-execution action receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization decision record archive index is templated without persisting an archive index, reporting as persistence, observing as persistence, accepting persistence, persisting a report, persisting a rejection, persisting a decision record, allowing persistence, recording a decision, notifying humans, creating tasks, accepting signature, signing receipt, granting approval, writing ledger, persisting receipt, authorizing later cycle, reusing prior authorization, executing disable, mutating writer state, merging or dispatching'],
             ['option' => '--codex-start-packet --json', 'schema' => 'atlas.self_construction_codex_start_packet.v1', 'proves' => 'one Codex session can claim, bootstrap, validate and receive a final response contract from one command'],
             ['option' => '--claim-next-packet --json', 'schema' => 'atlas.self_construction_claim_next_packet.v1', 'proves' => 'one Codex session can durably claim the next available packet and receive scoped bootstrap'],
             ['option' => '--claim-packet --packet=AIP-SPLIT-... --json', 'schema' => 'atlas.self_construction_claim_packet.v1', 'proves' => 'one explicit packet can be durably claimed without dispatch or execution authority'],
@@ -8952,6 +9018,2277 @@ final class AtlasSelfConstructionReadinessService
     }
 
     /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleasePostMonitoringReviewTemplate(array $options = []): array
+    {
+        $observabilityPayload = $this->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseObservabilityContractTemplate($options);
+        $observabilityContract = (array) data_get($observabilityPayload, 'observability_contract', []);
+        $observabilityReady = data_get($observabilityPayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_release_observability_contract_template_ready';
+
+        $allowedDecisions = [
+            'keep_writer_release_disabled',
+            'keep_writer_release_enabled_under_watch',
+            'request_disable_execution',
+            'request_reenable_review',
+            'escalate_to_human_review',
+        ];
+
+        $reviewTemplate = [
+            'review_template_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-POST-MONITORING-REVIEW-TEMPLATE-SELF-CONSTRUCTION-0001',
+            'status' => $observabilityReady ? 'ready_as_future_post_monitoring_review_template' : 'blocked_before_writer_release_observability_contract_template',
+            'source_writer_release_observability_contract_hash' => data_get($observabilityPayload, 'observability_contract_hash'),
+            'source_writer_release_disable_contract_hash' => data_get($observabilityContract, 'source_writer_release_disable_contract_hash'),
+            'source_writer_release_execution_contract_hash' => data_get($observabilityContract, 'source_writer_release_execution_contract_hash'),
+            'source_writer_release_execution_contract_preflight_hash' => data_get($observabilityContract, 'source_writer_release_execution_contract_preflight_hash'),
+            'source_writer_release_signed_receipt_template_hash' => data_get($observabilityContract, 'source_writer_release_signed_receipt_template_hash'),
+            'allowed_decisions' => $allowedDecisions,
+            'allowed_decision_count' => count($allowedDecisions),
+            'required_review_inputs' => [
+                'writer_release_observability_contract_hash',
+                'writer_release_signal_manifest_hash',
+                'writer_release_metrics_snapshot_hash',
+                'writer_release_alert_policy_hash',
+                'post_release_monitoring_window',
+                'human_reviewer_identity',
+            ],
+            'health_checks' => [
+                'monitoring_window_completed',
+                'all_required_signals_present',
+                'metrics_snapshot_present',
+                'alert_policy_present',
+                'no_forbidden_merge_attempts',
+                'no_forbidden_dispatch_attempts',
+                'no_unexpected_ledger_writes',
+                'no_unexpected_receipt_persistence',
+                'disable_path_still_available',
+                'human_review_completed',
+            ],
+            'failure_to_decision_map' => [
+                'forbidden_merge_attempt' => 'request_disable_execution',
+                'forbidden_dispatch_attempt' => 'request_disable_execution',
+                'unexpected_ledger_write_attempt' => 'request_disable_execution',
+                'unexpected_receipt_persistence_attempt' => 'request_disable_execution',
+                'missing_required_signal' => 'escalate_to_human_review',
+                'monitoring_window_incomplete' => 'keep_writer_release_enabled_under_watch',
+                'disable_path_unavailable' => 'escalate_to_human_review',
+            ],
+            'required_review_evidence' => [
+                'review_actor_identity',
+                'reviewed_at',
+                'selected_decision',
+                'decision_rationale',
+                'health_check_result_hash',
+                'metrics_snapshot_hash',
+                'alert_summary_hash',
+                'disable_path_verification_hash',
+            ],
+            'future_review_outputs' => [
+                'writer_release_post_monitoring_review_hash',
+                'writer_release_health_decision_hash',
+                'writer_release_reenable_review_packet_hash',
+                'writer_release_disable_request_hash',
+            ],
+            'still_forbidden_by_post_monitoring_review_template' => [
+                'writer_file_creation_by_writer_release_post_monitoring_review_template',
+                'ledger_write_by_writer_release_post_monitoring_review_template',
+                'signature_acceptance_by_writer_release_post_monitoring_review_template',
+                'signature_validation_by_writer_release_post_monitoring_review_template',
+                'receipt_persistence_by_writer_release_post_monitoring_review_template',
+                'decision_recording_by_writer_release_post_monitoring_review_template',
+                'approval_from_writer_release_post_monitoring_review_template',
+                'merge_from_writer_release_post_monitoring_review_template',
+                'dispatch_from_writer_release_post_monitoring_review_template',
+            ],
+            'writer_file_creation_allowed' => false,
+            'ledger_write_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'dispatch_allowed' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_post_monitoring_review_template.v1',
+            'status' => $observabilityReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_post_monitoring_review_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_post_monitoring_review_template_blocked',
+            'mode' => 'read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_post_monitoring_review_template',
+            'execution_allowed' => false,
+            'ledger_write_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'review_template' => $reviewTemplate,
+            'review_template_hash' => $this->stableHash($reviewTemplate),
+            'non_execution_guarantees' => [
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_post_monitoring_review_template_does_not_claim_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_post_monitoring_review_template_does_not_complete_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_post_monitoring_review_template_does_not_create_writer_file',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_post_monitoring_review_template_does_not_accept_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_post_monitoring_review_template_does_not_validate_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_post_monitoring_review_template_does_not_write_ledger',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_post_monitoring_review_template_does_not_persist_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_post_monitoring_review_template_does_not_record_decision',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_post_monitoring_review_template_does_not_approve_code',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_post_monitoring_review_template_does_not_merge',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_post_monitoring_review_template_does_not_dispatch_work',
+            ],
+            'human_summary' => $observabilityReady
+                ? 'Codex review merge post-execution action signed receipt persistence writer release post-monitoring review template is ready as a non-authorizing health review. It still does not create a writer, write ledger, persist receipts, approve, merge or dispatch.'
+                : 'Codex review merge post-execution action signed receipt persistence writer release post-monitoring review template is blocked until observability contract template is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseReenableReviewPacketTemplate(array $options = []): array
+    {
+        $reviewPayload = $this->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleasePostMonitoringReviewTemplate($options);
+        $reviewTemplate = (array) data_get($reviewPayload, 'review_template', []);
+        $reviewReady = data_get($reviewPayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_release_post_monitoring_review_template_ready';
+
+        $requirements = [
+            'post_monitoring_review_template_ready',
+            'selected_post_monitoring_decision_equals_request_reenable_review',
+            'fresh_execution_contract_preflight_required',
+            'fresh_execution_contract_template_required',
+            'fresh_disable_contract_template_required',
+            'fresh_observability_contract_template_required',
+            'fresh_hot_scope_recheck_required',
+            'fresh_writer_capability_tests_required',
+            'fresh_human_authorization_required',
+            'previous_disable_or_watch_reason_resolved',
+        ];
+
+        $reenablePacket = [
+            'reenable_packet_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-REENABLE-REVIEW-PACKET-TEMPLATE-SELF-CONSTRUCTION-0001',
+            'status' => $reviewReady ? 'ready_as_future_reenable_review_packet_template' : 'blocked_before_writer_release_post_monitoring_review_template',
+            'source_writer_release_post_monitoring_review_hash' => data_get($reviewPayload, 'review_template_hash'),
+            'source_writer_release_observability_contract_hash' => data_get($reviewTemplate, 'source_writer_release_observability_contract_hash'),
+            'source_writer_release_disable_contract_hash' => data_get($reviewTemplate, 'source_writer_release_disable_contract_hash'),
+            'source_writer_release_execution_contract_hash' => data_get($reviewTemplate, 'source_writer_release_execution_contract_hash'),
+            'source_writer_release_execution_contract_preflight_hash' => data_get($reviewTemplate, 'source_writer_release_execution_contract_preflight_hash'),
+            'requirements' => $requirements,
+            'requirement_count' => count($requirements),
+            'allowed_reenable_decisions' => [
+                'deny_reenable',
+                'request_fresh_authorization',
+                'request_new_execution_contract_chain',
+                'keep_disabled_until_remediated',
+                'escalate_to_human_review',
+            ],
+            'required_reenable_evidence' => [
+                'reenable_reviewer_identity',
+                'reenable_reviewed_at',
+                'previous_disable_or_watch_reason',
+                'remediation_summary',
+                'fresh_hot_scope_recheck_hash',
+                'fresh_writer_capability_test_hash',
+                'fresh_execution_contract_template_hash',
+                'fresh_disable_contract_template_hash',
+                'fresh_observability_contract_template_hash',
+                'fresh_human_authorization_hash',
+            ],
+            'hard_blocks' => [
+                'previous_forbidden_merge_attempt_unresolved',
+                'previous_forbidden_dispatch_attempt_unresolved',
+                'previous_unexpected_ledger_write_unresolved',
+                'previous_unexpected_receipt_persistence_unresolved',
+                'fresh_hot_scope_recheck_missing',
+                'fresh_writer_capability_tests_missing',
+                'fresh_human_authorization_missing',
+            ],
+            'future_reenable_outputs' => [
+                'writer_release_reenable_review_packet_hash',
+                'writer_release_fresh_authorization_request_hash',
+                'writer_release_new_execution_contract_chain_hash',
+                'writer_release_reenable_denial_receipt_hash',
+            ],
+            'still_forbidden_by_reenable_review_packet_template' => [
+                'writer_file_creation_by_writer_release_reenable_review_packet_template',
+                'ledger_write_by_writer_release_reenable_review_packet_template',
+                'signature_acceptance_by_writer_release_reenable_review_packet_template',
+                'signature_validation_by_writer_release_reenable_review_packet_template',
+                'receipt_persistence_by_writer_release_reenable_review_packet_template',
+                'decision_recording_by_writer_release_reenable_review_packet_template',
+                'approval_from_writer_release_reenable_review_packet_template',
+                'merge_from_writer_release_reenable_review_packet_template',
+                'dispatch_from_writer_release_reenable_review_packet_template',
+            ],
+            'writer_file_creation_allowed' => false,
+            'ledger_write_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'dispatch_allowed' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_reenable_review_packet_template.v1',
+            'status' => $reviewReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_reenable_review_packet_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_reenable_review_packet_template_blocked',
+            'mode' => 'read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_reenable_review_packet_template',
+            'execution_allowed' => false,
+            'ledger_write_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'reenable_packet' => $reenablePacket,
+            'reenable_packet_hash' => $this->stableHash($reenablePacket),
+            'non_execution_guarantees' => [
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_reenable_review_packet_template_does_not_claim_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_reenable_review_packet_template_does_not_complete_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_reenable_review_packet_template_does_not_create_writer_file',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_reenable_review_packet_template_does_not_accept_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_reenable_review_packet_template_does_not_validate_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_reenable_review_packet_template_does_not_write_ledger',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_reenable_review_packet_template_does_not_persist_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_reenable_review_packet_template_does_not_record_decision',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_reenable_review_packet_template_does_not_approve_code',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_reenable_review_packet_template_does_not_merge',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_reenable_review_packet_template_does_not_dispatch_work',
+            ],
+            'human_summary' => $reviewReady
+                ? 'Codex review merge post-execution action signed receipt persistence writer release re-enable review packet template is ready as a non-authorizing packet. It still does not create a writer, write ledger, persist receipts, approve, merge or dispatch.'
+                : 'Codex review merge post-execution action signed receipt persistence writer release re-enable review packet template is blocked until post-monitoring review template is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationRequestTemplate(array $options = []): array
+    {
+        $reenablePayload = $this->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseReenableReviewPacketTemplate($options);
+        $reenablePacket = (array) data_get($reenablePayload, 'reenable_packet', []);
+        $reenableReady = data_get($reenablePayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_release_reenable_review_packet_template_ready';
+
+        $requiredEvidence = [
+            'writer_release_reenable_review_packet_hash',
+            'selected_reenable_decision_equals_request_fresh_authorization',
+            'fresh_execution_contract_chain_hash',
+            'fresh_hot_scope_recheck_hash',
+            'fresh_writer_capability_test_hash',
+            'fresh_security_review_hash',
+            'fresh_rollback_plan_hash',
+            'fresh_monitoring_plan_hash',
+            'fresh_disable_path_hash',
+            'human_authorization_intent',
+        ];
+
+        $authorizationRequest = [
+            'authorization_request_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-FRESH-AUTHORIZATION-REQUEST-TEMPLATE-SELF-CONSTRUCTION-0001',
+            'status' => $reenableReady ? 'ready_as_future_fresh_authorization_request_template' : 'blocked_before_writer_release_reenable_review_packet_template',
+            'source_writer_release_reenable_review_packet_hash' => data_get($reenablePayload, 'reenable_packet_hash'),
+            'source_writer_release_post_monitoring_review_hash' => data_get($reenablePacket, 'source_writer_release_post_monitoring_review_hash'),
+            'source_writer_release_observability_contract_hash' => data_get($reenablePacket, 'source_writer_release_observability_contract_hash'),
+            'source_writer_release_disable_contract_hash' => data_get($reenablePacket, 'source_writer_release_disable_contract_hash'),
+            'source_writer_release_execution_contract_hash' => data_get($reenablePacket, 'source_writer_release_execution_contract_hash'),
+            'source_writer_release_execution_contract_preflight_hash' => data_get($reenablePacket, 'source_writer_release_execution_contract_preflight_hash'),
+            'required_evidence' => $requiredEvidence,
+            'required_evidence_count' => count($requiredEvidence),
+            'required_signers' => [
+                'human_owner',
+                'security_reviewer',
+                'release_operator',
+            ],
+            'required_signer_count' => 3,
+            'allowed_authorization_outcomes' => [
+                'deny_authorization',
+                'request_more_evidence',
+                'request_new_execution_contract_chain',
+                'approve_fresh_authorization_request_for_signature',
+                'escalate_to_human_review',
+            ],
+            'hard_blocks' => [
+                'reenable_review_packet_missing',
+                'selected_reenable_decision_not_request_fresh_authorization',
+                'fresh_execution_contract_chain_missing',
+                'fresh_hot_scope_recheck_missing',
+                'fresh_writer_capability_tests_missing',
+                'fresh_security_review_missing',
+                'fresh_rollback_plan_missing',
+                'fresh_monitoring_plan_missing',
+                'fresh_disable_path_missing',
+                'human_authorization_intent_missing',
+            ],
+            'future_authorization_outputs' => [
+                'writer_release_fresh_authorization_request_hash',
+                'writer_release_fresh_authorization_receipt_draft_hash',
+                'writer_release_fresh_authorization_signature_request_hash',
+                'writer_release_reenable_denial_receipt_hash',
+            ],
+            'still_forbidden_by_fresh_authorization_request_template' => [
+                'writer_file_creation_by_writer_release_fresh_authorization_request_template',
+                'ledger_write_by_writer_release_fresh_authorization_request_template',
+                'signature_acceptance_by_writer_release_fresh_authorization_request_template',
+                'signature_validation_by_writer_release_fresh_authorization_request_template',
+                'receipt_persistence_by_writer_release_fresh_authorization_request_template',
+                'decision_recording_by_writer_release_fresh_authorization_request_template',
+                'approval_from_writer_release_fresh_authorization_request_template',
+                'merge_from_writer_release_fresh_authorization_request_template',
+                'dispatch_from_writer_release_fresh_authorization_request_template',
+            ],
+            'writer_file_creation_allowed' => false,
+            'ledger_write_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'dispatch_allowed' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_request_template.v1',
+            'status' => $reenableReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_request_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_request_template_blocked',
+            'mode' => 'read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_request_template',
+            'execution_allowed' => false,
+            'ledger_write_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'authorization_request' => $authorizationRequest,
+            'authorization_request_hash' => $this->stableHash($authorizationRequest),
+            'non_execution_guarantees' => [
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_request_template_does_not_claim_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_request_template_does_not_complete_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_request_template_does_not_create_writer_file',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_request_template_does_not_accept_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_request_template_does_not_validate_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_request_template_does_not_write_ledger',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_request_template_does_not_persist_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_request_template_does_not_record_decision',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_request_template_does_not_approve_code',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_request_template_does_not_merge',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_request_template_does_not_dispatch_work',
+            ],
+            'human_summary' => $reenableReady
+                ? 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization request template is ready as a non-signing request. It still does not create a writer, write ledger, persist receipts, approve, merge or dispatch.'
+                : 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization request template is blocked until re-enable review packet template is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationReceiptDraftTemplate(array $options = []): array
+    {
+        $authorizationPayload = $this->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationRequestTemplate($options);
+        $authorizationRequest = (array) data_get($authorizationPayload, 'authorization_request', []);
+        $authorizationReady = data_get($authorizationPayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_request_template_ready';
+
+        $receiptClaims = [
+            'fresh_authorization_request_reviewed',
+            'fresh_authorization_request_hash_bound',
+            'required_signers_declared',
+            'required_evidence_declared',
+            'hard_blocks_declared',
+            'writer_creation_still_forbidden',
+            'ledger_write_still_forbidden',
+            'receipt_persistence_still_forbidden',
+            'merge_still_forbidden',
+            'dispatch_still_forbidden',
+        ];
+
+        $receiptDraft = [
+            'receipt_draft_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-FRESH-AUTHORIZATION-RECEIPT-DRAFT-TEMPLATE-SELF-CONSTRUCTION-0001',
+            'status' => $authorizationReady ? 'ready_as_future_fresh_authorization_receipt_draft_template' : 'blocked_before_writer_release_fresh_authorization_request_template',
+            'source_writer_release_fresh_authorization_request_hash' => data_get($authorizationPayload, 'authorization_request_hash'),
+            'source_writer_release_reenable_review_packet_hash' => data_get($authorizationRequest, 'source_writer_release_reenable_review_packet_hash'),
+            'source_writer_release_post_monitoring_review_hash' => data_get($authorizationRequest, 'source_writer_release_post_monitoring_review_hash'),
+            'source_writer_release_observability_contract_hash' => data_get($authorizationRequest, 'source_writer_release_observability_contract_hash'),
+            'source_writer_release_disable_contract_hash' => data_get($authorizationRequest, 'source_writer_release_disable_contract_hash'),
+            'source_writer_release_execution_contract_hash' => data_get($authorizationRequest, 'source_writer_release_execution_contract_hash'),
+            'receipt_claims' => $receiptClaims,
+            'receipt_claim_count' => count($receiptClaims),
+            'unsigned_receipt_fields' => [
+                'receipt_id',
+                'receipt_type',
+                'request_hash',
+                'reviewed_evidence_hashes',
+                'authorized_outcome',
+                'required_signers',
+                'signed_by',
+                'signed_at',
+                'signature_hash',
+                'expiration_policy',
+            ],
+            'required_authorized_outcome' => 'approve_fresh_authorization_request_for_signature',
+            'invalid_authorized_outcomes' => [
+                'deny_authorization',
+                'request_more_evidence',
+                'request_new_execution_contract_chain',
+                'escalate_to_human_review',
+            ],
+            'receipt_expiration_policy' => [
+                'expires_if_source_request_changes',
+                'expires_if_hot_scope_changes',
+                'expires_if_security_review_changes',
+                'expires_if_required_signer_changes',
+                'expires_if_monitoring_plan_changes',
+            ],
+            'future_receipt_outputs' => [
+                'writer_release_fresh_authorization_receipt_draft_hash',
+                'writer_release_fresh_authorization_signature_request_hash',
+                'writer_release_fresh_authorization_post_signature_runbook_hash',
+            ],
+            'still_forbidden_by_fresh_authorization_receipt_draft_template' => [
+                'writer_file_creation_by_writer_release_fresh_authorization_receipt_draft_template',
+                'ledger_write_by_writer_release_fresh_authorization_receipt_draft_template',
+                'signature_acceptance_by_writer_release_fresh_authorization_receipt_draft_template',
+                'signature_validation_by_writer_release_fresh_authorization_receipt_draft_template',
+                'receipt_persistence_by_writer_release_fresh_authorization_receipt_draft_template',
+                'decision_recording_by_writer_release_fresh_authorization_receipt_draft_template',
+                'approval_from_writer_release_fresh_authorization_receipt_draft_template',
+                'merge_from_writer_release_fresh_authorization_receipt_draft_template',
+                'dispatch_from_writer_release_fresh_authorization_receipt_draft_template',
+            ],
+            'writer_file_creation_allowed' => false,
+            'ledger_write_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'dispatch_allowed' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_receipt_draft_template.v1',
+            'status' => $authorizationReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_receipt_draft_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_receipt_draft_template_blocked',
+            'mode' => 'read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_receipt_draft_template',
+            'execution_allowed' => false,
+            'ledger_write_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'receipt_draft' => $receiptDraft,
+            'receipt_draft_hash' => $this->stableHash($receiptDraft),
+            'non_execution_guarantees' => [
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_receipt_draft_template_does_not_claim_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_receipt_draft_template_does_not_complete_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_receipt_draft_template_does_not_create_writer_file',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_receipt_draft_template_does_not_accept_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_receipt_draft_template_does_not_validate_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_receipt_draft_template_does_not_write_ledger',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_receipt_draft_template_does_not_persist_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_receipt_draft_template_does_not_record_decision',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_receipt_draft_template_does_not_approve_code',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_receipt_draft_template_does_not_merge',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_receipt_draft_template_does_not_dispatch_work',
+            ],
+            'human_summary' => $authorizationReady
+                ? 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization receipt draft template is ready as an unsigned receipt draft. It still does not create a writer, write ledger, persist receipts, approve, merge or dispatch.'
+                : 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization receipt draft template is blocked until fresh authorization request template is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationSignatureRequestTemplate(array $options = []): array
+    {
+        $receiptPayload = $this->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationReceiptDraftTemplate($options);
+        $receiptDraft = (array) data_get($receiptPayload, 'receipt_draft', []);
+        $receiptDraftReady = data_get($receiptPayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_receipt_draft_template_ready';
+
+        $signablePayloadFields = [
+            'receipt_draft_hash',
+            'source_writer_release_fresh_authorization_request_hash',
+            'source_writer_release_reenable_review_packet_hash',
+            'required_authorized_outcome',
+            'receipt_expiration_policy',
+            'required_signers',
+            'non_execution_guarantees',
+        ];
+
+        $signatureRequest = [
+            'signature_request_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-FRESH-AUTHORIZATION-SIGNATURE-REQUEST-TEMPLATE-SELF-CONSTRUCTION-0001',
+            'status' => $receiptDraftReady ? 'ready_as_future_fresh_authorization_signature_request_template' : 'blocked_before_writer_release_fresh_authorization_receipt_draft_template',
+            'source_writer_release_fresh_authorization_receipt_draft_hash' => data_get($receiptPayload, 'receipt_draft_hash'),
+            'source_writer_release_fresh_authorization_request_hash' => data_get($receiptDraft, 'source_writer_release_fresh_authorization_request_hash'),
+            'source_writer_release_reenable_review_packet_hash' => data_get($receiptDraft, 'source_writer_release_reenable_review_packet_hash'),
+            'source_writer_release_post_monitoring_review_hash' => data_get($receiptDraft, 'source_writer_release_post_monitoring_review_hash'),
+            'required_authorized_outcome' => data_get($receiptDraft, 'required_authorized_outcome'),
+            'signable_payload_fields' => $signablePayloadFields,
+            'signable_payload_field_count' => count($signablePayloadFields),
+            'required_signers' => [
+                'human_owner',
+                'security_reviewer',
+                'release_operator',
+            ],
+            'required_signer_count' => 3,
+            'signature_acceptance_conditions' => [
+                'signature_must_reference_exact_receipt_draft_hash',
+                'signature_must_reference_exact_authorization_request_hash',
+                'signature_must_include_all_required_signers',
+                'signature_must_include_expiration_policy',
+                'signature_must_be_reviewed_by_post_signature_runbook',
+            ],
+            'signature_rejection_conditions' => [
+                'receipt_draft_hash_changed',
+                'authorization_request_hash_changed',
+                'missing_required_signer',
+                'expired_receipt_draft',
+                'changed_hot_scope',
+                'changed_security_review',
+                'changed_monitoring_plan',
+            ],
+            'future_signature_outputs' => [
+                'writer_release_fresh_authorization_signature_request_hash',
+                'writer_release_fresh_authorization_post_signature_runbook_hash',
+                'writer_release_fresh_authorization_signed_receipt_template_hash',
+            ],
+            'still_forbidden_by_fresh_authorization_signature_request_template' => [
+                'writer_file_creation_by_writer_release_fresh_authorization_signature_request_template',
+                'ledger_write_by_writer_release_fresh_authorization_signature_request_template',
+                'signature_acceptance_by_writer_release_fresh_authorization_signature_request_template',
+                'signature_validation_by_writer_release_fresh_authorization_signature_request_template',
+                'receipt_persistence_by_writer_release_fresh_authorization_signature_request_template',
+                'decision_recording_by_writer_release_fresh_authorization_signature_request_template',
+                'approval_from_writer_release_fresh_authorization_signature_request_template',
+                'merge_from_writer_release_fresh_authorization_signature_request_template',
+                'dispatch_from_writer_release_fresh_authorization_signature_request_template',
+            ],
+            'writer_file_creation_allowed' => false,
+            'ledger_write_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'dispatch_allowed' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_signature_request_template.v1',
+            'status' => $receiptDraftReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_signature_request_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_signature_request_template_blocked',
+            'mode' => 'read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_signature_request_template',
+            'execution_allowed' => false,
+            'ledger_write_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'signature_request' => $signatureRequest,
+            'signature_request_hash' => $this->stableHash($signatureRequest),
+            'non_execution_guarantees' => [
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_signature_request_template_does_not_claim_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_signature_request_template_does_not_complete_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_signature_request_template_does_not_create_writer_file',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_signature_request_template_does_not_accept_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_signature_request_template_does_not_validate_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_signature_request_template_does_not_write_ledger',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_signature_request_template_does_not_persist_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_signature_request_template_does_not_record_decision',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_signature_request_template_does_not_approve_code',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_signature_request_template_does_not_merge',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_signature_request_template_does_not_dispatch_work',
+            ],
+            'human_summary' => $receiptDraftReady
+                ? 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization signature request template is ready as a non-accepting signature request. It still does not create a writer, write ledger, persist receipts, approve, merge or dispatch.'
+                : 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization signature request template is blocked until fresh authorization receipt draft template is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationPostSignatureRunbookTemplate(array $options = []): array
+    {
+        $signaturePayload = $this->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationSignatureRequestTemplate($options);
+        $signatureRequest = (array) data_get($signaturePayload, 'signature_request', []);
+        $signatureRequestReady = data_get($signaturePayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_signature_request_template_ready';
+
+        $steps = [
+            'collect_external_signature_evidence',
+            'confirm_signature_references_exact_signature_request_hash',
+            'confirm_signature_references_exact_receipt_draft_hash',
+            'confirm_signature_references_exact_authorization_request_hash',
+            'confirm_all_required_signers_are_present',
+            'recheck_receipt_expiration_policy',
+            'recheck_hot_scope_security_and_monitoring_plan',
+            'prepare_signed_receipt_template_without_persisting',
+        ];
+
+        $runbook = [
+            'runbook_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-FRESH-AUTHORIZATION-POST-SIGNATURE-RUNBOOK-TEMPLATE-SELF-CONSTRUCTION-0001',
+            'status' => $signatureRequestReady ? 'ready_as_future_fresh_authorization_post_signature_runbook_template' : 'blocked_before_writer_release_fresh_authorization_signature_request_template',
+            'source_writer_release_fresh_authorization_signature_request_hash' => data_get($signaturePayload, 'signature_request_hash'),
+            'source_writer_release_fresh_authorization_receipt_draft_hash' => data_get($signatureRequest, 'source_writer_release_fresh_authorization_receipt_draft_hash'),
+            'source_writer_release_fresh_authorization_request_hash' => data_get($signatureRequest, 'source_writer_release_fresh_authorization_request_hash'),
+            'source_writer_release_reenable_review_packet_hash' => data_get($signatureRequest, 'source_writer_release_reenable_review_packet_hash'),
+            'steps' => $steps,
+            'step_count' => count($steps),
+            'required_external_evidence' => [
+                'external_signature_payload_hash',
+                'external_signer_identity_manifest_hash',
+                'external_signature_timestamp',
+                'external_signature_scope_hash',
+                'external_signature_expiration_policy_hash',
+            ],
+            'hard_stops' => [
+                'missing_external_signature_evidence',
+                'signature_request_hash_mismatch',
+                'receipt_draft_hash_mismatch',
+                'authorization_request_hash_mismatch',
+                'missing_required_signer',
+                'expired_receipt_draft',
+                'changed_hot_scope',
+                'changed_security_review',
+                'changed_monitoring_plan',
+            ],
+            'future_runbook_outputs' => [
+                'writer_release_fresh_authorization_post_signature_runbook_hash',
+                'writer_release_fresh_authorization_signed_receipt_template_hash',
+                'writer_release_fresh_authorization_signature_rejection_hash',
+            ],
+            'still_forbidden_by_fresh_authorization_post_signature_runbook_template' => [
+                'writer_file_creation_by_writer_release_fresh_authorization_post_signature_runbook_template',
+                'ledger_write_by_writer_release_fresh_authorization_post_signature_runbook_template',
+                'signature_acceptance_by_writer_release_fresh_authorization_post_signature_runbook_template',
+                'signature_validation_by_writer_release_fresh_authorization_post_signature_runbook_template',
+                'receipt_persistence_by_writer_release_fresh_authorization_post_signature_runbook_template',
+                'decision_recording_by_writer_release_fresh_authorization_post_signature_runbook_template',
+                'approval_from_writer_release_fresh_authorization_post_signature_runbook_template',
+                'merge_from_writer_release_fresh_authorization_post_signature_runbook_template',
+                'dispatch_from_writer_release_fresh_authorization_post_signature_runbook_template',
+            ],
+            'writer_file_creation_allowed' => false,
+            'ledger_write_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'dispatch_allowed' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_post_signature_runbook_template.v1',
+            'status' => $signatureRequestReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_post_signature_runbook_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_post_signature_runbook_template_blocked',
+            'mode' => 'read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_post_signature_runbook_template',
+            'execution_allowed' => false,
+            'ledger_write_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'runbook' => $runbook,
+            'runbook_hash' => $this->stableHash($runbook),
+            'non_execution_guarantees' => [
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_post_signature_runbook_template_does_not_claim_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_post_signature_runbook_template_does_not_complete_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_post_signature_runbook_template_does_not_create_writer_file',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_post_signature_runbook_template_does_not_accept_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_post_signature_runbook_template_does_not_validate_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_post_signature_runbook_template_does_not_write_ledger',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_post_signature_runbook_template_does_not_persist_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_post_signature_runbook_template_does_not_record_decision',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_post_signature_runbook_template_does_not_approve_code',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_post_signature_runbook_template_does_not_merge',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_post_signature_runbook_template_does_not_dispatch_work',
+            ],
+            'human_summary' => $signatureRequestReady
+                ? 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization post-signature runbook template is ready as a non-validating sequence. It still does not create a writer, write ledger, persist receipts, approve, merge or dispatch.'
+                : 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization post-signature runbook template is blocked until fresh authorization signature request template is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationSignedReceiptTemplate(array $options = []): array
+    {
+        $runbookPayload = $this->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationPostSignatureRunbookTemplate($options);
+        $runbook = (array) data_get($runbookPayload, 'runbook', []);
+        $runbookReady = data_get($runbookPayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_post_signature_runbook_template_ready';
+
+        $templateFields = [
+            'signed_receipt_id',
+            'receipt_type',
+            'source_post_signature_runbook_hash',
+            'source_signature_request_hash',
+            'source_receipt_draft_hash',
+            'source_authorization_request_hash',
+            'external_signature_evidence_hash',
+            'required_signers',
+            'authorization_scope',
+            'expiration_policy',
+        ];
+
+        $template = [
+            'signed_receipt_template_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-FRESH-AUTHORIZATION-SIGNED-RECEIPT-TEMPLATE-SELF-CONSTRUCTION-0001',
+            'status' => $runbookReady ? 'ready_as_future_fresh_authorization_signed_receipt_template' : 'blocked_before_writer_release_fresh_authorization_post_signature_runbook_template',
+            'source_writer_release_fresh_authorization_post_signature_runbook_hash' => data_get($runbookPayload, 'runbook_hash'),
+            'source_writer_release_fresh_authorization_signature_request_hash' => data_get($runbook, 'source_writer_release_fresh_authorization_signature_request_hash'),
+            'source_writer_release_fresh_authorization_receipt_draft_hash' => data_get($runbook, 'source_writer_release_fresh_authorization_receipt_draft_hash'),
+            'source_writer_release_fresh_authorization_request_hash' => data_get($runbook, 'source_writer_release_fresh_authorization_request_hash'),
+            'source_writer_release_reenable_review_packet_hash' => data_get($runbook, 'source_writer_release_reenable_review_packet_hash'),
+            'template_fields' => $templateFields,
+            'template_field_count' => count($templateFields),
+            'required_external_evidence' => [
+                'external_signature_payload_hash',
+                'external_signer_identity_manifest_hash',
+                'external_signature_scope_hash',
+                'external_signature_expiration_policy_hash',
+                'post_signature_runbook_hash',
+            ],
+            'receipt_scope' => [
+                'fresh_authorization_only',
+                'does_not_reenable_writer',
+                'does_not_create_writer_file',
+                'does_not_write_ledger',
+                'does_not_persist_receipt',
+                'does_not_merge',
+                'does_not_dispatch',
+            ],
+            'future_template_outputs' => [
+                'writer_release_fresh_authorization_signed_receipt_template_hash',
+                'writer_release_fresh_authorization_execution_contract_preflight_hash',
+                'writer_release_fresh_authorization_signature_rejection_hash',
+            ],
+            'still_forbidden_by_fresh_authorization_signed_receipt_template' => [
+                'writer_file_creation_by_writer_release_fresh_authorization_signed_receipt_template',
+                'ledger_write_by_writer_release_fresh_authorization_signed_receipt_template',
+                'signature_acceptance_by_writer_release_fresh_authorization_signed_receipt_template',
+                'signature_validation_by_writer_release_fresh_authorization_signed_receipt_template',
+                'receipt_persistence_by_writer_release_fresh_authorization_signed_receipt_template',
+                'decision_recording_by_writer_release_fresh_authorization_signed_receipt_template',
+                'approval_from_writer_release_fresh_authorization_signed_receipt_template',
+                'merge_from_writer_release_fresh_authorization_signed_receipt_template',
+                'dispatch_from_writer_release_fresh_authorization_signed_receipt_template',
+            ],
+            'writer_file_creation_allowed' => false,
+            'ledger_write_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'dispatch_allowed' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_signed_receipt_template.v1',
+            'status' => $runbookReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_signed_receipt_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_signed_receipt_template_blocked',
+            'mode' => 'read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_signed_receipt_template',
+            'execution_allowed' => false,
+            'ledger_write_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'template' => $template,
+            'template_hash' => $this->stableHash($template),
+            'non_execution_guarantees' => [
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_signed_receipt_template_does_not_claim_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_signed_receipt_template_does_not_complete_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_signed_receipt_template_does_not_create_writer_file',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_signed_receipt_template_does_not_accept_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_signed_receipt_template_does_not_validate_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_signed_receipt_template_does_not_write_ledger',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_signed_receipt_template_does_not_persist_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_signed_receipt_template_does_not_record_decision',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_signed_receipt_template_does_not_approve_code',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_signed_receipt_template_does_not_merge',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_signed_receipt_template_does_not_dispatch_work',
+            ],
+            'human_summary' => $runbookReady
+                ? 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization signed receipt template is ready as a non-persisting template. It still does not create a writer, write ledger, persist receipts, approve, merge or dispatch.'
+                : 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization signed receipt template is blocked until fresh authorization post-signature runbook template is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationExecutionContractPreflightTemplate(array $options = []): array
+    {
+        $signedReceiptPayload = $this->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationSignedReceiptTemplate($options);
+        $signedReceipt = (array) data_get($signedReceiptPayload, 'template', []);
+        $signedReceiptReady = data_get($signedReceiptPayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_signed_receipt_template_ready';
+
+        $blockingConditions = [
+            'fresh_authorization_signed_receipt_template_not_ready',
+            'external_signature_evidence_missing',
+            'external_signature_not_validated_by_external_system',
+            'fresh_hot_scope_recheck_missing',
+            'fresh_security_review_missing',
+            'fresh_execution_contract_chain_missing',
+            'fresh_disable_path_missing',
+            'fresh_rollback_plan_missing',
+            'fresh_monitoring_plan_missing',
+            'human_execution_authorization_missing',
+        ];
+
+        $requiredInputs = [
+            'fresh_authorization_signed_receipt_template_hash',
+            'fresh_hot_scope_recheck_hash',
+            'fresh_security_review_hash',
+            'fresh_execution_contract_chain_hash',
+            'fresh_disable_path_hash',
+            'fresh_rollback_plan_hash',
+            'fresh_monitoring_plan_hash',
+            'human_execution_authorization_hash',
+        ];
+
+        $preflight = [
+            'preflight_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-FRESH-AUTHORIZATION-EXECUTION-CONTRACT-PREFLIGHT-TEMPLATE-SELF-CONSTRUCTION-0001',
+            'status' => $signedReceiptReady ? 'ready_as_future_fresh_authorization_execution_contract_preflight_template' : 'blocked_before_writer_release_fresh_authorization_signed_receipt_template',
+            'source_writer_release_fresh_authorization_signed_receipt_template_hash' => data_get($signedReceiptPayload, 'template_hash'),
+            'source_writer_release_fresh_authorization_post_signature_runbook_hash' => data_get($signedReceipt, 'source_writer_release_fresh_authorization_post_signature_runbook_hash'),
+            'source_writer_release_fresh_authorization_signature_request_hash' => data_get($signedReceipt, 'source_writer_release_fresh_authorization_signature_request_hash'),
+            'source_writer_release_fresh_authorization_receipt_draft_hash' => data_get($signedReceipt, 'source_writer_release_fresh_authorization_receipt_draft_hash'),
+            'source_writer_release_fresh_authorization_request_hash' => data_get($signedReceipt, 'source_writer_release_fresh_authorization_request_hash'),
+            'source_writer_release_reenable_review_packet_hash' => data_get($signedReceipt, 'source_writer_release_reenable_review_packet_hash'),
+            'blocking_condition_count' => count($blockingConditions),
+            'blocking_conditions' => $blockingConditions,
+            'required_input_count' => count($requiredInputs),
+            'required_inputs' => $requiredInputs,
+            'future_preflight_outputs' => [
+                'writer_release_fresh_authorization_execution_contract_preflight_hash',
+                'writer_release_fresh_authorization_execution_contract_template_hash',
+                'writer_release_fresh_authorization_preflight_rejection_hash',
+            ],
+            'still_forbidden_by_fresh_authorization_execution_contract_preflight_template' => [
+                'writer_file_creation_by_writer_release_fresh_authorization_execution_contract_preflight_template',
+                'ledger_write_by_writer_release_fresh_authorization_execution_contract_preflight_template',
+                'signature_acceptance_by_writer_release_fresh_authorization_execution_contract_preflight_template',
+                'signature_validation_by_writer_release_fresh_authorization_execution_contract_preflight_template',
+                'receipt_persistence_by_writer_release_fresh_authorization_execution_contract_preflight_template',
+                'decision_recording_by_writer_release_fresh_authorization_execution_contract_preflight_template',
+                'approval_from_writer_release_fresh_authorization_execution_contract_preflight_template',
+                'merge_from_writer_release_fresh_authorization_execution_contract_preflight_template',
+                'dispatch_from_writer_release_fresh_authorization_execution_contract_preflight_template',
+            ],
+            'writer_file_creation_allowed' => false,
+            'ledger_write_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'dispatch_allowed' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_execution_contract_preflight_template.v1',
+            'status' => $signedReceiptReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_execution_contract_preflight_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_execution_contract_preflight_template_blocked',
+            'mode' => 'read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_execution_contract_preflight_template',
+            'execution_allowed' => false,
+            'ledger_write_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'preflight' => $preflight,
+            'preflight_hash' => $this->stableHash($preflight),
+            'non_execution_guarantees' => [
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_execution_contract_preflight_template_does_not_claim_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_execution_contract_preflight_template_does_not_complete_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_execution_contract_preflight_template_does_not_create_writer_file',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_execution_contract_preflight_template_does_not_accept_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_execution_contract_preflight_template_does_not_validate_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_execution_contract_preflight_template_does_not_write_ledger',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_execution_contract_preflight_template_does_not_persist_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_execution_contract_preflight_template_does_not_record_decision',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_execution_contract_preflight_template_does_not_approve_code',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_execution_contract_preflight_template_does_not_merge',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_execution_contract_preflight_template_does_not_dispatch_work',
+            ],
+            'human_summary' => $signedReceiptReady
+                ? 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization execution contract preflight template is ready as a non-executing preflight. It still does not create a writer, write ledger, persist receipts, approve, merge or dispatch.'
+                : 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization execution contract preflight template is blocked until fresh authorization signed receipt template is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationExecutionContractTemplate(array $options = []): array
+    {
+        $preflightPayload = $this->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationExecutionContractPreflightTemplate($options);
+        $preflight = (array) data_get($preflightPayload, 'preflight', []);
+        $preflightReady = data_get($preflightPayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_execution_contract_preflight_template_ready';
+
+        $blockingConditions = $preflightReady
+            ? [
+                'fresh_authorization_execution_still_not_authorized',
+                'writer_release_reenable_still_not_authorized',
+                'validated_external_signature_evidence_not_bound_to_contract',
+                'human_execution_authorization_not_attached',
+                'rollback_plan_not_rechecked',
+                'disable_path_not_rechecked',
+                'monitoring_plan_not_rechecked',
+                'hot_scope_recheck_not_attached',
+                'security_review_not_attached',
+                'post_execution_receipt_plan_not_attached',
+            ]
+            : [
+                'writer_release_fresh_authorization_execution_contract_preflight_template_not_ready',
+            ];
+
+        $contract = [
+            'contract_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-FRESH-AUTHORIZATION-EXECUTION-CONTRACT-TEMPLATE-SELF-CONSTRUCTION-0001',
+            'status' => $preflightReady ? 'blocked_waiting_for_external_fresh_authorization_execution_authority' : 'blocked_before_writer_release_fresh_authorization_execution_contract_preflight_template',
+            'source_writer_release_fresh_authorization_execution_contract_preflight_hash' => data_get($preflightPayload, 'preflight_hash'),
+            'source_writer_release_fresh_authorization_signed_receipt_template_hash' => data_get($preflight, 'source_writer_release_fresh_authorization_signed_receipt_template_hash'),
+            'source_writer_release_fresh_authorization_post_signature_runbook_hash' => data_get($preflight, 'source_writer_release_fresh_authorization_post_signature_runbook_hash'),
+            'source_writer_release_fresh_authorization_signature_request_hash' => data_get($preflight, 'source_writer_release_fresh_authorization_signature_request_hash'),
+            'source_writer_release_fresh_authorization_receipt_draft_hash' => data_get($preflight, 'source_writer_release_fresh_authorization_receipt_draft_hash'),
+            'source_writer_release_fresh_authorization_request_hash' => data_get($preflight, 'source_writer_release_fresh_authorization_request_hash'),
+            'source_writer_release_reenable_review_packet_hash' => data_get($preflight, 'source_writer_release_reenable_review_packet_hash'),
+            'blocking_conditions' => $blockingConditions,
+            'blocking_count' => count($blockingConditions),
+            'execution_scope' => [
+                'allowed_scope' => 'future_writer_reenable_only_after_external_fresh_authorization',
+                'forbidden_scope' => [
+                    'merge_execution',
+                    'dispatch_execution',
+                    'receipt_persistence_execution',
+                    'policy_mutation',
+                    'hot_scope_mutation',
+                    'unscoped_file_creation',
+                    'self_authorized_reenable',
+                ],
+                'writer_contract_expected_capability' => 'fresh_authorization_to_reenable_signed_receipt_persistence_writer_only',
+                'writer_contract_forbidden_capabilities' => [
+                    'merge_authority',
+                    'dispatch_authority',
+                    'signature_validation_authority',
+                    'approval_authority',
+                    'self_release_authority',
+                    'self_reenable_authority',
+                ],
+            ],
+            'required_actor_evidence' => [
+                'fresh_authorization_executor_identity',
+                'fresh_authorization_executor_session',
+                'fresh_authorization_execution_reason',
+                'fresh_authorization_execution_scope_hash',
+                'fresh_authorization_execution_contract_reviewer_identity',
+            ],
+            'required_recheck_evidence' => [
+                'fresh_authorization_contract_hash_rechecked_against_patch',
+                'fresh_hot_scope_clean_recheck_hash',
+                'fresh_writer_capability_test_output_hash',
+                'fresh_writer_no_merge_authority_evidence_hash',
+                'fresh_writer_no_dispatch_authority_evidence_hash',
+                'fresh_disable_path_evidence_hash',
+                'fresh_rollback_plan_hash',
+                'fresh_monitoring_plan_hash',
+            ],
+            'future_post_execution_outputs' => [
+                'writer_release_fresh_authorization_execution_contract_hash',
+                'writer_release_fresh_authorization_disable_contract_hash',
+                'writer_release_fresh_authorization_observability_contract_hash',
+                'writer_release_fresh_authorization_post_execution_receipt_hash',
+            ],
+            'still_forbidden_by_fresh_authorization_execution_contract_template' => [
+                'writer_file_creation_by_writer_release_fresh_authorization_execution_contract_template',
+                'ledger_write_by_writer_release_fresh_authorization_execution_contract_template',
+                'signature_acceptance_by_writer_release_fresh_authorization_execution_contract_template',
+                'signature_validation_by_writer_release_fresh_authorization_execution_contract_template',
+                'receipt_persistence_by_writer_release_fresh_authorization_execution_contract_template',
+                'decision_recording_by_writer_release_fresh_authorization_execution_contract_template',
+                'approval_from_writer_release_fresh_authorization_execution_contract_template',
+                'merge_from_writer_release_fresh_authorization_execution_contract_template',
+                'dispatch_from_writer_release_fresh_authorization_execution_contract_template',
+            ],
+            'writer_file_creation_allowed' => false,
+            'ledger_write_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'dispatch_allowed' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_execution_contract_template.v1',
+            'status' => $preflightReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_execution_contract_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_execution_contract_template_blocked',
+            'mode' => 'read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_execution_contract_template',
+            'execution_allowed' => false,
+            'ledger_write_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'contract' => $contract,
+            'contract_hash' => $this->stableHash($contract),
+            'non_execution_guarantees' => [
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_execution_contract_template_does_not_claim_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_execution_contract_template_does_not_complete_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_execution_contract_template_does_not_create_writer_file',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_execution_contract_template_does_not_accept_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_execution_contract_template_does_not_validate_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_execution_contract_template_does_not_write_ledger',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_execution_contract_template_does_not_persist_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_execution_contract_template_does_not_record_decision',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_execution_contract_template_does_not_approve_code',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_execution_contract_template_does_not_merge',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_execution_contract_template_does_not_dispatch_work',
+            ],
+            'human_summary' => $preflightReady
+                ? 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization execution contract template is ready as a non-authorizing contract. It still does not create a writer, write ledger, persist receipts, approve, merge or dispatch.'
+                : 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization execution contract template is blocked until fresh authorization execution contract preflight template is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationDisableContractTemplate(array $options = []): array
+    {
+        $contractPayload = $this->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationExecutionContractTemplate($options);
+        $contract = (array) data_get($contractPayload, 'contract', []);
+        $contractReady = data_get($contractPayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_execution_contract_template_ready';
+
+        $disableTriggers = [
+            'fresh_authorization_contract_hash_drift_detected',
+            'fresh_hot_scope_dirty_after_reenable',
+            'fresh_writer_capability_tests_failed_after_reenable',
+            'fresh_writer_merge_authority_detected',
+            'fresh_writer_dispatch_authority_detected',
+            'unexpected_signature_validation_attempt_after_fresh_authorization',
+            'unexpected_receipt_persistence_attempt_after_fresh_authorization',
+            'unexpected_ledger_write_attempt_after_fresh_authorization',
+            'operator_revocation_requested_after_fresh_authorization',
+            'fresh_rollback_plan_missing_or_invalid',
+        ];
+
+        $disableContract = [
+            'disable_contract_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-FRESH-AUTHORIZATION-DISABLE-CONTRACT-TEMPLATE-SELF-CONSTRUCTION-0001',
+            'status' => $contractReady ? 'ready_as_future_fresh_authorization_disable_template' : 'blocked_before_writer_release_fresh_authorization_execution_contract_template',
+            'source_writer_release_fresh_authorization_execution_contract_hash' => data_get($contractPayload, 'contract_hash'),
+            'source_writer_release_fresh_authorization_execution_contract_preflight_hash' => data_get($contract, 'source_writer_release_fresh_authorization_execution_contract_preflight_hash'),
+            'source_writer_release_fresh_authorization_signed_receipt_template_hash' => data_get($contract, 'source_writer_release_fresh_authorization_signed_receipt_template_hash'),
+            'source_writer_release_fresh_authorization_post_signature_runbook_hash' => data_get($contract, 'source_writer_release_fresh_authorization_post_signature_runbook_hash'),
+            'source_writer_release_fresh_authorization_signature_request_hash' => data_get($contract, 'source_writer_release_fresh_authorization_signature_request_hash'),
+            'source_writer_release_fresh_authorization_receipt_draft_hash' => data_get($contract, 'source_writer_release_fresh_authorization_receipt_draft_hash'),
+            'source_writer_release_fresh_authorization_request_hash' => data_get($contract, 'source_writer_release_fresh_authorization_request_hash'),
+            'source_writer_release_reenable_review_packet_hash' => data_get($contract, 'source_writer_release_reenable_review_packet_hash'),
+            'disable_triggers' => $disableTriggers,
+            'trigger_count' => count($disableTriggers),
+            'required_disable_steps' => [
+                'stop_fresh_authorization_writer_reenable_runtime',
+                'revoke_fresh_authorization_writer_capability_flag',
+                'quarantine_fresh_authorization_outputs',
+                'rerun_fresh_writer_no_merge_authority_check',
+                'rerun_fresh_writer_no_dispatch_authority_check',
+                'capture_fresh_disable_reason_and_actor',
+                'generate_future_fresh_authorization_post_disable_receipt',
+                'require_human_review_before_any_new_reenable',
+            ],
+            'required_disable_evidence' => [
+                'fresh_disable_actor_identity',
+                'fresh_disable_reason',
+                'fresh_disable_trigger_id',
+                'fresh_runtime_stop_evidence_hash',
+                'fresh_capability_revocation_evidence_hash',
+                'fresh_quarantine_manifest_hash',
+                'fresh_post_disable_no_merge_authority_evidence_hash',
+                'fresh_post_disable_no_dispatch_authority_evidence_hash',
+            ],
+            'future_disable_outputs' => [
+                'writer_release_fresh_authorization_disable_contract_hash',
+                'writer_release_fresh_authorization_disable_receipt_hash',
+                'writer_release_fresh_authorization_revocation_event_hash',
+                'writer_release_fresh_authorization_reenable_review_packet_hash',
+            ],
+            'reenable_requirements' => [
+                'new_fresh_authorization_request_template',
+                'new_fresh_authorization_receipt_draft_template',
+                'new_fresh_authorization_signature_request_template',
+                'new_fresh_authorization_signed_receipt_template',
+                'new_fresh_execution_contract_preflight_template',
+                'new_fresh_execution_contract_template',
+                'new_fresh_disable_contract_template',
+                'fresh_human_authorization',
+                'fresh_hot_scope_recheck',
+                'fresh_writer_capability_tests',
+            ],
+            'still_forbidden_by_fresh_authorization_disable_contract_template' => [
+                'writer_file_creation_by_writer_release_fresh_authorization_disable_contract_template',
+                'ledger_write_by_writer_release_fresh_authorization_disable_contract_template',
+                'signature_acceptance_by_writer_release_fresh_authorization_disable_contract_template',
+                'signature_validation_by_writer_release_fresh_authorization_disable_contract_template',
+                'receipt_persistence_by_writer_release_fresh_authorization_disable_contract_template',
+                'decision_recording_by_writer_release_fresh_authorization_disable_contract_template',
+                'approval_from_writer_release_fresh_authorization_disable_contract_template',
+                'merge_from_writer_release_fresh_authorization_disable_contract_template',
+                'dispatch_from_writer_release_fresh_authorization_disable_contract_template',
+            ],
+            'writer_file_creation_allowed' => false,
+            'ledger_write_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'dispatch_allowed' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_disable_contract_template.v1',
+            'status' => $contractReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_disable_contract_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_disable_contract_template_blocked',
+            'mode' => 'read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_disable_contract_template',
+            'execution_allowed' => false,
+            'ledger_write_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'disable_contract' => $disableContract,
+            'disable_contract_hash' => $this->stableHash($disableContract),
+            'non_execution_guarantees' => [
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_disable_contract_template_does_not_claim_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_disable_contract_template_does_not_complete_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_disable_contract_template_does_not_create_writer_file',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_disable_contract_template_does_not_accept_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_disable_contract_template_does_not_validate_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_disable_contract_template_does_not_write_ledger',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_disable_contract_template_does_not_persist_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_disable_contract_template_does_not_record_decision',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_disable_contract_template_does_not_approve_code',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_disable_contract_template_does_not_merge',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_disable_contract_template_does_not_dispatch_work',
+            ],
+            'human_summary' => $contractReady
+                ? 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization disable contract template is ready as a rollback contract. It still does not create a writer, write ledger, persist receipts, approve, merge or dispatch.'
+                : 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization disable contract template is blocked until fresh authorization execution contract template is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationObservabilityContractTemplate(array $options = []): array
+    {
+        $disablePayload = $this->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationDisableContractTemplate($options);
+        $disableContract = (array) data_get($disablePayload, 'disable_contract', []);
+        $disableReady = data_get($disablePayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_disable_contract_template_ready';
+
+        $signals = [
+            'fresh_authorization_execution_contract_loaded',
+            'fresh_authorization_writer_reenable_runtime_started',
+            'fresh_authorization_writer_capability_flag_checked',
+            'fresh_authorization_receipt_persistence_attempted',
+            'fresh_authorization_ledger_write_attempted',
+            'fresh_authorization_forbidden_merge_attempt_detected',
+            'fresh_authorization_forbidden_dispatch_attempt_detected',
+            'fresh_authorization_disable_trigger_detected',
+            'fresh_authorization_disable_completed',
+            'fresh_authorization_reenable_requested_again',
+            'fresh_authorization_post_execution_receipt_generated',
+            'fresh_authorization_human_review_required',
+        ];
+
+        $observabilityContract = [
+            'observability_contract_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-FRESH-AUTHORIZATION-OBSERVABILITY-CONTRACT-TEMPLATE-SELF-CONSTRUCTION-0001',
+            'status' => $disableReady ? 'ready_as_future_fresh_authorization_observability_template' : 'blocked_before_writer_release_fresh_authorization_disable_contract_template',
+            'source_writer_release_fresh_authorization_disable_contract_hash' => data_get($disablePayload, 'disable_contract_hash'),
+            'source_writer_release_fresh_authorization_execution_contract_hash' => data_get($disableContract, 'source_writer_release_fresh_authorization_execution_contract_hash'),
+            'source_writer_release_fresh_authorization_execution_contract_preflight_hash' => data_get($disableContract, 'source_writer_release_fresh_authorization_execution_contract_preflight_hash'),
+            'source_writer_release_fresh_authorization_signed_receipt_template_hash' => data_get($disableContract, 'source_writer_release_fresh_authorization_signed_receipt_template_hash'),
+            'source_writer_release_fresh_authorization_post_signature_runbook_hash' => data_get($disableContract, 'source_writer_release_fresh_authorization_post_signature_runbook_hash'),
+            'source_writer_release_fresh_authorization_signature_request_hash' => data_get($disableContract, 'source_writer_release_fresh_authorization_signature_request_hash'),
+            'source_writer_release_fresh_authorization_receipt_draft_hash' => data_get($disableContract, 'source_writer_release_fresh_authorization_receipt_draft_hash'),
+            'source_writer_release_fresh_authorization_request_hash' => data_get($disableContract, 'source_writer_release_fresh_authorization_request_hash'),
+            'source_writer_release_reenable_review_packet_hash' => data_get($disableContract, 'source_writer_release_reenable_review_packet_hash'),
+            'required_signals' => $signals,
+            'signal_count' => count($signals),
+            'required_metrics' => [
+                'fresh_authorization_reenable_attempt_count',
+                'fresh_authorization_reenable_success_count',
+                'fresh_authorization_reenable_blocked_count',
+                'fresh_authorization_disable_trigger_count',
+                'fresh_authorization_forbidden_merge_attempt_count',
+                'fresh_authorization_forbidden_dispatch_attempt_count',
+                'fresh_authorization_unexpected_ledger_write_attempt_count',
+                'fresh_authorization_unexpected_receipt_persistence_attempt_count',
+                'fresh_authorization_time_to_disable_ms',
+            ],
+            'required_alerts' => [
+                'alert_on_fresh_authorization_contract_hash_drift',
+                'alert_on_fresh_hot_scope_dirty_after_reenable',
+                'alert_on_fresh_writer_capability_test_failure',
+                'alert_on_fresh_forbidden_merge_authority',
+                'alert_on_fresh_forbidden_dispatch_authority',
+                'alert_on_fresh_unexpected_signature_validation',
+                'alert_on_fresh_unexpected_receipt_persistence',
+                'alert_on_fresh_unexpected_ledger_write',
+            ],
+            'required_observability_evidence' => [
+                'trace_id',
+                'operation_id',
+                'fresh_authorization_execution_contract_hash',
+                'fresh_authorization_disable_contract_hash',
+                'fresh_authorization_signal_manifest_hash',
+                'fresh_authorization_metrics_snapshot_hash',
+                'fresh_authorization_alert_policy_hash',
+                'fresh_authorization_post_release_monitoring_window',
+            ],
+            'minimum_monitoring_window' => [
+                'after_future_reenable_minutes' => 60,
+                'after_future_disable_minutes' => 30,
+                'requires_human_review_before_window_close' => true,
+            ],
+            'future_observability_outputs' => [
+                'writer_release_fresh_authorization_observability_contract_hash',
+                'writer_release_fresh_authorization_signal_manifest_hash',
+                'writer_release_fresh_authorization_metrics_snapshot_hash',
+                'writer_release_fresh_authorization_alert_policy_hash',
+                'writer_release_fresh_authorization_post_monitoring_review_hash',
+            ],
+            'still_forbidden_by_fresh_authorization_observability_contract_template' => [
+                'writer_file_creation_by_writer_release_fresh_authorization_observability_contract_template',
+                'ledger_write_by_writer_release_fresh_authorization_observability_contract_template',
+                'signature_acceptance_by_writer_release_fresh_authorization_observability_contract_template',
+                'signature_validation_by_writer_release_fresh_authorization_observability_contract_template',
+                'receipt_persistence_by_writer_release_fresh_authorization_observability_contract_template',
+                'decision_recording_by_writer_release_fresh_authorization_observability_contract_template',
+                'approval_from_writer_release_fresh_authorization_observability_contract_template',
+                'merge_from_writer_release_fresh_authorization_observability_contract_template',
+                'dispatch_from_writer_release_fresh_authorization_observability_contract_template',
+            ],
+            'writer_file_creation_allowed' => false,
+            'ledger_write_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'dispatch_allowed' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_observability_contract_template.v1',
+            'status' => $disableReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_observability_contract_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_observability_contract_template_blocked',
+            'mode' => 'read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_observability_contract_template',
+            'execution_allowed' => false,
+            'ledger_write_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'observability_contract' => $observabilityContract,
+            'observability_contract_hash' => $this->stableHash($observabilityContract),
+            'non_execution_guarantees' => [
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_observability_contract_template_does_not_claim_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_observability_contract_template_does_not_complete_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_observability_contract_template_does_not_create_writer_file',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_observability_contract_template_does_not_accept_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_observability_contract_template_does_not_validate_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_observability_contract_template_does_not_write_ledger',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_observability_contract_template_does_not_persist_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_observability_contract_template_does_not_record_decision',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_observability_contract_template_does_not_approve_code',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_observability_contract_template_does_not_merge',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_observability_contract_template_does_not_dispatch_work',
+            ],
+            'human_summary' => $disableReady
+                ? 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization observability contract template is ready as a non-executing monitoring contract. It still does not create a writer, write ledger, persist receipts, approve, merge or dispatch.'
+                : 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization observability contract template is blocked until fresh authorization disable contract template is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationPostMonitoringReviewTemplate(array $options = []): array
+    {
+        $observabilityPayload = $this->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationObservabilityContractTemplate($options);
+        $observabilityContract = (array) data_get($observabilityPayload, 'observability_contract', []);
+        $observabilityReady = data_get($observabilityPayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_observability_contract_template_ready';
+
+        $allowedDecisions = [
+            'keep_fresh_authorization_writer_disabled',
+            'keep_fresh_authorization_writer_enabled_under_watch',
+            'request_fresh_authorization_disable_execution',
+            'request_new_fresh_authorization_cycle',
+            'escalate_to_human_review',
+        ];
+
+        $reviewTemplate = [
+            'review_template_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-FRESH-AUTHORIZATION-POST-MONITORING-REVIEW-TEMPLATE-SELF-CONSTRUCTION-0001',
+            'status' => $observabilityReady ? 'ready_as_future_fresh_authorization_post_monitoring_review_template' : 'blocked_before_writer_release_fresh_authorization_observability_contract_template',
+            'source_writer_release_fresh_authorization_observability_contract_hash' => data_get($observabilityPayload, 'observability_contract_hash'),
+            'source_writer_release_fresh_authorization_disable_contract_hash' => data_get($observabilityContract, 'source_writer_release_fresh_authorization_disable_contract_hash'),
+            'source_writer_release_fresh_authorization_execution_contract_hash' => data_get($observabilityContract, 'source_writer_release_fresh_authorization_execution_contract_hash'),
+            'source_writer_release_fresh_authorization_execution_contract_preflight_hash' => data_get($observabilityContract, 'source_writer_release_fresh_authorization_execution_contract_preflight_hash'),
+            'source_writer_release_fresh_authorization_signed_receipt_template_hash' => data_get($observabilityContract, 'source_writer_release_fresh_authorization_signed_receipt_template_hash'),
+            'source_writer_release_fresh_authorization_post_signature_runbook_hash' => data_get($observabilityContract, 'source_writer_release_fresh_authorization_post_signature_runbook_hash'),
+            'source_writer_release_fresh_authorization_signature_request_hash' => data_get($observabilityContract, 'source_writer_release_fresh_authorization_signature_request_hash'),
+            'source_writer_release_fresh_authorization_request_hash' => data_get($observabilityContract, 'source_writer_release_fresh_authorization_request_hash'),
+            'source_writer_release_reenable_review_packet_hash' => data_get($observabilityContract, 'source_writer_release_reenable_review_packet_hash'),
+            'allowed_decisions' => $allowedDecisions,
+            'allowed_decision_count' => count($allowedDecisions),
+            'required_review_inputs' => [
+                'writer_release_fresh_authorization_observability_contract_hash',
+                'writer_release_fresh_authorization_signal_manifest_hash',
+                'writer_release_fresh_authorization_metrics_snapshot_hash',
+                'writer_release_fresh_authorization_alert_policy_hash',
+                'fresh_authorization_post_release_monitoring_window',
+                'human_reviewer_identity',
+            ],
+            'health_checks' => [
+                'fresh_authorization_monitoring_window_completed',
+                'all_fresh_authorization_required_signals_present',
+                'fresh_authorization_metrics_snapshot_present',
+                'fresh_authorization_alert_policy_present',
+                'no_fresh_authorization_forbidden_merge_attempts',
+                'no_fresh_authorization_forbidden_dispatch_attempts',
+                'no_fresh_authorization_unexpected_ledger_writes',
+                'no_fresh_authorization_unexpected_receipt_persistence',
+                'fresh_authorization_disable_path_still_available',
+                'human_review_completed',
+            ],
+            'failure_to_decision_map' => [
+                'fresh_authorization_forbidden_merge_attempt' => 'request_fresh_authorization_disable_execution',
+                'fresh_authorization_forbidden_dispatch_attempt' => 'request_fresh_authorization_disable_execution',
+                'fresh_authorization_unexpected_ledger_write_attempt' => 'request_fresh_authorization_disable_execution',
+                'fresh_authorization_unexpected_receipt_persistence_attempt' => 'request_fresh_authorization_disable_execution',
+                'fresh_authorization_missing_required_signal' => 'escalate_to_human_review',
+                'fresh_authorization_monitoring_window_incomplete' => 'keep_fresh_authorization_writer_enabled_under_watch',
+                'fresh_authorization_disable_path_unavailable' => 'escalate_to_human_review',
+            ],
+            'required_review_evidence' => [
+                'fresh_authorization_review_actor_identity',
+                'fresh_authorization_reviewed_at',
+                'selected_decision',
+                'decision_rationale',
+                'fresh_authorization_health_check_result_hash',
+                'fresh_authorization_metrics_snapshot_hash',
+                'fresh_authorization_alert_summary_hash',
+                'fresh_authorization_disable_path_verification_hash',
+            ],
+            'future_review_outputs' => [
+                'writer_release_fresh_authorization_post_monitoring_review_hash',
+                'writer_release_fresh_authorization_health_decision_hash',
+                'writer_release_fresh_authorization_new_cycle_request_hash',
+                'writer_release_fresh_authorization_disable_request_hash',
+            ],
+            'still_forbidden_by_fresh_authorization_post_monitoring_review_template' => [
+                'writer_file_creation_by_writer_release_fresh_authorization_post_monitoring_review_template',
+                'ledger_write_by_writer_release_fresh_authorization_post_monitoring_review_template',
+                'signature_acceptance_by_writer_release_fresh_authorization_post_monitoring_review_template',
+                'signature_validation_by_writer_release_fresh_authorization_post_monitoring_review_template',
+                'receipt_persistence_by_writer_release_fresh_authorization_post_monitoring_review_template',
+                'decision_recording_by_writer_release_fresh_authorization_post_monitoring_review_template',
+                'approval_from_writer_release_fresh_authorization_post_monitoring_review_template',
+                'merge_from_writer_release_fresh_authorization_post_monitoring_review_template',
+                'dispatch_from_writer_release_fresh_authorization_post_monitoring_review_template',
+            ],
+            'writer_file_creation_allowed' => false,
+            'ledger_write_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'dispatch_allowed' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_post_monitoring_review_template.v1',
+            'status' => $observabilityReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_post_monitoring_review_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_post_monitoring_review_template_blocked',
+            'mode' => 'read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_post_monitoring_review_template',
+            'execution_allowed' => false,
+            'ledger_write_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'review_template' => $reviewTemplate,
+            'review_template_hash' => $this->stableHash($reviewTemplate),
+            'non_execution_guarantees' => [
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_post_monitoring_review_template_does_not_claim_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_post_monitoring_review_template_does_not_complete_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_post_monitoring_review_template_does_not_create_writer_file',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_post_monitoring_review_template_does_not_accept_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_post_monitoring_review_template_does_not_validate_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_post_monitoring_review_template_does_not_write_ledger',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_post_monitoring_review_template_does_not_persist_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_post_monitoring_review_template_does_not_record_decision',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_post_monitoring_review_template_does_not_approve_code',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_post_monitoring_review_template_does_not_merge',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_post_monitoring_review_template_does_not_dispatch_work',
+            ],
+            'human_summary' => $observabilityReady
+                ? 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization post-monitoring review template is ready as a non-authorizing health review. It still does not create a writer, write ledger, persist receipts, approve, merge or dispatch.'
+                : 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization post-monitoring review template is blocked until fresh authorization observability contract template is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationHealthDecisionTemplate(array $options = []): array
+    {
+        $reviewPayload = $this->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationPostMonitoringReviewTemplate($options);
+        $reviewTemplate = (array) data_get($reviewPayload, 'review_template', []);
+        $reviewReady = data_get($reviewPayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_post_monitoring_review_template_ready';
+
+        $allowedDecisionStates = [
+            'keep_fresh_authorization_writer_disabled',
+            'continue_fresh_authorization_watch',
+            'request_fresh_authorization_disable_execution',
+            'request_new_fresh_authorization_cycle',
+            'escalate_to_human_review',
+        ];
+
+        $healthDecision = [
+            'health_decision_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-FRESH-AUTHORIZATION-HEALTH-DECISION-TEMPLATE-SELF-CONSTRUCTION-0001',
+            'status' => $reviewReady ? 'ready_as_future_fresh_authorization_health_decision_template' : 'blocked_before_writer_release_fresh_authorization_post_monitoring_review_template',
+            'source_writer_release_fresh_authorization_post_monitoring_review_hash' => data_get($reviewPayload, 'review_template_hash'),
+            'source_writer_release_fresh_authorization_observability_contract_hash' => data_get($reviewTemplate, 'source_writer_release_fresh_authorization_observability_contract_hash'),
+            'source_writer_release_fresh_authorization_disable_contract_hash' => data_get($reviewTemplate, 'source_writer_release_fresh_authorization_disable_contract_hash'),
+            'source_writer_release_fresh_authorization_execution_contract_hash' => data_get($reviewTemplate, 'source_writer_release_fresh_authorization_execution_contract_hash'),
+            'source_writer_release_fresh_authorization_signed_receipt_template_hash' => data_get($reviewTemplate, 'source_writer_release_fresh_authorization_signed_receipt_template_hash'),
+            'allowed_decision_states' => $allowedDecisionStates,
+            'allowed_decision_state_count' => count($allowedDecisionStates),
+            'required_decision_evidence' => [
+                'writer_release_fresh_authorization_post_monitoring_review_hash',
+                'selected_review_decision',
+                'decision_actor_identity',
+                'decision_rationale',
+                'fresh_authorization_health_check_result_hash',
+                'fresh_authorization_metrics_snapshot_hash',
+                'fresh_authorization_alert_summary_hash',
+                'fresh_authorization_disable_path_verification_hash',
+                'human_reviewer_identity',
+            ],
+            'decision_policy' => [
+                'selected_review_decision_must_be_allowed',
+                'forbidden_merge_or_dispatch_attempt_forces_disable_request',
+                'unexpected_ledger_or_receipt_persistence_forces_disable_request',
+                'missing_signal_or_incomplete_window_forces_watch_or_escalation',
+                'new_fresh_authorization_cycle_requires_full_chain_restart',
+                'human_reviewer_identity_required',
+            ],
+            'future_decision_outputs' => [
+                'writer_release_fresh_authorization_health_decision_hash',
+                'writer_release_fresh_authorization_new_cycle_request_hash',
+                'writer_release_fresh_authorization_disable_request_hash',
+                'writer_release_fresh_authorization_human_escalation_hash',
+            ],
+            'still_forbidden_by_fresh_authorization_health_decision_template' => [
+                'writer_file_creation_by_writer_release_fresh_authorization_health_decision_template',
+                'ledger_write_by_writer_release_fresh_authorization_health_decision_template',
+                'signature_acceptance_by_writer_release_fresh_authorization_health_decision_template',
+                'signature_validation_by_writer_release_fresh_authorization_health_decision_template',
+                'receipt_persistence_by_writer_release_fresh_authorization_health_decision_template',
+                'decision_recording_by_writer_release_fresh_authorization_health_decision_template',
+                'approval_from_writer_release_fresh_authorization_health_decision_template',
+                'merge_from_writer_release_fresh_authorization_health_decision_template',
+                'dispatch_from_writer_release_fresh_authorization_health_decision_template',
+            ],
+            'writer_file_creation_allowed' => false,
+            'ledger_write_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'dispatch_allowed' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_health_decision_template.v1',
+            'status' => $reviewReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_health_decision_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_health_decision_template_blocked',
+            'mode' => 'read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_health_decision_template',
+            'execution_allowed' => false,
+            'ledger_write_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'health_decision' => $healthDecision,
+            'health_decision_hash' => $this->stableHash($healthDecision),
+            'non_execution_guarantees' => [
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_health_decision_template_does_not_claim_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_health_decision_template_does_not_complete_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_health_decision_template_does_not_create_writer_file',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_health_decision_template_does_not_accept_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_health_decision_template_does_not_validate_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_health_decision_template_does_not_write_ledger',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_health_decision_template_does_not_persist_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_health_decision_template_does_not_record_decision',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_health_decision_template_does_not_approve_code',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_health_decision_template_does_not_merge',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_health_decision_template_does_not_dispatch_work',
+            ],
+            'human_summary' => $reviewReady
+                ? 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization health decision template is ready as a non-recording decision template. It still does not create a writer, write ledger, persist receipts, record decisions, approve, merge or dispatch.'
+                : 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization health decision template is blocked until fresh authorization post-monitoring review template is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationDisableRequestTemplate(array $options = []): array
+    {
+        $decisionPayload = $this->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationHealthDecisionTemplate($options);
+        $healthDecision = (array) data_get($decisionPayload, 'health_decision', []);
+        $decisionReady = data_get($decisionPayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_health_decision_template_ready';
+
+        $disableTriggers = [
+            'selected_decision_request_fresh_authorization_disable_execution',
+            'fresh_authorization_forbidden_merge_attempt_after_reenable',
+            'fresh_authorization_forbidden_dispatch_attempt_after_reenable',
+            'fresh_authorization_unexpected_ledger_write_after_reenable',
+            'fresh_authorization_unexpected_receipt_persistence_after_reenable',
+            'fresh_authorization_disable_path_compromised_or_unavailable',
+        ];
+
+        $disableRequest = [
+            'disable_request_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-FRESH-AUTHORIZATION-DISABLE-REQUEST-TEMPLATE-SELF-CONSTRUCTION-0001',
+            'status' => $decisionReady ? 'ready_as_future_fresh_authorization_disable_request_template' : 'blocked_before_writer_release_fresh_authorization_health_decision_template',
+            'source_writer_release_fresh_authorization_health_decision_hash' => data_get($decisionPayload, 'health_decision_hash'),
+            'source_writer_release_fresh_authorization_post_monitoring_review_hash' => data_get($healthDecision, 'source_writer_release_fresh_authorization_post_monitoring_review_hash'),
+            'source_writer_release_fresh_authorization_observability_contract_hash' => data_get($healthDecision, 'source_writer_release_fresh_authorization_observability_contract_hash'),
+            'source_writer_release_fresh_authorization_disable_contract_hash' => data_get($healthDecision, 'source_writer_release_fresh_authorization_disable_contract_hash'),
+            'source_writer_release_fresh_authorization_execution_contract_hash' => data_get($healthDecision, 'source_writer_release_fresh_authorization_execution_contract_hash'),
+            'disable_triggers' => $disableTriggers,
+            'trigger_count' => count($disableTriggers),
+            'required_disable_request_evidence' => [
+                'writer_release_fresh_authorization_health_decision_hash',
+                'selected_health_decision_state',
+                'disable_trigger',
+                'disable_request_actor_identity',
+                'disable_request_rationale',
+                'fresh_authorization_disable_path_verification_hash',
+                'fresh_authorization_forbidden_action_evidence_hash',
+                'human_reviewer_identity',
+            ],
+            'disable_request_policy' => [
+                'disable_request_requires_health_decision_hash',
+                'disable_request_requires_allowed_trigger',
+                'disable_request_must_reference_existing_disable_contract_template',
+                'disable_request_does_not_execute_disable',
+                'disable_request_does_not_mutate_writer_state',
+                'disable_request_does_not_record_decision',
+            ],
+            'future_disable_request_outputs' => [
+                'writer_release_fresh_authorization_disable_request_hash',
+                'writer_release_fresh_authorization_disable_execution_preflight_hash',
+                'writer_release_fresh_authorization_disable_execution_receipt_hash',
+                'writer_release_fresh_authorization_disable_evidence_hash',
+            ],
+            'still_forbidden_by_fresh_authorization_disable_request_template' => [
+                'disable_execution_by_writer_release_fresh_authorization_disable_request_template',
+                'writer_state_mutation_by_writer_release_fresh_authorization_disable_request_template',
+                'writer_file_creation_by_writer_release_fresh_authorization_disable_request_template',
+                'ledger_write_by_writer_release_fresh_authorization_disable_request_template',
+                'signature_acceptance_by_writer_release_fresh_authorization_disable_request_template',
+                'signature_validation_by_writer_release_fresh_authorization_disable_request_template',
+                'receipt_persistence_by_writer_release_fresh_authorization_disable_request_template',
+                'decision_recording_by_writer_release_fresh_authorization_disable_request_template',
+                'approval_from_writer_release_fresh_authorization_disable_request_template',
+                'merge_from_writer_release_fresh_authorization_disable_request_template',
+                'dispatch_from_writer_release_fresh_authorization_disable_request_template',
+            ],
+            'execution_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'ledger_write_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'dispatch_allowed' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_disable_request_template.v1',
+            'status' => $decisionReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_disable_request_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_disable_request_template_blocked',
+            'mode' => 'read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_disable_request_template',
+            'execution_allowed' => false,
+            'ledger_write_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'disable_request' => $disableRequest,
+            'disable_request_hash' => $this->stableHash($disableRequest),
+            'non_execution_guarantees' => [
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_disable_request_template_does_not_claim_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_disable_request_template_does_not_complete_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_disable_request_template_does_not_execute_disable',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_disable_request_template_does_not_mutate_writer_state',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_disable_request_template_does_not_create_writer_file',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_disable_request_template_does_not_accept_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_disable_request_template_does_not_validate_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_disable_request_template_does_not_write_ledger',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_disable_request_template_does_not_persist_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_disable_request_template_does_not_record_decision',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_disable_request_template_does_not_approve_code',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_disable_request_template_does_not_merge',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_disable_request_template_does_not_dispatch_work',
+            ],
+            'human_summary' => $decisionReady
+                ? 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization disable request template is ready as a non-executing disable request template. It still does not execute disable, mutate writer state, create a writer, write ledger, persist receipts, approve, merge or dispatch.'
+                : 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization disable request template is blocked until fresh authorization health decision template is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleRequestTemplate(array $options = []): array
+    {
+        $decisionPayload = $this->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationHealthDecisionTemplate($options);
+        $healthDecision = (array) data_get($decisionPayload, 'health_decision', []);
+        $decisionReady = data_get($decisionPayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_health_decision_template_ready';
+
+        $requiredRestartRequirements = [
+            'new_cycle_requires_new_authorization_request_hash',
+            'new_cycle_requires_new_receipt_draft_hash',
+            'new_cycle_requires_new_signature_request_hash',
+            'new_cycle_requires_new_signed_receipt_template_hash',
+            'new_cycle_requires_new_execution_contract_preflight_hash',
+            'new_cycle_requires_new_execution_contract_hash',
+            'new_cycle_requires_new_disable_contract_hash',
+            'new_cycle_requires_new_observability_contract_hash',
+            'new_cycle_requires_new_post_monitoring_review_hash',
+        ];
+
+        $newCycleRequest = [
+            'new_cycle_request_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-FRESH-AUTHORIZATION-NEW-CYCLE-REQUEST-TEMPLATE-SELF-CONSTRUCTION-0001',
+            'status' => $decisionReady ? 'ready_as_future_fresh_authorization_new_cycle_request_template' : 'blocked_before_writer_release_fresh_authorization_health_decision_template',
+            'source_writer_release_fresh_authorization_health_decision_hash' => data_get($decisionPayload, 'health_decision_hash'),
+            'source_writer_release_fresh_authorization_post_monitoring_review_hash' => data_get($healthDecision, 'source_writer_release_fresh_authorization_post_monitoring_review_hash'),
+            'source_writer_release_fresh_authorization_observability_contract_hash' => data_get($healthDecision, 'source_writer_release_fresh_authorization_observability_contract_hash'),
+            'source_writer_release_fresh_authorization_disable_contract_hash' => data_get($healthDecision, 'source_writer_release_fresh_authorization_disable_contract_hash'),
+            'source_writer_release_fresh_authorization_execution_contract_hash' => data_get($healthDecision, 'source_writer_release_fresh_authorization_execution_contract_hash'),
+            'required_restart_requirements' => $requiredRestartRequirements,
+            'requirement_count' => count($requiredRestartRequirements),
+            'required_new_cycle_evidence' => [
+                'writer_release_fresh_authorization_health_decision_hash',
+                'selected_health_decision_state',
+                'new_cycle_request_actor_identity',
+                'new_cycle_request_rationale',
+                'previous_cycle_summary_hash',
+                'previous_cycle_failure_or_watch_result_hash',
+                'human_reviewer_identity',
+            ],
+            'reuse_forbidden' => [
+                'reuse_previous_fresh_authorization_request_hash',
+                'reuse_previous_fresh_authorization_receipt_draft_hash',
+                'reuse_previous_fresh_authorization_signature_request_hash',
+                'reuse_previous_fresh_authorization_signed_receipt_hash',
+                'reuse_previous_fresh_authorization_execution_contract_hash',
+                'reuse_previous_fresh_authorization_observability_contract_hash',
+            ],
+            'new_cycle_request_policy' => [
+                'new_cycle_request_requires_health_decision_hash',
+                'new_cycle_request_requires_selected_decision_request_new_cycle',
+                'new_cycle_request_must_restart_entire_authorization_chain',
+                'new_cycle_request_does_not_grant_approval',
+                'new_cycle_request_does_not_accept_or_validate_signature',
+                'new_cycle_request_does_not_create_writer_file',
+            ],
+            'future_new_cycle_outputs' => [
+                'writer_release_fresh_authorization_new_cycle_request_hash',
+                'writer_release_fresh_authorization_new_cycle_authorization_request_hash',
+                'writer_release_fresh_authorization_new_cycle_receipt_draft_hash',
+                'writer_release_fresh_authorization_new_cycle_signature_request_hash',
+            ],
+            'still_forbidden_by_fresh_authorization_new_cycle_request_template' => [
+                'approval_by_writer_release_fresh_authorization_new_cycle_request_template',
+                'authorization_reuse_by_writer_release_fresh_authorization_new_cycle_request_template',
+                'signature_acceptance_by_writer_release_fresh_authorization_new_cycle_request_template',
+                'signature_validation_by_writer_release_fresh_authorization_new_cycle_request_template',
+                'writer_file_creation_by_writer_release_fresh_authorization_new_cycle_request_template',
+                'ledger_write_by_writer_release_fresh_authorization_new_cycle_request_template',
+                'receipt_persistence_by_writer_release_fresh_authorization_new_cycle_request_template',
+                'decision_recording_by_writer_release_fresh_authorization_new_cycle_request_template',
+                'merge_from_writer_release_fresh_authorization_new_cycle_request_template',
+                'dispatch_from_writer_release_fresh_authorization_new_cycle_request_template',
+            ],
+            'execution_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'ledger_write_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'dispatch_allowed' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_request_template.v1',
+            'status' => $decisionReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_request_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_request_template_blocked',
+            'mode' => 'read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_request_template',
+            'execution_allowed' => false,
+            'ledger_write_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'new_cycle_request' => $newCycleRequest,
+            'new_cycle_request_hash' => $this->stableHash($newCycleRequest),
+            'non_execution_guarantees' => [
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_request_template_does_not_claim_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_request_template_does_not_complete_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_request_template_does_not_grant_approval',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_request_template_does_not_reuse_authorization',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_request_template_does_not_accept_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_request_template_does_not_validate_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_request_template_does_not_create_writer_file',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_request_template_does_not_write_ledger',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_request_template_does_not_persist_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_request_template_does_not_record_decision',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_request_template_does_not_merge',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_request_template_does_not_dispatch_work',
+            ],
+            'human_summary' => $decisionReady
+                ? 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle request template is ready as a non-approving restart request. It still does not reuse authorization, create a writer, write ledger, persist receipts, approve, merge or dispatch.'
+                : 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle request template is blocked until fresh authorization health decision template is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleAuthorizationRequestTemplate(array $options = []): array
+    {
+        $newCyclePayload = $this->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleRequestTemplate($options);
+        $newCycleRequest = (array) data_get($newCyclePayload, 'new_cycle_request', []);
+        $newCycleReady = data_get($newCyclePayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_request_template_ready';
+
+        $requiredSigners = [
+            'atlas_operator',
+            'self_construction_governance_reviewer',
+            'writer_release_safety_reviewer',
+        ];
+
+        $authorizationRequest = [
+            'authorization_request_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-FRESH-AUTHORIZATION-NEW-CYCLE-AUTHORIZATION-REQUEST-TEMPLATE-SELF-CONSTRUCTION-0001',
+            'status' => $newCycleReady ? 'ready_as_future_fresh_authorization_new_cycle_authorization_request_template' : 'blocked_before_writer_release_fresh_authorization_new_cycle_request_template',
+            'source_writer_release_fresh_authorization_new_cycle_request_hash' => data_get($newCyclePayload, 'new_cycle_request_hash'),
+            'source_writer_release_fresh_authorization_health_decision_hash' => data_get($newCycleRequest, 'source_writer_release_fresh_authorization_health_decision_hash'),
+            'source_writer_release_fresh_authorization_post_monitoring_review_hash' => data_get($newCycleRequest, 'source_writer_release_fresh_authorization_post_monitoring_review_hash'),
+            'source_writer_release_fresh_authorization_observability_contract_hash' => data_get($newCycleRequest, 'source_writer_release_fresh_authorization_observability_contract_hash'),
+            'required_signers' => $requiredSigners,
+            'required_signer_count' => count($requiredSigners),
+            'required_authorization_evidence' => [
+                'writer_release_fresh_authorization_new_cycle_request_hash',
+                'new_cycle_request_actor_identity',
+                'new_cycle_request_rationale',
+                'previous_cycle_summary_hash',
+                'previous_cycle_failure_or_watch_result_hash',
+                'restart_scope_statement_hash',
+                'human_reviewer_identity',
+            ],
+            'authorization_policy' => [
+                'authorization_request_requires_new_cycle_request_hash',
+                'authorization_request_requires_all_required_signers',
+                'authorization_request_must_not_reuse_prior_authorization_hashes',
+                'authorization_request_does_not_grant_approval',
+                'authorization_request_does_not_accept_signature',
+                'authorization_request_does_not_create_writer_file',
+            ],
+            'fresh_cycle_boundaries' => [
+                'previous_cycle_hashes_are_context_only',
+                'new_cycle_receipt_must_be_drafted_after_this_request',
+                'new_cycle_signature_request_must_reference_new_receipt_draft',
+                'new_cycle_execution_contract_must_reference_new_signed_receipt_template',
+            ],
+            'future_authorization_outputs' => [
+                'writer_release_fresh_authorization_new_cycle_authorization_request_hash',
+                'writer_release_fresh_authorization_new_cycle_receipt_draft_hash',
+                'writer_release_fresh_authorization_new_cycle_signature_request_hash',
+                'writer_release_fresh_authorization_new_cycle_signed_receipt_template_hash',
+            ],
+            'still_forbidden_by_fresh_authorization_new_cycle_authorization_request_template' => [
+                'approval_by_writer_release_fresh_authorization_new_cycle_authorization_request_template',
+                'authorization_reuse_by_writer_release_fresh_authorization_new_cycle_authorization_request_template',
+                'signature_acceptance_by_writer_release_fresh_authorization_new_cycle_authorization_request_template',
+                'signature_validation_by_writer_release_fresh_authorization_new_cycle_authorization_request_template',
+                'writer_file_creation_by_writer_release_fresh_authorization_new_cycle_authorization_request_template',
+                'ledger_write_by_writer_release_fresh_authorization_new_cycle_authorization_request_template',
+                'receipt_persistence_by_writer_release_fresh_authorization_new_cycle_authorization_request_template',
+                'decision_recording_by_writer_release_fresh_authorization_new_cycle_authorization_request_template',
+                'merge_from_writer_release_fresh_authorization_new_cycle_authorization_request_template',
+                'dispatch_from_writer_release_fresh_authorization_new_cycle_authorization_request_template',
+            ],
+            'execution_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'ledger_write_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'dispatch_allowed' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_authorization_request_template.v1',
+            'status' => $newCycleReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_authorization_request_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_authorization_request_template_blocked',
+            'mode' => 'read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_authorization_request_template',
+            'execution_allowed' => false,
+            'ledger_write_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'authorization_request' => $authorizationRequest,
+            'authorization_request_hash' => $this->stableHash($authorizationRequest),
+            'non_execution_guarantees' => [
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_authorization_request_template_does_not_claim_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_authorization_request_template_does_not_complete_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_authorization_request_template_does_not_grant_approval',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_authorization_request_template_does_not_reuse_authorization',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_authorization_request_template_does_not_accept_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_authorization_request_template_does_not_validate_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_authorization_request_template_does_not_create_writer_file',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_authorization_request_template_does_not_write_ledger',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_authorization_request_template_does_not_persist_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_authorization_request_template_does_not_record_decision',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_authorization_request_template_does_not_merge',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_authorization_request_template_does_not_dispatch_work',
+            ],
+            'human_summary' => $newCycleReady
+                ? 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle authorization request template is ready as a non-approving authorization request. It still does not grant approval, accept signatures, create a writer, write ledger, persist receipts, merge or dispatch.'
+                : 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle authorization request template is blocked until fresh authorization new cycle request template is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleReceiptDraftTemplate(array $options = []): array
+    {
+        $authorizationPayload = $this->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleAuthorizationRequestTemplate($options);
+        $authorizationRequest = (array) data_get($authorizationPayload, 'authorization_request', []);
+        $authorizationReady = data_get($authorizationPayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_authorization_request_template_ready';
+
+        $requiredReceiptFields = [
+            'new_cycle_authorization_request_hash',
+            'receipt_subject',
+            'receipt_scope',
+            'required_signer_roles',
+            'fresh_cycle_boundary_statement',
+            'forbidden_reuse_statement',
+            'non_execution_statement',
+            'rollback_and_disable_reference',
+        ];
+
+        $receiptDraft = [
+            'receipt_draft_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-FRESH-AUTHORIZATION-NEW-CYCLE-RECEIPT-DRAFT-TEMPLATE-SELF-CONSTRUCTION-0001',
+            'status' => $authorizationReady ? 'ready_as_future_fresh_authorization_new_cycle_receipt_draft_template' : 'blocked_before_writer_release_fresh_authorization_new_cycle_authorization_request_template',
+            'source_writer_release_fresh_authorization_new_cycle_authorization_request_hash' => data_get($authorizationPayload, 'authorization_request_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_request_hash' => data_get($authorizationRequest, 'source_writer_release_fresh_authorization_new_cycle_request_hash'),
+            'source_writer_release_fresh_authorization_health_decision_hash' => data_get($authorizationRequest, 'source_writer_release_fresh_authorization_health_decision_hash'),
+            'required_receipt_fields' => $requiredReceiptFields,
+            'required_receipt_field_count' => count($requiredReceiptFields),
+            'receipt_subject' => 'future_fresh_authorization_new_cycle_writer_release',
+            'required_receipt_evidence' => [
+                'writer_release_fresh_authorization_new_cycle_authorization_request_hash',
+                'authorization_request_actor_identity',
+                'required_signer_manifest_hash',
+                'restart_scope_statement_hash',
+                'previous_cycle_context_hash',
+                'human_reviewer_identity',
+            ],
+            'receipt_policy' => [
+                'receipt_draft_requires_authorization_request_hash',
+                'receipt_draft_must_be_unsigned',
+                'receipt_draft_must_not_be_persisted',
+                'receipt_draft_must_not_validate_signature',
+                'receipt_draft_must_not_create_writer_file',
+                'receipt_draft_must_not_grant_approval',
+            ],
+            'future_receipt_outputs' => [
+                'writer_release_fresh_authorization_new_cycle_receipt_draft_hash',
+                'writer_release_fresh_authorization_new_cycle_signature_request_hash',
+                'writer_release_fresh_authorization_new_cycle_post_signature_runbook_hash',
+                'writer_release_fresh_authorization_new_cycle_signed_receipt_template_hash',
+            ],
+            'still_forbidden_by_fresh_authorization_new_cycle_receipt_draft_template' => [
+                'receipt_signing_by_writer_release_fresh_authorization_new_cycle_receipt_draft_template',
+                'receipt_persistence_by_writer_release_fresh_authorization_new_cycle_receipt_draft_template',
+                'signature_acceptance_by_writer_release_fresh_authorization_new_cycle_receipt_draft_template',
+                'signature_validation_by_writer_release_fresh_authorization_new_cycle_receipt_draft_template',
+                'approval_by_writer_release_fresh_authorization_new_cycle_receipt_draft_template',
+                'writer_file_creation_by_writer_release_fresh_authorization_new_cycle_receipt_draft_template',
+                'ledger_write_by_writer_release_fresh_authorization_new_cycle_receipt_draft_template',
+                'decision_recording_by_writer_release_fresh_authorization_new_cycle_receipt_draft_template',
+                'merge_from_writer_release_fresh_authorization_new_cycle_receipt_draft_template',
+                'dispatch_from_writer_release_fresh_authorization_new_cycle_receipt_draft_template',
+            ],
+            'execution_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'ledger_write_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'dispatch_allowed' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_receipt_draft_template.v1',
+            'status' => $authorizationReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_receipt_draft_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_receipt_draft_template_blocked',
+            'mode' => 'read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_receipt_draft_template',
+            'execution_allowed' => false,
+            'ledger_write_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'receipt_draft' => $receiptDraft,
+            'receipt_draft_hash' => $this->stableHash($receiptDraft),
+            'non_execution_guarantees' => [
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_receipt_draft_template_does_not_claim_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_receipt_draft_template_does_not_complete_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_receipt_draft_template_does_not_sign_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_receipt_draft_template_does_not_persist_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_receipt_draft_template_does_not_accept_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_receipt_draft_template_does_not_validate_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_receipt_draft_template_does_not_grant_approval',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_receipt_draft_template_does_not_create_writer_file',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_receipt_draft_template_does_not_write_ledger',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_receipt_draft_template_does_not_record_decision',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_receipt_draft_template_does_not_merge',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_receipt_draft_template_does_not_dispatch_work',
+            ],
+            'human_summary' => $authorizationReady
+                ? 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle receipt draft template is ready as an unsigned, non-persisted receipt draft. It still does not sign, persist, approve, create a writer, write ledger, merge or dispatch.'
+                : 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle receipt draft template is blocked until fresh authorization new cycle authorization request template is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleSignatureRequestTemplate(array $options = []): array
+    {
+        $receiptPayload = $this->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleReceiptDraftTemplate($options);
+        $receiptDraft = (array) data_get($receiptPayload, 'receipt_draft', []);
+        $receiptReady = data_get($receiptPayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_receipt_draft_template_ready';
+
+        $requiredSigners = [
+            'atlas_operator',
+            'self_construction_governance_reviewer',
+            'writer_release_safety_reviewer',
+        ];
+
+        $signatureRequest = [
+            'signature_request_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-FRESH-AUTHORIZATION-NEW-CYCLE-SIGNATURE-REQUEST-TEMPLATE-SELF-CONSTRUCTION-0001',
+            'status' => $receiptReady ? 'ready_as_future_fresh_authorization_new_cycle_signature_request_template' : 'blocked_before_writer_release_fresh_authorization_new_cycle_receipt_draft_template',
+            'source_writer_release_fresh_authorization_new_cycle_receipt_draft_hash' => data_get($receiptPayload, 'receipt_draft_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_authorization_request_hash' => data_get($receiptDraft, 'source_writer_release_fresh_authorization_new_cycle_authorization_request_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_request_hash' => data_get($receiptDraft, 'source_writer_release_fresh_authorization_new_cycle_request_hash'),
+            'source_writer_release_fresh_authorization_health_decision_hash' => data_get($receiptDraft, 'source_writer_release_fresh_authorization_health_decision_hash'),
+            'required_signers' => $requiredSigners,
+            'required_signer_count' => count($requiredSigners),
+            'signature_payload_fields' => [
+                'new_cycle_receipt_draft_hash',
+                'signer_role',
+                'signer_identity',
+                'signature_timestamp',
+                'signature_purpose',
+                'non_execution_acknowledgement',
+                'fresh_cycle_boundary_acknowledgement',
+            ],
+            'required_signature_request_evidence' => [
+                'writer_release_fresh_authorization_new_cycle_receipt_draft_hash',
+                'receipt_subject',
+                'required_signer_manifest_hash',
+                'signature_request_actor_identity',
+                'human_reviewer_identity',
+            ],
+            'signature_request_policy' => [
+                'signature_request_requires_receipt_draft_hash',
+                'signature_request_requires_all_required_signers',
+                'signature_request_does_not_accept_signature',
+                'signature_request_does_not_validate_signature',
+                'signature_request_does_not_persist_receipt',
+                'signature_request_does_not_grant_approval',
+            ],
+            'future_signature_outputs' => [
+                'writer_release_fresh_authorization_new_cycle_signature_request_hash',
+                'writer_release_fresh_authorization_new_cycle_post_signature_runbook_hash',
+                'writer_release_fresh_authorization_new_cycle_signed_receipt_template_hash',
+            ],
+            'still_forbidden_by_fresh_authorization_new_cycle_signature_request_template' => [
+                'signature_acceptance_by_writer_release_fresh_authorization_new_cycle_signature_request_template',
+                'signature_validation_by_writer_release_fresh_authorization_new_cycle_signature_request_template',
+                'receipt_persistence_by_writer_release_fresh_authorization_new_cycle_signature_request_template',
+                'approval_by_writer_release_fresh_authorization_new_cycle_signature_request_template',
+                'writer_file_creation_by_writer_release_fresh_authorization_new_cycle_signature_request_template',
+                'ledger_write_by_writer_release_fresh_authorization_new_cycle_signature_request_template',
+                'decision_recording_by_writer_release_fresh_authorization_new_cycle_signature_request_template',
+                'merge_from_writer_release_fresh_authorization_new_cycle_signature_request_template',
+                'dispatch_from_writer_release_fresh_authorization_new_cycle_signature_request_template',
+            ],
+            'execution_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'ledger_write_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'dispatch_allowed' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_signature_request_template.v1',
+            'status' => $receiptReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_signature_request_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_signature_request_template_blocked',
+            'mode' => 'read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_signature_request_template',
+            'execution_allowed' => false,
+            'ledger_write_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'signature_request' => $signatureRequest,
+            'signature_request_hash' => $this->stableHash($signatureRequest),
+            'non_execution_guarantees' => [
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_signature_request_template_does_not_claim_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_signature_request_template_does_not_complete_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_signature_request_template_does_not_accept_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_signature_request_template_does_not_validate_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_signature_request_template_does_not_persist_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_signature_request_template_does_not_grant_approval',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_signature_request_template_does_not_create_writer_file',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_signature_request_template_does_not_write_ledger',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_signature_request_template_does_not_record_decision',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_signature_request_template_does_not_merge',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_signature_request_template_does_not_dispatch_work',
+            ],
+            'human_summary' => $receiptReady
+                ? 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle signature request template is ready as a non-accepting signature request. It still does not accept or validate signatures, persist receipts, approve, create a writer, write ledger, merge or dispatch.'
+                : 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle signature request template is blocked until fresh authorization new cycle receipt draft template is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCyclePostSignatureRunbookTemplate(array $options = []): array
+    {
+        $signaturePayload = $this->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleSignatureRequestTemplate($options);
+        $signatureRequest = (array) data_get($signaturePayload, 'signature_request', []);
+        $signatureRequestReady = data_get($signaturePayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_signature_request_template_ready';
+
+        $runbookSteps = [
+            'collect_future_new_cycle_signatures',
+            'verify_all_required_signer_roles_present',
+            'verify_signature_payload_references_new_cycle_receipt_draft_hash',
+            'verify_no_previous_cycle_authority_reused',
+            'prepare_new_cycle_signed_receipt_template',
+            'prepare_new_cycle_execution_contract_preflight_template',
+            'prepare_new_cycle_disable_contract_template',
+            'prepare_new_cycle_observability_contract_template',
+        ];
+
+        $runbook = [
+            'runbook_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-FRESH-AUTHORIZATION-NEW-CYCLE-POST-SIGNATURE-RUNBOOK-TEMPLATE-SELF-CONSTRUCTION-0001',
+            'status' => $signatureRequestReady ? 'ready_as_future_fresh_authorization_new_cycle_post_signature_runbook_template' : 'blocked_before_writer_release_fresh_authorization_new_cycle_signature_request_template',
+            'source_writer_release_fresh_authorization_new_cycle_signature_request_hash' => data_get($signaturePayload, 'signature_request_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_receipt_draft_hash' => data_get($signatureRequest, 'source_writer_release_fresh_authorization_new_cycle_receipt_draft_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_authorization_request_hash' => data_get($signatureRequest, 'source_writer_release_fresh_authorization_new_cycle_authorization_request_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_request_hash' => data_get($signatureRequest, 'source_writer_release_fresh_authorization_new_cycle_request_hash'),
+            'runbook_steps' => $runbookSteps,
+            'step_count' => count($runbookSteps),
+            'required_runbook_evidence' => [
+                'writer_release_fresh_authorization_new_cycle_signature_request_hash',
+                'future_signature_bundle_hash',
+                'required_signer_manifest_hash',
+                'signature_payload_integrity_hash',
+                'no_previous_cycle_authority_reuse_evidence_hash',
+                'human_reviewer_identity',
+            ],
+            'runbook_policy' => [
+                'runbook_requires_signature_request_hash',
+                'runbook_requires_all_future_signatures_before_signed_receipt_template',
+                'runbook_does_not_accept_signature',
+                'runbook_does_not_validate_signature',
+                'runbook_does_not_persist_receipt',
+                'runbook_does_not_grant_approval',
+                'runbook_does_not_create_writer_file',
+            ],
+            'future_runbook_outputs' => [
+                'writer_release_fresh_authorization_new_cycle_post_signature_runbook_hash',
+                'writer_release_fresh_authorization_new_cycle_signed_receipt_template_hash',
+                'writer_release_fresh_authorization_new_cycle_execution_contract_preflight_hash',
+                'writer_release_fresh_authorization_new_cycle_disable_contract_hash',
+            ],
+            'still_forbidden_by_fresh_authorization_new_cycle_post_signature_runbook_template' => [
+                'signature_acceptance_by_writer_release_fresh_authorization_new_cycle_post_signature_runbook_template',
+                'signature_validation_by_writer_release_fresh_authorization_new_cycle_post_signature_runbook_template',
+                'receipt_persistence_by_writer_release_fresh_authorization_new_cycle_post_signature_runbook_template',
+                'approval_by_writer_release_fresh_authorization_new_cycle_post_signature_runbook_template',
+                'writer_file_creation_by_writer_release_fresh_authorization_new_cycle_post_signature_runbook_template',
+                'ledger_write_by_writer_release_fresh_authorization_new_cycle_post_signature_runbook_template',
+                'decision_recording_by_writer_release_fresh_authorization_new_cycle_post_signature_runbook_template',
+                'merge_from_writer_release_fresh_authorization_new_cycle_post_signature_runbook_template',
+                'dispatch_from_writer_release_fresh_authorization_new_cycle_post_signature_runbook_template',
+            ],
+            'execution_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'ledger_write_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'dispatch_allowed' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_post_signature_runbook_template.v1',
+            'status' => $signatureRequestReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_post_signature_runbook_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_post_signature_runbook_template_blocked',
+            'mode' => 'read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_post_signature_runbook_template',
+            'execution_allowed' => false,
+            'ledger_write_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'runbook' => $runbook,
+            'runbook_hash' => $this->stableHash($runbook),
+            'non_execution_guarantees' => [
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_post_signature_runbook_template_does_not_claim_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_post_signature_runbook_template_does_not_complete_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_post_signature_runbook_template_does_not_accept_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_post_signature_runbook_template_does_not_validate_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_post_signature_runbook_template_does_not_persist_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_post_signature_runbook_template_does_not_grant_approval',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_post_signature_runbook_template_does_not_create_writer_file',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_post_signature_runbook_template_does_not_write_ledger',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_post_signature_runbook_template_does_not_record_decision',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_post_signature_runbook_template_does_not_merge',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_post_signature_runbook_template_does_not_dispatch_work',
+            ],
+            'human_summary' => $signatureRequestReady
+                ? 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle post-signature runbook template is ready as a non-validating runbook. It still does not accept or validate signatures, persist receipts, approve, create a writer, write ledger, merge or dispatch.'
+                : 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle post-signature runbook template is blocked until fresh authorization new cycle signature request template is ready.',
+        ];
+    }
+
+    /**
      * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null}  $options
      * @return array<string, mixed>
      */
@@ -8982,6 +11319,6440 @@ final class AtlasSelfConstructionReadinessService
             'human_summary' => data_get($release, 'status') === 'released'
                 ? 'Packet reservation was released in the local reservation ledger.'
                 : 'Packet release was blocked because no active owner-matching reservation was found.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleSignedReceiptTemplate(array $options = []): array
+    {
+        $runbookPayload = $this->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCyclePostSignatureRunbookTemplate($options);
+        $runbook = (array) data_get($runbookPayload, 'runbook', []);
+        $runbookReady = data_get($runbookPayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_post_signature_runbook_template_ready';
+
+        $templateFields = [
+            'new_cycle_signed_receipt_id',
+            'receipt_type',
+            'source_new_cycle_post_signature_runbook_hash',
+            'source_new_cycle_signature_request_hash',
+            'source_new_cycle_receipt_draft_hash',
+            'source_new_cycle_authorization_request_hash',
+            'source_new_cycle_request_hash',
+            'external_signature_bundle_hash',
+            'required_signer_manifest_hash',
+            'no_previous_cycle_authority_reuse_evidence_hash',
+            'authorization_scope',
+            'expiration_policy',
+        ];
+
+        $template = [
+            'signed_receipt_template_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-FRESH-AUTHORIZATION-NEW-CYCLE-SIGNED-RECEIPT-TEMPLATE-SELF-CONSTRUCTION-0001',
+            'status' => $runbookReady ? 'ready_as_future_fresh_authorization_new_cycle_signed_receipt_template' : 'blocked_before_writer_release_fresh_authorization_new_cycle_post_signature_runbook_template',
+            'source_writer_release_fresh_authorization_new_cycle_post_signature_runbook_hash' => data_get($runbookPayload, 'runbook_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_signature_request_hash' => data_get($runbook, 'source_writer_release_fresh_authorization_new_cycle_signature_request_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_receipt_draft_hash' => data_get($runbook, 'source_writer_release_fresh_authorization_new_cycle_receipt_draft_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_authorization_request_hash' => data_get($runbook, 'source_writer_release_fresh_authorization_new_cycle_authorization_request_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_request_hash' => data_get($runbook, 'source_writer_release_fresh_authorization_new_cycle_request_hash'),
+            'template_fields' => $templateFields,
+            'template_field_count' => count($templateFields),
+            'required_external_evidence' => [
+                'external_signature_bundle_hash',
+                'required_signer_manifest_hash',
+                'signature_payload_integrity_hash',
+                'no_previous_cycle_authority_reuse_evidence_hash',
+                'new_cycle_post_signature_runbook_hash',
+                'human_reviewer_identity',
+            ],
+            'receipt_scope' => [
+                'fresh_authorization_new_cycle_only',
+                'does_not_reuse_previous_authorization',
+                'does_not_reenable_writer',
+                'does_not_create_writer_file',
+                'does_not_write_ledger',
+                'does_not_persist_receipt',
+                'does_not_merge',
+                'does_not_dispatch',
+            ],
+            'future_template_outputs' => [
+                'writer_release_fresh_authorization_new_cycle_signed_receipt_template_hash',
+                'writer_release_fresh_authorization_new_cycle_execution_contract_preflight_hash',
+                'writer_release_fresh_authorization_new_cycle_signature_rejection_hash',
+            ],
+            'still_forbidden_by_fresh_authorization_new_cycle_signed_receipt_template' => [
+                'writer_file_creation_by_writer_release_fresh_authorization_new_cycle_signed_receipt_template',
+                'ledger_write_by_writer_release_fresh_authorization_new_cycle_signed_receipt_template',
+                'signature_acceptance_by_writer_release_fresh_authorization_new_cycle_signed_receipt_template',
+                'signature_validation_by_writer_release_fresh_authorization_new_cycle_signed_receipt_template',
+                'receipt_persistence_by_writer_release_fresh_authorization_new_cycle_signed_receipt_template',
+                'decision_recording_by_writer_release_fresh_authorization_new_cycle_signed_receipt_template',
+                'approval_from_writer_release_fresh_authorization_new_cycle_signed_receipt_template',
+                'merge_from_writer_release_fresh_authorization_new_cycle_signed_receipt_template',
+                'dispatch_from_writer_release_fresh_authorization_new_cycle_signed_receipt_template',
+            ],
+            'writer_file_creation_allowed' => false,
+            'ledger_write_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'dispatch_allowed' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_signed_receipt_template.v1',
+            'status' => $runbookReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_signed_receipt_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_signed_receipt_template_blocked',
+            'mode' => 'read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_signed_receipt_template',
+            'execution_allowed' => false,
+            'ledger_write_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'template' => $template,
+            'template_hash' => $this->stableHash($template),
+            'non_execution_guarantees' => [
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_signed_receipt_template_does_not_claim_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_signed_receipt_template_does_not_complete_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_signed_receipt_template_does_not_create_writer_file',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_signed_receipt_template_does_not_accept_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_signed_receipt_template_does_not_validate_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_signed_receipt_template_does_not_write_ledger',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_signed_receipt_template_does_not_persist_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_signed_receipt_template_does_not_record_decision',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_signed_receipt_template_does_not_approve_code',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_signed_receipt_template_does_not_merge',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_signed_receipt_template_does_not_dispatch_work',
+            ],
+            'human_summary' => $runbookReady
+                ? 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle signed receipt template is ready as a non-persisting template. It still does not create a writer, write ledger, persist receipts, approve, merge or dispatch.'
+                : 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle signed receipt template is blocked until fresh authorization new cycle post-signature runbook template is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleExecutionContractPreflightTemplate(array $options = []): array
+    {
+        $signedReceiptPayload = $this->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleSignedReceiptTemplate($options);
+        $signedReceipt = (array) data_get($signedReceiptPayload, 'template', []);
+        $signedReceiptReady = data_get($signedReceiptPayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_signed_receipt_template_ready';
+
+        $blockingConditions = [
+            'fresh_authorization_new_cycle_signed_receipt_template_not_ready',
+            'external_new_cycle_signature_evidence_missing',
+            'external_new_cycle_signature_not_validated_by_external_system',
+            'new_cycle_authority_reuse_check_missing',
+            'new_cycle_hot_scope_recheck_missing',
+            'new_cycle_security_review_missing',
+            'new_cycle_execution_contract_chain_missing',
+            'new_cycle_disable_path_missing',
+            'new_cycle_rollback_plan_missing',
+            'new_cycle_monitoring_plan_missing',
+            'human_new_cycle_execution_authorization_missing',
+        ];
+
+        $requiredInputs = [
+            'fresh_authorization_new_cycle_signed_receipt_template_hash',
+            'new_cycle_signature_validation_evidence_hash',
+            'new_cycle_authority_reuse_check_hash',
+            'new_cycle_hot_scope_recheck_hash',
+            'new_cycle_security_review_hash',
+            'new_cycle_execution_contract_chain_hash',
+            'new_cycle_disable_path_hash',
+            'new_cycle_rollback_plan_hash',
+            'new_cycle_monitoring_plan_hash',
+            'human_new_cycle_execution_authorization_hash',
+        ];
+
+        $preflight = [
+            'preflight_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-FRESH-AUTHORIZATION-NEW-CYCLE-EXECUTION-CONTRACT-PREFLIGHT-TEMPLATE-SELF-CONSTRUCTION-0001',
+            'status' => $signedReceiptReady ? 'ready_as_future_fresh_authorization_new_cycle_execution_contract_preflight_template' : 'blocked_before_writer_release_fresh_authorization_new_cycle_signed_receipt_template',
+            'source_writer_release_fresh_authorization_new_cycle_signed_receipt_template_hash' => data_get($signedReceiptPayload, 'template_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_post_signature_runbook_hash' => data_get($signedReceipt, 'source_writer_release_fresh_authorization_new_cycle_post_signature_runbook_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_signature_request_hash' => data_get($signedReceipt, 'source_writer_release_fresh_authorization_new_cycle_signature_request_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_receipt_draft_hash' => data_get($signedReceipt, 'source_writer_release_fresh_authorization_new_cycle_receipt_draft_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_authorization_request_hash' => data_get($signedReceipt, 'source_writer_release_fresh_authorization_new_cycle_authorization_request_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_request_hash' => data_get($signedReceipt, 'source_writer_release_fresh_authorization_new_cycle_request_hash'),
+            'blocking_condition_count' => count($blockingConditions),
+            'blocking_conditions' => $blockingConditions,
+            'required_input_count' => count($requiredInputs),
+            'required_inputs' => $requiredInputs,
+            'future_preflight_outputs' => [
+                'writer_release_fresh_authorization_new_cycle_execution_contract_preflight_hash',
+                'writer_release_fresh_authorization_new_cycle_execution_contract_template_hash',
+                'writer_release_fresh_authorization_new_cycle_preflight_rejection_hash',
+            ],
+            'still_forbidden_by_fresh_authorization_new_cycle_execution_contract_preflight_template' => [
+                'writer_file_creation_by_writer_release_fresh_authorization_new_cycle_execution_contract_preflight_template',
+                'ledger_write_by_writer_release_fresh_authorization_new_cycle_execution_contract_preflight_template',
+                'signature_acceptance_by_writer_release_fresh_authorization_new_cycle_execution_contract_preflight_template',
+                'signature_validation_by_writer_release_fresh_authorization_new_cycle_execution_contract_preflight_template',
+                'receipt_persistence_by_writer_release_fresh_authorization_new_cycle_execution_contract_preflight_template',
+                'decision_recording_by_writer_release_fresh_authorization_new_cycle_execution_contract_preflight_template',
+                'approval_from_writer_release_fresh_authorization_new_cycle_execution_contract_preflight_template',
+                'merge_from_writer_release_fresh_authorization_new_cycle_execution_contract_preflight_template',
+                'dispatch_from_writer_release_fresh_authorization_new_cycle_execution_contract_preflight_template',
+            ],
+            'writer_file_creation_allowed' => false,
+            'ledger_write_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'dispatch_allowed' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_execution_contract_preflight_template.v1',
+            'status' => $signedReceiptReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_execution_contract_preflight_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_execution_contract_preflight_template_blocked',
+            'mode' => 'read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_execution_contract_preflight_template',
+            'execution_allowed' => false,
+            'ledger_write_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'preflight' => $preflight,
+            'preflight_hash' => $this->stableHash($preflight),
+            'non_execution_guarantees' => [
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_execution_contract_preflight_template_does_not_claim_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_execution_contract_preflight_template_does_not_complete_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_execution_contract_preflight_template_does_not_create_writer_file',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_execution_contract_preflight_template_does_not_accept_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_execution_contract_preflight_template_does_not_validate_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_execution_contract_preflight_template_does_not_write_ledger',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_execution_contract_preflight_template_does_not_persist_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_execution_contract_preflight_template_does_not_record_decision',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_execution_contract_preflight_template_does_not_approve_code',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_execution_contract_preflight_template_does_not_merge',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_execution_contract_preflight_template_does_not_dispatch_work',
+            ],
+            'human_summary' => $signedReceiptReady
+                ? 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle execution contract preflight template is ready as a non-executing preflight. It still does not create a writer, write ledger, persist receipts, approve, merge or dispatch.'
+                : 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle execution contract preflight template is blocked until fresh authorization new cycle signed receipt template is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleExecutionContractTemplate(array $options = []): array
+    {
+        $preflightPayload = $this->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleExecutionContractPreflightTemplate($options);
+        $preflight = (array) data_get($preflightPayload, 'preflight', []);
+        $preflightReady = data_get($preflightPayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_execution_contract_preflight_template_ready';
+
+        $blockingConditions = $preflightReady
+            ? [
+                'fresh_authorization_new_cycle_execution_still_not_authorized',
+                'writer_release_reenable_still_not_authorized',
+                'validated_new_cycle_external_signature_evidence_not_bound_to_contract',
+                'human_new_cycle_execution_authorization_not_attached',
+                'new_cycle_authority_reuse_check_not_attached',
+                'new_cycle_rollback_plan_not_rechecked',
+                'new_cycle_disable_path_not_rechecked',
+                'new_cycle_monitoring_plan_not_rechecked',
+                'new_cycle_hot_scope_recheck_not_attached',
+                'new_cycle_security_review_not_attached',
+                'new_cycle_post_execution_receipt_plan_not_attached',
+            ]
+            : [
+                'writer_release_fresh_authorization_new_cycle_execution_contract_preflight_template_not_ready',
+            ];
+
+        $contract = [
+            'contract_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-FRESH-AUTHORIZATION-NEW-CYCLE-EXECUTION-CONTRACT-TEMPLATE-SELF-CONSTRUCTION-0001',
+            'status' => $preflightReady ? 'blocked_waiting_for_external_fresh_authorization_new_cycle_execution_authority' : 'blocked_before_writer_release_fresh_authorization_new_cycle_execution_contract_preflight_template',
+            'source_writer_release_fresh_authorization_new_cycle_execution_contract_preflight_hash' => data_get($preflightPayload, 'preflight_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_signed_receipt_template_hash' => data_get($preflight, 'source_writer_release_fresh_authorization_new_cycle_signed_receipt_template_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_post_signature_runbook_hash' => data_get($preflight, 'source_writer_release_fresh_authorization_new_cycle_post_signature_runbook_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_signature_request_hash' => data_get($preflight, 'source_writer_release_fresh_authorization_new_cycle_signature_request_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_receipt_draft_hash' => data_get($preflight, 'source_writer_release_fresh_authorization_new_cycle_receipt_draft_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_authorization_request_hash' => data_get($preflight, 'source_writer_release_fresh_authorization_new_cycle_authorization_request_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_request_hash' => data_get($preflight, 'source_writer_release_fresh_authorization_new_cycle_request_hash'),
+            'blocking_conditions' => $blockingConditions,
+            'blocking_count' => count($blockingConditions),
+            'execution_scope' => [
+                'allowed_scope' => 'future_writer_reenable_only_after_external_fresh_authorization_new_cycle',
+                'forbidden_scope' => [
+                    'merge_execution',
+                    'dispatch_execution',
+                    'receipt_persistence_execution',
+                    'policy_mutation',
+                    'hot_scope_mutation',
+                    'previous_authorization_reuse',
+                    'unscoped_file_creation',
+                    'self_authorized_reenable',
+                ],
+                'writer_contract_expected_capability' => 'fresh_authorization_new_cycle_to_reenable_signed_receipt_persistence_writer_only',
+                'writer_contract_forbidden_capabilities' => [
+                    'merge_authority',
+                    'dispatch_authority',
+                    'signature_validation_authority',
+                    'approval_authority',
+                    'previous_cycle_authority',
+                    'self_release_authority',
+                    'self_reenable_authority',
+                ],
+            ],
+            'required_actor_evidence' => [
+                'fresh_authorization_new_cycle_executor_identity',
+                'fresh_authorization_new_cycle_executor_session',
+                'fresh_authorization_new_cycle_execution_reason',
+                'fresh_authorization_new_cycle_execution_scope_hash',
+                'fresh_authorization_new_cycle_execution_contract_reviewer_identity',
+            ],
+            'required_recheck_evidence' => [
+                'fresh_authorization_new_cycle_contract_hash_rechecked_against_patch',
+                'new_cycle_authority_reuse_check_hash',
+                'new_cycle_hot_scope_clean_recheck_hash',
+                'new_cycle_writer_capability_test_output_hash',
+                'new_cycle_writer_no_merge_authority_evidence_hash',
+                'new_cycle_writer_no_dispatch_authority_evidence_hash',
+                'new_cycle_disable_path_evidence_hash',
+                'new_cycle_rollback_plan_hash',
+                'new_cycle_monitoring_plan_hash',
+            ],
+            'future_post_execution_outputs' => [
+                'writer_release_fresh_authorization_new_cycle_execution_contract_hash',
+                'writer_release_fresh_authorization_new_cycle_disable_contract_hash',
+                'writer_release_fresh_authorization_new_cycle_observability_contract_hash',
+                'writer_release_fresh_authorization_new_cycle_post_execution_receipt_hash',
+            ],
+            'still_forbidden_by_fresh_authorization_new_cycle_execution_contract_template' => [
+                'writer_file_creation_by_writer_release_fresh_authorization_new_cycle_execution_contract_template',
+                'ledger_write_by_writer_release_fresh_authorization_new_cycle_execution_contract_template',
+                'signature_acceptance_by_writer_release_fresh_authorization_new_cycle_execution_contract_template',
+                'signature_validation_by_writer_release_fresh_authorization_new_cycle_execution_contract_template',
+                'receipt_persistence_by_writer_release_fresh_authorization_new_cycle_execution_contract_template',
+                'decision_recording_by_writer_release_fresh_authorization_new_cycle_execution_contract_template',
+                'approval_from_writer_release_fresh_authorization_new_cycle_execution_contract_template',
+                'merge_from_writer_release_fresh_authorization_new_cycle_execution_contract_template',
+                'dispatch_from_writer_release_fresh_authorization_new_cycle_execution_contract_template',
+            ],
+            'writer_file_creation_allowed' => false,
+            'ledger_write_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'dispatch_allowed' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_execution_contract_template.v1',
+            'status' => $preflightReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_execution_contract_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_execution_contract_template_blocked',
+            'mode' => 'read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_execution_contract_template',
+            'execution_allowed' => false,
+            'ledger_write_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'contract' => $contract,
+            'contract_hash' => $this->stableHash($contract),
+            'non_execution_guarantees' => [
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_execution_contract_template_does_not_claim_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_execution_contract_template_does_not_complete_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_execution_contract_template_does_not_create_writer_file',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_execution_contract_template_does_not_accept_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_execution_contract_template_does_not_validate_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_execution_contract_template_does_not_write_ledger',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_execution_contract_template_does_not_persist_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_execution_contract_template_does_not_record_decision',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_execution_contract_template_does_not_approve_code',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_execution_contract_template_does_not_merge',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_execution_contract_template_does_not_dispatch_work',
+            ],
+            'human_summary' => $preflightReady
+                ? 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle execution contract template is ready as a non-authorizing contract. It still does not create a writer, write ledger, persist receipts, approve, merge or dispatch.'
+                : 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle execution contract template is blocked until fresh authorization new cycle execution contract preflight template is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableContractTemplate(array $options = []): array
+    {
+        $contractPayload = $this->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleExecutionContractTemplate($options);
+        $contract = (array) data_get($contractPayload, 'contract', []);
+        $contractReady = data_get($contractPayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_execution_contract_template_ready';
+
+        $disableTriggers = [
+            'new_cycle_contract_hash_drift_detected',
+            'new_cycle_hot_scope_dirty_after_reenable',
+            'new_cycle_writer_capability_tests_failed_after_reenable',
+            'new_cycle_writer_merge_authority_detected',
+            'new_cycle_writer_dispatch_authority_detected',
+            'previous_cycle_authority_reuse_detected',
+            'unexpected_signature_validation_attempt_after_new_cycle_authorization',
+            'unexpected_receipt_persistence_attempt_after_new_cycle_authorization',
+            'unexpected_ledger_write_attempt_after_new_cycle_authorization',
+            'operator_revocation_requested_after_new_cycle_authorization',
+            'new_cycle_rollback_plan_missing_or_invalid',
+        ];
+
+        $disableContract = [
+            'disable_contract_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-FRESH-AUTHORIZATION-NEW-CYCLE-DISABLE-CONTRACT-TEMPLATE-SELF-CONSTRUCTION-0001',
+            'status' => $contractReady ? 'ready_as_future_fresh_authorization_new_cycle_disable_template' : 'blocked_before_writer_release_fresh_authorization_new_cycle_execution_contract_template',
+            'source_writer_release_fresh_authorization_new_cycle_execution_contract_hash' => data_get($contractPayload, 'contract_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_execution_contract_preflight_hash' => data_get($contract, 'source_writer_release_fresh_authorization_new_cycle_execution_contract_preflight_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_signed_receipt_template_hash' => data_get($contract, 'source_writer_release_fresh_authorization_new_cycle_signed_receipt_template_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_post_signature_runbook_hash' => data_get($contract, 'source_writer_release_fresh_authorization_new_cycle_post_signature_runbook_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_signature_request_hash' => data_get($contract, 'source_writer_release_fresh_authorization_new_cycle_signature_request_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_receipt_draft_hash' => data_get($contract, 'source_writer_release_fresh_authorization_new_cycle_receipt_draft_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_authorization_request_hash' => data_get($contract, 'source_writer_release_fresh_authorization_new_cycle_authorization_request_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_request_hash' => data_get($contract, 'source_writer_release_fresh_authorization_new_cycle_request_hash'),
+            'disable_triggers' => $disableTriggers,
+            'trigger_count' => count($disableTriggers),
+            'required_disable_steps' => [
+                'stop_fresh_authorization_new_cycle_writer_reenable_runtime',
+                'revoke_fresh_authorization_new_cycle_writer_capability_flag',
+                'quarantine_fresh_authorization_new_cycle_outputs',
+                'rerun_new_cycle_authority_reuse_check',
+                'rerun_new_cycle_writer_no_merge_authority_check',
+                'rerun_new_cycle_writer_no_dispatch_authority_check',
+                'capture_new_cycle_disable_reason_and_actor',
+                'generate_future_fresh_authorization_new_cycle_post_disable_receipt',
+                'require_human_review_before_any_later_cycle_reenable',
+            ],
+            'required_disable_evidence' => [
+                'new_cycle_disable_actor_identity',
+                'new_cycle_disable_reason',
+                'new_cycle_disable_trigger_id',
+                'new_cycle_runtime_stop_evidence_hash',
+                'new_cycle_capability_revocation_evidence_hash',
+                'new_cycle_quarantine_manifest_hash',
+                'new_cycle_post_disable_no_previous_authority_reuse_hash',
+                'new_cycle_post_disable_no_merge_authority_evidence_hash',
+                'new_cycle_post_disable_no_dispatch_authority_evidence_hash',
+            ],
+            'future_disable_outputs' => [
+                'writer_release_fresh_authorization_new_cycle_disable_contract_hash',
+                'writer_release_fresh_authorization_new_cycle_disable_receipt_hash',
+                'writer_release_fresh_authorization_new_cycle_revocation_event_hash',
+                'writer_release_fresh_authorization_next_cycle_review_packet_hash',
+            ],
+            'reenable_requirements' => [
+                'later_cycle_requires_new_fresh_authorization_request_template',
+                'later_cycle_requires_new_authorization_request_template',
+                'later_cycle_requires_new_receipt_draft_template',
+                'later_cycle_requires_new_signature_request_template',
+                'later_cycle_requires_new_signed_receipt_template',
+                'later_cycle_requires_new_execution_contract_preflight_template',
+                'later_cycle_requires_new_execution_contract_template',
+                'later_cycle_requires_new_disable_contract_template',
+                'later_cycle_requires_human_authorization',
+                'later_cycle_requires_hot_scope_recheck',
+                'later_cycle_requires_writer_capability_tests',
+            ],
+            'still_forbidden_by_fresh_authorization_new_cycle_disable_contract_template' => [
+                'writer_file_creation_by_writer_release_fresh_authorization_new_cycle_disable_contract_template',
+                'ledger_write_by_writer_release_fresh_authorization_new_cycle_disable_contract_template',
+                'signature_acceptance_by_writer_release_fresh_authorization_new_cycle_disable_contract_template',
+                'signature_validation_by_writer_release_fresh_authorization_new_cycle_disable_contract_template',
+                'receipt_persistence_by_writer_release_fresh_authorization_new_cycle_disable_contract_template',
+                'decision_recording_by_writer_release_fresh_authorization_new_cycle_disable_contract_template',
+                'approval_from_writer_release_fresh_authorization_new_cycle_disable_contract_template',
+                'merge_from_writer_release_fresh_authorization_new_cycle_disable_contract_template',
+                'dispatch_from_writer_release_fresh_authorization_new_cycle_disable_contract_template',
+            ],
+            'writer_file_creation_allowed' => false,
+            'ledger_write_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'dispatch_allowed' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_contract_template.v1',
+            'status' => $contractReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_contract_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_contract_template_blocked',
+            'mode' => 'read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_contract_template',
+            'execution_allowed' => false,
+            'ledger_write_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'disable_contract' => $disableContract,
+            'disable_contract_hash' => $this->stableHash($disableContract),
+            'non_execution_guarantees' => [
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_contract_template_does_not_claim_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_contract_template_does_not_complete_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_contract_template_does_not_create_writer_file',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_contract_template_does_not_accept_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_contract_template_does_not_validate_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_contract_template_does_not_write_ledger',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_contract_template_does_not_persist_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_contract_template_does_not_record_decision',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_contract_template_does_not_approve_code',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_contract_template_does_not_merge',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_contract_template_does_not_dispatch_work',
+            ],
+            'human_summary' => $contractReady
+                ? 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable contract template is ready as a rollback contract. It still does not create a writer, write ledger, persist receipts, approve, merge or dispatch.'
+                : 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable contract template is blocked until fresh authorization new cycle execution contract template is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleObservabilityContractTemplate(array $options = []): array
+    {
+        $disablePayload = $this->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableContractTemplate($options);
+        $disableContract = (array) data_get($disablePayload, 'disable_contract', []);
+        $disableReady = data_get($disablePayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_contract_template_ready';
+
+        $signals = [
+            'fresh_authorization_new_cycle_execution_contract_loaded',
+            'fresh_authorization_new_cycle_writer_reenable_runtime_started',
+            'fresh_authorization_new_cycle_writer_capability_flag_checked',
+            'fresh_authorization_new_cycle_previous_authority_reuse_check_completed',
+            'fresh_authorization_new_cycle_receipt_persistence_attempted',
+            'fresh_authorization_new_cycle_ledger_write_attempted',
+            'fresh_authorization_new_cycle_forbidden_merge_attempt_detected',
+            'fresh_authorization_new_cycle_forbidden_dispatch_attempt_detected',
+            'fresh_authorization_new_cycle_previous_authority_reuse_attempt_detected',
+            'fresh_authorization_new_cycle_disable_trigger_detected',
+            'fresh_authorization_new_cycle_disable_completed',
+            'fresh_authorization_new_cycle_later_cycle_requested',
+            'fresh_authorization_new_cycle_human_review_required',
+        ];
+
+        $observabilityContract = [
+            'observability_contract_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-FRESH-AUTHORIZATION-NEW-CYCLE-OBSERVABILITY-CONTRACT-TEMPLATE-SELF-CONSTRUCTION-0001',
+            'status' => $disableReady ? 'ready_as_future_fresh_authorization_new_cycle_observability_template' : 'blocked_before_writer_release_fresh_authorization_new_cycle_disable_contract_template',
+            'source_writer_release_fresh_authorization_new_cycle_disable_contract_hash' => data_get($disablePayload, 'disable_contract_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_execution_contract_hash' => data_get($disableContract, 'source_writer_release_fresh_authorization_new_cycle_execution_contract_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_execution_contract_preflight_hash' => data_get($disableContract, 'source_writer_release_fresh_authorization_new_cycle_execution_contract_preflight_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_signed_receipt_template_hash' => data_get($disableContract, 'source_writer_release_fresh_authorization_new_cycle_signed_receipt_template_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_post_signature_runbook_hash' => data_get($disableContract, 'source_writer_release_fresh_authorization_new_cycle_post_signature_runbook_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_signature_request_hash' => data_get($disableContract, 'source_writer_release_fresh_authorization_new_cycle_signature_request_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_receipt_draft_hash' => data_get($disableContract, 'source_writer_release_fresh_authorization_new_cycle_receipt_draft_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_authorization_request_hash' => data_get($disableContract, 'source_writer_release_fresh_authorization_new_cycle_authorization_request_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_request_hash' => data_get($disableContract, 'source_writer_release_fresh_authorization_new_cycle_request_hash'),
+            'required_signals' => $signals,
+            'signal_count' => count($signals),
+            'required_metrics' => [
+                'fresh_authorization_new_cycle_reenable_attempt_count',
+                'fresh_authorization_new_cycle_reenable_success_count',
+                'fresh_authorization_new_cycle_reenable_blocked_count',
+                'fresh_authorization_new_cycle_disable_trigger_count',
+                'fresh_authorization_new_cycle_forbidden_merge_attempt_count',
+                'fresh_authorization_new_cycle_forbidden_dispatch_attempt_count',
+                'fresh_authorization_new_cycle_previous_authority_reuse_attempt_count',
+                'fresh_authorization_new_cycle_unexpected_ledger_write_attempt_count',
+                'fresh_authorization_new_cycle_unexpected_receipt_persistence_attempt_count',
+                'fresh_authorization_new_cycle_time_to_disable_ms',
+            ],
+            'required_alerts' => [
+                'alert_on_new_cycle_contract_hash_drift',
+                'alert_on_new_cycle_hot_scope_dirty_after_reenable',
+                'alert_on_new_cycle_writer_capability_test_failure',
+                'alert_on_new_cycle_forbidden_merge_authority',
+                'alert_on_new_cycle_forbidden_dispatch_authority',
+                'alert_on_new_cycle_previous_authority_reuse',
+                'alert_on_new_cycle_unexpected_signature_validation',
+                'alert_on_new_cycle_unexpected_receipt_persistence',
+                'alert_on_new_cycle_unexpected_ledger_write',
+            ],
+            'required_observability_evidence' => [
+                'trace_id',
+                'operation_id',
+                'fresh_authorization_new_cycle_execution_contract_hash',
+                'fresh_authorization_new_cycle_disable_contract_hash',
+                'fresh_authorization_new_cycle_signal_manifest_hash',
+                'fresh_authorization_new_cycle_metrics_snapshot_hash',
+                'fresh_authorization_new_cycle_alert_policy_hash',
+                'fresh_authorization_new_cycle_post_release_monitoring_window',
+            ],
+            'minimum_monitoring_window' => [
+                'after_future_reenable_minutes' => 60,
+                'after_future_disable_minutes' => 30,
+                'requires_human_review_before_window_close' => true,
+                'requires_previous_authority_reuse_review' => true,
+            ],
+            'future_observability_outputs' => [
+                'writer_release_fresh_authorization_new_cycle_observability_contract_hash',
+                'writer_release_fresh_authorization_new_cycle_signal_manifest_hash',
+                'writer_release_fresh_authorization_new_cycle_metrics_snapshot_hash',
+                'writer_release_fresh_authorization_new_cycle_alert_policy_hash',
+                'writer_release_fresh_authorization_new_cycle_post_monitoring_review_hash',
+            ],
+            'still_forbidden_by_fresh_authorization_new_cycle_observability_contract_template' => [
+                'writer_file_creation_by_writer_release_fresh_authorization_new_cycle_observability_contract_template',
+                'ledger_write_by_writer_release_fresh_authorization_new_cycle_observability_contract_template',
+                'signature_acceptance_by_writer_release_fresh_authorization_new_cycle_observability_contract_template',
+                'signature_validation_by_writer_release_fresh_authorization_new_cycle_observability_contract_template',
+                'receipt_persistence_by_writer_release_fresh_authorization_new_cycle_observability_contract_template',
+                'decision_recording_by_writer_release_fresh_authorization_new_cycle_observability_contract_template',
+                'approval_from_writer_release_fresh_authorization_new_cycle_observability_contract_template',
+                'merge_from_writer_release_fresh_authorization_new_cycle_observability_contract_template',
+                'dispatch_from_writer_release_fresh_authorization_new_cycle_observability_contract_template',
+            ],
+            'writer_file_creation_allowed' => false,
+            'ledger_write_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'dispatch_allowed' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_observability_contract_template.v1',
+            'status' => $disableReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_observability_contract_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_observability_contract_template_blocked',
+            'mode' => 'read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_observability_contract_template',
+            'execution_allowed' => false,
+            'ledger_write_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'observability_contract' => $observabilityContract,
+            'observability_contract_hash' => $this->stableHash($observabilityContract),
+            'non_execution_guarantees' => [
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_observability_contract_template_does_not_claim_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_observability_contract_template_does_not_complete_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_observability_contract_template_does_not_create_writer_file',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_observability_contract_template_does_not_accept_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_observability_contract_template_does_not_validate_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_observability_contract_template_does_not_write_ledger',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_observability_contract_template_does_not_persist_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_observability_contract_template_does_not_record_decision',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_observability_contract_template_does_not_approve_code',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_observability_contract_template_does_not_merge',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_observability_contract_template_does_not_dispatch_work',
+            ],
+            'human_summary' => $disableReady
+                ? 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle observability contract template is ready as a non-executing monitoring contract. It still does not create a writer, write ledger, persist receipts, approve, merge or dispatch.'
+                : 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle observability contract template is blocked until fresh authorization new cycle disable contract template is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCyclePostMonitoringReviewTemplate(array $options = []): array
+    {
+        $observabilityPayload = $this->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleObservabilityContractTemplate($options);
+        $observabilityContract = (array) data_get($observabilityPayload, 'observability_contract', []);
+        $observabilityReady = data_get($observabilityPayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_observability_contract_template_ready';
+
+        $allowedDecisions = [
+            'keep_fresh_authorization_new_cycle_writer_disabled',
+            'keep_fresh_authorization_new_cycle_writer_enabled_under_watch',
+            'request_fresh_authorization_new_cycle_disable_execution',
+            'request_later_fresh_authorization_cycle',
+            'escalate_to_human_review',
+        ];
+
+        $reviewTemplate = [
+            'review_template_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-FRESH-AUTHORIZATION-NEW-CYCLE-POST-MONITORING-REVIEW-TEMPLATE-SELF-CONSTRUCTION-0001',
+            'status' => $observabilityReady ? 'ready_as_future_fresh_authorization_new_cycle_post_monitoring_review_template' : 'blocked_before_writer_release_fresh_authorization_new_cycle_observability_contract_template',
+            'source_writer_release_fresh_authorization_new_cycle_observability_contract_hash' => data_get($observabilityPayload, 'observability_contract_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_disable_contract_hash' => data_get($observabilityContract, 'source_writer_release_fresh_authorization_new_cycle_disable_contract_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_execution_contract_hash' => data_get($observabilityContract, 'source_writer_release_fresh_authorization_new_cycle_execution_contract_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_execution_contract_preflight_hash' => data_get($observabilityContract, 'source_writer_release_fresh_authorization_new_cycle_execution_contract_preflight_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_signed_receipt_template_hash' => data_get($observabilityContract, 'source_writer_release_fresh_authorization_new_cycle_signed_receipt_template_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_post_signature_runbook_hash' => data_get($observabilityContract, 'source_writer_release_fresh_authorization_new_cycle_post_signature_runbook_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_signature_request_hash' => data_get($observabilityContract, 'source_writer_release_fresh_authorization_new_cycle_signature_request_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_authorization_request_hash' => data_get($observabilityContract, 'source_writer_release_fresh_authorization_new_cycle_authorization_request_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_request_hash' => data_get($observabilityContract, 'source_writer_release_fresh_authorization_new_cycle_request_hash'),
+            'allowed_decisions' => $allowedDecisions,
+            'allowed_decision_count' => count($allowedDecisions),
+            'required_review_inputs' => [
+                'writer_release_fresh_authorization_new_cycle_observability_contract_hash',
+                'writer_release_fresh_authorization_new_cycle_signal_manifest_hash',
+                'writer_release_fresh_authorization_new_cycle_metrics_snapshot_hash',
+                'writer_release_fresh_authorization_new_cycle_alert_policy_hash',
+                'fresh_authorization_new_cycle_post_release_monitoring_window',
+                'fresh_authorization_new_cycle_previous_authority_reuse_review',
+                'human_reviewer_identity',
+            ],
+            'health_checks' => [
+                'fresh_authorization_new_cycle_monitoring_window_completed',
+                'all_fresh_authorization_new_cycle_required_signals_present',
+                'fresh_authorization_new_cycle_metrics_snapshot_present',
+                'fresh_authorization_new_cycle_alert_policy_present',
+                'no_fresh_authorization_new_cycle_forbidden_merge_attempts',
+                'no_fresh_authorization_new_cycle_forbidden_dispatch_attempts',
+                'no_fresh_authorization_new_cycle_previous_authority_reuse_attempts',
+                'no_fresh_authorization_new_cycle_unexpected_ledger_writes',
+                'no_fresh_authorization_new_cycle_unexpected_receipt_persistence',
+                'fresh_authorization_new_cycle_disable_path_still_available',
+                'human_review_completed',
+            ],
+            'failure_to_decision_map' => [
+                'fresh_authorization_new_cycle_forbidden_merge_attempt' => 'request_fresh_authorization_new_cycle_disable_execution',
+                'fresh_authorization_new_cycle_forbidden_dispatch_attempt' => 'request_fresh_authorization_new_cycle_disable_execution',
+                'fresh_authorization_new_cycle_previous_authority_reuse_attempt' => 'request_fresh_authorization_new_cycle_disable_execution',
+                'fresh_authorization_new_cycle_unexpected_ledger_write_attempt' => 'request_fresh_authorization_new_cycle_disable_execution',
+                'fresh_authorization_new_cycle_unexpected_receipt_persistence_attempt' => 'request_fresh_authorization_new_cycle_disable_execution',
+                'fresh_authorization_new_cycle_missing_required_signal' => 'escalate_to_human_review',
+                'fresh_authorization_new_cycle_monitoring_window_incomplete' => 'keep_fresh_authorization_new_cycle_writer_enabled_under_watch',
+                'fresh_authorization_new_cycle_disable_path_unavailable' => 'escalate_to_human_review',
+            ],
+            'required_review_evidence' => [
+                'fresh_authorization_new_cycle_review_actor_identity',
+                'fresh_authorization_new_cycle_reviewed_at',
+                'selected_decision',
+                'decision_rationale',
+                'fresh_authorization_new_cycle_health_check_result_hash',
+                'fresh_authorization_new_cycle_metrics_snapshot_hash',
+                'fresh_authorization_new_cycle_alert_summary_hash',
+                'fresh_authorization_new_cycle_previous_authority_reuse_review_hash',
+                'fresh_authorization_new_cycle_disable_path_verification_hash',
+            ],
+            'future_review_outputs' => [
+                'writer_release_fresh_authorization_new_cycle_post_monitoring_review_hash',
+                'writer_release_fresh_authorization_new_cycle_health_decision_hash',
+                'writer_release_fresh_authorization_later_cycle_request_hash',
+                'writer_release_fresh_authorization_new_cycle_disable_request_hash',
+            ],
+            'still_forbidden_by_fresh_authorization_new_cycle_post_monitoring_review_template' => [
+                'writer_file_creation_by_writer_release_fresh_authorization_new_cycle_post_monitoring_review_template',
+                'ledger_write_by_writer_release_fresh_authorization_new_cycle_post_monitoring_review_template',
+                'signature_acceptance_by_writer_release_fresh_authorization_new_cycle_post_monitoring_review_template',
+                'signature_validation_by_writer_release_fresh_authorization_new_cycle_post_monitoring_review_template',
+                'receipt_persistence_by_writer_release_fresh_authorization_new_cycle_post_monitoring_review_template',
+                'decision_recording_by_writer_release_fresh_authorization_new_cycle_post_monitoring_review_template',
+                'approval_from_writer_release_fresh_authorization_new_cycle_post_monitoring_review_template',
+                'merge_from_writer_release_fresh_authorization_new_cycle_post_monitoring_review_template',
+                'dispatch_from_writer_release_fresh_authorization_new_cycle_post_monitoring_review_template',
+            ],
+            'writer_file_creation_allowed' => false,
+            'ledger_write_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'dispatch_allowed' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_post_monitoring_review_template.v1',
+            'status' => $observabilityReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_post_monitoring_review_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_post_monitoring_review_template_blocked',
+            'mode' => 'read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_post_monitoring_review_template',
+            'execution_allowed' => false,
+            'ledger_write_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'review_template' => $reviewTemplate,
+            'review_template_hash' => $this->stableHash($reviewTemplate),
+            'non_execution_guarantees' => [
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_post_monitoring_review_template_does_not_claim_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_post_monitoring_review_template_does_not_complete_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_post_monitoring_review_template_does_not_create_writer_file',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_post_monitoring_review_template_does_not_accept_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_post_monitoring_review_template_does_not_validate_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_post_monitoring_review_template_does_not_write_ledger',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_post_monitoring_review_template_does_not_persist_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_post_monitoring_review_template_does_not_record_decision',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_post_monitoring_review_template_does_not_approve_code',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_post_monitoring_review_template_does_not_merge',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_post_monitoring_review_template_does_not_dispatch_work',
+            ],
+            'human_summary' => $observabilityReady
+                ? 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle post-monitoring review template is ready as a non-authorizing health review. It still does not create a writer, write ledger, persist receipts, record decisions, approve, merge or dispatch.'
+                : 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle post-monitoring review template is blocked until fresh authorization new cycle observability contract template is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleHealthDecisionTemplate(array $options = []): array
+    {
+        $reviewPayload = $this->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCyclePostMonitoringReviewTemplate($options);
+        $reviewTemplate = (array) data_get($reviewPayload, 'review_template', []);
+        $reviewReady = data_get($reviewPayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_post_monitoring_review_template_ready';
+
+        $allowedDecisionStates = [
+            'keep_fresh_authorization_new_cycle_writer_disabled',
+            'continue_fresh_authorization_new_cycle_watch',
+            'request_fresh_authorization_new_cycle_disable_execution',
+            'request_later_fresh_authorization_cycle',
+            'escalate_to_human_review',
+        ];
+
+        $healthDecision = [
+            'health_decision_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-FRESH-AUTHORIZATION-NEW-CYCLE-HEALTH-DECISION-TEMPLATE-SELF-CONSTRUCTION-0001',
+            'status' => $reviewReady ? 'ready_as_future_fresh_authorization_new_cycle_health_decision_template' : 'blocked_before_writer_release_fresh_authorization_new_cycle_post_monitoring_review_template',
+            'source_writer_release_fresh_authorization_new_cycle_post_monitoring_review_hash' => data_get($reviewPayload, 'review_template_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_observability_contract_hash' => data_get($reviewTemplate, 'source_writer_release_fresh_authorization_new_cycle_observability_contract_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_disable_contract_hash' => data_get($reviewTemplate, 'source_writer_release_fresh_authorization_new_cycle_disable_contract_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_execution_contract_hash' => data_get($reviewTemplate, 'source_writer_release_fresh_authorization_new_cycle_execution_contract_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_execution_contract_preflight_hash' => data_get($reviewTemplate, 'source_writer_release_fresh_authorization_new_cycle_execution_contract_preflight_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_signed_receipt_template_hash' => data_get($reviewTemplate, 'source_writer_release_fresh_authorization_new_cycle_signed_receipt_template_hash'),
+            'allowed_decision_states' => $allowedDecisionStates,
+            'allowed_decision_state_count' => count($allowedDecisionStates),
+            'required_decision_evidence' => [
+                'writer_release_fresh_authorization_new_cycle_post_monitoring_review_hash',
+                'selected_review_decision',
+                'decision_actor_identity',
+                'decision_rationale',
+                'fresh_authorization_new_cycle_health_check_result_hash',
+                'fresh_authorization_new_cycle_metrics_snapshot_hash',
+                'fresh_authorization_new_cycle_alert_summary_hash',
+                'fresh_authorization_new_cycle_previous_authority_reuse_review_hash',
+                'fresh_authorization_new_cycle_disable_path_verification_hash',
+                'human_reviewer_identity',
+            ],
+            'decision_policy' => [
+                'selected_decision_must_be_allowed_for_new_cycle',
+                'previous_authority_reuse_attempt_forces_disable_request',
+                'forbidden_merge_or_dispatch_attempt_forces_disable_request',
+                'unexpected_ledger_or_receipt_persistence_forces_disable_request',
+                'missing_signal_or_incomplete_window_forces_watch_or_escalation',
+                'later_fresh_authorization_cycle_requires_full_chain_restart',
+                'human_reviewer_identity_required',
+            ],
+            'future_decision_outputs' => [
+                'writer_release_fresh_authorization_new_cycle_health_decision_hash',
+                'writer_release_fresh_authorization_later_cycle_request_hash',
+                'writer_release_fresh_authorization_new_cycle_disable_request_hash',
+                'writer_release_fresh_authorization_new_cycle_human_escalation_hash',
+            ],
+            'still_forbidden_by_fresh_authorization_new_cycle_health_decision_template' => [
+                'writer_file_creation_by_writer_release_fresh_authorization_new_cycle_health_decision_template',
+                'ledger_write_by_writer_release_fresh_authorization_new_cycle_health_decision_template',
+                'signature_acceptance_by_writer_release_fresh_authorization_new_cycle_health_decision_template',
+                'signature_validation_by_writer_release_fresh_authorization_new_cycle_health_decision_template',
+                'receipt_persistence_by_writer_release_fresh_authorization_new_cycle_health_decision_template',
+                'decision_recording_by_writer_release_fresh_authorization_new_cycle_health_decision_template',
+                'approval_from_writer_release_fresh_authorization_new_cycle_health_decision_template',
+                'merge_from_writer_release_fresh_authorization_new_cycle_health_decision_template',
+                'dispatch_from_writer_release_fresh_authorization_new_cycle_health_decision_template',
+            ],
+            'writer_file_creation_allowed' => false,
+            'ledger_write_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'dispatch_allowed' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_health_decision_template.v1',
+            'status' => $reviewReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_health_decision_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_health_decision_template_blocked',
+            'mode' => 'read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_health_decision_template',
+            'execution_allowed' => false,
+            'ledger_write_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'health_decision' => $healthDecision,
+            'health_decision_hash' => $this->stableHash($healthDecision),
+            'non_execution_guarantees' => [
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_health_decision_template_does_not_claim_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_health_decision_template_does_not_complete_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_health_decision_template_does_not_create_writer_file',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_health_decision_template_does_not_accept_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_health_decision_template_does_not_validate_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_health_decision_template_does_not_write_ledger',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_health_decision_template_does_not_persist_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_health_decision_template_does_not_record_decision',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_health_decision_template_does_not_approve_code',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_health_decision_template_does_not_merge',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_health_decision_template_does_not_dispatch_work',
+            ],
+            'human_summary' => $reviewReady
+                ? 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle health decision template is ready as a non-recording decision template. It still does not create a writer, write ledger, persist receipts, record decisions, approve, merge or dispatch.'
+                : 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle health decision template is blocked until fresh authorization new cycle post-monitoring review template is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableRequestTemplate(array $options = []): array
+    {
+        $decisionPayload = $this->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleHealthDecisionTemplate($options);
+        $healthDecision = (array) data_get($decisionPayload, 'health_decision', []);
+        $decisionReady = data_get($decisionPayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_health_decision_template_ready';
+
+        $disableTriggers = [
+            'selected_decision_request_fresh_authorization_new_cycle_disable_execution',
+            'fresh_authorization_new_cycle_previous_authority_reuse_after_reenable',
+            'fresh_authorization_new_cycle_forbidden_merge_attempt_after_reenable',
+            'fresh_authorization_new_cycle_forbidden_dispatch_attempt_after_reenable',
+            'fresh_authorization_new_cycle_unexpected_ledger_write_after_reenable',
+            'fresh_authorization_new_cycle_unexpected_receipt_persistence_after_reenable',
+            'fresh_authorization_new_cycle_disable_path_compromised_or_unavailable',
+        ];
+
+        $disableRequest = [
+            'disable_request_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-FRESH-AUTHORIZATION-NEW-CYCLE-DISABLE-REQUEST-TEMPLATE-SELF-CONSTRUCTION-0001',
+            'status' => $decisionReady ? 'ready_as_future_fresh_authorization_new_cycle_disable_request_template' : 'blocked_before_writer_release_fresh_authorization_new_cycle_health_decision_template',
+            'source_writer_release_fresh_authorization_new_cycle_health_decision_hash' => data_get($decisionPayload, 'health_decision_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_post_monitoring_review_hash' => data_get($healthDecision, 'source_writer_release_fresh_authorization_new_cycle_post_monitoring_review_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_observability_contract_hash' => data_get($healthDecision, 'source_writer_release_fresh_authorization_new_cycle_observability_contract_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_disable_contract_hash' => data_get($healthDecision, 'source_writer_release_fresh_authorization_new_cycle_disable_contract_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_execution_contract_hash' => data_get($healthDecision, 'source_writer_release_fresh_authorization_new_cycle_execution_contract_hash'),
+            'disable_triggers' => $disableTriggers,
+            'trigger_count' => count($disableTriggers),
+            'required_disable_request_evidence' => [
+                'writer_release_fresh_authorization_new_cycle_health_decision_hash',
+                'selected_health_decision_state',
+                'disable_trigger',
+                'disable_request_actor_identity',
+                'disable_request_rationale',
+                'fresh_authorization_new_cycle_previous_authority_reuse_review_hash',
+                'fresh_authorization_new_cycle_disable_path_verification_hash',
+                'fresh_authorization_new_cycle_forbidden_action_evidence_hash',
+                'human_reviewer_identity',
+            ],
+            'disable_request_policy' => [
+                'disable_request_requires_new_cycle_health_decision_hash',
+                'disable_request_requires_allowed_new_cycle_trigger',
+                'disable_request_must_reference_existing_new_cycle_disable_contract_template',
+                'disable_request_does_not_execute_disable',
+                'disable_request_does_not_mutate_writer_state',
+                'disable_request_does_not_record_decision',
+                'disable_request_requires_previous_authority_reuse_review',
+            ],
+            'future_disable_request_outputs' => [
+                'writer_release_fresh_authorization_new_cycle_disable_request_hash',
+                'writer_release_fresh_authorization_new_cycle_disable_execution_preflight_hash',
+                'writer_release_fresh_authorization_new_cycle_disable_execution_receipt_hash',
+                'writer_release_fresh_authorization_new_cycle_disable_evidence_hash',
+            ],
+            'still_forbidden_by_fresh_authorization_new_cycle_disable_request_template' => [
+                'disable_execution_by_writer_release_fresh_authorization_new_cycle_disable_request_template',
+                'writer_state_mutation_by_writer_release_fresh_authorization_new_cycle_disable_request_template',
+                'writer_file_creation_by_writer_release_fresh_authorization_new_cycle_disable_request_template',
+                'ledger_write_by_writer_release_fresh_authorization_new_cycle_disable_request_template',
+                'signature_acceptance_by_writer_release_fresh_authorization_new_cycle_disable_request_template',
+                'signature_validation_by_writer_release_fresh_authorization_new_cycle_disable_request_template',
+                'receipt_persistence_by_writer_release_fresh_authorization_new_cycle_disable_request_template',
+                'decision_recording_by_writer_release_fresh_authorization_new_cycle_disable_request_template',
+                'approval_from_writer_release_fresh_authorization_new_cycle_disable_request_template',
+                'merge_from_writer_release_fresh_authorization_new_cycle_disable_request_template',
+                'dispatch_from_writer_release_fresh_authorization_new_cycle_disable_request_template',
+            ],
+            'execution_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'ledger_write_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'dispatch_allowed' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_request_template.v1',
+            'status' => $decisionReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_request_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_request_template_blocked',
+            'mode' => 'read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_request_template',
+            'execution_allowed' => false,
+            'ledger_write_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'disable_request' => $disableRequest,
+            'disable_request_hash' => $this->stableHash($disableRequest),
+            'non_execution_guarantees' => [
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_request_template_does_not_claim_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_request_template_does_not_complete_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_request_template_does_not_execute_disable',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_request_template_does_not_mutate_writer_state',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_request_template_does_not_create_writer_file',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_request_template_does_not_accept_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_request_template_does_not_validate_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_request_template_does_not_write_ledger',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_request_template_does_not_persist_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_request_template_does_not_record_decision',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_request_template_does_not_approve_code',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_request_template_does_not_merge',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_request_template_does_not_dispatch_work',
+            ],
+            'human_summary' => $decisionReady
+                ? 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable request template is ready as a non-executing disable request. It still does not execute disable, create a writer, write ledger, persist receipts, record decisions, approve, merge or dispatch.'
+                : 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable request template is blocked until fresh authorization new cycle health decision template is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionPreflightTemplate(array $options = []): array
+    {
+        $requestPayload = $this->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableRequestTemplate($options);
+        $disableRequest = (array) data_get($requestPayload, 'disable_request', []);
+        $requestReady = data_get($requestPayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_request_template_ready';
+
+        $requiredChecks = [
+            'new_cycle_disable_request_hash_present',
+            'selected_disable_trigger_allowed',
+            'previous_authority_reuse_review_present',
+            'disable_path_verification_present',
+            'forbidden_action_evidence_present_when_applicable',
+            'human_reviewer_identity_present',
+            'execution_surface_still_disabled',
+            'writer_state_mutation_still_disabled',
+            'ledger_and_receipt_persistence_still_disabled',
+        ];
+
+        $disableExecutionPreflight = [
+            'disable_execution_preflight_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-FRESH-AUTHORIZATION-NEW-CYCLE-DISABLE-EXECUTION-PREFLIGHT-TEMPLATE-SELF-CONSTRUCTION-0001',
+            'status' => $requestReady ? 'ready_as_future_fresh_authorization_new_cycle_disable_execution_preflight_template' : 'blocked_before_writer_release_fresh_authorization_new_cycle_disable_request_template',
+            'source_writer_release_fresh_authorization_new_cycle_disable_request_hash' => data_get($requestPayload, 'disable_request_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_health_decision_hash' => data_get($disableRequest, 'source_writer_release_fresh_authorization_new_cycle_health_decision_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_disable_contract_hash' => data_get($disableRequest, 'source_writer_release_fresh_authorization_new_cycle_disable_contract_hash'),
+            'required_checks' => $requiredChecks,
+            'check_count' => count($requiredChecks),
+            'required_preflight_evidence' => [
+                'writer_release_fresh_authorization_new_cycle_disable_request_hash',
+                'disable_request_actor_identity',
+                'selected_disable_trigger',
+                'fresh_authorization_new_cycle_previous_authority_reuse_review_hash',
+                'fresh_authorization_new_cycle_disable_path_verification_hash',
+                'fresh_authorization_new_cycle_forbidden_action_evidence_hash',
+                'writer_state_snapshot_hash',
+                'human_reviewer_identity',
+            ],
+            'preflight_policy' => [
+                'preflight_requires_new_cycle_disable_request_hash',
+                'preflight_requires_existing_new_cycle_disable_contract_hash',
+                'preflight_requires_all_checks_green_before_future_execution',
+                'preflight_does_not_execute_disable',
+                'preflight_does_not_mutate_writer_state',
+                'preflight_does_not_write_ledger',
+                'preflight_does_not_persist_receipt',
+            ],
+            'future_preflight_outputs' => [
+                'writer_release_fresh_authorization_new_cycle_disable_execution_preflight_hash',
+                'writer_release_fresh_authorization_new_cycle_disable_execution_receipt_draft_hash',
+                'writer_release_fresh_authorization_new_cycle_disable_execution_evidence_hash',
+            ],
+            'still_forbidden_by_fresh_authorization_new_cycle_disable_execution_preflight_template' => [
+                'disable_execution_by_writer_release_fresh_authorization_new_cycle_disable_execution_preflight_template',
+                'writer_state_mutation_by_writer_release_fresh_authorization_new_cycle_disable_execution_preflight_template',
+                'writer_file_creation_by_writer_release_fresh_authorization_new_cycle_disable_execution_preflight_template',
+                'ledger_write_by_writer_release_fresh_authorization_new_cycle_disable_execution_preflight_template',
+                'signature_acceptance_by_writer_release_fresh_authorization_new_cycle_disable_execution_preflight_template',
+                'signature_validation_by_writer_release_fresh_authorization_new_cycle_disable_execution_preflight_template',
+                'receipt_persistence_by_writer_release_fresh_authorization_new_cycle_disable_execution_preflight_template',
+                'decision_recording_by_writer_release_fresh_authorization_new_cycle_disable_execution_preflight_template',
+                'approval_from_writer_release_fresh_authorization_new_cycle_disable_execution_preflight_template',
+                'merge_from_writer_release_fresh_authorization_new_cycle_disable_execution_preflight_template',
+                'dispatch_from_writer_release_fresh_authorization_new_cycle_disable_execution_preflight_template',
+            ],
+            'execution_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'ledger_write_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'dispatch_allowed' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_preflight_template.v1',
+            'status' => $requestReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_preflight_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_preflight_template_blocked',
+            'mode' => 'read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_preflight_template',
+            'execution_allowed' => false,
+            'ledger_write_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'disable_execution_preflight' => $disableExecutionPreflight,
+            'disable_execution_preflight_hash' => $this->stableHash($disableExecutionPreflight),
+            'non_execution_guarantees' => [
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_preflight_template_does_not_claim_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_preflight_template_does_not_complete_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_preflight_template_does_not_execute_disable',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_preflight_template_does_not_mutate_writer_state',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_preflight_template_does_not_create_writer_file',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_preflight_template_does_not_write_ledger',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_preflight_template_does_not_persist_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_preflight_template_does_not_record_decision',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_preflight_template_does_not_approve_code',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_preflight_template_does_not_merge',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_preflight_template_does_not_dispatch_work',
+            ],
+            'human_summary' => $requestReady
+                ? 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution preflight template is ready as a non-executing preflight. It still does not execute disable, mutate writer state, create a writer, write ledger, persist receipts, record decisions, approve, merge or dispatch.'
+                : 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution preflight template is blocked until fresh authorization new cycle disable request template is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionReceiptDraftTemplate(array $options = []): array
+    {
+        $preflightPayload = $this->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionPreflightTemplate($options);
+        $preflight = (array) data_get($preflightPayload, 'disable_execution_preflight', []);
+        $preflightReady = data_get($preflightPayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_preflight_template_ready';
+
+        $requiredReceiptFields = [
+            'new_cycle_disable_execution_preflight_hash',
+            'disable_execution_subject',
+            'disable_trigger',
+            'writer_state_before_hash',
+            'writer_state_after_expected_hash',
+            'disable_path_verification_hash',
+            'previous_authority_reuse_review_hash',
+            'human_reviewer_identity',
+            'non_merge_statement',
+            'non_dispatch_statement',
+        ];
+
+        $disableExecutionReceiptDraft = [
+            'disable_execution_receipt_draft_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-FRESH-AUTHORIZATION-NEW-CYCLE-DISABLE-EXECUTION-RECEIPT-DRAFT-TEMPLATE-SELF-CONSTRUCTION-0001',
+            'status' => $preflightReady ? 'ready_as_future_fresh_authorization_new_cycle_disable_execution_receipt_draft_template' : 'blocked_before_writer_release_fresh_authorization_new_cycle_disable_execution_preflight_template',
+            'source_writer_release_fresh_authorization_new_cycle_disable_execution_preflight_hash' => data_get($preflightPayload, 'disable_execution_preflight_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_disable_request_hash' => data_get($preflight, 'source_writer_release_fresh_authorization_new_cycle_disable_request_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_health_decision_hash' => data_get($preflight, 'source_writer_release_fresh_authorization_new_cycle_health_decision_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_disable_contract_hash' => data_get($preflight, 'source_writer_release_fresh_authorization_new_cycle_disable_contract_hash'),
+            'required_receipt_fields' => $requiredReceiptFields,
+            'required_receipt_field_count' => count($requiredReceiptFields),
+            'receipt_subject' => 'future_fresh_authorization_new_cycle_disable_execution',
+            'required_receipt_evidence' => [
+                'writer_release_fresh_authorization_new_cycle_disable_execution_preflight_hash',
+                'writer_release_fresh_authorization_new_cycle_disable_request_hash',
+                'selected_disable_trigger',
+                'writer_state_before_hash',
+                'writer_state_after_expected_hash',
+                'fresh_authorization_new_cycle_disable_path_verification_hash',
+                'fresh_authorization_new_cycle_previous_authority_reuse_review_hash',
+                'human_reviewer_identity',
+            ],
+            'receipt_policy' => [
+                'receipt_draft_requires_new_cycle_disable_execution_preflight_hash',
+                'receipt_draft_must_be_unsigned',
+                'receipt_draft_must_not_be_persisted',
+                'receipt_draft_does_not_execute_disable',
+                'receipt_draft_does_not_mutate_writer_state',
+                'receipt_draft_does_not_write_ledger',
+                'receipt_draft_does_not_grant_approval',
+            ],
+            'future_receipt_outputs' => [
+                'writer_release_fresh_authorization_new_cycle_disable_execution_receipt_draft_hash',
+                'writer_release_fresh_authorization_new_cycle_disable_execution_signed_receipt_hash',
+                'writer_release_fresh_authorization_new_cycle_disable_execution_evidence_hash',
+                'writer_release_fresh_authorization_new_cycle_disable_post_execution_review_hash',
+            ],
+            'still_forbidden_by_fresh_authorization_new_cycle_disable_execution_receipt_draft_template' => [
+                'disable_execution_by_writer_release_fresh_authorization_new_cycle_disable_execution_receipt_draft_template',
+                'writer_state_mutation_by_writer_release_fresh_authorization_new_cycle_disable_execution_receipt_draft_template',
+                'writer_file_creation_by_writer_release_fresh_authorization_new_cycle_disable_execution_receipt_draft_template',
+                'ledger_write_by_writer_release_fresh_authorization_new_cycle_disable_execution_receipt_draft_template',
+                'signature_acceptance_by_writer_release_fresh_authorization_new_cycle_disable_execution_receipt_draft_template',
+                'signature_validation_by_writer_release_fresh_authorization_new_cycle_disable_execution_receipt_draft_template',
+                'receipt_persistence_by_writer_release_fresh_authorization_new_cycle_disable_execution_receipt_draft_template',
+                'decision_recording_by_writer_release_fresh_authorization_new_cycle_disable_execution_receipt_draft_template',
+                'approval_from_writer_release_fresh_authorization_new_cycle_disable_execution_receipt_draft_template',
+                'merge_from_writer_release_fresh_authorization_new_cycle_disable_execution_receipt_draft_template',
+                'dispatch_from_writer_release_fresh_authorization_new_cycle_disable_execution_receipt_draft_template',
+            ],
+            'execution_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'ledger_write_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'dispatch_allowed' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_receipt_draft_template.v1',
+            'status' => $preflightReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_receipt_draft_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_receipt_draft_template_blocked',
+            'mode' => 'read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_receipt_draft_template',
+            'execution_allowed' => false,
+            'ledger_write_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'disable_execution_receipt_draft' => $disableExecutionReceiptDraft,
+            'disable_execution_receipt_draft_hash' => $this->stableHash($disableExecutionReceiptDraft),
+            'non_execution_guarantees' => [
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_receipt_draft_template_does_not_claim_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_receipt_draft_template_does_not_complete_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_receipt_draft_template_does_not_execute_disable',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_receipt_draft_template_does_not_mutate_writer_state',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_receipt_draft_template_does_not_create_writer_file',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_receipt_draft_template_does_not_accept_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_receipt_draft_template_does_not_validate_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_receipt_draft_template_does_not_write_ledger',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_receipt_draft_template_does_not_persist_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_receipt_draft_template_does_not_record_decision',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_receipt_draft_template_does_not_approve_code',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_receipt_draft_template_does_not_merge',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_receipt_draft_template_does_not_dispatch_work',
+            ],
+            'human_summary' => $preflightReady
+                ? 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution receipt draft template is ready as an unsigned non-persisted receipt draft. It still does not execute disable, mutate writer state, create a writer, write ledger, persist receipts, record decisions, approve, merge or dispatch.'
+                : 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution receipt draft template is blocked until fresh authorization new cycle disable execution preflight template is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionSignedReceiptTemplate(array $options = []): array
+    {
+        $receiptPayload = $this->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionReceiptDraftTemplate($options);
+        $receiptDraft = (array) data_get($receiptPayload, 'disable_execution_receipt_draft', []);
+        $receiptReady = data_get($receiptPayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_receipt_draft_template_ready';
+
+        $requiredSigners = [
+            'atlas_operator',
+            'self_construction_governance_reviewer',
+            'writer_release_safety_reviewer',
+        ];
+
+        $signedReceipt = [
+            'disable_execution_signed_receipt_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-FRESH-AUTHORIZATION-NEW-CYCLE-DISABLE-EXECUTION-SIGNED-RECEIPT-TEMPLATE-SELF-CONSTRUCTION-0001',
+            'status' => $receiptReady ? 'ready_as_future_fresh_authorization_new_cycle_disable_execution_signed_receipt_template' : 'blocked_before_writer_release_fresh_authorization_new_cycle_disable_execution_receipt_draft_template',
+            'source_writer_release_fresh_authorization_new_cycle_disable_execution_receipt_draft_hash' => data_get($receiptPayload, 'disable_execution_receipt_draft_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_disable_execution_preflight_hash' => data_get($receiptDraft, 'source_writer_release_fresh_authorization_new_cycle_disable_execution_preflight_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_disable_request_hash' => data_get($receiptDraft, 'source_writer_release_fresh_authorization_new_cycle_disable_request_hash'),
+            'required_signers' => $requiredSigners,
+            'required_signer_count' => count($requiredSigners),
+            'required_signature_evidence' => [
+                'writer_release_fresh_authorization_new_cycle_disable_execution_receipt_draft_hash',
+                'all_required_signer_identities',
+                'signature_payload_hash',
+                'receipt_draft_hash_match',
+                'writer_state_before_hash',
+                'writer_state_after_expected_hash',
+                'human_reviewer_identity',
+            ],
+            'signature_policy' => [
+                'signed_receipt_template_requires_receipt_draft_hash',
+                'signed_receipt_template_requires_all_required_signers',
+                'signed_receipt_template_must_reference_exact_draft_hash',
+                'signed_receipt_template_does_not_accept_signature',
+                'signed_receipt_template_does_not_validate_signature',
+                'signed_receipt_template_does_not_persist_receipt',
+                'signed_receipt_template_does_not_execute_disable',
+            ],
+            'future_signed_receipt_outputs' => [
+                'writer_release_fresh_authorization_new_cycle_disable_execution_signed_receipt_hash',
+                'writer_release_fresh_authorization_new_cycle_disable_execution_persistence_preflight_hash',
+                'writer_release_fresh_authorization_new_cycle_disable_execution_evidence_hash',
+                'writer_release_fresh_authorization_new_cycle_disable_post_execution_review_hash',
+            ],
+            'still_forbidden_by_fresh_authorization_new_cycle_disable_execution_signed_receipt_template' => [
+                'disable_execution_by_writer_release_fresh_authorization_new_cycle_disable_execution_signed_receipt_template',
+                'writer_state_mutation_by_writer_release_fresh_authorization_new_cycle_disable_execution_signed_receipt_template',
+                'writer_file_creation_by_writer_release_fresh_authorization_new_cycle_disable_execution_signed_receipt_template',
+                'ledger_write_by_writer_release_fresh_authorization_new_cycle_disable_execution_signed_receipt_template',
+                'signature_acceptance_by_writer_release_fresh_authorization_new_cycle_disable_execution_signed_receipt_template',
+                'signature_validation_by_writer_release_fresh_authorization_new_cycle_disable_execution_signed_receipt_template',
+                'receipt_persistence_by_writer_release_fresh_authorization_new_cycle_disable_execution_signed_receipt_template',
+                'decision_recording_by_writer_release_fresh_authorization_new_cycle_disable_execution_signed_receipt_template',
+                'approval_from_writer_release_fresh_authorization_new_cycle_disable_execution_signed_receipt_template',
+                'merge_from_writer_release_fresh_authorization_new_cycle_disable_execution_signed_receipt_template',
+                'dispatch_from_writer_release_fresh_authorization_new_cycle_disable_execution_signed_receipt_template',
+            ],
+            'execution_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'ledger_write_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'dispatch_allowed' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_signed_receipt_template.v1',
+            'status' => $receiptReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_signed_receipt_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_signed_receipt_template_blocked',
+            'mode' => 'read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_signed_receipt_template',
+            'execution_allowed' => false,
+            'ledger_write_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'disable_execution_signed_receipt' => $signedReceipt,
+            'disable_execution_signed_receipt_hash' => $this->stableHash($signedReceipt),
+            'non_execution_guarantees' => [
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_signed_receipt_template_does_not_claim_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_signed_receipt_template_does_not_complete_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_signed_receipt_template_does_not_execute_disable',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_signed_receipt_template_does_not_mutate_writer_state',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_signed_receipt_template_does_not_create_writer_file',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_signed_receipt_template_does_not_accept_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_signed_receipt_template_does_not_validate_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_signed_receipt_template_does_not_write_ledger',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_signed_receipt_template_does_not_persist_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_signed_receipt_template_does_not_record_decision',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_signed_receipt_template_does_not_approve_code',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_signed_receipt_template_does_not_merge',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_signed_receipt_template_does_not_dispatch_work',
+            ],
+            'human_summary' => $receiptReady
+                ? 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution signed receipt template is ready as a non-validating signed receipt template. It still does not accept signatures, validate signatures, execute disable, mutate writer state, create a writer, write ledger, persist receipts, record decisions, approve, merge or dispatch.'
+                : 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution signed receipt template is blocked until fresh authorization new cycle disable execution receipt draft template is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionPersistencePreflightTemplate(array $options = []): array
+    {
+        $signedReceiptPayload = $this->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionSignedReceiptTemplate($options);
+        $signedReceipt = (array) data_get($signedReceiptPayload, 'disable_execution_signed_receipt', []);
+        $signedReceiptReady = data_get($signedReceiptPayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_signed_receipt_template_ready';
+
+        $requiredChecks = [
+            'signed_receipt_template_hash_present',
+            'source_receipt_draft_hash_present',
+            'source_disable_execution_preflight_hash_present',
+            'all_required_signers_declared',
+            'signature_payload_hash_declared',
+            'ledger_target_is_append_only',
+            'receipt_persistence_idempotency_key_declared',
+            'writer_state_mutation_still_disabled',
+            'merge_and_dispatch_still_disabled',
+        ];
+
+        $persistencePreflight = [
+            'disable_execution_persistence_preflight_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-FRESH-AUTHORIZATION-NEW-CYCLE-DISABLE-EXECUTION-PERSISTENCE-PREFLIGHT-TEMPLATE-SELF-CONSTRUCTION-0001',
+            'status' => $signedReceiptReady ? 'ready_as_future_fresh_authorization_new_cycle_disable_execution_persistence_preflight_template' : 'blocked_before_writer_release_fresh_authorization_new_cycle_disable_execution_signed_receipt_template',
+            'source_writer_release_fresh_authorization_new_cycle_disable_execution_signed_receipt_hash' => data_get($signedReceiptPayload, 'disable_execution_signed_receipt_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_disable_execution_receipt_draft_hash' => data_get($signedReceipt, 'source_writer_release_fresh_authorization_new_cycle_disable_execution_receipt_draft_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_disable_execution_preflight_hash' => data_get($signedReceipt, 'source_writer_release_fresh_authorization_new_cycle_disable_execution_preflight_hash'),
+            'required_checks' => $requiredChecks,
+            'check_count' => count($requiredChecks),
+            'required_persistence_evidence' => [
+                'writer_release_fresh_authorization_new_cycle_disable_execution_signed_receipt_hash',
+                'writer_release_fresh_authorization_new_cycle_disable_execution_receipt_draft_hash',
+                'signature_payload_hash',
+                'all_required_signer_identities',
+                'receipt_persistence_idempotency_key',
+                'append_only_ledger_target_hash',
+                'writer_state_snapshot_hash',
+                'human_reviewer_identity',
+            ],
+            'persistence_policy' => [
+                'persistence_preflight_requires_signed_receipt_template_hash',
+                'persistence_preflight_requires_append_only_ledger_target',
+                'persistence_preflight_requires_idempotency_key',
+                'persistence_preflight_does_not_write_ledger',
+                'persistence_preflight_does_not_persist_receipt',
+                'persistence_preflight_does_not_execute_disable',
+                'persistence_preflight_does_not_mutate_writer_state',
+            ],
+            'future_persistence_outputs' => [
+                'writer_release_fresh_authorization_new_cycle_disable_execution_persistence_preflight_hash',
+                'writer_release_fresh_authorization_new_cycle_disable_execution_persistence_receipt_hash',
+                'writer_release_fresh_authorization_new_cycle_disable_execution_append_only_ledger_event_hash',
+                'writer_release_fresh_authorization_new_cycle_disable_post_execution_review_hash',
+            ],
+            'still_forbidden_by_fresh_authorization_new_cycle_disable_execution_persistence_preflight_template' => [
+                'disable_execution_by_writer_release_fresh_authorization_new_cycle_disable_execution_persistence_preflight_template',
+                'writer_state_mutation_by_writer_release_fresh_authorization_new_cycle_disable_execution_persistence_preflight_template',
+                'writer_file_creation_by_writer_release_fresh_authorization_new_cycle_disable_execution_persistence_preflight_template',
+                'ledger_write_by_writer_release_fresh_authorization_new_cycle_disable_execution_persistence_preflight_template',
+                'signature_acceptance_by_writer_release_fresh_authorization_new_cycle_disable_execution_persistence_preflight_template',
+                'signature_validation_by_writer_release_fresh_authorization_new_cycle_disable_execution_persistence_preflight_template',
+                'receipt_persistence_by_writer_release_fresh_authorization_new_cycle_disable_execution_persistence_preflight_template',
+                'decision_recording_by_writer_release_fresh_authorization_new_cycle_disable_execution_persistence_preflight_template',
+                'approval_from_writer_release_fresh_authorization_new_cycle_disable_execution_persistence_preflight_template',
+                'merge_from_writer_release_fresh_authorization_new_cycle_disable_execution_persistence_preflight_template',
+                'dispatch_from_writer_release_fresh_authorization_new_cycle_disable_execution_persistence_preflight_template',
+            ],
+            'execution_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'ledger_write_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'dispatch_allowed' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_persistence_preflight_template.v1',
+            'status' => $signedReceiptReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_persistence_preflight_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_persistence_preflight_template_blocked',
+            'mode' => 'read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_persistence_preflight_template',
+            'execution_allowed' => false,
+            'ledger_write_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'disable_execution_persistence_preflight' => $persistencePreflight,
+            'disable_execution_persistence_preflight_hash' => $this->stableHash($persistencePreflight),
+            'non_execution_guarantees' => [
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_persistence_preflight_template_does_not_claim_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_persistence_preflight_template_does_not_complete_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_persistence_preflight_template_does_not_execute_disable',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_persistence_preflight_template_does_not_mutate_writer_state',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_persistence_preflight_template_does_not_create_writer_file',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_persistence_preflight_template_does_not_accept_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_persistence_preflight_template_does_not_validate_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_persistence_preflight_template_does_not_write_ledger',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_persistence_preflight_template_does_not_persist_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_persistence_preflight_template_does_not_record_decision',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_persistence_preflight_template_does_not_approve_code',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_persistence_preflight_template_does_not_merge',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_persistence_preflight_template_does_not_dispatch_work',
+            ],
+            'human_summary' => $signedReceiptReady
+                ? 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution persistence preflight template is ready as a non-writing persistence preflight. It still does not write ledger, persist receipts, execute disable, mutate writer state, create a writer, approve, merge or dispatch.'
+                : 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution persistence preflight template is blocked until fresh authorization new cycle disable execution signed receipt template is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionPersistenceReceiptTemplate(array $options = []): array
+    {
+        $preflightPayload = $this->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionPersistencePreflightTemplate($options);
+        $preflight = (array) data_get($preflightPayload, 'disable_execution_persistence_preflight', []);
+        $preflightReady = data_get($preflightPayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_persistence_preflight_template_ready';
+
+        $requiredReceiptFields = [
+            'disable_execution_persistence_preflight_hash',
+            'signed_receipt_template_hash',
+            'receipt_persistence_idempotency_key',
+            'append_only_ledger_target_hash',
+            'append_only_ledger_event_hash',
+            'writer_state_snapshot_hash',
+            'receipt_persistence_actor_identity',
+            'persistence_timestamp',
+            'non_execution_statement',
+            'non_mutation_statement',
+        ];
+
+        $persistenceReceipt = [
+            'disable_execution_persistence_receipt_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-FRESH-AUTHORIZATION-NEW-CYCLE-DISABLE-EXECUTION-PERSISTENCE-RECEIPT-TEMPLATE-SELF-CONSTRUCTION-0001',
+            'status' => $preflightReady ? 'ready_as_future_fresh_authorization_new_cycle_disable_execution_persistence_receipt_template' : 'blocked_before_writer_release_fresh_authorization_new_cycle_disable_execution_persistence_preflight_template',
+            'source_writer_release_fresh_authorization_new_cycle_disable_execution_persistence_preflight_hash' => data_get($preflightPayload, 'disable_execution_persistence_preflight_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_disable_execution_signed_receipt_hash' => data_get($preflight, 'source_writer_release_fresh_authorization_new_cycle_disable_execution_signed_receipt_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_disable_execution_receipt_draft_hash' => data_get($preflight, 'source_writer_release_fresh_authorization_new_cycle_disable_execution_receipt_draft_hash'),
+            'required_receipt_fields' => $requiredReceiptFields,
+            'required_receipt_field_count' => count($requiredReceiptFields),
+            'required_persistence_receipt_evidence' => [
+                'writer_release_fresh_authorization_new_cycle_disable_execution_persistence_preflight_hash',
+                'writer_release_fresh_authorization_new_cycle_disable_execution_signed_receipt_hash',
+                'receipt_persistence_idempotency_key',
+                'append_only_ledger_target_hash',
+                'append_only_ledger_event_hash',
+                'writer_state_snapshot_hash',
+                'human_reviewer_identity',
+            ],
+            'persistence_receipt_policy' => [
+                'persistence_receipt_requires_preflight_hash',
+                'persistence_receipt_requires_signed_receipt_template_hash',
+                'persistence_receipt_requires_idempotency_key',
+                'persistence_receipt_describes_future_ledger_event_only',
+                'persistence_receipt_does_not_write_ledger',
+                'persistence_receipt_does_not_persist_receipt',
+                'persistence_receipt_does_not_execute_disable',
+                'persistence_receipt_does_not_mutate_writer_state',
+            ],
+            'future_persistence_receipt_outputs' => [
+                'writer_release_fresh_authorization_new_cycle_disable_execution_persistence_receipt_hash',
+                'writer_release_fresh_authorization_new_cycle_disable_execution_append_only_ledger_event_hash',
+                'writer_release_fresh_authorization_new_cycle_disable_execution_persistence_audit_hash',
+                'writer_release_fresh_authorization_new_cycle_disable_post_execution_review_hash',
+            ],
+            'still_forbidden_by_fresh_authorization_new_cycle_disable_execution_persistence_receipt_template' => [
+                'disable_execution_by_writer_release_fresh_authorization_new_cycle_disable_execution_persistence_receipt_template',
+                'writer_state_mutation_by_writer_release_fresh_authorization_new_cycle_disable_execution_persistence_receipt_template',
+                'writer_file_creation_by_writer_release_fresh_authorization_new_cycle_disable_execution_persistence_receipt_template',
+                'ledger_write_by_writer_release_fresh_authorization_new_cycle_disable_execution_persistence_receipt_template',
+                'signature_acceptance_by_writer_release_fresh_authorization_new_cycle_disable_execution_persistence_receipt_template',
+                'signature_validation_by_writer_release_fresh_authorization_new_cycle_disable_execution_persistence_receipt_template',
+                'receipt_persistence_by_writer_release_fresh_authorization_new_cycle_disable_execution_persistence_receipt_template',
+                'decision_recording_by_writer_release_fresh_authorization_new_cycle_disable_execution_persistence_receipt_template',
+                'approval_from_writer_release_fresh_authorization_new_cycle_disable_execution_persistence_receipt_template',
+                'merge_from_writer_release_fresh_authorization_new_cycle_disable_execution_persistence_receipt_template',
+                'dispatch_from_writer_release_fresh_authorization_new_cycle_disable_execution_persistence_receipt_template',
+            ],
+            'execution_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'ledger_write_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'dispatch_allowed' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_persistence_receipt_template.v1',
+            'status' => $preflightReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_persistence_receipt_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_persistence_receipt_template_blocked',
+            'mode' => 'read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_persistence_receipt_template',
+            'execution_allowed' => false,
+            'ledger_write_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'disable_execution_persistence_receipt' => $persistenceReceipt,
+            'disable_execution_persistence_receipt_hash' => $this->stableHash($persistenceReceipt),
+            'non_execution_guarantees' => [
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_persistence_receipt_template_does_not_claim_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_persistence_receipt_template_does_not_complete_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_persistence_receipt_template_does_not_execute_disable',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_persistence_receipt_template_does_not_mutate_writer_state',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_persistence_receipt_template_does_not_create_writer_file',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_persistence_receipt_template_does_not_accept_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_persistence_receipt_template_does_not_validate_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_persistence_receipt_template_does_not_write_ledger',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_persistence_receipt_template_does_not_persist_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_persistence_receipt_template_does_not_record_decision',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_persistence_receipt_template_does_not_approve_code',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_persistence_receipt_template_does_not_merge',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_persistence_receipt_template_does_not_dispatch_work',
+            ],
+            'human_summary' => $preflightReady
+                ? 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution persistence receipt template is ready as a non-writing persistence receipt template. It still does not write ledger, persist receipts, execute disable, mutate writer state, create a writer, approve, merge or dispatch.'
+                : 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution persistence receipt template is blocked until fresh authorization new cycle disable execution persistence preflight template is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionPostPersistenceReviewTemplate(array $options = []): array
+    {
+        $receiptPayload = $this->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionPersistenceReceiptTemplate($options);
+        $persistenceReceipt = (array) data_get($receiptPayload, 'disable_execution_persistence_receipt', []);
+        $receiptReady = data_get($receiptPayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_persistence_receipt_template_ready';
+
+        $allowedReviewDecisions = [
+            'keep_writer_disabled_after_new_cycle_disable_execution',
+            'continue_disable_execution_observation',
+            'request_disable_execution_evidence_repair',
+            'escalate_disable_execution_persistence_anomaly',
+            'request_later_fresh_authorization_cycle_after_disable',
+        ];
+
+        $postPersistenceReview = [
+            'disable_execution_post_persistence_review_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-FRESH-AUTHORIZATION-NEW-CYCLE-DISABLE-EXECUTION-POST-PERSISTENCE-REVIEW-TEMPLATE-SELF-CONSTRUCTION-0001',
+            'status' => $receiptReady ? 'ready_as_future_fresh_authorization_new_cycle_disable_execution_post_persistence_review_template' : 'blocked_before_writer_release_fresh_authorization_new_cycle_disable_execution_persistence_receipt_template',
+            'source_writer_release_fresh_authorization_new_cycle_disable_execution_persistence_receipt_hash' => data_get($receiptPayload, 'disable_execution_persistence_receipt_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_disable_execution_persistence_preflight_hash' => data_get($persistenceReceipt, 'source_writer_release_fresh_authorization_new_cycle_disable_execution_persistence_preflight_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_disable_execution_signed_receipt_hash' => data_get($persistenceReceipt, 'source_writer_release_fresh_authorization_new_cycle_disable_execution_signed_receipt_hash'),
+            'allowed_review_decisions' => $allowedReviewDecisions,
+            'allowed_review_decision_count' => count($allowedReviewDecisions),
+            'required_review_evidence' => [
+                'writer_release_fresh_authorization_new_cycle_disable_execution_persistence_receipt_hash',
+                'append_only_ledger_event_hash',
+                'receipt_persistence_idempotency_key',
+                'writer_state_snapshot_hash',
+                'post_persistence_integrity_check_hash',
+                'disable_execution_observation_window_hash',
+                'human_reviewer_identity',
+            ],
+            'review_policy' => [
+                'review_requires_persistence_receipt_hash',
+                'review_requires_append_only_ledger_event_hash',
+                'review_requires_idempotency_key_match',
+                'review_requires_writer_state_still_disabled',
+                'review_does_not_write_ledger',
+                'review_does_not_persist_receipt',
+                'review_does_not_execute_disable',
+                'review_does_not_mutate_writer_state',
+                'review_does_not_record_decision',
+            ],
+            'future_review_outputs' => [
+                'writer_release_fresh_authorization_new_cycle_disable_post_persistence_review_hash',
+                'writer_release_fresh_authorization_new_cycle_disable_follow_up_observability_hash',
+                'writer_release_fresh_authorization_new_cycle_disable_evidence_repair_request_hash',
+                'writer_release_fresh_authorization_later_cycle_request_hash',
+            ],
+            'still_forbidden_by_fresh_authorization_new_cycle_disable_execution_post_persistence_review_template' => [
+                'disable_execution_by_writer_release_fresh_authorization_new_cycle_disable_execution_post_persistence_review_template',
+                'writer_state_mutation_by_writer_release_fresh_authorization_new_cycle_disable_execution_post_persistence_review_template',
+                'writer_file_creation_by_writer_release_fresh_authorization_new_cycle_disable_execution_post_persistence_review_template',
+                'ledger_write_by_writer_release_fresh_authorization_new_cycle_disable_execution_post_persistence_review_template',
+                'signature_acceptance_by_writer_release_fresh_authorization_new_cycle_disable_execution_post_persistence_review_template',
+                'signature_validation_by_writer_release_fresh_authorization_new_cycle_disable_execution_post_persistence_review_template',
+                'receipt_persistence_by_writer_release_fresh_authorization_new_cycle_disable_execution_post_persistence_review_template',
+                'decision_recording_by_writer_release_fresh_authorization_new_cycle_disable_execution_post_persistence_review_template',
+                'approval_from_writer_release_fresh_authorization_new_cycle_disable_execution_post_persistence_review_template',
+                'merge_from_writer_release_fresh_authorization_new_cycle_disable_execution_post_persistence_review_template',
+                'dispatch_from_writer_release_fresh_authorization_new_cycle_disable_execution_post_persistence_review_template',
+            ],
+            'execution_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'ledger_write_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'dispatch_allowed' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_post_persistence_review_template.v1',
+            'status' => $receiptReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_post_persistence_review_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_post_persistence_review_template_blocked',
+            'mode' => 'read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_post_persistence_review_template',
+            'execution_allowed' => false,
+            'ledger_write_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'disable_execution_post_persistence_review' => $postPersistenceReview,
+            'disable_execution_post_persistence_review_hash' => $this->stableHash($postPersistenceReview),
+            'non_execution_guarantees' => [
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_post_persistence_review_template_does_not_claim_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_post_persistence_review_template_does_not_complete_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_post_persistence_review_template_does_not_execute_disable',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_post_persistence_review_template_does_not_mutate_writer_state',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_post_persistence_review_template_does_not_create_writer_file',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_post_persistence_review_template_does_not_accept_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_post_persistence_review_template_does_not_validate_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_post_persistence_review_template_does_not_write_ledger',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_post_persistence_review_template_does_not_persist_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_post_persistence_review_template_does_not_record_decision',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_post_persistence_review_template_does_not_approve_code',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_post_persistence_review_template_does_not_merge',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_post_persistence_review_template_does_not_dispatch_work',
+            ],
+            'human_summary' => $receiptReady
+                ? 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution post-persistence review template is ready as a non-writing review template. It still does not write ledger, persist receipts, record decisions, execute disable, mutate writer state, create a writer, approve, merge or dispatch.'
+                : 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution post-persistence review template is blocked until fresh authorization new cycle disable execution persistence receipt template is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionFollowUpObservabilityTemplate(array $options = []): array
+    {
+        $reviewPayload = $this->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionPostPersistenceReviewTemplate($options);
+        $postPersistenceReview = (array) data_get($reviewPayload, 'disable_execution_post_persistence_review', []);
+        $reviewReady = data_get($reviewPayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_post_persistence_review_template_ready';
+
+        $observationSignals = [
+            'writer_state_still_disabled',
+            'no_writer_files_created_after_disable',
+            'no_dispatch_after_disable',
+            'no_merge_after_disable',
+            'no_receipt_persistence_after_template',
+            'no_ledger_write_after_template',
+            'no_signature_acceptance_after_template',
+            'no_decision_recording_after_template',
+        ];
+
+        $followUpObservability = [
+            'disable_execution_follow_up_observability_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-FRESH-AUTHORIZATION-NEW-CYCLE-DISABLE-EXECUTION-FOLLOW-UP-OBSERVABILITY-TEMPLATE-SELF-CONSTRUCTION-0001',
+            'status' => $reviewReady ? 'ready_as_future_fresh_authorization_new_cycle_disable_execution_follow_up_observability_template' : 'blocked_before_writer_release_fresh_authorization_new_cycle_disable_execution_post_persistence_review_template',
+            'source_writer_release_fresh_authorization_new_cycle_disable_execution_post_persistence_review_hash' => data_get($reviewPayload, 'disable_execution_post_persistence_review_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_disable_execution_persistence_receipt_hash' => data_get($postPersistenceReview, 'source_writer_release_fresh_authorization_new_cycle_disable_execution_persistence_receipt_hash'),
+            'observation_signals' => $observationSignals,
+            'observation_signal_count' => count($observationSignals),
+            'required_observation_evidence' => [
+                'writer_state_snapshot_hash',
+                'post_persistence_review_hash',
+                'disable_execution_observation_window_hash',
+                'no_dispatch_evidence_hash',
+                'no_merge_evidence_hash',
+                'no_writer_file_creation_evidence_hash',
+                'no_ledger_write_evidence_hash',
+                'human_reviewer_identity',
+            ],
+            'observability_policy' => [
+                'observability_requires_post_persistence_review_hash',
+                'observability_requires_bounded_observation_window',
+                'observability_requires_writer_state_still_disabled',
+                'observability_requires_no_dispatch_evidence',
+                'observability_does_not_write_ledger',
+                'observability_does_not_persist_receipt',
+                'observability_does_not_execute_disable',
+                'observability_does_not_mutate_writer_state',
+                'observability_does_not_record_decision',
+            ],
+            'future_observability_outputs' => [
+                'writer_release_fresh_authorization_new_cycle_disable_follow_up_observability_hash',
+                'writer_release_fresh_authorization_new_cycle_disable_observation_window_report_hash',
+                'writer_release_fresh_authorization_new_cycle_disable_evidence_repair_request_hash',
+                'writer_release_fresh_authorization_later_cycle_request_hash',
+            ],
+            'still_forbidden_by_fresh_authorization_new_cycle_disable_execution_follow_up_observability_template' => [
+                'disable_execution_by_writer_release_fresh_authorization_new_cycle_disable_execution_follow_up_observability_template',
+                'writer_state_mutation_by_writer_release_fresh_authorization_new_cycle_disable_execution_follow_up_observability_template',
+                'writer_file_creation_by_writer_release_fresh_authorization_new_cycle_disable_execution_follow_up_observability_template',
+                'ledger_write_by_writer_release_fresh_authorization_new_cycle_disable_execution_follow_up_observability_template',
+                'signature_acceptance_by_writer_release_fresh_authorization_new_cycle_disable_execution_follow_up_observability_template',
+                'signature_validation_by_writer_release_fresh_authorization_new_cycle_disable_execution_follow_up_observability_template',
+                'receipt_persistence_by_writer_release_fresh_authorization_new_cycle_disable_execution_follow_up_observability_template',
+                'decision_recording_by_writer_release_fresh_authorization_new_cycle_disable_execution_follow_up_observability_template',
+                'approval_from_writer_release_fresh_authorization_new_cycle_disable_execution_follow_up_observability_template',
+                'merge_from_writer_release_fresh_authorization_new_cycle_disable_execution_follow_up_observability_template',
+                'dispatch_from_writer_release_fresh_authorization_new_cycle_disable_execution_follow_up_observability_template',
+            ],
+            'execution_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'ledger_write_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'dispatch_allowed' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_follow_up_observability_template.v1',
+            'status' => $reviewReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_follow_up_observability_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_follow_up_observability_template_blocked',
+            'mode' => 'read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_follow_up_observability_template',
+            'execution_allowed' => false,
+            'ledger_write_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'disable_execution_follow_up_observability' => $followUpObservability,
+            'disable_execution_follow_up_observability_hash' => $this->stableHash($followUpObservability),
+            'non_execution_guarantees' => [
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_follow_up_observability_template_does_not_claim_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_follow_up_observability_template_does_not_complete_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_follow_up_observability_template_does_not_execute_disable',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_follow_up_observability_template_does_not_mutate_writer_state',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_follow_up_observability_template_does_not_create_writer_file',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_follow_up_observability_template_does_not_accept_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_follow_up_observability_template_does_not_validate_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_follow_up_observability_template_does_not_write_ledger',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_follow_up_observability_template_does_not_persist_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_follow_up_observability_template_does_not_record_decision',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_follow_up_observability_template_does_not_approve_code',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_follow_up_observability_template_does_not_merge',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_follow_up_observability_template_does_not_dispatch_work',
+            ],
+            'human_summary' => $reviewReady
+                ? 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution follow-up observability template is ready as a non-writing observability template. It still does not write ledger, persist receipts, record decisions, execute disable, mutate writer state, create a writer, approve, merge or dispatch.'
+                : 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution follow-up observability template is blocked until fresh authorization new cycle disable execution post-persistence review template is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionEvidenceRepairRequestTemplate(array $options = []): array
+    {
+        $observabilityPayload = $this->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionFollowUpObservabilityTemplate($options);
+        $followUpObservability = (array) data_get($observabilityPayload, 'disable_execution_follow_up_observability', []);
+        $observabilityReady = data_get($observabilityPayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_follow_up_observability_template_ready';
+
+        $repairItems = [
+            'missing_or_mismatched_writer_state_snapshot_hash',
+            'missing_no_dispatch_evidence_hash',
+            'missing_no_merge_evidence_hash',
+            'missing_no_writer_file_creation_evidence_hash',
+            'missing_no_ledger_write_evidence_hash',
+            'missing_human_reviewer_identity',
+        ];
+
+        $evidenceRepairRequest = [
+            'disable_execution_evidence_repair_request_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-FRESH-AUTHORIZATION-NEW-CYCLE-DISABLE-EXECUTION-EVIDENCE-REPAIR-REQUEST-TEMPLATE-SELF-CONSTRUCTION-0001',
+            'status' => $observabilityReady ? 'ready_as_future_fresh_authorization_new_cycle_disable_execution_evidence_repair_request_template' : 'blocked_before_writer_release_fresh_authorization_new_cycle_disable_execution_follow_up_observability_template',
+            'source_writer_release_fresh_authorization_new_cycle_disable_execution_follow_up_observability_hash' => data_get($observabilityPayload, 'disable_execution_follow_up_observability_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_disable_execution_post_persistence_review_hash' => data_get($followUpObservability, 'source_writer_release_fresh_authorization_new_cycle_disable_execution_post_persistence_review_hash'),
+            'repair_items' => $repairItems,
+            'repair_item_count' => count($repairItems),
+            'required_repair_evidence' => [
+                'failed_observation_signal',
+                'missing_evidence_key',
+                'expected_evidence_hash',
+                'replacement_evidence_hash',
+                'repair_reason',
+                'repair_actor_identity',
+                'human_reviewer_identity',
+            ],
+            'repair_policy' => [
+                'repair_request_requires_follow_up_observability_hash',
+                'repair_request_requires_failed_observation_signal',
+                'repair_request_requires_missing_evidence_key',
+                'repair_request_requires_replacement_evidence_hash',
+                'repair_request_does_not_write_ledger',
+                'repair_request_does_not_persist_receipt',
+                'repair_request_does_not_execute_disable',
+                'repair_request_does_not_mutate_writer_state',
+                'repair_request_does_not_record_decision',
+            ],
+            'future_repair_outputs' => [
+                'writer_release_fresh_authorization_new_cycle_disable_evidence_repair_request_hash',
+                'writer_release_fresh_authorization_new_cycle_disable_repaired_evidence_packet_hash',
+                'writer_release_fresh_authorization_new_cycle_disable_repair_review_hash',
+                'writer_release_fresh_authorization_later_cycle_request_hash',
+            ],
+            'still_forbidden_by_fresh_authorization_new_cycle_disable_execution_evidence_repair_request_template' => [
+                'disable_execution_by_writer_release_fresh_authorization_new_cycle_disable_execution_evidence_repair_request_template',
+                'writer_state_mutation_by_writer_release_fresh_authorization_new_cycle_disable_execution_evidence_repair_request_template',
+                'writer_file_creation_by_writer_release_fresh_authorization_new_cycle_disable_execution_evidence_repair_request_template',
+                'ledger_write_by_writer_release_fresh_authorization_new_cycle_disable_execution_evidence_repair_request_template',
+                'signature_acceptance_by_writer_release_fresh_authorization_new_cycle_disable_execution_evidence_repair_request_template',
+                'signature_validation_by_writer_release_fresh_authorization_new_cycle_disable_execution_evidence_repair_request_template',
+                'receipt_persistence_by_writer_release_fresh_authorization_new_cycle_disable_execution_evidence_repair_request_template',
+                'decision_recording_by_writer_release_fresh_authorization_new_cycle_disable_execution_evidence_repair_request_template',
+                'approval_from_writer_release_fresh_authorization_new_cycle_disable_execution_evidence_repair_request_template',
+                'merge_from_writer_release_fresh_authorization_new_cycle_disable_execution_evidence_repair_request_template',
+                'dispatch_from_writer_release_fresh_authorization_new_cycle_disable_execution_evidence_repair_request_template',
+            ],
+            'execution_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'ledger_write_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'dispatch_allowed' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_evidence_repair_request_template.v1',
+            'status' => $observabilityReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_evidence_repair_request_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_evidence_repair_request_template_blocked',
+            'mode' => 'read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_evidence_repair_request_template',
+            'execution_allowed' => false,
+            'ledger_write_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'disable_execution_evidence_repair_request' => $evidenceRepairRequest,
+            'disable_execution_evidence_repair_request_hash' => $this->stableHash($evidenceRepairRequest),
+            'non_execution_guarantees' => [
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_evidence_repair_request_template_does_not_claim_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_evidence_repair_request_template_does_not_complete_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_evidence_repair_request_template_does_not_execute_disable',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_evidence_repair_request_template_does_not_mutate_writer_state',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_evidence_repair_request_template_does_not_create_writer_file',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_evidence_repair_request_template_does_not_accept_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_evidence_repair_request_template_does_not_validate_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_evidence_repair_request_template_does_not_write_ledger',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_evidence_repair_request_template_does_not_persist_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_evidence_repair_request_template_does_not_record_decision',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_evidence_repair_request_template_does_not_approve_code',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_evidence_repair_request_template_does_not_merge',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_evidence_repair_request_template_does_not_dispatch_work',
+            ],
+            'human_summary' => $observabilityReady
+                ? 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution evidence repair request template is ready as a non-writing repair request template. It still does not write ledger, persist receipts, record decisions, execute disable, mutate writer state, create a writer, approve, merge or dispatch.'
+                : 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution evidence repair request template is blocked until fresh authorization new cycle disable execution follow-up observability template is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionRepairedEvidencePacketTemplate(array $options = []): array
+    {
+        $repairRequestPayload = $this->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionEvidenceRepairRequestTemplate($options);
+        $repairRequest = (array) data_get($repairRequestPayload, 'disable_execution_evidence_repair_request', []);
+        $repairRequestReady = data_get($repairRequestPayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_evidence_repair_request_template_ready';
+
+        $requiredPacketFields = [
+            'evidence_repair_request_hash',
+            'failed_observation_signal',
+            'missing_evidence_key',
+            'original_expected_evidence_hash',
+            'replacement_evidence_hash',
+            'replacement_evidence_source_hash',
+            'repair_actor_identity',
+            'repair_timestamp',
+            'non_execution_statement',
+            'non_mutation_statement',
+        ];
+
+        $repairedEvidencePacket = [
+            'disable_execution_repaired_evidence_packet_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-FRESH-AUTHORIZATION-NEW-CYCLE-DISABLE-EXECUTION-REPAIRED-EVIDENCE-PACKET-TEMPLATE-SELF-CONSTRUCTION-0001',
+            'status' => $repairRequestReady ? 'ready_as_future_fresh_authorization_new_cycle_disable_execution_repaired_evidence_packet_template' : 'blocked_before_writer_release_fresh_authorization_new_cycle_disable_execution_evidence_repair_request_template',
+            'source_writer_release_fresh_authorization_new_cycle_disable_execution_evidence_repair_request_hash' => data_get($repairRequestPayload, 'disable_execution_evidence_repair_request_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_disable_execution_follow_up_observability_hash' => data_get($repairRequest, 'source_writer_release_fresh_authorization_new_cycle_disable_execution_follow_up_observability_hash'),
+            'required_packet_fields' => $requiredPacketFields,
+            'required_packet_field_count' => count($requiredPacketFields),
+            'required_packet_evidence' => [
+                'evidence_repair_request_hash',
+                'failed_observation_signal',
+                'missing_evidence_key',
+                'replacement_evidence_hash',
+                'replacement_evidence_source_hash',
+                'repair_actor_identity',
+                'human_reviewer_identity',
+            ],
+            'packet_policy' => [
+                'repaired_packet_requires_repair_request_hash',
+                'repaired_packet_requires_failed_observation_signal',
+                'repaired_packet_requires_replacement_evidence_hash',
+                'repaired_packet_requires_replacement_source_hash',
+                'repaired_packet_does_not_write_ledger',
+                'repaired_packet_does_not_persist_receipt',
+                'repaired_packet_does_not_execute_disable',
+                'repaired_packet_does_not_mutate_writer_state',
+                'repaired_packet_does_not_record_decision',
+            ],
+            'future_packet_outputs' => [
+                'writer_release_fresh_authorization_new_cycle_disable_repaired_evidence_packet_hash',
+                'writer_release_fresh_authorization_new_cycle_disable_repaired_evidence_integrity_hash',
+                'writer_release_fresh_authorization_new_cycle_disable_repair_review_hash',
+                'writer_release_fresh_authorization_later_cycle_request_hash',
+            ],
+            'still_forbidden_by_fresh_authorization_new_cycle_disable_execution_repaired_evidence_packet_template' => [
+                'disable_execution_by_writer_release_fresh_authorization_new_cycle_disable_execution_repaired_evidence_packet_template',
+                'writer_state_mutation_by_writer_release_fresh_authorization_new_cycle_disable_execution_repaired_evidence_packet_template',
+                'writer_file_creation_by_writer_release_fresh_authorization_new_cycle_disable_execution_repaired_evidence_packet_template',
+                'ledger_write_by_writer_release_fresh_authorization_new_cycle_disable_execution_repaired_evidence_packet_template',
+                'signature_acceptance_by_writer_release_fresh_authorization_new_cycle_disable_execution_repaired_evidence_packet_template',
+                'signature_validation_by_writer_release_fresh_authorization_new_cycle_disable_execution_repaired_evidence_packet_template',
+                'receipt_persistence_by_writer_release_fresh_authorization_new_cycle_disable_execution_repaired_evidence_packet_template',
+                'decision_recording_by_writer_release_fresh_authorization_new_cycle_disable_execution_repaired_evidence_packet_template',
+                'approval_from_writer_release_fresh_authorization_new_cycle_disable_execution_repaired_evidence_packet_template',
+                'merge_from_writer_release_fresh_authorization_new_cycle_disable_execution_repaired_evidence_packet_template',
+                'dispatch_from_writer_release_fresh_authorization_new_cycle_disable_execution_repaired_evidence_packet_template',
+            ],
+            'execution_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'ledger_write_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'dispatch_allowed' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_repaired_evidence_packet_template.v1',
+            'status' => $repairRequestReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_repaired_evidence_packet_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_repaired_evidence_packet_template_blocked',
+            'mode' => 'read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_repaired_evidence_packet_template',
+            'execution_allowed' => false,
+            'ledger_write_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'disable_execution_repaired_evidence_packet' => $repairedEvidencePacket,
+            'disable_execution_repaired_evidence_packet_hash' => $this->stableHash($repairedEvidencePacket),
+            'non_execution_guarantees' => [
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_repaired_evidence_packet_template_does_not_claim_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_repaired_evidence_packet_template_does_not_complete_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_repaired_evidence_packet_template_does_not_execute_disable',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_repaired_evidence_packet_template_does_not_mutate_writer_state',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_repaired_evidence_packet_template_does_not_create_writer_file',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_repaired_evidence_packet_template_does_not_accept_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_repaired_evidence_packet_template_does_not_validate_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_repaired_evidence_packet_template_does_not_write_ledger',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_repaired_evidence_packet_template_does_not_persist_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_repaired_evidence_packet_template_does_not_record_decision',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_repaired_evidence_packet_template_does_not_approve_code',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_repaired_evidence_packet_template_does_not_merge',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_repaired_evidence_packet_template_does_not_dispatch_work',
+            ],
+            'human_summary' => $repairRequestReady
+                ? 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution repaired evidence packet template is ready as a non-writing repaired evidence packet template. It still does not write ledger, persist receipts, record decisions, execute disable, mutate writer state, create a writer, approve, merge or dispatch.'
+                : 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution repaired evidence packet template is blocked until fresh authorization new cycle disable execution evidence repair request template is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionRepairReviewTemplate(array $options = []): array
+    {
+        $packetPayload = $this->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionRepairedEvidencePacketTemplate($options);
+        $repairedPacket = (array) data_get($packetPayload, 'disable_execution_repaired_evidence_packet', []);
+        $packetReady = data_get($packetPayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_repaired_evidence_packet_template_ready';
+
+        $allowedOutcomes = [
+            'repair_evidence_accepted_for_later_cycle_request',
+            'repair_evidence_requires_additional_packet',
+            'repair_evidence_rejected_due_to_integrity_gap',
+            'repair_evidence_escalated_to_human_review',
+            'repair_evidence_observation_window_extended',
+        ];
+
+        $repairReview = [
+            'disable_execution_repair_review_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-FRESH-AUTHORIZATION-NEW-CYCLE-DISABLE-EXECUTION-REPAIR-REVIEW-TEMPLATE-SELF-CONSTRUCTION-0001',
+            'status' => $packetReady ? 'ready_as_future_fresh_authorization_new_cycle_disable_execution_repair_review_template' : 'blocked_before_writer_release_fresh_authorization_new_cycle_disable_execution_repaired_evidence_packet_template',
+            'source_writer_release_fresh_authorization_new_cycle_disable_execution_repaired_evidence_packet_hash' => data_get($packetPayload, 'disable_execution_repaired_evidence_packet_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_disable_execution_evidence_repair_request_hash' => data_get($repairedPacket, 'source_writer_release_fresh_authorization_new_cycle_disable_execution_evidence_repair_request_hash'),
+            'allowed_repair_review_outcomes' => $allowedOutcomes,
+            'allowed_repair_review_outcome_count' => count($allowedOutcomes),
+            'required_review_evidence' => [
+                'repaired_evidence_packet_hash',
+                'repaired_evidence_integrity_hash',
+                'repair_request_hash',
+                'replacement_evidence_hash',
+                'replacement_evidence_source_hash',
+                'reviewer_identity',
+                'human_reviewer_identity',
+            ],
+            'repair_review_policy' => [
+                'repair_review_requires_repaired_packet_hash',
+                'repair_review_requires_integrity_hash',
+                'repair_review_requires_repair_request_hash',
+                'repair_review_requires_replacement_source_hash',
+                'repair_review_does_not_write_ledger',
+                'repair_review_does_not_persist_receipt',
+                'repair_review_does_not_execute_disable',
+                'repair_review_does_not_mutate_writer_state',
+                'repair_review_does_not_record_decision',
+            ],
+            'future_repair_review_outputs' => [
+                'writer_release_fresh_authorization_new_cycle_disable_repair_review_hash',
+                'writer_release_fresh_authorization_new_cycle_disable_repair_integrity_review_hash',
+                'writer_release_fresh_authorization_new_cycle_disable_repair_outcome_packet_hash',
+                'writer_release_fresh_authorization_later_cycle_request_hash',
+            ],
+            'still_forbidden_by_fresh_authorization_new_cycle_disable_execution_repair_review_template' => [
+                'disable_execution_by_writer_release_fresh_authorization_new_cycle_disable_execution_repair_review_template',
+                'writer_state_mutation_by_writer_release_fresh_authorization_new_cycle_disable_execution_repair_review_template',
+                'writer_file_creation_by_writer_release_fresh_authorization_new_cycle_disable_execution_repair_review_template',
+                'ledger_write_by_writer_release_fresh_authorization_new_cycle_disable_execution_repair_review_template',
+                'signature_acceptance_by_writer_release_fresh_authorization_new_cycle_disable_execution_repair_review_template',
+                'signature_validation_by_writer_release_fresh_authorization_new_cycle_disable_execution_repair_review_template',
+                'receipt_persistence_by_writer_release_fresh_authorization_new_cycle_disable_execution_repair_review_template',
+                'decision_recording_by_writer_release_fresh_authorization_new_cycle_disable_execution_repair_review_template',
+                'approval_from_writer_release_fresh_authorization_new_cycle_disable_execution_repair_review_template',
+                'merge_from_writer_release_fresh_authorization_new_cycle_disable_execution_repair_review_template',
+                'dispatch_from_writer_release_fresh_authorization_new_cycle_disable_execution_repair_review_template',
+            ],
+            'execution_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'ledger_write_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'dispatch_allowed' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_repair_review_template.v1',
+            'status' => $packetReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_repair_review_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_repair_review_template_blocked',
+            'mode' => 'read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_repair_review_template',
+            'execution_allowed' => false,
+            'ledger_write_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'disable_execution_repair_review' => $repairReview,
+            'disable_execution_repair_review_hash' => $this->stableHash($repairReview),
+            'non_execution_guarantees' => [
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_repair_review_template_does_not_claim_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_repair_review_template_does_not_complete_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_repair_review_template_does_not_execute_disable',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_repair_review_template_does_not_mutate_writer_state',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_repair_review_template_does_not_create_writer_file',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_repair_review_template_does_not_accept_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_repair_review_template_does_not_validate_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_repair_review_template_does_not_write_ledger',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_repair_review_template_does_not_persist_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_repair_review_template_does_not_record_decision',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_repair_review_template_does_not_approve_code',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_repair_review_template_does_not_merge',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_repair_review_template_does_not_dispatch_work',
+            ],
+            'human_summary' => $packetReady
+                ? 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution repair review template is ready as a non-writing repair review template. It still does not write ledger, persist receipts, record decisions, execute disable, mutate writer state, create a writer, approve, merge or dispatch.'
+                : 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution repair review template is blocked until fresh authorization new cycle disable execution repaired evidence packet template is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionRepairOutcomePacketTemplate(array $options = []): array
+    {
+        $reviewPayload = $this->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionRepairReviewTemplate($options);
+        $repairReview = (array) data_get($reviewPayload, 'disable_execution_repair_review', []);
+        $reviewReady = data_get($reviewPayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_repair_review_template_ready';
+
+        $requiredOutcomeFields = [
+            'repair_review_hash',
+            'selected_repair_review_outcome',
+            'outcome_rationale',
+            'repaired_evidence_packet_hash',
+            'repaired_evidence_integrity_hash',
+            'later_cycle_readiness_signal',
+            'outcome_actor_identity',
+            'outcome_timestamp',
+            'non_execution_statement',
+            'non_authorization_statement',
+        ];
+
+        $repairOutcomePacket = [
+            'disable_execution_repair_outcome_packet_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-FRESH-AUTHORIZATION-NEW-CYCLE-DISABLE-EXECUTION-REPAIR-OUTCOME-PACKET-TEMPLATE-SELF-CONSTRUCTION-0001',
+            'status' => $reviewReady ? 'ready_as_future_fresh_authorization_new_cycle_disable_execution_repair_outcome_packet_template' : 'blocked_before_writer_release_fresh_authorization_new_cycle_disable_execution_repair_review_template',
+            'source_writer_release_fresh_authorization_new_cycle_disable_execution_repair_review_hash' => data_get($reviewPayload, 'disable_execution_repair_review_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_disable_execution_repaired_evidence_packet_hash' => data_get($repairReview, 'source_writer_release_fresh_authorization_new_cycle_disable_execution_repaired_evidence_packet_hash'),
+            'required_outcome_fields' => $requiredOutcomeFields,
+            'required_outcome_field_count' => count($requiredOutcomeFields),
+            'allowed_outcome_values' => [
+                'repair_evidence_accepted_for_later_cycle_request',
+                'repair_evidence_requires_additional_packet',
+                'repair_evidence_rejected_due_to_integrity_gap',
+                'repair_evidence_escalated_to_human_review',
+                'repair_evidence_observation_window_extended',
+            ],
+            'required_outcome_evidence' => [
+                'repair_review_hash',
+                'selected_repair_review_outcome',
+                'outcome_rationale',
+                'repaired_evidence_integrity_hash',
+                'human_reviewer_identity',
+            ],
+            'outcome_policy' => [
+                'repair_outcome_requires_repair_review_hash',
+                'repair_outcome_requires_allowed_outcome_value',
+                'repair_outcome_requires_integrity_hash',
+                'repair_outcome_does_not_authorize_later_cycle',
+                'repair_outcome_does_not_write_ledger',
+                'repair_outcome_does_not_persist_receipt',
+                'repair_outcome_does_not_execute_disable',
+                'repair_outcome_does_not_mutate_writer_state',
+                'repair_outcome_does_not_record_decision',
+            ],
+            'future_outcome_outputs' => [
+                'writer_release_fresh_authorization_new_cycle_disable_repair_outcome_packet_hash',
+                'writer_release_fresh_authorization_new_cycle_disable_repair_outcome_integrity_hash',
+                'writer_release_fresh_authorization_later_cycle_request_hash',
+                'writer_release_fresh_authorization_later_cycle_preflight_hash',
+            ],
+            'still_forbidden_by_fresh_authorization_new_cycle_disable_execution_repair_outcome_packet_template' => [
+                'disable_execution_by_writer_release_fresh_authorization_new_cycle_disable_execution_repair_outcome_packet_template',
+                'writer_state_mutation_by_writer_release_fresh_authorization_new_cycle_disable_execution_repair_outcome_packet_template',
+                'writer_file_creation_by_writer_release_fresh_authorization_new_cycle_disable_execution_repair_outcome_packet_template',
+                'ledger_write_by_writer_release_fresh_authorization_new_cycle_disable_execution_repair_outcome_packet_template',
+                'signature_acceptance_by_writer_release_fresh_authorization_new_cycle_disable_execution_repair_outcome_packet_template',
+                'signature_validation_by_writer_release_fresh_authorization_new_cycle_disable_execution_repair_outcome_packet_template',
+                'receipt_persistence_by_writer_release_fresh_authorization_new_cycle_disable_execution_repair_outcome_packet_template',
+                'decision_recording_by_writer_release_fresh_authorization_new_cycle_disable_execution_repair_outcome_packet_template',
+                'approval_from_writer_release_fresh_authorization_new_cycle_disable_execution_repair_outcome_packet_template',
+                'merge_from_writer_release_fresh_authorization_new_cycle_disable_execution_repair_outcome_packet_template',
+                'dispatch_from_writer_release_fresh_authorization_new_cycle_disable_execution_repair_outcome_packet_template',
+            ],
+            'execution_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'ledger_write_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'dispatch_allowed' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_repair_outcome_packet_template.v1',
+            'status' => $reviewReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_repair_outcome_packet_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_repair_outcome_packet_template_blocked',
+            'mode' => 'read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_repair_outcome_packet_template',
+            'execution_allowed' => false,
+            'ledger_write_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'disable_execution_repair_outcome_packet' => $repairOutcomePacket,
+            'disable_execution_repair_outcome_packet_hash' => $this->stableHash($repairOutcomePacket),
+            'non_execution_guarantees' => [
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_repair_outcome_packet_template_does_not_claim_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_repair_outcome_packet_template_does_not_complete_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_repair_outcome_packet_template_does_not_execute_disable',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_repair_outcome_packet_template_does_not_mutate_writer_state',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_repair_outcome_packet_template_does_not_create_writer_file',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_repair_outcome_packet_template_does_not_accept_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_repair_outcome_packet_template_does_not_validate_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_repair_outcome_packet_template_does_not_write_ledger',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_repair_outcome_packet_template_does_not_persist_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_repair_outcome_packet_template_does_not_record_decision',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_repair_outcome_packet_template_does_not_approve_code',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_repair_outcome_packet_template_does_not_merge',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_repair_outcome_packet_template_does_not_dispatch_work',
+            ],
+            'human_summary' => $reviewReady
+                ? 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution repair outcome packet template is ready as a non-writing repair outcome packet template. It still does not write ledger, persist receipts, record decisions, authorize a later cycle, execute disable, mutate writer state, create a writer, approve, merge or dispatch.'
+                : 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution repair outcome packet template is blocked until fresh authorization new cycle disable execution repair review template is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleRequestTemplate(array $options = []): array
+    {
+        $outcomePayload = $this->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionRepairOutcomePacketTemplate($options);
+        $repairOutcome = (array) data_get($outcomePayload, 'disable_execution_repair_outcome_packet', []);
+        $outcomeReady = data_get($outcomePayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_repair_outcome_packet_template_ready';
+
+        $requiredRequestFields = [
+            'repair_outcome_packet_hash',
+            'selected_repair_review_outcome',
+            'later_cycle_reason',
+            'fresh_authorization_required',
+            'prior_authorization_reuse_forbidden',
+            'later_cycle_scope_hash',
+            'later_cycle_risk_snapshot_hash',
+            'request_actor_identity',
+            'request_timestamp',
+            'non_execution_statement',
+        ];
+
+        $laterCycleRequest = [
+            'disable_execution_later_cycle_request_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-FRESH-AUTHORIZATION-NEW-CYCLE-DISABLE-EXECUTION-LATER-CYCLE-REQUEST-TEMPLATE-SELF-CONSTRUCTION-0001',
+            'status' => $outcomeReady ? 'ready_as_future_fresh_authorization_new_cycle_disable_execution_later_cycle_request_template' : 'blocked_before_writer_release_fresh_authorization_new_cycle_disable_execution_repair_outcome_packet_template',
+            'source_writer_release_fresh_authorization_new_cycle_disable_execution_repair_outcome_packet_hash' => data_get($outcomePayload, 'disable_execution_repair_outcome_packet_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_disable_execution_repair_review_hash' => data_get($repairOutcome, 'source_writer_release_fresh_authorization_new_cycle_disable_execution_repair_review_hash'),
+            'required_request_fields' => $requiredRequestFields,
+            'required_request_field_count' => count($requiredRequestFields),
+            'required_request_evidence' => [
+                'repair_outcome_packet_hash',
+                'repair_outcome_integrity_hash',
+                'selected_repair_review_outcome',
+                'later_cycle_scope_hash',
+                'later_cycle_risk_snapshot_hash',
+                'human_reviewer_identity',
+            ],
+            'request_policy' => [
+                'later_cycle_request_requires_repair_outcome_packet_hash',
+                'later_cycle_request_requires_allowed_repair_outcome',
+                'later_cycle_request_requires_fresh_authorization',
+                'later_cycle_request_forbids_prior_authorization_reuse',
+                'later_cycle_request_does_not_authorize_execution',
+                'later_cycle_request_does_not_write_ledger',
+                'later_cycle_request_does_not_persist_receipt',
+                'later_cycle_request_does_not_execute_disable',
+                'later_cycle_request_does_not_mutate_writer_state',
+                'later_cycle_request_does_not_record_decision',
+            ],
+            'future_request_outputs' => [
+                'writer_release_fresh_authorization_later_cycle_request_hash',
+                'writer_release_fresh_authorization_later_cycle_scope_hash',
+                'writer_release_fresh_authorization_later_cycle_preflight_hash',
+                'writer_release_fresh_authorization_later_cycle_authorization_request_hash',
+            ],
+            'still_forbidden_by_fresh_authorization_new_cycle_disable_execution_later_cycle_request_template' => [
+                'disable_execution_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_request_template',
+                'writer_state_mutation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_request_template',
+                'writer_file_creation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_request_template',
+                'ledger_write_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_request_template',
+                'signature_acceptance_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_request_template',
+                'signature_validation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_request_template',
+                'receipt_persistence_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_request_template',
+                'decision_recording_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_request_template',
+                'authorization_reuse_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_request_template',
+                'later_cycle_authorization_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_request_template',
+                'approval_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_request_template',
+                'merge_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_request_template',
+                'dispatch_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_request_template',
+            ],
+            'execution_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'ledger_write_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'dispatch_allowed' => false,
+            'prior_authorization_reuse_allowed' => false,
+            'later_cycle_authorized' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_request_template.v1',
+            'status' => $outcomeReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_request_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_request_template_blocked',
+            'mode' => 'read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_request_template',
+            'execution_allowed' => false,
+            'ledger_write_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'prior_authorization_reuse_allowed' => false,
+            'later_cycle_authorized' => false,
+            'disable_execution_later_cycle_request' => $laterCycleRequest,
+            'disable_execution_later_cycle_request_hash' => $this->stableHash($laterCycleRequest),
+            'non_execution_guarantees' => [
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_request_template_does_not_claim_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_request_template_does_not_complete_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_request_template_does_not_authorize_later_cycle',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_request_template_does_not_reuse_prior_authorization',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_request_template_does_not_execute_disable',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_request_template_does_not_mutate_writer_state',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_request_template_does_not_create_writer_file',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_request_template_does_not_accept_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_request_template_does_not_validate_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_request_template_does_not_write_ledger',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_request_template_does_not_persist_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_request_template_does_not_record_decision',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_request_template_does_not_approve_code',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_request_template_does_not_merge',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_request_template_does_not_dispatch_work',
+            ],
+            'human_summary' => $outcomeReady
+                ? 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution later-cycle request template is ready as a non-authorizing request template. It still does not write ledger, persist receipts, record decisions, authorize a later cycle, reuse prior authorization, execute disable, mutate writer state, create a writer, approve, merge or dispatch.'
+                : 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution later-cycle request template is blocked until fresh authorization new cycle disable execution repair outcome packet template is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCyclePreflightTemplate(array $options = []): array
+    {
+        $requestPayload = $this->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleRequestTemplate($options);
+        $laterCycleRequest = (array) data_get($requestPayload, 'disable_execution_later_cycle_request', []);
+        $requestReady = data_get($requestPayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_request_template_ready';
+
+        $preflightChecks = [
+            'repair_outcome_packet_hash_present',
+            'repair_outcome_integrity_hash_required',
+            'selected_repair_outcome_allowed',
+            'fresh_authorization_required',
+            'prior_authorization_reuse_forbidden',
+            'later_cycle_scope_hash_required',
+            'later_cycle_risk_snapshot_hash_required',
+            'human_reviewer_identity_required',
+            'non_execution_statement_required',
+            'no_authorization_side_effects_allowed',
+            'no_ledger_or_receipt_persistence_allowed',
+            'no_writer_state_mutation_allowed',
+        ];
+
+        $laterCyclePreflight = [
+            'disable_execution_later_cycle_preflight_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-FRESH-AUTHORIZATION-NEW-CYCLE-DISABLE-EXECUTION-LATER-CYCLE-PREFLIGHT-TEMPLATE-SELF-CONSTRUCTION-0001',
+            'status' => $requestReady ? 'ready_as_future_fresh_authorization_new_cycle_disable_execution_later_cycle_preflight_template' : 'blocked_before_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_request_template',
+            'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_request_hash' => data_get($requestPayload, 'disable_execution_later_cycle_request_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_disable_execution_repair_outcome_packet_hash' => data_get($laterCycleRequest, 'source_writer_release_fresh_authorization_new_cycle_disable_execution_repair_outcome_packet_hash'),
+            'preflight_checks' => $preflightChecks,
+            'preflight_check_count' => count($preflightChecks),
+            'required_preflight_inputs' => [
+                'later_cycle_request_hash',
+                'repair_outcome_packet_hash',
+                'repair_outcome_integrity_hash',
+                'later_cycle_scope_hash',
+                'later_cycle_risk_snapshot_hash',
+                'fresh_authorization_required',
+                'prior_authorization_reuse_forbidden',
+                'human_reviewer_identity',
+            ],
+            'blocking_conditions' => [
+                'missing_later_cycle_request_hash',
+                'missing_repair_outcome_integrity_hash',
+                'missing_scope_hash',
+                'missing_risk_snapshot_hash',
+                'fresh_authorization_not_required',
+                'prior_authorization_reuse_not_forbidden',
+                'missing_human_reviewer_identity',
+                'any_execution_or_persistence_flag_true',
+            ],
+            'preflight_policy' => [
+                'later_cycle_preflight_requires_request_hash',
+                'later_cycle_preflight_requires_repair_outcome_integrity_hash',
+                'later_cycle_preflight_requires_scope_and_risk_hashes',
+                'later_cycle_preflight_requires_fresh_authorization',
+                'later_cycle_preflight_forbids_prior_authorization_reuse',
+                'later_cycle_preflight_does_not_authorize_later_cycle',
+                'later_cycle_preflight_does_not_write_ledger',
+                'later_cycle_preflight_does_not_persist_receipt',
+                'later_cycle_preflight_does_not_execute_disable',
+                'later_cycle_preflight_does_not_mutate_writer_state',
+                'later_cycle_preflight_does_not_record_decision',
+            ],
+            'future_preflight_outputs' => [
+                'writer_release_fresh_authorization_later_cycle_preflight_hash',
+                'writer_release_fresh_authorization_later_cycle_preflight_integrity_hash',
+                'writer_release_fresh_authorization_later_cycle_authorization_request_hash',
+                'writer_release_fresh_authorization_later_cycle_authorization_receipt_draft_hash',
+            ],
+            'still_forbidden_by_fresh_authorization_new_cycle_disable_execution_later_cycle_preflight_template' => [
+                'disable_execution_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_preflight_template',
+                'writer_state_mutation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_preflight_template',
+                'writer_file_creation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_preflight_template',
+                'ledger_write_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_preflight_template',
+                'signature_acceptance_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_preflight_template',
+                'signature_validation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_preflight_template',
+                'receipt_persistence_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_preflight_template',
+                'decision_recording_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_preflight_template',
+                'authorization_reuse_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_preflight_template',
+                'later_cycle_authorization_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_preflight_template',
+                'approval_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_preflight_template',
+                'merge_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_preflight_template',
+                'dispatch_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_preflight_template',
+            ],
+            'execution_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'ledger_write_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'dispatch_allowed' => false,
+            'prior_authorization_reuse_allowed' => false,
+            'later_cycle_authorized' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_preflight_template.v1',
+            'status' => $requestReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_preflight_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_preflight_template_blocked',
+            'mode' => 'read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_preflight_template',
+            'execution_allowed' => false,
+            'ledger_write_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'prior_authorization_reuse_allowed' => false,
+            'later_cycle_authorized' => false,
+            'disable_execution_later_cycle_preflight' => $laterCyclePreflight,
+            'disable_execution_later_cycle_preflight_hash' => $this->stableHash($laterCyclePreflight),
+            'non_execution_guarantees' => [
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_preflight_template_does_not_claim_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_preflight_template_does_not_complete_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_preflight_template_does_not_authorize_later_cycle',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_preflight_template_does_not_reuse_prior_authorization',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_preflight_template_does_not_execute_disable',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_preflight_template_does_not_mutate_writer_state',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_preflight_template_does_not_create_writer_file',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_preflight_template_does_not_accept_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_preflight_template_does_not_validate_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_preflight_template_does_not_write_ledger',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_preflight_template_does_not_persist_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_preflight_template_does_not_record_decision',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_preflight_template_does_not_approve_code',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_preflight_template_does_not_merge',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_preflight_template_does_not_dispatch_work',
+            ],
+            'human_summary' => $requestReady
+                ? 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution later-cycle preflight template is ready as a non-authorizing preflight template. It still does not write ledger, persist receipts, record decisions, authorize a later cycle, reuse prior authorization, execute disable, mutate writer state, create a writer, approve, merge or dispatch.'
+                : 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution later-cycle preflight template is blocked until fresh authorization new cycle disable execution later-cycle request template is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationRequestTemplate(array $options = []): array
+    {
+        $preflightPayload = $this->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCyclePreflightTemplate($options);
+        $laterCyclePreflight = (array) data_get($preflightPayload, 'disable_execution_later_cycle_preflight', []);
+        $preflightReady = data_get($preflightPayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_preflight_template_ready';
+
+        $requiredAuthorizationRequestFields = [
+            'later_cycle_preflight_hash',
+            'later_cycle_request_hash',
+            'authorization_rationale',
+            'fresh_authorization_required',
+            'prior_authorization_reuse_forbidden',
+            'later_cycle_scope_hash',
+            'later_cycle_risk_snapshot_hash',
+            'human_approver_identity',
+            'requested_authorization_bounds',
+            'non_approval_statement',
+        ];
+
+        $laterCycleAuthorizationRequest = [
+            'disable_execution_later_cycle_authorization_request_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-FRESH-AUTHORIZATION-NEW-CYCLE-DISABLE-EXECUTION-LATER-CYCLE-AUTHORIZATION-REQUEST-TEMPLATE-SELF-CONSTRUCTION-0001',
+            'status' => $preflightReady ? 'ready_as_future_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_request_template' : 'blocked_before_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_preflight_template',
+            'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_preflight_hash' => data_get($preflightPayload, 'disable_execution_later_cycle_preflight_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_request_hash' => data_get($laterCyclePreflight, 'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_request_hash'),
+            'required_authorization_request_fields' => $requiredAuthorizationRequestFields,
+            'required_authorization_request_field_count' => count($requiredAuthorizationRequestFields),
+            'required_authorization_request_evidence' => [
+                'later_cycle_preflight_hash',
+                'later_cycle_preflight_integrity_hash',
+                'later_cycle_request_hash',
+                'authorization_rationale',
+                'later_cycle_scope_hash',
+                'later_cycle_risk_snapshot_hash',
+                'human_approver_identity',
+            ],
+            'authorization_request_policy' => [
+                'later_cycle_authorization_request_requires_preflight_hash',
+                'later_cycle_authorization_request_requires_preflight_integrity_hash',
+                'later_cycle_authorization_request_requires_human_approver_identity',
+                'later_cycle_authorization_request_requires_explicit_bounds',
+                'later_cycle_authorization_request_requires_fresh_authorization',
+                'later_cycle_authorization_request_forbids_prior_authorization_reuse',
+                'later_cycle_authorization_request_does_not_grant_approval',
+                'later_cycle_authorization_request_does_not_authorize_later_cycle',
+                'later_cycle_authorization_request_does_not_write_ledger',
+                'later_cycle_authorization_request_does_not_persist_receipt',
+                'later_cycle_authorization_request_does_not_execute_disable',
+                'later_cycle_authorization_request_does_not_mutate_writer_state',
+                'later_cycle_authorization_request_does_not_record_decision',
+            ],
+            'future_authorization_request_outputs' => [
+                'writer_release_fresh_authorization_later_cycle_authorization_request_hash',
+                'writer_release_fresh_authorization_later_cycle_authorization_scope_hash',
+                'writer_release_fresh_authorization_later_cycle_authorization_receipt_draft_hash',
+                'writer_release_fresh_authorization_later_cycle_authorization_signature_request_hash',
+            ],
+            'still_forbidden_by_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_request_template' => [
+                'approval_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_request_template',
+                'later_cycle_authorization_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_request_template',
+                'authorization_reuse_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_request_template',
+                'disable_execution_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_request_template',
+                'writer_state_mutation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_request_template',
+                'writer_file_creation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_request_template',
+                'ledger_write_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_request_template',
+                'signature_acceptance_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_request_template',
+                'signature_validation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_request_template',
+                'receipt_persistence_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_request_template',
+                'decision_recording_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_request_template',
+                'merge_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_request_template',
+                'dispatch_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_request_template',
+            ],
+            'execution_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'ledger_write_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'dispatch_allowed' => false,
+            'prior_authorization_reuse_allowed' => false,
+            'later_cycle_authorized' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_request_template.v1',
+            'status' => $preflightReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_request_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_request_template_blocked',
+            'mode' => 'read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_request_template',
+            'execution_allowed' => false,
+            'ledger_write_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'prior_authorization_reuse_allowed' => false,
+            'later_cycle_authorized' => false,
+            'disable_execution_later_cycle_authorization_request' => $laterCycleAuthorizationRequest,
+            'disable_execution_later_cycle_authorization_request_hash' => $this->stableHash($laterCycleAuthorizationRequest),
+            'non_execution_guarantees' => [
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_request_template_does_not_claim_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_request_template_does_not_complete_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_request_template_does_not_grant_approval',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_request_template_does_not_authorize_later_cycle',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_request_template_does_not_reuse_prior_authorization',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_request_template_does_not_execute_disable',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_request_template_does_not_mutate_writer_state',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_request_template_does_not_create_writer_file',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_request_template_does_not_accept_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_request_template_does_not_validate_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_request_template_does_not_write_ledger',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_request_template_does_not_persist_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_request_template_does_not_record_decision',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_request_template_does_not_merge',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_request_template_does_not_dispatch_work',
+            ],
+            'human_summary' => $preflightReady
+                ? 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization request template is ready as a non-approving authorization request template. It still does not grant approval, authorize a later cycle, reuse prior authorization, write ledger, persist receipts, record decisions, execute disable, mutate writer state, create a writer, merge or dispatch.'
+                : 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization request template is blocked until fresh authorization new cycle disable execution later-cycle preflight template is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationReceiptDraftTemplate(array $options = []): array
+    {
+        $authorizationRequestPayload = $this->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationRequestTemplate($options);
+        $authorizationRequest = (array) data_get($authorizationRequestPayload, 'disable_execution_later_cycle_authorization_request', []);
+        $authorizationRequestReady = data_get($authorizationRequestPayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_request_template_ready';
+
+        $requiredReceiptDraftFields = [
+            'later_cycle_authorization_request_hash',
+            'later_cycle_preflight_hash',
+            'receipt_rationale',
+            'authorization_bounds_snapshot_hash',
+            'fresh_authorization_required',
+            'prior_authorization_reuse_forbidden',
+            'human_approver_identity',
+            'receipt_draft_actor_identity',
+            'receipt_draft_timestamp',
+            'unsigned_receipt_statement',
+        ];
+
+        $receiptDraft = [
+            'disable_execution_later_cycle_authorization_receipt_draft_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-FRESH-AUTHORIZATION-NEW-CYCLE-DISABLE-EXECUTION-LATER-CYCLE-AUTHORIZATION-RECEIPT-DRAFT-TEMPLATE-SELF-CONSTRUCTION-0001',
+            'status' => $authorizationRequestReady ? 'ready_as_future_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_receipt_draft_template' : 'blocked_before_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_request_template',
+            'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_request_hash' => data_get($authorizationRequestPayload, 'disable_execution_later_cycle_authorization_request_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_preflight_hash' => data_get($authorizationRequest, 'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_preflight_hash'),
+            'required_receipt_draft_fields' => $requiredReceiptDraftFields,
+            'required_receipt_draft_field_count' => count($requiredReceiptDraftFields),
+            'required_receipt_draft_evidence' => [
+                'later_cycle_authorization_request_hash',
+                'later_cycle_authorization_request_integrity_hash',
+                'later_cycle_preflight_hash',
+                'authorization_bounds_snapshot_hash',
+                'human_approver_identity',
+                'unsigned_receipt_statement',
+            ],
+            'receipt_draft_policy' => [
+                'later_cycle_authorization_receipt_draft_requires_authorization_request_hash',
+                'later_cycle_authorization_receipt_draft_requires_authorization_request_integrity_hash',
+                'later_cycle_authorization_receipt_draft_requires_preflight_hash',
+                'later_cycle_authorization_receipt_draft_requires_human_approver_identity',
+                'later_cycle_authorization_receipt_draft_requires_unsigned_receipt_statement',
+                'later_cycle_authorization_receipt_draft_does_not_sign_receipt',
+                'later_cycle_authorization_receipt_draft_does_not_persist_receipt',
+                'later_cycle_authorization_receipt_draft_does_not_grant_approval',
+                'later_cycle_authorization_receipt_draft_does_not_authorize_later_cycle',
+                'later_cycle_authorization_receipt_draft_does_not_write_ledger',
+                'later_cycle_authorization_receipt_draft_does_not_execute_disable',
+                'later_cycle_authorization_receipt_draft_does_not_mutate_writer_state',
+                'later_cycle_authorization_receipt_draft_does_not_record_decision',
+            ],
+            'future_receipt_draft_outputs' => [
+                'writer_release_fresh_authorization_later_cycle_authorization_receipt_draft_hash',
+                'writer_release_fresh_authorization_later_cycle_authorization_receipt_draft_integrity_hash',
+                'writer_release_fresh_authorization_later_cycle_authorization_signature_request_hash',
+                'writer_release_fresh_authorization_later_cycle_authorization_post_signature_runbook_hash',
+            ],
+            'still_forbidden_by_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_receipt_draft_template' => [
+                'receipt_signature_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_receipt_draft_template',
+                'receipt_persistence_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_receipt_draft_template',
+                'approval_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_receipt_draft_template',
+                'later_cycle_authorization_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_receipt_draft_template',
+                'authorization_reuse_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_receipt_draft_template',
+                'disable_execution_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_receipt_draft_template',
+                'writer_state_mutation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_receipt_draft_template',
+                'writer_file_creation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_receipt_draft_template',
+                'ledger_write_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_receipt_draft_template',
+                'signature_acceptance_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_receipt_draft_template',
+                'signature_validation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_receipt_draft_template',
+                'decision_recording_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_receipt_draft_template',
+                'merge_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_receipt_draft_template',
+                'dispatch_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_receipt_draft_template',
+            ],
+            'execution_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'ledger_write_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'dispatch_allowed' => false,
+            'prior_authorization_reuse_allowed' => false,
+            'later_cycle_authorized' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_receipt_draft_template.v1',
+            'status' => $authorizationRequestReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_receipt_draft_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_receipt_draft_template_blocked',
+            'mode' => 'read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_receipt_draft_template',
+            'execution_allowed' => false,
+            'ledger_write_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'prior_authorization_reuse_allowed' => false,
+            'later_cycle_authorized' => false,
+            'disable_execution_later_cycle_authorization_receipt_draft' => $receiptDraft,
+            'disable_execution_later_cycle_authorization_receipt_draft_hash' => $this->stableHash($receiptDraft),
+            'non_execution_guarantees' => [
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_receipt_draft_template_does_not_claim_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_receipt_draft_template_does_not_complete_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_receipt_draft_template_does_not_sign_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_receipt_draft_template_does_not_persist_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_receipt_draft_template_does_not_grant_approval',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_receipt_draft_template_does_not_authorize_later_cycle',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_receipt_draft_template_does_not_reuse_prior_authorization',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_receipt_draft_template_does_not_execute_disable',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_receipt_draft_template_does_not_mutate_writer_state',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_receipt_draft_template_does_not_create_writer_file',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_receipt_draft_template_does_not_accept_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_receipt_draft_template_does_not_validate_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_receipt_draft_template_does_not_write_ledger',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_receipt_draft_template_does_not_record_decision',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_receipt_draft_template_does_not_merge',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_receipt_draft_template_does_not_dispatch_work',
+            ],
+            'human_summary' => $authorizationRequestReady
+                ? 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization receipt draft template is ready as an unsigned, non-persisted receipt draft. It still does not sign receipts, persist receipts, grant approval, authorize a later cycle, reuse prior authorization, write ledger, record decisions, execute disable, mutate writer state, create a writer, merge or dispatch.'
+                : 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization receipt draft template is blocked until fresh authorization new cycle disable execution later-cycle authorization request template is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationSignatureRequestTemplate(array $options = []): array
+    {
+        $receiptDraftPayload = $this->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationReceiptDraftTemplate($options);
+        $receiptDraft = (array) data_get($receiptDraftPayload, 'disable_execution_later_cycle_authorization_receipt_draft', []);
+        $receiptDraftReady = data_get($receiptDraftPayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_receipt_draft_template_ready';
+
+        $requiredSignatureRequestFields = [
+            'later_cycle_authorization_receipt_draft_hash',
+            'later_cycle_authorization_receipt_draft_integrity_hash',
+            'later_cycle_authorization_request_hash',
+            'signature_subject',
+            'required_signer_identity',
+            'signature_scope_hash',
+            'signature_deadline',
+            'signature_request_actor_identity',
+            'signature_request_timestamp',
+            'non_signature_acceptance_statement',
+        ];
+
+        $signatureRequest = [
+            'disable_execution_later_cycle_authorization_signature_request_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-FRESH-AUTHORIZATION-NEW-CYCLE-DISABLE-EXECUTION-LATER-CYCLE-AUTHORIZATION-SIGNATURE-REQUEST-TEMPLATE-SELF-CONSTRUCTION-0001',
+            'status' => $receiptDraftReady ? 'ready_as_future_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_request_template' : 'blocked_before_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_receipt_draft_template',
+            'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_receipt_draft_hash' => data_get($receiptDraftPayload, 'disable_execution_later_cycle_authorization_receipt_draft_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_request_hash' => data_get($receiptDraft, 'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_request_hash'),
+            'required_signature_request_fields' => $requiredSignatureRequestFields,
+            'required_signature_request_field_count' => count($requiredSignatureRequestFields),
+            'required_signature_request_evidence' => [
+                'later_cycle_authorization_receipt_draft_hash',
+                'later_cycle_authorization_receipt_draft_integrity_hash',
+                'later_cycle_authorization_request_hash',
+                'signature_subject',
+                'required_signer_identity',
+                'signature_scope_hash',
+                'non_signature_acceptance_statement',
+            ],
+            'signature_request_policy' => [
+                'later_cycle_authorization_signature_request_requires_receipt_draft_hash',
+                'later_cycle_authorization_signature_request_requires_receipt_draft_integrity_hash',
+                'later_cycle_authorization_signature_request_requires_required_signer_identity',
+                'later_cycle_authorization_signature_request_requires_signature_scope_hash',
+                'later_cycle_authorization_signature_request_does_not_accept_signature',
+                'later_cycle_authorization_signature_request_does_not_validate_signature',
+                'later_cycle_authorization_signature_request_does_not_sign_receipt',
+                'later_cycle_authorization_signature_request_does_not_persist_receipt',
+                'later_cycle_authorization_signature_request_does_not_grant_approval',
+                'later_cycle_authorization_signature_request_does_not_authorize_later_cycle',
+                'later_cycle_authorization_signature_request_does_not_write_ledger',
+                'later_cycle_authorization_signature_request_does_not_execute_disable',
+                'later_cycle_authorization_signature_request_does_not_mutate_writer_state',
+                'later_cycle_authorization_signature_request_does_not_record_decision',
+            ],
+            'future_signature_request_outputs' => [
+                'writer_release_fresh_authorization_later_cycle_authorization_signature_request_hash',
+                'writer_release_fresh_authorization_later_cycle_authorization_signature_request_integrity_hash',
+                'writer_release_fresh_authorization_later_cycle_authorization_post_signature_runbook_hash',
+                'writer_release_fresh_authorization_later_cycle_authorization_signed_receipt_hash',
+            ],
+            'still_forbidden_by_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_request_template' => [
+                'signature_acceptance_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_request_template',
+                'signature_validation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_request_template',
+                'receipt_signature_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_request_template',
+                'receipt_persistence_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_request_template',
+                'approval_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_request_template',
+                'later_cycle_authorization_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_request_template',
+                'authorization_reuse_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_request_template',
+                'disable_execution_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_request_template',
+                'writer_state_mutation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_request_template',
+                'writer_file_creation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_request_template',
+                'ledger_write_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_request_template',
+                'decision_recording_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_request_template',
+                'merge_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_request_template',
+                'dispatch_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_request_template',
+            ],
+            'execution_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'ledger_write_allowed' => false,
+            'signature_valid' => false,
+            'signature_accepted' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'dispatch_allowed' => false,
+            'prior_authorization_reuse_allowed' => false,
+            'later_cycle_authorized' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_request_template.v1',
+            'status' => $receiptDraftReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_request_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_request_template_blocked',
+            'mode' => 'read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_request_template',
+            'execution_allowed' => false,
+            'ledger_write_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'signature_accepted' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'prior_authorization_reuse_allowed' => false,
+            'later_cycle_authorized' => false,
+            'disable_execution_later_cycle_authorization_signature_request' => $signatureRequest,
+            'disable_execution_later_cycle_authorization_signature_request_hash' => $this->stableHash($signatureRequest),
+            'non_execution_guarantees' => [
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_request_template_does_not_claim_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_request_template_does_not_complete_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_request_template_does_not_accept_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_request_template_does_not_validate_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_request_template_does_not_sign_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_request_template_does_not_persist_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_request_template_does_not_grant_approval',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_request_template_does_not_authorize_later_cycle',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_request_template_does_not_reuse_prior_authorization',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_request_template_does_not_execute_disable',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_request_template_does_not_mutate_writer_state',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_request_template_does_not_create_writer_file',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_request_template_does_not_write_ledger',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_request_template_does_not_record_decision',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_request_template_does_not_merge',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_request_template_does_not_dispatch_work',
+            ],
+            'human_summary' => $receiptDraftReady
+                ? 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization signature request template is ready as a non-accepting signature request. It still does not accept signatures, validate signatures, sign receipts, persist receipts, grant approval, authorize a later cycle, write ledger, record decisions, execute disable, mutate writer state, create a writer, merge or dispatch.'
+                : 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization signature request template is blocked until fresh authorization new cycle disable execution later-cycle authorization receipt draft template is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationPostSignatureRunbookTemplate(array $options = []): array
+    {
+        $signatureRequestPayload = $this->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationSignatureRequestTemplate($options);
+        $signatureRequest = (array) data_get($signatureRequestPayload, 'disable_execution_later_cycle_authorization_signature_request', []);
+        $signatureRequestReady = data_get($signatureRequestPayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_request_template_ready';
+
+        $runbookSteps = [
+            'collect_detached_signature_artifact',
+            'bind_signature_to_signature_request_hash',
+            'verify_signer_identity_matches_required_signer',
+            'verify_signature_scope_hash_matches_request',
+            'verify_receipt_draft_hash_matches_request',
+            'verify_signature_timestamp_within_deadline',
+            'prepare_signed_receipt_candidate_without_persistence',
+            'prepare_signature_validation_report_without_acceptance',
+            'block_if_any_hash_or_identity_mismatch',
+            'block_if_prior_authorization_reuse_detected',
+            'block_if_any_execution_or_persistence_flag_true',
+            'route_to_signed_receipt_template_only_after_separate_validation_surface',
+        ];
+
+        $runbook = [
+            'disable_execution_later_cycle_authorization_post_signature_runbook_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-FRESH-AUTHORIZATION-NEW-CYCLE-DISABLE-EXECUTION-LATER-CYCLE-AUTHORIZATION-POST-SIGNATURE-RUNBOOK-TEMPLATE-SELF-CONSTRUCTION-0001',
+            'status' => $signatureRequestReady ? 'ready_as_future_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_signature_runbook_template' : 'blocked_before_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_request_template',
+            'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_request_hash' => data_get($signatureRequestPayload, 'disable_execution_later_cycle_authorization_signature_request_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_receipt_draft_hash' => data_get($signatureRequest, 'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_receipt_draft_hash'),
+            'runbook_steps' => $runbookSteps,
+            'runbook_step_count' => count($runbookSteps),
+            'required_runbook_inputs' => [
+                'later_cycle_authorization_signature_request_hash',
+                'later_cycle_authorization_signature_request_integrity_hash',
+                'detached_signature_artifact_hash',
+                'signer_identity',
+                'signature_scope_hash',
+                'receipt_draft_hash',
+                'signature_timestamp',
+                'non_validation_statement',
+            ],
+            'blocking_conditions' => [
+                'missing_signature_request_hash',
+                'missing_detached_signature_artifact_hash',
+                'signer_identity_mismatch',
+                'signature_scope_hash_mismatch',
+                'receipt_draft_hash_mismatch',
+                'signature_timestamp_after_deadline',
+                'prior_authorization_reuse_detected',
+                'any_execution_or_persistence_flag_true',
+            ],
+            'post_signature_runbook_policy' => [
+                'later_cycle_authorization_post_signature_runbook_requires_signature_request_hash',
+                'later_cycle_authorization_post_signature_runbook_requires_detached_signature_artifact_hash',
+                'later_cycle_authorization_post_signature_runbook_requires_signer_identity',
+                'later_cycle_authorization_post_signature_runbook_does_not_accept_signature',
+                'later_cycle_authorization_post_signature_runbook_does_not_validate_signature',
+                'later_cycle_authorization_post_signature_runbook_does_not_sign_receipt',
+                'later_cycle_authorization_post_signature_runbook_does_not_persist_receipt',
+                'later_cycle_authorization_post_signature_runbook_does_not_grant_approval',
+                'later_cycle_authorization_post_signature_runbook_does_not_authorize_later_cycle',
+                'later_cycle_authorization_post_signature_runbook_does_not_write_ledger',
+                'later_cycle_authorization_post_signature_runbook_does_not_execute_disable',
+                'later_cycle_authorization_post_signature_runbook_does_not_mutate_writer_state',
+                'later_cycle_authorization_post_signature_runbook_does_not_record_decision',
+            ],
+            'future_runbook_outputs' => [
+                'writer_release_fresh_authorization_later_cycle_authorization_post_signature_runbook_hash',
+                'writer_release_fresh_authorization_later_cycle_authorization_signature_validation_report_hash',
+                'writer_release_fresh_authorization_later_cycle_authorization_signed_receipt_template_hash',
+                'writer_release_fresh_authorization_later_cycle_authorization_signed_receipt_preflight_hash',
+            ],
+            'still_forbidden_by_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_signature_runbook_template' => [
+                'signature_acceptance_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_signature_runbook_template',
+                'signature_validation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_signature_runbook_template',
+                'receipt_signature_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_signature_runbook_template',
+                'receipt_persistence_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_signature_runbook_template',
+                'approval_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_signature_runbook_template',
+                'later_cycle_authorization_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_signature_runbook_template',
+                'authorization_reuse_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_signature_runbook_template',
+                'disable_execution_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_signature_runbook_template',
+                'writer_state_mutation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_signature_runbook_template',
+                'writer_file_creation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_signature_runbook_template',
+                'ledger_write_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_signature_runbook_template',
+                'decision_recording_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_signature_runbook_template',
+                'merge_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_signature_runbook_template',
+                'dispatch_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_signature_runbook_template',
+            ],
+            'execution_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'ledger_write_allowed' => false,
+            'signature_valid' => false,
+            'signature_accepted' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'dispatch_allowed' => false,
+            'prior_authorization_reuse_allowed' => false,
+            'later_cycle_authorized' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_signature_runbook_template.v1',
+            'status' => $signatureRequestReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_signature_runbook_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_signature_runbook_template_blocked',
+            'mode' => 'read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_signature_runbook_template',
+            'execution_allowed' => false,
+            'ledger_write_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'signature_accepted' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'prior_authorization_reuse_allowed' => false,
+            'later_cycle_authorized' => false,
+            'disable_execution_later_cycle_authorization_post_signature_runbook' => $runbook,
+            'disable_execution_later_cycle_authorization_post_signature_runbook_hash' => $this->stableHash($runbook),
+            'non_execution_guarantees' => [
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_signature_runbook_template_does_not_claim_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_signature_runbook_template_does_not_complete_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_signature_runbook_template_does_not_accept_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_signature_runbook_template_does_not_validate_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_signature_runbook_template_does_not_sign_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_signature_runbook_template_does_not_persist_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_signature_runbook_template_does_not_grant_approval',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_signature_runbook_template_does_not_authorize_later_cycle',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_signature_runbook_template_does_not_reuse_prior_authorization',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_signature_runbook_template_does_not_execute_disable',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_signature_runbook_template_does_not_mutate_writer_state',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_signature_runbook_template_does_not_create_writer_file',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_signature_runbook_template_does_not_write_ledger',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_signature_runbook_template_does_not_record_decision',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_signature_runbook_template_does_not_merge',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_signature_runbook_template_does_not_dispatch_work',
+            ],
+            'human_summary' => $signatureRequestReady
+                ? 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization post-signature runbook template is ready as a non-validating post-signature runbook. It still does not accept signatures, validate signatures, sign receipts, persist receipts, grant approval, authorize a later cycle, reuse prior authorization, write ledger, record decisions, execute disable, mutate writer state, create a writer, merge or dispatch.'
+                : 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization post-signature runbook template is blocked until fresh authorization new cycle disable execution later-cycle authorization signature request template is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationSignatureValidationReportTemplate(array $options = []): array
+    {
+        $runbookPayload = $this->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationPostSignatureRunbookTemplate($options);
+        $runbook = (array) data_get($runbookPayload, 'disable_execution_later_cycle_authorization_post_signature_runbook', []);
+        $runbookReady = data_get($runbookPayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_signature_runbook_template_ready';
+
+        $validationChecks = [
+            'signature_request_hash_matches_runbook_source',
+            'detached_signature_artifact_hash_present',
+            'signer_identity_matches_required_signer',
+            'signature_scope_hash_matches_request',
+            'receipt_draft_hash_matches_request',
+            'signature_timestamp_within_deadline',
+            'prior_authorization_reuse_absent',
+            'execution_flags_remain_false',
+            'persistence_flags_remain_false',
+            'approval_flags_remain_false',
+            'ledger_write_flags_remain_false',
+            'writer_state_mutation_flags_remain_false',
+        ];
+
+        $report = [
+            'disable_execution_later_cycle_authorization_signature_validation_report_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-FRESH-AUTHORIZATION-NEW-CYCLE-DISABLE-EXECUTION-LATER-CYCLE-AUTHORIZATION-SIGNATURE-VALIDATION-REPORT-TEMPLATE-SELF-CONSTRUCTION-0001',
+            'status' => $runbookReady ? 'ready_as_future_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_validation_report_template' : 'blocked_before_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_signature_runbook_template',
+            'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_signature_runbook_hash' => data_get($runbookPayload, 'disable_execution_later_cycle_authorization_post_signature_runbook_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_request_hash' => data_get($runbook, 'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_request_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_receipt_draft_hash' => data_get($runbook, 'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_receipt_draft_hash'),
+            'validation_checks' => $validationChecks,
+            'validation_check_count' => count($validationChecks),
+            'required_validation_inputs' => [
+                'later_cycle_authorization_post_signature_runbook_hash',
+                'later_cycle_authorization_signature_request_hash',
+                'detached_signature_artifact_hash',
+                'signer_identity',
+                'signature_scope_hash',
+                'receipt_draft_hash',
+                'signature_timestamp',
+                'non_acceptance_statement',
+            ],
+            'validation_report_outcomes' => [
+                'validation_report_prepared',
+                'signature_acceptance_deferred',
+                'signed_receipt_creation_deferred',
+                'receipt_persistence_deferred',
+                'later_cycle_authorization_deferred',
+            ],
+            'validation_report_policy' => [
+                'later_cycle_authorization_signature_validation_report_requires_runbook_hash',
+                'later_cycle_authorization_signature_validation_report_requires_signature_request_hash',
+                'later_cycle_authorization_signature_validation_report_requires_detached_signature_artifact_hash',
+                'later_cycle_authorization_signature_validation_report_can_describe_validation_results',
+                'later_cycle_authorization_signature_validation_report_does_not_accept_signature',
+                'later_cycle_authorization_signature_validation_report_does_not_sign_receipt',
+                'later_cycle_authorization_signature_validation_report_does_not_persist_receipt',
+                'later_cycle_authorization_signature_validation_report_does_not_grant_approval',
+                'later_cycle_authorization_signature_validation_report_does_not_authorize_later_cycle',
+                'later_cycle_authorization_signature_validation_report_does_not_write_ledger',
+                'later_cycle_authorization_signature_validation_report_does_not_execute_disable',
+                'later_cycle_authorization_signature_validation_report_does_not_mutate_writer_state',
+                'later_cycle_authorization_signature_validation_report_does_not_record_decision',
+            ],
+            'future_validation_report_outputs' => [
+                'writer_release_fresh_authorization_later_cycle_authorization_signature_validation_report_hash',
+                'writer_release_fresh_authorization_later_cycle_authorization_signed_receipt_template_hash',
+                'writer_release_fresh_authorization_later_cycle_authorization_signed_receipt_preflight_hash',
+                'writer_release_fresh_authorization_later_cycle_authorization_signature_rejection_report_hash',
+            ],
+            'still_forbidden_by_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_validation_report_template' => [
+                'signature_acceptance_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_validation_report_template',
+                'receipt_signature_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_validation_report_template',
+                'receipt_persistence_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_validation_report_template',
+                'approval_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_validation_report_template',
+                'later_cycle_authorization_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_validation_report_template',
+                'authorization_reuse_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_validation_report_template',
+                'disable_execution_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_validation_report_template',
+                'writer_state_mutation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_validation_report_template',
+                'writer_file_creation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_validation_report_template',
+                'ledger_write_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_validation_report_template',
+                'decision_recording_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_validation_report_template',
+                'merge_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_validation_report_template',
+                'dispatch_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_validation_report_template',
+            ],
+            'execution_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'ledger_write_allowed' => false,
+            'signature_valid' => false,
+            'signature_accepted' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'dispatch_allowed' => false,
+            'prior_authorization_reuse_allowed' => false,
+            'later_cycle_authorized' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_validation_report_template.v1',
+            'status' => $runbookReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_validation_report_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_validation_report_template_blocked',
+            'mode' => 'read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_validation_report_template',
+            'execution_allowed' => false,
+            'ledger_write_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'signature_accepted' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'prior_authorization_reuse_allowed' => false,
+            'later_cycle_authorized' => false,
+            'disable_execution_later_cycle_authorization_signature_validation_report' => $report,
+            'disable_execution_later_cycle_authorization_signature_validation_report_hash' => $this->stableHash($report),
+            'non_execution_guarantees' => [
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_validation_report_template_does_not_claim_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_validation_report_template_does_not_complete_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_validation_report_template_does_not_accept_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_validation_report_template_does_not_sign_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_validation_report_template_does_not_persist_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_validation_report_template_does_not_grant_approval',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_validation_report_template_does_not_authorize_later_cycle',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_validation_report_template_does_not_reuse_prior_authorization',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_validation_report_template_does_not_execute_disable',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_validation_report_template_does_not_mutate_writer_state',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_validation_report_template_does_not_create_writer_file',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_validation_report_template_does_not_write_ledger',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_validation_report_template_does_not_record_decision',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_validation_report_template_does_not_merge',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_validation_report_template_does_not_dispatch_work',
+            ],
+            'human_summary' => $runbookReady
+                ? 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization signature validation report template is ready as a non-accepting validation report. It can describe future validation checks, but still does not accept signatures, sign receipts, persist receipts, grant approval, authorize a later cycle, reuse prior authorization, write ledger, record decisions, execute disable, mutate writer state, create a writer, merge or dispatch.'
+                : 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization signature validation report template is blocked until fresh authorization new cycle disable execution later-cycle authorization post-signature runbook template is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationSignedReceiptTemplate(array $options = []): array
+    {
+        $validationReportPayload = $this->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationSignatureValidationReportTemplate($options);
+        $validationReport = (array) data_get($validationReportPayload, 'disable_execution_later_cycle_authorization_signature_validation_report', []);
+        $validationReportReady = data_get($validationReportPayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_validation_report_template_ready';
+
+        $requiredSignedReceiptFields = [
+            'later_cycle_authorization_signed_receipt_id',
+            'later_cycle_authorization_signature_validation_report_hash',
+            'later_cycle_authorization_post_signature_runbook_hash',
+            'later_cycle_authorization_signature_request_hash',
+            'later_cycle_authorization_receipt_draft_hash',
+            'validated_signature_artifact_hash',
+            'validated_signer_identity',
+            'validated_signature_scope_hash',
+            'receipt_signing_subject',
+            'receipt_signing_timestamp',
+            'non_persistence_statement',
+            'non_authorization_statement',
+        ];
+
+        $template = [
+            'disable_execution_later_cycle_authorization_signed_receipt_template_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-FRESH-AUTHORIZATION-NEW-CYCLE-DISABLE-EXECUTION-LATER-CYCLE-AUTHORIZATION-SIGNED-RECEIPT-TEMPLATE-SELF-CONSTRUCTION-0001',
+            'status' => $validationReportReady ? 'ready_as_future_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_template' : 'blocked_before_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_validation_report_template',
+            'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_validation_report_hash' => data_get($validationReportPayload, 'disable_execution_later_cycle_authorization_signature_validation_report_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_signature_runbook_hash' => data_get($validationReport, 'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_signature_runbook_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_request_hash' => data_get($validationReport, 'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_request_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_receipt_draft_hash' => data_get($validationReport, 'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_receipt_draft_hash'),
+            'required_signed_receipt_fields' => $requiredSignedReceiptFields,
+            'required_signed_receipt_field_count' => count($requiredSignedReceiptFields),
+            'signed_receipt_template_policy' => [
+                'later_cycle_authorization_signed_receipt_template_requires_validation_report_hash',
+                'later_cycle_authorization_signed_receipt_template_requires_post_signature_runbook_hash',
+                'later_cycle_authorization_signed_receipt_template_requires_signature_request_hash',
+                'later_cycle_authorization_signed_receipt_template_requires_receipt_draft_hash',
+                'later_cycle_authorization_signed_receipt_template_requires_non_persistence_statement',
+                'later_cycle_authorization_signed_receipt_template_requires_non_authorization_statement',
+                'later_cycle_authorization_signed_receipt_template_does_not_accept_signature',
+                'later_cycle_authorization_signed_receipt_template_does_not_sign_receipt',
+                'later_cycle_authorization_signed_receipt_template_does_not_persist_receipt',
+                'later_cycle_authorization_signed_receipt_template_does_not_grant_approval',
+                'later_cycle_authorization_signed_receipt_template_does_not_authorize_later_cycle',
+                'later_cycle_authorization_signed_receipt_template_does_not_write_ledger',
+                'later_cycle_authorization_signed_receipt_template_does_not_execute_disable',
+                'later_cycle_authorization_signed_receipt_template_does_not_mutate_writer_state',
+                'later_cycle_authorization_signed_receipt_template_does_not_record_decision',
+            ],
+            'future_signed_receipt_outputs' => [
+                'writer_release_fresh_authorization_later_cycle_authorization_signed_receipt_template_hash',
+                'writer_release_fresh_authorization_later_cycle_authorization_signed_receipt_preflight_hash',
+                'writer_release_fresh_authorization_later_cycle_authorization_persistence_preflight_hash',
+                'writer_release_fresh_authorization_later_cycle_authorization_rejection_receipt_hash',
+            ],
+            'still_forbidden_by_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_template' => [
+                'signature_acceptance_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_template',
+                'receipt_signature_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_template',
+                'receipt_persistence_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_template',
+                'approval_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_template',
+                'later_cycle_authorization_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_template',
+                'authorization_reuse_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_template',
+                'disable_execution_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_template',
+                'writer_state_mutation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_template',
+                'writer_file_creation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_template',
+                'ledger_write_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_template',
+                'decision_recording_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_template',
+                'merge_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_template',
+                'dispatch_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_template',
+            ],
+            'execution_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'ledger_write_allowed' => false,
+            'signature_valid' => false,
+            'signature_accepted' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'dispatch_allowed' => false,
+            'prior_authorization_reuse_allowed' => false,
+            'later_cycle_authorized' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_template.v1',
+            'status' => $validationReportReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_template_blocked',
+            'mode' => 'read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_template',
+            'execution_allowed' => false,
+            'ledger_write_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'signature_accepted' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'prior_authorization_reuse_allowed' => false,
+            'later_cycle_authorized' => false,
+            'disable_execution_later_cycle_authorization_signed_receipt_template' => $template,
+            'disable_execution_later_cycle_authorization_signed_receipt_template_hash' => $this->stableHash($template),
+            'non_execution_guarantees' => [
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_template_does_not_claim_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_template_does_not_complete_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_template_does_not_accept_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_template_does_not_sign_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_template_does_not_persist_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_template_does_not_grant_approval',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_template_does_not_authorize_later_cycle',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_template_does_not_reuse_prior_authorization',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_template_does_not_execute_disable',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_template_does_not_mutate_writer_state',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_template_does_not_create_writer_file',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_template_does_not_write_ledger',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_template_does_not_record_decision',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_template_does_not_merge',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_template_does_not_dispatch_work',
+            ],
+            'human_summary' => $validationReportReady
+                ? 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization signed receipt template is ready as a non-signing receipt template. It still does not accept signatures, sign receipts, persist receipts, grant approval, authorize a later cycle, reuse prior authorization, write ledger, record decisions, execute disable, mutate writer state, create a writer, merge or dispatch.'
+                : 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization signed receipt template is blocked until fresh authorization new cycle disable execution later-cycle authorization signature validation report template is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationSignedReceiptPreflightTemplate(array $options = []): array
+    {
+        $signedReceiptPayload = $this->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationSignedReceiptTemplate($options);
+        $signedReceiptTemplate = (array) data_get($signedReceiptPayload, 'disable_execution_later_cycle_authorization_signed_receipt_template', []);
+        $signedReceiptTemplateReady = data_get($signedReceiptPayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_template_ready';
+
+        $preflightChecks = [
+            'signed_receipt_template_hash_present',
+            'signature_validation_report_hash_present',
+            'post_signature_runbook_hash_present',
+            'signature_request_hash_present',
+            'receipt_draft_hash_present',
+            'non_persistence_statement_present',
+            'non_authorization_statement_present',
+            'signature_acceptance_flag_false',
+            'receipt_signature_flag_false',
+            'receipt_persistence_flag_false',
+            'later_cycle_authorization_flag_false',
+            'ledger_write_flag_false',
+        ];
+
+        $preflight = [
+            'disable_execution_later_cycle_authorization_signed_receipt_preflight_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-FRESH-AUTHORIZATION-NEW-CYCLE-DISABLE-EXECUTION-LATER-CYCLE-AUTHORIZATION-SIGNED-RECEIPT-PREFLIGHT-TEMPLATE-SELF-CONSTRUCTION-0001',
+            'status' => $signedReceiptTemplateReady ? 'ready_as_future_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_preflight_template' : 'blocked_before_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_template',
+            'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_template_hash' => data_get($signedReceiptPayload, 'disable_execution_later_cycle_authorization_signed_receipt_template_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_validation_report_hash' => data_get($signedReceiptTemplate, 'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_validation_report_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_signature_runbook_hash' => data_get($signedReceiptTemplate, 'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_signature_runbook_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_request_hash' => data_get($signedReceiptTemplate, 'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_request_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_receipt_draft_hash' => data_get($signedReceiptTemplate, 'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_receipt_draft_hash'),
+            'preflight_checks' => $preflightChecks,
+            'preflight_check_count' => count($preflightChecks),
+            'required_preflight_inputs' => [
+                'later_cycle_authorization_signed_receipt_template_hash',
+                'later_cycle_authorization_signature_validation_report_hash',
+                'later_cycle_authorization_post_signature_runbook_hash',
+                'later_cycle_authorization_signature_request_hash',
+                'later_cycle_authorization_receipt_draft_hash',
+                'non_persistence_statement',
+                'non_authorization_statement',
+            ],
+            'blocking_conditions' => [
+                'missing_signed_receipt_template_hash',
+                'missing_signature_validation_report_hash',
+                'missing_non_persistence_statement',
+                'missing_non_authorization_statement',
+                'signature_accepted_flag_true',
+                'receipt_signed_flag_true',
+                'receipt_persisted_flag_true',
+                'later_cycle_authorized_flag_true',
+                'ledger_write_flag_true',
+                'execution_allowed_flag_true',
+            ],
+            'signed_receipt_preflight_policy' => [
+                'later_cycle_authorization_signed_receipt_preflight_requires_signed_receipt_template_hash',
+                'later_cycle_authorization_signed_receipt_preflight_requires_signature_validation_report_hash',
+                'later_cycle_authorization_signed_receipt_preflight_requires_non_persistence_statement',
+                'later_cycle_authorization_signed_receipt_preflight_requires_non_authorization_statement',
+                'later_cycle_authorization_signed_receipt_preflight_does_not_accept_signature',
+                'later_cycle_authorization_signed_receipt_preflight_does_not_sign_receipt',
+                'later_cycle_authorization_signed_receipt_preflight_does_not_persist_receipt',
+                'later_cycle_authorization_signed_receipt_preflight_does_not_grant_approval',
+                'later_cycle_authorization_signed_receipt_preflight_does_not_authorize_later_cycle',
+                'later_cycle_authorization_signed_receipt_preflight_does_not_write_ledger',
+                'later_cycle_authorization_signed_receipt_preflight_does_not_execute_disable',
+                'later_cycle_authorization_signed_receipt_preflight_does_not_mutate_writer_state',
+                'later_cycle_authorization_signed_receipt_preflight_does_not_record_decision',
+            ],
+            'future_preflight_outputs' => [
+                'writer_release_fresh_authorization_later_cycle_authorization_signed_receipt_preflight_hash',
+                'writer_release_fresh_authorization_later_cycle_authorization_persistence_preflight_hash',
+                'writer_release_fresh_authorization_later_cycle_authorization_signed_receipt_repair_request_hash',
+                'writer_release_fresh_authorization_later_cycle_authorization_rejection_receipt_hash',
+            ],
+            'still_forbidden_by_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_preflight_template' => [
+                'signature_acceptance_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_preflight_template',
+                'receipt_signature_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_preflight_template',
+                'receipt_persistence_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_preflight_template',
+                'approval_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_preflight_template',
+                'later_cycle_authorization_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_preflight_template',
+                'authorization_reuse_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_preflight_template',
+                'disable_execution_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_preflight_template',
+                'writer_state_mutation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_preflight_template',
+                'writer_file_creation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_preflight_template',
+                'ledger_write_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_preflight_template',
+                'decision_recording_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_preflight_template',
+                'merge_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_preflight_template',
+                'dispatch_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_preflight_template',
+            ],
+            'execution_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'ledger_write_allowed' => false,
+            'signature_valid' => false,
+            'signature_accepted' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'dispatch_allowed' => false,
+            'prior_authorization_reuse_allowed' => false,
+            'later_cycle_authorized' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_preflight_template.v1',
+            'status' => $signedReceiptTemplateReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_preflight_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_preflight_template_blocked',
+            'mode' => 'read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_preflight_template',
+            'execution_allowed' => false,
+            'ledger_write_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'signature_accepted' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'prior_authorization_reuse_allowed' => false,
+            'later_cycle_authorized' => false,
+            'disable_execution_later_cycle_authorization_signed_receipt_preflight' => $preflight,
+            'disable_execution_later_cycle_authorization_signed_receipt_preflight_hash' => $this->stableHash($preflight),
+            'non_execution_guarantees' => [
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_preflight_template_does_not_claim_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_preflight_template_does_not_complete_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_preflight_template_does_not_accept_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_preflight_template_does_not_sign_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_preflight_template_does_not_persist_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_preflight_template_does_not_grant_approval',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_preflight_template_does_not_authorize_later_cycle',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_preflight_template_does_not_reuse_prior_authorization',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_preflight_template_does_not_execute_disable',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_preflight_template_does_not_mutate_writer_state',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_preflight_template_does_not_create_writer_file',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_preflight_template_does_not_write_ledger',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_preflight_template_does_not_record_decision',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_preflight_template_does_not_merge',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_preflight_template_does_not_dispatch_work',
+            ],
+            'human_summary' => $signedReceiptTemplateReady
+                ? 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization signed receipt preflight template is ready as a non-persisting preflight. It still does not accept signatures, sign receipts, persist receipts, grant approval, authorize a later cycle, reuse prior authorization, write ledger, record decisions, execute disable, mutate writer state, create a writer, merge or dispatch.'
+                : 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization signed receipt preflight template is blocked until fresh authorization new cycle disable execution later-cycle authorization signed receipt template is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationPersistencePreflightTemplate(array $options = []): array
+    {
+        $signedReceiptPreflightPayload = $this->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationSignedReceiptPreflightTemplate($options);
+        $signedReceiptPreflight = (array) data_get($signedReceiptPreflightPayload, 'disable_execution_later_cycle_authorization_signed_receipt_preflight', []);
+        $signedReceiptPreflightReady = data_get($signedReceiptPreflightPayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_preflight_template_ready';
+
+        $persistencePreflightChecks = [
+            'signed_receipt_preflight_hash_present',
+            'signed_receipt_template_hash_present',
+            'signature_validation_report_hash_present',
+            'receipt_draft_hash_present',
+            'non_persistence_statement_present',
+            'non_authorization_statement_present',
+            'persistence_target_declared_without_write',
+            'ledger_target_declared_without_write',
+            'receipt_persisted_flag_false',
+            'ledger_write_allowed_flag_false',
+            'later_cycle_authorized_flag_false',
+            'execution_allowed_flag_false',
+        ];
+
+        $preflight = [
+            'disable_execution_later_cycle_authorization_persistence_preflight_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-FRESH-AUTHORIZATION-NEW-CYCLE-DISABLE-EXECUTION-LATER-CYCLE-AUTHORIZATION-PERSISTENCE-PREFLIGHT-TEMPLATE-SELF-CONSTRUCTION-0001',
+            'status' => $signedReceiptPreflightReady ? 'ready_as_future_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_preflight_template' : 'blocked_before_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_preflight_template',
+            'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_preflight_hash' => data_get($signedReceiptPreflightPayload, 'disable_execution_later_cycle_authorization_signed_receipt_preflight_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_template_hash' => data_get($signedReceiptPreflight, 'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_template_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_validation_report_hash' => data_get($signedReceiptPreflight, 'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_validation_report_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_receipt_draft_hash' => data_get($signedReceiptPreflight, 'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_receipt_draft_hash'),
+            'persistence_preflight_checks' => $persistencePreflightChecks,
+            'persistence_preflight_check_count' => count($persistencePreflightChecks),
+            'required_persistence_preflight_inputs' => [
+                'later_cycle_authorization_signed_receipt_preflight_hash',
+                'later_cycle_authorization_signed_receipt_template_hash',
+                'later_cycle_authorization_signature_validation_report_hash',
+                'later_cycle_authorization_receipt_draft_hash',
+                'non_persistence_statement',
+                'non_authorization_statement',
+                'future_persistence_target_name',
+                'future_ledger_target_name',
+            ],
+            'blocking_conditions' => [
+                'missing_signed_receipt_preflight_hash',
+                'missing_signed_receipt_template_hash',
+                'missing_signature_validation_report_hash',
+                'missing_future_persistence_target_name',
+                'missing_future_ledger_target_name',
+                'receipt_persisted_flag_true',
+                'ledger_write_allowed_flag_true',
+                'later_cycle_authorized_flag_true',
+                'execution_allowed_flag_true',
+                'dispatch_allowed_flag_true',
+            ],
+            'persistence_preflight_policy' => [
+                'later_cycle_authorization_persistence_preflight_requires_signed_receipt_preflight_hash',
+                'later_cycle_authorization_persistence_preflight_requires_signed_receipt_template_hash',
+                'later_cycle_authorization_persistence_preflight_requires_signature_validation_report_hash',
+                'later_cycle_authorization_persistence_preflight_declares_targets_without_writing',
+                'later_cycle_authorization_persistence_preflight_does_not_accept_signature',
+                'later_cycle_authorization_persistence_preflight_does_not_sign_receipt',
+                'later_cycle_authorization_persistence_preflight_does_not_persist_receipt',
+                'later_cycle_authorization_persistence_preflight_does_not_grant_approval',
+                'later_cycle_authorization_persistence_preflight_does_not_authorize_later_cycle',
+                'later_cycle_authorization_persistence_preflight_does_not_write_ledger',
+                'later_cycle_authorization_persistence_preflight_does_not_execute_disable',
+                'later_cycle_authorization_persistence_preflight_does_not_mutate_writer_state',
+                'later_cycle_authorization_persistence_preflight_does_not_record_decision',
+            ],
+            'future_persistence_preflight_outputs' => [
+                'writer_release_fresh_authorization_later_cycle_authorization_persistence_preflight_hash',
+                'writer_release_fresh_authorization_later_cycle_authorization_persistence_receipt_template_hash',
+                'writer_release_fresh_authorization_later_cycle_authorization_persistence_rejection_hash',
+                'writer_release_fresh_authorization_later_cycle_authorization_post_persistence_review_hash',
+            ],
+            'still_forbidden_by_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_preflight_template' => [
+                'signature_acceptance_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_preflight_template',
+                'receipt_signature_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_preflight_template',
+                'receipt_persistence_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_preflight_template',
+                'approval_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_preflight_template',
+                'later_cycle_authorization_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_preflight_template',
+                'authorization_reuse_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_preflight_template',
+                'disable_execution_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_preflight_template',
+                'writer_state_mutation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_preflight_template',
+                'writer_file_creation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_preflight_template',
+                'ledger_write_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_preflight_template',
+                'decision_recording_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_preflight_template',
+                'merge_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_preflight_template',
+                'dispatch_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_preflight_template',
+            ],
+            'execution_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'ledger_write_allowed' => false,
+            'signature_valid' => false,
+            'signature_accepted' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'dispatch_allowed' => false,
+            'prior_authorization_reuse_allowed' => false,
+            'later_cycle_authorized' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_preflight_template.v1',
+            'status' => $signedReceiptPreflightReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_preflight_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_preflight_template_blocked',
+            'mode' => 'read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_preflight_template',
+            'execution_allowed' => false,
+            'ledger_write_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'signature_accepted' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'prior_authorization_reuse_allowed' => false,
+            'later_cycle_authorized' => false,
+            'disable_execution_later_cycle_authorization_persistence_preflight' => $preflight,
+            'disable_execution_later_cycle_authorization_persistence_preflight_hash' => $this->stableHash($preflight),
+            'non_execution_guarantees' => [
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_preflight_template_does_not_claim_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_preflight_template_does_not_complete_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_preflight_template_does_not_accept_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_preflight_template_does_not_sign_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_preflight_template_does_not_persist_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_preflight_template_does_not_grant_approval',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_preflight_template_does_not_authorize_later_cycle',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_preflight_template_does_not_reuse_prior_authorization',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_preflight_template_does_not_execute_disable',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_preflight_template_does_not_mutate_writer_state',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_preflight_template_does_not_create_writer_file',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_preflight_template_does_not_write_ledger',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_preflight_template_does_not_record_decision',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_preflight_template_does_not_merge',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_preflight_template_does_not_dispatch_work',
+            ],
+            'human_summary' => $signedReceiptPreflightReady
+                ? 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization persistence preflight template is ready as a non-writing persistence preflight. It still does not accept signatures, sign receipts, persist receipts, grant approval, authorize a later cycle, reuse prior authorization, write ledger, record decisions, execute disable, mutate writer state, create a writer, merge or dispatch.'
+                : 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization persistence preflight template is blocked until fresh authorization new cycle disable execution later-cycle authorization signed receipt preflight template is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationPersistenceReceiptTemplate(array $options = []): array
+    {
+        $persistencePreflightPayload = $this->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationPersistencePreflightTemplate($options);
+        $persistencePreflight = (array) data_get($persistencePreflightPayload, 'disable_execution_later_cycle_authorization_persistence_preflight', []);
+        $persistencePreflightReady = data_get($persistencePreflightPayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_preflight_template_ready';
+
+        $requiredPersistenceReceiptFields = [
+            'later_cycle_authorization_persistence_receipt_id',
+            'later_cycle_authorization_persistence_preflight_hash',
+            'later_cycle_authorization_signed_receipt_preflight_hash',
+            'later_cycle_authorization_signed_receipt_template_hash',
+            'later_cycle_authorization_signature_validation_report_hash',
+            'future_persistence_target_name',
+            'future_ledger_target_name',
+            'future_persistence_operation_hash',
+            'future_ledger_operation_hash',
+            'non_persistence_statement',
+            'non_ledger_write_statement',
+            'non_authorization_statement',
+        ];
+
+        $template = [
+            'disable_execution_later_cycle_authorization_persistence_receipt_template_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-FRESH-AUTHORIZATION-NEW-CYCLE-DISABLE-EXECUTION-LATER-CYCLE-AUTHORIZATION-PERSISTENCE-RECEIPT-TEMPLATE-SELF-CONSTRUCTION-0001',
+            'status' => $persistencePreflightReady ? 'ready_as_future_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_receipt_template' : 'blocked_before_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_preflight_template',
+            'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_preflight_hash' => data_get($persistencePreflightPayload, 'disable_execution_later_cycle_authorization_persistence_preflight_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_preflight_hash' => data_get($persistencePreflight, 'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_preflight_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_template_hash' => data_get($persistencePreflight, 'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_template_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_validation_report_hash' => data_get($persistencePreflight, 'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_validation_report_hash'),
+            'required_persistence_receipt_fields' => $requiredPersistenceReceiptFields,
+            'required_persistence_receipt_field_count' => count($requiredPersistenceReceiptFields),
+            'persistence_receipt_template_policy' => [
+                'later_cycle_authorization_persistence_receipt_template_requires_persistence_preflight_hash',
+                'later_cycle_authorization_persistence_receipt_template_requires_signed_receipt_preflight_hash',
+                'later_cycle_authorization_persistence_receipt_template_requires_future_persistence_target_name',
+                'later_cycle_authorization_persistence_receipt_template_requires_future_ledger_target_name',
+                'later_cycle_authorization_persistence_receipt_template_requires_non_persistence_statement',
+                'later_cycle_authorization_persistence_receipt_template_requires_non_ledger_write_statement',
+                'later_cycle_authorization_persistence_receipt_template_requires_non_authorization_statement',
+                'later_cycle_authorization_persistence_receipt_template_does_not_accept_signature',
+                'later_cycle_authorization_persistence_receipt_template_does_not_sign_receipt',
+                'later_cycle_authorization_persistence_receipt_template_does_not_persist_receipt',
+                'later_cycle_authorization_persistence_receipt_template_does_not_grant_approval',
+                'later_cycle_authorization_persistence_receipt_template_does_not_authorize_later_cycle',
+                'later_cycle_authorization_persistence_receipt_template_does_not_write_ledger',
+                'later_cycle_authorization_persistence_receipt_template_does_not_execute_disable',
+                'later_cycle_authorization_persistence_receipt_template_does_not_mutate_writer_state',
+                'later_cycle_authorization_persistence_receipt_template_does_not_record_decision',
+            ],
+            'future_persistence_receipt_outputs' => [
+                'writer_release_fresh_authorization_later_cycle_authorization_persistence_receipt_template_hash',
+                'writer_release_fresh_authorization_later_cycle_authorization_post_persistence_review_hash',
+                'writer_release_fresh_authorization_later_cycle_authorization_follow_up_observability_hash',
+                'writer_release_fresh_authorization_later_cycle_authorization_persistence_rejection_hash',
+            ],
+            'still_forbidden_by_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_receipt_template' => [
+                'signature_acceptance_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_receipt_template',
+                'receipt_signature_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_receipt_template',
+                'receipt_persistence_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_receipt_template',
+                'approval_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_receipt_template',
+                'later_cycle_authorization_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_receipt_template',
+                'authorization_reuse_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_receipt_template',
+                'disable_execution_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_receipt_template',
+                'writer_state_mutation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_receipt_template',
+                'writer_file_creation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_receipt_template',
+                'ledger_write_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_receipt_template',
+                'decision_recording_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_receipt_template',
+                'merge_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_receipt_template',
+                'dispatch_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_receipt_template',
+            ],
+            'execution_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'ledger_write_allowed' => false,
+            'signature_valid' => false,
+            'signature_accepted' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'dispatch_allowed' => false,
+            'prior_authorization_reuse_allowed' => false,
+            'later_cycle_authorized' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_receipt_template.v1',
+            'status' => $persistencePreflightReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_receipt_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_receipt_template_blocked',
+            'mode' => 'read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_receipt_template',
+            'execution_allowed' => false,
+            'ledger_write_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'signature_accepted' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'prior_authorization_reuse_allowed' => false,
+            'later_cycle_authorized' => false,
+            'disable_execution_later_cycle_authorization_persistence_receipt_template' => $template,
+            'disable_execution_later_cycle_authorization_persistence_receipt_template_hash' => $this->stableHash($template),
+            'non_execution_guarantees' => [
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_receipt_template_does_not_claim_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_receipt_template_does_not_complete_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_receipt_template_does_not_accept_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_receipt_template_does_not_sign_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_receipt_template_does_not_persist_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_receipt_template_does_not_grant_approval',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_receipt_template_does_not_authorize_later_cycle',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_receipt_template_does_not_reuse_prior_authorization',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_receipt_template_does_not_execute_disable',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_receipt_template_does_not_mutate_writer_state',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_receipt_template_does_not_create_writer_file',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_receipt_template_does_not_write_ledger',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_receipt_template_does_not_record_decision',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_receipt_template_does_not_merge',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_receipt_template_does_not_dispatch_work',
+            ],
+            'human_summary' => $persistencePreflightReady
+                ? 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization persistence receipt template is ready as a non-persisting receipt template. It still does not accept signatures, sign receipts, persist receipts, grant approval, authorize a later cycle, reuse prior authorization, write ledger, record decisions, execute disable, mutate writer state, create a writer, merge or dispatch.'
+                : 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization persistence receipt template is blocked until fresh authorization new cycle disable execution later-cycle authorization persistence preflight template is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationPostPersistenceReviewTemplate(array $options = []): array
+    {
+        $receiptPayload = $this->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationPersistenceReceiptTemplate($options);
+        $persistenceReceipt = (array) data_get($receiptPayload, 'disable_execution_later_cycle_authorization_persistence_receipt_template', []);
+        $receiptReady = data_get($receiptPayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_receipt_template_ready';
+
+        $allowedReviewDecisions = [
+            'keep_later_cycle_authorization_disabled_after_persistence_receipt',
+            'continue_later_cycle_authorization_observation',
+            'request_later_cycle_authorization_persistence_evidence_repair',
+            'escalate_later_cycle_authorization_persistence_anomaly',
+            'request_new_fresh_authorization_cycle_after_later_cycle_review',
+        ];
+
+        $review = [
+            'disable_execution_later_cycle_authorization_post_persistence_review_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-FRESH-AUTHORIZATION-NEW-CYCLE-DISABLE-EXECUTION-LATER-CYCLE-AUTHORIZATION-POST-PERSISTENCE-REVIEW-TEMPLATE-SELF-CONSTRUCTION-0001',
+            'status' => $receiptReady ? 'ready_as_future_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_persistence_review_template' : 'blocked_before_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_receipt_template',
+            'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_receipt_template_hash' => data_get($receiptPayload, 'disable_execution_later_cycle_authorization_persistence_receipt_template_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_preflight_hash' => data_get($persistenceReceipt, 'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_preflight_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_preflight_hash' => data_get($persistenceReceipt, 'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_preflight_hash'),
+            'allowed_review_decisions' => $allowedReviewDecisions,
+            'allowed_review_decision_count' => count($allowedReviewDecisions),
+            'required_review_evidence' => [
+                'writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_receipt_template_hash',
+                'later_cycle_authorization_persistence_preflight_hash',
+                'later_cycle_authorization_signed_receipt_preflight_hash',
+                'future_persistence_operation_hash',
+                'future_ledger_operation_hash',
+                'post_persistence_integrity_check_hash',
+                'later_cycle_authorization_observation_window_hash',
+                'human_reviewer_identity',
+            ],
+            'review_policy' => [
+                'review_requires_persistence_receipt_template_hash',
+                'review_requires_persistence_preflight_hash',
+                'review_requires_signed_receipt_preflight_hash',
+                'review_requires_future_operation_hashes',
+                'review_requires_later_cycle_authorized_flag_false',
+                'review_does_not_accept_signature',
+                'review_does_not_sign_receipt',
+                'review_does_not_write_ledger',
+                'review_does_not_persist_receipt',
+                'review_does_not_record_decision',
+                'review_does_not_authorize_later_cycle',
+                'review_does_not_execute_disable',
+                'review_does_not_mutate_writer_state',
+            ],
+            'future_review_outputs' => [
+                'writer_release_fresh_authorization_later_cycle_authorization_post_persistence_review_hash',
+                'writer_release_fresh_authorization_later_cycle_authorization_follow_up_observability_hash',
+                'writer_release_fresh_authorization_later_cycle_authorization_evidence_repair_request_hash',
+                'writer_release_fresh_authorization_later_cycle_authorization_persistence_rejection_hash',
+            ],
+            'still_forbidden_by_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_persistence_review_template' => [
+                'signature_acceptance_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_persistence_review_template',
+                'receipt_signature_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_persistence_review_template',
+                'receipt_persistence_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_persistence_review_template',
+                'approval_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_persistence_review_template',
+                'later_cycle_authorization_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_persistence_review_template',
+                'authorization_reuse_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_persistence_review_template',
+                'disable_execution_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_persistence_review_template',
+                'writer_state_mutation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_persistence_review_template',
+                'writer_file_creation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_persistence_review_template',
+                'ledger_write_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_persistence_review_template',
+                'decision_recording_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_persistence_review_template',
+                'merge_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_persistence_review_template',
+                'dispatch_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_persistence_review_template',
+            ],
+            'execution_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'ledger_write_allowed' => false,
+            'signature_valid' => false,
+            'signature_accepted' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'dispatch_allowed' => false,
+            'prior_authorization_reuse_allowed' => false,
+            'later_cycle_authorized' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_persistence_review_template.v1',
+            'status' => $receiptReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_persistence_review_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_persistence_review_template_blocked',
+            'mode' => 'read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_persistence_review_template',
+            'execution_allowed' => false,
+            'ledger_write_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'signature_accepted' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'prior_authorization_reuse_allowed' => false,
+            'later_cycle_authorized' => false,
+            'disable_execution_later_cycle_authorization_post_persistence_review' => $review,
+            'disable_execution_later_cycle_authorization_post_persistence_review_hash' => $this->stableHash($review),
+            'non_execution_guarantees' => [
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_persistence_review_template_does_not_claim_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_persistence_review_template_does_not_complete_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_persistence_review_template_does_not_accept_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_persistence_review_template_does_not_sign_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_persistence_review_template_does_not_persist_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_persistence_review_template_does_not_grant_approval',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_persistence_review_template_does_not_authorize_later_cycle',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_persistence_review_template_does_not_reuse_prior_authorization',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_persistence_review_template_does_not_execute_disable',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_persistence_review_template_does_not_mutate_writer_state',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_persistence_review_template_does_not_create_writer_file',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_persistence_review_template_does_not_write_ledger',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_persistence_review_template_does_not_record_decision',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_persistence_review_template_does_not_merge',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_persistence_review_template_does_not_dispatch_work',
+            ],
+            'human_summary' => $receiptReady
+                ? 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization post-persistence review template is ready as a non-writing review template. It still does not accept signatures, sign receipts, persist receipts, grant approval, authorize a later cycle, reuse prior authorization, write ledger, record decisions, execute disable, mutate writer state, create a writer, merge or dispatch.'
+                : 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization post-persistence review template is blocked until fresh authorization new cycle disable execution later-cycle authorization persistence receipt template is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationFollowUpObservabilityTemplate(array $options = []): array
+    {
+        $reviewPayload = $this->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationPostPersistenceReviewTemplate($options);
+        $postPersistenceReview = (array) data_get($reviewPayload, 'disable_execution_later_cycle_authorization_post_persistence_review', []);
+        $reviewReady = data_get($reviewPayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_persistence_review_template_ready';
+
+        $observationSignals = [
+            'later_cycle_authorization_still_disabled',
+            'prior_authorization_reuse_still_disabled',
+            'receipt_persistence_still_disabled',
+            'ledger_write_still_disabled',
+            'decision_recording_still_disabled',
+            'writer_file_creation_still_disabled',
+            'merge_and_dispatch_still_disabled',
+            'execution_still_disabled',
+        ];
+
+        $observability = [
+            'disable_execution_later_cycle_authorization_follow_up_observability_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-FRESH-AUTHORIZATION-NEW-CYCLE-DISABLE-EXECUTION-LATER-CYCLE-AUTHORIZATION-FOLLOW-UP-OBSERVABILITY-TEMPLATE-SELF-CONSTRUCTION-0001',
+            'status' => $reviewReady ? 'ready_as_future_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_follow_up_observability_template' : 'blocked_before_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_persistence_review_template',
+            'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_persistence_review_hash' => data_get($reviewPayload, 'disable_execution_later_cycle_authorization_post_persistence_review_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_receipt_template_hash' => data_get($postPersistenceReview, 'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_receipt_template_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_preflight_hash' => data_get($postPersistenceReview, 'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_preflight_hash'),
+            'observation_signals' => $observationSignals,
+            'observation_signal_count' => count($observationSignals),
+            'required_observation_evidence' => [
+                'later_cycle_authorization_post_persistence_review_hash',
+                'later_cycle_authorization_persistence_receipt_template_hash',
+                'later_cycle_authorization_observation_window_hash',
+                'no_later_cycle_authorization_evidence_hash',
+                'no_prior_authorization_reuse_evidence_hash',
+                'no_ledger_write_evidence_hash',
+                'no_decision_recording_evidence_hash',
+                'no_dispatch_after_review_evidence_hash',
+                'human_reviewer_identity',
+            ],
+            'observability_policy' => [
+                'observability_requires_post_persistence_review_hash',
+                'observability_requires_no_later_cycle_authorization_evidence',
+                'observability_requires_no_prior_authorization_reuse_evidence',
+                'observability_requires_no_ledger_write_evidence',
+                'observability_requires_no_decision_recording_evidence',
+                'observability_requires_no_dispatch_evidence',
+                'observability_does_not_accept_signature',
+                'observability_does_not_sign_receipt',
+                'observability_does_not_write_ledger',
+                'observability_does_not_persist_receipt',
+                'observability_does_not_record_decision',
+                'observability_does_not_authorize_later_cycle',
+                'observability_does_not_execute_disable',
+                'observability_does_not_mutate_writer_state',
+            ],
+            'future_observability_outputs' => [
+                'writer_release_fresh_authorization_later_cycle_authorization_follow_up_observability_hash',
+                'writer_release_fresh_authorization_later_cycle_authorization_observation_window_hash',
+                'writer_release_fresh_authorization_later_cycle_authorization_evidence_repair_request_hash',
+                'writer_release_fresh_authorization_later_cycle_authorization_persistence_rejection_hash',
+            ],
+            'still_forbidden_by_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_follow_up_observability_template' => [
+                'signature_acceptance_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_follow_up_observability_template',
+                'receipt_signature_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_follow_up_observability_template',
+                'receipt_persistence_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_follow_up_observability_template',
+                'approval_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_follow_up_observability_template',
+                'later_cycle_authorization_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_follow_up_observability_template',
+                'authorization_reuse_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_follow_up_observability_template',
+                'disable_execution_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_follow_up_observability_template',
+                'writer_state_mutation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_follow_up_observability_template',
+                'writer_file_creation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_follow_up_observability_template',
+                'ledger_write_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_follow_up_observability_template',
+                'decision_recording_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_follow_up_observability_template',
+                'merge_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_follow_up_observability_template',
+                'dispatch_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_follow_up_observability_template',
+            ],
+            'execution_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'ledger_write_allowed' => false,
+            'signature_valid' => false,
+            'signature_accepted' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'dispatch_allowed' => false,
+            'prior_authorization_reuse_allowed' => false,
+            'later_cycle_authorized' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_follow_up_observability_template.v1',
+            'status' => $reviewReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_follow_up_observability_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_follow_up_observability_template_blocked',
+            'mode' => 'read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_follow_up_observability_template',
+            'execution_allowed' => false,
+            'ledger_write_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'signature_accepted' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'prior_authorization_reuse_allowed' => false,
+            'later_cycle_authorized' => false,
+            'disable_execution_later_cycle_authorization_follow_up_observability' => $observability,
+            'disable_execution_later_cycle_authorization_follow_up_observability_hash' => $this->stableHash($observability),
+            'non_execution_guarantees' => [
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_follow_up_observability_template_does_not_claim_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_follow_up_observability_template_does_not_complete_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_follow_up_observability_template_does_not_accept_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_follow_up_observability_template_does_not_sign_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_follow_up_observability_template_does_not_persist_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_follow_up_observability_template_does_not_grant_approval',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_follow_up_observability_template_does_not_authorize_later_cycle',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_follow_up_observability_template_does_not_reuse_prior_authorization',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_follow_up_observability_template_does_not_execute_disable',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_follow_up_observability_template_does_not_mutate_writer_state',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_follow_up_observability_template_does_not_create_writer_file',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_follow_up_observability_template_does_not_write_ledger',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_follow_up_observability_template_does_not_record_decision',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_follow_up_observability_template_does_not_merge',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_follow_up_observability_template_does_not_dispatch_work',
+            ],
+            'human_summary' => $reviewReady
+                ? 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization follow-up observability template is ready as a non-writing observability template. It still does not accept signatures, sign receipts, persist receipts, grant approval, authorize a later cycle, reuse prior authorization, write ledger, record decisions, execute disable, mutate writer state, create a writer, merge or dispatch.'
+                : 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization follow-up observability template is blocked until fresh authorization new cycle disable execution later-cycle authorization post-persistence review template is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationEvidenceRepairRequestTemplate(array $options = []): array
+    {
+        $observabilityPayload = $this->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationFollowUpObservabilityTemplate($options);
+        $followUpObservability = (array) data_get($observabilityPayload, 'disable_execution_later_cycle_authorization_follow_up_observability', []);
+        $observabilityReady = data_get($observabilityPayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_follow_up_observability_template_ready';
+
+        $repairItems = [
+            'missing_no_later_cycle_authorization_evidence_hash',
+            'missing_no_prior_authorization_reuse_evidence_hash',
+            'missing_no_ledger_write_evidence_hash',
+            'missing_no_decision_recording_evidence_hash',
+            'missing_no_dispatch_after_review_evidence_hash',
+            'missing_human_reviewer_identity',
+        ];
+
+        $repairRequest = [
+            'disable_execution_later_cycle_authorization_evidence_repair_request_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-FRESH-AUTHORIZATION-NEW-CYCLE-DISABLE-EXECUTION-LATER-CYCLE-AUTHORIZATION-EVIDENCE-REPAIR-REQUEST-TEMPLATE-SELF-CONSTRUCTION-0001',
+            'status' => $observabilityReady ? 'ready_as_future_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_evidence_repair_request_template' : 'blocked_before_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_follow_up_observability_template',
+            'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_follow_up_observability_hash' => data_get($observabilityPayload, 'disable_execution_later_cycle_authorization_follow_up_observability_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_persistence_review_hash' => data_get($followUpObservability, 'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_persistence_review_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_receipt_template_hash' => data_get($followUpObservability, 'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_receipt_template_hash'),
+            'repair_items' => $repairItems,
+            'repair_item_count' => count($repairItems),
+            'required_repair_evidence' => [
+                'failed_observation_signal',
+                'missing_evidence_key',
+                'expected_evidence_hash',
+                'replacement_evidence_hash',
+                'repair_reason',
+                'repair_actor_identity',
+                'human_reviewer_identity',
+            ],
+            'repair_policy' => [
+                'repair_request_requires_follow_up_observability_hash',
+                'repair_request_requires_failed_observation_signal',
+                'repair_request_requires_missing_evidence_key',
+                'repair_request_requires_replacement_evidence_hash',
+                'repair_request_requires_later_cycle_authorized_flag_false',
+                'repair_request_requires_prior_authorization_reuse_allowed_flag_false',
+                'repair_request_does_not_accept_signature',
+                'repair_request_does_not_sign_receipt',
+                'repair_request_does_not_write_ledger',
+                'repair_request_does_not_persist_receipt',
+                'repair_request_does_not_record_decision',
+                'repair_request_does_not_authorize_later_cycle',
+                'repair_request_does_not_execute_disable',
+                'repair_request_does_not_mutate_writer_state',
+            ],
+            'future_repair_outputs' => [
+                'writer_release_fresh_authorization_later_cycle_authorization_evidence_repair_request_hash',
+                'writer_release_fresh_authorization_later_cycle_authorization_repaired_evidence_packet_hash',
+                'writer_release_fresh_authorization_later_cycle_authorization_repair_review_hash',
+                'writer_release_fresh_authorization_later_cycle_authorization_persistence_rejection_hash',
+            ],
+            'still_forbidden_by_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_evidence_repair_request_template' => [
+                'signature_acceptance_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_evidence_repair_request_template',
+                'receipt_signature_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_evidence_repair_request_template',
+                'receipt_persistence_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_evidence_repair_request_template',
+                'approval_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_evidence_repair_request_template',
+                'later_cycle_authorization_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_evidence_repair_request_template',
+                'authorization_reuse_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_evidence_repair_request_template',
+                'disable_execution_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_evidence_repair_request_template',
+                'writer_state_mutation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_evidence_repair_request_template',
+                'writer_file_creation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_evidence_repair_request_template',
+                'ledger_write_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_evidence_repair_request_template',
+                'decision_recording_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_evidence_repair_request_template',
+                'merge_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_evidence_repair_request_template',
+                'dispatch_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_evidence_repair_request_template',
+            ],
+            'execution_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'ledger_write_allowed' => false,
+            'signature_valid' => false,
+            'signature_accepted' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'dispatch_allowed' => false,
+            'prior_authorization_reuse_allowed' => false,
+            'later_cycle_authorized' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_evidence_repair_request_template.v1',
+            'status' => $observabilityReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_evidence_repair_request_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_evidence_repair_request_template_blocked',
+            'mode' => 'read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_evidence_repair_request_template',
+            'execution_allowed' => false,
+            'ledger_write_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'signature_accepted' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'prior_authorization_reuse_allowed' => false,
+            'later_cycle_authorized' => false,
+            'disable_execution_later_cycle_authorization_evidence_repair_request' => $repairRequest,
+            'disable_execution_later_cycle_authorization_evidence_repair_request_hash' => $this->stableHash($repairRequest),
+            'non_execution_guarantees' => [
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_evidence_repair_request_template_does_not_claim_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_evidence_repair_request_template_does_not_complete_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_evidence_repair_request_template_does_not_accept_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_evidence_repair_request_template_does_not_sign_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_evidence_repair_request_template_does_not_persist_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_evidence_repair_request_template_does_not_grant_approval',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_evidence_repair_request_template_does_not_authorize_later_cycle',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_evidence_repair_request_template_does_not_reuse_prior_authorization',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_evidence_repair_request_template_does_not_execute_disable',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_evidence_repair_request_template_does_not_mutate_writer_state',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_evidence_repair_request_template_does_not_create_writer_file',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_evidence_repair_request_template_does_not_write_ledger',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_evidence_repair_request_template_does_not_record_decision',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_evidence_repair_request_template_does_not_merge',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_evidence_repair_request_template_does_not_dispatch_work',
+            ],
+            'human_summary' => $observabilityReady
+                ? 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization evidence repair request template is ready as a non-dispatching repair request template. It still does not accept signatures, sign receipts, persist receipts, grant approval, authorize a later cycle, reuse prior authorization, write ledger, record decisions, execute disable, mutate writer state, create a writer, merge or dispatch.'
+                : 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization evidence repair request template is blocked until fresh authorization new cycle disable execution later-cycle authorization follow-up observability template is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationRepairedEvidencePacketTemplate(array $options = []): array
+    {
+        $repairRequestPayload = $this->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationEvidenceRepairRequestTemplate($options);
+        $repairRequest = (array) data_get($repairRequestPayload, 'disable_execution_later_cycle_authorization_evidence_repair_request', []);
+        $repairRequestReady = data_get($repairRequestPayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_evidence_repair_request_template_ready';
+
+        $requiredPacketFields = [
+            'later_cycle_authorization_evidence_repair_request_hash',
+            'failed_observation_signal',
+            'missing_evidence_key',
+            'original_expected_evidence_hash',
+            'replacement_evidence_hash',
+            'replacement_evidence_source_hash',
+            'repair_actor_identity',
+            'repair_timestamp',
+            'non_authorization_statement',
+            'non_mutation_statement',
+        ];
+
+        $packet = [
+            'disable_execution_later_cycle_authorization_repaired_evidence_packet_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-FRESH-AUTHORIZATION-NEW-CYCLE-DISABLE-EXECUTION-LATER-CYCLE-AUTHORIZATION-REPAIRED-EVIDENCE-PACKET-TEMPLATE-SELF-CONSTRUCTION-0001',
+            'status' => $repairRequestReady ? 'ready_as_future_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repaired_evidence_packet_template' : 'blocked_before_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_evidence_repair_request_template',
+            'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_evidence_repair_request_hash' => data_get($repairRequestPayload, 'disable_execution_later_cycle_authorization_evidence_repair_request_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_follow_up_observability_hash' => data_get($repairRequest, 'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_follow_up_observability_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_persistence_review_hash' => data_get($repairRequest, 'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_persistence_review_hash'),
+            'required_packet_fields' => $requiredPacketFields,
+            'required_packet_field_count' => count($requiredPacketFields),
+            'required_packet_evidence' => [
+                'later_cycle_authorization_evidence_repair_request_hash',
+                'failed_observation_signal',
+                'missing_evidence_key',
+                'replacement_evidence_hash',
+                'replacement_evidence_source_hash',
+                'repair_actor_identity',
+                'human_reviewer_identity',
+            ],
+            'packet_policy' => [
+                'repaired_packet_requires_repair_request_hash',
+                'repaired_packet_requires_failed_observation_signal',
+                'repaired_packet_requires_replacement_evidence_hash',
+                'repaired_packet_requires_replacement_source_hash',
+                'repaired_packet_requires_later_cycle_authorized_flag_false',
+                'repaired_packet_requires_prior_authorization_reuse_allowed_flag_false',
+                'repaired_packet_does_not_accept_signature',
+                'repaired_packet_does_not_sign_receipt',
+                'repaired_packet_does_not_write_ledger',
+                'repaired_packet_does_not_persist_receipt',
+                'repaired_packet_does_not_record_decision',
+                'repaired_packet_does_not_authorize_later_cycle',
+                'repaired_packet_does_not_execute_disable',
+                'repaired_packet_does_not_mutate_writer_state',
+            ],
+            'future_packet_outputs' => [
+                'writer_release_fresh_authorization_later_cycle_authorization_repaired_evidence_packet_hash',
+                'writer_release_fresh_authorization_later_cycle_authorization_repaired_evidence_integrity_hash',
+                'writer_release_fresh_authorization_later_cycle_authorization_repair_review_hash',
+                'writer_release_fresh_authorization_later_cycle_authorization_persistence_rejection_hash',
+            ],
+            'still_forbidden_by_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repaired_evidence_packet_template' => [
+                'signature_acceptance_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repaired_evidence_packet_template',
+                'receipt_signature_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repaired_evidence_packet_template',
+                'receipt_persistence_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repaired_evidence_packet_template',
+                'approval_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repaired_evidence_packet_template',
+                'later_cycle_authorization_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repaired_evidence_packet_template',
+                'authorization_reuse_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repaired_evidence_packet_template',
+                'disable_execution_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repaired_evidence_packet_template',
+                'writer_state_mutation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repaired_evidence_packet_template',
+                'writer_file_creation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repaired_evidence_packet_template',
+                'ledger_write_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repaired_evidence_packet_template',
+                'decision_recording_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repaired_evidence_packet_template',
+                'merge_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repaired_evidence_packet_template',
+                'dispatch_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repaired_evidence_packet_template',
+            ],
+            'execution_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'ledger_write_allowed' => false,
+            'signature_valid' => false,
+            'signature_accepted' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'dispatch_allowed' => false,
+            'prior_authorization_reuse_allowed' => false,
+            'later_cycle_authorized' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repaired_evidence_packet_template.v1',
+            'status' => $repairRequestReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repaired_evidence_packet_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repaired_evidence_packet_template_blocked',
+            'mode' => 'read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repaired_evidence_packet_template',
+            'execution_allowed' => false,
+            'ledger_write_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'signature_accepted' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'prior_authorization_reuse_allowed' => false,
+            'later_cycle_authorized' => false,
+            'disable_execution_later_cycle_authorization_repaired_evidence_packet' => $packet,
+            'disable_execution_later_cycle_authorization_repaired_evidence_packet_hash' => $this->stableHash($packet),
+            'non_execution_guarantees' => [
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repaired_evidence_packet_template_does_not_claim_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repaired_evidence_packet_template_does_not_complete_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repaired_evidence_packet_template_does_not_accept_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repaired_evidence_packet_template_does_not_sign_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repaired_evidence_packet_template_does_not_persist_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repaired_evidence_packet_template_does_not_grant_approval',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repaired_evidence_packet_template_does_not_authorize_later_cycle',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repaired_evidence_packet_template_does_not_reuse_prior_authorization',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repaired_evidence_packet_template_does_not_execute_disable',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repaired_evidence_packet_template_does_not_mutate_writer_state',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repaired_evidence_packet_template_does_not_create_writer_file',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repaired_evidence_packet_template_does_not_write_ledger',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repaired_evidence_packet_template_does_not_record_decision',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repaired_evidence_packet_template_does_not_merge',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repaired_evidence_packet_template_does_not_dispatch_work',
+            ],
+            'human_summary' => $repairRequestReady
+                ? 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization repaired evidence packet template is ready as a non-writing repaired evidence packet template. It still does not accept signatures, sign receipts, persist receipts, grant approval, authorize a later cycle, reuse prior authorization, write ledger, record decisions, execute disable, mutate writer state, create a writer, merge or dispatch.'
+                : 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization repaired evidence packet template is blocked until fresh authorization new cycle disable execution later-cycle authorization evidence repair request template is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationRepairReviewTemplate(array $options = []): array
+    {
+        $packetPayload = $this->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationRepairedEvidencePacketTemplate($options);
+        $repairedPacket = (array) data_get($packetPayload, 'disable_execution_later_cycle_authorization_repaired_evidence_packet', []);
+        $packetReady = data_get($packetPayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repaired_evidence_packet_template_ready';
+
+        $allowedOutcomes = [
+            'later_cycle_authorization_repair_evidence_accepted_for_persistence_rejection',
+            'later_cycle_authorization_repair_evidence_requires_additional_packet',
+            'later_cycle_authorization_repair_evidence_rejected_due_to_integrity_gap',
+            'later_cycle_authorization_repair_evidence_escalated_to_human_review',
+            'later_cycle_authorization_observation_window_extended',
+        ];
+
+        $repairReview = [
+            'disable_execution_later_cycle_authorization_repair_review_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-FRESH-AUTHORIZATION-NEW-CYCLE-DISABLE-EXECUTION-LATER-CYCLE-AUTHORIZATION-REPAIR-REVIEW-TEMPLATE-SELF-CONSTRUCTION-0001',
+            'status' => $packetReady ? 'ready_as_future_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repair_review_template' : 'blocked_before_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repaired_evidence_packet_template',
+            'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repaired_evidence_packet_hash' => data_get($packetPayload, 'disable_execution_later_cycle_authorization_repaired_evidence_packet_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_evidence_repair_request_hash' => data_get($repairedPacket, 'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_evidence_repair_request_hash'),
+            'allowed_repair_review_outcomes' => $allowedOutcomes,
+            'allowed_repair_review_outcome_count' => count($allowedOutcomes),
+            'required_review_evidence' => [
+                'later_cycle_authorization_repaired_evidence_packet_hash',
+                'later_cycle_authorization_repaired_evidence_integrity_hash',
+                'later_cycle_authorization_evidence_repair_request_hash',
+                'replacement_evidence_hash',
+                'replacement_evidence_source_hash',
+                'reviewer_identity',
+                'human_reviewer_identity',
+            ],
+            'repair_review_policy' => [
+                'repair_review_requires_repaired_packet_hash',
+                'repair_review_requires_integrity_hash',
+                'repair_review_requires_repair_request_hash',
+                'repair_review_requires_replacement_source_hash',
+                'repair_review_requires_later_cycle_authorized_flag_false',
+                'repair_review_requires_prior_authorization_reuse_allowed_flag_false',
+                'repair_review_does_not_accept_signature',
+                'repair_review_does_not_sign_receipt',
+                'repair_review_does_not_write_ledger',
+                'repair_review_does_not_persist_receipt',
+                'repair_review_does_not_record_decision',
+                'repair_review_does_not_authorize_later_cycle',
+                'repair_review_does_not_execute_disable',
+                'repair_review_does_not_mutate_writer_state',
+            ],
+            'future_repair_review_outputs' => [
+                'writer_release_fresh_authorization_later_cycle_authorization_repair_review_hash',
+                'writer_release_fresh_authorization_later_cycle_authorization_repair_integrity_review_hash',
+                'writer_release_fresh_authorization_later_cycle_authorization_persistence_rejection_hash',
+                'writer_release_fresh_authorization_later_cycle_authorization_follow_up_observability_hash',
+            ],
+            'still_forbidden_by_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repair_review_template' => [
+                'signature_acceptance_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repair_review_template',
+                'receipt_signature_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repair_review_template',
+                'receipt_persistence_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repair_review_template',
+                'approval_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repair_review_template',
+                'later_cycle_authorization_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repair_review_template',
+                'authorization_reuse_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repair_review_template',
+                'disable_execution_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repair_review_template',
+                'writer_state_mutation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repair_review_template',
+                'writer_file_creation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repair_review_template',
+                'ledger_write_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repair_review_template',
+                'decision_recording_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repair_review_template',
+                'merge_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repair_review_template',
+                'dispatch_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repair_review_template',
+            ],
+            'execution_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'ledger_write_allowed' => false,
+            'signature_valid' => false,
+            'signature_accepted' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'dispatch_allowed' => false,
+            'prior_authorization_reuse_allowed' => false,
+            'later_cycle_authorized' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repair_review_template.v1',
+            'status' => $packetReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repair_review_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repair_review_template_blocked',
+            'mode' => 'read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repair_review_template',
+            'execution_allowed' => false,
+            'ledger_write_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'signature_accepted' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'prior_authorization_reuse_allowed' => false,
+            'later_cycle_authorized' => false,
+            'disable_execution_later_cycle_authorization_repair_review' => $repairReview,
+            'disable_execution_later_cycle_authorization_repair_review_hash' => $this->stableHash($repairReview),
+            'non_execution_guarantees' => [
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repair_review_template_does_not_claim_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repair_review_template_does_not_complete_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repair_review_template_does_not_accept_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repair_review_template_does_not_sign_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repair_review_template_does_not_persist_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repair_review_template_does_not_grant_approval',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repair_review_template_does_not_authorize_later_cycle',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repair_review_template_does_not_reuse_prior_authorization',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repair_review_template_does_not_execute_disable',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repair_review_template_does_not_mutate_writer_state',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repair_review_template_does_not_create_writer_file',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repair_review_template_does_not_write_ledger',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repair_review_template_does_not_record_decision',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repair_review_template_does_not_merge',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repair_review_template_does_not_dispatch_work',
+            ],
+            'human_summary' => $packetReady
+                ? 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization repair review template is ready as a non-writing repair review template. It still does not accept signatures, sign receipts, persist receipts, grant approval, authorize a later cycle, reuse prior authorization, write ledger, record decisions, execute disable, mutate writer state, create a writer, merge or dispatch.'
+                : 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization repair review template is blocked until fresh authorization new cycle disable execution later-cycle authorization repaired evidence packet template is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationPersistenceRejectionTemplate(array $options = []): array
+    {
+        $reviewPayload = $this->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationRepairReviewTemplate($options);
+        $repairReview = (array) data_get($reviewPayload, 'disable_execution_later_cycle_authorization_repair_review', []);
+        $reviewReady = data_get($reviewPayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repair_review_template_ready';
+
+        $requiredRejectionFields = [
+            'later_cycle_authorization_repair_review_hash',
+            'selected_repair_review_outcome',
+            'persistence_rejection_rationale',
+            'repaired_evidence_packet_hash',
+            'repaired_evidence_integrity_hash',
+            'rejection_actor_identity',
+            'rejection_timestamp',
+            'non_persistence_statement',
+            'non_authorization_statement',
+            'non_execution_statement',
+        ];
+
+        $persistenceRejection = [
+            'disable_execution_later_cycle_authorization_persistence_rejection_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-FRESH-AUTHORIZATION-NEW-CYCLE-DISABLE-EXECUTION-LATER-CYCLE-AUTHORIZATION-PERSISTENCE-REJECTION-TEMPLATE-SELF-CONSTRUCTION-0001',
+            'status' => $reviewReady ? 'ready_as_future_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_rejection_template' : 'blocked_before_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repair_review_template',
+            'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repair_review_hash' => data_get($reviewPayload, 'disable_execution_later_cycle_authorization_repair_review_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repaired_evidence_packet_hash' => data_get($repairReview, 'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repaired_evidence_packet_hash'),
+            'required_rejection_fields' => $requiredRejectionFields,
+            'required_rejection_field_count' => count($requiredRejectionFields),
+            'allowed_rejection_reasons' => [
+                'missing_later_cycle_authorization_integrity',
+                'missing_prior_authorization_reuse_denial',
+                'missing_non_persistence_statement',
+                'missing_human_reviewer_identity',
+                'repaired_evidence_not_sufficient_for_receipt_persistence',
+            ],
+            'required_rejection_evidence' => [
+                'later_cycle_authorization_repair_review_hash',
+                'selected_repair_review_outcome',
+                'persistence_rejection_rationale',
+                'repaired_evidence_integrity_hash',
+                'human_reviewer_identity',
+            ],
+            'rejection_policy' => [
+                'persistence_rejection_requires_repair_review_hash',
+                'persistence_rejection_requires_allowed_review_outcome',
+                'persistence_rejection_requires_integrity_hash',
+                'persistence_rejection_requires_non_persistence_statement',
+                'persistence_rejection_requires_later_cycle_authorized_flag_false',
+                'persistence_rejection_requires_prior_authorization_reuse_allowed_flag_false',
+                'persistence_rejection_does_not_accept_signature',
+                'persistence_rejection_does_not_sign_receipt',
+                'persistence_rejection_does_not_write_ledger',
+                'persistence_rejection_does_not_persist_receipt',
+                'persistence_rejection_does_not_record_decision',
+                'persistence_rejection_does_not_authorize_later_cycle',
+                'persistence_rejection_does_not_execute_disable',
+                'persistence_rejection_does_not_mutate_writer_state',
+            ],
+            'future_rejection_outputs' => [
+                'writer_release_fresh_authorization_later_cycle_authorization_persistence_rejection_hash',
+                'writer_release_fresh_authorization_later_cycle_authorization_rejection_integrity_hash',
+                'writer_release_fresh_authorization_later_cycle_authorization_follow_up_observability_hash',
+                'writer_release_fresh_authorization_later_cycle_authorization_human_escalation_hash',
+            ],
+            'still_forbidden_by_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_rejection_template' => [
+                'signature_acceptance_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_rejection_template',
+                'receipt_signature_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_rejection_template',
+                'receipt_persistence_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_rejection_template',
+                'approval_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_rejection_template',
+                'later_cycle_authorization_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_rejection_template',
+                'authorization_reuse_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_rejection_template',
+                'disable_execution_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_rejection_template',
+                'writer_state_mutation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_rejection_template',
+                'writer_file_creation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_rejection_template',
+                'ledger_write_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_rejection_template',
+                'decision_recording_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_rejection_template',
+                'merge_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_rejection_template',
+                'dispatch_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_rejection_template',
+            ],
+            'execution_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'ledger_write_allowed' => false,
+            'signature_valid' => false,
+            'signature_accepted' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'dispatch_allowed' => false,
+            'prior_authorization_reuse_allowed' => false,
+            'later_cycle_authorized' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_rejection_template.v1',
+            'status' => $reviewReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_rejection_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_rejection_template_blocked',
+            'mode' => 'read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_rejection_template',
+            'execution_allowed' => false,
+            'ledger_write_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'signature_accepted' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'prior_authorization_reuse_allowed' => false,
+            'later_cycle_authorized' => false,
+            'disable_execution_later_cycle_authorization_persistence_rejection' => $persistenceRejection,
+            'disable_execution_later_cycle_authorization_persistence_rejection_hash' => $this->stableHash($persistenceRejection),
+            'non_execution_guarantees' => [
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_rejection_template_does_not_claim_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_rejection_template_does_not_complete_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_rejection_template_does_not_accept_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_rejection_template_does_not_sign_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_rejection_template_does_not_persist_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_rejection_template_does_not_grant_approval',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_rejection_template_does_not_authorize_later_cycle',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_rejection_template_does_not_reuse_prior_authorization',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_rejection_template_does_not_execute_disable',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_rejection_template_does_not_mutate_writer_state',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_rejection_template_does_not_create_writer_file',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_rejection_template_does_not_write_ledger',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_rejection_template_does_not_record_decision',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_rejection_template_does_not_merge',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_rejection_template_does_not_dispatch_work',
+            ],
+            'human_summary' => $reviewReady
+                ? 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization persistence rejection template is ready as a non-writing persistence rejection template. It still does not accept signatures, sign receipts, persist receipts, grant approval, authorize a later cycle, reuse prior authorization, write ledger, record decisions, execute disable, mutate writer state, create a writer, merge or dispatch.'
+                : 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization persistence rejection template is blocked until fresh authorization new cycle disable execution later-cycle authorization repair review template is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationHumanEscalationTemplate(array $options = []): array
+    {
+        $rejectionPayload = $this->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationPersistenceRejectionTemplate($options);
+        $persistenceRejection = (array) data_get($rejectionPayload, 'disable_execution_later_cycle_authorization_persistence_rejection', []);
+        $rejectionReady = data_get($rejectionPayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_rejection_template_ready';
+
+        $requiredEscalationFields = [
+            'later_cycle_authorization_persistence_rejection_hash',
+            'persistence_rejection_rationale',
+            'selected_repair_review_outcome',
+            'human_escalation_reason',
+            'required_human_role',
+            'review_packet_hash',
+            'non_dispatch_statement',
+            'non_authorization_statement',
+            'non_persistence_statement',
+            'escalation_actor_identity',
+        ];
+
+        $humanEscalation = [
+            'disable_execution_later_cycle_authorization_human_escalation_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-FRESH-AUTHORIZATION-NEW-CYCLE-DISABLE-EXECUTION-LATER-CYCLE-AUTHORIZATION-HUMAN-ESCALATION-TEMPLATE-SELF-CONSTRUCTION-0001',
+            'status' => $rejectionReady ? 'ready_as_future_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template' : 'blocked_before_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_rejection_template',
+            'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_rejection_hash' => data_get($rejectionPayload, 'disable_execution_later_cycle_authorization_persistence_rejection_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repair_review_hash' => data_get($persistenceRejection, 'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repair_review_hash'),
+            'required_escalation_fields' => $requiredEscalationFields,
+            'required_escalation_field_count' => count($requiredEscalationFields),
+            'allowed_human_roles' => [
+                'owner',
+                'security_reviewer',
+                'architecture_reviewer',
+                'governance_reviewer',
+                'audit_reviewer',
+            ],
+            'required_escalation_evidence' => [
+                'later_cycle_authorization_persistence_rejection_hash',
+                'persistence_rejection_rationale',
+                'selected_repair_review_outcome',
+                'human_escalation_reason',
+                'required_human_role',
+                'human_reviewer_identity',
+            ],
+            'escalation_policy' => [
+                'human_escalation_requires_persistence_rejection_hash',
+                'human_escalation_requires_human_role',
+                'human_escalation_requires_non_dispatch_statement',
+                'human_escalation_requires_non_authorization_statement',
+                'human_escalation_requires_later_cycle_authorized_flag_false',
+                'human_escalation_requires_prior_authorization_reuse_allowed_flag_false',
+                'human_escalation_does_not_notify_human',
+                'human_escalation_does_not_create_task',
+                'human_escalation_does_not_accept_signature',
+                'human_escalation_does_not_sign_receipt',
+                'human_escalation_does_not_write_ledger',
+                'human_escalation_does_not_persist_receipt',
+                'human_escalation_does_not_record_decision',
+                'human_escalation_does_not_authorize_later_cycle',
+                'human_escalation_does_not_execute_disable',
+                'human_escalation_does_not_mutate_writer_state',
+            ],
+            'future_escalation_outputs' => [
+                'writer_release_fresh_authorization_later_cycle_authorization_human_escalation_hash',
+                'writer_release_fresh_authorization_later_cycle_authorization_human_review_packet_hash',
+                'writer_release_fresh_authorization_later_cycle_authorization_follow_up_observability_hash',
+                'writer_release_fresh_authorization_later_cycle_authorization_manual_decision_request_hash',
+            ],
+            'still_forbidden_by_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template' => [
+                'human_notification_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template',
+                'task_creation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template',
+                'signature_acceptance_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template',
+                'receipt_signature_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template',
+                'receipt_persistence_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template',
+                'approval_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template',
+                'later_cycle_authorization_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template',
+                'authorization_reuse_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template',
+                'disable_execution_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template',
+                'writer_state_mutation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template',
+                'writer_file_creation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template',
+                'ledger_write_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template',
+                'decision_recording_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template',
+                'merge_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template',
+                'dispatch_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template',
+            ],
+            'execution_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'ledger_write_allowed' => false,
+            'signature_valid' => false,
+            'signature_accepted' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'dispatch_allowed' => false,
+            'prior_authorization_reuse_allowed' => false,
+            'later_cycle_authorized' => false,
+            'human_notified' => false,
+            'human_task_created' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template.v1',
+            'status' => $rejectionReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template_blocked',
+            'mode' => 'read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template',
+            'execution_allowed' => false,
+            'ledger_write_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'signature_accepted' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'prior_authorization_reuse_allowed' => false,
+            'later_cycle_authorized' => false,
+            'human_notified' => false,
+            'human_task_created' => false,
+            'disable_execution_later_cycle_authorization_human_escalation' => $humanEscalation,
+            'disable_execution_later_cycle_authorization_human_escalation_hash' => $this->stableHash($humanEscalation),
+            'non_execution_guarantees' => [
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template_does_not_claim_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template_does_not_complete_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template_does_not_notify_human',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template_does_not_create_task',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template_does_not_accept_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template_does_not_sign_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template_does_not_persist_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template_does_not_grant_approval',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template_does_not_authorize_later_cycle',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template_does_not_reuse_prior_authorization',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template_does_not_execute_disable',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template_does_not_mutate_writer_state',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template_does_not_create_writer_file',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template_does_not_write_ledger',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template_does_not_record_decision',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template_does_not_merge',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template_does_not_dispatch_work',
+            ],
+            'human_summary' => $rejectionReady
+                ? 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization human escalation template is ready as a non-dispatching escalation template. It still does not notify humans, create tasks, accept signatures, sign receipts, persist receipts, grant approval, authorize a later cycle, reuse prior authorization, write ledger, record decisions, execute disable, mutate writer state, create a writer, merge or dispatch.'
+                : 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization human escalation template is blocked until fresh authorization new cycle disable execution later-cycle authorization persistence rejection template is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationManualDecisionRequestTemplate(array $options = []): array
+    {
+        $escalationPayload = $this->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationHumanEscalationTemplate($options);
+        $humanEscalation = (array) data_get($escalationPayload, 'disable_execution_later_cycle_authorization_human_escalation', []);
+        $escalationReady = data_get($escalationPayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template_ready';
+
+        $requiredDecisionRequestFields = [
+            'later_cycle_authorization_human_escalation_hash',
+            'required_human_role',
+            'decision_question',
+            'decision_context_hash',
+            'available_decision_options',
+            'risk_summary',
+            'non_dispatch_statement',
+            'non_authorization_statement',
+            'non_persistence_statement',
+            'request_actor_identity',
+        ];
+
+        $manualDecisionRequest = [
+            'disable_execution_later_cycle_authorization_manual_decision_request_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-FRESH-AUTHORIZATION-NEW-CYCLE-DISABLE-EXECUTION-LATER-CYCLE-AUTHORIZATION-MANUAL-DECISION-REQUEST-TEMPLATE-SELF-CONSTRUCTION-0001',
+            'status' => $escalationReady ? 'ready_as_future_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template' : 'blocked_before_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template',
+            'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_hash' => data_get($escalationPayload, 'disable_execution_later_cycle_authorization_human_escalation_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_rejection_hash' => data_get($humanEscalation, 'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_rejection_hash'),
+            'required_decision_request_fields' => $requiredDecisionRequestFields,
+            'required_decision_request_field_count' => count($requiredDecisionRequestFields),
+            'allowed_decision_options' => [
+                'reject_later_cycle_authorization',
+                'request_more_evidence',
+                'extend_observation_window',
+                'escalate_to_security_reviewer',
+                'escalate_to_owner',
+            ],
+            'required_decision_request_evidence' => [
+                'later_cycle_authorization_human_escalation_hash',
+                'required_human_role',
+                'decision_question',
+                'decision_context_hash',
+                'risk_summary',
+                'human_reviewer_identity',
+            ],
+            'decision_request_policy' => [
+                'manual_decision_request_requires_human_escalation_hash',
+                'manual_decision_request_requires_decision_question',
+                'manual_decision_request_requires_allowed_decision_options',
+                'manual_decision_request_requires_non_dispatch_statement',
+                'manual_decision_request_requires_non_authorization_statement',
+                'manual_decision_request_requires_later_cycle_authorized_flag_false',
+                'manual_decision_request_requires_prior_authorization_reuse_allowed_flag_false',
+                'manual_decision_request_does_not_request_real_decision',
+                'manual_decision_request_does_not_notify_human',
+                'manual_decision_request_does_not_create_task',
+                'manual_decision_request_does_not_accept_signature',
+                'manual_decision_request_does_not_sign_receipt',
+                'manual_decision_request_does_not_write_ledger',
+                'manual_decision_request_does_not_persist_receipt',
+                'manual_decision_request_does_not_record_decision',
+                'manual_decision_request_does_not_authorize_later_cycle',
+                'manual_decision_request_does_not_execute_disable',
+                'manual_decision_request_does_not_mutate_writer_state',
+            ],
+            'future_decision_request_outputs' => [
+                'writer_release_fresh_authorization_later_cycle_authorization_manual_decision_request_hash',
+                'writer_release_fresh_authorization_later_cycle_authorization_manual_decision_context_hash',
+                'writer_release_fresh_authorization_later_cycle_authorization_manual_decision_response_hash',
+                'writer_release_fresh_authorization_later_cycle_authorization_follow_up_observability_hash',
+            ],
+            'still_forbidden_by_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template' => [
+                'real_decision_request_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template',
+                'human_notification_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template',
+                'task_creation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template',
+                'signature_acceptance_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template',
+                'receipt_signature_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template',
+                'receipt_persistence_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template',
+                'approval_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template',
+                'later_cycle_authorization_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template',
+                'authorization_reuse_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template',
+                'disable_execution_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template',
+                'writer_state_mutation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template',
+                'writer_file_creation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template',
+                'ledger_write_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template',
+                'decision_recording_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template',
+                'merge_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template',
+                'dispatch_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template',
+            ],
+            'execution_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'ledger_write_allowed' => false,
+            'signature_valid' => false,
+            'signature_accepted' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'dispatch_allowed' => false,
+            'prior_authorization_reuse_allowed' => false,
+            'later_cycle_authorized' => false,
+            'human_notified' => false,
+            'human_task_created' => false,
+            'manual_decision_requested' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template.v1',
+            'status' => $escalationReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template_blocked',
+            'mode' => 'read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template',
+            'execution_allowed' => false,
+            'ledger_write_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'signature_accepted' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'prior_authorization_reuse_allowed' => false,
+            'later_cycle_authorized' => false,
+            'human_notified' => false,
+            'human_task_created' => false,
+            'manual_decision_requested' => false,
+            'disable_execution_later_cycle_authorization_manual_decision_request' => $manualDecisionRequest,
+            'disable_execution_later_cycle_authorization_manual_decision_request_hash' => $this->stableHash($manualDecisionRequest),
+            'non_execution_guarantees' => [
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template_does_not_claim_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template_does_not_complete_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template_does_not_request_real_decision',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template_does_not_notify_human',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template_does_not_create_task',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template_does_not_accept_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template_does_not_sign_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template_does_not_persist_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template_does_not_grant_approval',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template_does_not_authorize_later_cycle',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template_does_not_reuse_prior_authorization',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template_does_not_execute_disable',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template_does_not_mutate_writer_state',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template_does_not_create_writer_file',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template_does_not_write_ledger',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template_does_not_record_decision',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template_does_not_merge',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template_does_not_dispatch_work',
+            ],
+            'human_summary' => $escalationReady
+                ? 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization manual decision request template is ready as a non-dispatching manual decision request template. It still does not request a real decision, notify humans, create tasks, accept signatures, sign receipts, persist receipts, grant approval, authorize a later cycle, reuse prior authorization, write ledger, record decisions, execute disable, mutate writer state, create a writer, merge or dispatch.'
+                : 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization manual decision request template is blocked until fresh authorization new cycle disable execution later-cycle authorization human escalation template is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationManualDecisionResponseTemplate(array $options = []): array
+    {
+        $requestPayload = $this->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationManualDecisionRequestTemplate($options);
+        $manualDecisionRequest = (array) data_get($requestPayload, 'disable_execution_later_cycle_authorization_manual_decision_request', []);
+        $requestReady = data_get($requestPayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template_ready';
+
+        $requiredDecisionResponseFields = [
+            'later_cycle_authorization_manual_decision_request_hash',
+            'selected_decision_option',
+            'decision_response_rationale',
+            'decision_response_evidence_hash',
+            'decision_response_actor_identity',
+            'decision_response_actor_role',
+            'non_dispatch_statement',
+            'non_authorization_statement',
+            'non_persistence_statement',
+            'non_execution_statement',
+        ];
+
+        $manualDecisionResponse = [
+            'disable_execution_later_cycle_authorization_manual_decision_response_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-FRESH-AUTHORIZATION-NEW-CYCLE-DISABLE-EXECUTION-LATER-CYCLE-AUTHORIZATION-MANUAL-DECISION-RESPONSE-TEMPLATE-SELF-CONSTRUCTION-0001',
+            'status' => $requestReady ? 'ready_as_future_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_response_template' : 'blocked_before_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template',
+            'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_hash' => data_get($requestPayload, 'disable_execution_later_cycle_authorization_manual_decision_request_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_hash' => data_get($manualDecisionRequest, 'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_hash'),
+            'required_decision_response_fields' => $requiredDecisionResponseFields,
+            'required_decision_response_field_count' => count($requiredDecisionResponseFields),
+            'allowed_response_options' => data_get($manualDecisionRequest, 'allowed_decision_options', []),
+            'required_decision_response_evidence' => [
+                'later_cycle_authorization_manual_decision_request_hash',
+                'selected_decision_option',
+                'decision_response_rationale',
+                'decision_response_evidence_hash',
+                'decision_response_actor_identity',
+                'decision_response_actor_role',
+            ],
+            'decision_response_policy' => [
+                'manual_decision_response_requires_manual_decision_request_hash',
+                'manual_decision_response_requires_selected_allowed_option',
+                'manual_decision_response_requires_response_rationale',
+                'manual_decision_response_requires_response_evidence_hash',
+                'manual_decision_response_requires_non_dispatch_statement',
+                'manual_decision_response_requires_non_authorization_statement',
+                'manual_decision_response_requires_non_persistence_statement',
+                'manual_decision_response_requires_non_execution_statement',
+                'manual_decision_response_requires_later_cycle_authorized_flag_false',
+                'manual_decision_response_requires_prior_authorization_reuse_allowed_flag_false',
+                'manual_decision_response_does_not_record_decision',
+                'manual_decision_response_does_not_notify_human',
+                'manual_decision_response_does_not_create_task',
+                'manual_decision_response_does_not_accept_signature',
+                'manual_decision_response_does_not_sign_receipt',
+                'manual_decision_response_does_not_write_ledger',
+                'manual_decision_response_does_not_persist_receipt',
+                'manual_decision_response_does_not_grant_approval',
+                'manual_decision_response_does_not_authorize_later_cycle',
+                'manual_decision_response_does_not_execute_disable',
+                'manual_decision_response_does_not_mutate_writer_state',
+            ],
+            'future_decision_response_outputs' => [
+                'writer_release_fresh_authorization_later_cycle_authorization_manual_decision_response_hash',
+                'writer_release_fresh_authorization_later_cycle_authorization_decision_record_draft_hash',
+                'writer_release_fresh_authorization_later_cycle_authorization_follow_up_observability_hash',
+                'writer_release_fresh_authorization_later_cycle_authorization_human_review_packet_hash',
+            ],
+            'still_forbidden_by_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_response_template' => [
+                'decision_recording_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_response_template',
+                'human_notification_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_response_template',
+                'task_creation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_response_template',
+                'signature_acceptance_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_response_template',
+                'receipt_signature_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_response_template',
+                'receipt_persistence_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_response_template',
+                'approval_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_response_template',
+                'later_cycle_authorization_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_response_template',
+                'authorization_reuse_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_response_template',
+                'disable_execution_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_response_template',
+                'writer_state_mutation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_response_template',
+                'writer_file_creation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_response_template',
+                'ledger_write_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_response_template',
+                'merge_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_response_template',
+                'dispatch_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_response_template',
+            ],
+            'execution_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'ledger_write_allowed' => false,
+            'signature_valid' => false,
+            'signature_accepted' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'dispatch_allowed' => false,
+            'prior_authorization_reuse_allowed' => false,
+            'later_cycle_authorized' => false,
+            'human_notified' => false,
+            'human_task_created' => false,
+            'manual_decision_requested' => false,
+            'manual_decision_response_recorded' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_response_template.v1',
+            'status' => $requestReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_response_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_response_template_blocked',
+            'mode' => 'read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_response_template',
+            'execution_allowed' => false,
+            'ledger_write_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'signature_accepted' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'prior_authorization_reuse_allowed' => false,
+            'later_cycle_authorized' => false,
+            'human_notified' => false,
+            'human_task_created' => false,
+            'manual_decision_requested' => false,
+            'manual_decision_response_recorded' => false,
+            'disable_execution_later_cycle_authorization_manual_decision_response' => $manualDecisionResponse,
+            'disable_execution_later_cycle_authorization_manual_decision_response_hash' => $this->stableHash($manualDecisionResponse),
+            'non_execution_guarantees' => [
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_response_template_does_not_claim_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_response_template_does_not_complete_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_response_template_does_not_record_decision',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_response_template_does_not_notify_human',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_response_template_does_not_create_task',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_response_template_does_not_accept_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_response_template_does_not_sign_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_response_template_does_not_persist_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_response_template_does_not_grant_approval',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_response_template_does_not_authorize_later_cycle',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_response_template_does_not_reuse_prior_authorization',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_response_template_does_not_execute_disable',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_response_template_does_not_mutate_writer_state',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_response_template_does_not_create_writer_file',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_response_template_does_not_write_ledger',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_response_template_does_not_merge',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_response_template_does_not_dispatch_work',
+            ],
+            'human_summary' => $requestReady
+                ? 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization manual decision response template is ready as a non-dispatching response template. It still does not record a decision, notify humans, create tasks, accept signatures, sign receipts, persist receipts, grant approval, authorize a later cycle, reuse prior authorization, write ledger, execute disable, mutate writer state, create a writer, merge or dispatch.'
+                : 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization manual decision response template is blocked until fresh authorization new cycle disable execution later-cycle authorization manual decision request template is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationDecisionRecordDraftTemplate(array $options = []): array
+    {
+        $responsePayload = $this->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationManualDecisionResponseTemplate($options);
+        $manualDecisionResponse = (array) data_get($responsePayload, 'disable_execution_later_cycle_authorization_manual_decision_response', []);
+        $responseReady = data_get($responsePayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_response_template_ready';
+
+        $requiredDecisionRecordDraftFields = [
+            'later_cycle_authorization_manual_decision_response_hash',
+            'decision_record_subject',
+            'selected_decision_option',
+            'decision_record_rationale',
+            'decision_record_evidence_hash',
+            'decision_record_actor_identity',
+            'decision_record_actor_role',
+            'non_dispatch_statement',
+            'non_authorization_statement',
+            'non_persistence_statement',
+        ];
+
+        $decisionRecordDraft = [
+            'disable_execution_later_cycle_authorization_decision_record_draft_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-FRESH-AUTHORIZATION-NEW-CYCLE-DISABLE-EXECUTION-LATER-CYCLE-AUTHORIZATION-DECISION-RECORD-DRAFT-TEMPLATE-SELF-CONSTRUCTION-0001',
+            'status' => $responseReady ? 'ready_as_future_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_draft_template' : 'blocked_before_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_response_template',
+            'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_response_hash' => data_get($responsePayload, 'disable_execution_later_cycle_authorization_manual_decision_response_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_hash' => data_get($manualDecisionResponse, 'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_hash'),
+            'required_decision_record_draft_fields' => $requiredDecisionRecordDraftFields,
+            'required_decision_record_draft_field_count' => count($requiredDecisionRecordDraftFields),
+            'allowed_draft_subjects' => [
+                'reject_later_cycle_authorization',
+                'request_more_evidence',
+                'extend_observation_window',
+                'escalate_to_security_reviewer',
+                'escalate_to_owner',
+            ],
+            'required_decision_record_draft_evidence' => [
+                'later_cycle_authorization_manual_decision_response_hash',
+                'selected_decision_option',
+                'decision_record_rationale',
+                'decision_record_evidence_hash',
+                'decision_record_actor_identity',
+                'decision_record_actor_role',
+            ],
+            'decision_record_draft_policy' => [
+                'decision_record_draft_requires_manual_decision_response_hash',
+                'decision_record_draft_requires_selected_allowed_option',
+                'decision_record_draft_requires_record_rationale',
+                'decision_record_draft_requires_record_evidence_hash',
+                'decision_record_draft_requires_non_dispatch_statement',
+                'decision_record_draft_requires_non_authorization_statement',
+                'decision_record_draft_requires_non_persistence_statement',
+                'decision_record_draft_requires_later_cycle_authorized_flag_false',
+                'decision_record_draft_requires_prior_authorization_reuse_allowed_flag_false',
+                'decision_record_draft_does_not_record_decision',
+                'decision_record_draft_does_not_notify_human',
+                'decision_record_draft_does_not_create_task',
+                'decision_record_draft_does_not_accept_signature',
+                'decision_record_draft_does_not_sign_receipt',
+                'decision_record_draft_does_not_write_ledger',
+                'decision_record_draft_does_not_persist_receipt',
+                'decision_record_draft_does_not_grant_approval',
+                'decision_record_draft_does_not_authorize_later_cycle',
+                'decision_record_draft_does_not_execute_disable',
+                'decision_record_draft_does_not_mutate_writer_state',
+            ],
+            'future_decision_record_draft_outputs' => [
+                'writer_release_fresh_authorization_later_cycle_authorization_decision_record_draft_hash',
+                'writer_release_fresh_authorization_later_cycle_authorization_decision_record_persistence_preflight_hash',
+                'writer_release_fresh_authorization_later_cycle_authorization_follow_up_observability_hash',
+                'writer_release_fresh_authorization_later_cycle_authorization_human_review_packet_hash',
+            ],
+            'still_forbidden_by_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_draft_template' => [
+                'decision_recording_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_draft_template',
+                'human_notification_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_draft_template',
+                'task_creation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_draft_template',
+                'signature_acceptance_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_draft_template',
+                'receipt_signature_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_draft_template',
+                'receipt_persistence_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_draft_template',
+                'approval_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_draft_template',
+                'later_cycle_authorization_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_draft_template',
+                'authorization_reuse_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_draft_template',
+                'disable_execution_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_draft_template',
+                'writer_state_mutation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_draft_template',
+                'writer_file_creation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_draft_template',
+                'ledger_write_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_draft_template',
+                'merge_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_draft_template',
+                'dispatch_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_draft_template',
+            ],
+            'execution_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'ledger_write_allowed' => false,
+            'signature_valid' => false,
+            'signature_accepted' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'decision_record_draft_persisted' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'dispatch_allowed' => false,
+            'prior_authorization_reuse_allowed' => false,
+            'later_cycle_authorized' => false,
+            'human_notified' => false,
+            'human_task_created' => false,
+            'manual_decision_requested' => false,
+            'manual_decision_response_recorded' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_draft_template.v1',
+            'status' => $responseReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_draft_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_draft_template_blocked',
+            'mode' => 'read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_draft_template',
+            'execution_allowed' => false,
+            'ledger_write_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'signature_accepted' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'decision_record_draft_persisted' => false,
+            'prior_authorization_reuse_allowed' => false,
+            'later_cycle_authorized' => false,
+            'human_notified' => false,
+            'human_task_created' => false,
+            'manual_decision_requested' => false,
+            'manual_decision_response_recorded' => false,
+            'disable_execution_later_cycle_authorization_decision_record_draft' => $decisionRecordDraft,
+            'disable_execution_later_cycle_authorization_decision_record_draft_hash' => $this->stableHash($decisionRecordDraft),
+            'non_execution_guarantees' => [
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_draft_template_does_not_claim_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_draft_template_does_not_complete_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_draft_template_does_not_record_decision',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_draft_template_does_not_persist_draft',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_draft_template_does_not_notify_human',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_draft_template_does_not_create_task',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_draft_template_does_not_accept_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_draft_template_does_not_sign_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_draft_template_does_not_persist_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_draft_template_does_not_grant_approval',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_draft_template_does_not_authorize_later_cycle',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_draft_template_does_not_reuse_prior_authorization',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_draft_template_does_not_execute_disable',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_draft_template_does_not_mutate_writer_state',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_draft_template_does_not_create_writer_file',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_draft_template_does_not_write_ledger',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_draft_template_does_not_merge',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_draft_template_does_not_dispatch_work',
+            ],
+            'human_summary' => $responseReady
+                ? 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization decision record draft template is ready as a non-dispatching draft template. It still does not record a decision, persist a draft, notify humans, create tasks, accept signatures, sign receipts, persist receipts, grant approval, authorize a later cycle, reuse prior authorization, write ledger, execute disable, mutate writer state, create a writer, merge or dispatch.'
+                : 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization decision record draft template is blocked until fresh authorization new cycle disable execution later-cycle authorization manual decision response template is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationDecisionRecordPersistencePreflightTemplate(array $options = []): array
+    {
+        $draftPayload = $this->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationDecisionRecordDraftTemplate($options);
+        $decisionRecordDraft = (array) data_get($draftPayload, 'disable_execution_later_cycle_authorization_decision_record_draft', []);
+        $draftReady = data_get($draftPayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_draft_template_ready';
+
+        $requiredPersistencePreflightChecks = [
+            'later_cycle_authorization_decision_record_draft_hash_present',
+            'decision_record_subject_present',
+            'selected_decision_option_allowed',
+            'decision_record_rationale_present',
+            'decision_record_evidence_hash_present',
+            'decision_record_actor_identity_present',
+            'non_dispatch_statement_present',
+            'non_authorization_statement_present',
+            'non_persistence_statement_present',
+            'persistence_remains_disallowed',
+        ];
+
+        $decisionRecordPersistencePreflight = [
+            'disable_execution_later_cycle_authorization_decision_record_persistence_preflight_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-FRESH-AUTHORIZATION-NEW-CYCLE-DISABLE-EXECUTION-LATER-CYCLE-AUTHORIZATION-DECISION-RECORD-PERSISTENCE-PREFLIGHT-TEMPLATE-SELF-CONSTRUCTION-0001',
+            'status' => $draftReady ? 'ready_as_future_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_preflight_template' : 'blocked_before_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_draft_template',
+            'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_draft_hash' => data_get($draftPayload, 'disable_execution_later_cycle_authorization_decision_record_draft_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_response_hash' => data_get($decisionRecordDraft, 'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_response_hash'),
+            'required_persistence_preflight_checks' => $requiredPersistencePreflightChecks,
+            'required_persistence_preflight_check_count' => count($requiredPersistencePreflightChecks),
+            'required_persistence_preflight_evidence' => [
+                'later_cycle_authorization_decision_record_draft_hash',
+                'decision_record_subject',
+                'selected_decision_option',
+                'decision_record_evidence_hash',
+                'decision_record_actor_identity',
+                'non_persistence_statement',
+            ],
+            'persistence_preflight_policy' => [
+                'decision_record_persistence_preflight_requires_decision_record_draft_hash',
+                'decision_record_persistence_preflight_requires_selected_allowed_option',
+                'decision_record_persistence_preflight_requires_record_rationale',
+                'decision_record_persistence_preflight_requires_record_evidence_hash',
+                'decision_record_persistence_preflight_requires_non_dispatch_statement',
+                'decision_record_persistence_preflight_requires_non_authorization_statement',
+                'decision_record_persistence_preflight_requires_non_persistence_statement',
+                'decision_record_persistence_preflight_requires_persistence_allowed_flag_false',
+                'decision_record_persistence_preflight_requires_later_cycle_authorized_flag_false',
+                'decision_record_persistence_preflight_requires_prior_authorization_reuse_allowed_flag_false',
+                'decision_record_persistence_preflight_does_not_allow_persistence',
+                'decision_record_persistence_preflight_does_not_persist_draft',
+                'decision_record_persistence_preflight_does_not_record_decision',
+                'decision_record_persistence_preflight_does_not_notify_human',
+                'decision_record_persistence_preflight_does_not_create_task',
+                'decision_record_persistence_preflight_does_not_accept_signature',
+                'decision_record_persistence_preflight_does_not_sign_receipt',
+                'decision_record_persistence_preflight_does_not_write_ledger',
+                'decision_record_persistence_preflight_does_not_persist_receipt',
+                'decision_record_persistence_preflight_does_not_grant_approval',
+                'decision_record_persistence_preflight_does_not_authorize_later_cycle',
+                'decision_record_persistence_preflight_does_not_execute_disable',
+                'decision_record_persistence_preflight_does_not_mutate_writer_state',
+            ],
+            'future_persistence_preflight_outputs' => [
+                'writer_release_fresh_authorization_later_cycle_authorization_decision_record_persistence_preflight_hash',
+                'writer_release_fresh_authorization_later_cycle_authorization_decision_record_persistence_receipt_hash',
+                'writer_release_fresh_authorization_later_cycle_authorization_follow_up_observability_hash',
+                'writer_release_fresh_authorization_later_cycle_authorization_human_review_packet_hash',
+            ],
+            'still_forbidden_by_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_preflight_template' => [
+                'persistence_allowed_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_preflight_template',
+                'decision_recording_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_preflight_template',
+                'draft_persistence_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_preflight_template',
+                'human_notification_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_preflight_template',
+                'task_creation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_preflight_template',
+                'signature_acceptance_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_preflight_template',
+                'receipt_signature_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_preflight_template',
+                'receipt_persistence_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_preflight_template',
+                'approval_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_preflight_template',
+                'later_cycle_authorization_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_preflight_template',
+                'authorization_reuse_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_preflight_template',
+                'disable_execution_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_preflight_template',
+                'writer_state_mutation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_preflight_template',
+                'writer_file_creation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_preflight_template',
+                'ledger_write_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_preflight_template',
+                'merge_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_preflight_template',
+                'dispatch_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_preflight_template',
+            ],
+            'execution_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'ledger_write_allowed' => false,
+            'signature_valid' => false,
+            'signature_accepted' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'decision_record_draft_persisted' => false,
+            'decision_record_persistence_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'dispatch_allowed' => false,
+            'prior_authorization_reuse_allowed' => false,
+            'later_cycle_authorized' => false,
+            'human_notified' => false,
+            'human_task_created' => false,
+            'manual_decision_requested' => false,
+            'manual_decision_response_recorded' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_preflight_template.v1',
+            'status' => $draftReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_preflight_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_preflight_template_blocked',
+            'mode' => 'read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_preflight_template',
+            'execution_allowed' => false,
+            'ledger_write_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'signature_accepted' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'decision_record_draft_persisted' => false,
+            'decision_record_persistence_allowed' => false,
+            'prior_authorization_reuse_allowed' => false,
+            'later_cycle_authorized' => false,
+            'human_notified' => false,
+            'human_task_created' => false,
+            'manual_decision_requested' => false,
+            'manual_decision_response_recorded' => false,
+            'disable_execution_later_cycle_authorization_decision_record_persistence_preflight' => $decisionRecordPersistencePreflight,
+            'disable_execution_later_cycle_authorization_decision_record_persistence_preflight_hash' => $this->stableHash($decisionRecordPersistencePreflight),
+            'non_execution_guarantees' => [
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_preflight_template_does_not_claim_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_preflight_template_does_not_complete_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_preflight_template_does_not_allow_persistence',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_preflight_template_does_not_record_decision',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_preflight_template_does_not_persist_draft',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_preflight_template_does_not_notify_human',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_preflight_template_does_not_create_task',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_preflight_template_does_not_accept_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_preflight_template_does_not_sign_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_preflight_template_does_not_persist_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_preflight_template_does_not_grant_approval',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_preflight_template_does_not_authorize_later_cycle',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_preflight_template_does_not_reuse_prior_authorization',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_preflight_template_does_not_execute_disable',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_preflight_template_does_not_mutate_writer_state',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_preflight_template_does_not_create_writer_file',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_preflight_template_does_not_write_ledger',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_preflight_template_does_not_merge',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_preflight_template_does_not_dispatch_work',
+            ],
+            'human_summary' => $draftReady
+                ? 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization decision record persistence preflight template is ready as a non-persisting preflight template. It still does not allow persistence, record a decision, persist a draft, notify humans, create tasks, accept signatures, sign receipts, persist receipts, grant approval, authorize a later cycle, reuse prior authorization, write ledger, execute disable, mutate writer state, create a writer, merge or dispatch.'
+                : 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization decision record persistence preflight template is blocked until fresh authorization new cycle disable execution later-cycle authorization decision record draft template is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationDecisionRecordPersistenceReceiptTemplate(array $options = []): array
+    {
+        $preflightPayload = $this->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationDecisionRecordPersistencePreflightTemplate($options);
+        $decisionRecordPreflight = (array) data_get($preflightPayload, 'disable_execution_later_cycle_authorization_decision_record_persistence_preflight', []);
+        $preflightReady = data_get($preflightPayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_preflight_template_ready';
+
+        $requiredPersistenceReceiptFields = [
+            'later_cycle_authorization_decision_record_persistence_preflight_hash',
+            'decision_record_draft_hash',
+            'persistence_receipt_subject',
+            'persistence_receipt_rationale',
+            'persistence_receipt_evidence_hash',
+            'persistence_receipt_actor_identity',
+            'non_dispatch_statement',
+            'non_authorization_statement',
+            'non_persistence_statement',
+            'non_execution_statement',
+        ];
+
+        $decisionRecordPersistenceReceipt = [
+            'disable_execution_later_cycle_authorization_decision_record_persistence_receipt_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-FRESH-AUTHORIZATION-NEW-CYCLE-DISABLE-EXECUTION-LATER-CYCLE-AUTHORIZATION-DECISION-RECORD-PERSISTENCE-RECEIPT-TEMPLATE-SELF-CONSTRUCTION-0001',
+            'status' => $preflightReady ? 'ready_as_future_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_receipt_template' : 'blocked_before_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_preflight_template',
+            'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_preflight_hash' => data_get($preflightPayload, 'disable_execution_later_cycle_authorization_decision_record_persistence_preflight_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_draft_hash' => data_get($decisionRecordPreflight, 'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_draft_hash'),
+            'required_persistence_receipt_fields' => $requiredPersistenceReceiptFields,
+            'required_persistence_receipt_field_count' => count($requiredPersistenceReceiptFields),
+            'required_persistence_receipt_evidence' => [
+                'later_cycle_authorization_decision_record_persistence_preflight_hash',
+                'decision_record_draft_hash',
+                'persistence_receipt_subject',
+                'persistence_receipt_evidence_hash',
+                'persistence_receipt_actor_identity',
+                'non_persistence_statement',
+            ],
+            'persistence_receipt_policy' => [
+                'decision_record_persistence_receipt_requires_persistence_preflight_hash',
+                'decision_record_persistence_receipt_requires_decision_record_draft_hash',
+                'decision_record_persistence_receipt_requires_receipt_subject',
+                'decision_record_persistence_receipt_requires_receipt_rationale',
+                'decision_record_persistence_receipt_requires_receipt_evidence_hash',
+                'decision_record_persistence_receipt_requires_non_dispatch_statement',
+                'decision_record_persistence_receipt_requires_non_authorization_statement',
+                'decision_record_persistence_receipt_requires_non_persistence_statement',
+                'decision_record_persistence_receipt_requires_non_execution_statement',
+                'decision_record_persistence_receipt_requires_persistence_allowed_flag_false',
+                'decision_record_persistence_receipt_requires_decision_record_persisted_flag_false',
+                'decision_record_persistence_receipt_requires_later_cycle_authorized_flag_false',
+                'decision_record_persistence_receipt_does_not_allow_persistence',
+                'decision_record_persistence_receipt_does_not_persist_decision_record',
+                'decision_record_persistence_receipt_does_not_persist_draft',
+                'decision_record_persistence_receipt_does_not_record_decision',
+                'decision_record_persistence_receipt_does_not_notify_human',
+                'decision_record_persistence_receipt_does_not_create_task',
+                'decision_record_persistence_receipt_does_not_accept_signature',
+                'decision_record_persistence_receipt_does_not_sign_receipt',
+                'decision_record_persistence_receipt_does_not_write_ledger',
+                'decision_record_persistence_receipt_does_not_persist_receipt',
+                'decision_record_persistence_receipt_does_not_grant_approval',
+                'decision_record_persistence_receipt_does_not_authorize_later_cycle',
+                'decision_record_persistence_receipt_does_not_execute_disable',
+                'decision_record_persistence_receipt_does_not_mutate_writer_state',
+            ],
+            'future_persistence_receipt_outputs' => [
+                'writer_release_fresh_authorization_later_cycle_authorization_decision_record_persistence_receipt_hash',
+                'writer_release_fresh_authorization_later_cycle_authorization_decision_record_post_persistence_review_hash',
+                'writer_release_fresh_authorization_later_cycle_authorization_follow_up_observability_hash',
+                'writer_release_fresh_authorization_later_cycle_authorization_human_review_packet_hash',
+            ],
+            'still_forbidden_by_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_receipt_template' => [
+                'persistence_allowed_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_receipt_template',
+                'decision_record_persistence_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_receipt_template',
+                'decision_recording_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_receipt_template',
+                'draft_persistence_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_receipt_template',
+                'human_notification_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_receipt_template',
+                'task_creation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_receipt_template',
+                'signature_acceptance_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_receipt_template',
+                'receipt_signature_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_receipt_template',
+                'receipt_persistence_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_receipt_template',
+                'approval_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_receipt_template',
+                'later_cycle_authorization_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_receipt_template',
+                'authorization_reuse_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_receipt_template',
+                'disable_execution_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_receipt_template',
+                'writer_state_mutation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_receipt_template',
+                'writer_file_creation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_receipt_template',
+                'ledger_write_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_receipt_template',
+                'merge_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_receipt_template',
+                'dispatch_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_receipt_template',
+            ],
+            'execution_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'ledger_write_allowed' => false,
+            'signature_valid' => false,
+            'signature_accepted' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'decision_record_draft_persisted' => false,
+            'decision_record_persistence_allowed' => false,
+            'decision_record_persisted' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'dispatch_allowed' => false,
+            'prior_authorization_reuse_allowed' => false,
+            'later_cycle_authorized' => false,
+            'human_notified' => false,
+            'human_task_created' => false,
+            'manual_decision_requested' => false,
+            'manual_decision_response_recorded' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_receipt_template.v1',
+            'status' => $preflightReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_receipt_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_receipt_template_blocked',
+            'mode' => 'read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_receipt_template',
+            'execution_allowed' => false,
+            'ledger_write_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'signature_accepted' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'decision_record_draft_persisted' => false,
+            'decision_record_persistence_allowed' => false,
+            'decision_record_persisted' => false,
+            'prior_authorization_reuse_allowed' => false,
+            'later_cycle_authorized' => false,
+            'human_notified' => false,
+            'human_task_created' => false,
+            'manual_decision_requested' => false,
+            'manual_decision_response_recorded' => false,
+            'disable_execution_later_cycle_authorization_decision_record_persistence_receipt' => $decisionRecordPersistenceReceipt,
+            'disable_execution_later_cycle_authorization_decision_record_persistence_receipt_hash' => $this->stableHash($decisionRecordPersistenceReceipt),
+            'non_execution_guarantees' => [
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_receipt_template_does_not_claim_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_receipt_template_does_not_complete_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_receipt_template_does_not_allow_persistence',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_receipt_template_does_not_persist_decision_record',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_receipt_template_does_not_record_decision',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_receipt_template_does_not_persist_draft',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_receipt_template_does_not_notify_human',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_receipt_template_does_not_create_task',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_receipt_template_does_not_accept_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_receipt_template_does_not_sign_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_receipt_template_does_not_persist_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_receipt_template_does_not_grant_approval',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_receipt_template_does_not_authorize_later_cycle',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_receipt_template_does_not_reuse_prior_authorization',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_receipt_template_does_not_execute_disable',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_receipt_template_does_not_mutate_writer_state',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_receipt_template_does_not_create_writer_file',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_receipt_template_does_not_write_ledger',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_receipt_template_does_not_merge',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_receipt_template_does_not_dispatch_work',
+            ],
+            'human_summary' => $preflightReady
+                ? 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization decision record persistence receipt template is ready as a non-persisting receipt template. It still does not allow persistence, persist a decision record, record a decision, persist a draft, notify humans, create tasks, accept signatures, sign receipts, persist receipts, grant approval, authorize a later cycle, reuse prior authorization, write ledger, execute disable, mutate writer state, create a writer, merge or dispatch.'
+                : 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization decision record persistence receipt template is blocked until fresh authorization new cycle disable execution later-cycle authorization decision record persistence preflight template is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationDecisionRecordPostPersistenceReviewTemplate(array $options = []): array
+    {
+        $receiptPayload = $this->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationDecisionRecordPersistenceReceiptTemplate($options);
+        $decisionRecordReceipt = (array) data_get($receiptPayload, 'disable_execution_later_cycle_authorization_decision_record_persistence_receipt', []);
+        $receiptReady = data_get($receiptPayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_receipt_template_ready';
+
+        $requiredPostPersistenceReviewChecks = [
+            'later_cycle_authorization_decision_record_persistence_receipt_hash_present',
+            'decision_record_persistence_was_not_accepted',
+            'decision_record_was_not_persisted',
+            'decision_was_not_recorded',
+            'ledger_write_remained_disallowed',
+            'receipt_persistence_remained_false',
+            'later_cycle_authorization_remained_false',
+            'prior_authorization_reuse_remained_false',
+            'dispatch_remained_disallowed',
+            'execution_remained_disallowed',
+        ];
+
+        $postPersistenceReview = [
+            'disable_execution_later_cycle_authorization_decision_record_post_persistence_review_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-FRESH-AUTHORIZATION-NEW-CYCLE-DISABLE-EXECUTION-LATER-CYCLE-AUTHORIZATION-DECISION-RECORD-POST-PERSISTENCE-REVIEW-TEMPLATE-SELF-CONSTRUCTION-0001',
+            'status' => $receiptReady ? 'ready_as_future_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_post_persistence_review_template' : 'blocked_before_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_receipt_template',
+            'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_receipt_hash' => data_get($receiptPayload, 'disable_execution_later_cycle_authorization_decision_record_persistence_receipt_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_preflight_hash' => data_get($decisionRecordReceipt, 'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_preflight_hash'),
+            'required_post_persistence_review_checks' => $requiredPostPersistenceReviewChecks,
+            'required_post_persistence_review_check_count' => count($requiredPostPersistenceReviewChecks),
+            'required_post_persistence_review_evidence' => [
+                'later_cycle_authorization_decision_record_persistence_receipt_hash',
+                'decision_record_persistence_allowed_false',
+                'decision_record_persisted_false',
+                'decision_recorded_false',
+                'ledger_write_allowed_false',
+                'dispatch_allowed_false',
+                'execution_allowed_false',
+            ],
+            'post_persistence_review_policy' => [
+                'decision_record_post_persistence_review_requires_persistence_receipt_hash',
+                'decision_record_post_persistence_review_requires_persistence_accepted_flag_false',
+                'decision_record_post_persistence_review_requires_decision_record_persisted_flag_false',
+                'decision_record_post_persistence_review_requires_decision_recorded_flag_false',
+                'decision_record_post_persistence_review_requires_ledger_write_allowed_flag_false',
+                'decision_record_post_persistence_review_requires_dispatch_allowed_flag_false',
+                'decision_record_post_persistence_review_requires_execution_allowed_flag_false',
+                'decision_record_post_persistence_review_does_not_accept_persistence',
+                'decision_record_post_persistence_review_does_not_allow_persistence',
+                'decision_record_post_persistence_review_does_not_persist_decision_record',
+                'decision_record_post_persistence_review_does_not_record_decision',
+                'decision_record_post_persistence_review_does_not_notify_human',
+                'decision_record_post_persistence_review_does_not_create_task',
+                'decision_record_post_persistence_review_does_not_accept_signature',
+                'decision_record_post_persistence_review_does_not_sign_receipt',
+                'decision_record_post_persistence_review_does_not_write_ledger',
+                'decision_record_post_persistence_review_does_not_persist_receipt',
+                'decision_record_post_persistence_review_does_not_grant_approval',
+                'decision_record_post_persistence_review_does_not_authorize_later_cycle',
+                'decision_record_post_persistence_review_does_not_execute_disable',
+                'decision_record_post_persistence_review_does_not_mutate_writer_state',
+            ],
+            'future_post_persistence_review_outputs' => [
+                'writer_release_fresh_authorization_later_cycle_authorization_decision_record_post_persistence_review_hash',
+                'writer_release_fresh_authorization_later_cycle_authorization_follow_up_observability_hash',
+                'writer_release_fresh_authorization_later_cycle_authorization_human_review_packet_hash',
+                'writer_release_fresh_authorization_later_cycle_authorization_decision_record_persistence_rejection_hash',
+            ],
+            'still_forbidden_by_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_post_persistence_review_template' => [
+                'persistence_acceptance_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_post_persistence_review_template',
+                'persistence_allowed_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_post_persistence_review_template',
+                'decision_record_persistence_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_post_persistence_review_template',
+                'decision_recording_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_post_persistence_review_template',
+                'human_notification_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_post_persistence_review_template',
+                'task_creation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_post_persistence_review_template',
+                'signature_acceptance_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_post_persistence_review_template',
+                'receipt_signature_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_post_persistence_review_template',
+                'receipt_persistence_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_post_persistence_review_template',
+                'approval_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_post_persistence_review_template',
+                'later_cycle_authorization_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_post_persistence_review_template',
+                'authorization_reuse_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_post_persistence_review_template',
+                'disable_execution_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_post_persistence_review_template',
+                'writer_state_mutation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_post_persistence_review_template',
+                'writer_file_creation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_post_persistence_review_template',
+                'ledger_write_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_post_persistence_review_template',
+                'merge_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_post_persistence_review_template',
+                'dispatch_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_post_persistence_review_template',
+            ],
+            'execution_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'ledger_write_allowed' => false,
+            'signature_valid' => false,
+            'signature_accepted' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'decision_record_draft_persisted' => false,
+            'decision_record_persistence_allowed' => false,
+            'decision_record_persisted' => false,
+            'decision_record_persistence_accepted' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'dispatch_allowed' => false,
+            'prior_authorization_reuse_allowed' => false,
+            'later_cycle_authorized' => false,
+            'human_notified' => false,
+            'human_task_created' => false,
+            'manual_decision_requested' => false,
+            'manual_decision_response_recorded' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_post_persistence_review_template.v1',
+            'status' => $receiptReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_post_persistence_review_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_post_persistence_review_template_blocked',
+            'mode' => 'read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_post_persistence_review_template',
+            'execution_allowed' => false,
+            'ledger_write_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'signature_accepted' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'decision_record_draft_persisted' => false,
+            'decision_record_persistence_allowed' => false,
+            'decision_record_persisted' => false,
+            'decision_record_persistence_accepted' => false,
+            'prior_authorization_reuse_allowed' => false,
+            'later_cycle_authorized' => false,
+            'human_notified' => false,
+            'human_task_created' => false,
+            'manual_decision_requested' => false,
+            'manual_decision_response_recorded' => false,
+            'disable_execution_later_cycle_authorization_decision_record_post_persistence_review' => $postPersistenceReview,
+            'disable_execution_later_cycle_authorization_decision_record_post_persistence_review_hash' => $this->stableHash($postPersistenceReview),
+            'non_execution_guarantees' => [
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_post_persistence_review_template_does_not_claim_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_post_persistence_review_template_does_not_complete_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_post_persistence_review_template_does_not_accept_persistence',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_post_persistence_review_template_does_not_allow_persistence',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_post_persistence_review_template_does_not_persist_decision_record',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_post_persistence_review_template_does_not_record_decision',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_post_persistence_review_template_does_not_notify_human',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_post_persistence_review_template_does_not_create_task',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_post_persistence_review_template_does_not_accept_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_post_persistence_review_template_does_not_sign_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_post_persistence_review_template_does_not_persist_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_post_persistence_review_template_does_not_grant_approval',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_post_persistence_review_template_does_not_authorize_later_cycle',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_post_persistence_review_template_does_not_reuse_prior_authorization',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_post_persistence_review_template_does_not_execute_disable',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_post_persistence_review_template_does_not_mutate_writer_state',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_post_persistence_review_template_does_not_create_writer_file',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_post_persistence_review_template_does_not_write_ledger',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_post_persistence_review_template_does_not_merge',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_post_persistence_review_template_does_not_dispatch_work',
+            ],
+            'human_summary' => $receiptReady
+                ? 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization decision record post-persistence review template is ready as a non-persisting review template. It still does not accept persistence, allow persistence, persist a decision record, record a decision, notify humans, create tasks, accept signatures, sign receipts, persist receipts, grant approval, authorize a later cycle, reuse prior authorization, write ledger, execute disable, mutate writer state, create a writer, merge or dispatch.'
+                : 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization decision record post-persistence review template is blocked until fresh authorization new cycle disable execution later-cycle authorization decision record persistence receipt template is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationDecisionRecordPersistenceRejectionTemplate(array $options = []): array
+    {
+        $reviewPayload = $this->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationDecisionRecordPostPersistenceReviewTemplate($options);
+        $postPersistenceReview = (array) data_get($reviewPayload, 'disable_execution_later_cycle_authorization_decision_record_post_persistence_review', []);
+        $reviewReady = data_get($reviewPayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_post_persistence_review_template_ready';
+
+        $requiredRejectionFields = [
+            'later_cycle_authorization_decision_record_post_persistence_review_hash',
+            'later_cycle_authorization_decision_record_persistence_receipt_hash',
+            'selected_post_persistence_review_outcome',
+            'decision_record_persistence_rejection_rationale',
+            'rejection_actor_identity',
+            'rejection_timestamp',
+            'non_persistence_statement',
+            'non_decision_recording_statement',
+            'non_authorization_statement',
+            'non_execution_statement',
+        ];
+
+        $persistenceRejection = [
+            'disable_execution_later_cycle_authorization_decision_record_persistence_rejection_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-FRESH-AUTHORIZATION-NEW-CYCLE-DISABLE-EXECUTION-LATER-CYCLE-AUTHORIZATION-DECISION-RECORD-PERSISTENCE-REJECTION-TEMPLATE-SELF-CONSTRUCTION-0001',
+            'status' => $reviewReady ? 'ready_as_future_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_rejection_template' : 'blocked_before_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_post_persistence_review_template',
+            'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_post_persistence_review_hash' => data_get($reviewPayload, 'disable_execution_later_cycle_authorization_decision_record_post_persistence_review_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_receipt_hash' => data_get($postPersistenceReview, 'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_receipt_hash'),
+            'required_rejection_fields' => $requiredRejectionFields,
+            'required_rejection_field_count' => count($requiredRejectionFields),
+            'allowed_rejection_reasons' => [
+                'decision_record_persistence_not_accepted',
+                'decision_record_was_not_persisted',
+                'decision_was_not_recorded',
+                'ledger_write_remained_disallowed',
+                'later_cycle_authorization_remained_false',
+                'dispatch_remained_disallowed',
+                'execution_remained_disallowed',
+            ],
+            'required_rejection_evidence' => [
+                'later_cycle_authorization_decision_record_post_persistence_review_hash',
+                'later_cycle_authorization_decision_record_persistence_receipt_hash',
+                'decision_record_persistence_rejection_rationale',
+                'decision_record_persistence_accepted_false',
+                'decision_record_persisted_false',
+                'decision_recorded_false',
+                'ledger_write_allowed_false',
+            ],
+            'rejection_policy' => [
+                'decision_record_persistence_rejection_requires_post_persistence_review_hash',
+                'decision_record_persistence_rejection_requires_persistence_receipt_hash',
+                'decision_record_persistence_rejection_requires_allowed_rejection_reason',
+                'decision_record_persistence_rejection_requires_rejection_rationale',
+                'decision_record_persistence_rejection_requires_non_persistence_statement',
+                'decision_record_persistence_rejection_requires_non_decision_recording_statement',
+                'decision_record_persistence_rejection_requires_non_authorization_statement',
+                'decision_record_persistence_rejection_requires_non_execution_statement',
+                'decision_record_persistence_rejection_requires_persistence_accepted_flag_false',
+                'decision_record_persistence_rejection_requires_decision_record_persisted_flag_false',
+                'decision_record_persistence_rejection_does_not_reject_persistence_as_action',
+                'decision_record_persistence_rejection_does_not_persist_rejection',
+                'decision_record_persistence_rejection_does_not_accept_persistence',
+                'decision_record_persistence_rejection_does_not_allow_persistence',
+                'decision_record_persistence_rejection_does_not_persist_decision_record',
+                'decision_record_persistence_rejection_does_not_record_decision',
+                'decision_record_persistence_rejection_does_not_notify_human',
+                'decision_record_persistence_rejection_does_not_create_task',
+                'decision_record_persistence_rejection_does_not_accept_signature',
+                'decision_record_persistence_rejection_does_not_sign_receipt',
+                'decision_record_persistence_rejection_does_not_write_ledger',
+                'decision_record_persistence_rejection_does_not_persist_receipt',
+                'decision_record_persistence_rejection_does_not_grant_approval',
+                'decision_record_persistence_rejection_does_not_authorize_later_cycle',
+                'decision_record_persistence_rejection_does_not_execute_disable',
+                'decision_record_persistence_rejection_does_not_mutate_writer_state',
+            ],
+            'future_rejection_outputs' => [
+                'writer_release_fresh_authorization_later_cycle_authorization_decision_record_persistence_rejection_hash',
+                'writer_release_fresh_authorization_later_cycle_authorization_decision_record_rejection_integrity_hash',
+                'writer_release_fresh_authorization_later_cycle_authorization_follow_up_observability_hash',
+                'writer_release_fresh_authorization_later_cycle_authorization_human_review_packet_hash',
+            ],
+            'still_forbidden_by_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_rejection_template' => [
+                'persistence_rejection_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_rejection_template',
+                'persistence_acceptance_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_rejection_template',
+                'persistence_allowed_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_rejection_template',
+                'decision_record_persistence_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_rejection_template',
+                'decision_recording_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_rejection_template',
+                'human_notification_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_rejection_template',
+                'task_creation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_rejection_template',
+                'signature_acceptance_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_rejection_template',
+                'receipt_signature_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_rejection_template',
+                'receipt_persistence_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_rejection_template',
+                'approval_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_rejection_template',
+                'later_cycle_authorization_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_rejection_template',
+                'authorization_reuse_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_rejection_template',
+                'disable_execution_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_rejection_template',
+                'writer_state_mutation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_rejection_template',
+                'writer_file_creation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_rejection_template',
+                'ledger_write_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_rejection_template',
+                'merge_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_rejection_template',
+                'dispatch_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_rejection_template',
+            ],
+            'execution_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'ledger_write_allowed' => false,
+            'signature_valid' => false,
+            'signature_accepted' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'decision_record_draft_persisted' => false,
+            'decision_record_persistence_allowed' => false,
+            'decision_record_persisted' => false,
+            'decision_record_persistence_accepted' => false,
+            'decision_record_persistence_rejected' => false,
+            'decision_record_persistence_rejection_persisted' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'dispatch_allowed' => false,
+            'prior_authorization_reuse_allowed' => false,
+            'later_cycle_authorized' => false,
+            'human_notified' => false,
+            'human_task_created' => false,
+            'manual_decision_requested' => false,
+            'manual_decision_response_recorded' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_rejection_template.v1',
+            'status' => $reviewReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_rejection_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_rejection_template_blocked',
+            'mode' => 'read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_rejection_template',
+            'execution_allowed' => false,
+            'ledger_write_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'signature_accepted' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'decision_record_draft_persisted' => false,
+            'decision_record_persistence_allowed' => false,
+            'decision_record_persisted' => false,
+            'decision_record_persistence_accepted' => false,
+            'decision_record_persistence_rejected' => false,
+            'decision_record_persistence_rejection_persisted' => false,
+            'prior_authorization_reuse_allowed' => false,
+            'later_cycle_authorized' => false,
+            'human_notified' => false,
+            'human_task_created' => false,
+            'manual_decision_requested' => false,
+            'manual_decision_response_recorded' => false,
+            'disable_execution_later_cycle_authorization_decision_record_persistence_rejection' => $persistenceRejection,
+            'disable_execution_later_cycle_authorization_decision_record_persistence_rejection_hash' => $this->stableHash($persistenceRejection),
+            'non_execution_guarantees' => [
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_rejection_template_does_not_claim_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_rejection_template_does_not_complete_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_rejection_template_does_not_reject_persistence_as_action',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_rejection_template_does_not_persist_rejection',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_rejection_template_does_not_accept_persistence',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_rejection_template_does_not_allow_persistence',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_rejection_template_does_not_persist_decision_record',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_rejection_template_does_not_record_decision',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_rejection_template_does_not_notify_human',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_rejection_template_does_not_create_task',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_rejection_template_does_not_accept_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_rejection_template_does_not_sign_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_rejection_template_does_not_persist_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_rejection_template_does_not_grant_approval',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_rejection_template_does_not_authorize_later_cycle',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_rejection_template_does_not_reuse_prior_authorization',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_rejection_template_does_not_execute_disable',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_rejection_template_does_not_mutate_writer_state',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_rejection_template_does_not_create_writer_file',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_rejection_template_does_not_write_ledger',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_rejection_template_does_not_merge',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_rejection_template_does_not_dispatch_work',
+            ],
+            'human_summary' => $reviewReady
+                ? 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization decision record persistence rejection template is ready as a non-persisting rejection template. It still does not reject persistence as an action, persist a rejection, accept persistence, allow persistence, persist a decision record, record a decision, notify humans, create tasks, accept signatures, sign receipts, persist receipts, grant approval, authorize a later cycle, reuse prior authorization, write ledger, execute disable, mutate writer state, create a writer, merge or dispatch.'
+                : 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization decision record persistence rejection template is blocked until fresh authorization new cycle disable execution later-cycle authorization decision record post-persistence review template is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationDecisionRecordFollowUpObservabilityTemplate(array $options = []): array
+    {
+        $rejectionPayload = $this->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationDecisionRecordPersistenceRejectionTemplate($options);
+        $persistenceRejection = (array) data_get($rejectionPayload, 'disable_execution_later_cycle_authorization_decision_record_persistence_rejection', []);
+        $rejectionReady = data_get($rejectionPayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_rejection_template_ready';
+
+        $observationSignals = [
+            'decision_record_persistence_rejection_hash_present',
+            'no_persistence_rejection_persisted',
+            'no_decision_record_persisted',
+            'no_decision_recorded',
+            'no_ledger_write_after_rejection_template',
+            'no_receipt_persistence_after_rejection_template',
+            'no_later_cycle_authorization_after_rejection_template',
+            'no_dispatch_after_rejection_template',
+            'no_execution_after_rejection_template',
+        ];
+
+        $followUpObservability = [
+            'disable_execution_later_cycle_authorization_decision_record_follow_up_observability_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-FRESH-AUTHORIZATION-NEW-CYCLE-DISABLE-EXECUTION-LATER-CYCLE-AUTHORIZATION-DECISION-RECORD-FOLLOW-UP-OBSERVABILITY-TEMPLATE-SELF-CONSTRUCTION-0001',
+            'status' => $rejectionReady ? 'ready_as_future_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_follow_up_observability_template' : 'blocked_before_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_rejection_template',
+            'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_rejection_hash' => data_get($rejectionPayload, 'disable_execution_later_cycle_authorization_decision_record_persistence_rejection_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_post_persistence_review_hash' => data_get($persistenceRejection, 'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_post_persistence_review_hash'),
+            'observation_signals' => $observationSignals,
+            'observation_signal_count' => count($observationSignals),
+            'required_observation_evidence' => [
+                'later_cycle_authorization_decision_record_persistence_rejection_hash',
+                'decision_record_persistence_rejection_persisted_false',
+                'decision_record_persistence_rejected_false',
+                'decision_record_persistence_accepted_false',
+                'decision_record_persisted_false',
+                'decision_recorded_false',
+                'ledger_write_allowed_false',
+                'dispatch_allowed_false',
+                'execution_allowed_false',
+            ],
+            'observability_policy' => [
+                'decision_record_follow_up_observability_requires_persistence_rejection_hash',
+                'decision_record_follow_up_observability_requires_rejection_persisted_flag_false',
+                'decision_record_follow_up_observability_requires_persistence_rejected_flag_false',
+                'decision_record_follow_up_observability_requires_decision_recorded_flag_false',
+                'decision_record_follow_up_observability_requires_ledger_write_allowed_flag_false',
+                'decision_record_follow_up_observability_requires_dispatch_allowed_flag_false',
+                'decision_record_follow_up_observability_requires_execution_allowed_flag_false',
+                'decision_record_follow_up_observability_does_not_observe_as_persistence',
+                'decision_record_follow_up_observability_does_not_reject_persistence_as_action',
+                'decision_record_follow_up_observability_does_not_persist_rejection',
+                'decision_record_follow_up_observability_does_not_accept_persistence',
+                'decision_record_follow_up_observability_does_not_allow_persistence',
+                'decision_record_follow_up_observability_does_not_persist_decision_record',
+                'decision_record_follow_up_observability_does_not_record_decision',
+                'decision_record_follow_up_observability_does_not_notify_human',
+                'decision_record_follow_up_observability_does_not_create_task',
+                'decision_record_follow_up_observability_does_not_accept_signature',
+                'decision_record_follow_up_observability_does_not_sign_receipt',
+                'decision_record_follow_up_observability_does_not_write_ledger',
+                'decision_record_follow_up_observability_does_not_persist_receipt',
+                'decision_record_follow_up_observability_does_not_grant_approval',
+                'decision_record_follow_up_observability_does_not_authorize_later_cycle',
+                'decision_record_follow_up_observability_does_not_execute_disable',
+                'decision_record_follow_up_observability_does_not_mutate_writer_state',
+            ],
+            'future_observability_outputs' => [
+                'writer_release_fresh_authorization_later_cycle_authorization_decision_record_follow_up_observability_hash',
+                'writer_release_fresh_authorization_later_cycle_authorization_decision_record_observation_window_report_hash',
+                'writer_release_fresh_authorization_later_cycle_authorization_human_review_packet_hash',
+                'writer_release_fresh_authorization_later_cycle_authorization_final_non_execution_report_hash',
+            ],
+            'still_forbidden_by_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_follow_up_observability_template' => [
+                'observability_persistence_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_follow_up_observability_template',
+                'persistence_rejection_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_follow_up_observability_template',
+                'persistence_acceptance_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_follow_up_observability_template',
+                'persistence_allowed_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_follow_up_observability_template',
+                'decision_record_persistence_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_follow_up_observability_template',
+                'decision_recording_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_follow_up_observability_template',
+                'human_notification_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_follow_up_observability_template',
+                'task_creation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_follow_up_observability_template',
+                'signature_acceptance_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_follow_up_observability_template',
+                'receipt_signature_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_follow_up_observability_template',
+                'receipt_persistence_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_follow_up_observability_template',
+                'approval_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_follow_up_observability_template',
+                'later_cycle_authorization_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_follow_up_observability_template',
+                'authorization_reuse_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_follow_up_observability_template',
+                'disable_execution_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_follow_up_observability_template',
+                'writer_state_mutation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_follow_up_observability_template',
+                'writer_file_creation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_follow_up_observability_template',
+                'ledger_write_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_follow_up_observability_template',
+                'merge_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_follow_up_observability_template',
+                'dispatch_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_follow_up_observability_template',
+            ],
+            'execution_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'ledger_write_allowed' => false,
+            'signature_valid' => false,
+            'signature_accepted' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'decision_record_draft_persisted' => false,
+            'decision_record_persistence_allowed' => false,
+            'decision_record_persisted' => false,
+            'decision_record_persistence_accepted' => false,
+            'decision_record_persistence_rejected' => false,
+            'decision_record_persistence_rejection_persisted' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'dispatch_allowed' => false,
+            'prior_authorization_reuse_allowed' => false,
+            'later_cycle_authorized' => false,
+            'human_notified' => false,
+            'human_task_created' => false,
+            'manual_decision_requested' => false,
+            'manual_decision_response_recorded' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_follow_up_observability_template.v1',
+            'status' => $rejectionReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_follow_up_observability_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_follow_up_observability_template_blocked',
+            'mode' => 'read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_follow_up_observability_template',
+            'execution_allowed' => false,
+            'ledger_write_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'signature_accepted' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'decision_record_draft_persisted' => false,
+            'decision_record_persistence_allowed' => false,
+            'decision_record_persisted' => false,
+            'decision_record_persistence_accepted' => false,
+            'decision_record_persistence_rejected' => false,
+            'decision_record_persistence_rejection_persisted' => false,
+            'prior_authorization_reuse_allowed' => false,
+            'later_cycle_authorized' => false,
+            'human_notified' => false,
+            'human_task_created' => false,
+            'manual_decision_requested' => false,
+            'manual_decision_response_recorded' => false,
+            'disable_execution_later_cycle_authorization_decision_record_follow_up_observability' => $followUpObservability,
+            'disable_execution_later_cycle_authorization_decision_record_follow_up_observability_hash' => $this->stableHash($followUpObservability),
+            'non_execution_guarantees' => [
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_follow_up_observability_template_does_not_claim_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_follow_up_observability_template_does_not_complete_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_follow_up_observability_template_does_not_observe_as_persistence',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_follow_up_observability_template_does_not_reject_persistence_as_action',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_follow_up_observability_template_does_not_persist_rejection',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_follow_up_observability_template_does_not_accept_persistence',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_follow_up_observability_template_does_not_allow_persistence',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_follow_up_observability_template_does_not_persist_decision_record',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_follow_up_observability_template_does_not_record_decision',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_follow_up_observability_template_does_not_notify_human',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_follow_up_observability_template_does_not_create_task',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_follow_up_observability_template_does_not_accept_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_follow_up_observability_template_does_not_sign_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_follow_up_observability_template_does_not_persist_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_follow_up_observability_template_does_not_grant_approval',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_follow_up_observability_template_does_not_authorize_later_cycle',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_follow_up_observability_template_does_not_reuse_prior_authorization',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_follow_up_observability_template_does_not_execute_disable',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_follow_up_observability_template_does_not_mutate_writer_state',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_follow_up_observability_template_does_not_create_writer_file',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_follow_up_observability_template_does_not_write_ledger',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_follow_up_observability_template_does_not_merge',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_follow_up_observability_template_does_not_dispatch_work',
+            ],
+            'human_summary' => $rejectionReady
+                ? 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization decision record follow-up observability template is ready as a non-persisting observability template. It still does not observe as persistence, reject persistence as an action, persist a rejection, accept persistence, allow persistence, persist a decision record, record a decision, notify humans, create tasks, accept signatures, sign receipts, persist receipts, grant approval, authorize a later cycle, reuse prior authorization, write ledger, execute disable, mutate writer state, create a writer, merge or dispatch.'
+                : 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization decision record follow-up observability template is blocked until fresh authorization new cycle disable execution later-cycle authorization decision record persistence rejection template is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationDecisionRecordFinalNonExecutionReportTemplate(array $options = []): array
+    {
+        $observabilityPayload = $this->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationDecisionRecordFollowUpObservabilityTemplate($options);
+        $followUpObservability = (array) data_get($observabilityPayload, 'disable_execution_later_cycle_authorization_decision_record_follow_up_observability', []);
+        $observabilityReady = data_get($observabilityPayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_follow_up_observability_template_ready';
+
+        $requiredReportAssertions = [
+            'follow_up_observability_hash_present',
+            'no_final_report_persisted',
+            'no_persistence_rejection_persisted',
+            'no_decision_record_persisted',
+            'no_decision_recorded',
+            'no_ledger_write',
+            'no_receipt_persistence',
+            'no_later_cycle_authorization',
+            'no_dispatch',
+            'no_execution',
+        ];
+
+        $finalReport = [
+            'disable_execution_later_cycle_authorization_decision_record_final_non_execution_report_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-FRESH-AUTHORIZATION-NEW-CYCLE-DISABLE-EXECUTION-LATER-CYCLE-AUTHORIZATION-DECISION-RECORD-FINAL-NON-EXECUTION-REPORT-TEMPLATE-SELF-CONSTRUCTION-0001',
+            'status' => $observabilityReady ? 'ready_as_future_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_final_non_execution_report_template' : 'blocked_before_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_follow_up_observability_template',
+            'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_follow_up_observability_hash' => data_get($observabilityPayload, 'disable_execution_later_cycle_authorization_decision_record_follow_up_observability_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_rejection_hash' => data_get($followUpObservability, 'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_rejection_hash'),
+            'required_report_assertions' => $requiredReportAssertions,
+            'required_report_assertion_count' => count($requiredReportAssertions),
+            'required_report_evidence' => [
+                'later_cycle_authorization_decision_record_follow_up_observability_hash',
+                'decision_record_final_non_execution_report_persisted_false',
+                'decision_record_persistence_rejection_persisted_false',
+                'decision_record_persisted_false',
+                'decision_recorded_false',
+                'ledger_write_allowed_false',
+                'receipt_persisted_false',
+                'dispatch_allowed_false',
+                'execution_allowed_false',
+            ],
+            'report_policy' => [
+                'decision_record_final_non_execution_report_requires_follow_up_observability_hash',
+                'decision_record_final_non_execution_report_requires_report_persisted_flag_false',
+                'decision_record_final_non_execution_report_requires_decision_recorded_flag_false',
+                'decision_record_final_non_execution_report_requires_ledger_write_allowed_flag_false',
+                'decision_record_final_non_execution_report_requires_dispatch_allowed_flag_false',
+                'decision_record_final_non_execution_report_requires_execution_allowed_flag_false',
+                'decision_record_final_non_execution_report_does_not_report_as_persistence',
+                'decision_record_final_non_execution_report_does_not_observe_as_persistence',
+                'decision_record_final_non_execution_report_does_not_reject_persistence_as_action',
+                'decision_record_final_non_execution_report_does_not_persist_report',
+                'decision_record_final_non_execution_report_does_not_persist_rejection',
+                'decision_record_final_non_execution_report_does_not_accept_persistence',
+                'decision_record_final_non_execution_report_does_not_allow_persistence',
+                'decision_record_final_non_execution_report_does_not_persist_decision_record',
+                'decision_record_final_non_execution_report_does_not_record_decision',
+                'decision_record_final_non_execution_report_does_not_notify_human',
+                'decision_record_final_non_execution_report_does_not_create_task',
+                'decision_record_final_non_execution_report_does_not_accept_signature',
+                'decision_record_final_non_execution_report_does_not_sign_receipt',
+                'decision_record_final_non_execution_report_does_not_write_ledger',
+                'decision_record_final_non_execution_report_does_not_persist_receipt',
+                'decision_record_final_non_execution_report_does_not_grant_approval',
+                'decision_record_final_non_execution_report_does_not_authorize_later_cycle',
+                'decision_record_final_non_execution_report_does_not_execute_disable',
+                'decision_record_final_non_execution_report_does_not_mutate_writer_state',
+            ],
+            'future_report_outputs' => [
+                'writer_release_fresh_authorization_later_cycle_authorization_decision_record_final_non_execution_report_hash',
+                'writer_release_fresh_authorization_later_cycle_authorization_human_review_packet_hash',
+                'writer_release_fresh_authorization_later_cycle_authorization_archive_index_hash',
+            ],
+            'still_forbidden_by_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_final_non_execution_report_template' => [
+                'report_persistence_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_final_non_execution_report_template',
+                'observability_persistence_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_final_non_execution_report_template',
+                'persistence_rejection_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_final_non_execution_report_template',
+                'persistence_acceptance_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_final_non_execution_report_template',
+                'persistence_allowed_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_final_non_execution_report_template',
+                'decision_record_persistence_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_final_non_execution_report_template',
+                'decision_recording_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_final_non_execution_report_template',
+                'human_notification_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_final_non_execution_report_template',
+                'task_creation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_final_non_execution_report_template',
+                'signature_acceptance_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_final_non_execution_report_template',
+                'receipt_signature_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_final_non_execution_report_template',
+                'receipt_persistence_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_final_non_execution_report_template',
+                'approval_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_final_non_execution_report_template',
+                'later_cycle_authorization_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_final_non_execution_report_template',
+                'authorization_reuse_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_final_non_execution_report_template',
+                'disable_execution_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_final_non_execution_report_template',
+                'writer_state_mutation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_final_non_execution_report_template',
+                'writer_file_creation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_final_non_execution_report_template',
+                'ledger_write_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_final_non_execution_report_template',
+                'merge_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_final_non_execution_report_template',
+                'dispatch_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_final_non_execution_report_template',
+            ],
+            'execution_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'ledger_write_allowed' => false,
+            'signature_valid' => false,
+            'signature_accepted' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'decision_record_draft_persisted' => false,
+            'decision_record_persistence_allowed' => false,
+            'decision_record_persisted' => false,
+            'decision_record_persistence_accepted' => false,
+            'decision_record_persistence_rejected' => false,
+            'decision_record_persistence_rejection_persisted' => false,
+            'decision_record_final_non_execution_report_persisted' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'dispatch_allowed' => false,
+            'prior_authorization_reuse_allowed' => false,
+            'later_cycle_authorized' => false,
+            'human_notified' => false,
+            'human_task_created' => false,
+            'manual_decision_requested' => false,
+            'manual_decision_response_recorded' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_final_non_execution_report_template.v1',
+            'status' => $observabilityReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_final_non_execution_report_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_final_non_execution_report_template_blocked',
+            'mode' => 'read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_final_non_execution_report_template',
+            'execution_allowed' => false,
+            'ledger_write_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'signature_accepted' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'decision_record_draft_persisted' => false,
+            'decision_record_persistence_allowed' => false,
+            'decision_record_persisted' => false,
+            'decision_record_persistence_accepted' => false,
+            'decision_record_persistence_rejected' => false,
+            'decision_record_persistence_rejection_persisted' => false,
+            'decision_record_final_non_execution_report_persisted' => false,
+            'prior_authorization_reuse_allowed' => false,
+            'later_cycle_authorized' => false,
+            'human_notified' => false,
+            'human_task_created' => false,
+            'manual_decision_requested' => false,
+            'manual_decision_response_recorded' => false,
+            'disable_execution_later_cycle_authorization_decision_record_final_non_execution_report' => $finalReport,
+            'disable_execution_later_cycle_authorization_decision_record_final_non_execution_report_hash' => $this->stableHash($finalReport),
+            'non_execution_guarantees' => [
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_final_non_execution_report_template_does_not_claim_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_final_non_execution_report_template_does_not_complete_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_final_non_execution_report_template_does_not_report_as_persistence',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_final_non_execution_report_template_does_not_persist_report',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_final_non_execution_report_template_does_not_persist_decision_record',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_final_non_execution_report_template_does_not_record_decision',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_final_non_execution_report_template_does_not_notify_human',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_final_non_execution_report_template_does_not_create_task',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_final_non_execution_report_template_does_not_accept_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_final_non_execution_report_template_does_not_sign_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_final_non_execution_report_template_does_not_persist_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_final_non_execution_report_template_does_not_grant_approval',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_final_non_execution_report_template_does_not_authorize_later_cycle',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_final_non_execution_report_template_does_not_reuse_prior_authorization',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_final_non_execution_report_template_does_not_execute_disable',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_final_non_execution_report_template_does_not_mutate_writer_state',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_final_non_execution_report_template_does_not_create_writer_file',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_final_non_execution_report_template_does_not_write_ledger',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_final_non_execution_report_template_does_not_merge',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_final_non_execution_report_template_does_not_dispatch_work',
+            ],
+            'human_summary' => $observabilityReady
+                ? 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization decision record final non-execution report template is ready as a non-persisting final report template. It still does not report as persistence, persist a report, accept persistence, allow persistence, persist a decision record, record a decision, notify humans, create tasks, accept signatures, sign receipts, persist receipts, grant approval, authorize a later cycle, reuse prior authorization, write ledger, execute disable, mutate writer state, create a writer, merge or dispatch.'
+                : 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization decision record final non-execution report template is blocked until fresh authorization new cycle disable execution later-cycle authorization decision record follow-up observability template is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationDecisionRecordArchiveIndexTemplate(array $options = []): array
+    {
+        $reportPayload = $this->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationDecisionRecordFinalNonExecutionReportTemplate($options);
+        $finalReport = (array) data_get($reportPayload, 'disable_execution_later_cycle_authorization_decision_record_final_non_execution_report', []);
+        $reportReady = data_get($reportPayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_final_non_execution_report_template_ready';
+
+        $archiveEntries = [
+            'decision_record_draft_hash',
+            'decision_record_persistence_preflight_hash',
+            'decision_record_persistence_receipt_hash',
+            'decision_record_post_persistence_review_hash',
+            'decision_record_persistence_rejection_hash',
+            'decision_record_follow_up_observability_hash',
+            'decision_record_final_non_execution_report_hash',
+        ];
+
+        $archiveIndex = [
+            'disable_execution_later_cycle_authorization_decision_record_archive_index_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-FRESH-AUTHORIZATION-NEW-CYCLE-DISABLE-EXECUTION-LATER-CYCLE-AUTHORIZATION-DECISION-RECORD-ARCHIVE-INDEX-TEMPLATE-SELF-CONSTRUCTION-0001',
+            'status' => $reportReady ? 'ready_as_future_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_archive_index_template' : 'blocked_before_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_final_non_execution_report_template',
+            'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_final_non_execution_report_hash' => data_get($reportPayload, 'disable_execution_later_cycle_authorization_decision_record_final_non_execution_report_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_follow_up_observability_hash' => data_get($finalReport, 'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_follow_up_observability_hash'),
+            'archive_entries' => $archiveEntries,
+            'archive_entry_count' => count($archiveEntries),
+            'required_archive_evidence' => [
+                'later_cycle_authorization_decision_record_final_non_execution_report_hash',
+                'decision_record_archive_index_persisted_false',
+                'decision_record_final_non_execution_report_persisted_false',
+                'decision_record_persistence_rejection_persisted_false',
+                'decision_record_persisted_false',
+                'decision_recorded_false',
+                'ledger_write_allowed_false',
+                'dispatch_allowed_false',
+                'execution_allowed_false',
+            ],
+            'archive_policy' => [
+                'decision_record_archive_index_requires_final_non_execution_report_hash',
+                'decision_record_archive_index_requires_archive_index_persisted_flag_false',
+                'decision_record_archive_index_requires_decision_recorded_flag_false',
+                'decision_record_archive_index_requires_ledger_write_allowed_flag_false',
+                'decision_record_archive_index_requires_dispatch_allowed_flag_false',
+                'decision_record_archive_index_requires_execution_allowed_flag_false',
+                'decision_record_archive_index_does_not_persist_archive_index',
+                'decision_record_archive_index_does_not_report_as_persistence',
+                'decision_record_archive_index_does_not_persist_report',
+                'decision_record_archive_index_does_not_persist_rejection',
+                'decision_record_archive_index_does_not_accept_persistence',
+                'decision_record_archive_index_does_not_allow_persistence',
+                'decision_record_archive_index_does_not_persist_decision_record',
+                'decision_record_archive_index_does_not_record_decision',
+                'decision_record_archive_index_does_not_notify_human',
+                'decision_record_archive_index_does_not_create_task',
+                'decision_record_archive_index_does_not_accept_signature',
+                'decision_record_archive_index_does_not_sign_receipt',
+                'decision_record_archive_index_does_not_write_ledger',
+                'decision_record_archive_index_does_not_persist_receipt',
+                'decision_record_archive_index_does_not_grant_approval',
+                'decision_record_archive_index_does_not_authorize_later_cycle',
+                'decision_record_archive_index_does_not_execute_disable',
+                'decision_record_archive_index_does_not_mutate_writer_state',
+            ],
+            'future_archive_outputs' => [
+                'writer_release_fresh_authorization_later_cycle_authorization_decision_record_archive_index_hash',
+                'writer_release_fresh_authorization_later_cycle_authorization_human_review_packet_hash',
+                'writer_release_fresh_authorization_later_cycle_authorization_durable_writer_candidate_hash',
+            ],
+            'still_forbidden_by_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_archive_index_template' => [
+                'archive_index_persistence_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_archive_index_template',
+                'report_persistence_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_archive_index_template',
+                'persistence_rejection_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_archive_index_template',
+                'persistence_acceptance_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_archive_index_template',
+                'persistence_allowed_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_archive_index_template',
+                'decision_record_persistence_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_archive_index_template',
+                'decision_recording_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_archive_index_template',
+                'human_notification_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_archive_index_template',
+                'task_creation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_archive_index_template',
+                'signature_acceptance_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_archive_index_template',
+                'receipt_signature_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_archive_index_template',
+                'receipt_persistence_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_archive_index_template',
+                'approval_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_archive_index_template',
+                'later_cycle_authorization_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_archive_index_template',
+                'authorization_reuse_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_archive_index_template',
+                'disable_execution_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_archive_index_template',
+                'writer_state_mutation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_archive_index_template',
+                'writer_file_creation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_archive_index_template',
+                'ledger_write_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_archive_index_template',
+                'merge_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_archive_index_template',
+                'dispatch_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_archive_index_template',
+            ],
+            'execution_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'ledger_write_allowed' => false,
+            'signature_valid' => false,
+            'signature_accepted' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'decision_record_draft_persisted' => false,
+            'decision_record_persistence_allowed' => false,
+            'decision_record_persisted' => false,
+            'decision_record_persistence_accepted' => false,
+            'decision_record_persistence_rejected' => false,
+            'decision_record_persistence_rejection_persisted' => false,
+            'decision_record_final_non_execution_report_persisted' => false,
+            'decision_record_archive_index_persisted' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'dispatch_allowed' => false,
+            'prior_authorization_reuse_allowed' => false,
+            'later_cycle_authorized' => false,
+            'human_notified' => false,
+            'human_task_created' => false,
+            'manual_decision_requested' => false,
+            'manual_decision_response_recorded' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_archive_index_template.v1',
+            'status' => $reportReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_archive_index_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_archive_index_template_blocked',
+            'mode' => 'read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_archive_index_template',
+            'execution_allowed' => false,
+            'ledger_write_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'signature_accepted' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'decision_record_draft_persisted' => false,
+            'decision_record_persistence_allowed' => false,
+            'decision_record_persisted' => false,
+            'decision_record_persistence_accepted' => false,
+            'decision_record_persistence_rejected' => false,
+            'decision_record_persistence_rejection_persisted' => false,
+            'decision_record_final_non_execution_report_persisted' => false,
+            'decision_record_archive_index_persisted' => false,
+            'prior_authorization_reuse_allowed' => false,
+            'later_cycle_authorized' => false,
+            'human_notified' => false,
+            'human_task_created' => false,
+            'manual_decision_requested' => false,
+            'manual_decision_response_recorded' => false,
+            'disable_execution_later_cycle_authorization_decision_record_archive_index' => $archiveIndex,
+            'disable_execution_later_cycle_authorization_decision_record_archive_index_hash' => $this->stableHash($archiveIndex),
+            'non_execution_guarantees' => [
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_archive_index_template_does_not_claim_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_archive_index_template_does_not_complete_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_archive_index_template_does_not_persist_archive_index',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_archive_index_template_does_not_report_as_persistence',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_archive_index_template_does_not_persist_decision_record',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_archive_index_template_does_not_record_decision',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_archive_index_template_does_not_notify_human',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_archive_index_template_does_not_create_task',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_archive_index_template_does_not_accept_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_archive_index_template_does_not_sign_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_archive_index_template_does_not_persist_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_archive_index_template_does_not_grant_approval',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_archive_index_template_does_not_authorize_later_cycle',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_archive_index_template_does_not_reuse_prior_authorization',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_archive_index_template_does_not_execute_disable',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_archive_index_template_does_not_mutate_writer_state',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_archive_index_template_does_not_create_writer_file',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_archive_index_template_does_not_write_ledger',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_archive_index_template_does_not_merge',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_archive_index_template_does_not_dispatch_work',
+            ],
+            'human_summary' => $reportReady
+                ? 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization decision record archive index template is ready as a non-persisting archive index template. It still does not persist an archive index, report as persistence, accept persistence, allow persistence, persist a decision record, record a decision, notify humans, create tasks, accept signatures, sign receipts, persist receipts, grant approval, authorize a later cycle, reuse prior authorization, write ledger, execute disable, mutate writer state, create a writer, merge or dispatch.'
+                : 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization decision record archive index template is blocked until fresh authorization new cycle disable execution later-cycle authorization decision record final non-execution report template is ready.',
         ];
     }
 

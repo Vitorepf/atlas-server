@@ -13,8 +13,32 @@ return [
         'language' => env('WHISPER_LANGUAGE', 'pt'),
         'models_dir' => env('WHISPER_MODELS_DIR', '/opt/whisper-models'),
         'model_file' => 'ggml-large-v3-turbo.bin',
-        'model_path' => rtrim(env('WHISPER_MODELS_DIR', '/opt/whisper-models'), '/').'/ggml-large-v3-turbo.bin',
+        'model_path' => file_exists(rtrim(env('WHISPER_MODELS_DIR', '/opt/whisper-models'), '/').'/ggml-large-v3-turbo.bin')
+            ? rtrim(env('WHISPER_MODELS_DIR', '/opt/whisper-models'), '/').'/ggml-large-v3-turbo.bin'
+            : '/opt/whisper-models/ggml-large-v3-turbo.bin',
         'engine' => 'whisper-cpp-large-v3-turbo',
+    ],
+
+    'youtube' => [
+        'enabled' => (bool) env('ATLAS_YOUTUBE_INGESTION_ENABLED', true),
+        'data_api_enabled' => (bool) env('ATLAS_YOUTUBE_DATA_API_ENABLED', false),
+        'data_api_key' => env('YOUTUBE_DATA_API_KEY'),
+        'data_api_daily_unit_limit' => (int) env('ATLAS_YOUTUBE_DATA_API_DAILY_UNIT_LIMIT', 500),
+        'cache_enabled' => (bool) env('ATLAS_YOUTUBE_CACHE_ENABLED', true),
+        'cache_ttl_days' => (int) env('ATLAS_YOUTUBE_CACHE_TTL_DAYS', 30),
+        'yt_dlp_binary' => env('ATLAS_YOUTUBE_YTDLP_BINARY'),
+        'timeout_seconds' => (int) env('ATLAS_YOUTUBE_TIMEOUT_SECONDS', 35),
+        'max_videos_per_turn' => (int) env('ATLAS_YOUTUBE_MAX_VIDEOS_PER_TURN', 2),
+        'preferred_caption_languages' => env('ATLAS_YOUTUBE_PREFERRED_CAPTION_LANGUAGES', 'pt-BR,pt,en,ja,zh-Hans,zh-Hant,zh'),
+        'chunk_seconds' => (int) env('ATLAS_YOUTUBE_CHUNK_SECONDS', 300),
+        'max_chunk_chars' => (int) env('ATLAS_YOUTUBE_MAX_CHUNK_CHARS', 5000),
+        'max_chunks' => (int) env('ATLAS_YOUTUBE_MAX_CHUNKS', 80),
+        'max_transcript_chars' => (int) env('ATLAS_YOUTUBE_MAX_TRANSCRIPT_CHARS', 120000),
+        'audio_fallback_enabled' => (bool) env('ATLAS_YOUTUBE_AUDIO_FALLBACK_ENABLED', (bool) env('TRANSCRIPTION_ENABLED', false)),
+        'defer_audio_fallback' => (bool) env('ATLAS_YOUTUBE_DEFER_AUDIO_FALLBACK', true),
+        'processing_lock_minutes' => (int) env('ATLAS_YOUTUBE_PROCESSING_LOCK_MINUTES', 60),
+        'audio_download_timeout_seconds' => (int) env('ATLAS_YOUTUBE_AUDIO_DOWNLOAD_TIMEOUT_SECONDS', 300),
+        'max_audio_duration_seconds' => (int) env('ATLAS_YOUTUBE_MAX_AUDIO_DURATION_SECONDS', 7200),
     ],
 
     'semantic_memory' => [
@@ -200,7 +224,7 @@ return [
     'attachments' => [
         'pdf' => [
             'ocr_languages' => env('ATLAS_PDF_OCR_LANGUAGES', 'por+eng'),
-            'vision_page_limit' => (int) env('ATLAS_PDF_VISION_PAGE_LIMIT', 12),
+            'vision_page_limit' => (int) env('ATLAS_PDF_VISION_PAGE_LIMIT', 24),
             'background_processing_enabled' => (bool) env('ATLAS_ATTACHMENT_BACKGROUND_PROCESSING_ENABLED', true),
         ],
         'chunked_upload' => [

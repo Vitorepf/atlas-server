@@ -10,6 +10,7 @@ from .livekit_production_loop import build_production_loop_plan
 from .production_promotion_review import validate_production_promotion_review
 from .supervised_start_plan import build_supervised_start_plan
 from .worker_plan import build_livekit_worker_plan
+from .worker_start_packet import validate_worker_start_packet
 
 
 def start_livekit_agents_worker(
@@ -106,7 +107,7 @@ def start_livekit_agents_worker(
         production_loop_plan=production_loop_plan,
     )
 
-    return {
+    return validate_worker_start_packet({
         "schema_version": "atlas.voice_realtime.worker_start.v1",
         "status": status,
         "surface_id": "voice_realtime",
@@ -159,4 +160,4 @@ def start_livekit_agents_worker(
             "access_token_log_allowed": False,
             "worker_start_without_production_promotion_allowed": False,
         },
-    }
+    })

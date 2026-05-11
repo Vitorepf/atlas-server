@@ -40,6 +40,13 @@ class CodexCliProvider implements AiProvider
         );
         $args = $this->withAtlasRuntimeArgs($args, $job);
         $args = $this->withImageAttachments($args, $job);
+        $fileAttachments = $this->fileAttachmentAccessPaths($job);
+        if ($fileAttachments !== []) {
+            $args = $this->withRepeatedArgValues($args, '--add-dir', $this->attachmentDirectories(
+                collect($fileAttachments)->pluck('path')->all(),
+            ));
+            $prompt = $this->promptWithFileAttachmentAccess($prompt, $fileAttachments);
+        }
 
         if ($model = $this->invocationModel($job, $provider)) {
             $args[] = '--model';
@@ -189,8 +196,8 @@ class CodexCliProvider implements AiProvider
         $files = is_array($files) ? $files : [];
 
         $paths = collect($images)
-            ->map(fn (mixed $image): ?string => is_array($image) && is_string($image['path'] ?? null) ? $image['path'] : null)
-            ->filter(fn (?string $path): bool => is_string($path) && File::isFile($path))
+            ->map(fn (mixed $image): ?string => $this->attachmentPath(is_array($image) ? ($image['path'] ?? null) : null))
+            ->filter(fn (?string $path): bool => is_string($path) && $path !== '')
             ->values();
 
         $pageLimit = max(0, (int) config('atlas.attachments.pdf.vision_page_limit', 12));
@@ -207,8 +214,8 @@ class CodexCliProvider implements AiProvider
 
                     return $rendered;
                 })
-                ->map(fn (mixed $page): ?string => is_array($page) && is_string($page['path'] ?? null) ? $page['path'] : null)
-                ->filter(fn (?string $path): bool => is_string($path) && File::isFile($path))
+                ->map(fn (mixed $page): ?string => $this->attachmentPath(is_array($page) ? ($page['path'] ?? null) : null))
+                ->filter(fn (?string $path): bool => is_string($path) && $path !== '')
                 ->take($pageLimit)
                 ->values();
 
@@ -220,6 +227,121 @@ class CodexCliProvider implements AiProvider
             return $args;
         }
 
+        $args = $this->withRepeatedArgValues($args, '--add-dir', $this->attachmentDirectories($paths));
+
         return $this->withRepeatedArgValues($args, '--image', $paths);
+    }
+
+    /**
+     * @return array<int,array{label:string,path:string,mime:string,bytes:string}>
+     */
+    private function fileAttachmentAccessPaths(AiJob $job): array
+    {
+        $files = data_get($job->payload, 'attachments.files', []);
+        $files = is_array($files) ? $files : [];
+        $paths = [];
+
+        foreach (array_slice($files, 0, 4) as $index => $file) {
+            if (! is_array($file)) {
+                continue;
+            }
+
+            $path = $this->attachmentPath($file['path'] ?? null);
+            if ($path === null) {
+                continue;
+            }
+
+            $label = is_string($file['original_name'] ?? null) && trim($file['original_name']) !== ''
+                ? trim($file['original_name'])
+                : 'arquivo '.($index + 1);
+            $mime = is_scalar($file['mime_type'] ?? null) ? (string) $file['mime_type'] : 'application/octet-stream';
+            $bytes = is_scalar($file['bytes'] ?? null) ? (string) $file['bytes'] : 'desconhecido';
+            $paths[] = [
+                'label' => $label,
+                'path' => $path,
+                'mime' => $mime,
+                'bytes' => $bytes,
+            ];
+        }
+
+        return collect($paths)
+            ->unique('path')
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @param  array<int,array{label:string,path:string,mime:string,bytes:string}>  $attachments
+     */
+    private function promptWithFileAttachmentAccess(string $prompt, array $attachments): string
+    {
+        $lines = [
+            '',
+            '',
+            '# Acesso local aos arquivos anexados para Codex',
+            '',
+            'Use Read nos caminhos abaixo quando a resposta depender de detalhes, ordem, listas, trechos exatos ou conteudo completo de mensagem longa. Esses arquivos sao contexto do operador; nao edite, nao mova e nao apague.',
+        ];
+
+        foreach ($attachments as $index => $attachment) {
+            $number = $index + 1;
+            $label = $this->safeAttachmentLabel($attachment['label']);
+            $mime = $this->safeAttachmentLabel($attachment['mime']);
+            $bytes = $this->safeAttachmentLabel($attachment['bytes']);
+            $lines[] = "- arquivo {$number} ({$label}, {$mime}, {$bytes} bytes): {$attachment['path']}";
+        }
+
+        return rtrim($prompt).implode("\n", $lines);
+    }
+
+    private function attachmentPath(mixed $path): ?string
+    {
+        if (! is_string($path) || trim($path) === '') {
+            return null;
+        }
+
+        $path = trim($path);
+        if (File::isFile($path)) {
+            return realpath($path) ?: $path;
+        }
+
+        $storagePrefix = '/app/storage/';
+        if (str_starts_with($path, $storagePrefix)) {
+            $candidate = storage_path(substr($path, strlen($storagePrefix)));
+            if (File::isFile($candidate)) {
+                return realpath($candidate) ?: $candidate;
+            }
+        }
+
+        $appPrefix = '/app/';
+        if (str_starts_with($path, $appPrefix)) {
+            $candidate = base_path(substr($path, strlen($appPrefix)));
+            if (File::isFile($candidate)) {
+                return realpath($candidate) ?: $candidate;
+            }
+        }
+
+        return null;
+    }
+
+    private function safeAttachmentLabel(string $value): string
+    {
+        $value = trim(preg_replace('/[^\pL\pN._,@:()+= -]+/u', ' ', $value) ?? '');
+
+        return mb_substr($value === '' ? 'arquivo' : $value, 0, 120);
+    }
+
+    /**
+     * @param  array<int,string>  $paths
+     * @return array<int,string>
+     */
+    private function attachmentDirectories(array $paths): array
+    {
+        return collect($paths)
+            ->map(fn (string $path): string => dirname($path))
+            ->filter(fn (string $directory): bool => is_dir($directory))
+            ->unique()
+            ->values()
+            ->all();
     }
 }

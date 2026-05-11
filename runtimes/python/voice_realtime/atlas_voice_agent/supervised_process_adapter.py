@@ -6,8 +6,21 @@ from .managed_env_writer import (
     SCHEMA_VERSION as MANAGED_ENV_WRITER_SCHEMA_VERSION,
     inspect_managed_env_writer,
 )
+from .supervised_process_adapter_packet import validate_supervised_process_adapter_packet
 from .supervised_launch_execution import (
+    REAL_START_ADAPTER_DISABLED_SCHEMA_VERSION,
+    REAL_START_ADAPTER_REVIEW_CONTRACT_SCHEMA_VERSION,
+    REAL_START_ENABLEMENT_GATE_SCHEMA_VERSION,
+    REVIEWED_REAL_START_EXECUTION_CONTRACT_SCHEMA_VERSION,
+    REVIEWED_SUBPROCESS_START_EXECUTION_SCHEMA_VERSION,
+    RUNTIME_POLICY_ENABLEMENT_REVIEW_SCHEMA_VERSION,
     SCHEMA_VERSION as SUPERVISED_LAUNCH_EXECUTION_SCHEMA_VERSION,
+    inspect_real_start_adapter_enablement_gate,
+    inspect_real_start_adapter_disabled_by_default,
+    inspect_real_start_adapter_review_contract,
+    inspect_reviewed_subprocess_start_execution,
+    inspect_reviewed_real_start_execution_contract,
+    inspect_runtime_policy_enablement_review,
     inspect_supervised_launch_execution,
     inspect_subprocess_start_contract,
 )
@@ -57,8 +70,26 @@ class AtlasVoiceSupervisedProcessAdapter:
         subprocess_start_contract = inspect_subprocess_start_contract(
             supervised_launch_execution=supervised_launch_execution,
         )
+        reviewed_subprocess_start_execution = inspect_reviewed_subprocess_start_execution(
+            subprocess_start_contract=subprocess_start_contract,
+        )
+        real_start_adapter_disabled = inspect_real_start_adapter_disabled_by_default(
+            reviewed_subprocess_start_execution=reviewed_subprocess_start_execution,
+        )
+        real_start_enablement_gate = inspect_real_start_adapter_enablement_gate(
+            real_start_adapter_disabled=real_start_adapter_disabled,
+        )
+        runtime_policy_enablement_review = inspect_runtime_policy_enablement_review(
+            real_start_enablement_gate=real_start_enablement_gate,
+        )
+        real_start_adapter_review_contract = inspect_real_start_adapter_review_contract(
+            runtime_policy_enablement_review=runtime_policy_enablement_review,
+        )
+        reviewed_real_start_execution_contract = inspect_reviewed_real_start_execution_contract(
+            real_start_adapter_review_contract=real_start_adapter_review_contract,
+        )
 
-        return {
+        return validate_supervised_process_adapter_packet({
             "schema_version": SCHEMA_VERSION,
             "status": "ready_fail_closed" if ready else "blocked",
             "adapter_id": "livekit_agents_supervised_process_adapter",
@@ -84,6 +115,12 @@ class AtlasVoiceSupervisedProcessAdapter:
                 "inspect_supervised_launch_execution",
                 "execute_pre_start_health_checks",
                 "inspect_subprocess_start_contract",
+                "inspect_reviewed_subprocess_start_execution",
+                "inspect_real_start_adapter_disabled_by_default",
+                "inspect_real_start_adapter_enablement_gate",
+                "inspect_runtime_policy_enablement_review",
+                "inspect_real_start_adapter_review_contract",
+                "inspect_reviewed_real_start_execution_contract",
             ],
             "gates": {
                 "supervisor_execution_ready": ready,
@@ -128,6 +165,72 @@ class AtlasVoiceSupervisedProcessAdapter:
                     and subprocess_start_contract.get("subprocess_module_imported") is False
                     and subprocess_start_contract.get("livekit_sdk_imported") is False
                 ),
+                "reviewed_subprocess_start_execution_available": (
+                    reviewed_subprocess_start_execution.get("schema_version") == REVIEWED_SUBPROCESS_START_EXECUTION_SCHEMA_VERSION
+                    and reviewed_subprocess_start_execution.get("reviewed_subprocess_start_execution_implemented") is True
+                    and reviewed_subprocess_start_execution.get("real_subprocess_start_implemented") is False
+                    and reviewed_subprocess_start_execution.get("process_launch_attempted") is False
+                    and reviewed_subprocess_start_execution.get("daemon_started") is False
+                    and reviewed_subprocess_start_execution.get("subprocess_module_imported") is False
+                    and reviewed_subprocess_start_execution.get("livekit_sdk_imported") is False
+                ),
+                "real_start_adapter_disabled_available": (
+                    real_start_adapter_disabled.get("schema_version") == REAL_START_ADAPTER_DISABLED_SCHEMA_VERSION
+                    and real_start_adapter_disabled.get("real_start_adapter_contract_implemented") is True
+                    and real_start_adapter_disabled.get("real_start_adapter_enabled") is False
+                    and real_start_adapter_disabled.get("real_subprocess_start_implemented") is False
+                    and real_start_adapter_disabled.get("process_launch_attempted") is False
+                    and real_start_adapter_disabled.get("daemon_started") is False
+                    and real_start_adapter_disabled.get("subprocess_module_imported") is False
+                    and real_start_adapter_disabled.get("livekit_sdk_imported") is False
+                ),
+                "real_start_enablement_gate_available": (
+                    real_start_enablement_gate.get("schema_version") == REAL_START_ENABLEMENT_GATE_SCHEMA_VERSION
+                    and real_start_enablement_gate.get("real_start_enablement_gate_implemented") is True
+                    and real_start_enablement_gate.get("real_start_adapter_enabled") is False
+                    and real_start_enablement_gate.get("start_execution_allowed") is False
+                    and real_start_enablement_gate.get("real_subprocess_start_implemented") is False
+                    and real_start_enablement_gate.get("process_launch_attempted") is False
+                    and real_start_enablement_gate.get("daemon_started") is False
+                    and real_start_enablement_gate.get("subprocess_module_imported") is False
+                    and real_start_enablement_gate.get("livekit_sdk_imported") is False
+                ),
+                "runtime_policy_enablement_review_available": (
+                    runtime_policy_enablement_review.get("schema_version") == RUNTIME_POLICY_ENABLEMENT_REVIEW_SCHEMA_VERSION
+                    and runtime_policy_enablement_review.get("runtime_policy_enablement_review_implemented") is True
+                    and runtime_policy_enablement_review.get("runtime_policy_start_enabled") is False
+                    and runtime_policy_enablement_review.get("real_start_adapter_enabled") is False
+                    and runtime_policy_enablement_review.get("start_execution_allowed") is False
+                    and runtime_policy_enablement_review.get("real_subprocess_start_implemented") is False
+                    and runtime_policy_enablement_review.get("process_launch_attempted") is False
+                    and runtime_policy_enablement_review.get("daemon_started") is False
+                    and runtime_policy_enablement_review.get("subprocess_module_imported") is False
+                    and runtime_policy_enablement_review.get("livekit_sdk_imported") is False
+                ),
+                "real_start_adapter_review_contract_available": (
+                    real_start_adapter_review_contract.get("schema_version") == REAL_START_ADAPTER_REVIEW_CONTRACT_SCHEMA_VERSION
+                    and real_start_adapter_review_contract.get("real_start_adapter_review_contract_implemented") is True
+                    and real_start_adapter_review_contract.get("runtime_policy_start_enabled") is False
+                    and real_start_adapter_review_contract.get("real_start_adapter_enabled") is False
+                    and real_start_adapter_review_contract.get("start_execution_allowed") is False
+                    and real_start_adapter_review_contract.get("real_subprocess_start_implemented") is False
+                    and real_start_adapter_review_contract.get("process_launch_attempted") is False
+                    and real_start_adapter_review_contract.get("daemon_started") is False
+                    and real_start_adapter_review_contract.get("subprocess_module_imported") is False
+                    and real_start_adapter_review_contract.get("livekit_sdk_imported") is False
+                ),
+                "reviewed_real_start_execution_contract_available": (
+                    reviewed_real_start_execution_contract.get("schema_version") == REVIEWED_REAL_START_EXECUTION_CONTRACT_SCHEMA_VERSION
+                    and reviewed_real_start_execution_contract.get("reviewed_real_start_execution_contract_implemented") is True
+                    and reviewed_real_start_execution_contract.get("runtime_policy_start_enabled") is False
+                    and reviewed_real_start_execution_contract.get("real_start_adapter_enabled") is False
+                    and reviewed_real_start_execution_contract.get("start_execution_allowed") is False
+                    and reviewed_real_start_execution_contract.get("real_subprocess_start_implemented") is False
+                    and reviewed_real_start_execution_contract.get("process_launch_attempted") is False
+                    and reviewed_real_start_execution_contract.get("daemon_started") is False
+                    and reviewed_real_start_execution_contract.get("subprocess_module_imported") is False
+                    and reviewed_real_start_execution_contract.get("livekit_sdk_imported") is False
+                ),
                 "provider_calls_forbidden": True,
                 "tool_calls_forbidden": True,
             },
@@ -136,6 +239,12 @@ class AtlasVoiceSupervisedProcessAdapter:
             "managed_env_writer": managed_env_writer,
             "supervised_launch_execution": supervised_launch_execution,
             "subprocess_start_contract": subprocess_start_contract,
+            "reviewed_subprocess_start_execution": reviewed_subprocess_start_execution,
+            "real_start_adapter_disabled": real_start_adapter_disabled,
+            "real_start_enablement_gate": real_start_enablement_gate,
+            "runtime_policy_enablement_review": runtime_policy_enablement_review,
+            "real_start_adapter_review_contract": real_start_adapter_review_contract,
+            "reviewed_real_start_execution_contract": reviewed_real_start_execution_contract,
             "health_snapshot": self.capture_health_snapshot(
                 supervisor_execution=supervisor_execution,
                 lifecycle_state="preflight" if ready else "planned",
@@ -149,10 +258,16 @@ class AtlasVoiceSupervisedProcessAdapter:
                 "VOICE_DAEMON_MANAGED_ENV_WRITER_EVALUATED",
                 "VOICE_DAEMON_SUPERVISED_LAUNCH_EVALUATED",
                 "VOICE_DAEMON_SUBPROCESS_START_CONTRACT_EVALUATED",
+                "VOICE_DAEMON_REVIEWED_SUBPROCESS_START_EVALUATED",
+                "VOICE_DAEMON_REAL_START_ADAPTER_DECLARED",
+                "VOICE_DAEMON_REAL_START_ENABLEMENT_GATE_EVALUATED",
+                "VOICE_DAEMON_RUNTIME_POLICY_ENABLEMENT_REVIEW_EVALUATED",
+                "VOICE_DAEMON_REAL_START_ADAPTER_REVIEW_CONTRACT_EVALUATED",
+                "VOICE_DAEMON_REVIEWED_REAL_START_EXECUTION_CONTRACT_EVALUATED",
                 "VOICE_DAEMON_START_BLOCKED",
             ],
             "next_action": "implement_subprocess_start_contract_prerequisites" if ready else "fix_supervised_process_adapter_prerequisites",
-        }
+        })
 
     def authorize_launch(
         self,

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Mapping
 
+from .daemon_supervisor_packet import validate_daemon_supervisor_packet
 from .supervised_process_adapter import inspect_supervised_process_adapter
 
 
@@ -116,7 +117,7 @@ class AtlasVoiceDaemonSupervisor:
         }
         payload["supervised_process_adapter"] = inspect_supervised_process_adapter(payload)
 
-        return payload
+        return validate_daemon_supervisor_packet(payload)
 
 
 def evaluate_daemon_supervisor(worker_start: Mapping[str, Any]) -> Mapping[str, Any]:

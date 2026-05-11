@@ -36,6 +36,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && docker-php-ext-install pcntl pdo_pgsql opcache \
     && rm -rf /var/lib/apt/lists/*
 
+RUN wget -q https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -O /usr/local/bin/yt-dlp \
+    && chmod +x /usr/local/bin/yt-dlp \
+    && yt-dlp --version
+
 # OPcache config — bytecode cache em shared memory + JIT pra hot paths.
 # Sem isso, cada request HTTP recompila os ~15-18k arquivos PHP do Atlas;
 # com isso, primeira request paga o custo, demais reusam memória.

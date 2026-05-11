@@ -2,6 +2,9 @@ from __future__ import annotations
 
 from typing import Any, Mapping
 
+from .payload_safety import reject_forbidden_keys_recursive
+from .turn_payload import UnsafeVoicePayload
+
 
 SCHEMA_VERSION = "atlas.voice_realtime.production_promotion_review_bundle.v1"
 
@@ -10,11 +13,37 @@ class PromotionReviewPacketViolation(RuntimeError):
     """Raised when the Kernel promotion review bundle is unsafe to consume."""
 
 
+FORBIDDEN_PROMOTION_REVIEW_KEYS = {
+    "access_token",
+    "api_key",
+    "api_secret",
+    "audio",
+    "audio_bytes",
+    "audio_raw",
+    "livekit_token",
+    "provider_api_key",
+    "raw_audio",
+    "raw_audio_bytes",
+    "raw_response_text",
+    "response_text",
+    "token",
+    "tool_args",
+    "tool_call",
+    "tts_text",
+    "wav",
+}
+
+
 def validate_promotion_review_packet(
     payload: Mapping[str, Any],
     *,
     expected_runtime_id: str = "livekit_agents_sdk",
 ) -> Mapping[str, Any]:
+    try:
+        reject_forbidden_keys_recursive(payload, FORBIDDEN_PROMOTION_REVIEW_KEYS, label="promotion_review")
+    except UnsafeVoicePayload as exc:
+        raise PromotionReviewPacketViolation(str(exc)) from exc
+
     _expect("schema_version", payload.get("schema_version"), SCHEMA_VERSION)
     _expect("surface_id", payload.get("surface_id"), "voice_realtime")
     _expect("runtime_id", payload.get("runtime_id"), expected_runtime_id)

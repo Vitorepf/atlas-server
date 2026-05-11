@@ -17,6 +17,10 @@ from atlas_voice_agent.livekit_production_loop_runner import (
 from atlas_voice_agent.livekit_sdk_adapter import LiveKitSdkAdapter
 from atlas_voice_agent.livekit_sdk_event_bridge import LiveKitSdkEventBridge
 from atlas_voice_agent.livekit_worker import AtlasLiveKitWorker
+from atlas_voice_agent.production_loop_smoke_packet import (
+    ProductionLoopSmokeViolation,
+    validate_production_loop_smoke,
+)
 from atlas_voice_agent.turn_payload import UnsafeVoicePayload
 
 from test_contract import manifest
@@ -207,6 +211,41 @@ class LiveKitProductionLoopRunnerTest(unittest.TestCase):
                     "access_token": "header.payload.signature",
                 },
             ])
+
+    def test_production_loop_smoke_packet_validator_fails_closed(self) -> None:
+        valid = {
+            "schema_version": "atlas.voice_realtime.production_loop_smoke.v1",
+            "status": "production_loop_smoke_completed",
+            "kernel_only": True,
+            "mobile_first": True,
+            "daemon_started": False,
+            "sdk_imported": False,
+            "event_count": 1,
+            "result_count": 1,
+            "active_session_count": 0,
+            "bridge_contract_report": {"status": "valid"},
+            "handler_registry_contract_report": {"status": "valid"},
+            "kernel_normalizer_contract_report": {"status": "valid"},
+            "worker_return_contract": {"status": "valid"},
+            "guardrails": {
+                "direct_provider_call_allowed": False,
+                "direct_tool_execution_allowed": False,
+                "raw_audio_persistence_allowed": False,
+                "access_token_log_allowed": False,
+            },
+            "results": [{"event_kind": "participant_left"}],
+        }
+
+        self.assertIs(validate_production_loop_smoke(valid), valid)
+
+        with self.assertRaises(ProductionLoopSmokeViolation):
+            validate_production_loop_smoke({**valid, "daemon_started": True})
+
+        with self.assertRaises(ProductionLoopSmokeViolation):
+            validate_production_loop_smoke({**valid, "guardrails": {**valid["guardrails"], "direct_provider_call_allowed": True}})
+
+        with self.assertRaises(ProductionLoopSmokeViolation):
+            validate_production_loop_smoke({**valid, "results": [{"payload": {"artifacts": {"raw_audio": "nope"}}}]})
 
     def test_runner_requires_sdk_smoke_sequence_to_close_sessions(self) -> None:
         subject = runner(ProductionLoopTransport())

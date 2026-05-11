@@ -23,6 +23,7 @@ maintenance:
   - Update before adding writer release execution, disable execution or post-monitoring review surfaces.
 related_paths:
   - docs/engineering-knowledge-base/self-construction/codex-merge-post-execution-action-persistence-writer-release-disable-contract-template.md
+  - docs/engineering-knowledge-base/self-construction/codex-merge-post-execution-action-persistence-writer-release-post-monitoring-review-template.md
 owner: atlas-ai
 layer: 0.8-self-construction
 line_limit: 200

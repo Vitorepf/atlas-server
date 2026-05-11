@@ -178,6 +178,8 @@ def main() -> int:
     parser.add_argument("--product-loop-check", action="store_true", help="Aggregate callback, SDK loop and worker-start gates without starting a daemon")
     parser.add_argument("--kernel-product-loop-check", action="store_true", help="Fetch Kernel product loop check without starting a daemon")
     parser.add_argument("--promotion-review-packet", action="store_true", help="Fetch Kernel production promotion review bundle without starting a daemon")
+    parser.add_argument("--readiness", action="store_true", help="Fetch Kernel Voice readiness without starting a daemon")
+    parser.add_argument("--rivals", action="store_true", help="Fetch Kernel Rivals-Voice comparison without starting a daemon")
     parser.add_argument("--token-issuer-plan", action="store_true", help="Fetch Kernel LiveKit token issuer configuration plan without writing env or issuing tokens")
     parser.add_argument("--token-issuer-smoke", action="store_true", help="Fetch Kernel LiveKit token issuer smoke without exposing tokens or starting a daemon")
     parser.add_argument("--ephemeral-test-config", action="store_true", help="Ask Kernel token issuer smoke to use non-production ephemeral config when supported")
@@ -303,6 +305,8 @@ def main() -> int:
             settings_loaded=settings is not None,
             boundary_created=boundary_created,
             mock_kernel=args.mock_kernel,
+            callback_loop_wired=args.callback_loop_wired,
+            production_sdk_loop_wired=args.production_sdk_loop_wired,
             production_promotion_review=production_promotion_review,
             production_promotion_review_bundle=production_promotion_review_bundle,
             daemon_implementation_review=daemon_implementation_review,
@@ -321,6 +325,21 @@ def main() -> int:
             parser.error("--promotion-review-packet requires --env, --env-file or --mock-kernel so the runtime can call the Kernel")
         print(json.dumps(boundary.runtime.client.production_promotion_review_packet(
             hours=args.hours,
+            callback_loop_wired=args.callback_loop_wired,
+            production_sdk_loop_wired=args.production_sdk_loop_wired,
+        ), indent=2))
+
+    if args.readiness:
+        if settings is None and mock_transport is None:
+            parser.error("--readiness requires --env, --env-file or --mock-kernel so the runtime can call the Kernel")
+        print(json.dumps(boundary.runtime.readiness(hours=args.hours), indent=2))
+
+    if args.rivals:
+        if settings is None and mock_transport is None:
+            parser.error("--rivals requires --env, --env-file or --mock-kernel so the runtime can call the Kernel")
+        print(json.dumps(boundary.runtime.rivals(
+            hours=args.hours,
+            require_sdk=args.require_sdk,
             callback_loop_wired=args.callback_loop_wired,
             production_sdk_loop_wired=args.production_sdk_loop_wired,
         ), indent=2))
@@ -378,6 +397,7 @@ def main() -> int:
             boundary_created=boundary_created,
             mock_kernel=args.mock_kernel,
             callback_loop_wired=args.callback_loop_wired,
+            production_sdk_loop_wired=args.production_sdk_loop_wired,
         ), indent=2))
 
     if args.start_worker:

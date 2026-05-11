@@ -23,6 +23,7 @@ maintenance:
   - Update before adding automated packet dispatch, completion writes or Postgres projection storage.
 related_paths:
   - docs/engineering-knowledge-base/self-construction/work-splitter-contract.md
+  - docs/engineering-knowledge-base/self-construction/multi-provider-agent-orchestration-contract.md
   - docs/engineering-knowledge-base/self-construction/reservation-ledger-contract.md
   - docs/engineering-knowledge-base/self-construction/ai-session-bootstrap-contract.md
   - docs/ap/AP-691-atlas-self-construction-os-contract.md
@@ -70,12 +71,13 @@ It must show:
   "queue_state": "available|claimed|completed|blocked_by_dependency|withheld",
   "rank": 1,
   "active_reservation_id": "RES-...",
-  "active_reservation_actor": "codex-a",
+  "active_reservation_actor": "codex-a|claude-a|gemini-a|local-a",
   "active_reservation_session": "session-a",
   "lease_expires_at": "iso8601",
   "completed_reservation_id": "RES-...",
   "completed_at": "iso8601",
-  "completion_actor": "codex-a",
+  "completion_actor": "codex-a|claude-a|gemini-a|local-a",
+  "provider_profile": "codex|claude|gemini|local_agent|generic",
   "claim_policy": "single_owner",
   "allowed_files": [],
   "forbidden_files": [],

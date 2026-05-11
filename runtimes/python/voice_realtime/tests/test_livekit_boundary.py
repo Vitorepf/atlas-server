@@ -33,9 +33,64 @@ class ScriptedReadinessTransport:
         self.calls.append((url, dict(query)))
 
         if url.endswith("/rivals"):
-            return {"status": "not_ready", "schema_version": "atlas.voice.rivals.v1"}
+            return {
+                "schema_version": "atlas.voice.rivals.v1",
+                "status": "not_ready",
+                "readiness": self._readiness(query),
+                "runtime_certification": {
+                    "schema_version": "atlas.voice_realtime.runtime_certification.v1",
+                    "status": "certified_scaffold",
+                    "surface_id": "voice_realtime",
+                    "runtime_id": "livekit_agents_sdk",
+                    "kernel_only": True,
+                    "mobile_first": True,
+                    "daemon_started": False,
+                },
+                "production_promotion_gate": {
+                    "schema_version": "atlas.voice_realtime.production_promotion_gate.v1",
+                    "status": "blocked",
+                    "surface_id": "voice_realtime",
+                    "runtime_id": "livekit_agents_sdk",
+                    "kernel_only": True,
+                    "mobile_first": True,
+                    "human_review_required": True,
+                    "promotion_allowed": False,
+                    "auto_promotion_allowed": False,
+                },
+            }
 
-        return {"status": "ready", "schema_version": "atlas.voice.readiness.v1"}
+        return self._readiness(query)
+
+    def _readiness(self, query: Mapping[str, Any]) -> Mapping[str, Any]:
+        return {
+            "schema_version": "atlas.voice.readiness.v1",
+            "status": "ready",
+            "hours": int(query.get("hours") or 24),
+            "mobile_first": True,
+            "gates": {
+                "ledger_available": False,
+                "required_events_present": False,
+                "latency_slo_clean": False,
+                "raw_audio_forbidden": True,
+                "kernel_decision_per_turn": True,
+                "rivals_voice_ready": False,
+            },
+            "phase0_hardening": {
+                "schema_version": "atlas.voice_realtime.phase0_hardening_gate.v1",
+                "surface_id": "voice_realtime",
+                "runtime_id": "livekit_agents_sdk",
+                "kernel_only": True,
+                "mobile_first": True,
+                "promotion_allowed": False,
+                "auto_promotion_allowed": False,
+            },
+            "product_loop_check": {
+                "promotion_allowed": False,
+                "auto_promotion_allowed": False,
+                "daemon_started": False,
+            },
+            "next_action": "continue_voice_hardening",
+        }
 
 
 def boundary(transport: ScriptedTransport, readiness_transport: ScriptedReadinessTransport | None = None) -> LiveKitAgentBoundary:
@@ -111,7 +166,13 @@ class LiveKitAgentBoundaryTest(unittest.TestCase):
 
         self.assertEqual("not_ready", response["status"])
         self.assertEqual("http://atlas.test/ai/voice/rivals", readiness_transport.calls[0][0])
-        self.assertEqual({"hours": 12}, readiness_transport.calls[0][1])
+        self.assertEqual({
+            "runtime": "livekit_agents_sdk",
+            "hours": 12,
+            "require_sdk": 0,
+            "callback_loop_wired": 0,
+            "production_sdk_loop_wired": 0,
+        }, readiness_transport.calls[0][1])
         self.assertEqual([], post_transport.calls)
 
     def test_submits_livekit_turn_without_exposing_provider_or_tool_authority(self) -> None:

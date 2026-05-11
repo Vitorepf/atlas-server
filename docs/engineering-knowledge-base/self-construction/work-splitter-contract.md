@@ -17,12 +17,14 @@ capabilities:
   - parallel_implementation
 decisions:
   - Parallel AI work is allowed only through disjoint write sets.
+  - Parallel work is provider-neutral: Atlas may assign Codex, Claude, Gemini, local agents or future AIs by capability profile.
   - Hot external files block assignment, not validation.
   - Work Splitter must prefer fewer safe packets over many risky packets.
 maintenance:
   - Update before changing packet assignment, reservation or parallel work policies.
 related_paths:
   - docs/engineering-knowledge-base/self-construction/ai-implementation-packet-contract.md
+  - docs/engineering-knowledge-base/self-construction/multi-provider-agent-orchestration-contract.md
   - docs/engineering-knowledge-base/self-construction/scope-validator-contract.md
   - docs/engineering-knowledge-base/self-construction/structural-contract-gate.md
   - docs/ap/AP-691-atlas-self-construction-os-contract.md
@@ -106,10 +108,12 @@ AI -> implements only that packet
 | `runtime_scoped` | Narrow execution behind receipt and gates | high |
 | `hot_external` | Files owned by another active front | blocked |
 
-## Five-Session Cold-Lane Split
+## Multi-Provider Cold-Lane Split
 
-The operational split for parallel Codex continuation must expose five
-dependency-free cold-lane packets before any durable dispatch exists:
+The operational split for parallel continuation must expose up to five
+dependency-free cold-lane packets before any durable dispatch exists. "Five
+Codex" is an operator shorthand; the real contract is five independent AI
+executors, potentially from different providers.
 
 1. `AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001`: root Self-Construction docs,
    constitution, structural gate and AP-691.
@@ -122,6 +126,21 @@ dependency-free cold-lane packets before any durable dispatch exists:
 These five packets are preview-assignable in parallel because their write sets
 are disjoint. Hot Voice/Kernel work stays withheld and visible, but it does not
 block cold-lane preview planning.
+
+## Provider Capability Assignment
+
+The splitter may recommend a provider profile per packet:
+
+| Profile | Best fit | Must not do |
+|---|---|---|
+| `codex` | code edits, tests, repo navigation | widen scope or own review authority |
+| `claude` | architecture critique, docs, consistency review | merge or override packet law |
+| `gemini` | long-context synthesis, multimodal/context cross-checks | treat broad context as broad write authority |
+| `local_agent` | deterministic checks, lint, scripts, formatting | infer product decisions |
+| `generic` | safe docs/tests packet with explicit instructions | touch hot or ambiguous scopes |
+
+Capability profile affects routing only. It never changes `allowed_files`,
+`forbidden_files`, gates, evidence or completion policy.
 
 ## Disjoint Write-Set Rules
 

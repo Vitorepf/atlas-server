@@ -86,7 +86,7 @@ class AtlasImageAttachmentService
 
         File::copy($realPath, $target);
 
-        return $this->fromPath($target, $workspace, $source);
+        return $this->fromPath($target, $workspace, $source, $file->getClientOriginalName());
     }
 
     /**
@@ -108,13 +108,13 @@ class AtlasImageAttachmentService
         File::ensureDirectoryExists(dirname($target));
         File::copy($resolved, $target);
 
-        return $this->fromPath($target, $workspace, $source);
+        return $this->fromPath($target, $workspace, $source, $originalName);
     }
 
     /**
      * @return array<string,mixed>
      */
-    public function fromPath(string $path, string $workspace, string $source = 'file'): array
+    public function fromPath(string $path, string $workspace, string $source = 'file', ?string $originalName = null): array
     {
         $originalPath = $path;
         $path = $this->expandPath($path, $workspace);
@@ -142,10 +142,22 @@ class AtlasImageAttachmentService
             'path' => $resolved,
             'source' => $source,
             'original_path' => $originalPath,
+            'original_name' => $this->cleanOriginalName($originalName),
             'mime_type' => $mime,
             'bytes' => $bytes,
             'sha256' => hash_file('sha256', $resolved),
         ];
+    }
+
+    private function cleanOriginalName(?string $name): ?string
+    {
+        if (! is_string($name)) {
+            return null;
+        }
+
+        $name = trim(basename(str_replace('\\', '/', $name)));
+
+        return $name !== '' ? mb_substr($name, 0, 160) : null;
     }
 
     /**

@@ -17,6 +17,7 @@ capabilities:
   - packet_assignment
 decisions:
   - A new AI session must receive one canonical bootstrap payload before implementation.
+  - Bootstrap is provider-neutral; Codex-specific start packets are current adapters, not the architecture limit.
   - Bootstrap may bundle packet, assignment, reservation preview, runbook and gates.
   - `--claim-next-packet` may durably reserve one packet and return bootstrap instructions.
   - Bootstrap and claims do not grant dispatch, auto-merge or autonomous execution authority.
@@ -24,6 +25,7 @@ maintenance:
   - Update before allowing automated dispatch, completion writes or execution authority from this payload.
 related_paths:
   - docs/engineering-knowledge-base/self-construction/ai-implementation-packet-contract.md
+  - docs/engineering-knowledge-base/self-construction/multi-provider-agent-orchestration-contract.md
   - docs/engineering-knowledge-base/self-construction/reservation-ledger-contract.md
   - docs/engineering-knowledge-base/self-construction/packet-consumption-runbook-contract.md
   - docs/ap/AP-691-atlas-self-construction-os-contract.md
@@ -81,6 +83,10 @@ bootstrap command, scope validator command, gates, evidence, release command and
 final response fields. It must also include a completion command so the owning
 session can durably mark its packet complete after gates and evidence are ready.
 
+Equivalent future adapters may emit Claude, Gemini, local-agent or generic
+start packets. They must preserve the same packet id, scope, gates, stop
+conditions and final response contract.
+
 ## Non Goals
 
 - Do not dispatch a session automatically.
@@ -105,6 +111,23 @@ session can durably mark its packet complete after gates and evidence are ready.
   "ledger_write_allowed": false
 }
 ```
+
+## Provider Adapter Fields
+
+A bootstrap payload may include:
+
+```json
+{
+  "provider_profile": "codex | claude | gemini | local_agent | generic",
+  "provider_adapter": "codex_cli | claude_cli | gemini_cli | local_runner",
+  "provider_strengths": [],
+  "provider_specific_prompt": "string",
+  "universal_packet_hash": "sha256",
+  "adapter_may_widen_scope": false
+}
+```
+
+`adapter_may_widen_scope` must always be false.
 
 ## Required First Commands
 

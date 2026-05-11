@@ -2,8 +2,30 @@ from __future__ import annotations
 
 from typing import Any, Mapping
 
+from .payload_safety import reject_forbidden_keys_recursive
+from .turn_payload import UnsafeVoicePayload
+
 
 SCHEMA_VERSION = "atlas.voice_realtime.product_loop_check.v1"
+FORBIDDEN_PRODUCT_LOOP_KEYS = {
+    "access_token",
+    "api_key",
+    "api_secret",
+    "audio",
+    "audio_bytes",
+    "audio_raw",
+    "livekit_token",
+    "provider_api_key",
+    "raw_audio",
+    "raw_audio_bytes",
+    "raw_response_text",
+    "response_text",
+    "token",
+    "tool_args",
+    "tool_call",
+    "tts_text",
+    "wav",
+}
 
 
 class ProductLoopCheckViolation(RuntimeError):
@@ -11,6 +33,11 @@ class ProductLoopCheckViolation(RuntimeError):
 
 
 def validate_product_loop_check(payload: Mapping[str, Any]) -> Mapping[str, Any]:
+    try:
+        reject_forbidden_keys_recursive(payload, FORBIDDEN_PRODUCT_LOOP_KEYS, label="Voice product-loop check")
+    except UnsafeVoicePayload as exc:
+        raise ProductLoopCheckViolation(str(exc)) from exc
+
     _expect("schema_version", payload.get("schema_version"), SCHEMA_VERSION)
     _expect("surface_id", payload.get("surface_id"), "voice_realtime")
     _expect("runtime_id", payload.get("runtime_id"), "livekit_agents_sdk")
@@ -37,6 +64,16 @@ def validate_product_loop_check(payload: Mapping[str, Any]) -> Mapping[str, Any]
         "raw_audio_forbidden",
     ]:
         _expect_bool(f"gates.{key}", gates.get(key))
+    for key in [
+        "worker_start_still_blocked",
+        "production_promotion_blocked",
+        "direct_provider_forbidden",
+        "raw_audio_forbidden",
+    ]:
+        _expect(f"gates.{key}", gates.get(key), True)
+    if status != "blocked":
+        _expect("gates.callback_loop_wired", gates.get("callback_loop_wired"), True)
+        _expect("gates.production_sdk_loop_wired", gates.get("production_sdk_loop_wired"), True)
 
     guardrails = _expect_mapping("guardrails", payload.get("guardrails"))
     for key in [

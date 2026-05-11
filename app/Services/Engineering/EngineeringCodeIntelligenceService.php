@@ -1280,6 +1280,8 @@ class EngineeringCodeIntelligenceService
             $symbol['line_start'] ?? '',
             $symbol['signature'] ?? '',
         ];
+        $metadata = is_array($symbol['metadata'] ?? null) ? $symbol['metadata'] : [];
+        $symbol = $this->fitSymbolStorageLimits($symbol, $metadata);
 
         return array_merge($symbol, [
             'status' => 'active',
@@ -1289,6 +1291,40 @@ class EngineeringCodeIntelligenceService
             'indexed_at' => now(),
             'archived_at' => null,
         ]);
+    }
+
+    /**
+     * Keep source_hash based on the full extracted symbol, but persist only
+     * values that fit the schema. Full values are retained in metadata so
+     * generated long test names remain inspectable without breaking indexing.
+     *
+     * @param  array<string,mixed>  $symbol
+     * @param  array<string,mixed>  $metadata
+     * @return array<string,mixed>
+     */
+    private function fitSymbolStorageLimits(array $symbol, array $metadata): array
+    {
+        foreach ([
+            'symbol_type' => 60,
+            'symbol_name' => 300,
+            'file_path' => 500,
+            'language' => 40,
+            'namespace' => 220,
+            'parent_symbol' => 300,
+            'visibility' => 40,
+        ] as $field => $limit) {
+            $value = $symbol[$field] ?? null;
+            if (! is_string($value) || strlen($value) <= $limit) {
+                continue;
+            }
+
+            $metadata['full_'.$field] = $value;
+            $symbol[$field] = substr($value, 0, $limit);
+        }
+
+        $symbol['metadata'] = $metadata;
+
+        return $symbol;
     }
 
     /**

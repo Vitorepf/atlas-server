@@ -18,6 +18,7 @@ capabilities:
 decisions:
   - When automated dispatch is blocked, Atlas must still guide one safe session.
   - The instruction packet must be self-contained and executable by an AI without chat history.
+  - The instruction packet is provider-neutral even when the current operational start surface is Codex-specific.
   - `--codex-start-packet` may durably claim one packet and return a start contract.
   - `--codex-launch-plan` may generate multiple start commands, but each session must still claim through its own start packet.
   - The packet must not dispatch, auto-merge, enable execution authority or complete work.
@@ -25,6 +26,7 @@ maintenance:
   - Update before allowing automated dispatch, completion writes or execution authority.
 related_paths:
   - docs/engineering-knowledge-base/self-construction/ai-session-bootstrap-contract.md
+  - docs/engineering-knowledge-base/self-construction/multi-provider-agent-orchestration-contract.md
   - docs/engineering-knowledge-base/self-construction/multi-session-readiness-gate-contract.md
   - docs/engineering-knowledge-base/self-construction/packet-consumption-runbook-contract.md
   - docs/ap/AP-691-atlas-self-construction-os-contract.md
@@ -47,6 +49,10 @@ php artisan atlas:ai:self-construction --codex-start-packet --actor=codex-a --se
 
 It durably claims the next available packet, then returns the scope, gates,
 evidence expectations and final response contract for that session.
+
+For Claude, Gemini, local agents or future providers, Atlas must emit an
+equivalent provider adapter packet that preserves the same universal scope and
+evidence contract.
 
 ## Purpose
 

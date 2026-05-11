@@ -15,12 +15,12 @@ class AtlasFileAttachmentService
 {
     private const MAX_FILE_BYTES = 20_971_520;
     private const MAX_EXCERPT_CHARS = 20_000;
-    private const MAX_PDF_STORED_PAGES = 120;
+    private const MAX_PDF_STORED_PAGES = 240;
     private const MAX_PDF_PAGE_EXCERPT_CHARS = 3_000;
-    private const MAX_PDF_CHUNKS = 240;
+    private const MAX_PDF_CHUNKS = 480;
     private const PDF_CHUNK_CHARS = 1_600;
     private const PDF_CHUNK_OVERLAP_CHARS = 180;
-    private const MAX_PDF_RENDERED_PAGES = 12;
+    private const DEFAULT_PDF_RENDERED_PAGES = 24;
     private const MAX_OFFICE_RENDERED_PAGES = 12;
     private const PDF_OCR_TEXT_THRESHOLD_CHARS = 80;
 
@@ -169,6 +169,93 @@ class AtlasFileAttachmentService
             ...$content['metadata'],
             'attachment_processing_status' => 'processed',
             'attachment_processing_completed_at' => now()->toJSON(),
+        ];
+    }
+
+    /**
+     * Renderiza paginas adicionais relevantes para a pergunta atual sem
+     * reprocessar o PDF inteiro. Usa o cache de paginas ja renderizadas e
+     * complementa apenas lacunas de alto valor.
+     *
+     * @param  array<string,mixed>  $attachment
+     * @return array<string,mixed>
+     */
+    public function enhancePdfForQuery(array $attachment, string $query, int $maxAdditionalPages = 8): array
+    {
+        $path = is_string($attachment['path'] ?? null) ? $attachment['path'] : '';
+        if ($path === '' || ! File::isFile($path) || ! $this->isPdf(
+            is_string($attachment['mime_type'] ?? null) ? $attachment['mime_type'] : '',
+            strtolower(pathinfo(is_string($attachment['original_name'] ?? null) ? $attachment['original_name'] : $path, PATHINFO_EXTENSION)),
+        )) {
+            return $attachment;
+        }
+
+        $pages = is_array($attachment['pdf_pages'] ?? null) ? $attachment['pdf_pages'] : [];
+        $renderedPages = is_array($attachment['pdf_rendered_pages'] ?? null) ? $attachment['pdf_rendered_pages'] : [];
+        if ($pages === [] || $maxAdditionalPages <= 0) {
+            return $attachment;
+        }
+
+        $pageCount = is_numeric($attachment['pdf_page_count'] ?? null) ? (int) $attachment['pdf_page_count'] : count($pages);
+        $existingNumbers = collect($renderedPages)
+            ->map(fn (mixed $page): int => is_array($page) ? (int) ($page['page'] ?? 0) : 0)
+            ->filter(fn (int $page): bool => $page > 0)
+            ->unique()
+            ->all();
+        $selected = collect($this->selectQueryPdfVisualPages($pages, $query, $pageCount, $maxAdditionalPages))
+            ->reject(fn (int $page): bool => in_array($page, $existingNumbers, true))
+            ->take($maxAdditionalPages)
+            ->values()
+            ->all();
+
+        if ($selected === []) {
+            return [
+                ...$attachment,
+                'pdf_query_visualization' => [
+                    'status' => 'cache_hit',
+                    'query_hash' => hash('sha256', mb_substr($query, 0, 400)),
+                    'selected_pages' => [],
+                    'rendered_page_count' => count($renderedPages),
+                ],
+            ];
+        }
+
+        $render = $this->renderPdfPages($path, count($selected), $selected, clearExisting: false);
+        $newRendered = is_array($render['pdf_rendered_pages'] ?? null) ? $render['pdf_rendered_pages'] : [];
+        $mergedRendered = collect([...$renderedPages, ...$newRendered])
+            ->filter(fn (mixed $page): bool => is_array($page) && (int) ($page['page'] ?? 0) > 0)
+            ->unique(fn (array $page): int => (int) ($page['page'] ?? 0))
+            ->sortBy(fn (array $page): int => (int) ($page['page'] ?? 0))
+            ->values()
+            ->all();
+
+        $ocr = $this->ocrSparsePdfPages($pages, $mergedRendered);
+        $mergedOcrPages = collect([
+            ...(is_array($attachment['pdf_ocr_pages'] ?? null) ? $attachment['pdf_ocr_pages'] : []),
+            ...$ocr['pages'],
+        ])
+            ->filter(fn (mixed $page): bool => is_array($page) && (int) ($page['page'] ?? 0) > 0)
+            ->unique(fn (array $page): int => (int) ($page['page'] ?? 0))
+            ->sortBy(fn (array $page): int => (int) ($page['page'] ?? 0))
+            ->values()
+            ->all();
+
+        return [
+            ...$attachment,
+            'pdf_render_status' => $render['pdf_render_status'] === 'failed' ? ($attachment['pdf_render_status'] ?? 'partial') : 'rendered',
+            'pdf_rendered_page_count' => count($mergedRendered),
+            'pdf_rendered_pages' => $mergedRendered,
+            'pdf_ocr_status' => $mergedOcrPages !== [] ? 'processed' : ($attachment['pdf_ocr_status'] ?? $ocr['status']),
+            'pdf_ocr_pages' => $mergedOcrPages,
+            'pdf_pages' => $this->enrichPdfPageVisuals($pages, $mergedRendered, $mergedOcrPages),
+            'pdf_visual_understanding_status' => $mergedRendered !== [] ? 'ready' : ($attachment['pdf_visual_understanding_status'] ?? 'metadata_only'),
+            'pdf_query_visualization' => [
+                'status' => $newRendered === [] ? 'no_new_pages_rendered' : 'rendered',
+                'query_hash' => hash('sha256', mb_substr($query, 0, 400)),
+                'selected_pages' => $selected,
+                'added_pages' => collect($newRendered)->pluck('page')->filter()->values()->all(),
+                'rendered_page_count' => count($mergedRendered),
+            ],
         ];
     }
 
@@ -348,6 +435,9 @@ class AtlasFileAttachmentService
                 'structure' => $this->pageStructure($pageText, $tables, (int) ($imageCounts[$pageNumber] ?? 0)),
                 'table_count' => $tables['count'],
                 'table_excerpt' => $tables['excerpt'],
+                'table_markdown' => $tables['markdown'],
+                'table_confidence' => $tables['confidence'],
+                'table_column_count' => $tables['column_count'],
                 'image_count' => (int) ($imageCounts[$pageNumber] ?? 0),
             ];
 
@@ -374,10 +464,14 @@ class AtlasFileAttachmentService
         $metadata['pdf_chunk_count'] = count($chunks);
         $metadata['pdf_text_available'] = $metadata['pdf_text_chars'] > 0;
 
-        $render = $this->renderPdfPages($path, min(count($pages), self::MAX_PDF_RENDERED_PAGES));
+        $visualPageLimit = min(count($pages), $this->pdfVisionPageLimit());
+        $visualPageNumbers = $this->selectInitialPdfVisualPages($pageMetadata, count($pages), $visualPageLimit);
+        $render = $this->renderPdfPages($path, $visualPageLimit, $visualPageNumbers);
         $metadata = [
             ...$metadata,
             ...$render,
+            'pdf_visual_page_strategy' => $visualPageNumbers === [] ? 'none' : 'smart_select_v1',
+            'pdf_visual_selected_pages' => $visualPageNumbers,
         ];
 
         $ocr = $this->ocrSparsePdfPages($metadata['pdf_pages'], $metadata['pdf_rendered_pages']);
@@ -451,9 +545,10 @@ class AtlasFileAttachmentService
     }
 
     /**
+     * @param  array<int,int>  $pageNumbers
      * @return array{pdf_render_status:string,pdf_rendered_page_count:int,pdf_rendered_pages:array<int,array<string,mixed>>}
      */
-    private function renderPdfPages(string $path, int $pageLimit): array
+    private function renderPdfPages(string $path, int $pageLimit, array $pageNumbers = [], bool $clearExisting = true): array
     {
         $result = [
             'pdf_render_status' => 'unavailable',
@@ -465,6 +560,11 @@ class AtlasFileAttachmentService
             return $result;
         }
 
+        $pageNumbers = $this->normalizePageNumbers($pageNumbers, $pageLimit);
+        if ($pageNumbers === []) {
+            $pageNumbers = range(1, $pageLimit);
+        }
+
         $binary = (new ExecutableFinder())->find('pdftoppm');
         if (! $binary) {
             return $result;
@@ -473,21 +573,34 @@ class AtlasFileAttachmentService
         $renderDir = storage_path('app/ai/attachments/pdf-pages/'.pathinfo($path, PATHINFO_FILENAME));
         File::ensureDirectoryExists($renderDir);
         $prefix = $renderDir.'/page';
+        if ($clearExisting) {
+            foreach (glob($prefix.'-*.png') ?: [] as $stalePage) {
+                if (is_string($stalePage)) {
+                    File::delete($stalePage);
+                }
+            }
+        }
 
-        $process = new Process([
-            $binary,
-            '-png',
-            '-r',
-            '144',
-            '-f',
-            '1',
-            '-l',
-            (string) $pageLimit,
-            $path,
-            $prefix,
-        ], base_path());
-        $process->setTimeout(45);
-        $process->run();
+        $renderSucceeded = true;
+        foreach ($pageNumbers as $pageNumber) {
+            $process = new Process([
+                $binary,
+                '-png',
+                '-r',
+                '144',
+                '-f',
+                (string) $pageNumber,
+                '-l',
+                (string) $pageNumber,
+                $path,
+                $prefix,
+            ], base_path());
+            $process->setTimeout(20);
+            $process->run();
+            if (! $process->isSuccessful()) {
+                $renderSucceeded = false;
+            }
+        }
 
         $files = glob($prefix.'-*.png') ?: [];
         natsort($files);
@@ -510,15 +623,224 @@ class AtlasFileAttachmentService
         if ($rendered === []) {
             return [
                 ...$result,
-                'pdf_render_status' => $process->isSuccessful() ? 'empty' : 'failed',
+                'pdf_render_status' => $renderSucceeded ? 'empty' : 'failed',
             ];
         }
 
         return [
-            'pdf_render_status' => count($rendered) >= $pageLimit ? 'rendered' : 'partial',
+            'pdf_render_status' => count($rendered) >= count($pageNumbers) ? 'rendered' : 'partial',
             'pdf_rendered_page_count' => count($rendered),
             'pdf_rendered_pages' => $rendered,
         ];
+    }
+
+    /**
+     * Seleciona paginas visuais com alto valor informacional:
+     * abertura, paginas escaneadas/sparse, tabelas, imagens/graficos e amostras
+     * distribuidas. Isso aumenta cobertura de PDFs longos sem renderizar tudo.
+     *
+     * @param  array<int,array<string,mixed>>  $pages
+     * @return array<int,int>
+     */
+    private function selectInitialPdfVisualPages(array $pages, int $totalPages, int $limit): array
+    {
+        if ($limit <= 0 || $totalPages <= 0) {
+            return [];
+        }
+
+        $scores = [];
+        foreach (range(1, min(3, $totalPages)) as $page) {
+            $scores[$page] = ($scores[$page] ?? 0) + 120;
+        }
+
+        foreach ($pages as $page) {
+            $number = (int) ($page['page'] ?? 0);
+            if ($number < 1 || $number > $totalPages) {
+                continue;
+            }
+
+            $classification = (string) ($page['classification'] ?? '');
+            $tableCount = (int) ($page['table_count'] ?? 0);
+            $imageCount = (int) ($page['image_count'] ?? 0);
+            $textChars = (int) ($page['text_chars'] ?? 0);
+
+            $score = $scores[$number] ?? 0;
+            if (in_array($classification, ['visual_or_scanned', 'sparse'], true)) {
+                $score += 100;
+            } elseif ($classification === 'mixed') {
+                $score += 55;
+            }
+            if ($tableCount > 0) {
+                $score += min(80, 35 + ($tableCount * 8));
+            }
+            if ($imageCount > 0) {
+                $score += min(80, 35 + ($imageCount * 10));
+            }
+            if ($textChars > 0 && $textChars < self::PDF_OCR_TEXT_THRESHOLD_CHARS) {
+                $score += 45;
+            }
+            if ((bool) ($page['text_truncated'] ?? false)) {
+                $score += 20;
+            }
+
+            if ($score > 0) {
+                $scores[$number] = $score;
+            }
+        }
+
+        $sampleCount = min($limit, max(0, (int) ceil($limit * 0.25)));
+        if ($sampleCount > 0 && $totalPages > 3) {
+            foreach ($this->evenlySampledPages($totalPages, $sampleCount) as $page) {
+                $scores[$page] = ($scores[$page] ?? 0) + 35;
+            }
+        }
+
+        arsort($scores);
+
+        return collect(array_keys($scores))
+            ->map(fn (mixed $page): int => (int) $page)
+            ->filter(fn (int $page): bool => $page >= 1 && $page <= $totalPages)
+            ->take($limit)
+            ->sort()
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @return array<int,int>
+     */
+    private function evenlySampledPages(int $totalPages, int $count): array
+    {
+        if ($totalPages <= 0 || $count <= 0) {
+            return [];
+        }
+
+        if ($count >= $totalPages) {
+            return range(1, $totalPages);
+        }
+
+        $pages = [];
+        for ($index = 1; $index <= $count; $index++) {
+            $page = (int) round(($index * $totalPages) / ($count + 1));
+            $page = max(1, min($totalPages, $page));
+            $pages[$page] = true;
+        }
+
+        return array_keys($pages);
+    }
+
+    /**
+     * @param  array<int,int>  $pageNumbers
+     * @return array<int,int>
+     */
+    private function normalizePageNumbers(array $pageNumbers, int $limit): array
+    {
+        return collect($pageNumbers)
+            ->map(fn (mixed $page): int => (int) $page)
+            ->filter(fn (int $page): bool => $page > 0)
+            ->unique()
+            ->sort()
+            ->take($limit)
+            ->values()
+            ->all();
+    }
+
+    private function pdfVisionPageLimit(): int
+    {
+        return max(0, (int) config('atlas.attachments.pdf.vision_page_limit', self::DEFAULT_PDF_RENDERED_PAGES));
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $pages
+     * @return array<int,int>
+     */
+    private function selectQueryPdfVisualPages(array $pages, string $query, int $totalPages, int $limit): array
+    {
+        $explicitPages = $this->explicitPageReferences($query, $totalPages);
+        $terms = $this->queryTerms($query);
+        $scores = [];
+
+        foreach ($explicitPages as $page) {
+            $scores[$page] = ($scores[$page] ?? 0) + 500;
+        }
+
+        foreach ($pages as $page) {
+            $number = (int) ($page['page'] ?? 0);
+            if ($number < 1 || $number > $totalPages) {
+                continue;
+            }
+
+            $haystack = mb_strtolower(implode("\n", array_filter([
+                (string) ($page['text_excerpt'] ?? ''),
+                (string) ($page['table_excerpt'] ?? ''),
+                (string) ($page['visual_caption'] ?? ''),
+                implode(' ', (array) data_get($page, 'structure.heading_candidates', [])),
+            ])));
+
+            $score = $scores[$number] ?? 0;
+            foreach ($terms as $term) {
+                $score += substr_count($haystack, $term) * 18;
+            }
+            if ((bool) ($page['vision_fallback_recommended'] ?? false)) {
+                $score += 45;
+            }
+            if ((int) ($page['table_count'] ?? 0) > 0) {
+                $score += 30;
+            }
+            if ((int) ($page['image_count'] ?? 0) > 0) {
+                $score += 30;
+            }
+            if (in_array((string) ($page['classification'] ?? ''), ['visual_or_scanned', 'sparse'], true)) {
+                $score += 35;
+            }
+
+            if ($score > 0) {
+                $scores[$number] = $score;
+            }
+        }
+
+        arsort($scores);
+
+        return collect(array_keys($scores))
+            ->map(fn (mixed $page): int => (int) $page)
+            ->filter(fn (int $page): bool => $page >= 1 && $page <= $totalPages)
+            ->take($limit)
+            ->sort()
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @return array<int,int>
+     */
+    private function explicitPageReferences(string $query, int $totalPages): array
+    {
+        preg_match_all('/\b(?:p(?:ag(?:ina)?)?\.?|page)\s*(\d{1,4})\b/iu', $query, $matches);
+        $pages = [];
+        foreach ($matches[1] ?? [] as $value) {
+            $page = (int) $value;
+            if ($page >= 1 && $page <= $totalPages) {
+                $pages[$page] = true;
+            }
+        }
+
+        return array_keys($pages);
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function queryTerms(string $query): array
+    {
+        $query = mb_strtolower($this->normalizeText($query));
+        preg_match_all('/[\pL\pN]{4,}/u', $query, $matches);
+
+        return collect($matches[0] ?? [])
+            ->reject(fn (string $term): bool => in_array($term, ['sobre', 'para', 'como', 'qual', 'quais', 'esse', 'essa', 'documento', 'arquivo'], true))
+            ->unique()
+            ->take(24)
+            ->values()
+            ->all();
     }
 
     /**
@@ -699,7 +1021,7 @@ class AtlasFileAttachmentService
     }
 
     /**
-     * @return array{count:int,excerpt:string}
+     * @return array{count:int,excerpt:string,markdown:string,confidence:string,column_count:int}
      */
     private function detectTables(string $text): array
     {
@@ -719,10 +1041,89 @@ class AtlasFileAttachmentService
             }
         }
 
+        $markdown = $this->tableRowsToMarkdown($rows);
+        $columnCount = $this->tableColumnCount($rows);
+        $confidence = match (true) {
+            count($rows) >= 4 && $columnCount >= 3 => 'high',
+            count($rows) >= 2 && $columnCount >= 2 => 'medium',
+            count($rows) > 0 => 'low',
+            default => 'none',
+        };
+
         return [
             'count' => count($rows),
-            'excerpt' => mb_substr(implode("\n", array_slice($rows, 0, 8)), 0, 1200),
+            'excerpt' => mb_substr(implode("\n", array_slice($rows, 0, 10)), 0, 1600),
+            'markdown' => mb_substr($markdown, 0, 2400),
+            'confidence' => $confidence,
+            'column_count' => $columnCount,
         ];
+    }
+
+    /**
+     * @param  array<int,string>  $rows
+     */
+    private function tableRowsToMarkdown(array $rows): string
+    {
+        $parsed = collect(array_slice($rows, 0, 12))
+            ->map(fn (string $row): array => $this->splitTableRow($row))
+            ->filter(fn (array $columns): bool => count($columns) >= 2)
+            ->values()
+            ->all();
+
+        if ($parsed === []) {
+            return '';
+        }
+
+        $width = min(8, max(array_map('count', $parsed)));
+        $normalized = array_map(function (array $columns) use ($width): array {
+            $columns = array_slice($columns, 0, $width);
+            while (count($columns) < $width) {
+                $columns[] = '';
+            }
+
+            return array_map(fn (string $value): string => str_replace('|', '\\|', trim($value)), $columns);
+        }, $parsed);
+
+        $header = $normalized[0];
+        $separator = array_fill(0, $width, '---');
+        $body = array_slice($normalized, 1);
+
+        return collect([$header, $separator, ...$body])
+            ->map(fn (array $columns): string => '| '.implode(' | ', $columns).' |')
+            ->implode("\n");
+    }
+
+    /**
+     * @param  array<int,string>  $rows
+     */
+    private function tableColumnCount(array $rows): int
+    {
+        return collect($rows)
+            ->map(fn (string $row): int => count($this->splitTableRow($row)))
+            ->max() ?: 0;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function splitTableRow(string $row): array
+    {
+        if (str_contains($row, "\t")) {
+            $columns = preg_split('/\t+/', $row) ?: [];
+        } elseif (substr_count($row, '|') >= 2) {
+            $columns = explode('|', trim($row, '| '));
+        } else {
+            $columns = preg_split('/\s{2,}/', $row) ?: [];
+            if (count($columns) < 2 && preg_match('/(?:\d+[,.]?\d*\s+){2,}/', $row) === 1) {
+                $columns = preg_split('/\s+/', $row) ?: [];
+            }
+        }
+
+        return collect($columns)
+            ->map(fn (mixed $column): string => trim((string) $column))
+            ->filter(fn (string $column): bool => $column !== '')
+            ->values()
+            ->all();
     }
 
     /**

@@ -58,6 +58,7 @@ decisions:
   - Toda IA nova deve ler Atlas AI Research Intelligence And Self-Improvement Runtime antes de pesquisa longa, source quality, promocao de pesquisa para docs, planejamento automatico, implementacao baseada em pesquisa ou aceleracao de autoaprimoramento.
   - Toda IA nova deve ler Atlas AI Spec Operating System antes de alterar SDD, Programming harness, spec compiler, task compiler, Decision Receipt de execucao, drift detector, code-agent prompts, MCP SDD, context packages, data model ou fluxo de one-shot implementation.
   - Toda IA nova deve ler Atlas AI Self-Construction OS antes de alterar self-programming, Meta-SDD, maturity ladder, build graph, priority engine, autonomous loop, safety contract ou qualquer fluxo do Atlas construindo Atlas.
+  - Toda IA nova que va implementar em paralelo deve ler o Multi-Provider Agent Orchestration Contract: Codex, Claude, Gemini, agentes locais e futuros providers consomem o mesmo pacote universal; adapters nao podem ampliar escopo.
   - Toda IA nova deve usar `php artisan atlas:ai:self-construction --json` para consultar o estado read-only/advisory antes de planejar autoimplementacao.
   - Toda IA nova deve ler Atlas AI Obras Operating System antes de propor TCC, pesquisa longa, livro, curso, projeto intelectual, portfolio estrategico, Foundry, Sovereign OS ou qualquer workspace persistente de producao.
   - Toda IA nova deve ler Atlas AI Cognitive Runtime antes de alterar memoria, busca de contexto, sessoes longas, compactacao automatica, handoff cognitivo ou auditoria de qualidade.
@@ -133,6 +134,7 @@ related_paths:
   - docs/engineering-knowledge-base/self-construction/collision-matrix-contract.md
   - docs/engineering-knowledge-base/self-construction/dependency-unlock-plan-contract.md
   - docs/engineering-knowledge-base/self-construction/multi-session-readiness-gate-contract.md
+  - docs/engineering-knowledge-base/self-construction/multi-provider-agent-orchestration-contract.md
   - docs/engineering-knowledge-base/self-construction/single-session-instruction-packet-contract.md
   - docs/engineering-knowledge-base/self-construction/meta-sdd-contract.md
   - docs/engineering-knowledge-base/self-construction/capability-maturity-ladder.md

@@ -76,6 +76,7 @@ class AiPromptBuilder
         $catalog = $this->skillBundles->catalog();
         $sessionSearchSection = $this->sessionSearchSection($input, $options);
         $attachmentSearchSection = $this->attachmentSearchSection($input, $options);
+        $youtubeKnowledgeSection = $this->youtubeKnowledgeSection($options);
         $activeSkillSection = $activeAgentBundle
             ? "# Skill ativa: {$skill->title}\n\nA skill ativa esta carregada como bundle agentskills.io em <skill_content name=\"{$activeAgentBundle->name}\">. Use esse bloco como fonte procedural principal."
             : "# Skill ativa: {$skill->title}\n\n{$skill->body}";
@@ -89,6 +90,7 @@ class AiPromptBuilder
             $this->skillCatalogSection($catalog),
             $sessionSearchSection,
             $attachmentSearchSection,
+            $youtubeKnowledgeSection,
             $this->contextPackPromptSection($contextPack, $openBrainInjection),
             $executionPlan->toPromptSection(),
             $this->atlasModeInstructions($options),
@@ -613,10 +615,17 @@ TXT;
                     $renderStatus = is_scalar($file['pdf_render_status'] ?? null) ? (string) $file['pdf_render_status'] : 'desconhecido';
                     $ocrStatus = is_scalar($file['pdf_ocr_status'] ?? null) ? (string) $file['pdf_ocr_status'] : 'desconhecido';
                     $visualStatus = is_scalar($file['pdf_visual_understanding_status'] ?? null) ? (string) $file['pdf_visual_understanding_status'] : 'desconhecido';
+                    $visualStrategy = is_scalar($file['pdf_visual_page_strategy'] ?? null) ? (string) $file['pdf_visual_page_strategy'] : 'desconhecido';
+                    $visualSelectedPages = is_array($file['pdf_visual_selected_pages'] ?? null) ? $file['pdf_visual_selected_pages'] : [];
                     $lines[] = "[pdf_metadata pages=\"{$pageCount}\" processing=\"{$processingStatus}\" render=\"{$renderStatus}\" ocr=\"{$ocrStatus}\" visual=\"{$visualStatus}\"]";
                     $lines[] = 'Use as paginas abaixo com citacoes tipo "p. 3". Quando houver imagem de pagina anexada ao provider, use a visao da pagina para layout, graficos, assinaturas, tabelas e prints; nao dependa apenas do texto.';
+                    $lines[] = 'Ao responder com base neste PDF, cite paginas relevantes. Se a resposta depender de pagina omitida, declare a lacuna antes de concluir.';
+                    $map = $this->pdfDocumentMap($pdfPages, $visualSelectedPages, $visualStrategy);
+                    if ($map !== '') {
+                        $lines[] = $map;
+                    }
 
-                    $selectedPdfPages = $this->selectPdfPagesForPrompt($pdfPages, $input, 24);
+                    $selectedPdfPages = $this->selectPdfPagesForPrompt($pdfPages, $input, 36);
                     foreach ($selectedPdfPages as $page) {
                         if (! is_array($page)) {
                             continue;
@@ -627,6 +636,8 @@ TXT;
                         $classification = is_scalar($page['classification'] ?? null) ? (string) $page['classification'] : 'unknown';
                         $caption = is_string($page['visual_caption'] ?? null) ? trim($page['visual_caption']) : '';
                         $tableExcerpt = is_string($page['table_excerpt'] ?? null) ? trim($page['table_excerpt']) : '';
+                        $tableMarkdown = is_string($page['table_markdown'] ?? null) ? trim($page['table_markdown']) : '';
+                        $tableConfidence = is_scalar($page['table_confidence'] ?? null) ? (string) $page['table_confidence'] : 'unknown';
                         $imageCount = is_scalar($page['image_count'] ?? null) ? (string) $page['image_count'] : '0';
                         $tableCount = is_scalar($page['table_count'] ?? null) ? (string) $page['table_count'] : '0';
                         $lines[] = "<pdf_page page=\"{$pageNumber}\" classification=\"".htmlspecialchars($classification, ENT_QUOTES, 'UTF-8').'">';
@@ -637,11 +648,14 @@ TXT;
                         if ($tableExcerpt !== '') {
                             $lines[] = "<detected_table_excerpt>\n{$tableExcerpt}\n</detected_table_excerpt>";
                         }
+                        if ($tableMarkdown !== '') {
+                            $lines[] = "<detected_table_markdown confidence=\"".htmlspecialchars($tableConfidence, ENT_QUOTES, 'UTF-8')."\">\n{$tableMarkdown}\n</detected_table_markdown>";
+                        }
                         $lines[] = $pageExcerpt !== '' ? $pageExcerpt : '[sem texto nativo extraido nesta pagina]';
                         $lines[] = '</pdf_page>';
                     }
 
-                    foreach (array_slice($pdfOcrPages, 0, 12) as $page) {
+                    foreach (array_slice($pdfOcrPages, 0, 24) as $page) {
                         if (! is_array($page)) {
                             continue;
                         }
@@ -662,7 +676,7 @@ TXT;
                             ->map(fn (mixed $page): mixed => is_array($page) ? ($page['page'] ?? null) : null)
                             ->filter()
                             ->implode(', ');
-                        $lines[] = '[prompt compacto com paginas selecionadas: '.$selectedNumbers.'. Se a pergunta depender de pagina omitida, declare a lacuna.]';
+                        $lines[] = '[prompt compacto com paginas selecionadas: '.$selectedNumbers.'. Use o mapa do PDF para decidir se ha lacuna de pagina.]';
                     }
                 } elseif ($isOffice) {
                     $renderStatus = is_scalar($file['office_render_status'] ?? null) ? (string) $file['office_render_status'] : 'desconhecido';
@@ -688,6 +702,97 @@ TXT;
                 }
                 $lines[] = '</attached_file>';
             }
+        }
+
+        return implode("\n", $lines);
+    }
+
+    private function youtubeKnowledgeSection(array $options): string
+    {
+        $videos = data_get($options, 'payload.youtube_ingestion.videos', []);
+        if (! is_array($videos) || $videos === []) {
+            return '';
+        }
+
+        $lines = [
+            '# YouTube ingerido',
+            'O operador colou link(s) do YouTube. Use a transcricao com timestamps como fonte primaria do video. Cite timestamps no formato [mm:ss] ou [h:mm:ss] quando usar pontos especificos.',
+            'Se a transcricao/caption nao estiver disponivel, declare a lacuna com precisao e nao finja ter visto/ouvido o video inteiro.',
+            'REGRA CRITICA: quando o pedido for sobre o conteudo do video e a transcricao estiver indisponivel, e proibido substituir o video por blog post, GitHub README, site oficial, artigos, conhecimento geral ou pesquisa externa, a menos que o operador peca explicitamente fontes externas. Entregue apenas metadados seguros e a lacuna.',
+            'Se o status for processing, diga de forma curta que o Atlas esta transcrevendo o audio em background e que o operador pode reenviar o mesmo link em instantes para receber a analise completa.',
+            'Se um <youtube_video> tiver status diferente de ready, nao diga "tenho o suficiente para analise" e nao produza analise do conteudo falado.',
+            'Quando o pedido for aprender/resumir um video, separe naturalmente: resumo executivo, mapa por timestamps, ideias para o operador, candidatos para memoria do Atlas e proximas acoes.',
+        ];
+
+        foreach (array_slice($videos, 0, 2) as $index => $video) {
+            if (! is_array($video)) {
+                continue;
+            }
+
+            $number = $index + 1;
+            $status = htmlspecialchars((string) ($video['status'] ?? 'unknown'), ENT_QUOTES, 'UTF-8');
+            $metadata = is_array($video['metadata'] ?? null) ? $video['metadata'] : [];
+            $caption = is_array($video['caption'] ?? null) ? $video['caption'] : [];
+            $title = htmlspecialchars((string) ($metadata['title'] ?? 'sem titulo'), ENT_QUOTES, 'UTF-8');
+            $channel = htmlspecialchars((string) ($metadata['channel'] ?? 'canal desconhecido'), ENT_QUOTES, 'UTF-8');
+            $url = htmlspecialchars((string) ($metadata['webpage_url'] ?? $video['url'] ?? ''), ENT_QUOTES, 'UTF-8');
+            $duration = is_scalar($metadata['duration_seconds'] ?? null) ? (string) $metadata['duration_seconds'] : 'desconhecida';
+            $language = htmlspecialchars((string) ($caption['language'] ?? $metadata['language'] ?? 'desconhecida'), ENT_QUOTES, 'UTF-8');
+            $captionKind = htmlspecialchars((string) ($caption['kind'] ?? 'desconhecida'), ENT_QUOTES, 'UTF-8');
+            $timestampSource = htmlspecialchars((string) ($caption['timestamp_source'] ?? 'native'), ENT_QUOTES, 'UTF-8');
+
+            $lines[] = '';
+            $lines[] = "<youtube_video index=\"{$number}\" status=\"{$status}\" title=\"{$title}\" channel=\"{$channel}\" duration_seconds=\"{$duration}\" language=\"{$language}\" caption_kind=\"{$captionKind}\" timestamp_source=\"{$timestampSource}\" url=\"{$url}\">";
+            if ($timestampSource === 'estimated') {
+                $lines[] = '<timestamp_note>Transcricao veio de audio/Whisper; timestamps sao estimativas proporcionais, nao marcas nativas do YouTube.</timestamp_note>';
+            }
+            $chapters = is_array($metadata['chapters'] ?? null) ? $metadata['chapters'] : [];
+            if ($chapters !== []) {
+                $lines[] = '<official_chapters>';
+                foreach (array_slice($chapters, 0, 30) as $chapter) {
+                    if (! is_array($chapter)) {
+                        continue;
+                    }
+                    $chapterStart = htmlspecialchars((string) ($chapter['start_label'] ?? ''), ENT_QUOTES, 'UTF-8');
+                    $chapterTitle = htmlspecialchars((string) ($chapter['title'] ?? ''), ENT_QUOTES, 'UTF-8');
+                    if ($chapterTitle !== '') {
+                        $lines[] = "- [{$chapterStart}] {$chapterTitle}";
+                    }
+                }
+                $lines[] = '</official_chapters>';
+            }
+            $description = is_string($metadata['description_excerpt'] ?? null) ? trim((string) $metadata['description_excerpt']) : '';
+            if ($description !== '') {
+                $lines[] = '<official_description_excerpt>'.htmlspecialchars($description, ENT_QUOTES, 'UTF-8').'</official_description_excerpt>';
+            }
+
+            if (($video['status'] ?? null) !== 'ready') {
+                $reason = htmlspecialchars((string) ($video['reason'] ?? 'transcricao indisponivel'), ENT_QUOTES, 'UTF-8');
+                $lines[] = "<ingestion_gap>{$reason}</ingestion_gap>";
+                $lines[] = '</youtube_video>';
+                continue;
+            }
+
+            $chunks = is_array($video['chunks'] ?? null) ? $video['chunks'] : [];
+            foreach (array_slice($chunks, 0, 80) as $chunk) {
+                if (! is_array($chunk)) {
+                    continue;
+                }
+
+                $chunkIndex = is_scalar($chunk['index'] ?? null) ? (string) $chunk['index'] : '?';
+                $start = htmlspecialchars((string) ($chunk['start_label'] ?? ''), ENT_QUOTES, 'UTF-8');
+                $end = htmlspecialchars((string) ($chunk['end_label'] ?? ''), ENT_QUOTES, 'UTF-8');
+                $text = trim((string) ($chunk['text'] ?? ''));
+                if ($text === '') {
+                    continue;
+                }
+
+                $lines[] = "<transcript_chunk index=\"{$chunkIndex}\" start=\"{$start}\" end=\"{$end}\">";
+                $lines[] = $text;
+                $lines[] = '</transcript_chunk>';
+            }
+
+            $lines[] = '</youtube_video>';
         }
 
         return implode("\n", $lines);
@@ -755,6 +860,75 @@ TXT;
             ->sortBy(fn (array $page): int => (int) ($page['page'] ?? 0))
             ->values()
             ->all();
+    }
+
+    private function pdfDocumentMap(array $pages, array $visualSelectedPages, string $visualStrategy): string
+    {
+        $pages = collect($pages)
+            ->filter(fn (mixed $page): bool => is_array($page))
+            ->values();
+        if ($pages->isEmpty()) {
+            return '';
+        }
+
+        $visualPages = collect($visualSelectedPages)
+            ->map(fn (mixed $page): int => (int) $page)
+            ->filter(fn (int $page): bool => $page > 0)
+            ->unique()
+            ->sort()
+            ->values()
+            ->all();
+
+        $scanned = $pages
+            ->filter(fn (array $page): bool => in_array((string) ($page['classification'] ?? ''), ['visual_or_scanned', 'sparse'], true))
+            ->pluck('page')
+            ->filter()
+            ->take(24)
+            ->implode(', ');
+        $tables = $pages
+            ->filter(fn (array $page): bool => (int) ($page['table_count'] ?? 0) > 0)
+            ->map(fn (array $page): string => 'p. '.(string) ($page['page'] ?? '?').' ('.(string) ($page['table_count'] ?? 0).')')
+            ->take(24)
+            ->implode(', ');
+        $images = $pages
+            ->filter(fn (array $page): bool => (int) ($page['image_count'] ?? 0) > 0)
+            ->map(fn (array $page): string => 'p. '.(string) ($page['page'] ?? '?').' ('.(string) ($page['image_count'] ?? 0).')')
+            ->take(24)
+            ->implode(', ');
+        $headings = $pages
+            ->flatMap(function (array $page): array {
+                $structure = is_array($page['structure'] ?? null) ? $page['structure'] : [];
+                $candidates = is_array($structure['heading_candidates'] ?? null) ? $structure['heading_candidates'] : [];
+                $pageNumber = (string) ($page['page'] ?? '?');
+
+                return collect($candidates)
+                    ->filter(fn (mixed $heading): bool => is_scalar($heading) && trim((string) $heading) !== '')
+                    ->take(2)
+                    ->map(fn (mixed $heading): string => 'p. '.$pageNumber.': '.trim((string) $heading))
+                    ->all();
+            })
+            ->take(16)
+            ->implode(' | ');
+
+        $lines = ['<pdf_document_map visual_strategy="'.htmlspecialchars($visualStrategy, ENT_QUOTES, 'UTF-8').'">'];
+        if ($visualPages !== []) {
+            $lines[] = '<visual_pages>'.implode(', ', $visualPages).'</visual_pages>';
+        }
+        if ($scanned !== '') {
+            $lines[] = '<scanned_or_sparse_pages>'.$scanned.'</scanned_or_sparse_pages>';
+        }
+        if ($tables !== '') {
+            $lines[] = '<table_like_pages>'.$tables.'</table_like_pages>';
+        }
+        if ($images !== '') {
+            $lines[] = '<image_or_chart_pages>'.$images.'</image_or_chart_pages>';
+        }
+        if ($headings !== '') {
+            $lines[] = '<heading_candidates>'.htmlspecialchars($headings, ENT_QUOTES, 'UTF-8').'</heading_candidates>';
+        }
+        $lines[] = '</pdf_document_map>';
+
+        return implode("\n", $lines);
     }
 
     private function sessionSearchSection(string $input, array $options): string

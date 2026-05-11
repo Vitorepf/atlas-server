@@ -4,6 +4,7 @@ from typing import Any, Callable, Mapping
 
 from .livekit_sdk_adapter import LiveKitSdkAdapter
 from .livekit_worker import LiveKitWorkerResult
+from .payload_safety import reject_forbidden_keys_recursive
 from .turn_payload import UnsafeVoicePayload
 
 
@@ -19,6 +20,7 @@ class LiveKitCallbackRouter:
         self.adapter = adapter
 
     def route(self, event: Mapping[str, Any]) -> LiveKitWorkerResult:
+        reject_forbidden_keys_recursive(event, FORBIDDEN_CALLBACK_KEYS, label="LiveKit callback router event")
         callback_kind = _required(event, "callback_kind")
         payload = event.get("payload")
         if not isinstance(payload, Mapping):
@@ -60,6 +62,32 @@ class LiveKitCallbackRouter:
             "provider_health_degraded",
             "participant_left",
         ]
+
+
+FORBIDDEN_CALLBACK_KEYS = {
+    "access_token",
+    "api_key",
+    "api_secret",
+    "audio",
+    "audio_bytes",
+    "audio_raw",
+    "direct_llm_provider_call",
+    "direct_provider_call",
+    "direct_tool_execution",
+    "livekit_token",
+    "memory_write",
+    "pcm",
+    "provider_api_key",
+    "raw_audio",
+    "raw_audio_bytes",
+    "raw_response_text",
+    "response_text",
+    "token",
+    "tool_args",
+    "tool_call",
+    "tts_text",
+    "wav",
+}
 
 
 def _required(event: Mapping[str, Any], key: str) -> str:
