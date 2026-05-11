@@ -16,6 +16,9 @@ para descobrir comandos canonicos.
   `commands`.
 - O payload deve conter `architecture_operations.owner_layer_operations.runtime`
   para expor `runtime_language_boundary` quando a IA entrar direto pelo gate.
+- Quando `placement.surface=voice_realtime`, o payload deve incluir
+  `voice_realtime_dependencies` e `voice_realtime_dependency_install_plan`
+  para descobrir Python runtime, LiveKit requirements e policy operator-managed.
 - Quando `placement.runtime` existir, `implementation_contract` deve carregar
   `runtime_invocation_contract` com schema
   `atlas.runtime_invocation_contract.v1`, `kernel_first=true`,

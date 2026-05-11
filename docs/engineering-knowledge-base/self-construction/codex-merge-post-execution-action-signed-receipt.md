@@ -1,0 +1,185 @@
+---
+id: atlas-ai-self-construction-codex-merge-post-execution-action-signed-receipt
+type: engineering_knowledge
+title: Atlas Self-Construction Codex Merge Post-Execution Action Signed Receipt
+status: active
+category: architecture
+priority: 100
+summary: Contract for read-only signed receipt templates after a post-execution merge action signature request.
+tags:
+  - atlas-ai
+  - self-construction
+  - codex-review
+  - merge-governance
+capabilities:
+  - self_construction_os
+  - review_governance
+  - merge_authorization
+decisions:
+  - Signed action receipt templates may define fields and validations, but must not accept signatures, validate signatures, persist receipts or merge.
+  - Signed action receipt preflights may list persistence blockers, but must not accept evidence, persist receipts or merge.
+  - Signed action receipt persistence templates may define append-only events, but must not write the ledger or persist receipts.
+maintenance:
+  - Update before adding any surface that persists a signed post-execution action receipt.
+related_paths:
+  - docs/engineering-knowledge-base/self-construction/codex-merge-post-execution-action-receipts.md
+  - docs/engineering-knowledge-base/self-construction/codex-merge-post-execution-contract.md
+owner: atlas-ai
+layer: 0.8-self-construction
+line_limit: 200
+---
+
+# Atlas Self-Construction Codex Merge Post-Execution Action Signed Receipt
+
+This contract governs the read-only signed receipt template for a future
+post-execution Codex merge action.
+
+The command is:
+
+```bash
+php artisan atlas:ai:self-construction --codex-review-merge-post-execution-action-signed-receipt-template --json
+```
+
+The preflight command is:
+
+```bash
+php artisan atlas:ai:self-construction --codex-review-merge-post-execution-action-signed-receipt-preflight --json
+```
+
+The persistence template command is:
+
+```bash
+php artisan atlas:ai:self-construction --codex-review-merge-post-execution-action-signed-receipt-persistence-template --json
+```
+
+## Boundary
+
+The template may describe future signed receipt fields and validations, but must
+keep:
+
+- `execution_allowed=false`;
+- `ledger_write_allowed=false`;
+- `dispatch_allowed=false`;
+- `approval_granted=false`;
+- `merge_allowed=false`;
+- `signature_valid=false`;
+- `receipt_persisted=false`.
+
+It must not:
+
+- accept signatures;
+- validate signatures;
+- record decisions;
+- persist receipts;
+- approve code;
+- merge;
+- dispatch work.
+
+## Required Sources
+
+The signed action receipt template must be bound to:
+
+- action post-signature runbook hash;
+- action signature request hash;
+- action signable payload hash;
+- action receipt hash.
+
+## Future External Evidence
+
+A future persisting surface must provide:
+
+- final merge action signature value;
+- signature validator identity;
+- signature validation timestamp;
+- validated action signable payload hash;
+- validated action receipt hash;
+- validated selected decision;
+- validated authority inputs;
+- validated action validations;
+- signed action receipt persistence event hash.
+
+## Future Persisted Fields
+
+A future signed action receipt must persist:
+
+- signed action receipt id;
+- source action receipt hash;
+- source action signable payload hash;
+- source post-signature runbook hash;
+- signature hash;
+- signature validator identity;
+- signature validation timestamp;
+- selected decision and rationale;
+- merge candidate hash;
+- persisted execution receipt hash;
+- post-execution gate report hash;
+- human post-execution confirmation hash;
+- merge operator identity.
+
+## Release Conditions
+
+A later merge surface may only proceed after:
+
+- signed action receipt was persisted append-only;
+- signed action receipt hash was verified;
+- the merge surface consumes only that signed action receipt;
+- last-minute diff and hot-scope checks pass;
+- final merge evidence can be emitted.
+
+## Persistence Preflight
+
+The persistence preflight checks whether a future signed action receipt
+persistence surface may be approached.
+
+It must remain read-only and must block on:
+
+- missing external final merge action signature value;
+- missing signature validator identity;
+- missing signature validation timestamp;
+- missing validated action signable payload hash;
+- missing validated action receipt hash;
+- missing selected decision;
+- missing authority input validation;
+- missing action validation proof;
+- missing signed receipt persistence event hash;
+- selected decision not equal to merge;
+- action receipt hash mismatch;
+- action signable payload hash mismatch;
+- hot-scope drift since action signature request;
+- unreviewed diff since action signature request.
+
+It must still forbid signature acceptance, signature validation, receipt
+persistence, decision recording, approval, merge and dispatch.
+
+## Persistence Template
+
+The persistence template defines the future append-only event without writing it.
+
+The future event type is:
+
+- `CODEX_REVIEW_MERGE_POST_EXECUTION_ACTION_SIGNED_RECEIPT_PERSISTED`.
+
+The future event must include:
+
+- event id and event type;
+- signed action receipt id and hash;
+- source signed receipt preflight hash;
+- source signed receipt template hash;
+- source action signature request hash;
+- source action signable payload hash;
+- source action receipt hash;
+- signature hash and validator identity;
+- selected decision;
+- merge candidate hash;
+- persisted execution receipt hash;
+- human post-execution confirmation hash;
+- persistence timestamp.
+
+The template must still forbid ledger writes, signature acceptance, signature
+validation, receipt persistence, decision recording, approval, merge and
+dispatch.
+
+## Principle
+
+This template is still not the signed receipt. It is only the contract for a
+future, separate, explicitly governed persistence surface.

@@ -33,6 +33,7 @@ class LiveKitWorkerPlanTest(unittest.TestCase):
         self.assertFalse(payload["guardrails"]["direct_tool_execution_allowed"])
         self.assertFalse(payload["guardrails"]["raw_audio_persistence_allowed"])
         self.assertIn(payload["next_action"], [
+            "upgrade_python_runtime_for_livekit_agents_sdk",
             "install_livekit_agents_sdk",
             "load_runtime_settings_and_kernel_boundary",
             "wire_real_sdk_callback_loop",

@@ -31,7 +31,7 @@ def run_runtime_preflight(
     if require_sdk and sdk is not None and sdk.get("status") != "ready":
         errors.append("LiveKit Agents SDK is required for this preflight but is not ready")
     if sdk is not None and sdk.get("status") != "ready":
-        warnings.append("optional LiveKit Agents SDK is not installed")
+        warnings.append(str(sdk.get("next_action") or "optional LiveKit Agents SDK is not ready"))
 
     status = "ready" if not errors and (not require_sdk or (sdk or {}).get("status") == "ready") else "blocked"
 
@@ -62,14 +62,27 @@ def run_runtime_preflight(
 
 
 def _next_action(errors: list[str], warnings: list[str], require_sdk: bool) -> str:
+    sdk_next_action = _sdk_next_action_from_messages(errors + warnings)
     if errors:
         if any("LiveKit Agents SDK" in error for error in errors):
-            return "install_livekit_agents_sdk"
+            return sdk_next_action or "install_livekit_agents_sdk"
 
         return "fix_runtime_environment"
     if warnings and require_sdk:
-        return "install_livekit_agents_sdk"
+        return sdk_next_action or "install_livekit_agents_sdk"
     if warnings:
-        return "optional_install_livekit_agents_sdk"
+        return sdk_next_action or "optional_install_livekit_agents_sdk"
 
     return "start_worker_check"
+
+
+def _sdk_next_action_from_messages(messages: list[str]) -> str | None:
+    for message in messages:
+        if "upgrade_python_runtime_for_livekit_agents_sdk" in message:
+            return "upgrade_python_runtime_for_livekit_agents_sdk"
+        if "upgrade_livekit_agents_sdk" in message:
+            return "upgrade_livekit_agents_sdk"
+        if "install_livekit_agents_sdk" in message:
+            return "install_livekit_agents_sdk"
+
+    return None

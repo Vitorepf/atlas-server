@@ -49,6 +49,7 @@ class AtlasVoiceActivationContractTest(unittest.TestCase):
         self.assertFalse(payload["gates"]["callback_loop_wired"])
         self.assertFalse(payload["gates"]["production_sdk_loop_wired"])
         self.assertIn(payload["next_action"], [
+            "upgrade_python_runtime_for_livekit_agents_sdk",
             "install_livekit_agents_sdk",
             "load_runtime_settings_and_kernel_boundary",
             "wire_real_sdk_callback_loop",
@@ -68,6 +69,7 @@ class AtlasVoiceActivationContractTest(unittest.TestCase):
         self.assertEqual("blocked", payload["status"])
         self.assertFalse(payload["gates"]["real_kernel_required"])
         self.assertIn(payload["next_action"], [
+            "upgrade_python_runtime_for_livekit_agents_sdk",
             "install_livekit_agents_sdk",
             "wire_real_sdk_callback_loop",
             "wire_production_sdk_loop",

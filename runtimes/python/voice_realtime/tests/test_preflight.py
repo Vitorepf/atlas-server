@@ -42,6 +42,7 @@ class AtlasVoiceRuntimePreflightTest(unittest.TestCase):
         self.assertFalse(payload["guardrails"]["direct_provider_call_allowed"])
         self.assertFalse(payload["guardrails"]["raw_audio_persistence_allowed"])
         self.assertIn(payload["next_action"], [
+            "upgrade_python_runtime_for_livekit_agents_sdk",
             "optional_install_livekit_agents_sdk",
             "install_livekit_agents_sdk",
             "start_worker_check",
@@ -66,7 +67,10 @@ class AtlasVoiceRuntimePreflightTest(unittest.TestCase):
             self.assertEqual("ready", payload["status"])
         else:
             self.assertEqual("blocked", payload["status"])
-            self.assertEqual("install_livekit_agents_sdk", payload["next_action"])
+            self.assertIn(payload["next_action"], [
+                "upgrade_python_runtime_for_livekit_agents_sdk",
+                "install_livekit_agents_sdk",
+            ])
 
     def test_preflight_requires_sdk_fails_closed_with_probe_only_missing_imports(self) -> None:
         sdk_status = {

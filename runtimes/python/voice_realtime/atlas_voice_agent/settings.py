@@ -8,7 +8,7 @@ from typing import Mapping
 from urllib.parse import urlparse
 
 from .contract import AtlasVoiceRuntimeContract
-from .kernel_client import AtlasKernelClient, PostJson
+from .kernel_client import AtlasKernelClient, GetJson, PostJson
 
 
 class SettingsError(RuntimeError):
@@ -81,11 +81,16 @@ class AtlasVoiceRuntimeSettings:
 
         return contract
 
-    def build_kernel_client(self, post_json: PostJson | None = None) -> AtlasKernelClient:
+    def build_kernel_client(
+        self,
+        post_json: PostJson | None = None,
+        get_json: GetJson | None = None,
+    ) -> AtlasKernelClient:
         return AtlasKernelClient(
             contract=self.load_contract(),
             atlas_token=self.atlas_token,
             post_json=post_json,
+            get_json=get_json,
         )
 
     @staticmethod

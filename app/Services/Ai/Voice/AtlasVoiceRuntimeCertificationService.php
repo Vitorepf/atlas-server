@@ -44,14 +44,18 @@ final class AtlasVoiceRuntimeCertificationService
 
         $baseUrl = $this->baseUrl($payload);
         $requireSdk = (bool) ($payload['require_sdk'] ?? false);
+        $callbackLoopWired = (bool) ($payload['callback_loop_wired'] ?? false);
+        $productionSdkLoopWired = (bool) ($payload['production_sdk_loop_wired'] ?? false);
 
         $preflight = $this->runPreflight($runtime, $baseUrl, $requireSdk);
         $callbackSequence = $this->runCallbackSequenceSmoke($runtime, $baseUrl);
         $productionLoop = $this->runProductionLoopSmoke($runtime, $baseUrl);
-        $workerStart = $this->runWorkerStartCheck($runtime, $baseUrl);
-        $productLoopCheck = $this->runProductLoopCheck($runtime, $baseUrl);
+        $workerStart = $this->runWorkerStartCheck($runtime, $baseUrl, $callbackLoopWired, $productionSdkLoopWired);
+        $productLoopCheck = $this->runProductLoopCheck($runtime, $baseUrl, $callbackLoopWired, $productionSdkLoopWired);
+        $preStartHealthChecksSmoke = $this->runPreStartHealthChecksSmoke($runtime, $baseUrl);
         $foundation = $this->foundation->readiness();
         $tokenIssuer = $this->tokens->readiness();
+        $tokenIssuerSmoke = $this->tokens->smoke();
 
         $artifacts = [
             'foundation_registry' => $this->certificationArtifact($foundation, ['summary', 'gates']),
@@ -60,7 +64,9 @@ final class AtlasVoiceRuntimeCertificationService
             'production_loop_smoke' => $this->certificationArtifact($productionLoop, ['bridge_contract', 'results']),
             'worker_start_check' => $this->certificationArtifact($workerStart, ['worker_plan', 'activation_contract', 'production_loop_plan', 'sdk_wiring_contract']),
             'product_loop_check' => $this->certificationArtifact($productLoopCheck, ['callback_loop', 'production_loop_plan', 'worker_start']),
+            'pre_start_health_checks_smoke' => $this->certificationArtifact($preStartHealthChecksSmoke, ['bootstrap', 'pre_start_health_checks']),
             'livekit_token_issuer' => $this->certificationArtifact($tokenIssuer, []),
+            'livekit_token_issuer_smoke' => $this->certificationArtifact($tokenIssuerSmoke, []),
         ];
         $forbiddenArtifactKeys = $this->forbiddenArtifactKeys($artifacts);
         $workerStatus = (string) ($workerStart['status'] ?? 'unknown');
@@ -125,6 +131,8 @@ final class AtlasVoiceRuntimeCertificationService
                     && data_get($productLoopCheck, 'gates.managed_env_contract_available') === true
                     && data_get($productLoopCheck, 'gates.launch_authorization_contract_available') === true
                     && data_get($productLoopCheck, 'gates.managed_env_writer_contract_available') === true
+                    && data_get($productLoopCheck, 'gates.supervised_launch_execution_contract_available') === true
+                    && data_get($productLoopCheck, 'gates.subprocess_start_contract_available') === true
                     && data_get($productLoopCheck, 'gates.production_promotion_blocked') === true,
                 'schema_version' => $productLoopCheck['schema_version'] ?? null,
                 'status' => $productLoopCheck['status'] ?? 'unknown',
@@ -143,6 +151,8 @@ final class AtlasVoiceRuntimeCertificationService
                 'launch_authorization_contract_available' => data_get($productLoopCheck, 'gates.launch_authorization_contract_available'),
                 'launch_authorization_contract_ready' => data_get($productLoopCheck, 'gates.launch_authorization_contract_ready'),
                 'managed_env_writer_contract_available' => data_get($productLoopCheck, 'gates.managed_env_writer_contract_available'),
+                'supervised_launch_execution_contract_available' => data_get($productLoopCheck, 'gates.supervised_launch_execution_contract_available'),
+                'subprocess_start_contract_available' => data_get($productLoopCheck, 'gates.subprocess_start_contract_available'),
                 'supervisor_health_snapshot_schema_version' => data_get($productLoopCheck, 'supervised_start_plan.supervisor_health_snapshot.schema_version'),
                 'supervisor_health_snapshot_daemon_started' => data_get($productLoopCheck, 'supervised_start_plan.supervisor_health_snapshot.daemon_started'),
                 'supervisor_preflight_schema_version' => data_get($productLoopCheck, 'supervised_start_plan.supervisor_preflight.schema_version'),
@@ -164,10 +174,52 @@ final class AtlasVoiceRuntimeCertificationService
                 'managed_env_writer_write_execution_available' => data_get($productLoopCheck, 'daemon_supervisor_execution.supervised_process_adapter.managed_env_writer.write_execution_available'),
                 'managed_env_writer_write_execution_implemented' => data_get($productLoopCheck, 'daemon_supervisor_execution.supervised_process_adapter.managed_env_writer.write_execution_implemented'),
                 'managed_env_writer_write_attempted' => data_get($productLoopCheck, 'daemon_supervisor_execution.supervised_process_adapter.managed_env_writer.env_file_write_attempted'),
+                'supervised_launch_execution_schema_version' => data_get($productLoopCheck, 'daemon_supervisor_execution.supervised_process_adapter.supervised_launch_execution.schema_version'),
+                'supervised_launch_execution_status' => data_get($productLoopCheck, 'daemon_supervisor_execution.supervised_process_adapter.supervised_launch_execution.status'),
+                'supervised_launch_execution_process_launch_attempted' => data_get($productLoopCheck, 'daemon_supervisor_execution.supervised_process_adapter.supervised_launch_execution.process_launch_attempted'),
+                'supervised_launch_execution_daemon_started' => data_get($productLoopCheck, 'daemon_supervisor_execution.supervised_process_adapter.supervised_launch_execution.daemon_started'),
+                'supervised_launch_execution_subprocess_launch_implemented' => data_get($productLoopCheck, 'daemon_supervisor_execution.supervised_process_adapter.supervised_launch_execution.subprocess_launch_implemented'),
+                'supervised_launch_execution_pre_start_health_checks_available' => data_get($productLoopCheck, 'daemon_supervisor_execution.supervised_process_adapter.supervised_launch_execution.pre_start_health_checks_execution_available'),
+                'supervised_launch_execution_pre_start_health_checks_executed' => data_get($productLoopCheck, 'daemon_supervisor_execution.supervised_process_adapter.supervised_launch_execution.pre_start_health_checks_executed'),
+                'subprocess_start_contract_schema_version' => data_get($productLoopCheck, 'daemon_supervisor_execution.supervised_process_adapter.subprocess_start_contract.schema_version'),
+                'subprocess_start_contract_status' => data_get($productLoopCheck, 'daemon_supervisor_execution.supervised_process_adapter.subprocess_start_contract.status'),
+                'subprocess_start_contract_process_launch_attempted' => data_get($productLoopCheck, 'daemon_supervisor_execution.supervised_process_adapter.subprocess_start_contract.process_launch_attempted'),
+                'subprocess_start_contract_daemon_started' => data_get($productLoopCheck, 'daemon_supervisor_execution.supervised_process_adapter.subprocess_start_contract.daemon_started'),
+                'subprocess_start_contract_subprocess_launch_implemented' => data_get($productLoopCheck, 'daemon_supervisor_execution.supervised_process_adapter.subprocess_start_contract.subprocess_launch_implemented'),
                 'production_promotion_blocked' => data_get($productLoopCheck, 'gates.production_promotion_blocked'),
                 'production_review_receipt_valid' => data_get($productLoopCheck, 'gates.production_review_receipt_valid'),
+                'production_review_bound_to_expected_bundle' => data_get($productLoopCheck, 'gates.production_review_bound_to_expected_bundle'),
+                'production_review_expected_bundle_validated' => data_get($productLoopCheck, 'gates.production_review_expected_bundle_validated'),
                 'daemon_implementation_review_valid' => data_get($productLoopCheck, 'gates.daemon_implementation_review_valid'),
                 'boolean_approval_is_sufficient' => data_get($productLoopCheck, 'gates.boolean_approval_is_sufficient'),
+            ],
+            'pre_start_health_checks_smoke_passed' => [
+                'passed' => ($preStartHealthChecksSmoke['schema_version'] ?? null) === 'atlas.voice_realtime.pre_start_health_checks_smoke.v1'
+                    && ($preStartHealthChecksSmoke['status'] ?? null) === 'passed_no_process_start'
+                    && ($preStartHealthChecksSmoke['smoke_only'] ?? false) === true
+                    && ($preStartHealthChecksSmoke['production_readiness'] ?? null) === 'not_proven_by_smoke'
+                    && ($preStartHealthChecksSmoke['process_launch_attempted'] ?? true) === false
+                    && ($preStartHealthChecksSmoke['daemon_started'] ?? true) === false
+                    && ($preStartHealthChecksSmoke['subprocess_module_imported'] ?? true) === false
+                    && ($preStartHealthChecksSmoke['livekit_sdk_imported'] ?? true) === false
+                    && ($preStartHealthChecksSmoke['provider_calls_made'] ?? true) === false
+                    && ($preStartHealthChecksSmoke['tool_calls_made'] ?? true) === false
+                    && ($preStartHealthChecksSmoke['raw_audio_touched'] ?? true) === false
+                    && ($preStartHealthChecksSmoke['temporary_env_file_removed_after_smoke'] ?? false) === true
+                    && data_get($preStartHealthChecksSmoke, 'subprocess_start_contract.status') === 'ready_for_reviewed_subprocess_start_implementation',
+                'schema_version' => $preStartHealthChecksSmoke['schema_version'] ?? null,
+                'status' => $preStartHealthChecksSmoke['status'] ?? 'unknown',
+                'smoke_only' => $preStartHealthChecksSmoke['smoke_only'] ?? null,
+                'production_readiness' => $preStartHealthChecksSmoke['production_readiness'] ?? null,
+                'process_launch_attempted' => $preStartHealthChecksSmoke['process_launch_attempted'] ?? null,
+                'daemon_started' => $preStartHealthChecksSmoke['daemon_started'] ?? null,
+                'subprocess_module_imported' => $preStartHealthChecksSmoke['subprocess_module_imported'] ?? null,
+                'livekit_sdk_imported' => $preStartHealthChecksSmoke['livekit_sdk_imported'] ?? null,
+                'provider_calls_made' => $preStartHealthChecksSmoke['provider_calls_made'] ?? null,
+                'tool_calls_made' => $preStartHealthChecksSmoke['tool_calls_made'] ?? null,
+                'raw_audio_touched' => $preStartHealthChecksSmoke['raw_audio_touched'] ?? null,
+                'temporary_env_file_removed_after_smoke' => $preStartHealthChecksSmoke['temporary_env_file_removed_after_smoke'] ?? null,
+                'subprocess_start_contract_status' => data_get($preStartHealthChecksSmoke, 'subprocess_start_contract.status'),
             ],
             'certification_artifacts_sanitized' => [
                 'passed' => $forbiddenArtifactKeys === [],
@@ -190,7 +242,9 @@ final class AtlasVoiceRuntimeCertificationService
             productionLoop: $productionLoop,
             workerStart: $workerStart,
             productLoopCheck: $productLoopCheck,
+            preStartHealthChecksSmoke: $preStartHealthChecksSmoke,
             tokenIssuer: $tokenIssuer,
+            tokenIssuerSmoke: $tokenIssuerSmoke,
         );
 
         $nextAction = $certified
@@ -225,7 +279,9 @@ final class AtlasVoiceRuntimeCertificationService
      * @param  array<string,mixed>  $productionLoop
      * @param  array<string,mixed>  $workerStart
      * @param  array<string,mixed>  $productLoopCheck
+     * @param  array<string,mixed>  $preStartHealthChecksSmoke
      * @param  array<string,mixed>  $tokenIssuer
+     * @param  array<string,mixed>  $tokenIssuerSmoke
      * @return array<string,mixed>
      */
     private function productionPromotionGate(
@@ -236,7 +292,9 @@ final class AtlasVoiceRuntimeCertificationService
         array $productionLoop,
         array $workerStart,
         array $productLoopCheck,
+        array $preStartHealthChecksSmoke,
         array $tokenIssuer,
+        array $tokenIssuerSmoke,
     ): array {
         $machineGates = [
             'scaffold_certified' => [
@@ -250,12 +308,27 @@ final class AtlasVoiceRuntimeCertificationService
             'livekit_agents_sdk_ready' => [
                 'passed' => data_get($preflight, 'preflight.sdk_status.status') === 'ready',
                 'status' => data_get($preflight, 'preflight.sdk_status.status', 'unknown'),
-                'reason' => data_get($preflight, 'preflight.sdk_status.status') === 'ready' ? null : 'install_livekit_agents_sdk',
+                'reason' => data_get($preflight, 'preflight.sdk_status.status') === 'ready'
+                    ? null
+                    : (string) data_get($preflight, 'preflight.sdk_status.next_action', 'install_livekit_agents_sdk'),
             ],
             'livekit_token_issuer_ready' => [
                 'passed' => ($tokenIssuer['status'] ?? null) === 'ready',
                 'status' => $tokenIssuer['status'] ?? 'unknown',
                 'reason' => ($tokenIssuer['status'] ?? null) === 'ready' ? null : 'configure_livekit_token_issuer',
+            ],
+            'livekit_token_issuer_smoke_passed' => [
+                'passed' => ($tokenIssuerSmoke['status'] ?? null) === 'passed'
+                    && ($tokenIssuerSmoke['token_issued'] ?? false) === true
+                    && ($tokenIssuerSmoke['access_token_exposed'] ?? true) === false
+                    && ($tokenIssuerSmoke['ephemeral_test_config'] ?? true) === false
+                    && ($tokenIssuerSmoke['production_readiness'] ?? null) === 'current_environment_checked',
+                'status' => $tokenIssuerSmoke['status'] ?? 'unknown',
+                'token_issued' => $tokenIssuerSmoke['token_issued'] ?? null,
+                'access_token_exposed' => $tokenIssuerSmoke['access_token_exposed'] ?? null,
+                'ephemeral_test_config' => $tokenIssuerSmoke['ephemeral_test_config'] ?? null,
+                'production_readiness' => $tokenIssuerSmoke['production_readiness'] ?? null,
+                'reason' => ($tokenIssuerSmoke['status'] ?? null) === 'passed' ? null : 'run_token_issuer_smoke_after_configuring_livekit',
             ],
             'callback_sequence_passed' => [
                 'passed' => ($callbackSequence['status'] ?? null) === 'passed'
@@ -298,6 +371,8 @@ final class AtlasVoiceRuntimeCertificationService
                     && data_get($productLoopCheck, 'gates.managed_env_contract_available') === true
                     && data_get($productLoopCheck, 'gates.launch_authorization_contract_available') === true
                     && data_get($productLoopCheck, 'gates.managed_env_writer_contract_available') === true
+                    && data_get($productLoopCheck, 'gates.supervised_launch_execution_contract_available') === true
+                    && data_get($productLoopCheck, 'gates.subprocess_start_contract_available') === true
                     && data_get($productLoopCheck, 'gates.production_promotion_blocked') === true,
                 'schema_version' => $productLoopCheck['schema_version'] ?? null,
                 'status' => $productLoopCheck['status'] ?? 'unknown',
@@ -316,6 +391,8 @@ final class AtlasVoiceRuntimeCertificationService
                 'launch_authorization_contract_available' => data_get($productLoopCheck, 'gates.launch_authorization_contract_available'),
                 'launch_authorization_contract_ready' => data_get($productLoopCheck, 'gates.launch_authorization_contract_ready'),
                 'managed_env_writer_contract_available' => data_get($productLoopCheck, 'gates.managed_env_writer_contract_available'),
+                'supervised_launch_execution_contract_available' => data_get($productLoopCheck, 'gates.supervised_launch_execution_contract_available'),
+                'subprocess_start_contract_available' => data_get($productLoopCheck, 'gates.subprocess_start_contract_available'),
                 'supervisor_health_snapshot_schema_version' => data_get($productLoopCheck, 'supervised_start_plan.supervisor_health_snapshot.schema_version'),
                 'supervisor_health_snapshot_daemon_started' => data_get($productLoopCheck, 'supervised_start_plan.supervisor_health_snapshot.daemon_started'),
                 'supervisor_preflight_schema_version' => data_get($productLoopCheck, 'supervised_start_plan.supervisor_preflight.schema_version'),
@@ -337,10 +414,52 @@ final class AtlasVoiceRuntimeCertificationService
                 'managed_env_writer_write_execution_available' => data_get($productLoopCheck, 'daemon_supervisor_execution.supervised_process_adapter.managed_env_writer.write_execution_available'),
                 'managed_env_writer_write_execution_implemented' => data_get($productLoopCheck, 'daemon_supervisor_execution.supervised_process_adapter.managed_env_writer.write_execution_implemented'),
                 'managed_env_writer_write_attempted' => data_get($productLoopCheck, 'daemon_supervisor_execution.supervised_process_adapter.managed_env_writer.env_file_write_attempted'),
+                'supervised_launch_execution_schema_version' => data_get($productLoopCheck, 'daemon_supervisor_execution.supervised_process_adapter.supervised_launch_execution.schema_version'),
+                'supervised_launch_execution_status' => data_get($productLoopCheck, 'daemon_supervisor_execution.supervised_process_adapter.supervised_launch_execution.status'),
+                'supervised_launch_execution_process_launch_attempted' => data_get($productLoopCheck, 'daemon_supervisor_execution.supervised_process_adapter.supervised_launch_execution.process_launch_attempted'),
+                'supervised_launch_execution_daemon_started' => data_get($productLoopCheck, 'daemon_supervisor_execution.supervised_process_adapter.supervised_launch_execution.daemon_started'),
+                'supervised_launch_execution_subprocess_launch_implemented' => data_get($productLoopCheck, 'daemon_supervisor_execution.supervised_process_adapter.supervised_launch_execution.subprocess_launch_implemented'),
+                'supervised_launch_execution_pre_start_health_checks_available' => data_get($productLoopCheck, 'daemon_supervisor_execution.supervised_process_adapter.supervised_launch_execution.pre_start_health_checks_execution_available'),
+                'supervised_launch_execution_pre_start_health_checks_executed' => data_get($productLoopCheck, 'daemon_supervisor_execution.supervised_process_adapter.supervised_launch_execution.pre_start_health_checks_executed'),
+                'subprocess_start_contract_schema_version' => data_get($productLoopCheck, 'daemon_supervisor_execution.supervised_process_adapter.subprocess_start_contract.schema_version'),
+                'subprocess_start_contract_status' => data_get($productLoopCheck, 'daemon_supervisor_execution.supervised_process_adapter.subprocess_start_contract.status'),
+                'subprocess_start_contract_process_launch_attempted' => data_get($productLoopCheck, 'daemon_supervisor_execution.supervised_process_adapter.subprocess_start_contract.process_launch_attempted'),
+                'subprocess_start_contract_daemon_started' => data_get($productLoopCheck, 'daemon_supervisor_execution.supervised_process_adapter.subprocess_start_contract.daemon_started'),
+                'subprocess_start_contract_subprocess_launch_implemented' => data_get($productLoopCheck, 'daemon_supervisor_execution.supervised_process_adapter.subprocess_start_contract.subprocess_launch_implemented'),
                 'production_promotion_blocked' => data_get($productLoopCheck, 'gates.production_promotion_blocked'),
                 'production_review_receipt_valid' => data_get($productLoopCheck, 'gates.production_review_receipt_valid'),
+                'production_review_bound_to_expected_bundle' => data_get($productLoopCheck, 'gates.production_review_bound_to_expected_bundle'),
+                'production_review_expected_bundle_validated' => data_get($productLoopCheck, 'gates.production_review_expected_bundle_validated'),
                 'daemon_implementation_review_valid' => data_get($productLoopCheck, 'gates.daemon_implementation_review_valid'),
                 'boolean_approval_is_sufficient' => data_get($productLoopCheck, 'gates.boolean_approval_is_sufficient'),
+            ],
+            'pre_start_health_checks_smoke_passed' => [
+                'passed' => ($preStartHealthChecksSmoke['schema_version'] ?? null) === 'atlas.voice_realtime.pre_start_health_checks_smoke.v1'
+                    && ($preStartHealthChecksSmoke['status'] ?? null) === 'passed_no_process_start'
+                    && ($preStartHealthChecksSmoke['smoke_only'] ?? false) === true
+                    && ($preStartHealthChecksSmoke['production_readiness'] ?? null) === 'not_proven_by_smoke'
+                    && ($preStartHealthChecksSmoke['process_launch_attempted'] ?? true) === false
+                    && ($preStartHealthChecksSmoke['daemon_started'] ?? true) === false
+                    && ($preStartHealthChecksSmoke['subprocess_module_imported'] ?? true) === false
+                    && ($preStartHealthChecksSmoke['livekit_sdk_imported'] ?? true) === false
+                    && ($preStartHealthChecksSmoke['provider_calls_made'] ?? true) === false
+                    && ($preStartHealthChecksSmoke['tool_calls_made'] ?? true) === false
+                    && ($preStartHealthChecksSmoke['raw_audio_touched'] ?? true) === false
+                    && ($preStartHealthChecksSmoke['temporary_env_file_removed_after_smoke'] ?? false) === true
+                    && data_get($preStartHealthChecksSmoke, 'subprocess_start_contract.status') === 'ready_for_reviewed_subprocess_start_implementation',
+                'schema_version' => $preStartHealthChecksSmoke['schema_version'] ?? null,
+                'status' => $preStartHealthChecksSmoke['status'] ?? 'unknown',
+                'smoke_only' => $preStartHealthChecksSmoke['smoke_only'] ?? null,
+                'production_readiness' => $preStartHealthChecksSmoke['production_readiness'] ?? null,
+                'process_launch_attempted' => $preStartHealthChecksSmoke['process_launch_attempted'] ?? null,
+                'daemon_started' => $preStartHealthChecksSmoke['daemon_started'] ?? null,
+                'subprocess_module_imported' => $preStartHealthChecksSmoke['subprocess_module_imported'] ?? null,
+                'livekit_sdk_imported' => $preStartHealthChecksSmoke['livekit_sdk_imported'] ?? null,
+                'provider_calls_made' => $preStartHealthChecksSmoke['provider_calls_made'] ?? null,
+                'tool_calls_made' => $preStartHealthChecksSmoke['tool_calls_made'] ?? null,
+                'raw_audio_touched' => $preStartHealthChecksSmoke['raw_audio_touched'] ?? null,
+                'temporary_env_file_removed_after_smoke' => $preStartHealthChecksSmoke['temporary_env_file_removed_after_smoke'] ?? null,
+                'subprocess_start_contract_status' => data_get($preStartHealthChecksSmoke, 'subprocess_start_contract.status'),
             ],
             'worker_start_still_blocked_until_real_loop' => [
                 'passed' => str_starts_with((string) ($workerStart['status'] ?? ''), 'blocked_')
@@ -375,7 +494,9 @@ final class AtlasVoiceRuntimeCertificationService
                 'failed_gates' => count($failed),
                 'failed_keys' => $failed,
             ],
-            'next_action' => $failed === [] ? 'submit_voice_production_promotion_for_human_review' : $this->productionPromotionNextAction($failed),
+            'next_action' => $failed === []
+                ? 'submit_voice_production_promotion_for_human_review'
+                : $this->productionPromotionNextAction($failed, $machineGates),
         ];
     }
 
@@ -402,8 +523,10 @@ final class AtlasVoiceRuntimeCertificationService
                 'runtime_certification',
                 'livekit_agents_sdk_preflight',
                 'livekit_token_issuer_readiness',
+                'livekit_token_issuer_smoke',
                 'production_loop_smoke',
                 'product_loop_check',
+                'pre_start_health_checks_smoke',
                 'rivals_voice_comparison',
                 'privacy_eclipse_review',
             ],
@@ -419,20 +542,27 @@ final class AtlasVoiceRuntimeCertificationService
 
     /**
      * @param  array<int,string>  $failed
+     * @param  array<string,array<string,mixed>>  $machineGates
      */
-    private function productionPromotionNextAction(array $failed): string
+    private function productionPromotionNextAction(array $failed, array $machineGates): string
     {
         if (in_array('sdk_certification_required', $failed, true)) {
             return 'rerun_runtime_certification_with_require_sdk';
         }
         if (in_array('livekit_agents_sdk_ready', $failed, true)) {
-            return 'install_livekit_agents_sdk';
+            return (string) data_get($machineGates, 'livekit_agents_sdk_ready.reason', 'install_livekit_agents_sdk');
         }
         if (in_array('livekit_token_issuer_ready', $failed, true)) {
             return 'configure_livekit_token_issuer';
         }
+        if (in_array('livekit_token_issuer_smoke_passed', $failed, true)) {
+            return 'run_voice_token_issuer_smoke';
+        }
         if (in_array('product_loop_check_available', $failed, true)) {
             return 'run_voice_product_loop_check';
+        }
+        if (in_array('pre_start_health_checks_smoke_passed', $failed, true)) {
+            return 'run_voice_pre_start_health_checks_smoke';
         }
 
         return 'fix_voice_production_promotion_gates';
@@ -479,7 +609,7 @@ final class AtlasVoiceRuntimeCertificationService
                 'surface_id' => 'voice_realtime',
                 'runtime_id' => $runtime,
                 'require_sdk' => $requireSdk,
-                'command' => 'PYTHONPATH=runtimes/python/voice_realtime python3 -m atlas_voice_agent.main --env-file <generated> --preflight'.($requireSdk ? ' --require-sdk' : ''),
+                'command' => 'PYTHONPATH=runtimes/python/voice_realtime '.$this->pythonBinary().' -m atlas_voice_agent.main --env-file <generated> --preflight'.($requireSdk ? ' --require-sdk' : ''),
                 'preflight' => $this->sanitize($decoded),
             ];
         } finally {
@@ -507,7 +637,7 @@ final class AtlasVoiceRuntimeCertificationService
             'runtime_id' => $runtime,
             'mock_kernel' => true,
             'example_path' => 'runtimes/python/voice_realtime/callback-events.example.json',
-            'command' => 'PYTHONPATH=runtimes/python/voice_realtime python3 -m atlas_voice_agent.main --bootstrap <generated> --mock-kernel --callback-events runtimes/python/voice_realtime/callback-events.example.json',
+            'command' => 'PYTHONPATH=runtimes/python/voice_realtime '.$this->pythonBinary().' -m atlas_voice_agent.main --bootstrap <generated> --mock-kernel --callback-events runtimes/python/voice_realtime/callback-events.example.json',
             'callback_sequence' => $payload,
         ];
     }
@@ -527,8 +657,12 @@ final class AtlasVoiceRuntimeCertificationService
     /**
      * @return array<string,mixed>
      */
-    private function runWorkerStartCheck(string $runtime, string $baseUrl): array
-    {
+    private function runWorkerStartCheck(
+        string $runtime,
+        string $baseUrl,
+        bool $callbackLoopWired = false,
+        bool $productionSdkLoopWired = false,
+    ): array {
         $bootstrapPath = tempnam(sys_get_temp_dir(), 'atlas-voice-bootstrap-');
         $envPath = tempnam(sys_get_temp_dir(), 'atlas-voice-env-');
         if ($bootstrapPath === false || $envPath === false) {
@@ -552,9 +686,19 @@ final class AtlasVoiceRuntimeCertificationService
         ]));
 
         try {
-            $decoded = $this->runPython(['--env-file', $envPath, '--start-worker']);
+            $args = ['--env-file', $envPath, '--start-worker'];
+            if ($callbackLoopWired) {
+                $args[] = '--callback-loop-wired';
+            }
+            if ($productionSdkLoopWired) {
+                $args[] = '--production-sdk-loop-wired';
+            }
+
+            $decoded = $this->runPython($args);
             $payload = $this->sanitize($decoded);
-            $payload['command'] = 'PYTHONPATH=runtimes/python/voice_realtime python3 -m atlas_voice_agent.main --env-file <generated> --start-worker';
+            $payload['command'] = 'PYTHONPATH=runtimes/python/voice_realtime '.$this->pythonBinary().' -m atlas_voice_agent.main --env-file <generated> --start-worker'
+                .($callbackLoopWired ? ' --callback-loop-wired' : '')
+                .($productionSdkLoopWired ? ' --production-sdk-loop-wired' : '');
 
             return $payload;
         } finally {
@@ -566,8 +710,12 @@ final class AtlasVoiceRuntimeCertificationService
     /**
      * @return array<string,mixed>
      */
-    private function runProductLoopCheck(string $runtime, string $baseUrl): array
-    {
+    private function runProductLoopCheck(
+        string $runtime,
+        string $baseUrl,
+        bool $callbackLoopWired = false,
+        bool $productionSdkLoopWired = false,
+    ): array {
         $bootstrapPath = tempnam(sys_get_temp_dir(), 'atlas-voice-bootstrap-');
         $envPath = tempnam(sys_get_temp_dir(), 'atlas-voice-env-');
         if ($bootstrapPath === false || $envPath === false) {
@@ -591,15 +739,41 @@ final class AtlasVoiceRuntimeCertificationService
         ]));
 
         try {
-            $decoded = $this->runPython(['--env-file', $envPath, '--product-loop-check']);
+            $args = ['--env-file', $envPath, '--product-loop-check'];
+            if ($callbackLoopWired) {
+                $args[] = '--callback-loop-wired';
+            }
+            if ($productionSdkLoopWired) {
+                $args[] = '--production-sdk-loop-wired';
+            }
+
+            $decoded = $this->runPython($args);
             $payload = $this->sanitize($decoded);
-            $payload['command'] = 'PYTHONPATH=runtimes/python/voice_realtime python3 -m atlas_voice_agent.main --env-file <generated> --product-loop-check';
+            $payload['command'] = 'PYTHONPATH=runtimes/python/voice_realtime '.$this->pythonBinary().' -m atlas_voice_agent.main --env-file <generated> --product-loop-check'
+                .($callbackLoopWired ? ' --callback-loop-wired' : '')
+                .($productionSdkLoopWired ? ' --production-sdk-loop-wired' : '');
 
             return $payload;
         } finally {
             @unlink($bootstrapPath);
             @unlink($envPath);
         }
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function runPreStartHealthChecksSmoke(string $runtime, string $baseUrl): array
+    {
+        $payload = $this->voice->preStartHealthChecksSmoke([
+            'runtime' => $runtime,
+            'base_url' => $baseUrl,
+        ]);
+
+        $payload = $this->sanitize($payload);
+        $payload['command'] = 'PYTHONPATH=runtimes/python/voice_realtime '.$this->pythonBinary().' -m atlas_voice_agent.main --bootstrap <generated> --pre-start-health-checks-smoke';
+
+        return $payload;
     }
 
     /**
@@ -637,7 +811,7 @@ final class AtlasVoiceRuntimeCertificationService
     private function runPython(array $args): array
     {
         $process = new Process([
-            'python3',
+            $this->pythonBinary(),
             '-m',
             'atlas_voice_agent.main',
             ...$args,
@@ -767,6 +941,21 @@ final class AtlasVoiceRuntimeCertificationService
         sort($matches);
 
         return array_values(array_unique($matches));
+    }
+
+    private function pythonBinary(): string
+    {
+        $configured = trim((string) config('atlas_ai.voice_realtime.python_binary', 'python3'));
+        if ($configured === '' || str_contains($configured, "\0") || str_contains($configured, "\n") || str_contains($configured, "\r")) {
+            return 'python3';
+        }
+
+        return $configured;
+    }
+
+    private function pythonCommandForDisplay(string $args): string
+    {
+        return 'PYTHONPATH=runtimes/python/voice_realtime '.$this->pythonBinary().' -m atlas_voice_agent.main '.$args;
     }
 
     /**

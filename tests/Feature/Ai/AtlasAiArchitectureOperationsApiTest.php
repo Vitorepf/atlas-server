@@ -22,7 +22,7 @@ class AtlasAiArchitectureOperationsApiTest extends TestCase
             ->assertJsonPath('status', 'ok')
             ->assertJsonPath('architecture_operations.schema_version', 'atlas.architecture_operations.v1')
             ->assertJsonPath('architecture_operations.section', 'arquitetura_mae')
-            ->assertJsonPath('architecture_operations.command_count', 61)
+            ->assertJsonPath('architecture_operations.command_count', 66)
             ->assertJsonPath('architecture_operations.commands.0.id', 'architecture_operations')
             ->assertJsonPath('architecture_operations.commands.0.kind', 'catalog')
             ->assertJsonPath('architecture_operations.commands.0.surface', 'cli');
@@ -48,6 +48,7 @@ class AtlasAiArchitectureOperationsApiTest extends TestCase
         $this->assertContains('php artisan atlas:ai:voice contract --json', $commands);
         $this->assertContains('php artisan atlas:ai:voice bootstrap --json', $commands);
         $this->assertContains('php artisan atlas:ai:voice dependencies --json', $commands);
+        $this->assertContains('php artisan atlas:ai:voice dependency-install-plan --json', $commands);
         $this->assertContains('php artisan atlas:ai:voice scripted-example --json', $commands);
         $this->assertContains('php artisan atlas:ai:voice scripted-smoke --json', $commands);
         $this->assertContains('php artisan atlas:ai:voice callback-smoke --json', $commands);
@@ -77,6 +78,17 @@ class AtlasAiArchitectureOperationsApiTest extends TestCase
         $this->assertContains('php artisan atlas:ai:runtime-boundary --json', $commands);
         $this->assertContains('architecture_operations', $response->json('architecture_operations.operation_ids'));
         $this->assertContains('local_rag_graph_promotion_review', $response->json('architecture_operations.operation_ids'));
+
+        $commandsById = collect($response->json('architecture_operations.commands'))->keyBy('id');
+
+        $this->assertSame('atlas.voice_realtime.python_runtime_plan.v1', data_get($commandsById, 'voice_realtime_dependencies.runtime_dependency_contract'));
+        $this->assertSame('ATLAS_VOICE_PYTHON_BIN', data_get($commandsById, 'voice_realtime_dependencies.python_binary_policy.environment_variable'));
+        $this->assertSame('atlas_ai.voice_realtime.python_binary', data_get($commandsById, 'voice_realtime_dependencies.python_binary_policy.config_key'));
+        $this->assertTrue(data_get($commandsById, 'voice_realtime_dependencies.pre_implementation_gate'));
+        $this->assertFalse(data_get($commandsById, 'voice_realtime_dependencies.python_binary_policy.auto_install'));
+        $this->assertContains('configured_binary', data_get($commandsById, 'voice_realtime_dependencies.output_contract.python_runtime'));
+        $this->assertSame('atlas.voice_realtime.dependency_install_plan.v1', data_get($commandsById, 'voice_realtime_dependency_install_plan.runtime_dependency_contract'));
+        $this->assertFalse(data_get($commandsById, 'voice_realtime_dependency_install_plan.operator_managed_policy.daemon_start_allowed'));
     }
 
     public function test_api_requires_atlas_token(): void
@@ -104,7 +116,7 @@ class AtlasAiArchitectureOperationsApiTest extends TestCase
         $this->getJson('/ai/architecture/operations?section=arquitetura_mae', $this->headers)
             ->assertOk()
             ->assertJsonPath('architecture_operations.filters.section', 'arquitetura_mae')
-            ->assertJsonPath('architecture_operations.command_count', 61)
+            ->assertJsonPath('architecture_operations.command_count', 66)
             ->assertJsonPath('architecture_operations.operation_ids.0', 'architecture_operations');
 
         $this->getJson('/ai/architecture/operations?surface=runtime', $this->headers)

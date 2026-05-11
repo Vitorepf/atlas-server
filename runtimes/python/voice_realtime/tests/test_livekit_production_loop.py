@@ -23,6 +23,7 @@ class LiveKitProductionLoopTest(unittest.TestCase):
         self.assertFalse(payload["production_sdk_loop_wired"])
         self.assertFalse(payload["worker_start_callback_loop_wired"])
         self.assertIn(payload["next_action"], [
+            "upgrade_python_runtime_for_livekit_agents_sdk",
             "install_livekit_agents_sdk",
             "load_runtime_settings",
             "create_real_kernel_boundary",
@@ -65,7 +66,10 @@ class LiveKitProductionLoopTest(unittest.TestCase):
             self.assertEqual("wire_real_livekit_agents_sdk_loop", payload["next_action"])
         else:
             self.assertEqual("blocked", payload["status"])
-            self.assertEqual("install_livekit_agents_sdk", payload["next_action"])
+            self.assertIn(payload["next_action"], [
+                "upgrade_python_runtime_for_livekit_agents_sdk",
+                "install_livekit_agents_sdk",
+            ])
 
 
 if __name__ == "__main__":

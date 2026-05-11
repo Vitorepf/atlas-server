@@ -10,6 +10,9 @@ from .livekit_production_loop import build_production_loop_plan
 from .daemon_supervisor import evaluate_daemon_supervisor
 
 
+SCHEMA_VERSION = "atlas.voice_realtime.product_loop_check.v1"
+
+
 def build_product_loop_check(
     contract: AtlasVoiceRuntimeContract,
     *,
@@ -19,6 +22,7 @@ def build_product_loop_check(
     boundary_created: bool = False,
     mock_kernel: bool = False,
     production_promotion_review: Mapping[str, Any] | None = None,
+    production_promotion_review_bundle: Mapping[str, Any] | None = None,
     daemon_implementation_review: Mapping[str, Any] | None = None,
 ) -> Mapping[str, Any]:
     """Aggregate the governed product-loop readiness without starting a daemon."""
@@ -40,6 +44,7 @@ def build_product_loop_check(
         callback_loop_wired=True,
         production_sdk_loop_wired=True,
         production_promotion_review=production_promotion_review,
+        production_promotion_review_bundle=production_promotion_review_bundle,
         daemon_implementation_review=daemon_implementation_review,
     )
 
@@ -124,6 +129,28 @@ def build_product_loop_check(
         and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("managed_env_writer", {}).get("env_file_write_attempted") is False
         and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("managed_env_writer", {}).get("secret_values_present_in_output") is False
     )
+    supervised_launch_execution_contract_available = (
+        managed_env_writer_contract_available
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("supervised_launch_execution", {}).get("schema_version")
+        == "atlas.voice_realtime.supervised_launch_execution.v1"
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("supervised_launch_execution", {}).get("launch_execution_implemented") is True
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("supervised_launch_execution", {}).get("pre_start_health_checks_execution_available") is True
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("supervised_launch_execution", {}).get("pre_start_health_checks_executed") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("supervised_launch_execution", {}).get("subprocess_launch_implemented") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("supervised_launch_execution", {}).get("process_launch_attempted") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("supervised_launch_execution", {}).get("daemon_started") is False
+    )
+    subprocess_start_contract_available = (
+        supervised_launch_execution_contract_available
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("subprocess_start_contract", {}).get("schema_version")
+        == "atlas.voice_realtime.subprocess_start_contract.v1"
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("subprocess_start_contract", {}).get("subprocess_start_contract_implemented") is True
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("subprocess_start_contract", {}).get("subprocess_launch_implemented") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("subprocess_start_contract", {}).get("process_launch_attempted") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("subprocess_start_contract", {}).get("daemon_started") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("subprocess_start_contract", {}).get("subprocess_module_imported") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("subprocess_start_contract", {}).get("livekit_sdk_imported") is False
+    )
     machine_ready = (
         worker_start.get("status") in [
             "blocked_pending_human_review",
@@ -140,12 +167,21 @@ def build_product_loop_check(
         and managed_env_contract_available
         and launch_authorization_contract_available
         and managed_env_writer_contract_available
+        and supervised_launch_execution_contract_available
+        and subprocess_start_contract_available
     )
     review_receipt_valid = worker_start.get("production_promotion", {}).get("review_receipt_valid") is True
     daemon_review_receipt_valid = worker_start.get("daemon_implementation", {}).get("review_receipt_valid") is True
+    review_check = worker_start.get("production_promotion", {}).get("review_check")
+    review_expected_bundle = review_check.get("expected_bundle") if isinstance(review_check, Mapping) else None
+    review_bound_to_expected_bundle = (
+        review_receipt_valid
+        and isinstance(review_expected_bundle, Mapping)
+        and isinstance(review_expected_bundle.get("bundle_hash"), str)
+    )
 
     return {
-        "schema_version": "atlas.voice_realtime.product_loop_check.v1",
+        "schema_version": SCHEMA_VERSION,
         "status": _status(machine_ready, review_receipt_valid, daemon_review_receipt_valid),
         "surface_id": "voice_realtime",
         "runtime_id": "livekit_agents_sdk",
@@ -166,6 +202,8 @@ def build_product_loop_check(
             "sdk_handler_blueprint_available": sdk_handler_blueprint_available,
             "sdk_kernel_normalizer_required": sdk_kernel_normalizer_required,
             "production_review_receipt_valid": review_receipt_valid,
+            "production_review_bound_to_expected_bundle": review_bound_to_expected_bundle,
+            "production_review_expected_bundle_validated": review_bound_to_expected_bundle,
             "daemon_implementation_review_valid": daemon_review_receipt_valid,
             "supervised_start_plan_available": isinstance(supervised_start_plan, Mapping),
             "daemon_supervisor_contract_available": isinstance(supervised_start_plan, Mapping) and isinstance(supervised_start_plan.get("supervisor_contract"), Mapping),
@@ -179,6 +217,8 @@ def build_product_loop_check(
             "launch_authorization_contract_available": launch_authorization_contract_available,
             "launch_authorization_contract_ready": launch_authorization_contract_ready,
             "managed_env_writer_contract_available": managed_env_writer_contract_available,
+            "supervised_launch_execution_contract_available": supervised_launch_execution_contract_available,
+            "subprocess_start_contract_available": subprocess_start_contract_available,
             "boolean_approval_is_sufficient": worker_start.get("production_promotion", {}).get("boolean_approval_is_sufficient") is True,
             "direct_provider_forbidden": worker_start.get("guardrails", {}).get("direct_provider_call_allowed") is False,
             "raw_audio_forbidden": worker_start.get("guardrails", {}).get("raw_audio_persistence_allowed") is False,
@@ -225,6 +265,11 @@ def _next_action(
 
     status = str(worker_start.get("status") or "")
     if status == "blocked_missing_sdk":
+        worker_plan = worker_start.get("worker_plan")
+        sdk_status = worker_plan.get("sdk_status") if isinstance(worker_plan, Mapping) else None
+        if isinstance(sdk_status, Mapping):
+            return str(sdk_status.get("next_action") or "install_livekit_agents_sdk")
+
         return "install_livekit_agents_sdk"
     if status == "blocked_missing_runtime_settings":
         return "load_runtime_settings_and_kernel_boundary"

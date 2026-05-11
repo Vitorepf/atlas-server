@@ -4,8 +4,14 @@
   "runtime_family": "python_ai_data",
   "status": "scaffold",
   "python": {
-    "minimum_version": "3.9",
-    "tested_version": "3.9.6"
+    "minimum_version": "3.10",
+    "recommended_version": "3.11",
+    "binary_config": "ATLAS_VOICE_PYTHON_BIN or config atlas_ai.voice_realtime.python_binary",
+    "default_binary": "python3",
+    "known_blocked_versions": [
+      "3.9.6"
+    ],
+    "known_blocker": "livekit-agents 1.3.12 imports typing.TypeAlias, which is not available in the local Python 3.9 runtime."
   },
   "core": {
     "third_party_dependencies": [],
@@ -36,13 +42,17 @@
         "pip": "livekit-agents",
         "import": "livekit.agents",
         "required_for": "product_loop_daemon",
-        "minimum_version": null,
+        "minimum_version": "1.3.12",
+        "version_specifier": ">=1.3.12,<2.0.0",
         "purpose": "Real LiveKit Agents SDK worker loop, room callbacks, turn detection and plugin orchestration."
       }
     ],
-    "install_command": "python3 -m pip install livekit-agents",
+    "requirements_file": "runtimes/python/voice_realtime/requirements-livekit.txt",
+    "install_command": "${ATLAS_VOICE_PYTHON_BIN:-python3} -m pip install -r runtimes/python/voice_realtime/requirements-livekit.txt",
+    "verify_command": "${ATLAS_VOICE_PYTHON_BIN:-python3} -m atlas_voice_agent.main --bootstrap runtimes/python/voice_realtime/bootstrap.local.json --sdk-check",
     "activation_gate": "atlas ai voice sdk-check --json must report status=ready before wiring real SDK callbacks.",
     "probe_policy": "Availability checks use importlib metadata/spec only. Scaffold code must not import LiveKit SDK modules while checking readiness.",
+    "install_policy": "Installation is operator-managed. The install plan may emit commands, but scaffold code must not run pip, import LiveKit SDK, start a daemon or mutate Kernel policy.",
     "forbidden": [
       "direct_llm_provider_call",
       "direct_tool_execution",

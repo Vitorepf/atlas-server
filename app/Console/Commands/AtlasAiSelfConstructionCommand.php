@@ -79,6 +79,56 @@ class AtlasAiSelfConstructionCommand extends Command
         {--codex-review-post-signature-runbook : Generate a read-only post-signature runbook for the Codex review flow}
         {--codex-review-merge-action-template : Generate a read-only explicit merge action template for the Codex review flow}
         {--codex-review-merge-preflight : Evaluate read-only preflight for a future explicit Codex merge action}
+        {--codex-review-merge-action-draft : Generate a read-only explicit Codex merge action draft without executing it}
+        {--codex-review-merge-receipt-draft : Generate a read-only unsigned Codex merge receipt draft without authorizing merge}
+        {--codex-review-merge-signature-request : Generate a read-only signature request for the Codex merge receipt draft}
+        {--codex-review-merge-post-signature-runbook : Generate a read-only post-signature runbook for the Codex merge flow}
+        {--codex-review-merge-execution-checklist : Generate a read-only final execution checklist for a future Codex merge action}
+        {--codex-review-merge-authorization-template : Generate a read-only authorization template for a future Codex merge action}
+        {--codex-review-merge-authorization-receipt-draft : Generate a read-only unsigned authorization receipt draft for a future Codex merge action}
+        {--codex-review-merge-authorization-signature-request : Generate a read-only signature request for the Codex merge authorization receipt draft}
+        {--codex-review-merge-authorization-post-signature-runbook : Generate a read-only post-signature runbook for the Codex merge authorization flow}
+        {--codex-review-merge-final-authorization-preflight : Evaluate read-only final authorization preflight before any future Codex merge executor}
+        {--codex-review-merge-authorizing-action-template : Generate a read-only template for the future Codex merge authorizing action}
+        {--codex-review-merge-final-receipt-draft : Generate a read-only final merge receipt draft without authorizing or executing merge}
+        {--codex-review-merge-final-signature-request : Generate a read-only signature request for the final merge receipt draft}
+        {--codex-review-merge-final-post-signature-runbook : Generate a read-only post-signature runbook for the final merge receipt flow}
+        {--codex-review-merge-signed-final-receipt-template : Generate a read-only template for a future signed final merge receipt}
+        {--codex-review-merge-signed-final-receipt-preflight : Evaluate read-only preflight for a future signed final merge receipt}
+        {--codex-review-merge-signed-final-receipt-persistence-template : Generate a read-only template for future signed final receipt persistence}
+        {--codex-review-merge-executor-release-preflight : Evaluate read-only preflight for a future Codex merge executor release}
+        {--codex-review-merge-executor-contract-template : Generate a read-only contract template for a future Codex merge executor}
+        {--codex-review-merge-execution-receipt-template : Generate a read-only post-execution receipt template for a future Codex merge executor}
+        {--codex-review-merge-post-execution-preflight : Evaluate read-only preflight for a future post-execution Codex merge}
+        {--codex-review-merge-post-execution-action-template : Generate a read-only action template for a future post-execution Codex merge}
+        {--codex-review-merge-post-execution-action-receipt-draft : Generate a read-only unsigned receipt draft for a future post-execution Codex merge action}
+        {--codex-review-merge-post-execution-action-signature-request : Generate a read-only signature request for the future post-execution Codex merge action receipt}
+        {--codex-review-merge-post-execution-action-post-signature-runbook : Generate a read-only post-signature runbook for the future post-execution Codex merge action receipt}
+        {--codex-review-merge-post-execution-action-signed-receipt-template : Generate a read-only signed receipt template for the future post-execution Codex merge action}
+        {--codex-review-merge-post-execution-action-signed-receipt-preflight : Evaluate read-only preflight for future signed post-execution Codex merge action receipt persistence}
+        {--codex-review-merge-post-execution-action-signed-receipt-persistence-template : Generate a read-only persistence template for the future signed post-execution Codex merge action receipt}
+        {--codex-review-merge-post-execution-action-signed-receipt-persistence-receipt-draft : Generate a read-only receipt draft for future signed post-execution Codex merge action receipt persistence}
+        {--codex-review-merge-post-execution-action-signed-receipt-persistence-preflight : Evaluate read-only preflight for future signed post-execution Codex merge action receipt persistence}
+        {--codex-review-merge-post-execution-action-signed-receipt-persistence-post-preflight-runbook : Generate a read-only post-preflight runbook for future signed post-execution Codex merge action receipt persistence}
+        {--codex-review-merge-post-execution-action-signed-receipt-persistence-append-only-event-payload-template : Generate a read-only append-only event payload template for future signed post-execution Codex merge action receipt persistence}
+        {--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-preflight : Evaluate read-only preflight for a future signed post-execution Codex merge action receipt persistence writer}
+        {--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-contract-template : Generate a read-only contract template for a future signed post-execution Codex merge action receipt persistence writer}
+        {--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-implementation-preflight : Evaluate read-only preflight for a future signed post-execution Codex merge action receipt persistence writer implementation}
+        {--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-authorization-template : Generate a read-only release authorization template for a future signed post-execution Codex merge action receipt persistence writer}
+        {--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-authorization-preflight : Evaluate read-only preflight for future signed post-execution Codex merge action receipt persistence writer release authorization}
+        {--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-authorization-receipt-draft : Generate a read-only unsigned receipt draft for future signed post-execution Codex merge action receipt persistence writer release authorization}
+        {--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-authorization-signature-request : Generate a read-only signature request for the future writer release authorization receipt}
+        {--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-authorization-post-signature-runbook : Generate a read-only post-signature runbook for the future writer release authorization receipt}
+        {--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-authorization-signed-receipt-template : Generate a read-only signed receipt template for the future writer release authorization receipt}
+        {--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-preflight : Evaluate read-only preflight for future signed post-execution Codex merge action receipt persistence writer release}
+        {--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-receipt-draft : Generate a read-only unsigned receipt draft for future signed post-execution Codex merge action receipt persistence writer release}
+        {--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-signature-request : Generate a read-only signature request for the future writer release receipt}
+        {--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-post-signature-runbook : Generate a read-only post-signature runbook for the future writer release receipt}
+        {--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-signed-receipt-template : Generate a read-only signed receipt template for the future writer release receipt}
+        {--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-execution-contract-preflight : Evaluate read-only preflight before any future writer release execution contract}
+        {--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-execution-contract-template : Generate a read-only execution contract template for a future writer release}
+        {--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-disable-contract-template : Generate a read-only disable contract template for a future writer release}
+        {--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-observability-contract-template : Generate a read-only observability contract template for a future writer release}
         {--codex-start-packet : Durably claim the next packet and emit the canonical Codex session start contract}
         {--reservation-status : Read durable local packet reservation ledger status}
         {--claim-next-packet : Durably claim the next available Work Splitter packet and return scoped bootstrap instructions}
@@ -118,6 +168,56 @@ class AtlasAiSelfConstructionCommand extends Command
             (bool) $this->option('reservation-status') => $readiness->reservationStatus($options),
             (bool) $this->option('scope-validator') => $readiness->scopeValidator($options),
             (bool) $this->option('single-session-instruction-packet') => $readiness->singleSessionInstructionPacket($options),
+            (bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-observability-contract-template') => $readiness->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseObservabilityContractTemplate($options),
+            (bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-disable-contract-template') => $readiness->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseDisableContractTemplate($options),
+            (bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-execution-contract-template') => $readiness->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseExecutionContractTemplate($options),
+            (bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-execution-contract-preflight') => $readiness->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseExecutionContractPreflight($options),
+            (bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-signed-receipt-template') => $readiness->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseSignedReceiptTemplate($options),
+            (bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-post-signature-runbook') => $readiness->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleasePostSignatureRunbook($options),
+            (bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-signature-request') => $readiness->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseSignatureRequest($options),
+            (bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-receipt-draft') => $readiness->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseReceiptDraft($options),
+            (bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-preflight') => $readiness->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleasePreflight($options),
+            (bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-authorization-signed-receipt-template') => $readiness->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseAuthorizationSignedReceiptTemplate($options),
+            (bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-authorization-post-signature-runbook') => $readiness->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseAuthorizationPostSignatureRunbook($options),
+            (bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-authorization-signature-request') => $readiness->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseAuthorizationSignatureRequest($options),
+            (bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-authorization-receipt-draft') => $readiness->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseAuthorizationReceiptDraft($options),
+            (bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-authorization-preflight') => $readiness->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseAuthorizationPreflight($options),
+            (bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-authorization-template') => $readiness->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseAuthorizationTemplate($options),
+            (bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-implementation-preflight') => $readiness->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterImplementationPreflight($options),
+            (bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-contract-template') => $readiness->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterContractTemplate($options),
+            (bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-preflight') => $readiness->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterPreflight($options),
+            (bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-append-only-event-payload-template') => $readiness->codexReviewMergePostExecutionActionSignedReceiptPersistenceAppendOnlyEventPayloadTemplate($options),
+            (bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-post-preflight-runbook') => $readiness->codexReviewMergePostExecutionActionSignedReceiptPersistencePostPreflightRunbook($options),
+            (bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-preflight') => $readiness->codexReviewMergePostExecutionActionSignedReceiptPersistencePreflight($options),
+            (bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-receipt-draft') => $readiness->codexReviewMergePostExecutionActionSignedReceiptPersistenceReceiptDraft($options),
+            (bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-template') => $readiness->codexReviewMergePostExecutionActionSignedReceiptPersistenceTemplate($options),
+            (bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-preflight') => $readiness->codexReviewMergePostExecutionActionSignedReceiptPreflight($options),
+            (bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-template') => $readiness->codexReviewMergePostExecutionActionSignedReceiptTemplate($options),
+            (bool) $this->option('codex-review-merge-post-execution-action-post-signature-runbook') => $readiness->codexReviewMergePostExecutionActionPostSignatureRunbook($options),
+            (bool) $this->option('codex-review-merge-post-execution-action-signature-request') => $readiness->codexReviewMergePostExecutionActionSignatureRequest($options),
+            (bool) $this->option('codex-review-merge-post-execution-action-receipt-draft') => $readiness->codexReviewMergePostExecutionActionReceiptDraft($options),
+            (bool) $this->option('codex-review-merge-post-execution-action-template') => $readiness->codexReviewMergePostExecutionActionTemplate($options),
+            (bool) $this->option('codex-review-merge-post-execution-preflight') => $readiness->codexReviewMergePostExecutionPreflight($options),
+            (bool) $this->option('codex-review-merge-execution-receipt-template') => $readiness->codexReviewMergeExecutionReceiptTemplate($options),
+            (bool) $this->option('codex-review-merge-executor-contract-template') => $readiness->codexReviewMergeExecutorContractTemplate($options),
+            (bool) $this->option('codex-review-merge-executor-release-preflight') => $readiness->codexReviewMergeExecutorReleasePreflight($options),
+            (bool) $this->option('codex-review-merge-signed-final-receipt-persistence-template') => $readiness->codexReviewMergeSignedFinalReceiptPersistenceTemplate($options),
+            (bool) $this->option('codex-review-merge-signed-final-receipt-preflight') => $readiness->codexReviewMergeSignedFinalReceiptPreflight($options),
+            (bool) $this->option('codex-review-merge-signed-final-receipt-template') => $readiness->codexReviewMergeSignedFinalReceiptTemplate($options),
+            (bool) $this->option('codex-review-merge-final-post-signature-runbook') => $readiness->codexReviewMergeFinalPostSignatureRunbook($options),
+            (bool) $this->option('codex-review-merge-final-signature-request') => $readiness->codexReviewMergeFinalSignatureRequest($options),
+            (bool) $this->option('codex-review-merge-final-receipt-draft') => $readiness->codexReviewMergeFinalReceiptDraft($options),
+            (bool) $this->option('codex-review-merge-authorizing-action-template') => $readiness->codexReviewMergeAuthorizingActionTemplate($options),
+            (bool) $this->option('codex-review-merge-final-authorization-preflight') => $readiness->codexReviewMergeFinalAuthorizationPreflight($options),
+            (bool) $this->option('codex-review-merge-authorization-post-signature-runbook') => $readiness->codexReviewMergeAuthorizationPostSignatureRunbook($options),
+            (bool) $this->option('codex-review-merge-authorization-signature-request') => $readiness->codexReviewMergeAuthorizationSignatureRequest($options),
+            (bool) $this->option('codex-review-merge-authorization-receipt-draft') => $readiness->codexReviewMergeAuthorizationReceiptDraft($options),
+            (bool) $this->option('codex-review-merge-authorization-template') => $readiness->codexReviewMergeAuthorizationTemplate($options),
+            (bool) $this->option('codex-review-merge-execution-checklist') => $readiness->codexReviewMergeExecutionChecklist($options),
+            (bool) $this->option('codex-review-merge-post-signature-runbook') => $readiness->codexReviewMergePostSignatureRunbook($options),
+            (bool) $this->option('codex-review-merge-signature-request') => $readiness->codexReviewMergeSignatureRequest($options),
+            (bool) $this->option('codex-review-merge-receipt-draft') => $readiness->codexReviewMergeReceiptDraft($options),
+            (bool) $this->option('codex-review-merge-action-draft') => $readiness->codexReviewMergeActionDraft($options),
             (bool) $this->option('codex-review-merge-preflight') => $readiness->codexReviewMergePreflight($options),
             (bool) $this->option('codex-review-merge-action-template') => $readiness->codexReviewMergeActionTemplate($options),
             (bool) $this->option('codex-review-post-signature-runbook') => $readiness->codexReviewPostSignatureRunbook($options),
@@ -366,6 +466,606 @@ class AtlasAiSelfConstructionCommand extends Command
             $this->components->twoColumnDetail('Blocking count', (string) data_get($payload, 'preflight.blocking_count'));
             $this->components->twoColumnDetail('Merge allowed', data_get($payload, 'merge_allowed') ? 'yes' : 'no');
             $this->components->twoColumnDetail('Preflight hash', (string) data_get($payload, 'preflight_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('codex-review-merge-action-draft')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Draft status', (string) data_get($payload, 'draft.status'));
+            $this->components->twoColumnDetail('Default decision', (string) data_get($payload, 'draft.default_decision'));
+            $this->components->twoColumnDetail('Merge allowed', data_get($payload, 'merge_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Draft hash', (string) data_get($payload, 'draft_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('codex-review-merge-receipt-draft')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Receipt status', (string) data_get($payload, 'receipt.status'));
+            $this->components->twoColumnDetail('Signature required', data_get($payload, 'receipt.signature_required') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Merge allowed', data_get($payload, 'merge_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Receipt hash', (string) data_get($payload, 'receipt_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('codex-review-merge-signature-request')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Signature status', (string) data_get($payload, 'signature_request.status'));
+            $this->components->twoColumnDetail('Signature present', data_get($payload, 'signature_request.signature_present') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Merge allowed', data_get($payload, 'merge_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Request hash', (string) data_get($payload, 'request_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('codex-review-merge-post-signature-runbook')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Runbook status', (string) data_get($payload, 'runbook.status'));
+            $this->components->twoColumnDetail('Signature required', data_get($payload, 'runbook.signature_required') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Merge allowed', data_get($payload, 'merge_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Runbook hash', (string) data_get($payload, 'runbook_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('codex-review-merge-execution-checklist')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Checklist status', (string) data_get($payload, 'checklist.status'));
+            $this->components->twoColumnDetail('External authorization required', data_get($payload, 'checklist.external_authorization_required') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Merge allowed', data_get($payload, 'merge_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Checklist hash', (string) data_get($payload, 'checklist_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('codex-review-merge-authorization-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Template status', (string) data_get($payload, 'template.status'));
+            $this->components->twoColumnDetail('Default decision', (string) data_get($payload, 'template.default_decision'));
+            $this->components->twoColumnDetail('Merge allowed', data_get($payload, 'merge_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Template hash', (string) data_get($payload, 'template_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('codex-review-merge-authorization-receipt-draft')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Receipt status', (string) data_get($payload, 'receipt.status'));
+            $this->components->twoColumnDetail('Signature required', data_get($payload, 'receipt.signature_required') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Merge allowed', data_get($payload, 'merge_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Receipt hash', (string) data_get($payload, 'receipt_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('codex-review-merge-authorization-signature-request')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Signature status', (string) data_get($payload, 'signature_request.status'));
+            $this->components->twoColumnDetail('Signature present', data_get($payload, 'signature_request.signature_present') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Merge allowed', data_get($payload, 'merge_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Request hash', (string) data_get($payload, 'request_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('codex-review-merge-authorization-post-signature-runbook')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Runbook status', (string) data_get($payload, 'runbook.status'));
+            $this->components->twoColumnDetail('Signature required', data_get($payload, 'runbook.signature_required') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Merge allowed', data_get($payload, 'merge_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Runbook hash', (string) data_get($payload, 'runbook_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('codex-review-merge-final-authorization-preflight')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Preflight status', (string) data_get($payload, 'preflight.status'));
+            $this->components->twoColumnDetail('Authorization ready', data_get($payload, 'preflight.authorization_ready') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Merge allowed', data_get($payload, 'merge_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Preflight hash', (string) data_get($payload, 'preflight_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('codex-review-merge-authorizing-action-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Template status', (string) data_get($payload, 'template.status'));
+            $this->components->twoColumnDetail('Default decision', (string) data_get($payload, 'template.default_decision'));
+            $this->components->twoColumnDetail('Merge allowed', data_get($payload, 'merge_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Template hash', (string) data_get($payload, 'template_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('codex-review-merge-final-receipt-draft')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Receipt status', (string) data_get($payload, 'receipt.status'));
+            $this->components->twoColumnDetail('Default decision', (string) data_get($payload, 'receipt.default_decision'));
+            $this->components->twoColumnDetail('Merge allowed', data_get($payload, 'merge_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Receipt hash', (string) data_get($payload, 'receipt_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('codex-review-merge-final-signature-request')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Signature status', (string) data_get($payload, 'signature_request.status'));
+            $this->components->twoColumnDetail('Signature present', data_get($payload, 'signature_request.signature_present') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Merge allowed', data_get($payload, 'merge_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Request hash', (string) data_get($payload, 'request_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('codex-review-merge-final-post-signature-runbook')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Runbook status', (string) data_get($payload, 'runbook.status'));
+            $this->components->twoColumnDetail('Signature required', data_get($payload, 'runbook.signature_required') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Merge allowed', data_get($payload, 'merge_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Runbook hash', (string) data_get($payload, 'runbook_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('codex-review-merge-signed-final-receipt-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Template status', (string) data_get($payload, 'template.status'));
+            $this->components->twoColumnDetail('Receipt signed', data_get($payload, 'receipt_signed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Merge allowed', data_get($payload, 'merge_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Template hash', (string) data_get($payload, 'template_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('codex-review-merge-signed-final-receipt-preflight')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Preflight status', (string) data_get($payload, 'preflight.status'));
+            $this->components->twoColumnDetail('Executor allowed', data_get($payload, 'executor_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Merge allowed', data_get($payload, 'merge_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Preflight hash', (string) data_get($payload, 'preflight_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('codex-review-merge-signed-final-receipt-persistence-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Template status', (string) data_get($payload, 'template.status'));
+            $this->components->twoColumnDetail('Receipt persisted', data_get($payload, 'receipt_persisted') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Executor allowed', data_get($payload, 'executor_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Template hash', (string) data_get($payload, 'template_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('codex-review-merge-executor-release-preflight')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Preflight status', (string) data_get($payload, 'preflight.status'));
+            $this->components->twoColumnDetail('Receipt persisted', data_get($payload, 'receipt_persisted') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Executor allowed', data_get($payload, 'executor_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Preflight hash', (string) data_get($payload, 'preflight_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('codex-review-merge-executor-contract-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Template status', (string) data_get($payload, 'template.status'));
+            $this->components->twoColumnDetail('Patch execution allowed', data_get($payload, 'patch_execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Merge allowed', data_get($payload, 'merge_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Template hash', (string) data_get($payload, 'template_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('codex-review-merge-execution-receipt-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Template status', (string) data_get($payload, 'template.status'));
+            $this->components->twoColumnDetail('Patch executed', data_get($payload, 'patch_executed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Merge allowed', data_get($payload, 'merge_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Template hash', (string) data_get($payload, 'template_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('codex-review-merge-post-execution-preflight')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Preflight status', (string) data_get($payload, 'preflight.status'));
+            $this->components->twoColumnDetail('Execution receipt persisted', data_get($payload, 'execution_receipt_persisted') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Merge allowed', data_get($payload, 'merge_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Preflight hash', (string) data_get($payload, 'preflight_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('codex-review-merge-post-execution-action-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Template status', (string) data_get($payload, 'template.status'));
+            $this->components->twoColumnDetail('Default decision', (string) data_get($payload, 'template.default_decision'));
+            $this->components->twoColumnDetail('Merge allowed', data_get($payload, 'merge_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Template hash', (string) data_get($payload, 'template_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('codex-review-merge-post-execution-action-receipt-draft')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Receipt status', (string) data_get($payload, 'receipt.status'));
+            $this->components->twoColumnDetail('Default decision', (string) data_get($payload, 'receipt.default_decision'));
+            $this->components->twoColumnDetail('Signature required', data_get($payload, 'receipt.signature_required') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Receipt hash', (string) data_get($payload, 'receipt_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('codex-review-merge-post-execution-action-signature-request')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Signature status', (string) data_get($payload, 'signature_request.status'));
+            $this->components->twoColumnDetail('Signature present', data_get($payload, 'signature_request.signature_present') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Signable hash', (string) data_get($payload, 'signable_payload_hash'));
+            $this->components->twoColumnDetail('Request hash', (string) data_get($payload, 'request_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('codex-review-merge-post-execution-action-post-signature-runbook')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Runbook status', (string) data_get($payload, 'runbook.status'));
+            $this->components->twoColumnDetail('Signature required', data_get($payload, 'runbook.signature_required') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Step count', (string) data_get($payload, 'runbook.step_count'));
+            $this->components->twoColumnDetail('Runbook hash', (string) data_get($payload, 'runbook_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Template status', (string) data_get($payload, 'template.status'));
+            $this->components->twoColumnDetail('Receipt persisted', data_get($payload, 'receipt_persisted') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Merge allowed', data_get($payload, 'merge_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Template hash', (string) data_get($payload, 'template_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-preflight')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Preflight status', (string) data_get($payload, 'preflight.status'));
+            $this->components->twoColumnDetail('Blocking count', (string) data_get($payload, 'preflight.blocking_count'));
+            $this->components->twoColumnDetail('Receipt persisted', data_get($payload, 'receipt_persisted') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Preflight hash', (string) data_get($payload, 'preflight_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Template status', (string) data_get($payload, 'template.status'));
+            $this->components->twoColumnDetail('Ledger write allowed', data_get($payload, 'ledger_write_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Receipt persisted', data_get($payload, 'receipt_persisted') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Template hash', (string) data_get($payload, 'template_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-receipt-draft')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Receipt status', (string) data_get($payload, 'receipt.status'));
+            $this->components->twoColumnDetail('Ledger write allowed', data_get($payload, 'ledger_write_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Receipt persisted', data_get($payload, 'receipt_persisted') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Receipt hash', (string) data_get($payload, 'receipt_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-preflight')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Preflight status', (string) data_get($payload, 'preflight.status'));
+            $this->components->twoColumnDetail('Blocking count', (string) data_get($payload, 'preflight.blocking_count'));
+            $this->components->twoColumnDetail('Ledger write allowed', data_get($payload, 'ledger_write_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Preflight hash', (string) data_get($payload, 'preflight_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-post-preflight-runbook')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Runbook status', (string) data_get($payload, 'runbook.status'));
+            $this->components->twoColumnDetail('Step count', (string) data_get($payload, 'runbook.step_count'));
+            $this->components->twoColumnDetail('Ledger write allowed', data_get($payload, 'ledger_write_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Runbook hash', (string) data_get($payload, 'runbook_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-append-only-event-payload-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Payload status', (string) data_get($payload, 'payload.status'));
+            $this->components->twoColumnDetail('Event type', (string) data_get($payload, 'payload.event_type'));
+            $this->components->twoColumnDetail('Ledger write allowed', data_get($payload, 'ledger_write_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Payload hash', (string) data_get($payload, 'payload_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-preflight')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Writer preflight status', (string) data_get($payload, 'writer_preflight.status'));
+            $this->components->twoColumnDetail('Blocking count', (string) data_get($payload, 'writer_preflight.blocking_count'));
+            $this->components->twoColumnDetail('Ledger write allowed', data_get($payload, 'ledger_write_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Writer preflight hash', (string) data_get($payload, 'writer_preflight_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-contract-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Contract status', (string) data_get($payload, 'contract.status'));
+            $this->components->twoColumnDetail('Capability count', (string) data_get($payload, 'contract.capability_count'));
+            $this->components->twoColumnDetail('Ledger write allowed', data_get($payload, 'ledger_write_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Contract hash', (string) data_get($payload, 'contract_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-implementation-preflight')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Implementation preflight status', (string) data_get($payload, 'implementation_preflight.status'));
+            $this->components->twoColumnDetail('Blocking count', (string) data_get($payload, 'implementation_preflight.blocking_count'));
+            $this->components->twoColumnDetail('Ledger write allowed', data_get($payload, 'ledger_write_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Implementation preflight hash', (string) data_get($payload, 'implementation_preflight_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-authorization-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Release authorization status', (string) data_get($payload, 'authorization.status'));
+            $this->components->twoColumnDetail('Required evidence count', (string) data_get($payload, 'authorization.required_evidence_count'));
+            $this->components->twoColumnDetail('Ledger write allowed', data_get($payload, 'ledger_write_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Authorization hash', (string) data_get($payload, 'authorization_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-authorization-preflight')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Release authorization preflight status', (string) data_get($payload, 'preflight.status'));
+            $this->components->twoColumnDetail('Blocking count', (string) data_get($payload, 'preflight.blocking_count'));
+            $this->components->twoColumnDetail('Ledger write allowed', data_get($payload, 'ledger_write_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Preflight hash', (string) data_get($payload, 'preflight_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-authorization-receipt-draft')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Receipt status', (string) data_get($payload, 'receipt.status'));
+            $this->components->twoColumnDetail('Selected decision', (string) data_get($payload, 'receipt.selected_decision'));
+            $this->components->twoColumnDetail('Ledger write allowed', data_get($payload, 'ledger_write_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Receipt hash', (string) data_get($payload, 'receipt_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-authorization-signature-request')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Signature request status', (string) data_get($payload, 'signature_request.status'));
+            $this->components->twoColumnDetail('Signature required', data_get($payload, 'signature_request.signature_required') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Ledger write allowed', data_get($payload, 'ledger_write_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Request hash', (string) data_get($payload, 'request_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-authorization-post-signature-runbook')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Runbook status', (string) data_get($payload, 'runbook.status'));
+            $this->components->twoColumnDetail('Step count', (string) data_get($payload, 'runbook.step_count'));
+            $this->components->twoColumnDetail('Ledger write allowed', data_get($payload, 'ledger_write_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Runbook hash', (string) data_get($payload, 'runbook_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-authorization-signed-receipt-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Template status', (string) data_get($payload, 'template.status'));
+            $this->components->twoColumnDetail('Receipt signed', data_get($payload, 'receipt_signed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Ledger write allowed', data_get($payload, 'ledger_write_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Template hash', (string) data_get($payload, 'template_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-preflight')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Release preflight status', (string) data_get($payload, 'preflight.status'));
+            $this->components->twoColumnDetail('Blocking count', (string) data_get($payload, 'preflight.blocking_count'));
+            $this->components->twoColumnDetail('Ledger write allowed', data_get($payload, 'ledger_write_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Preflight hash', (string) data_get($payload, 'preflight_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-receipt-draft')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Receipt status', (string) data_get($payload, 'receipt.status'));
+            $this->components->twoColumnDetail('Selected decision', (string) data_get($payload, 'receipt.selected_decision'));
+            $this->components->twoColumnDetail('Ledger write allowed', data_get($payload, 'ledger_write_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Receipt hash', (string) data_get($payload, 'receipt_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-signature-request')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Signature request status', (string) data_get($payload, 'signature_request.status'));
+            $this->components->twoColumnDetail('Signature required', data_get($payload, 'signature_request.signature_required') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Ledger write allowed', data_get($payload, 'ledger_write_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Request hash', (string) data_get($payload, 'request_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-post-signature-runbook')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Runbook status', (string) data_get($payload, 'runbook.status'));
+            $this->components->twoColumnDetail('Step count', (string) data_get($payload, 'runbook.step_count'));
+            $this->components->twoColumnDetail('Ledger write allowed', data_get($payload, 'ledger_write_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Runbook hash', (string) data_get($payload, 'runbook_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-signed-receipt-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Template status', (string) data_get($payload, 'template.status'));
+            $this->components->twoColumnDetail('Receipt signed', data_get($payload, 'receipt_signed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Ledger write allowed', data_get($payload, 'ledger_write_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Template hash', (string) data_get($payload, 'template_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-execution-contract-preflight')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution preflight status', (string) data_get($payload, 'preflight.status'));
+            $this->components->twoColumnDetail('Blocking count', (string) data_get($payload, 'preflight.blocking_count'));
+            $this->components->twoColumnDetail('Writer file creation allowed', data_get($payload, 'writer_file_creation_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Preflight hash', (string) data_get($payload, 'preflight_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-execution-contract-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Contract status', (string) data_get($payload, 'contract.status'));
+            $this->components->twoColumnDetail('Blocking count', (string) data_get($payload, 'contract.blocking_count'));
+            $this->components->twoColumnDetail('Writer file creation allowed', data_get($payload, 'writer_file_creation_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Contract hash', (string) data_get($payload, 'contract_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-disable-contract-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Disable status', (string) data_get($payload, 'disable_contract.status'));
+            $this->components->twoColumnDetail('Trigger count', (string) data_get($payload, 'disable_contract.trigger_count'));
+            $this->components->twoColumnDetail('Writer file creation allowed', data_get($payload, 'writer_file_creation_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Disable hash', (string) data_get($payload, 'disable_contract_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-observability-contract-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Observability status', (string) data_get($payload, 'observability_contract.status'));
+            $this->components->twoColumnDetail('Signal count', (string) data_get($payload, 'observability_contract.signal_count'));
+            $this->components->twoColumnDetail('Writer file creation allowed', data_get($payload, 'writer_file_creation_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Observability hash', (string) data_get($payload, 'observability_contract_hash'));
             $this->newLine();
             $this->line((string) $payload['human_summary']);
 

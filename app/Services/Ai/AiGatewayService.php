@@ -1865,7 +1865,12 @@ PROMPT;
 
     private function providerSupportsImageAttachments(string $provider): bool
     {
-        return in_array($provider, ['claude_cli', 'codex_cli', 'gemini_cli'], true);
+        // Claude CLI only receives attachment paths/instructions in this runtime;
+        // it does not get pixels as native visual input. Treating it as
+        // image-capable made mobile uploads look attached in Atlas while Claude
+        // could only see metadata. Keep image jobs on providers that pass actual
+        // visual input to the model.
+        return in_array($provider, ['codex_cli', 'gemini_cli'], true);
     }
 
     private function imageAttachmentFallbackProvider(array $options): string

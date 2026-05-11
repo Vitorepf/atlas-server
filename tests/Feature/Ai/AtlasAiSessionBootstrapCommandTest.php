@@ -56,6 +56,18 @@ class AtlasAiSessionBootstrapCommandTest extends TestCase
         $this->assertContains('runtime_language_boundary', data_get($payload, 'architecture_operations.operation_ids'));
         $this->assertContains('provider_projection_status', data_get($payload, 'architecture_operations.operation_ids'));
         $this->assertContains('ap_agent_workflow_registry', data_get($payload, 'architecture_operations.operation_ids'));
+        $this->assertContains('voice_realtime_dependencies', data_get($payload, 'architecture_operations.operation_ids'));
+        $this->assertContains('voice_realtime_dependency_install_plan', data_get($payload, 'architecture_operations.operation_ids'));
+        $this->assertSame(
+            'atlas.voice_realtime.python_runtime_plan.v1',
+            collect(data_get($payload, 'architecture_operations.commands', []))
+                ->firstWhere('id', 'voice_realtime_dependencies')['runtime_dependency_contract'] ?? null,
+        );
+        $this->assertSame(
+            'atlas.voice_realtime.dependency_install_plan.v1',
+            collect(data_get($payload, 'architecture_operations.commands', []))
+                ->firstWhere('id', 'voice_realtime_dependency_install_plan')['runtime_dependency_contract'] ?? null,
+        );
         $this->assertSame(
             ['runtime_language_boundary'],
             data_get($payload, 'architecture_operations.owner_layer_operations.runtime.operation_ids'),
@@ -73,6 +85,10 @@ class AtlasAiSessionBootstrapCommandTest extends TestCase
         );
         $this->assertContains(
             'docs/engineering-knowledge-base/atlas-ai-knowledge-governance-system.md',
+            $payload['read_first'],
+        );
+        $this->assertContains(
+            'docs/engineering-knowledge-base/atlas-ai-runtime-language-boundaries.md',
             $payload['read_first'],
         );
         $this->assertContains(
@@ -193,6 +209,13 @@ class AtlasAiSessionBootstrapCommandTest extends TestCase
         $this->assertContains('documentation_split_plan', data_get($payload, 'architecture_operations.operation_ids'));
         $this->assertContains('architecture_validate', data_get($payload, 'architecture_operations.operation_ids'));
         $this->assertContains('runtime_language_boundary', data_get($payload, 'architecture_operations.operation_ids'));
+        $this->assertContains('voice_realtime_dependencies', data_get($payload, 'architecture_operations.operation_ids'));
+        $this->assertContains('voice_realtime_dependency_install_plan', data_get($payload, 'architecture_operations.operation_ids'));
+        $this->assertSame(
+            'ATLAS_VOICE_PYTHON_BIN',
+            collect(data_get($payload, 'architecture_operations.commands', []))
+                ->firstWhere('id', 'voice_realtime_dependencies')['python_binary_policy']['environment_variable'] ?? null,
+        );
         $this->assertContains('php artisan atlas:ai:runtime-boundary --json', data_get($payload, 'required_validation'));
         $this->assertContains('app/Services/Ai/Surface', data_get($payload, 'implementation_contract.allowed_write_scopes'));
         $this->assertContains('surface_must_collect_input_and_render_output_only', data_get($payload, 'implementation_contract.forbidden_write_scopes'));
@@ -226,6 +249,8 @@ class AtlasAiSessionBootstrapCommandTest extends TestCase
         $this->assertSame('voice_realtime', data_get($payload, 'placement.surface'));
         $this->assertSame('python_ai_data', data_get($payload, 'placement.runtime'));
         $this->assertSame('voice_realtime.session', data_get($payload, 'placement.flow'));
+        $this->assertContains('voice_realtime_dependencies', data_get($payload, 'architecture_operations.operation_ids'));
+        $this->assertContains('voice_realtime_dependency_install_plan', data_get($payload, 'architecture_operations.operation_ids'));
         $this->assertContains('runtimes/python', data_get($payload, 'implementation_contract.allowed_write_scopes'));
         $this->assertContains('runtime_must_not_execute_without_decision_receipt', data_get($payload, 'implementation_contract.forbidden_write_scopes'));
         $this->assertContains(

@@ -6,12 +6,19 @@ from .managed_env_writer import (
     SCHEMA_VERSION as MANAGED_ENV_WRITER_SCHEMA_VERSION,
     inspect_managed_env_writer,
 )
+from .supervised_launch_execution import (
+    SCHEMA_VERSION as SUPERVISED_LAUNCH_EXECUTION_SCHEMA_VERSION,
+    inspect_supervised_launch_execution,
+    inspect_subprocess_start_contract,
+)
 
 
 SCHEMA_VERSION = "atlas.voice_realtime.supervised_process_adapter.v1"
 MANAGED_ENV_CONTRACT_SCHEMA_VERSION = "atlas.voice_realtime.managed_env_contract.v1"
 LAUNCH_AUTHORIZATION_CONTRACT_SCHEMA_VERSION = "atlas.voice_realtime.launch_authorization_contract.v1"
 MANAGED_ENV_WRITER_CONTRACT_SCHEMA_VERSION = "atlas.voice_realtime.managed_env_writer.v1"
+SUPERVISED_LAUNCH_EXECUTION_CONTRACT_SCHEMA_VERSION = "atlas.voice_realtime.supervised_launch_execution.v1"
+SUBPROCESS_START_CONTRACT_SCHEMA_VERSION = "atlas.voice_realtime.subprocess_start_contract.v1"
 
 
 class AtlasVoiceSupervisedProcessAdapter:
@@ -43,6 +50,13 @@ class AtlasVoiceSupervisedProcessAdapter:
             managed_environment_contract=managed_environment_contract,
             launch_authorization_contract=launch_authorization_contract,
         )
+        supervised_launch_execution = inspect_supervised_launch_execution(
+            supervisor_execution=supervisor_execution,
+            launch_authorization_contract=launch_authorization_contract,
+        )
+        subprocess_start_contract = inspect_subprocess_start_contract(
+            supervised_launch_execution=supervised_launch_execution,
+        )
 
         return {
             "schema_version": SCHEMA_VERSION,
@@ -67,6 +81,9 @@ class AtlasVoiceSupervisedProcessAdapter:
                 "rollback",
                 "authorize_launch",
                 "execute_managed_env_write",
+                "inspect_supervised_launch_execution",
+                "execute_pre_start_health_checks",
+                "inspect_subprocess_start_contract",
             ],
             "gates": {
                 "supervisor_execution_ready": ready,
@@ -93,12 +110,32 @@ class AtlasVoiceSupervisedProcessAdapter:
                     and managed_env_writer.get("env_file_write_attempted") is False
                     and managed_env_writer.get("secret_values_present_in_output") is False
                 ),
+                "supervised_launch_execution_contract_available": (
+                    supervised_launch_execution.get("schema_version") == SUPERVISED_LAUNCH_EXECUTION_SCHEMA_VERSION
+                    and supervised_launch_execution.get("launch_execution_implemented") is True
+                    and supervised_launch_execution.get("pre_start_health_checks_execution_available") is True
+                    and supervised_launch_execution.get("pre_start_health_checks_executed") is False
+                    and supervised_launch_execution.get("subprocess_launch_implemented") is False
+                    and supervised_launch_execution.get("process_launch_attempted") is False
+                    and supervised_launch_execution.get("daemon_started") is False
+                ),
+                "subprocess_start_contract_available": (
+                    subprocess_start_contract.get("schema_version") == SUBPROCESS_START_CONTRACT_SCHEMA_VERSION
+                    and subprocess_start_contract.get("subprocess_start_contract_implemented") is True
+                    and subprocess_start_contract.get("subprocess_launch_implemented") is False
+                    and subprocess_start_contract.get("process_launch_attempted") is False
+                    and subprocess_start_contract.get("daemon_started") is False
+                    and subprocess_start_contract.get("subprocess_module_imported") is False
+                    and subprocess_start_contract.get("livekit_sdk_imported") is False
+                ),
                 "provider_calls_forbidden": True,
                 "tool_calls_forbidden": True,
             },
             "managed_environment_contract": managed_environment_contract,
             "launch_authorization_contract": launch_authorization_contract,
             "managed_env_writer": managed_env_writer,
+            "supervised_launch_execution": supervised_launch_execution,
+            "subprocess_start_contract": subprocess_start_contract,
             "health_snapshot": self.capture_health_snapshot(
                 supervisor_execution=supervisor_execution,
                 lifecycle_state="preflight" if ready else "planned",
@@ -110,9 +147,11 @@ class AtlasVoiceSupervisedProcessAdapter:
                 "VOICE_DAEMON_MANAGED_ENV_CONTRACT_DECLARED",
                 "VOICE_DAEMON_LAUNCH_AUTHORIZATION_DECLARED",
                 "VOICE_DAEMON_MANAGED_ENV_WRITER_EVALUATED",
+                "VOICE_DAEMON_SUPERVISED_LAUNCH_EVALUATED",
+                "VOICE_DAEMON_SUBPROCESS_START_CONTRACT_EVALUATED",
                 "VOICE_DAEMON_START_BLOCKED",
             ],
-            "next_action": "implement_reviewed_env_file_write_execution" if ready else "fix_supervised_process_adapter_prerequisites",
+            "next_action": "implement_subprocess_start_contract_prerequisites" if ready else "fix_supervised_process_adapter_prerequisites",
         }
 
     def authorize_launch(

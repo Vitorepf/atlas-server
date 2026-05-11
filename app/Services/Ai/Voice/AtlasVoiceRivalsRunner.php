@@ -104,6 +104,8 @@ final class AtlasVoiceRivalsRunner
             'runtime' => $payload['runtime'] ?? 'livekit_agents_sdk',
             'base_url' => $payload['base_url'] ?? config('app.url', 'http://atlas.test'),
             'require_sdk' => (bool) ($payload['require_sdk'] ?? false),
+            'callback_loop_wired' => (bool) ($payload['callback_loop_wired'] ?? false),
+            'production_sdk_loop_wired' => (bool) ($payload['production_sdk_loop_wired'] ?? false),
         ]);
 
         return [

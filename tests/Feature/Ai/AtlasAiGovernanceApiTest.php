@@ -47,6 +47,12 @@ class AtlasAiGovernanceApiTest extends TestCase
         $this->assertContains('documentation_split_plan', $response->json('architecture_operations.operation_ids'));
         $this->assertContains('architecture_validate', $response->json('architecture_operations.operation_ids'));
         $this->assertContains('runtime_language_boundary', $response->json('architecture_operations.operation_ids'));
+        $this->assertContains('voice_realtime_dependencies', $response->json('architecture_operations.operation_ids'));
+        $this->assertSame(
+            'atlas.voice_realtime.python_runtime_plan.v1',
+            collect($response->json('architecture_operations.commands', []))
+                ->firstWhere('id', 'voice_realtime_dependencies')['runtime_dependency_contract'] ?? null,
+        );
         $this->assertSame(
             ['runtime_language_boundary'],
             $response->json('architecture_operations.owner_layer_operations.runtime.operation_ids'),

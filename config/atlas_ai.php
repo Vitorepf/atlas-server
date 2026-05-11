@@ -17,6 +17,10 @@ use App\Services\Ai\Programming\AtlasProgrammingOrchestrator;
 use App\Services\Ai\SelfImprovement\AtlasSelfImprovementOrchestrator;
 
 return [
+    'voice_realtime' => [
+        'python_binary' => env('ATLAS_VOICE_PYTHON_BIN', 'python3'),
+    ],
+
     /*
     |--------------------------------------------------------------------------
     | Atlas AI Kernel Registry

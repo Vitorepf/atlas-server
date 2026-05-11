@@ -74,11 +74,12 @@ def build_livekit_worker_plan(
             "raw_transcript_persistence_allowed": False,
             "access_token_log_allowed": False,
         },
-        "next_action": _next_action(sdk_ready, settings_loaded, boundary_created, callback_loop_wired, mock_kernel),
+        "next_action": _next_action(sdk, sdk_ready, settings_loaded, boundary_created, callback_loop_wired, mock_kernel),
     }
 
 
 def _next_action(
+    sdk_status: Mapping[str, Any],
     sdk_ready: bool,
     settings_loaded: bool,
     boundary_created: bool,
@@ -86,7 +87,7 @@ def _next_action(
     mock_kernel: bool,
 ) -> str:
     if not sdk_ready:
-        return "install_livekit_agents_sdk"
+        return str(sdk_status.get("next_action") or "install_livekit_agents_sdk")
     if not settings_loaded or not boundary_created:
         return "load_runtime_settings_and_kernel_boundary"
     if not callback_loop_wired:

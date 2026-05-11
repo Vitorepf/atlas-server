@@ -31,6 +31,250 @@ class RecordingGetTransport:
     def __call__(self, url: str, query: Mapping[str, Any]) -> Mapping[str, Any]:
         self.calls.append((url, dict(query)))
 
+        if url.endswith("/runtime/promotion-review-packet"):
+            return {
+                "schema_version": "atlas.voice_realtime.production_promotion_review_bundle.v1",
+                "status": "blocked_until_machine_gates_pass",
+                "surface_id": "voice_realtime",
+                "runtime_id": str(query.get("runtime") or "livekit_agents_sdk"),
+                "kernel_only": True,
+                "mobile_first": True,
+                "promotion_allowed": False,
+                "auto_promotion_allowed": False,
+                "daemon_started": False,
+                "human_review_required": True,
+                "decision_receipt_required": True,
+                "rollback_plan_required": True,
+                "callback_loop_wired": query.get("callback_loop_wired") == 1,
+                "production_sdk_loop_wired": query.get("production_sdk_loop_wired") == 1,
+                "guardrails": {
+                    "raw_audio_persistence_allowed": False,
+                    "direct_provider_call_allowed": False,
+                    "direct_tool_execution_allowed": False,
+                    "memory_write_allowed": False,
+                    "start_daemon_allowed": False,
+                    "boolean_approval_is_sufficient": False,
+                },
+                "production_promotion_gate": {
+                    "schema_version": "atlas.voice_realtime.production_promotion_gate.v1",
+                    "status": "blocked",
+                    "next_action": "configure_livekit_token_issuer",
+                    "failed_keys": ["livekit_token_issuer_ready"],
+                    "passed_gates": 9,
+                    "failed_gates": 1,
+                },
+                "review_packet": {
+                    "schema_version": "atlas.voice_realtime.production_promotion_review_packet.v1",
+                    "status": "blocked_until_machine_gates_pass",
+                    "required_human_decision": "approve_or_reject_voice_production_promotion",
+                    "required_decision_receipt": True,
+                    "required_rollback_plan": [
+                        "disable_livekit_token_issuer",
+                        "stop_livekit_worker",
+                    ],
+                    "required_evidence": [
+                        "runtime_certification",
+                        "product_loop_check",
+                        "pre_start_health_checks_smoke",
+                        "rivals_voice_comparison",
+                    ],
+                    "forbidden_actions": [
+                        "auto_promote_voice_runtime",
+                        "start_daemon_without_review",
+                        "persist_raw_audio",
+                    ],
+                },
+                "evidence": {
+                    key: {
+                        "name": key,
+                        "schema_version": f"atlas.voice_realtime.{key}.v1",
+                        "status": "blocked",
+                        "daemon_started": False,
+                        "promotion_allowed": False,
+                        "auto_promotion_allowed": False,
+                        "next_action": "continue_review",
+                        "payload_hash": "a" * 64,
+                    }
+                    for key in [
+                        "runtime_certification",
+                        "product_loop_check",
+                        "pre_start_health_checks_smoke",
+                        "rivals_voice_comparison",
+                    ]
+                },
+                "summary": {
+                    "evidence_count": 4,
+                    "failed_machine_gates": ["livekit_token_issuer_ready"],
+                    "review_ready": False,
+                },
+                "bundle_hash": "b" * 64,
+            }
+        if url.endswith("/runtime/dependency-install-plan"):
+            return {
+                "schema_version": "atlas.voice_realtime.dependency_install_plan.v1",
+                "status": "ready_to_install_optional_dependency",
+                "surface_id": "voice_realtime",
+                "runtime_id": str(query.get("runtime") or "livekit_agents_sdk"),
+                "runtime_family": "python_ai_data",
+                "operator_managed": True,
+                "pip_execution_attempted": False,
+                "sdk_imported": False,
+                "daemon_started": False,
+                "kernel_only": True,
+                "mobile_first": True,
+                "requirements_file": "runtimes/python/voice_realtime/requirements-livekit.txt",
+                "requirements_sha256": "d" * 64,
+                "expected_packages": ["livekit-agents"],
+                "expected_requirements": ["livekit-agents>=1.3.12,<2.0.0"],
+                "requirements_packages": ["livekit-agents>=1.3.12,<2.0.0"],
+                "missing_requirements": [],
+                "unsafe_requirements": [],
+                "install_command": "${ATLAS_VOICE_PYTHON_BIN:-python3} -m pip install -r runtimes/python/voice_realtime/requirements-livekit.txt",
+                "verify_command": "python -m atlas_voice_agent.main --sdk-check --require-sdk",
+                "activation_gate": "runtime-certify --require-sdk",
+                "install_policy": "operator_managed",
+                "gates": {
+                    "manifest_available": True,
+                    "requirements_file_declared": True,
+                    "requirements_file_exists": True,
+                    "requirements_match_manifest": True,
+                    "requirements_safe": True,
+                    "pip_not_executed": True,
+                    "sdk_not_imported": True,
+                    "daemon_not_started": True,
+                },
+                "forbidden_shortcuts": [
+                    "run_pip_from_sdk_check",
+                    "install_dependency_without_operator_review",
+                    "import_livekit_during_install_plan",
+                    "start_daemon_after_dependency_install",
+                    "change_kernel_policy_from_dependency_install",
+                ],
+                "next_action": "run_install_command_then_sdk_check",
+            }
+        if url.endswith("/runtime/product-loop-check"):
+            return {
+                "schema_version": "atlas.voice_realtime.product_loop_check.v1",
+                "status": "ready_for_human_review",
+                "surface_id": "voice_realtime",
+                "runtime_id": str(query.get("runtime") or "livekit_agents_sdk"),
+                "kernel_only": True,
+                "mobile_first": True,
+                "daemon_started": False,
+                "gates": {
+                    "callback_loop_wired": query.get("callback_loop_wired") == 1,
+                    "production_sdk_loop_wired": query.get("production_sdk_loop_wired") == 1,
+                    "worker_start_still_blocked": True,
+                    "production_promotion_blocked": True,
+                    "direct_provider_forbidden": True,
+                    "raw_audio_forbidden": True,
+                },
+                "guardrails": {
+                    "direct_provider_call_allowed": False,
+                    "direct_tool_execution_allowed": False,
+                    "raw_audio_persistence_allowed": False,
+                    "access_token_log_allowed": False,
+                    "auto_promotion_allowed": False,
+                },
+                "next_action": "submit_voice_production_promotion_for_human_review",
+            }
+        if url.endswith("/runtime/token-issuer-plan"):
+            return {
+                "schema_version": "atlas.voice_realtime.livekit_token_issuer_config_plan.v1",
+                "status": "blocked",
+                "surface_id": "voice_realtime",
+                "runtime_id": str(query.get("runtime") or "livekit_agents_sdk"),
+                "mobile_first": True,
+                "kernel_only": True,
+                "readiness": {
+                    "schema_version": "atlas.voice_realtime.livekit_token_issuer_readiness.v1",
+                    "status": "blocked",
+                    "enabled": False,
+                    "livekit_url_configured": False,
+                    "api_key_configured": False,
+                    "api_secret_configured": False,
+                    "secrets_exposed": False,
+                    "next_action": "configure_livekit_token_issuer",
+                },
+                "required_env": [
+                    {"name": "ATLAS_VOICE_LIVEKIT_TOKEN_ISSUER_ENABLED", "configured": False, "secret": False},
+                    {"name": "LIVEKIT_URL", "configured": False, "secret": False},
+                    {"name": "LIVEKIT_API_KEY", "configured": False, "secret": True},
+                    {"name": "LIVEKIT_API_SECRET", "configured": False, "secret": True},
+                    {"name": "ATLAS_VOICE_LIVEKIT_TOKEN_TTL_SECONDS", "configured": True, "secret": False},
+                ],
+                "missing_env": [
+                    "ATLAS_VOICE_LIVEKIT_TOKEN_ISSUER_ENABLED",
+                    "LIVEKIT_URL",
+                    "LIVEKIT_API_KEY",
+                    "LIVEKIT_API_SECRET",
+                ],
+                "redacted_env_template": [
+                    "ATLAS_VOICE_LIVEKIT_TOKEN_ISSUER_ENABLED=true",
+                    "LIVEKIT_URL=https://<your-livekit-host>",
+                    "LIVEKIT_API_KEY=<set-in-local-env-only>",
+                    "LIVEKIT_API_SECRET=<set-in-local-env-only>",
+                    "ATLAS_VOICE_LIVEKIT_TOKEN_TTL_SECONDS=900",
+                ],
+                "redacted_env_template_hash": "c" * 64,
+                "security_contract": {
+                    "secrets_exposed": False,
+                    "writes_env_file": False,
+                    "starts_daemon": False,
+                    "issues_token_during_plan": False,
+                    "raw_audio_persistence_allowed": False,
+                    "direct_provider_call_allowed": False,
+                    "direct_tool_execution_allowed": False,
+                },
+                "next_action": "set_missing_livekit_env_in_local_environment_only",
+            }
+        if url.endswith("/runtime/token-issuer-smoke"):
+            return {
+                "schema_version": "atlas.voice_realtime.livekit_token_issuer_smoke.v1",
+                "status": "blocked",
+                "surface_id": "voice_realtime",
+                "runtime_id": str(query.get("runtime") or "livekit_agents_sdk"),
+                "mobile_first": True,
+                "kernel_only": True,
+                "ephemeral_test_config": bool(query.get("ephemeral_test_config")),
+                "production_readiness": "current_environment_checked",
+                "readiness": {
+                    "schema_version": "atlas.voice_realtime.livekit_token_issuer_readiness.v1",
+                    "status": "blocked",
+                    "enabled": False,
+                    "livekit_url_configured": False,
+                    "api_key_configured": False,
+                    "api_secret_configured": False,
+                    "secrets_exposed": False,
+                    "next_action": "configure_livekit_token_issuer",
+                },
+                "token_issued": False,
+                "token_hash": None,
+                "token_segments_count": 0,
+                "access_token_exposed": False,
+                "issued_token": {
+                    "issued": False,
+                    "status": "not_issued_missing_config",
+                    "issuer": "atlas_voice_livekit_token_issuer",
+                    "reason": "livekit_token_issuer_not_ready",
+                },
+                "smoke_lease": {
+                    "room_name": "atlas-voice-smoke",
+                    "participant_identity": "mobile:smoke",
+                },
+                "security_contract": {
+                    "secrets_exposed": False,
+                    "access_token_exposed": False,
+                    "writes_env_file": False,
+                    "starts_daemon": False,
+                    "raw_audio_persistence_allowed": False,
+                    "direct_provider_call_allowed": False,
+                    "direct_tool_execution_allowed": False,
+                    "ephemeral_config_persists_after_command": False,
+                },
+                "next_action": "configure_livekit_token_issuer",
+            }
+
         return {"status": "ready", "url": url}
 
 
@@ -139,6 +383,113 @@ class AtlasKernelClientTest(unittest.TestCase):
         self.assertEqual("ready", response["status"])
         self.assertEqual("http://atlas.test/ai/voice/rivals", get_transport.calls[0][0])
         self.assertEqual(1, get_transport.calls[0][1]["hours"])
+        self.assertEqual([], post_transport.calls)
+
+    def test_promotion_review_packet_uses_kernel_endpoint_with_runtime_and_bounded_hours(self) -> None:
+        post_transport = RecordingTransport()
+        get_transport = RecordingGetTransport()
+        response = self.client(post_transport, get_transport).production_promotion_review_packet(hours=0)
+
+        self.assertEqual("blocked_until_machine_gates_pass", response["status"])
+        self.assertEqual("http://atlas.test/ai/voice/runtime/promotion-review-packet", get_transport.calls[0][0])
+        self.assertEqual("livekit_agents_sdk", get_transport.calls[0][1]["runtime"])
+        self.assertEqual(1, get_transport.calls[0][1]["hours"])
+        self.assertEqual(0, get_transport.calls[0][1]["callback_loop_wired"])
+        self.assertEqual(0, get_transport.calls[0][1]["production_sdk_loop_wired"])
+        self.assertFalse(response["callback_loop_wired"])
+        self.assertFalse(response["production_sdk_loop_wired"])
+        self.assertEqual([], post_transport.calls)
+
+    def test_promotion_review_packet_forwards_product_loop_wiring_flags_to_kernel(self) -> None:
+        post_transport = RecordingTransport()
+        get_transport = RecordingGetTransport()
+        response = self.client(post_transport, get_transport).production_promotion_review_packet(
+            hours=24,
+            callback_loop_wired=True,
+            production_sdk_loop_wired=True,
+        )
+
+        self.assertEqual("http://atlas.test/ai/voice/runtime/promotion-review-packet", get_transport.calls[0][0])
+        self.assertEqual("livekit_agents_sdk", get_transport.calls[0][1]["runtime"])
+        self.assertEqual(1, get_transport.calls[0][1]["callback_loop_wired"])
+        self.assertEqual(1, get_transport.calls[0][1]["production_sdk_loop_wired"])
+        self.assertTrue(response["callback_loop_wired"])
+        self.assertTrue(response["production_sdk_loop_wired"])
+        self.assertEqual([], post_transport.calls)
+
+    def test_dependency_install_plan_uses_kernel_endpoint_without_pip_sdk_or_daemon(self) -> None:
+        post_transport = RecordingTransport()
+        get_transport = RecordingGetTransport()
+        response = self.client(post_transport, get_transport).dependency_install_plan()
+
+        self.assertEqual("atlas.voice_realtime.dependency_install_plan.v1", response["schema_version"])
+        self.assertTrue(response["operator_managed"])
+        self.assertFalse(response["pip_execution_attempted"])
+        self.assertFalse(response["sdk_imported"])
+        self.assertFalse(response["daemon_started"])
+        self.assertEqual("http://atlas.test/ai/voice/runtime/dependency-install-plan", get_transport.calls[0][0])
+        self.assertEqual("livekit_agents_sdk", get_transport.calls[0][1]["runtime"])
+        self.assertEqual([], post_transport.calls)
+
+    def test_product_loop_check_uses_kernel_endpoint_without_daemon_start(self) -> None:
+        post_transport = RecordingTransport()
+        get_transport = RecordingGetTransport()
+        response = self.client(post_transport, get_transport).product_loop_check()
+
+        self.assertEqual("atlas.voice_realtime.product_loop_check.v1", response["schema_version"])
+        self.assertEqual("ready_for_human_review", response["status"])
+        self.assertFalse(response["daemon_started"])
+        self.assertTrue(response["gates"]["worker_start_still_blocked"])
+        self.assertFalse(response["gates"]["callback_loop_wired"])
+        self.assertFalse(response["gates"]["production_sdk_loop_wired"])
+        self.assertFalse(response["guardrails"]["direct_provider_call_allowed"])
+        self.assertEqual("http://atlas.test/ai/voice/runtime/product-loop-check", get_transport.calls[0][0])
+        self.assertEqual("livekit_agents_sdk", get_transport.calls[0][1]["runtime"])
+        self.assertEqual(0, get_transport.calls[0][1]["callback_loop_wired"])
+        self.assertEqual(0, get_transport.calls[0][1]["production_sdk_loop_wired"])
+        self.assertEqual([], post_transport.calls)
+
+    def test_product_loop_check_forwards_wiring_flags_to_kernel_without_daemon_start(self) -> None:
+        post_transport = RecordingTransport()
+        get_transport = RecordingGetTransport()
+        response = self.client(post_transport, get_transport).product_loop_check(
+            callback_loop_wired=True,
+            production_sdk_loop_wired=True,
+        )
+
+        self.assertEqual("atlas.voice_realtime.product_loop_check.v1", response["schema_version"])
+        self.assertFalse(response["daemon_started"])
+        self.assertTrue(response["gates"]["callback_loop_wired"])
+        self.assertTrue(response["gates"]["production_sdk_loop_wired"])
+        self.assertEqual("http://atlas.test/ai/voice/runtime/product-loop-check", get_transport.calls[0][0])
+        self.assertEqual(1, get_transport.calls[0][1]["callback_loop_wired"])
+        self.assertEqual(1, get_transport.calls[0][1]["production_sdk_loop_wired"])
+        self.assertEqual([], post_transport.calls)
+
+    def test_token_issuer_plan_uses_kernel_endpoint_without_secret_or_write(self) -> None:
+        post_transport = RecordingTransport()
+        get_transport = RecordingGetTransport()
+        response = self.client(post_transport, get_transport).token_issuer_plan()
+
+        self.assertEqual("atlas.voice_realtime.livekit_token_issuer_config_plan.v1", response["schema_version"])
+        self.assertFalse(response["security_contract"]["secrets_exposed"])
+        self.assertFalse(response["security_contract"]["writes_env_file"])
+        self.assertFalse(response["security_contract"]["starts_daemon"])
+        self.assertEqual("http://atlas.test/ai/voice/runtime/token-issuer-plan", get_transport.calls[0][0])
+        self.assertEqual("livekit_agents_sdk", get_transport.calls[0][1]["runtime"])
+        self.assertEqual([], post_transport.calls)
+
+    def test_token_issuer_smoke_uses_kernel_endpoint_without_token_leak(self) -> None:
+        post_transport = RecordingTransport()
+        get_transport = RecordingGetTransport()
+        response = self.client(post_transport, get_transport).token_issuer_smoke(ephemeral_test_config=True)
+
+        self.assertEqual("atlas.voice_realtime.livekit_token_issuer_smoke.v1", response["schema_version"])
+        self.assertFalse(response["access_token_exposed"])
+        self.assertFalse(response["security_contract"]["starts_daemon"])
+        self.assertEqual("http://atlas.test/ai/voice/runtime/token-issuer-smoke", get_transport.calls[0][0])
+        self.assertEqual("livekit_agents_sdk", get_transport.calls[0][1]["runtime"])
+        self.assertEqual(1, get_transport.calls[0][1]["ephemeral_test_config"])
         self.assertEqual([], post_transport.calls)
 
     def test_normalize_runtime_event_uses_kernel_normalizer_without_execution(self) -> None:

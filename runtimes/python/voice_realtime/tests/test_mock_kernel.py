@@ -55,6 +55,45 @@ class MockKernelTransportTest(unittest.TestCase):
         self.assertTrue(receipt["receipt_id"].startswith("mock_receipt_"))
         self.assertFalse(response["turn"]["provider_execution_enabled"])
 
+    def test_product_loop_check_reflects_wiring_flags_without_starting_daemon(self) -> None:
+        transport = MockKernelTransport()
+
+        unwired = transport.get_json("http://atlas.test/ai/voice/runtime/product-loop-check", {
+            "runtime": "livekit_agents_sdk",
+        })
+        wired = transport.get_json("http://atlas.test/ai/voice/runtime/product-loop-check", {
+            "runtime": "livekit_agents_sdk",
+            "callback_loop_wired": 1,
+            "production_sdk_loop_wired": 1,
+        })
+
+        self.assertFalse(unwired["gates"]["callback_loop_wired"])
+        self.assertFalse(unwired["gates"]["production_sdk_loop_wired"])
+        self.assertTrue(wired["gates"]["callback_loop_wired"])
+        self.assertTrue(wired["gates"]["production_sdk_loop_wired"])
+        self.assertFalse(wired["daemon_started"])
+
+    def test_promotion_review_packet_hash_is_bound_to_wiring_flags(self) -> None:
+        transport = MockKernelTransport()
+
+        unwired = transport.get_json("http://atlas.test/ai/voice/runtime/promotion-review-packet", {
+            "runtime": "livekit_agents_sdk",
+            "hours": 24,
+        })
+        wired = transport.get_json("http://atlas.test/ai/voice/runtime/promotion-review-packet", {
+            "runtime": "livekit_agents_sdk",
+            "hours": 24,
+            "callback_loop_wired": 1,
+            "production_sdk_loop_wired": 1,
+        })
+
+        self.assertFalse(unwired["callback_loop_wired"])
+        self.assertFalse(unwired["production_sdk_loop_wired"])
+        self.assertTrue(wired["callback_loop_wired"])
+        self.assertTrue(wired["production_sdk_loop_wired"])
+        self.assertNotEqual(unwired["bundle_hash"], wired["bundle_hash"])
+        self.assertFalse(wired["daemon_started"])
+
 
 if __name__ == "__main__":
     unittest.main()

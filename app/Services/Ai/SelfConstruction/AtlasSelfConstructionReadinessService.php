@@ -1427,6 +1427,56 @@ final class AtlasSelfConstructionReadinessService
             ['option' => '--codex-review-post-signature-runbook --json', 'schema' => 'atlas.self_construction_codex_review_post_signature_runbook.v1', 'proves' => 'post-signature review steps are defined without assuming signature or enabling merge'],
             ['option' => '--codex-review-merge-action-template --json', 'schema' => 'atlas.self_construction_codex_review_merge_action_template.v1', 'proves' => 'explicit merge action fields are templated without validating signature, granting approval or merging'],
             ['option' => '--codex-review-merge-preflight --json', 'schema' => 'atlas.self_construction_codex_review_merge_preflight.v1', 'proves' => 'review chain readiness is aggregated before any future explicit merge action without granting merge authority'],
+            ['option' => '--codex-review-merge-action-draft --json', 'schema' => 'atlas.self_construction_codex_review_merge_action_draft.v1', 'proves' => 'a future explicit merge action is drafted from preflight without executing, approving or validating signature'],
+            ['option' => '--codex-review-merge-receipt-draft --json', 'schema' => 'atlas.self_construction_codex_review_merge_receipt_draft.v1', 'proves' => 'future merge action receipt is drafted and hash-bound while unsigned and non-authorizing'],
+            ['option' => '--codex-review-merge-signature-request --json', 'schema' => 'atlas.self_construction_codex_review_merge_signature_request.v1', 'proves' => 'merge receipt signable payload is prepared without presenting, accepting or validating a signature'],
+            ['option' => '--codex-review-merge-post-signature-runbook --json', 'schema' => 'atlas.self_construction_codex_review_merge_post_signature_runbook.v1', 'proves' => 'post-signature merge steps are sequenced without validating signature, approving or merging'],
+            ['option' => '--codex-review-merge-execution-checklist --json', 'schema' => 'atlas.self_construction_codex_review_merge_execution_checklist.v1', 'proves' => 'future merge execution prerequisites are checklist-bound without executing or authorizing merge'],
+            ['option' => '--codex-review-merge-authorization-template --json', 'schema' => 'atlas.self_construction_codex_review_merge_authorization_template.v1', 'proves' => 'future merge authorization fields are templated without accepting signature, recording approval or merging'],
+            ['option' => '--codex-review-merge-authorization-receipt-draft --json', 'schema' => 'atlas.self_construction_codex_review_merge_authorization_receipt_draft.v1', 'proves' => 'future merge authorization receipt is hash-bound while unsigned and non-authorizing'],
+            ['option' => '--codex-review-merge-authorization-signature-request --json', 'schema' => 'atlas.self_construction_codex_review_merge_authorization_signature_request.v1', 'proves' => 'future merge authorization receipt signable payload is prepared without accepting or validating a signature'],
+            ['option' => '--codex-review-merge-authorization-post-signature-runbook --json', 'schema' => 'atlas.self_construction_codex_review_merge_authorization_post_signature_runbook.v1', 'proves' => 'post-signature authorization steps are sequenced without validating signature, approving or merging'],
+            ['option' => '--codex-review-merge-final-authorization-preflight --json', 'schema' => 'atlas.self_construction_codex_review_merge_final_authorization_preflight.v1', 'proves' => 'final authorization prerequisites are hash-bound before any future merge executor without granting approval or merge authority'],
+            ['option' => '--codex-review-merge-authorizing-action-template --json', 'schema' => 'atlas.self_construction_codex_review_merge_authorizing_action_template.v1', 'proves' => 'future authorizing merge action inputs are templated without accepting evidence, recording approval or merging'],
+            ['option' => '--codex-review-merge-final-receipt-draft --json', 'schema' => 'atlas.self_construction_codex_review_merge_final_receipt_draft.v1', 'proves' => 'final merge receipt fields are drafted and hash-bound without recording authorization or executing merge'],
+            ['option' => '--codex-review-merge-final-signature-request --json', 'schema' => 'atlas.self_construction_codex_review_merge_final_signature_request.v1', 'proves' => 'final merge receipt signable payload is prepared without accepting or validating a signature'],
+            ['option' => '--codex-review-merge-final-post-signature-runbook --json', 'schema' => 'atlas.self_construction_codex_review_merge_final_post_signature_runbook.v1', 'proves' => 'final post-signature receipt steps are sequenced without validating signature, signing receipt or executing merge'],
+            ['option' => '--codex-review-merge-signed-final-receipt-template --json', 'schema' => 'atlas.self_construction_codex_review_merge_signed_final_receipt_template.v1', 'proves' => 'signed final merge receipt fields are templated without accepting signature, persisting receipt or executing merge'],
+            ['option' => '--codex-review-merge-signed-final-receipt-preflight --json', 'schema' => 'atlas.self_construction_codex_review_merge_signed_final_receipt_preflight.v1', 'proves' => 'signed final merge receipt preconditions are checked without accepting signature, persisting receipt or releasing executor'],
+            ['option' => '--codex-review-merge-signed-final-receipt-persistence-template --json', 'schema' => 'atlas.self_construction_codex_review_merge_signed_final_receipt_persistence_template.v1', 'proves' => 'signed final merge receipt persistence fields are templated without accepting signature, persisting receipt or releasing executor'],
+            ['option' => '--codex-review-merge-executor-release-preflight --json', 'schema' => 'atlas.self_construction_codex_review_merge_executor_release_preflight.v1', 'proves' => 'future merge executor release prerequisites are checked without accepting persisted receipt evidence, releasing executor or merging'],
+            ['option' => '--codex-review-merge-executor-contract-template --json', 'schema' => 'atlas.self_construction_codex_review_merge_executor_contract_template.v1', 'proves' => 'future merge executor contract is templated without executing patches, approving code or merging'],
+            ['option' => '--codex-review-merge-execution-receipt-template --json', 'schema' => 'atlas.self_construction_codex_review_merge_execution_receipt_template.v1', 'proves' => 'future merge execution receipt is templated without executing patches, recording execution or merging'],
+            ['option' => '--codex-review-merge-post-execution-preflight --json', 'schema' => 'atlas.self_construction_codex_review_merge_post_execution_preflight.v1', 'proves' => 'future post-execution merge prerequisites are checked without accepting execution receipt evidence, approving or merging'],
+            ['option' => '--codex-review-merge-post-execution-action-template --json', 'schema' => 'atlas.self_construction_codex_review_merge_post_execution_action_template.v1', 'proves' => 'future post-execution merge action is templated without approving, merging or dispatching work'],
+            ['option' => '--codex-review-merge-post-execution-action-receipt-draft --json', 'schema' => 'atlas.self_construction_codex_review_merge_post_execution_action_receipt_draft.v1', 'proves' => 'future post-execution merge action receipt is drafted while unsigned and non-authorizing'],
+            ['option' => '--codex-review-merge-post-execution-action-signature-request --json', 'schema' => 'atlas.self_construction_codex_review_merge_post_execution_action_signature_request.v1', 'proves' => 'future post-execution merge action receipt signature is requested without accepting, validating or authorizing it'],
+            ['option' => '--codex-review-merge-post-execution-action-post-signature-runbook --json', 'schema' => 'atlas.self_construction_codex_review_merge_post_execution_action_post_signature_runbook.v1', 'proves' => 'future post-signature action steps are sequenced without accepting evidence, validating signature, persisting receipt or merging'],
+            ['option' => '--codex-review-merge-post-execution-action-signed-receipt-template --json', 'schema' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_template.v1', 'proves' => 'future signed post-execution action receipt fields are templated without accepting signature, persisting receipt or merging'],
+            ['option' => '--codex-review-merge-post-execution-action-signed-receipt-preflight --json', 'schema' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_preflight.v1', 'proves' => 'future signed post-execution action receipt persistence preconditions are checked without accepting evidence, persisting receipt or merging'],
+            ['option' => '--codex-review-merge-post-execution-action-signed-receipt-persistence-template --json', 'schema' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_template.v1', 'proves' => 'future signed post-execution action receipt persistence event is templated without writing ledger, persisting receipt or merging'],
+            ['option' => '--codex-review-merge-post-execution-action-signed-receipt-persistence-receipt-draft --json', 'schema' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_receipt_draft.v1', 'proves' => 'future signed post-execution action receipt persistence receipt is drafted without writing ledger, persisting receipt or merging'],
+            ['option' => '--codex-review-merge-post-execution-action-signed-receipt-persistence-preflight --json', 'schema' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_preflight.v1', 'proves' => 'future signed post-execution action receipt persistence blockers are checked without writing ledger, persisting receipt or merging'],
+            ['option' => '--codex-review-merge-post-execution-action-signed-receipt-persistence-post-preflight-runbook --json', 'schema' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_post_preflight_runbook.v1', 'proves' => 'future signed post-execution action receipt persistence steps are sequenced without writing ledger, persisting receipt or merging'],
+            ['option' => '--codex-review-merge-post-execution-action-signed-receipt-persistence-append-only-event-payload-template --json', 'schema' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_append_only_event_payload_template.v1', 'proves' => 'future signed post-execution action receipt persistence append-only event payload is templated without writing ledger, persisting receipt or merging'],
+            ['option' => '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-preflight --json', 'schema' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_preflight.v1', 'proves' => 'future signed post-execution action receipt persistence writer blockers are checked without writing ledger, persisting receipt or merging'],
+            ['option' => '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-contract-template --json', 'schema' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_contract_template.v1', 'proves' => 'future signed post-execution action receipt persistence writer contract is templated without implementing writer, writing ledger, persisting receipt or merging'],
+            ['option' => '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-implementation-preflight --json', 'schema' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_implementation_preflight.v1', 'proves' => 'future signed post-execution action receipt persistence writer implementation blockers are checked without creating writer, writing ledger, persisting receipt or merging'],
+            ['option' => '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-authorization-template --json', 'schema' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_template.v1', 'proves' => 'future signed post-execution action receipt persistence writer release authorization is templated without authorizing writer creation, writing ledger, persisting receipt or merging'],
+            ['option' => '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-authorization-preflight --json', 'schema' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_preflight.v1', 'proves' => 'future signed post-execution action receipt persistence writer release authorization blockers are checked without authorizing writer creation, writing ledger, persisting receipt or merging'],
+            ['option' => '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-authorization-receipt-draft --json', 'schema' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_receipt_draft.v1', 'proves' => 'future signed post-execution action receipt persistence writer release authorization receipt is drafted without signing, authorizing writer creation, writing ledger, persisting receipt or merging'],
+            ['option' => '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-authorization-signature-request --json', 'schema' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_signature_request.v1', 'proves' => 'future signed post-execution action receipt persistence writer release authorization signature request is drafted without accepting signature, authorizing writer creation, writing ledger, persisting receipt or merging'],
+            ['option' => '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-authorization-post-signature-runbook --json', 'schema' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_post_signature_runbook.v1', 'proves' => 'future signed post-execution action receipt persistence writer release authorization post-signature steps are sequenced without accepting signature, authorizing writer creation, writing ledger, persisting receipt or merging'],
+            ['option' => '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-authorization-signed-receipt-template --json', 'schema' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_signed_receipt_template.v1', 'proves' => 'future signed post-execution action receipt persistence writer release authorization signed receipt is templated without accepting signature, authorizing writer creation, writing ledger, persisting receipt or merging'],
+            ['option' => '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-preflight --json', 'schema' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_preflight.v1', 'proves' => 'future signed post-execution action receipt persistence writer release blockers are checked without creating writer, writing ledger, persisting receipt, approving, merging or dispatching'],
+            ['option' => '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-receipt-draft --json', 'schema' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_receipt_draft.v1', 'proves' => 'future signed post-execution action receipt persistence writer release receipt is drafted without signing, creating writer, writing ledger, persisting receipt, approving, merging or dispatching'],
+            ['option' => '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-signature-request --json', 'schema' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_signature_request.v1', 'proves' => 'future signed post-execution action receipt persistence writer release signature request is drafted without accepting signature, creating writer, writing ledger, persisting receipt, approving, merging or dispatching'],
+            ['option' => '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-post-signature-runbook --json', 'schema' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_post_signature_runbook.v1', 'proves' => 'future signed post-execution action receipt persistence writer release post-signature steps are sequenced without accepting signature, creating writer, writing ledger, persisting receipt, approving, merging or dispatching'],
+            ['option' => '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-signed-receipt-template --json', 'schema' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_signed_receipt_template.v1', 'proves' => 'future signed post-execution action receipt persistence writer release signed receipt is templated without accepting signature, creating writer, writing ledger, persisting receipt, approving, merging or dispatching'],
+            ['option' => '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-execution-contract-preflight --json', 'schema' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_execution_contract_preflight.v1', 'proves' => 'future signed post-execution action receipt persistence writer release execution contract blockers are checked without creating writer, writing ledger, persisting receipt, approving, merging or dispatching'],
+            ['option' => '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-execution-contract-template --json', 'schema' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_execution_contract_template.v1', 'proves' => 'future signed post-execution action receipt persistence writer release execution contract is templated without creating writer, writing ledger, persisting receipt, approving, merging or dispatching'],
+            ['option' => '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-disable-contract-template --json', 'schema' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_disable_contract_template.v1', 'proves' => 'future signed post-execution action receipt persistence writer release disable contract is templated without creating writer, writing ledger, persisting receipt, approving, merging or dispatching'],
+            ['option' => '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-observability-contract-template --json', 'schema' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_observability_contract_template.v1', 'proves' => 'future signed post-execution action receipt persistence writer release observability contract is templated without creating writer, writing ledger, persisting receipt, approving, merging or dispatching'],
             ['option' => '--codex-start-packet --json', 'schema' => 'atlas.self_construction_codex_start_packet.v1', 'proves' => 'one Codex session can claim, bootstrap, validate and receive a final response contract from one command'],
             ['option' => '--claim-next-packet --json', 'schema' => 'atlas.self_construction_claim_next_packet.v1', 'proves' => 'one Codex session can durably claim the next available packet and receive scoped bootstrap'],
             ['option' => '--claim-packet --packet=AIP-SPLIT-... --json', 'schema' => 'atlas.self_construction_claim_packet.v1', 'proves' => 'one explicit packet can be durably claimed without dispatch or execution authority'],
@@ -3638,12 +3688,14 @@ final class AtlasSelfConstructionReadinessService
             ],
             [
                 'id' => 'integration_report_ready',
-                'status' => data_get($integrationReport, 'status') === 'ready_for_human_integration' ? 'pass' : 'fail',
+                'status' => data_get($integrationReport, 'status') === 'codex_integration_report_ready'
+                    && data_get($integrationReport, 'report.integration_status') === 'ready_for_human_integration_review' ? 'pass' : 'fail',
                 'evidence_hash' => data_get($integrationReport, 'report_hash'),
             ],
             [
                 'id' => 'merge_readiness_ready_for_review',
-                'status' => data_get($mergeReadiness, 'status') === 'ready_for_merge_review' ? 'pass' : 'fail',
+                'status' => data_get($mergeReadiness, 'status') === 'ready_for_human_merge_review'
+                    && data_get($mergeReadiness, 'readiness.merge_review_status') === 'ready_for_human_merge_review' ? 'pass' : 'fail',
                 'evidence_hash' => data_get($mergeReadiness, 'readiness_hash'),
             ],
             [
@@ -3744,6 +3796,5158 @@ final class AtlasSelfConstructionReadinessService
             'human_summary' => count($failedChecks) === 0
                 ? 'Codex review merge preflight is ready for a separate explicit governed merge action. It still does not approve or merge.'
                 : 'Codex review merge preflight is blocked until review-chain readiness checks pass.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergeActionDraft(array $options = []): array
+    {
+        $preflightPayload = $this->codexReviewMergePreflight($options);
+        $preflight = (array) data_get($preflightPayload, 'preflight', []);
+        $preflightReady = data_get($preflightPayload, 'status') === 'merge_preflight_ready';
+
+        $draft = [
+            'draft_id' => 'CODEX-REVIEW-MERGE-ACTION-DRAFT-SELF-CONSTRUCTION-0001',
+            'status' => $preflightReady ? 'waiting_for_external_signature_and_human_confirmation' : 'blocked_before_merge_preflight',
+            'source_preflight_hash' => data_get($preflightPayload, 'preflight_hash'),
+            'source_hashes' => (array) data_get($preflight, 'source_hashes', []),
+            'default_decision' => 'request_changes',
+            'allowed_decisions' => [
+                'merge',
+                'request_changes',
+                'abort',
+            ],
+            'required_external_evidence_before_merge' => (array) data_get($preflight, 'required_external_evidence_before_merge', []),
+            'required_fields' => [
+                'operator_name',
+                'reviewed_at',
+                'selected_decision',
+                'decision_rationale',
+                'signed_receipt_hash',
+                'signable_payload_hash',
+                'fresh_gate_outputs',
+                'scope_integrity_result',
+                'evidence_integrity_result',
+                'files_to_merge',
+                'human_merge_confirmation',
+                'rollback_plan',
+                'remaining_risks',
+            ],
+            'merge_action_guardrails' => [
+                'selected_decision_must_be_merge',
+                'signature_must_be_validated_by_external_governed_actor',
+                'all_preflight_checks_must_still_pass',
+                'fresh_gates_must_pass_after_signature',
+                'scope_integrity_must_be_clean',
+                'evidence_integrity_must_be_verified',
+                'hot_voice_or_kernel_scope_must_remain_untouched',
+            ],
+            'prepared_command_sequence' => [
+                'rerun_preflight' => 'php artisan atlas:ai:self-construction --codex-review-merge-preflight --json',
+                'rerun_tests' => 'php artisan test tests/Feature/Ai/AtlasAiSelfConstructionCommandTest.php',
+                'docs_health' => 'php artisan atlas:engineering:knowledge docs-health --json',
+                'architecture_validate' => 'php artisan atlas:ai:architecture-validate --json',
+                'diff_check' => 'git diff --check',
+            ],
+            'explicit_non_authority' => [
+                'merge_action_draft_does_not_validate_signature',
+                'merge_action_draft_does_not_record_decision',
+                'merge_action_draft_does_not_grant_approval',
+                'merge_action_draft_does_not_merge',
+                'merge_action_draft_does_not_dispatch_work',
+            ],
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_action_draft.v1',
+            'status' => $preflightReady ? 'merge_action_draft_ready' : 'merge_action_draft_blocked',
+            'mode' => 'read_only_codex_review_merge_action_draft',
+            'execution_allowed' => false,
+            'completion_allowed' => false,
+            'claim_persisted' => false,
+            'completion_persisted' => false,
+            'ledger_write_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'draft' => $draft,
+            'draft_hash' => $this->stableHash($draft),
+            'non_execution_guarantees' => [
+                'codex_review_merge_action_draft_does_not_claim_packets',
+                'codex_review_merge_action_draft_does_not_complete_packets',
+                'codex_review_merge_action_draft_does_not_validate_signature',
+                'codex_review_merge_action_draft_does_not_record_decision',
+                'codex_review_merge_action_draft_does_not_approve_code',
+                'codex_review_merge_action_draft_does_not_merge',
+                'codex_review_merge_action_draft_does_not_dispatch_work',
+            ],
+            'human_summary' => $preflightReady
+                ? 'Codex review merge action draft is ready as a non-executing governed form. It still requires external signature validation and human confirmation.'
+                : 'Codex review merge action draft is blocked until merge preflight is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergeReceiptDraft(array $options = []): array
+    {
+        $draftPayload = $this->codexReviewMergeActionDraft($options);
+        $draft = (array) data_get($draftPayload, 'draft', []);
+        $draftReady = data_get($draftPayload, 'status') === 'merge_action_draft_ready';
+
+        $receipt = [
+            'receipt_id' => 'CODEX-REVIEW-MERGE-RECEIPT-DRAFT-SELF-CONSTRUCTION-0001',
+            'status' => $draftReady ? 'unsigned_receipt_ready' : 'blocked_before_merge_action_draft',
+            'source_merge_action_draft_hash' => data_get($draftPayload, 'draft_hash'),
+            'source_preflight_hash' => data_get($draft, 'source_preflight_hash'),
+            'source_hashes' => (array) data_get($draft, 'source_hashes', []),
+            'signature_required' => true,
+            'signature_present' => false,
+            'signature_valid' => false,
+            'decision_recorded' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'default_decision' => 'request_changes',
+            'allowed_decisions' => (array) data_get($draft, 'allowed_decisions', []),
+            'required_signer_roles' => [
+                'principal_integrator',
+                'repository_owner_or_governed_delegate',
+            ],
+            'required_receipt_inputs' => [
+                ...((array) data_get($draft, 'required_fields', [])),
+                'merge_action_draft_hash',
+                'receipt_signed_at',
+                'receipt_signature',
+            ],
+            'approval_preconditions' => [
+                ...((array) data_get($draft, 'required_external_evidence_before_merge', [])),
+                ...((array) data_get($draft, 'merge_action_guardrails', [])),
+            ],
+            'verification_commands' => (array) data_get($draft, 'prepared_command_sequence', []),
+            'non_authorizing_invariants' => [
+                'merge_receipt_draft_is_unsigned',
+                'merge_receipt_draft_does_not_validate_signature',
+                'merge_receipt_draft_does_not_record_decision',
+                'merge_receipt_draft_does_not_grant_approval',
+                'merge_receipt_draft_does_not_merge',
+                'merge_receipt_draft_does_not_dispatch_work',
+            ],
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_receipt_draft.v1',
+            'status' => $draftReady ? 'merge_receipt_draft_ready' : 'merge_receipt_draft_blocked',
+            'mode' => 'read_only_codex_review_merge_receipt_draft',
+            'execution_allowed' => false,
+            'completion_allowed' => false,
+            'claim_persisted' => false,
+            'completion_persisted' => false,
+            'ledger_write_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'receipt' => $receipt,
+            'receipt_hash' => $this->stableHash($receipt),
+            'non_execution_guarantees' => [
+                'codex_review_merge_receipt_draft_does_not_claim_packets',
+                'codex_review_merge_receipt_draft_does_not_complete_packets',
+                'codex_review_merge_receipt_draft_does_not_validate_signature',
+                'codex_review_merge_receipt_draft_does_not_record_decision',
+                'codex_review_merge_receipt_draft_does_not_approve_code',
+                'codex_review_merge_receipt_draft_does_not_merge',
+                'codex_review_merge_receipt_draft_does_not_dispatch_work',
+            ],
+            'human_summary' => $draftReady
+                ? 'Codex review merge receipt draft is ready as an unsigned non-authorizing receipt. It still requires external signature validation and explicit merge action.'
+                : 'Codex review merge receipt draft is blocked until merge action draft is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergeSignatureRequest(array $options = []): array
+    {
+        $receiptPayload = $this->codexReviewMergeReceiptDraft($options);
+        $receipt = (array) data_get($receiptPayload, 'receipt', []);
+        $receiptReady = data_get($receiptPayload, 'status') === 'merge_receipt_draft_ready';
+
+        $signablePayload = [
+            'signature_request_id' => 'CODEX-REVIEW-MERGE-SIGNATURE-REQUEST-SELF-CONSTRUCTION-0001',
+            'receipt_id' => data_get($receipt, 'receipt_id'),
+            'receipt_hash' => data_get($receiptPayload, 'receipt_hash'),
+            'source_merge_action_draft_hash' => data_get($receipt, 'source_merge_action_draft_hash'),
+            'source_preflight_hash' => data_get($receipt, 'source_preflight_hash'),
+            'source_hashes' => (array) data_get($receipt, 'source_hashes', []),
+            'requested_signature_type' => 'human_or_governed_merge_receipt_signature',
+            'allowed_decisions' => (array) data_get($receipt, 'allowed_decisions', []),
+            'default_decision' => data_get($receipt, 'default_decision'),
+            'required_signer_roles' => (array) data_get($receipt, 'required_signer_roles', []),
+            'required_receipt_inputs' => (array) data_get($receipt, 'required_receipt_inputs', []),
+            'approval_preconditions' => (array) data_get($receipt, 'approval_preconditions', []),
+            'verification_commands' => (array) data_get($receipt, 'verification_commands', []),
+            'still_forbidden_after_signature_request' => [
+                'signature_validation_by_signature_request',
+                'decision_recording_by_signature_request',
+                'approval_from_signature_request',
+                'merge_from_signature_request',
+                'dispatch_from_signature_request',
+            ],
+        ];
+
+        $signatureRequest = [
+            'request_id' => 'CODEX-REVIEW-MERGE-SIGNATURE-REQUEST-SELF-CONSTRUCTION-0001',
+            'status' => $receiptReady ? 'waiting_for_external_signature' : 'blocked_before_merge_receipt_draft',
+            'source_receipt_hash' => data_get($receiptPayload, 'receipt_hash'),
+            'signable_payload_hash' => $this->stableHash($signablePayload),
+            'signature_required' => true,
+            'signature_present' => false,
+            'signature_valid' => false,
+            'decision_recorded' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_signature_request.v1',
+            'status' => $receiptReady ? 'merge_signature_request_pending' : 'merge_signature_request_blocked',
+            'mode' => 'read_only_codex_review_merge_signature_request',
+            'execution_allowed' => false,
+            'completion_allowed' => false,
+            'claim_persisted' => false,
+            'completion_persisted' => false,
+            'ledger_write_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'signature_request' => $signatureRequest,
+            'signable_payload' => $signablePayload,
+            'signable_payload_hash' => $this->stableHash($signablePayload),
+            'request_hash' => $this->stableHash($signatureRequest),
+            'non_execution_guarantees' => [
+                'codex_review_merge_signature_request_does_not_claim_packets',
+                'codex_review_merge_signature_request_does_not_complete_packets',
+                'codex_review_merge_signature_request_does_not_present_signature',
+                'codex_review_merge_signature_request_does_not_validate_signature',
+                'codex_review_merge_signature_request_does_not_record_decision',
+                'codex_review_merge_signature_request_does_not_approve_code',
+                'codex_review_merge_signature_request_does_not_merge',
+                'codex_review_merge_signature_request_does_not_dispatch_work',
+            ],
+            'human_summary' => $receiptReady
+                ? 'Codex review merge signature request is pending as a signable payload. It does not present, validate, approve or merge.'
+                : 'Codex review merge signature request is blocked until merge receipt draft is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergePostSignatureRunbook(array $options = []): array
+    {
+        $signaturePayload = $this->codexReviewMergeSignatureRequest($options);
+        $runbookReady = data_get($signaturePayload, 'status') === 'merge_signature_request_pending';
+
+        $runbook = [
+            'runbook_id' => 'CODEX-REVIEW-MERGE-POST-SIGNATURE-RUNBOOK-SELF-CONSTRUCTION-0001',
+            'status' => $runbookReady ? 'waiting_for_external_valid_signature_evidence' : 'blocked_before_merge_signature_request',
+            'source_signature_request_hash' => data_get($signaturePayload, 'request_hash'),
+            'source_signable_payload_hash' => data_get($signaturePayload, 'signable_payload_hash'),
+            'signature_required' => true,
+            'signature_present' => false,
+            'signature_valid' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'required_external_inputs' => [
+                'external_signature_value',
+                'external_signature_validator_identity',
+                'external_signature_validation_timestamp',
+                'validated_signable_payload_hash',
+                'validated_receipt_hash',
+                'selected_decision',
+                'decision_rationale',
+                'fresh_test_output',
+                'fresh_docs_health_output',
+                'fresh_architecture_validate_output',
+                'fresh_diff_check_output',
+                'scope_integrity_statement',
+                'evidence_integrity_statement',
+                'rollback_plan',
+                'remaining_risks',
+            ],
+            'ordered_steps_after_external_signature' => [
+                'verify_external_signature_was_validated_outside_this_command',
+                'confirm_validated_signable_payload_hash_matches_source',
+                'confirm_validated_receipt_hash_matches_source_receipt',
+                'rerun_merge_preflight',
+                'rerun_fresh_tests_and_quality_gates',
+                'verify_scope_integrity_and_hot_scope_exclusions',
+                'verify_evidence_integrity_and_completed_packet_hashes',
+                'prepare_explicit_merge_action_with_human_confirmation',
+                'record_merge_receipt_only_in_the_future_authorizing_surface',
+            ],
+            'blocking_conditions' => [
+                'missing_external_signature',
+                'signature_not_validated_by_governed_actor',
+                'signable_payload_hash_mismatch',
+                'receipt_hash_mismatch',
+                'selected_decision_is_not_merge',
+                'fresh_gate_failure',
+                'scope_integrity_failure',
+                'evidence_integrity_failure',
+                'hot_voice_or_kernel_scope_touched',
+                'missing_human_merge_confirmation',
+            ],
+            'verification_commands' => [
+                'merge_signature_request' => 'php artisan atlas:ai:self-construction --codex-review-merge-signature-request --json',
+                'merge_preflight' => 'php artisan atlas:ai:self-construction --codex-review-merge-preflight --json',
+                'focused_tests' => 'php artisan test tests/Feature/Ai/AtlasAiSelfConstructionCommandTest.php',
+                'docs_health' => 'php artisan atlas:engineering:knowledge docs-health --json',
+                'architecture_validate' => 'php artisan atlas:ai:architecture-validate --json',
+                'diff_check' => 'git diff --check',
+            ],
+            'still_forbidden_after_runbook' => [
+                'signature_validation_by_runbook',
+                'approval_from_runbook',
+                'decision_recording_by_runbook',
+                'merge_from_runbook',
+                'dispatch_from_runbook',
+            ],
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_post_signature_runbook.v1',
+            'status' => $runbookReady ? 'merge_post_signature_runbook_ready' : 'merge_post_signature_runbook_blocked',
+            'mode' => 'read_only_codex_review_merge_post_signature_runbook',
+            'execution_allowed' => false,
+            'completion_allowed' => false,
+            'claim_persisted' => false,
+            'completion_persisted' => false,
+            'ledger_write_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'runbook' => $runbook,
+            'runbook_hash' => $this->stableHash($runbook),
+            'non_execution_guarantees' => [
+                'codex_review_merge_post_signature_runbook_does_not_claim_packets',
+                'codex_review_merge_post_signature_runbook_does_not_complete_packets',
+                'codex_review_merge_post_signature_runbook_does_not_present_signature',
+                'codex_review_merge_post_signature_runbook_does_not_validate_signature',
+                'codex_review_merge_post_signature_runbook_does_not_record_decision',
+                'codex_review_merge_post_signature_runbook_does_not_approve_code',
+                'codex_review_merge_post_signature_runbook_does_not_merge',
+                'codex_review_merge_post_signature_runbook_does_not_dispatch_work',
+            ],
+            'human_summary' => $runbookReady
+                ? 'Codex review merge post-signature runbook is ready as a non-executing checklist. It still requires external signature evidence and explicit merge action.'
+                : 'Codex review merge post-signature runbook is blocked until merge signature request is pending.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergeExecutionChecklist(array $options = []): array
+    {
+        $runbookPayload = $this->codexReviewMergePostSignatureRunbook($options);
+        $runbook = (array) data_get($runbookPayload, 'runbook', []);
+        $checklistReady = data_get($runbookPayload, 'status') === 'merge_post_signature_runbook_ready';
+
+        $checklist = [
+            'checklist_id' => 'CODEX-REVIEW-MERGE-EXECUTION-CHECKLIST-SELF-CONSTRUCTION-0001',
+            'status' => $checklistReady ? 'ready_for_future_authorizing_surface' : 'blocked_before_post_signature_runbook',
+            'source_post_signature_runbook_hash' => data_get($runbookPayload, 'runbook_hash'),
+            'source_signature_request_hash' => data_get($runbook, 'source_signature_request_hash'),
+            'source_signable_payload_hash' => data_get($runbook, 'source_signable_payload_hash'),
+            'external_authorization_required' => true,
+            'signature_valid' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'required_authorizing_surface_inputs' => [
+                ...((array) data_get($runbook, 'required_external_inputs', [])),
+                'explicit_merge_authorization_receipt_id',
+                'repository_state_before_merge',
+                'files_changed_summary',
+                'human_final_confirmation',
+                'post_merge_verification_plan',
+            ],
+            'required_pre_execution_checks' => [
+                'all_five_packets_completed',
+                'no_active_packet_claims',
+                'external_signature_validated_outside_checklist',
+                'selected_decision_is_merge',
+                'fresh_gate_outputs_pass',
+                'scope_integrity_passes',
+                'evidence_integrity_passes',
+                'hot_voice_or_kernel_scope_not_touched',
+                'rollback_plan_present',
+                'human_final_confirmation_present',
+            ],
+            'future_authorizing_surface_must_record' => [
+                'validated_signature_reference',
+                'selected_decision',
+                'decision_rationale',
+                'gate_output_hashes',
+                'scope_integrity_hash',
+                'evidence_integrity_hash',
+                'merge_operator',
+                'merge_timestamp',
+                'rollback_plan_hash',
+                'post_merge_verification_hash',
+            ],
+            'forbidden_until_future_authorizing_surface' => [
+                'merge_execution',
+                'decision_recording',
+                'approval_recording',
+                'signature_validation',
+                'ledger_mutation',
+                'packet_dispatch',
+            ],
+            'verification_commands' => [
+                'post_signature_runbook' => 'php artisan atlas:ai:self-construction --codex-review-merge-post-signature-runbook --json',
+                'merge_preflight' => 'php artisan atlas:ai:self-construction --codex-review-merge-preflight --json',
+                'reservation_status' => 'php artisan atlas:ai:self-construction --reservation-status --json',
+                'focused_tests' => 'php artisan test tests/Feature/Ai/AtlasAiSelfConstructionCommandTest.php',
+                'docs_health' => 'php artisan atlas:engineering:knowledge docs-health --json',
+                'architecture_validate' => 'php artisan atlas:ai:architecture-validate --json',
+                'diff_check' => 'git diff --check',
+            ],
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_execution_checklist.v1',
+            'status' => $checklistReady ? 'merge_execution_checklist_ready' : 'merge_execution_checklist_blocked',
+            'mode' => 'read_only_codex_review_merge_execution_checklist',
+            'execution_allowed' => false,
+            'completion_allowed' => false,
+            'claim_persisted' => false,
+            'completion_persisted' => false,
+            'ledger_write_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'checklist' => $checklist,
+            'checklist_hash' => $this->stableHash($checklist),
+            'non_execution_guarantees' => [
+                'codex_review_merge_execution_checklist_does_not_claim_packets',
+                'codex_review_merge_execution_checklist_does_not_complete_packets',
+                'codex_review_merge_execution_checklist_does_not_validate_signature',
+                'codex_review_merge_execution_checklist_does_not_record_decision',
+                'codex_review_merge_execution_checklist_does_not_approve_code',
+                'codex_review_merge_execution_checklist_does_not_merge',
+                'codex_review_merge_execution_checklist_does_not_dispatch_work',
+            ],
+            'human_summary' => $checklistReady
+                ? 'Codex review merge execution checklist is ready for a future authorizing surface. It still does not validate, approve or merge.'
+                : 'Codex review merge execution checklist is blocked until the post-signature runbook is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergeAuthorizationTemplate(array $options = []): array
+    {
+        $checklistPayload = $this->codexReviewMergeExecutionChecklist($options);
+        $checklist = (array) data_get($checklistPayload, 'checklist', []);
+        $templateReady = data_get($checklistPayload, 'status') === 'merge_execution_checklist_ready';
+
+        $template = [
+            'template_id' => 'CODEX-REVIEW-MERGE-AUTHORIZATION-TEMPLATE-SELF-CONSTRUCTION-0001',
+            'status' => $templateReady ? 'ready_for_external_authorization_values' : 'blocked_before_execution_checklist',
+            'source_execution_checklist_hash' => data_get($checklistPayload, 'checklist_hash'),
+            'source_post_signature_runbook_hash' => data_get($checklist, 'source_post_signature_runbook_hash'),
+            'source_signature_request_hash' => data_get($checklist, 'source_signature_request_hash'),
+            'source_signable_payload_hash' => data_get($checklist, 'source_signable_payload_hash'),
+            'default_decision' => 'request_changes',
+            'allowed_decisions' => [
+                'merge',
+                'request_changes',
+                'abort',
+            ],
+            'required_authorization_fields' => [
+                ...((array) data_get($checklist, 'required_authorizing_surface_inputs', [])),
+                ...((array) data_get($checklist, 'future_authorizing_surface_must_record', [])),
+                'authorization_decision',
+                'authorization_rationale',
+                'authorization_signed_at',
+                'authorization_signature_reference',
+            ],
+            'required_preconditions' => (array) data_get($checklist, 'required_pre_execution_checks', []),
+            'must_record' => (array) data_get($checklist, 'future_authorizing_surface_must_record', []),
+            'rejection_defaults' => [
+                'missing_signature_evidence' => 'request_changes',
+                'hash_mismatch' => 'abort',
+                'fresh_gate_failure' => 'request_changes',
+                'scope_or_evidence_integrity_failure' => 'abort',
+                'hot_scope_touched' => 'abort',
+                'missing_human_confirmation' => 'request_changes',
+            ],
+            'future_authorizing_surface_contract' => [
+                'may_validate_external_signature' => true,
+                'may_record_decision' => true,
+                'may_grant_merge_approval' => true,
+                'may_merge_after_all_preconditions_pass' => true,
+                'must_be_a_different_surface' => true,
+            ],
+            'still_forbidden_here' => [
+                'signature_acceptance_by_template',
+                'signature_validation_by_template',
+                'decision_recording_by_template',
+                'approval_from_template',
+                'merge_from_template',
+                'dispatch_from_template',
+            ],
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_authorization_template.v1',
+            'status' => $templateReady ? 'merge_authorization_template_ready' : 'merge_authorization_template_blocked',
+            'mode' => 'read_only_codex_review_merge_authorization_template',
+            'execution_allowed' => false,
+            'completion_allowed' => false,
+            'claim_persisted' => false,
+            'completion_persisted' => false,
+            'ledger_write_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'template' => $template,
+            'template_hash' => $this->stableHash($template),
+            'non_execution_guarantees' => [
+                'codex_review_merge_authorization_template_does_not_claim_packets',
+                'codex_review_merge_authorization_template_does_not_complete_packets',
+                'codex_review_merge_authorization_template_does_not_accept_signature',
+                'codex_review_merge_authorization_template_does_not_validate_signature',
+                'codex_review_merge_authorization_template_does_not_record_decision',
+                'codex_review_merge_authorization_template_does_not_approve_code',
+                'codex_review_merge_authorization_template_does_not_merge',
+                'codex_review_merge_authorization_template_does_not_dispatch_work',
+            ],
+            'human_summary' => $templateReady
+                ? 'Codex review merge authorization template is ready for a future external authorizing surface. It still does not accept signatures, approve or merge.'
+                : 'Codex review merge authorization template is blocked until execution checklist is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergeAuthorizationReceiptDraft(array $options = []): array
+    {
+        $templatePayload = $this->codexReviewMergeAuthorizationTemplate($options);
+        $template = (array) data_get($templatePayload, 'template', []);
+        $receiptReady = data_get($templatePayload, 'status') === 'merge_authorization_template_ready';
+
+        $receipt = [
+            'receipt_id' => 'CODEX-REVIEW-MERGE-AUTHORIZATION-RECEIPT-DRAFT-SELF-CONSTRUCTION-0001',
+            'status' => $receiptReady ? 'unsigned_authorization_receipt_ready' : 'blocked_before_authorization_template',
+            'source_authorization_template_hash' => data_get($templatePayload, 'template_hash'),
+            'source_execution_checklist_hash' => data_get($template, 'source_execution_checklist_hash'),
+            'source_post_signature_runbook_hash' => data_get($template, 'source_post_signature_runbook_hash'),
+            'source_signature_request_hash' => data_get($template, 'source_signature_request_hash'),
+            'source_signable_payload_hash' => data_get($template, 'source_signable_payload_hash'),
+            'signature_required' => true,
+            'signature_present' => false,
+            'signature_valid' => false,
+            'decision_recorded' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'default_decision' => data_get($template, 'default_decision'),
+            'allowed_decisions' => (array) data_get($template, 'allowed_decisions', []),
+            'required_authorization_fields' => (array) data_get($template, 'required_authorization_fields', []),
+            'required_preconditions' => (array) data_get($template, 'required_preconditions', []),
+            'required_receipt_signers' => [
+                'principal_integrator',
+                'repository_owner_or_governed_delegate',
+            ],
+            'must_record' => [
+                ...((array) data_get($template, 'must_record', [])),
+                'authorization_template_hash',
+                'authorization_receipt_signed_at',
+                'authorization_receipt_signature',
+            ],
+            'rejection_defaults' => (array) data_get($template, 'rejection_defaults', []),
+            'non_authorizing_invariants' => [
+                'authorization_receipt_draft_is_unsigned',
+                'authorization_receipt_draft_does_not_accept_signature',
+                'authorization_receipt_draft_does_not_validate_signature',
+                'authorization_receipt_draft_does_not_record_decision',
+                'authorization_receipt_draft_does_not_grant_approval',
+                'authorization_receipt_draft_does_not_merge',
+                'authorization_receipt_draft_does_not_dispatch_work',
+            ],
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_authorization_receipt_draft.v1',
+            'status' => $receiptReady ? 'merge_authorization_receipt_draft_ready' : 'merge_authorization_receipt_draft_blocked',
+            'mode' => 'read_only_codex_review_merge_authorization_receipt_draft',
+            'execution_allowed' => false,
+            'completion_allowed' => false,
+            'claim_persisted' => false,
+            'completion_persisted' => false,
+            'ledger_write_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'receipt' => $receipt,
+            'receipt_hash' => $this->stableHash($receipt),
+            'non_execution_guarantees' => [
+                'codex_review_merge_authorization_receipt_draft_does_not_claim_packets',
+                'codex_review_merge_authorization_receipt_draft_does_not_complete_packets',
+                'codex_review_merge_authorization_receipt_draft_does_not_accept_signature',
+                'codex_review_merge_authorization_receipt_draft_does_not_validate_signature',
+                'codex_review_merge_authorization_receipt_draft_does_not_record_decision',
+                'codex_review_merge_authorization_receipt_draft_does_not_approve_code',
+                'codex_review_merge_authorization_receipt_draft_does_not_merge',
+                'codex_review_merge_authorization_receipt_draft_does_not_dispatch_work',
+            ],
+            'human_summary' => $receiptReady
+                ? 'Codex review merge authorization receipt draft is ready as an unsigned non-authorizing receipt. It still does not accept signatures, approve or merge.'
+                : 'Codex review merge authorization receipt draft is blocked until authorization template is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergeAuthorizationSignatureRequest(array $options = []): array
+    {
+        $receiptPayload = $this->codexReviewMergeAuthorizationReceiptDraft($options);
+        $receipt = (array) data_get($receiptPayload, 'receipt', []);
+        $requestReady = data_get($receiptPayload, 'status') === 'merge_authorization_receipt_draft_ready';
+
+        $signablePayload = [
+            'signature_request_id' => 'CODEX-REVIEW-MERGE-AUTHORIZATION-SIGNATURE-REQUEST-SELF-CONSTRUCTION-0001',
+            'receipt_id' => data_get($receipt, 'receipt_id'),
+            'receipt_hash' => data_get($receiptPayload, 'receipt_hash'),
+            'source_authorization_template_hash' => data_get($receipt, 'source_authorization_template_hash'),
+            'source_execution_checklist_hash' => data_get($receipt, 'source_execution_checklist_hash'),
+            'source_post_signature_runbook_hash' => data_get($receipt, 'source_post_signature_runbook_hash'),
+            'source_signature_request_hash' => data_get($receipt, 'source_signature_request_hash'),
+            'source_signable_payload_hash' => data_get($receipt, 'source_signable_payload_hash'),
+            'requested_signature_type' => 'human_or_governed_merge_authorization_receipt_signature',
+            'allowed_decisions' => (array) data_get($receipt, 'allowed_decisions', []),
+            'default_decision' => data_get($receipt, 'default_decision'),
+            'required_authorization_fields' => (array) data_get($receipt, 'required_authorization_fields', []),
+            'required_preconditions' => (array) data_get($receipt, 'required_preconditions', []),
+            'required_receipt_signers' => (array) data_get($receipt, 'required_receipt_signers', []),
+            'must_record' => (array) data_get($receipt, 'must_record', []),
+            'rejection_defaults' => (array) data_get($receipt, 'rejection_defaults', []),
+            'still_forbidden_after_signature_request' => [
+                'signature_acceptance_by_authorization_signature_request',
+                'signature_validation_by_authorization_signature_request',
+                'decision_recording_by_authorization_signature_request',
+                'approval_from_authorization_signature_request',
+                'merge_from_authorization_signature_request',
+                'dispatch_from_authorization_signature_request',
+            ],
+        ];
+
+        $signatureRequest = [
+            'request_id' => 'CODEX-REVIEW-MERGE-AUTHORIZATION-SIGNATURE-REQUEST-SELF-CONSTRUCTION-0001',
+            'status' => $requestReady ? 'waiting_for_external_authorization_signature' : 'blocked_before_authorization_receipt_draft',
+            'source_authorization_receipt_hash' => data_get($receiptPayload, 'receipt_hash'),
+            'signable_payload_hash' => $this->stableHash($signablePayload),
+            'signature_required' => true,
+            'signature_present' => false,
+            'signature_valid' => false,
+            'decision_recorded' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_authorization_signature_request.v1',
+            'status' => $requestReady ? 'merge_authorization_signature_request_pending' : 'merge_authorization_signature_request_blocked',
+            'mode' => 'read_only_codex_review_merge_authorization_signature_request',
+            'execution_allowed' => false,
+            'completion_allowed' => false,
+            'claim_persisted' => false,
+            'completion_persisted' => false,
+            'ledger_write_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'signature_request' => $signatureRequest,
+            'signable_payload' => $signablePayload,
+            'signable_payload_hash' => $this->stableHash($signablePayload),
+            'request_hash' => $this->stableHash($signatureRequest),
+            'non_execution_guarantees' => [
+                'codex_review_merge_authorization_signature_request_does_not_claim_packets',
+                'codex_review_merge_authorization_signature_request_does_not_complete_packets',
+                'codex_review_merge_authorization_signature_request_does_not_accept_signature',
+                'codex_review_merge_authorization_signature_request_does_not_validate_signature',
+                'codex_review_merge_authorization_signature_request_does_not_record_decision',
+                'codex_review_merge_authorization_signature_request_does_not_approve_code',
+                'codex_review_merge_authorization_signature_request_does_not_merge',
+                'codex_review_merge_authorization_signature_request_does_not_dispatch_work',
+            ],
+            'human_summary' => $requestReady
+                ? 'Codex review merge authorization signature request is pending as a signable payload. It still does not accept, validate, approve or merge.'
+                : 'Codex review merge authorization signature request is blocked until authorization receipt draft is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergeAuthorizationPostSignatureRunbook(array $options = []): array
+    {
+        $signaturePayload = $this->codexReviewMergeAuthorizationSignatureRequest($options);
+        $runbookReady = data_get($signaturePayload, 'status') === 'merge_authorization_signature_request_pending';
+
+        $runbook = [
+            'runbook_id' => 'CODEX-REVIEW-MERGE-AUTHORIZATION-POST-SIGNATURE-RUNBOOK-SELF-CONSTRUCTION-0001',
+            'status' => $runbookReady ? 'waiting_for_external_authorization_signature_evidence' : 'blocked_before_authorization_signature_request',
+            'source_authorization_signature_request_hash' => data_get($signaturePayload, 'request_hash'),
+            'source_authorization_signable_payload_hash' => data_get($signaturePayload, 'signable_payload_hash'),
+            'signature_required' => true,
+            'signature_present' => false,
+            'signature_valid' => false,
+            'decision_recorded' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'required_external_inputs' => [
+                'external_authorization_signature_value',
+                'external_authorization_signature_validator_identity',
+                'external_authorization_signature_validation_timestamp',
+                'validated_authorization_signable_payload_hash',
+                'validated_authorization_receipt_hash',
+                'selected_decision',
+                'decision_rationale',
+                'fresh_test_output',
+                'fresh_docs_health_output',
+                'fresh_architecture_validate_output',
+                'fresh_diff_check_output',
+                'scope_integrity_statement',
+                'evidence_integrity_statement',
+                'rollback_plan',
+                'human_final_merge_confirmation',
+            ],
+            'ordered_steps_after_external_authorization_signature' => [
+                'verify_external_authorization_signature_was_validated_outside_this_command',
+                'confirm_validated_authorization_signable_payload_hash_matches_source',
+                'confirm_validated_authorization_receipt_hash_matches_source_receipt',
+                'rerun_merge_preflight',
+                'rerun_fresh_tests_and_quality_gates',
+                'verify_scope_integrity_and_hot_scope_exclusions',
+                'verify_evidence_integrity_and_completed_packet_hashes',
+                'prepare_separate_authorizing_merge_surface_with_human_confirmation',
+            ],
+            'blocking_conditions' => [
+                'missing_external_authorization_signature',
+                'authorization_signature_not_validated_by_governed_actor',
+                'authorization_signable_payload_hash_mismatch',
+                'authorization_receipt_hash_mismatch',
+                'selected_decision_is_not_merge',
+                'fresh_gate_failure',
+                'scope_integrity_failure',
+                'evidence_integrity_failure',
+                'hot_voice_or_kernel_scope_touched',
+                'missing_human_final_merge_confirmation',
+            ],
+            'verification_commands' => [
+                'authorization_signature_request' => 'php artisan atlas:ai:self-construction --codex-review-merge-authorization-signature-request --json',
+                'merge_preflight' => 'php artisan atlas:ai:self-construction --codex-review-merge-preflight --json',
+                'reservation_status' => 'php artisan atlas:ai:self-construction --reservation-status --json',
+                'focused_tests' => 'php artisan test tests/Feature/Ai/AtlasAiSelfConstructionCommandTest.php',
+                'docs_health' => 'php artisan atlas:engineering:knowledge docs-health --json',
+                'architecture_validate' => 'php artisan atlas:ai:architecture-validate --json',
+                'diff_check' => 'git diff --check',
+            ],
+            'still_forbidden_after_runbook' => [
+                'signature_validation_by_authorization_post_signature_runbook',
+                'decision_recording_by_authorization_post_signature_runbook',
+                'approval_from_authorization_post_signature_runbook',
+                'merge_from_authorization_post_signature_runbook',
+                'dispatch_from_authorization_post_signature_runbook',
+            ],
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_authorization_post_signature_runbook.v1',
+            'status' => $runbookReady ? 'merge_authorization_post_signature_runbook_ready' : 'merge_authorization_post_signature_runbook_blocked',
+            'mode' => 'read_only_codex_review_merge_authorization_post_signature_runbook',
+            'execution_allowed' => false,
+            'completion_allowed' => false,
+            'claim_persisted' => false,
+            'completion_persisted' => false,
+            'ledger_write_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'runbook' => $runbook,
+            'runbook_hash' => $this->stableHash($runbook),
+            'non_execution_guarantees' => [
+                'codex_review_merge_authorization_post_signature_runbook_does_not_claim_packets',
+                'codex_review_merge_authorization_post_signature_runbook_does_not_complete_packets',
+                'codex_review_merge_authorization_post_signature_runbook_does_not_accept_signature',
+                'codex_review_merge_authorization_post_signature_runbook_does_not_validate_signature',
+                'codex_review_merge_authorization_post_signature_runbook_does_not_record_decision',
+                'codex_review_merge_authorization_post_signature_runbook_does_not_approve_code',
+                'codex_review_merge_authorization_post_signature_runbook_does_not_merge',
+                'codex_review_merge_authorization_post_signature_runbook_does_not_dispatch_work',
+            ],
+            'human_summary' => $runbookReady
+                ? 'Codex review merge authorization post-signature runbook is ready as a non-executing checklist. It still does not validate, approve or merge.'
+                : 'Codex review merge authorization post-signature runbook is blocked until authorization signature request is pending.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergeFinalAuthorizationPreflight(array $options = []): array
+    {
+        $runbookPayload = $this->codexReviewMergeAuthorizationPostSignatureRunbook($options);
+        $preflightReady = data_get($runbookPayload, 'status') === 'merge_authorization_post_signature_runbook_ready';
+
+        $preflight = [
+            'preflight_id' => 'CODEX-REVIEW-MERGE-FINAL-AUTHORIZATION-PREFLIGHT-SELF-CONSTRUCTION-0001',
+            'status' => $preflightReady ? 'waiting_for_external_final_authorization_evidence' : 'blocked_before_authorization_post_signature_runbook',
+            'source_authorization_post_signature_runbook_hash' => data_get($runbookPayload, 'runbook_hash'),
+            'source_authorization_signature_request_hash' => data_get($runbookPayload, 'runbook.source_authorization_signature_request_hash'),
+            'source_authorization_signable_payload_hash' => data_get($runbookPayload, 'runbook.source_authorization_signable_payload_hash'),
+            'authorization_ready' => false,
+            'signature_present' => false,
+            'signature_valid' => false,
+            'decision_recorded' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'required_external_evidence' => [
+                'validated_authorization_signature_evidence',
+                'validated_authorization_signable_payload_hash',
+                'validated_authorization_receipt_hash',
+                'selected_decision_equals_merge',
+                'decision_rationale',
+                'fresh_merge_preflight_payload',
+                'fresh_merge_preflight_hash',
+                'fresh_test_output',
+                'fresh_docs_health_output',
+                'fresh_architecture_validate_output',
+                'fresh_diff_check_output',
+                'scope_integrity_statement',
+                'hot_scope_exclusion_statement',
+                'completed_packet_evidence_integrity_statement',
+                'rollback_plan',
+                'human_final_merge_confirmation',
+            ],
+            'required_preflight_checks' => [
+                'authorization_signature_was_validated_by_external_governed_actor',
+                'validated_authorization_hashes_match_source_hashes',
+                'decision_is_explicitly_merge',
+                'fresh_merge_preflight_is_ready',
+                'fresh_tests_pass',
+                'docs_health_passes',
+                'architecture_validation_passes',
+                'git_diff_check_passes',
+                'scope_excludes_hot_voice_and_kernel_files',
+                'completed_packet_hashes_are_present_and_stable',
+                'rollback_plan_is_present',
+                'human_final_merge_confirmation_is_present',
+            ],
+            'future_authorizing_surface_requirements' => [
+                'must_be_separate_command_or_endpoint',
+                'must_accept_explicit_external_signature_evidence',
+                'must_validate_signature_against_signable_payload_hash',
+                'must_persist_authorization_receipt_append_only',
+                'must_rerun_or_reference_fresh_quality_gates',
+                'must_require_human_final_merge_confirmation',
+                'must_emit_final_merge_receipt_before_execution',
+                'must_preserve_rollback_plan',
+            ],
+            'blocking_conditions' => [
+                'authorization_post_signature_runbook_not_ready',
+                'missing_external_final_authorization_evidence',
+                'invalid_or_unverified_authorization_signature',
+                'authorization_hash_mismatch',
+                'selected_decision_not_merge',
+                'fresh_merge_preflight_not_ready',
+                'fresh_gate_failure',
+                'scope_integrity_failure',
+                'hot_voice_or_kernel_scope_touched',
+                'packet_evidence_integrity_failure',
+                'missing_rollback_plan',
+                'missing_human_final_merge_confirmation',
+            ],
+            'still_forbidden_after_preflight' => [
+                'signature_validation_by_final_authorization_preflight',
+                'decision_recording_by_final_authorization_preflight',
+                'approval_from_final_authorization_preflight',
+                'merge_from_final_authorization_preflight',
+                'dispatch_from_final_authorization_preflight',
+            ],
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_final_authorization_preflight.v1',
+            'status' => $preflightReady ? 'merge_final_authorization_preflight_ready' : 'merge_final_authorization_preflight_blocked',
+            'mode' => 'read_only_codex_review_merge_final_authorization_preflight',
+            'execution_allowed' => false,
+            'completion_allowed' => false,
+            'claim_persisted' => false,
+            'completion_persisted' => false,
+            'ledger_write_allowed' => false,
+            'dispatch_allowed' => false,
+            'authorization_ready' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'preflight' => $preflight,
+            'preflight_hash' => $this->stableHash($preflight),
+            'non_execution_guarantees' => [
+                'codex_review_merge_final_authorization_preflight_does_not_claim_packets',
+                'codex_review_merge_final_authorization_preflight_does_not_complete_packets',
+                'codex_review_merge_final_authorization_preflight_does_not_accept_signature',
+                'codex_review_merge_final_authorization_preflight_does_not_validate_signature',
+                'codex_review_merge_final_authorization_preflight_does_not_record_decision',
+                'codex_review_merge_final_authorization_preflight_does_not_approve_code',
+                'codex_review_merge_final_authorization_preflight_does_not_merge',
+                'codex_review_merge_final_authorization_preflight_does_not_dispatch_work',
+            ],
+            'human_summary' => $preflightReady
+                ? 'Codex review merge final authorization preflight is ready as a non-authorizing evidence contract. It still does not validate, approve or merge.'
+                : 'Codex review merge final authorization preflight is blocked until authorization post-signature runbook is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergeAuthorizingActionTemplate(array $options = []): array
+    {
+        $preflightPayload = $this->codexReviewMergeFinalAuthorizationPreflight($options);
+        $templateReady = data_get($preflightPayload, 'status') === 'merge_final_authorization_preflight_ready';
+
+        $template = [
+            'template_id' => 'CODEX-REVIEW-MERGE-AUTHORIZING-ACTION-TEMPLATE-SELF-CONSTRUCTION-0001',
+            'status' => $templateReady ? 'waiting_for_external_authorizing_action_evidence' : 'blocked_before_final_authorization_preflight',
+            'source_final_authorization_preflight_hash' => data_get($preflightPayload, 'preflight_hash'),
+            'source_authorization_post_signature_runbook_hash' => data_get($preflightPayload, 'preflight.source_authorization_post_signature_runbook_hash'),
+            'source_authorization_signature_request_hash' => data_get($preflightPayload, 'preflight.source_authorization_signature_request_hash'),
+            'source_authorization_signable_payload_hash' => data_get($preflightPayload, 'preflight.source_authorization_signable_payload_hash'),
+            'default_decision' => 'request_changes',
+            'allowed_decisions' => [
+                'merge',
+                'request_changes',
+                'abort',
+            ],
+            'required_inputs_for_future_authorizing_action' => [
+                'external_authorization_signature_value',
+                'external_authorization_signature_validator_identity',
+                'external_authorization_signature_validation_timestamp',
+                'validated_authorization_signable_payload_hash',
+                'validated_authorization_receipt_hash',
+                'selected_decision',
+                'decision_rationale',
+                'fresh_merge_preflight_hash',
+                'fresh_test_output_hash',
+                'fresh_docs_health_output_hash',
+                'fresh_architecture_validate_output_hash',
+                'fresh_diff_check_output_hash',
+                'scope_integrity_statement',
+                'hot_scope_exclusion_statement',
+                'completed_packet_evidence_integrity_statement',
+                'rollback_plan',
+                'human_final_merge_confirmation',
+            ],
+            'required_action_validations' => [
+                'selected_decision_must_equal_merge',
+                'signature_must_validate_against_source_authorization_signable_payload_hash',
+                'authorization_receipt_hash_must_match_source_chain',
+                'fresh_merge_preflight_hash_must_be_bound',
+                'fresh_tests_must_pass',
+                'docs_health_must_pass',
+                'architecture_validate_must_pass',
+                'diff_check_must_pass',
+                'scope_must_exclude_hot_voice_and_kernel_files',
+                'packet_evidence_must_match_completed_packet_hashes',
+                'rollback_plan_must_be_present',
+                'human_final_merge_confirmation_must_be_explicit',
+            ],
+            'receipt_fields_to_persist_in_future' => [
+                'authorizing_action_id',
+                'source_final_authorization_preflight_hash',
+                'selected_decision',
+                'decision_rationale',
+                'validated_signature_hash',
+                'validated_authorization_receipt_hash',
+                'fresh_gate_hashes',
+                'scope_integrity_result',
+                'evidence_integrity_result',
+                'rollback_plan_hash',
+                'human_confirmation_hash',
+                'authorized_by',
+                'authorized_at',
+            ],
+            'future_execution_boundary' => [
+                'authorizing_action_may_record_decision_after_validation',
+                'authorizing_action_may_emit_final_merge_receipt_after_validation',
+                'authorizing_action_must_not_apply_patch_or_merge_directly',
+                'separate_executor_must_consume_final_merge_receipt',
+                'executor_must_rerun_last_minute_diff_and_scope_checks',
+            ],
+            'still_forbidden_by_template' => [
+                'signature_acceptance_by_authorizing_action_template',
+                'signature_validation_by_authorizing_action_template',
+                'decision_recording_by_authorizing_action_template',
+                'approval_from_authorizing_action_template',
+                'merge_from_authorizing_action_template',
+                'dispatch_from_authorizing_action_template',
+            ],
+            'authorization_ready' => false,
+            'signature_present' => false,
+            'signature_valid' => false,
+            'decision_recorded' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_authorizing_action_template.v1',
+            'status' => $templateReady ? 'merge_authorizing_action_template_ready' : 'merge_authorizing_action_template_blocked',
+            'mode' => 'read_only_codex_review_merge_authorizing_action_template',
+            'execution_allowed' => false,
+            'completion_allowed' => false,
+            'claim_persisted' => false,
+            'completion_persisted' => false,
+            'ledger_write_allowed' => false,
+            'dispatch_allowed' => false,
+            'authorization_ready' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'template' => $template,
+            'template_hash' => $this->stableHash($template),
+            'non_execution_guarantees' => [
+                'codex_review_merge_authorizing_action_template_does_not_claim_packets',
+                'codex_review_merge_authorizing_action_template_does_not_complete_packets',
+                'codex_review_merge_authorizing_action_template_does_not_accept_signature',
+                'codex_review_merge_authorizing_action_template_does_not_validate_signature',
+                'codex_review_merge_authorizing_action_template_does_not_record_decision',
+                'codex_review_merge_authorizing_action_template_does_not_approve_code',
+                'codex_review_merge_authorizing_action_template_does_not_merge',
+                'codex_review_merge_authorizing_action_template_does_not_dispatch_work',
+            ],
+            'human_summary' => $templateReady
+                ? 'Codex review merge authorizing action template is ready as a non-authorizing contract for a future separate action. It still does not accept evidence, validate, approve or merge.'
+                : 'Codex review merge authorizing action template is blocked until final authorization preflight is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergeFinalReceiptDraft(array $options = []): array
+    {
+        $templatePayload = $this->codexReviewMergeAuthorizingActionTemplate($options);
+        $templateReady = data_get($templatePayload, 'status') === 'merge_authorizing_action_template_ready';
+
+        $receipt = [
+            'receipt_id' => 'CODEX-REVIEW-MERGE-FINAL-RECEIPT-DRAFT-SELF-CONSTRUCTION-0001',
+            'status' => $templateReady ? 'waiting_for_external_authorizing_action_receipt_evidence' : 'blocked_before_authorizing_action_template',
+            'source_authorizing_action_template_hash' => data_get($templatePayload, 'template_hash'),
+            'source_final_authorization_preflight_hash' => data_get($templatePayload, 'template.source_final_authorization_preflight_hash'),
+            'source_authorization_signature_request_hash' => data_get($templatePayload, 'template.source_authorization_signature_request_hash'),
+            'source_authorization_signable_payload_hash' => data_get($templatePayload, 'template.source_authorization_signable_payload_hash'),
+            'default_decision' => 'request_changes',
+            'allowed_decisions' => [
+                'merge',
+                'request_changes',
+                'abort',
+            ],
+            'drafted_authorization_fields' => [
+                'authorizing_action_id',
+                'selected_decision',
+                'decision_rationale',
+                'validated_signature_hash',
+                'validated_authorization_receipt_hash',
+                'fresh_gate_hashes',
+                'scope_integrity_result',
+                'evidence_integrity_result',
+                'rollback_plan_hash',
+                'human_confirmation_hash',
+                'authorized_by',
+                'authorized_at',
+            ],
+            'required_before_final_receipt_can_be_signed' => [
+                'external_authorization_signature_validated',
+                'selected_decision_equals_merge',
+                'source_hashes_match',
+                'fresh_gate_hashes_present',
+                'scope_integrity_passed',
+                'hot_scope_exclusion_passed',
+                'packet_evidence_integrity_passed',
+                'rollback_plan_hash_present',
+                'human_confirmation_hash_present',
+            ],
+            'future_executor_contract' => [
+                'executor_must_consume_signed_final_merge_receipt',
+                'executor_must_verify_final_receipt_hash',
+                'executor_must_rerun_last_minute_diff_check',
+                'executor_must_rerun_hot_scope_check',
+                'executor_must_emit_execution_evidence',
+                'executor_must_not_run_without_signed_final_receipt',
+            ],
+            'still_forbidden_by_receipt_draft' => [
+                'signature_acceptance_by_final_receipt_draft',
+                'signature_validation_by_final_receipt_draft',
+                'decision_recording_by_final_receipt_draft',
+                'approval_from_final_receipt_draft',
+                'merge_from_final_receipt_draft',
+                'dispatch_from_final_receipt_draft',
+            ],
+            'authorization_ready' => false,
+            'signature_present' => false,
+            'signature_valid' => false,
+            'decision_recorded' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'receipt_signed' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_final_receipt_draft.v1',
+            'status' => $templateReady ? 'merge_final_receipt_draft_ready' : 'merge_final_receipt_draft_blocked',
+            'mode' => 'read_only_codex_review_merge_final_receipt_draft',
+            'execution_allowed' => false,
+            'completion_allowed' => false,
+            'claim_persisted' => false,
+            'completion_persisted' => false,
+            'ledger_write_allowed' => false,
+            'dispatch_allowed' => false,
+            'authorization_ready' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt' => $receipt,
+            'receipt_hash' => $this->stableHash($receipt),
+            'non_execution_guarantees' => [
+                'codex_review_merge_final_receipt_draft_does_not_claim_packets',
+                'codex_review_merge_final_receipt_draft_does_not_complete_packets',
+                'codex_review_merge_final_receipt_draft_does_not_accept_signature',
+                'codex_review_merge_final_receipt_draft_does_not_validate_signature',
+                'codex_review_merge_final_receipt_draft_does_not_record_decision',
+                'codex_review_merge_final_receipt_draft_does_not_approve_code',
+                'codex_review_merge_final_receipt_draft_does_not_merge',
+                'codex_review_merge_final_receipt_draft_does_not_dispatch_work',
+            ],
+            'human_summary' => $templateReady
+                ? 'Codex review merge final receipt draft is ready as an unsigned, non-authorizing receipt shell. It still does not validate, approve or merge.'
+                : 'Codex review merge final receipt draft is blocked until authorizing action template is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergeFinalSignatureRequest(array $options = []): array
+    {
+        $receiptPayload = $this->codexReviewMergeFinalReceiptDraft($options);
+        $receipt = (array) data_get($receiptPayload, 'receipt', []);
+        $requestReady = data_get($receiptPayload, 'status') === 'merge_final_receipt_draft_ready';
+
+        $signablePayload = [
+            'signature_request_id' => 'CODEX-REVIEW-MERGE-FINAL-SIGNATURE-REQUEST-SELF-CONSTRUCTION-0001',
+            'receipt_id' => data_get($receipt, 'receipt_id'),
+            'receipt_hash' => data_get($receiptPayload, 'receipt_hash'),
+            'source_authorizing_action_template_hash' => data_get($receipt, 'source_authorizing_action_template_hash'),
+            'source_final_authorization_preflight_hash' => data_get($receipt, 'source_final_authorization_preflight_hash'),
+            'source_authorization_signature_request_hash' => data_get($receipt, 'source_authorization_signature_request_hash'),
+            'source_authorization_signable_payload_hash' => data_get($receipt, 'source_authorization_signable_payload_hash'),
+            'requested_signature_type' => 'human_or_governed_final_merge_receipt_signature',
+            'allowed_decisions' => (array) data_get($receipt, 'allowed_decisions', []),
+            'default_decision' => data_get($receipt, 'default_decision'),
+            'drafted_authorization_fields' => (array) data_get($receipt, 'drafted_authorization_fields', []),
+            'required_before_final_receipt_can_be_signed' => (array) data_get($receipt, 'required_before_final_receipt_can_be_signed', []),
+            'future_executor_contract' => (array) data_get($receipt, 'future_executor_contract', []),
+            'still_forbidden_after_signature_request' => [
+                'signature_acceptance_by_final_signature_request',
+                'signature_validation_by_final_signature_request',
+                'decision_recording_by_final_signature_request',
+                'approval_from_final_signature_request',
+                'merge_from_final_signature_request',
+                'dispatch_from_final_signature_request',
+            ],
+        ];
+
+        $signatureRequest = [
+            'request_id' => 'CODEX-REVIEW-MERGE-FINAL-SIGNATURE-REQUEST-SELF-CONSTRUCTION-0001',
+            'status' => $requestReady ? 'waiting_for_external_final_merge_receipt_signature' : 'blocked_before_final_receipt_draft',
+            'source_final_receipt_hash' => data_get($receiptPayload, 'receipt_hash'),
+            'signable_payload_hash' => $this->stableHash($signablePayload),
+            'signature_required' => true,
+            'signature_present' => false,
+            'signature_valid' => false,
+            'decision_recorded' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'receipt_signed' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_final_signature_request.v1',
+            'status' => $requestReady ? 'merge_final_signature_request_pending' : 'merge_final_signature_request_blocked',
+            'mode' => 'read_only_codex_review_merge_final_signature_request',
+            'execution_allowed' => false,
+            'completion_allowed' => false,
+            'claim_persisted' => false,
+            'completion_persisted' => false,
+            'ledger_write_allowed' => false,
+            'dispatch_allowed' => false,
+            'authorization_ready' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'signature_request' => $signatureRequest,
+            'signable_payload' => $signablePayload,
+            'signable_payload_hash' => $this->stableHash($signablePayload),
+            'request_hash' => $this->stableHash($signatureRequest),
+            'non_execution_guarantees' => [
+                'codex_review_merge_final_signature_request_does_not_claim_packets',
+                'codex_review_merge_final_signature_request_does_not_complete_packets',
+                'codex_review_merge_final_signature_request_does_not_accept_signature',
+                'codex_review_merge_final_signature_request_does_not_validate_signature',
+                'codex_review_merge_final_signature_request_does_not_record_decision',
+                'codex_review_merge_final_signature_request_does_not_approve_code',
+                'codex_review_merge_final_signature_request_does_not_merge',
+                'codex_review_merge_final_signature_request_does_not_dispatch_work',
+            ],
+            'human_summary' => $requestReady
+                ? 'Codex review merge final signature request is pending as a signable receipt payload. It still does not accept, validate, approve or merge.'
+                : 'Codex review merge final signature request is blocked until final receipt draft is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergeFinalPostSignatureRunbook(array $options = []): array
+    {
+        $signaturePayload = $this->codexReviewMergeFinalSignatureRequest($options);
+        $runbookReady = data_get($signaturePayload, 'status') === 'merge_final_signature_request_pending';
+
+        $runbook = [
+            'runbook_id' => 'CODEX-REVIEW-MERGE-FINAL-POST-SIGNATURE-RUNBOOK-SELF-CONSTRUCTION-0001',
+            'status' => $runbookReady ? 'waiting_for_external_final_signature_evidence' : 'blocked_before_final_signature_request',
+            'source_final_signature_request_hash' => data_get($signaturePayload, 'request_hash'),
+            'source_final_signable_payload_hash' => data_get($signaturePayload, 'signable_payload_hash'),
+            'source_final_receipt_hash' => data_get($signaturePayload, 'signature_request.source_final_receipt_hash'),
+            'signature_required' => true,
+            'signature_present' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'decision_recorded' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'required_external_inputs' => [
+                'external_final_merge_receipt_signature_value',
+                'external_final_merge_receipt_signature_validator_identity',
+                'external_final_merge_receipt_signature_validation_timestamp',
+                'validated_final_signable_payload_hash',
+                'validated_final_receipt_hash',
+                'selected_decision',
+                'decision_rationale',
+                'fresh_merge_preflight_hash',
+                'fresh_test_output_hash',
+                'fresh_docs_health_output_hash',
+                'fresh_architecture_validate_output_hash',
+                'fresh_diff_check_output_hash',
+                'scope_integrity_statement',
+                'hot_scope_exclusion_statement',
+                'packet_evidence_integrity_statement',
+                'rollback_plan_hash',
+                'human_confirmation_hash',
+            ],
+            'ordered_steps_after_external_final_signature' => [
+                'verify_external_final_signature_was_validated_outside_this_command',
+                'confirm_validated_final_signable_payload_hash_matches_source',
+                'confirm_validated_final_receipt_hash_matches_source',
+                'confirm_selected_decision_equals_merge',
+                'rerun_or_verify_fresh_quality_gate_hashes',
+                'verify_scope_integrity_and_hot_scope_exclusions',
+                'verify_packet_evidence_integrity',
+                'prepare_separate_signed_final_receipt_surface',
+            ],
+            'blocking_conditions' => [
+                'missing_external_final_signature',
+                'final_signature_not_validated_by_governed_actor',
+                'final_signable_payload_hash_mismatch',
+                'final_receipt_hash_mismatch',
+                'selected_decision_is_not_merge',
+                'fresh_gate_hash_missing_or_failed',
+                'scope_integrity_failure',
+                'hot_voice_or_kernel_scope_touched',
+                'packet_evidence_integrity_failure',
+                'missing_rollback_plan_hash',
+                'missing_human_confirmation_hash',
+            ],
+            'future_signed_receipt_surface_requirements' => [
+                'must_be_separate_command_or_endpoint',
+                'must_accept_explicit_external_final_signature_evidence',
+                'must_validate_signature_against_final_signable_payload_hash',
+                'must_persist_signed_final_merge_receipt_append_only',
+                'must_keep_patch_execution_separate',
+                'must_require_executor_to_consume_signed_final_merge_receipt',
+            ],
+            'still_forbidden_after_runbook' => [
+                'signature_validation_by_final_post_signature_runbook',
+                'receipt_signing_by_final_post_signature_runbook',
+                'decision_recording_by_final_post_signature_runbook',
+                'approval_from_final_post_signature_runbook',
+                'merge_from_final_post_signature_runbook',
+                'dispatch_from_final_post_signature_runbook',
+            ],
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_final_post_signature_runbook.v1',
+            'status' => $runbookReady ? 'merge_final_post_signature_runbook_ready' : 'merge_final_post_signature_runbook_blocked',
+            'mode' => 'read_only_codex_review_merge_final_post_signature_runbook',
+            'execution_allowed' => false,
+            'completion_allowed' => false,
+            'claim_persisted' => false,
+            'completion_persisted' => false,
+            'ledger_write_allowed' => false,
+            'dispatch_allowed' => false,
+            'authorization_ready' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'runbook' => $runbook,
+            'runbook_hash' => $this->stableHash($runbook),
+            'non_execution_guarantees' => [
+                'codex_review_merge_final_post_signature_runbook_does_not_claim_packets',
+                'codex_review_merge_final_post_signature_runbook_does_not_complete_packets',
+                'codex_review_merge_final_post_signature_runbook_does_not_accept_signature',
+                'codex_review_merge_final_post_signature_runbook_does_not_validate_signature',
+                'codex_review_merge_final_post_signature_runbook_does_not_sign_receipt',
+                'codex_review_merge_final_post_signature_runbook_does_not_record_decision',
+                'codex_review_merge_final_post_signature_runbook_does_not_approve_code',
+                'codex_review_merge_final_post_signature_runbook_does_not_merge',
+                'codex_review_merge_final_post_signature_runbook_does_not_dispatch_work',
+            ],
+            'human_summary' => $runbookReady
+                ? 'Codex review merge final post-signature runbook is ready as a non-executing checklist. It still does not validate, sign, approve or merge.'
+                : 'Codex review merge final post-signature runbook is blocked until final signature request is pending.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergeSignedFinalReceiptTemplate(array $options = []): array
+    {
+        $runbookPayload = $this->codexReviewMergeFinalPostSignatureRunbook($options);
+        $templateReady = data_get($runbookPayload, 'status') === 'merge_final_post_signature_runbook_ready';
+
+        $template = [
+            'template_id' => 'CODEX-REVIEW-MERGE-SIGNED-FINAL-RECEIPT-TEMPLATE-SELF-CONSTRUCTION-0001',
+            'status' => $templateReady ? 'waiting_for_external_signed_final_receipt_evidence' : 'blocked_before_final_post_signature_runbook',
+            'source_final_post_signature_runbook_hash' => data_get($runbookPayload, 'runbook_hash'),
+            'source_final_signature_request_hash' => data_get($runbookPayload, 'runbook.source_final_signature_request_hash'),
+            'source_final_signable_payload_hash' => data_get($runbookPayload, 'runbook.source_final_signable_payload_hash'),
+            'source_final_receipt_hash' => data_get($runbookPayload, 'runbook.source_final_receipt_hash'),
+            'required_external_evidence_for_future_signed_receipt' => [
+                'external_final_merge_receipt_signature_value',
+                'external_final_merge_receipt_signature_validator_identity',
+                'external_final_merge_receipt_signature_validation_timestamp',
+                'validated_final_signable_payload_hash',
+                'validated_final_receipt_hash',
+                'validated_selected_decision',
+                'validated_gate_hashes',
+                'validated_scope_integrity_result',
+                'validated_packet_evidence_integrity_result',
+                'validated_rollback_plan_hash',
+                'validated_human_confirmation_hash',
+            ],
+            'signed_receipt_fields_to_persist_in_future' => [
+                'signed_final_receipt_id',
+                'source_final_receipt_hash',
+                'source_final_signable_payload_hash',
+                'source_final_post_signature_runbook_hash',
+                'signature_hash',
+                'signature_validator_identity',
+                'signature_validated_at',
+                'selected_decision',
+                'decision_rationale',
+                'gate_hashes',
+                'scope_integrity_result',
+                'packet_evidence_integrity_result',
+                'rollback_plan_hash',
+                'human_confirmation_hash',
+                'executor_contract_hash',
+                'signed_by',
+                'signed_at',
+            ],
+            'required_validations_before_persisting_signed_receipt' => [
+                'signature_validates_against_final_signable_payload_hash',
+                'final_receipt_hash_matches_source',
+                'selected_decision_equals_merge',
+                'gate_hashes_are_fresh_and_passing',
+                'scope_integrity_passed',
+                'hot_scope_exclusion_passed',
+                'packet_evidence_integrity_passed',
+                'rollback_plan_hash_present',
+                'human_confirmation_hash_present',
+            ],
+            'future_executor_release_conditions' => [
+                'signed_final_receipt_persisted_append_only',
+                'signed_final_receipt_hash_verified',
+                'executor_consumes_signed_final_receipt_only',
+                'executor_reruns_last_minute_diff_check',
+                'executor_reruns_hot_scope_check',
+                'executor_emits_execution_evidence',
+            ],
+            'still_forbidden_by_template' => [
+                'signature_acceptance_by_signed_final_receipt_template',
+                'signature_validation_by_signed_final_receipt_template',
+                'receipt_persistence_by_signed_final_receipt_template',
+                'decision_recording_by_signed_final_receipt_template',
+                'approval_from_signed_final_receipt_template',
+                'merge_from_signed_final_receipt_template',
+                'dispatch_from_signed_final_receipt_template',
+            ],
+            'signature_present' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'decision_recorded' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'executor_allowed' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_signed_final_receipt_template.v1',
+            'status' => $templateReady ? 'merge_signed_final_receipt_template_ready' : 'merge_signed_final_receipt_template_blocked',
+            'mode' => 'read_only_codex_review_merge_signed_final_receipt_template',
+            'execution_allowed' => false,
+            'completion_allowed' => false,
+            'claim_persisted' => false,
+            'completion_persisted' => false,
+            'ledger_write_allowed' => false,
+            'dispatch_allowed' => false,
+            'authorization_ready' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'executor_allowed' => false,
+            'template' => $template,
+            'template_hash' => $this->stableHash($template),
+            'non_execution_guarantees' => [
+                'codex_review_merge_signed_final_receipt_template_does_not_claim_packets',
+                'codex_review_merge_signed_final_receipt_template_does_not_complete_packets',
+                'codex_review_merge_signed_final_receipt_template_does_not_accept_signature',
+                'codex_review_merge_signed_final_receipt_template_does_not_validate_signature',
+                'codex_review_merge_signed_final_receipt_template_does_not_persist_receipt',
+                'codex_review_merge_signed_final_receipt_template_does_not_record_decision',
+                'codex_review_merge_signed_final_receipt_template_does_not_approve_code',
+                'codex_review_merge_signed_final_receipt_template_does_not_merge',
+                'codex_review_merge_signed_final_receipt_template_does_not_dispatch_work',
+            ],
+            'human_summary' => $templateReady
+                ? 'Codex review merge signed final receipt template is ready as a non-persisting contract. It still does not accept, validate, sign, approve or merge.'
+                : 'Codex review merge signed final receipt template is blocked until final post-signature runbook is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergeSignedFinalReceiptPreflight(array $options = []): array
+    {
+        $templatePayload = $this->codexReviewMergeSignedFinalReceiptTemplate($options);
+        $preflightReady = data_get($templatePayload, 'status') === 'merge_signed_final_receipt_template_ready';
+
+        $preflight = [
+            'preflight_id' => 'CODEX-REVIEW-MERGE-SIGNED-FINAL-RECEIPT-PREFLIGHT-SELF-CONSTRUCTION-0001',
+            'status' => $preflightReady ? 'waiting_for_external_signed_final_receipt_inputs' : 'blocked_before_signed_final_receipt_template',
+            'source_signed_final_receipt_template_hash' => data_get($templatePayload, 'template_hash'),
+            'source_final_receipt_hash' => data_get($templatePayload, 'template.source_final_receipt_hash'),
+            'source_final_signable_payload_hash' => data_get($templatePayload, 'template.source_final_signable_payload_hash'),
+            'source_final_post_signature_runbook_hash' => data_get($templatePayload, 'template.source_final_post_signature_runbook_hash'),
+            'required_external_inputs' => (array) data_get($templatePayload, 'template.required_external_evidence_for_future_signed_receipt', []),
+            'required_preflight_checks' => [
+                'external_signature_evidence_present',
+                'signature_validator_identity_present',
+                'signature_validation_timestamp_present',
+                'validated_final_signable_payload_hash_matches_source',
+                'validated_final_receipt_hash_matches_source',
+                'validated_selected_decision_equals_merge',
+                'validated_gate_hashes_present',
+                'validated_scope_integrity_passed',
+                'validated_packet_evidence_integrity_passed',
+                'validated_rollback_plan_hash_present',
+                'validated_human_confirmation_hash_present',
+            ],
+            'blocking_conditions' => [
+                'missing_external_signature_evidence',
+                'missing_signature_validator_identity',
+                'missing_signature_validation_timestamp',
+                'final_signable_payload_hash_mismatch',
+                'final_receipt_hash_mismatch',
+                'selected_decision_not_merge',
+                'gate_hash_missing_or_failed',
+                'scope_integrity_failure',
+                'hot_voice_or_kernel_scope_touched',
+                'packet_evidence_integrity_failure',
+                'missing_rollback_plan_hash',
+                'missing_human_confirmation_hash',
+            ],
+            'future_persistence_requirements' => [
+                'persist_signed_final_receipt_append_only',
+                'include_all_signed_receipt_fields',
+                'hash_signed_receipt_before_executor_release',
+                'keep_patch_execution_separate',
+                'emit_executor_release_preflight_after_persistence',
+            ],
+            'still_forbidden_after_preflight' => [
+                'signature_acceptance_by_signed_final_receipt_preflight',
+                'signature_validation_by_signed_final_receipt_preflight',
+                'receipt_persistence_by_signed_final_receipt_preflight',
+                'decision_recording_by_signed_final_receipt_preflight',
+                'approval_from_signed_final_receipt_preflight',
+                'executor_release_from_signed_final_receipt_preflight',
+                'merge_from_signed_final_receipt_preflight',
+                'dispatch_from_signed_final_receipt_preflight',
+            ],
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'decision_recorded' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'executor_allowed' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_signed_final_receipt_preflight.v1',
+            'status' => $preflightReady ? 'merge_signed_final_receipt_preflight_ready' : 'merge_signed_final_receipt_preflight_blocked',
+            'mode' => 'read_only_codex_review_merge_signed_final_receipt_preflight',
+            'execution_allowed' => false,
+            'completion_allowed' => false,
+            'claim_persisted' => false,
+            'completion_persisted' => false,
+            'ledger_write_allowed' => false,
+            'dispatch_allowed' => false,
+            'authorization_ready' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'executor_allowed' => false,
+            'preflight' => $preflight,
+            'preflight_hash' => $this->stableHash($preflight),
+            'non_execution_guarantees' => [
+                'codex_review_merge_signed_final_receipt_preflight_does_not_claim_packets',
+                'codex_review_merge_signed_final_receipt_preflight_does_not_complete_packets',
+                'codex_review_merge_signed_final_receipt_preflight_does_not_accept_signature',
+                'codex_review_merge_signed_final_receipt_preflight_does_not_validate_signature',
+                'codex_review_merge_signed_final_receipt_preflight_does_not_persist_receipt',
+                'codex_review_merge_signed_final_receipt_preflight_does_not_record_decision',
+                'codex_review_merge_signed_final_receipt_preflight_does_not_release_executor',
+                'codex_review_merge_signed_final_receipt_preflight_does_not_merge',
+                'codex_review_merge_signed_final_receipt_preflight_does_not_dispatch_work',
+            ],
+            'human_summary' => $preflightReady
+                ? 'Codex review merge signed final receipt preflight is ready as a non-persisting check contract. It still does not accept, validate, persist, release executor or merge.'
+                : 'Codex review merge signed final receipt preflight is blocked until signed final receipt template is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergeSignedFinalReceiptPersistenceTemplate(array $options = []): array
+    {
+        $preflightPayload = $this->codexReviewMergeSignedFinalReceiptPreflight($options);
+        $templateReady = data_get($preflightPayload, 'status') === 'merge_signed_final_receipt_preflight_ready';
+
+        $template = [
+            'template_id' => 'CODEX-REVIEW-MERGE-SIGNED-FINAL-RECEIPT-PERSISTENCE-TEMPLATE-SELF-CONSTRUCTION-0001',
+            'status' => $templateReady ? 'waiting_for_external_signed_receipt_persistence_evidence' : 'blocked_before_signed_final_receipt_preflight',
+            'source_signed_final_receipt_preflight_hash' => data_get($preflightPayload, 'preflight_hash'),
+            'source_signed_final_receipt_template_hash' => data_get($preflightPayload, 'preflight.source_signed_final_receipt_template_hash'),
+            'source_final_receipt_hash' => data_get($preflightPayload, 'preflight.source_final_receipt_hash'),
+            'source_final_signable_payload_hash' => data_get($preflightPayload, 'preflight.source_final_signable_payload_hash'),
+            'required_external_inputs' => [
+                'external_signature_evidence',
+                'signature_validator_identity',
+                'signature_validation_timestamp',
+                'validated_final_signable_payload_hash',
+                'validated_final_receipt_hash',
+                'validated_selected_decision',
+                'validated_gate_hashes',
+                'validated_scope_integrity_result',
+                'validated_packet_evidence_integrity_result',
+                'validated_rollback_plan_hash',
+                'validated_human_confirmation_hash',
+            ],
+            'append_only_persistence_fields' => [
+                'signed_final_receipt_id',
+                'source_signed_final_receipt_preflight_hash',
+                'source_signed_final_receipt_template_hash',
+                'source_final_receipt_hash',
+                'source_final_signable_payload_hash',
+                'signature_hash',
+                'signature_validator_identity',
+                'signature_validated_at',
+                'selected_decision',
+                'decision_rationale',
+                'gate_hashes',
+                'scope_integrity_result',
+                'packet_evidence_integrity_result',
+                'rollback_plan_hash',
+                'human_confirmation_hash',
+                'executor_contract_hash',
+                'persisted_by',
+                'persisted_at',
+            ],
+            'required_persistence_validations' => [
+                'all_preflight_checks_passed',
+                'signature_hash_matches_external_evidence',
+                'selected_decision_equals_merge',
+                'source_hashes_match_preflight',
+                'append_only_store_available',
+                'receipt_id_is_unique',
+                'executor_contract_hash_present',
+                'no_patch_execution_in_persistence_surface',
+            ],
+            'future_executor_release_requirements' => [
+                'signed_final_receipt_persisted_append_only',
+                'signed_final_receipt_hash_verified',
+                'executor_release_preflight_ready',
+                'executor_consumes_signed_final_receipt_only',
+                'executor_reruns_last_minute_diff_check',
+                'executor_reruns_hot_scope_check',
+            ],
+            'still_forbidden_by_template' => [
+                'signature_acceptance_by_signed_final_receipt_persistence_template',
+                'signature_validation_by_signed_final_receipt_persistence_template',
+                'receipt_persistence_by_signed_final_receipt_persistence_template',
+                'decision_recording_by_signed_final_receipt_persistence_template',
+                'executor_release_by_signed_final_receipt_persistence_template',
+                'merge_from_signed_final_receipt_persistence_template',
+                'dispatch_from_signed_final_receipt_persistence_template',
+            ],
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'executor_allowed' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_signed_final_receipt_persistence_template.v1',
+            'status' => $templateReady ? 'merge_signed_final_receipt_persistence_template_ready' : 'merge_signed_final_receipt_persistence_template_blocked',
+            'mode' => 'read_only_codex_review_merge_signed_final_receipt_persistence_template',
+            'execution_allowed' => false,
+            'ledger_write_allowed' => false,
+            'dispatch_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'executor_allowed' => false,
+            'template' => $template,
+            'template_hash' => $this->stableHash($template),
+            'non_execution_guarantees' => [
+                'codex_review_merge_signed_final_receipt_persistence_template_does_not_claim_packets',
+                'codex_review_merge_signed_final_receipt_persistence_template_does_not_complete_packets',
+                'codex_review_merge_signed_final_receipt_persistence_template_does_not_accept_signature',
+                'codex_review_merge_signed_final_receipt_persistence_template_does_not_validate_signature',
+                'codex_review_merge_signed_final_receipt_persistence_template_does_not_persist_receipt',
+                'codex_review_merge_signed_final_receipt_persistence_template_does_not_record_decision',
+                'codex_review_merge_signed_final_receipt_persistence_template_does_not_release_executor',
+                'codex_review_merge_signed_final_receipt_persistence_template_does_not_merge',
+                'codex_review_merge_signed_final_receipt_persistence_template_does_not_dispatch_work',
+            ],
+            'human_summary' => $templateReady
+                ? 'Codex review merge signed final receipt persistence template is ready as a read-only append-only storage contract. It still does not accept, validate, persist, release executor or merge.'
+                : 'Codex review merge signed final receipt persistence template is blocked until signed final receipt preflight is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergeExecutorReleasePreflight(array $options = []): array
+    {
+        $persistencePayload = $this->codexReviewMergeSignedFinalReceiptPersistenceTemplate($options);
+        $preflightReady = data_get($persistencePayload, 'status') === 'merge_signed_final_receipt_persistence_template_ready';
+
+        $preflight = [
+            'preflight_id' => 'CODEX-REVIEW-MERGE-EXECUTOR-RELEASE-PREFLIGHT-SELF-CONSTRUCTION-0001',
+            'status' => $preflightReady ? 'waiting_for_external_persisted_signed_final_receipt_inputs' : 'blocked_before_signed_final_receipt_persistence_template',
+            'source_signed_final_receipt_persistence_template_hash' => data_get($persistencePayload, 'template_hash'),
+            'source_signed_final_receipt_preflight_hash' => data_get($persistencePayload, 'template.source_signed_final_receipt_preflight_hash'),
+            'source_signed_final_receipt_template_hash' => data_get($persistencePayload, 'template.source_signed_final_receipt_template_hash'),
+            'source_final_receipt_hash' => data_get($persistencePayload, 'template.source_final_receipt_hash'),
+            'source_final_signable_payload_hash' => data_get($persistencePayload, 'template.source_final_signable_payload_hash'),
+            'required_external_inputs' => [
+                'persisted_signed_final_receipt_id',
+                'persisted_signed_final_receipt_hash',
+                'append_only_receipt_event_hash',
+                'executor_contract_hash',
+                'final_diff_check_hash',
+                'hot_scope_check_hash',
+                'docs_health_hash',
+                'architecture_validate_hash',
+                'focused_test_matrix_hash',
+                'human_executor_release_confirmation_hash',
+            ],
+            'required_release_checks' => [
+                'signed_final_receipt_persistence_template_ready',
+                'persisted_signed_final_receipt_id_present',
+                'persisted_signed_final_receipt_hash_present',
+                'append_only_receipt_event_hash_present',
+                'persisted_receipt_sources_match_template_hashes',
+                'executor_contract_hash_matches_persisted_receipt',
+                'final_diff_check_passed',
+                'hot_scope_check_passed',
+                'docs_health_passed',
+                'architecture_validate_passed',
+                'focused_test_matrix_passed',
+                'human_executor_release_confirmation_present',
+            ],
+            'blocking_conditions' => [
+                'missing_persisted_signed_final_receipt',
+                'missing_append_only_receipt_event',
+                'receipt_source_hash_mismatch',
+                'executor_contract_hash_mismatch',
+                'final_diff_check_failed',
+                'hot_voice_or_kernel_scope_touched',
+                'docs_health_failed',
+                'architecture_validate_failed',
+                'focused_test_matrix_failed',
+                'missing_human_executor_release_confirmation',
+            ],
+            'future_executor_contract_requirements' => [
+                'executor_consumes_persisted_signed_final_receipt_only',
+                'executor_revalidates_receipt_hash_before_patch',
+                'executor_revalidates_final_diff_before_patch',
+                'executor_revalidates_hot_scope_before_patch',
+                'executor_emits_execution_receipt',
+                'executor_stops_before_merge_on_any_gate_failure',
+            ],
+            'still_forbidden_by_preflight' => [
+                'persisted_receipt_acceptance_by_executor_release_preflight',
+                'receipt_persistence_by_executor_release_preflight',
+                'decision_recording_by_executor_release_preflight',
+                'executor_release_by_executor_release_preflight',
+                'patch_execution_by_executor_release_preflight',
+                'merge_from_executor_release_preflight',
+                'dispatch_from_executor_release_preflight',
+            ],
+            'receipt_persisted' => false,
+            'approval_granted' => false,
+            'executor_allowed' => false,
+            'merge_allowed' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_executor_release_preflight.v1',
+            'status' => $preflightReady ? 'merge_executor_release_preflight_ready' : 'merge_executor_release_preflight_blocked',
+            'mode' => 'read_only_codex_review_merge_executor_release_preflight',
+            'execution_allowed' => false,
+            'ledger_write_allowed' => false,
+            'dispatch_allowed' => false,
+            'receipt_persisted' => false,
+            'approval_granted' => false,
+            'executor_allowed' => false,
+            'merge_allowed' => false,
+            'preflight' => $preflight,
+            'preflight_hash' => $this->stableHash($preflight),
+            'non_execution_guarantees' => [
+                'codex_review_merge_executor_release_preflight_does_not_claim_packets',
+                'codex_review_merge_executor_release_preflight_does_not_complete_packets',
+                'codex_review_merge_executor_release_preflight_does_not_accept_persisted_receipt',
+                'codex_review_merge_executor_release_preflight_does_not_persist_receipt',
+                'codex_review_merge_executor_release_preflight_does_not_record_decision',
+                'codex_review_merge_executor_release_preflight_does_not_release_executor',
+                'codex_review_merge_executor_release_preflight_does_not_execute_patch',
+                'codex_review_merge_executor_release_preflight_does_not_merge',
+                'codex_review_merge_executor_release_preflight_does_not_dispatch_work',
+            ],
+            'human_summary' => $preflightReady
+                ? 'Codex review merge executor release preflight is ready as a read-only release prerequisite contract. It still does not accept persisted receipt evidence, release an executor, execute patches or merge.'
+                : 'Codex review merge executor release preflight is blocked until signed final receipt persistence template is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergeExecutorContractTemplate(array $options = []): array
+    {
+        $releasePayload = $this->codexReviewMergeExecutorReleasePreflight($options);
+        $templateReady = data_get($releasePayload, 'status') === 'merge_executor_release_preflight_ready';
+
+        $template = [
+            'template_id' => 'CODEX-REVIEW-MERGE-EXECUTOR-CONTRACT-TEMPLATE-SELF-CONSTRUCTION-0001',
+            'status' => $templateReady ? 'waiting_for_external_executor_release_authority' : 'blocked_before_executor_release_preflight',
+            'source_executor_release_preflight_hash' => data_get($releasePayload, 'preflight_hash'),
+            'source_signed_final_receipt_persistence_template_hash' => data_get($releasePayload, 'preflight.source_signed_final_receipt_persistence_template_hash'),
+            'source_signed_final_receipt_preflight_hash' => data_get($releasePayload, 'preflight.source_signed_final_receipt_preflight_hash'),
+            'source_signed_final_receipt_template_hash' => data_get($releasePayload, 'preflight.source_signed_final_receipt_template_hash'),
+            'source_final_receipt_hash' => data_get($releasePayload, 'preflight.source_final_receipt_hash'),
+            'required_executor_inputs' => [
+                'executor_release_authority_hash',
+                'persisted_signed_final_receipt_id',
+                'persisted_signed_final_receipt_hash',
+                'executor_contract_hash',
+                'final_diff_check_hash',
+                'hot_scope_check_hash',
+                'rollback_plan_hash',
+                'human_executor_release_confirmation_hash',
+            ],
+            'executor_must_revalidate' => [
+                'persisted_signed_final_receipt_hash_matches_contract',
+                'executor_release_authority_hash_matches_preflight',
+                'final_diff_check_still_clean',
+                'hot_scope_check_still_clean',
+                'docs_health_still_clean',
+                'architecture_validate_still_clean',
+                'focused_test_matrix_still_clean',
+                'rollback_plan_available',
+            ],
+            'allowed_future_executor_actions' => [
+                'read_persisted_signed_final_receipt',
+                'read_current_diff',
+                'read_scope_validator_report',
+                'read_gate_reports',
+                'apply_only_receipt_bound_patch_set',
+                'emit_executor_evidence_receipt',
+                'stop_on_any_mismatch',
+            ],
+            'forbidden_future_executor_actions' => [
+                'modify_voice_or_kernel_hot_scope_without_new_receipt',
+                'expand_scope_beyond_signed_receipt',
+                'skip_final_diff_check',
+                'skip_hot_scope_check',
+                'skip_docs_health',
+                'skip_architecture_validate',
+                'skip_focused_tests',
+                'merge_without_post_execution_receipt',
+                'dispatch_new_packets',
+            ],
+            'required_execution_receipt_fields' => [
+                'executor_run_id',
+                'source_executor_contract_hash',
+                'source_executor_release_preflight_hash',
+                'source_persisted_signed_final_receipt_hash',
+                'applied_patch_hash',
+                'files_changed',
+                'final_diff_check_hash',
+                'hot_scope_check_hash',
+                'docs_health_hash',
+                'architecture_validate_hash',
+                'focused_test_matrix_hash',
+                'rollback_plan_hash',
+                'executed_by',
+                'executed_at',
+            ],
+            'still_forbidden_by_template' => [
+                'executor_release_by_executor_contract_template',
+                'patch_execution_by_executor_contract_template',
+                'merge_from_executor_contract_template',
+                'dispatch_from_executor_contract_template',
+                'receipt_persistence_by_executor_contract_template',
+            ],
+            'executor_allowed' => false,
+            'patch_execution_allowed' => false,
+            'merge_allowed' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_executor_contract_template.v1',
+            'status' => $templateReady ? 'merge_executor_contract_template_ready' : 'merge_executor_contract_template_blocked',
+            'mode' => 'read_only_codex_review_merge_executor_contract_template',
+            'execution_allowed' => false,
+            'patch_execution_allowed' => false,
+            'ledger_write_allowed' => false,
+            'dispatch_allowed' => false,
+            'executor_allowed' => false,
+            'merge_allowed' => false,
+            'template' => $template,
+            'template_hash' => $this->stableHash($template),
+            'non_execution_guarantees' => [
+                'codex_review_merge_executor_contract_template_does_not_claim_packets',
+                'codex_review_merge_executor_contract_template_does_not_complete_packets',
+                'codex_review_merge_executor_contract_template_does_not_accept_release_authority',
+                'codex_review_merge_executor_contract_template_does_not_release_executor',
+                'codex_review_merge_executor_contract_template_does_not_execute_patch',
+                'codex_review_merge_executor_contract_template_does_not_merge',
+                'codex_review_merge_executor_contract_template_does_not_dispatch_work',
+            ],
+            'human_summary' => $templateReady
+                ? 'Codex review merge executor contract template is ready as a read-only future executor contract. It still does not release an executor, execute patches or merge.'
+                : 'Codex review merge executor contract template is blocked until executor release preflight is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergeExecutionReceiptTemplate(array $options = []): array
+    {
+        $executorContractPayload = $this->codexReviewMergeExecutorContractTemplate($options);
+        $templateReady = data_get($executorContractPayload, 'status') === 'merge_executor_contract_template_ready';
+
+        $template = [
+            'template_id' => 'CODEX-REVIEW-MERGE-EXECUTION-RECEIPT-TEMPLATE-SELF-CONSTRUCTION-0001',
+            'status' => $templateReady ? 'waiting_for_future_executor_execution_evidence' : 'blocked_before_executor_contract_template',
+            'source_executor_contract_template_hash' => data_get($executorContractPayload, 'template_hash'),
+            'source_executor_release_preflight_hash' => data_get($executorContractPayload, 'template.source_executor_release_preflight_hash'),
+            'source_signed_final_receipt_persistence_template_hash' => data_get($executorContractPayload, 'template.source_signed_final_receipt_persistence_template_hash'),
+            'source_final_receipt_hash' => data_get($executorContractPayload, 'template.source_final_receipt_hash'),
+            'required_execution_evidence' => [
+                'executor_run_id',
+                'executor_identity',
+                'source_executor_contract_hash',
+                'source_persisted_signed_final_receipt_hash',
+                'pre_execution_diff_hash',
+                'post_execution_diff_hash',
+                'applied_patch_hash',
+                'files_changed',
+                'commands_run',
+                'focused_test_matrix_hash',
+                'docs_health_hash',
+                'architecture_validate_hash',
+                'hot_scope_check_hash',
+                'rollback_plan_hash',
+                'execution_started_at',
+                'execution_completed_at',
+            ],
+            'required_post_execution_checks' => [
+                'applied_patch_hash_matches_receipt_bound_patch_set',
+                'files_changed_subset_of_signed_receipt_scope',
+                'hot_scope_check_passed_after_execution',
+                'docs_health_passed_after_execution',
+                'architecture_validate_passed_after_execution',
+                'focused_test_matrix_passed_after_execution',
+                'no_untracked_execution_artifacts_outside_scope',
+                'rollback_plan_still_available',
+            ],
+            'blocking_conditions' => [
+                'missing_executor_run_id',
+                'missing_source_executor_contract_hash',
+                'patch_hash_mismatch',
+                'files_changed_outside_signed_receipt_scope',
+                'hot_scope_failed_after_execution',
+                'docs_health_failed_after_execution',
+                'architecture_validate_failed_after_execution',
+                'focused_test_matrix_failed_after_execution',
+                'rollback_plan_missing_after_execution',
+            ],
+            'future_merge_preflight_requirements' => [
+                'execution_receipt_persisted_append_only',
+                'execution_receipt_hash_verified',
+                'post_execution_gates_passed',
+                'diff_matches_execution_receipt',
+                'human_post_execution_confirmation_present',
+                'merge_executor_uses_execution_receipt_only',
+            ],
+            'still_forbidden_by_template' => [
+                'executor_release_by_execution_receipt_template',
+                'patch_execution_by_execution_receipt_template',
+                'execution_receipt_persistence_by_execution_receipt_template',
+                'merge_from_execution_receipt_template',
+                'dispatch_from_execution_receipt_template',
+            ],
+            'patch_executed' => false,
+            'execution_recorded' => false,
+            'receipt_persisted' => false,
+            'merge_allowed' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_execution_receipt_template.v1',
+            'status' => $templateReady ? 'merge_execution_receipt_template_ready' : 'merge_execution_receipt_template_blocked',
+            'mode' => 'read_only_codex_review_merge_execution_receipt_template',
+            'execution_allowed' => false,
+            'patch_execution_allowed' => false,
+            'ledger_write_allowed' => false,
+            'dispatch_allowed' => false,
+            'patch_executed' => false,
+            'execution_recorded' => false,
+            'receipt_persisted' => false,
+            'merge_allowed' => false,
+            'template' => $template,
+            'template_hash' => $this->stableHash($template),
+            'non_execution_guarantees' => [
+                'codex_review_merge_execution_receipt_template_does_not_claim_packets',
+                'codex_review_merge_execution_receipt_template_does_not_complete_packets',
+                'codex_review_merge_execution_receipt_template_does_not_release_executor',
+                'codex_review_merge_execution_receipt_template_does_not_execute_patch',
+                'codex_review_merge_execution_receipt_template_does_not_record_execution',
+                'codex_review_merge_execution_receipt_template_does_not_persist_receipt',
+                'codex_review_merge_execution_receipt_template_does_not_merge',
+                'codex_review_merge_execution_receipt_template_does_not_dispatch_work',
+            ],
+            'human_summary' => $templateReady
+                ? 'Codex review merge execution receipt template is ready as a read-only post-execution evidence contract. It still does not execute patches, record execution, persist receipts or merge.'
+                : 'Codex review merge execution receipt template is blocked until executor contract template is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergePostExecutionPreflight(array $options = []): array
+    {
+        $executionReceiptPayload = $this->codexReviewMergeExecutionReceiptTemplate($options);
+        $preflightReady = data_get($executionReceiptPayload, 'status') === 'merge_execution_receipt_template_ready';
+
+        $preflight = [
+            'preflight_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-PREFLIGHT-SELF-CONSTRUCTION-0001',
+            'status' => $preflightReady ? 'waiting_for_external_persisted_execution_receipt_inputs' : 'blocked_before_execution_receipt_template',
+            'source_execution_receipt_template_hash' => data_get($executionReceiptPayload, 'template_hash'),
+            'source_executor_contract_template_hash' => data_get($executionReceiptPayload, 'template.source_executor_contract_template_hash'),
+            'source_executor_release_preflight_hash' => data_get($executionReceiptPayload, 'template.source_executor_release_preflight_hash'),
+            'source_signed_final_receipt_persistence_template_hash' => data_get($executionReceiptPayload, 'template.source_signed_final_receipt_persistence_template_hash'),
+            'source_final_receipt_hash' => data_get($executionReceiptPayload, 'template.source_final_receipt_hash'),
+            'required_external_inputs' => [
+                'persisted_execution_receipt_id',
+                'persisted_execution_receipt_hash',
+                'append_only_execution_receipt_event_hash',
+                'post_execution_diff_hash',
+                'post_execution_gate_report_hash',
+                'human_post_execution_confirmation_hash',
+                'merge_candidate_hash',
+            ],
+            'required_preflight_checks' => [
+                'execution_receipt_template_ready',
+                'persisted_execution_receipt_present',
+                'persisted_execution_receipt_hash_verified',
+                'append_only_execution_receipt_event_present',
+                'execution_receipt_sources_match_templates',
+                'post_execution_diff_matches_receipt',
+                'post_execution_gates_passed',
+                'hot_scope_clean_after_execution',
+                'docs_health_clean_after_execution',
+                'architecture_validate_clean_after_execution',
+                'focused_tests_clean_after_execution',
+                'human_post_execution_confirmation_present',
+            ],
+            'blocking_conditions' => [
+                'missing_persisted_execution_receipt',
+                'missing_append_only_execution_receipt_event',
+                'execution_receipt_source_hash_mismatch',
+                'post_execution_diff_mismatch',
+                'post_execution_gate_failure',
+                'hot_scope_failed_after_execution',
+                'docs_health_failed_after_execution',
+                'architecture_validate_failed_after_execution',
+                'focused_tests_failed_after_execution',
+                'missing_human_post_execution_confirmation',
+            ],
+            'future_merge_action_requirements' => [
+                'merge_action_consumes_persisted_execution_receipt_only',
+                'merge_action_revalidates_post_execution_diff',
+                'merge_action_revalidates_gate_hashes',
+                'merge_action_revalidates_no_hot_scope_drift',
+                'merge_action_requires_human_confirmation_hash',
+                'merge_action_emits_final_merge_receipt',
+            ],
+            'still_forbidden_by_preflight' => [
+                'execution_receipt_acceptance_by_post_execution_preflight',
+                'execution_receipt_persistence_by_post_execution_preflight',
+                'approval_from_post_execution_preflight',
+                'merge_from_post_execution_preflight',
+                'dispatch_from_post_execution_preflight',
+            ],
+            'execution_receipt_persisted' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_post_execution_preflight.v1',
+            'status' => $preflightReady ? 'merge_post_execution_preflight_ready' : 'merge_post_execution_preflight_blocked',
+            'mode' => 'read_only_codex_review_merge_post_execution_preflight',
+            'execution_allowed' => false,
+            'ledger_write_allowed' => false,
+            'dispatch_allowed' => false,
+            'execution_receipt_persisted' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'preflight' => $preflight,
+            'preflight_hash' => $this->stableHash($preflight),
+            'non_execution_guarantees' => [
+                'codex_review_merge_post_execution_preflight_does_not_claim_packets',
+                'codex_review_merge_post_execution_preflight_does_not_complete_packets',
+                'codex_review_merge_post_execution_preflight_does_not_accept_execution_receipt',
+                'codex_review_merge_post_execution_preflight_does_not_persist_execution_receipt',
+                'codex_review_merge_post_execution_preflight_does_not_approve_code',
+                'codex_review_merge_post_execution_preflight_does_not_merge',
+                'codex_review_merge_post_execution_preflight_does_not_dispatch_work',
+            ],
+            'human_summary' => $preflightReady
+                ? 'Codex review merge post-execution preflight is ready as a read-only merge prerequisite contract. It still does not accept execution receipt evidence, approve code or merge.'
+                : 'Codex review merge post-execution preflight is blocked until execution receipt template is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergePostExecutionActionTemplate(array $options = []): array
+    {
+        $preflightPayload = $this->codexReviewMergePostExecutionPreflight($options);
+        $templateReady = data_get($preflightPayload, 'status') === 'merge_post_execution_preflight_ready';
+
+        $template = [
+            'template_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-TEMPLATE-SELF-CONSTRUCTION-0001',
+            'status' => $templateReady ? 'waiting_for_external_merge_action_authority' : 'blocked_before_post_execution_preflight',
+            'default_decision' => 'do_not_merge',
+            'source_post_execution_preflight_hash' => data_get($preflightPayload, 'preflight_hash'),
+            'source_execution_receipt_template_hash' => data_get($preflightPayload, 'preflight.source_execution_receipt_template_hash'),
+            'source_executor_contract_template_hash' => data_get($preflightPayload, 'preflight.source_executor_contract_template_hash'),
+            'source_executor_release_preflight_hash' => data_get($preflightPayload, 'preflight.source_executor_release_preflight_hash'),
+            'source_final_receipt_hash' => data_get($preflightPayload, 'preflight.source_final_receipt_hash'),
+            'required_authority_inputs' => [
+                'post_execution_preflight_hash',
+                'persisted_execution_receipt_hash',
+                'post_execution_gate_report_hash',
+                'merge_candidate_hash',
+                'human_post_execution_confirmation_hash',
+                'merge_operator_identity',
+            ],
+            'required_action_validations' => [
+                'post_execution_preflight_ready',
+                'persisted_execution_receipt_hash_matches_preflight',
+                'merge_candidate_hash_matches_post_execution_diff',
+                'post_execution_gate_report_hash_matches_preflight',
+                'human_post_execution_confirmation_hash_present',
+                'merge_operator_identity_present',
+                'no_hot_scope_drift_since_preflight',
+                'no_unreviewed_diff_since_preflight',
+            ],
+            'allowed_future_action_steps' => [
+                'read_persisted_execution_receipt',
+                'read_post_execution_gate_report',
+                'read_merge_candidate_diff',
+                'verify_merge_candidate_hashes',
+                'request_final_merge_confirmation',
+                'emit_unsigned_final_merge_action_receipt',
+            ],
+            'forbidden_future_action_steps' => [
+                'merge_without_final_confirmation',
+                'merge_with_unreviewed_diff',
+                'merge_with_hot_scope_drift',
+                'merge_without_persisted_execution_receipt',
+                'merge_without_post_execution_gate_report',
+                'dispatch_new_packets',
+            ],
+            'future_final_merge_receipt_requirements' => [
+                'final_merge_action_receipt_draft',
+                'final_merge_action_signature_request',
+                'final_merge_action_signed_receipt',
+                'final_merge_action_append_only_event',
+                'final_merge_hash',
+            ],
+            'still_forbidden_by_template' => [
+                'approval_from_post_execution_action_template',
+                'merge_from_post_execution_action_template',
+                'dispatch_from_post_execution_action_template',
+                'final_merge_receipt_persistence_by_post_execution_action_template',
+            ],
+            'approval_granted' => false,
+            'merge_allowed' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_post_execution_action_template.v1',
+            'status' => $templateReady ? 'merge_post_execution_action_template_ready' : 'merge_post_execution_action_template_blocked',
+            'mode' => 'read_only_codex_review_merge_post_execution_action_template',
+            'execution_allowed' => false,
+            'ledger_write_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'template' => $template,
+            'template_hash' => $this->stableHash($template),
+            'non_execution_guarantees' => [
+                'codex_review_merge_post_execution_action_template_does_not_claim_packets',
+                'codex_review_merge_post_execution_action_template_does_not_complete_packets',
+                'codex_review_merge_post_execution_action_template_does_not_accept_merge_authority',
+                'codex_review_merge_post_execution_action_template_does_not_approve_code',
+                'codex_review_merge_post_execution_action_template_does_not_merge',
+                'codex_review_merge_post_execution_action_template_does_not_dispatch_work',
+            ],
+            'human_summary' => $templateReady
+                ? 'Codex review merge post-execution action template is ready as a read-only future merge action contract. It still does not approve code, merge or dispatch work.'
+                : 'Codex review merge post-execution action template is blocked until post-execution preflight is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergePostExecutionActionReceiptDraft(array $options = []): array
+    {
+        $actionTemplatePayload = $this->codexReviewMergePostExecutionActionTemplate($options);
+        $receiptReady = data_get($actionTemplatePayload, 'status') === 'merge_post_execution_action_template_ready';
+
+        $receipt = [
+            'receipt_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-RECEIPT-DRAFT-SELF-CONSTRUCTION-0001',
+            'status' => $receiptReady ? 'unsigned_waiting_for_external_final_merge_confirmation' : 'blocked_before_post_execution_action_template',
+            'default_decision' => 'do_not_merge',
+            'signature_required' => true,
+            'source_post_execution_action_template_hash' => data_get($actionTemplatePayload, 'template_hash'),
+            'source_post_execution_preflight_hash' => data_get($actionTemplatePayload, 'template.source_post_execution_preflight_hash'),
+            'source_execution_receipt_template_hash' => data_get($actionTemplatePayload, 'template.source_execution_receipt_template_hash'),
+            'source_executor_contract_template_hash' => data_get($actionTemplatePayload, 'template.source_executor_contract_template_hash'),
+            'source_final_receipt_hash' => data_get($actionTemplatePayload, 'template.source_final_receipt_hash'),
+            'required_authority_inputs' => data_get($actionTemplatePayload, 'template.required_authority_inputs', []),
+            'required_action_validations' => data_get($actionTemplatePayload, 'template.required_action_validations', []),
+            'decision_fields' => [
+                'selected_decision',
+                'decision_rationale',
+                'merge_candidate_hash',
+                'persisted_execution_receipt_hash',
+                'post_execution_gate_report_hash',
+                'human_post_execution_confirmation_hash',
+                'merge_operator_identity',
+            ],
+            'required_signable_payload_fields' => [
+                'receipt_id',
+                'source_post_execution_action_template_hash',
+                'source_post_execution_preflight_hash',
+                'source_execution_receipt_template_hash',
+                'selected_decision',
+                'merge_candidate_hash',
+                'persisted_execution_receipt_hash',
+                'human_post_execution_confirmation_hash',
+                'generated_at',
+            ],
+            'future_signature_requirements' => [
+                'final_merge_action_receipt_signature_request',
+                'external_final_merge_action_signature_value',
+                'signature_validator_identity',
+                'signature_validation_timestamp',
+                'signed_final_merge_action_receipt_persisted_append_only',
+            ],
+            'still_forbidden_by_receipt_draft' => [
+                'signature_acceptance_by_post_execution_action_receipt_draft',
+                'signature_validation_by_post_execution_action_receipt_draft',
+                'approval_from_post_execution_action_receipt_draft',
+                'merge_from_post_execution_action_receipt_draft',
+                'receipt_persistence_by_post_execution_action_receipt_draft',
+                'dispatch_from_post_execution_action_receipt_draft',
+            ],
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'receipt_signed' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_post_execution_action_receipt_draft.v1',
+            'status' => $receiptReady ? 'merge_post_execution_action_receipt_draft_ready' : 'merge_post_execution_action_receipt_draft_blocked',
+            'mode' => 'read_only_codex_review_merge_post_execution_action_receipt_draft',
+            'execution_allowed' => false,
+            'ledger_write_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'receipt_signed' => false,
+            'receipt' => $receipt,
+            'receipt_hash' => $this->stableHash($receipt),
+            'non_execution_guarantees' => [
+                'codex_review_merge_post_execution_action_receipt_draft_does_not_claim_packets',
+                'codex_review_merge_post_execution_action_receipt_draft_does_not_complete_packets',
+                'codex_review_merge_post_execution_action_receipt_draft_does_not_accept_signature',
+                'codex_review_merge_post_execution_action_receipt_draft_does_not_validate_signature',
+                'codex_review_merge_post_execution_action_receipt_draft_does_not_approve_code',
+                'codex_review_merge_post_execution_action_receipt_draft_does_not_merge',
+                'codex_review_merge_post_execution_action_receipt_draft_does_not_dispatch_work',
+            ],
+            'human_summary' => $receiptReady
+                ? 'Codex review merge post-execution action receipt draft is ready as an unsigned, non-authorizing receipt. It still does not accept signatures, approve code, merge or dispatch work.'
+                : 'Codex review merge post-execution action receipt draft is blocked until post-execution action template is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergePostExecutionActionSignatureRequest(array $options = []): array
+    {
+        $receiptPayload = $this->codexReviewMergePostExecutionActionReceiptDraft($options);
+        $receipt = (array) data_get($receiptPayload, 'receipt', []);
+        $requestReady = data_get($receiptPayload, 'status') === 'merge_post_execution_action_receipt_draft_ready';
+
+        $signablePayload = [
+            'signature_request_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNATURE-REQUEST-SELF-CONSTRUCTION-0001',
+            'receipt_id' => data_get($receipt, 'receipt_id'),
+            'receipt_hash' => data_get($receiptPayload, 'receipt_hash'),
+            'source_post_execution_action_template_hash' => data_get($receipt, 'source_post_execution_action_template_hash'),
+            'source_post_execution_preflight_hash' => data_get($receipt, 'source_post_execution_preflight_hash'),
+            'source_execution_receipt_template_hash' => data_get($receipt, 'source_execution_receipt_template_hash'),
+            'source_executor_contract_template_hash' => data_get($receipt, 'source_executor_contract_template_hash'),
+            'source_final_receipt_hash' => data_get($receipt, 'source_final_receipt_hash'),
+            'requested_signature_type' => 'human_or_governed_post_execution_merge_action_receipt_signature',
+            'default_decision' => data_get($receipt, 'default_decision'),
+            'required_authority_inputs' => (array) data_get($receipt, 'required_authority_inputs', []),
+            'required_action_validations' => (array) data_get($receipt, 'required_action_validations', []),
+            'decision_fields' => (array) data_get($receipt, 'decision_fields', []),
+            'required_signable_payload_fields' => (array) data_get($receipt, 'required_signable_payload_fields', []),
+            'required_external_signature_fields' => [
+                'external_final_merge_action_signature_value',
+                'signature_validator_identity',
+                'signature_validation_timestamp',
+                'signed_final_merge_action_receipt_persisted_append_only',
+            ],
+            'still_forbidden_after_signature_request' => [
+                'signature_acceptance_by_post_execution_action_signature_request',
+                'signature_validation_by_post_execution_action_signature_request',
+                'approval_from_post_execution_action_signature_request',
+                'merge_from_post_execution_action_signature_request',
+                'receipt_persistence_by_post_execution_action_signature_request',
+                'dispatch_from_post_execution_action_signature_request',
+            ],
+        ];
+
+        $signatureRequest = [
+            'request_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNATURE-REQUEST-SELF-CONSTRUCTION-0001',
+            'status' => $requestReady ? 'waiting_for_external_final_merge_action_signature' : 'blocked_before_post_execution_action_receipt_draft',
+            'source_post_execution_action_receipt_hash' => data_get($receiptPayload, 'receipt_hash'),
+            'signable_payload_hash' => $this->stableHash($signablePayload),
+            'signature_required' => true,
+            'signature_present' => false,
+            'signature_valid' => false,
+            'decision_recorded' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'receipt_persisted' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_post_execution_action_signature_request.v1',
+            'status' => $requestReady ? 'merge_post_execution_action_signature_request_pending' : 'merge_post_execution_action_signature_request_blocked',
+            'mode' => 'read_only_codex_review_merge_post_execution_action_signature_request',
+            'execution_allowed' => false,
+            'ledger_write_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'receipt_persisted' => false,
+            'signature_request' => $signatureRequest,
+            'signable_payload' => $signablePayload,
+            'signable_payload_hash' => $this->stableHash($signablePayload),
+            'request_hash' => $this->stableHash($signatureRequest),
+            'non_execution_guarantees' => [
+                'codex_review_merge_post_execution_action_signature_request_does_not_claim_packets',
+                'codex_review_merge_post_execution_action_signature_request_does_not_complete_packets',
+                'codex_review_merge_post_execution_action_signature_request_does_not_accept_signature',
+                'codex_review_merge_post_execution_action_signature_request_does_not_validate_signature',
+                'codex_review_merge_post_execution_action_signature_request_does_not_approve_code',
+                'codex_review_merge_post_execution_action_signature_request_does_not_merge',
+                'codex_review_merge_post_execution_action_signature_request_does_not_persist_receipt',
+                'codex_review_merge_post_execution_action_signature_request_does_not_dispatch_work',
+            ],
+            'human_summary' => $requestReady
+                ? 'Codex review merge post-execution action signature request is pending as a signable receipt payload. It still does not accept, validate, approve, persist or merge.'
+                : 'Codex review merge post-execution action signature request is blocked until action receipt draft is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergePostExecutionActionPostSignatureRunbook(array $options = []): array
+    {
+        $signaturePayload = $this->codexReviewMergePostExecutionActionSignatureRequest($options);
+        $runbookReady = data_get($signaturePayload, 'status') === 'merge_post_execution_action_signature_request_pending';
+
+        $runbook = [
+            'runbook_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-POST-SIGNATURE-RUNBOOK-SELF-CONSTRUCTION-0001',
+            'status' => $runbookReady ? 'waiting_for_external_final_merge_action_signature_evidence' : 'blocked_before_post_execution_action_signature_request',
+            'source_action_signature_request_hash' => data_get($signaturePayload, 'request_hash'),
+            'source_action_signable_payload_hash' => data_get($signaturePayload, 'signable_payload_hash'),
+            'source_action_receipt_hash' => data_get($signaturePayload, 'signature_request.source_post_execution_action_receipt_hash'),
+            'signature_required' => true,
+            'signature_present' => false,
+            'signature_valid' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'required_external_inputs' => [
+                'external_final_merge_action_signature_value',
+                'external_final_merge_action_signature_validator_identity',
+                'external_final_merge_action_signature_validation_timestamp',
+                'signed_final_merge_action_receipt_persistence_event_hash',
+            ],
+            'ordered_steps' => [
+                'collect_external_final_merge_action_signature_evidence',
+                'verify_signature_request_hash_matches_signable_payload',
+                'verify_action_receipt_hash_matches_signed_payload',
+                'verify_required_authority_inputs_are_present',
+                'verify_required_action_validations_are_present',
+                'prepare_signed_action_receipt_persistence_candidate',
+                'stop_before_signature_acceptance_or_merge',
+            ],
+            'future_validator_must_check' => [
+                'external_signature_value_present',
+                'signature_validator_identity_present',
+                'signature_validation_timestamp_present',
+                'signed_action_receipt_persistence_event_hash_present',
+                'source_hashes_match_signature_request',
+                'no_hot_scope_drift_since_signature_request',
+                'no_unreviewed_diff_since_signature_request',
+            ],
+            'still_forbidden_by_runbook' => [
+                'signature_acceptance_by_post_execution_action_post_signature_runbook',
+                'signature_validation_by_post_execution_action_post_signature_runbook',
+                'decision_recording_by_post_execution_action_post_signature_runbook',
+                'approval_from_post_execution_action_post_signature_runbook',
+                'merge_from_post_execution_action_post_signature_runbook',
+                'receipt_persistence_by_post_execution_action_post_signature_runbook',
+                'dispatch_from_post_execution_action_post_signature_runbook',
+            ],
+            'step_count' => 7,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_post_execution_action_post_signature_runbook.v1',
+            'status' => $runbookReady ? 'merge_post_execution_action_post_signature_runbook_ready' : 'merge_post_execution_action_post_signature_runbook_blocked',
+            'mode' => 'read_only_codex_review_merge_post_execution_action_post_signature_runbook',
+            'execution_allowed' => false,
+            'ledger_write_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'receipt_persisted' => false,
+            'runbook' => $runbook,
+            'runbook_hash' => $this->stableHash($runbook),
+            'non_execution_guarantees' => [
+                'codex_review_merge_post_execution_action_post_signature_runbook_does_not_claim_packets',
+                'codex_review_merge_post_execution_action_post_signature_runbook_does_not_complete_packets',
+                'codex_review_merge_post_execution_action_post_signature_runbook_does_not_accept_signature',
+                'codex_review_merge_post_execution_action_post_signature_runbook_does_not_validate_signature',
+                'codex_review_merge_post_execution_action_post_signature_runbook_does_not_record_decision',
+                'codex_review_merge_post_execution_action_post_signature_runbook_does_not_approve_code',
+                'codex_review_merge_post_execution_action_post_signature_runbook_does_not_merge',
+                'codex_review_merge_post_execution_action_post_signature_runbook_does_not_persist_receipt',
+                'codex_review_merge_post_execution_action_post_signature_runbook_does_not_dispatch_work',
+            ],
+            'human_summary' => $runbookReady
+                ? 'Codex review merge post-execution action post-signature runbook is ready as a read-only evidence sequence. It still does not accept, validate, approve, persist or merge.'
+                : 'Codex review merge post-execution action post-signature runbook is blocked until action signature request is pending.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergePostExecutionActionSignedReceiptTemplate(array $options = []): array
+    {
+        $runbookPayload = $this->codexReviewMergePostExecutionActionPostSignatureRunbook($options);
+        $templateReady = data_get($runbookPayload, 'status') === 'merge_post_execution_action_post_signature_runbook_ready';
+
+        $template = [
+            'template_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-TEMPLATE-SELF-CONSTRUCTION-0001',
+            'status' => $templateReady ? 'waiting_for_external_signed_action_receipt_evidence' : 'blocked_before_post_execution_action_post_signature_runbook',
+            'source_action_post_signature_runbook_hash' => data_get($runbookPayload, 'runbook_hash'),
+            'source_action_signature_request_hash' => data_get($runbookPayload, 'runbook.source_action_signature_request_hash'),
+            'source_action_signable_payload_hash' => data_get($runbookPayload, 'runbook.source_action_signable_payload_hash'),
+            'source_action_receipt_hash' => data_get($runbookPayload, 'runbook.source_action_receipt_hash'),
+            'required_external_evidence_for_future_signed_receipt' => [
+                'external_final_merge_action_signature_value',
+                'external_final_merge_action_signature_validator_identity',
+                'external_final_merge_action_signature_validation_timestamp',
+                'validated_action_signable_payload_hash',
+                'validated_action_receipt_hash',
+                'validated_selected_decision',
+                'validated_required_authority_inputs',
+                'validated_required_action_validations',
+                'signed_final_merge_action_receipt_persistence_event_hash',
+            ],
+            'signed_receipt_fields_to_persist_in_future' => [
+                'signed_action_receipt_id',
+                'source_action_receipt_hash',
+                'source_action_signable_payload_hash',
+                'source_action_post_signature_runbook_hash',
+                'signature_hash',
+                'signature_validator_identity',
+                'signature_validated_at',
+                'selected_decision',
+                'decision_rationale',
+                'merge_candidate_hash',
+                'persisted_execution_receipt_hash',
+                'post_execution_gate_report_hash',
+                'human_post_execution_confirmation_hash',
+                'merge_operator_identity',
+                'signed_by',
+                'signed_at',
+            ],
+            'required_validations_before_persisting_signed_receipt' => [
+                'signature_validates_against_action_signable_payload_hash',
+                'action_receipt_hash_matches_source',
+                'selected_decision_equals_merge',
+                'required_authority_inputs_present',
+                'required_action_validations_passed',
+                'post_execution_gate_report_hash_present',
+                'human_post_execution_confirmation_hash_present',
+                'merge_candidate_hash_present',
+                'persisted_execution_receipt_hash_present',
+            ],
+            'future_merge_surface_release_conditions' => [
+                'signed_action_receipt_persisted_append_only',
+                'signed_action_receipt_hash_verified',
+                'merge_surface_consumes_signed_action_receipt_only',
+                'merge_surface_reruns_last_minute_diff_check',
+                'merge_surface_reruns_hot_scope_check',
+                'merge_surface_emits_final_merge_evidence',
+            ],
+            'still_forbidden_by_template' => [
+                'signature_acceptance_by_post_execution_action_signed_receipt_template',
+                'signature_validation_by_post_execution_action_signed_receipt_template',
+                'receipt_persistence_by_post_execution_action_signed_receipt_template',
+                'decision_recording_by_post_execution_action_signed_receipt_template',
+                'approval_from_post_execution_action_signed_receipt_template',
+                'merge_from_post_execution_action_signed_receipt_template',
+                'dispatch_from_post_execution_action_signed_receipt_template',
+            ],
+            'signature_present' => false,
+            'signature_valid' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_template.v1',
+            'status' => $templateReady ? 'merge_post_execution_action_signed_receipt_template_ready' : 'merge_post_execution_action_signed_receipt_template_blocked',
+            'mode' => 'read_only_codex_review_merge_post_execution_action_signed_receipt_template',
+            'execution_allowed' => false,
+            'ledger_write_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'receipt_persisted' => false,
+            'template' => $template,
+            'template_hash' => $this->stableHash($template),
+            'non_execution_guarantees' => [
+                'codex_review_merge_post_execution_action_signed_receipt_template_does_not_claim_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_template_does_not_complete_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_template_does_not_accept_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_template_does_not_validate_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_template_does_not_persist_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_template_does_not_record_decision',
+                'codex_review_merge_post_execution_action_signed_receipt_template_does_not_approve_code',
+                'codex_review_merge_post_execution_action_signed_receipt_template_does_not_merge',
+                'codex_review_merge_post_execution_action_signed_receipt_template_does_not_dispatch_work',
+            ],
+            'human_summary' => $templateReady
+                ? 'Codex review merge post-execution action signed receipt template is ready as a non-persisting contract. It still does not accept, validate, approve, persist or merge.'
+                : 'Codex review merge post-execution action signed receipt template is blocked until action post-signature runbook is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergePostExecutionActionSignedReceiptPreflight(array $options = []): array
+    {
+        $templatePayload = $this->codexReviewMergePostExecutionActionSignedReceiptTemplate($options);
+        $template = (array) data_get($templatePayload, 'template', []);
+        $preflightReady = data_get($templatePayload, 'status') === 'merge_post_execution_action_signed_receipt_template_ready';
+
+        $blockingConditions = [
+            'missing_external_final_merge_action_signature_value',
+            'missing_signature_validator_identity',
+            'missing_signature_validation_timestamp',
+            'missing_validated_action_signable_payload_hash',
+            'missing_validated_action_receipt_hash',
+            'missing_validated_selected_decision',
+            'missing_validated_required_authority_inputs',
+            'missing_validated_required_action_validations',
+            'missing_signed_action_receipt_persistence_event_hash',
+            'selected_decision_is_not_merge',
+            'action_receipt_hash_mismatch',
+            'action_signable_payload_hash_mismatch',
+            'hot_scope_drift_since_action_signature_request',
+            'unreviewed_diff_since_action_signature_request',
+        ];
+
+        $preflight = [
+            'preflight_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PREFLIGHT-SELF-CONSTRUCTION-0001',
+            'status' => $preflightReady ? 'waiting_for_external_signed_action_receipt_evidence' : 'blocked_before_signed_action_receipt_template',
+            'source_signed_action_receipt_template_hash' => data_get($templatePayload, 'template_hash'),
+            'source_action_post_signature_runbook_hash' => data_get($template, 'source_action_post_signature_runbook_hash'),
+            'source_action_signature_request_hash' => data_get($template, 'source_action_signature_request_hash'),
+            'source_action_signable_payload_hash' => data_get($template, 'source_action_signable_payload_hash'),
+            'source_action_receipt_hash' => data_get($template, 'source_action_receipt_hash'),
+            'required_external_evidence' => (array) data_get($template, 'required_external_evidence_for_future_signed_receipt', []),
+            'required_future_persisted_fields' => (array) data_get($template, 'signed_receipt_fields_to_persist_in_future', []),
+            'required_validations_before_persisting' => (array) data_get($template, 'required_validations_before_persisting_signed_receipt', []),
+            'future_merge_surface_release_conditions' => (array) data_get($template, 'future_merge_surface_release_conditions', []),
+            'blocking_conditions' => $blockingConditions,
+            'blocking_count' => count($blockingConditions),
+            'still_forbidden_by_preflight' => [
+                'signature_acceptance_by_post_execution_action_signed_receipt_preflight',
+                'signature_validation_by_post_execution_action_signed_receipt_preflight',
+                'receipt_persistence_by_post_execution_action_signed_receipt_preflight',
+                'decision_recording_by_post_execution_action_signed_receipt_preflight',
+                'approval_from_post_execution_action_signed_receipt_preflight',
+                'merge_from_post_execution_action_signed_receipt_preflight',
+                'dispatch_from_post_execution_action_signed_receipt_preflight',
+            ],
+            'signature_present' => false,
+            'signature_valid' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_preflight.v1',
+            'status' => $preflightReady ? 'merge_post_execution_action_signed_receipt_preflight_ready' : 'merge_post_execution_action_signed_receipt_preflight_blocked',
+            'mode' => 'read_only_codex_review_merge_post_execution_action_signed_receipt_preflight',
+            'execution_allowed' => false,
+            'ledger_write_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'receipt_persisted' => false,
+            'preflight' => $preflight,
+            'preflight_hash' => $this->stableHash($preflight),
+            'non_execution_guarantees' => [
+                'codex_review_merge_post_execution_action_signed_receipt_preflight_does_not_claim_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_preflight_does_not_complete_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_preflight_does_not_accept_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_preflight_does_not_validate_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_preflight_does_not_persist_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_preflight_does_not_record_decision',
+                'codex_review_merge_post_execution_action_signed_receipt_preflight_does_not_approve_code',
+                'codex_review_merge_post_execution_action_signed_receipt_preflight_does_not_merge',
+                'codex_review_merge_post_execution_action_signed_receipt_preflight_does_not_dispatch_work',
+            ],
+            'human_summary' => $preflightReady
+                ? 'Codex review merge post-execution action signed receipt preflight is ready as a read-only persistence prerequisite check. It still does not accept, validate, approve, persist or merge.'
+                : 'Codex review merge post-execution action signed receipt preflight is blocked until signed action receipt template is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergePostExecutionActionSignedReceiptPersistenceTemplate(array $options = []): array
+    {
+        $preflightPayload = $this->codexReviewMergePostExecutionActionSignedReceiptPreflight($options);
+        $preflight = (array) data_get($preflightPayload, 'preflight', []);
+        $templateReady = data_get($preflightPayload, 'status') === 'merge_post_execution_action_signed_receipt_preflight_ready';
+
+        $template = [
+            'template_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-TEMPLATE-SELF-CONSTRUCTION-0001',
+            'status' => $templateReady ? 'waiting_for_future_append_only_persistence_surface' : 'blocked_before_signed_action_receipt_preflight',
+            'source_signed_action_receipt_preflight_hash' => data_get($preflightPayload, 'preflight_hash'),
+            'source_signed_action_receipt_template_hash' => data_get($preflight, 'source_signed_action_receipt_template_hash'),
+            'source_action_signature_request_hash' => data_get($preflight, 'source_action_signature_request_hash'),
+            'source_action_signable_payload_hash' => data_get($preflight, 'source_action_signable_payload_hash'),
+            'source_action_receipt_hash' => data_get($preflight, 'source_action_receipt_hash'),
+            'future_append_only_event_type' => 'CODEX_REVIEW_MERGE_POST_EXECUTION_ACTION_SIGNED_RECEIPT_PERSISTED',
+            'future_append_only_event_fields' => [
+                'event_id',
+                'event_type',
+                'signed_action_receipt_id',
+                'signed_action_receipt_hash',
+                'source_signed_action_receipt_preflight_hash',
+                'source_signed_action_receipt_template_hash',
+                'source_action_signature_request_hash',
+                'source_action_signable_payload_hash',
+                'source_action_receipt_hash',
+                'signature_hash',
+                'signature_validator_identity',
+                'signature_validated_at',
+                'selected_decision',
+                'merge_candidate_hash',
+                'persisted_execution_receipt_hash',
+                'human_post_execution_confirmation_hash',
+                'persisted_at',
+            ],
+            'required_pre_persistence_checks' => [
+                'signed_action_receipt_preflight_ready',
+                'all_preflight_blocking_conditions_resolved',
+                'external_signature_value_present',
+                'signature_validator_identity_present',
+                'signature_validation_timestamp_present',
+                'selected_decision_equals_merge',
+                'source_hashes_match_preflight',
+                'hot_scope_still_clean',
+                'unreviewed_diff_absent',
+            ],
+            'future_verification_outputs' => [
+                'signed_action_receipt_hash',
+                'append_only_event_hash',
+                'ledger_sequence_number',
+                'persistence_actor_identity',
+                'persistence_timestamp',
+            ],
+            'still_forbidden_by_template' => [
+                'ledger_write_by_post_execution_action_signed_receipt_persistence_template',
+                'signature_acceptance_by_post_execution_action_signed_receipt_persistence_template',
+                'signature_validation_by_post_execution_action_signed_receipt_persistence_template',
+                'receipt_persistence_by_post_execution_action_signed_receipt_persistence_template',
+                'decision_recording_by_post_execution_action_signed_receipt_persistence_template',
+                'approval_from_post_execution_action_signed_receipt_persistence_template',
+                'merge_from_post_execution_action_signed_receipt_persistence_template',
+                'dispatch_from_post_execution_action_signed_receipt_persistence_template',
+            ],
+            'ledger_write_allowed' => false,
+            'signature_valid' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_template.v1',
+            'status' => $templateReady ? 'merge_post_execution_action_signed_receipt_persistence_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_template_blocked',
+            'mode' => 'read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_template',
+            'execution_allowed' => false,
+            'ledger_write_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'receipt_persisted' => false,
+            'template' => $template,
+            'template_hash' => $this->stableHash($template),
+            'non_execution_guarantees' => [
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_template_does_not_claim_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_template_does_not_complete_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_template_does_not_accept_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_template_does_not_validate_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_template_does_not_write_ledger',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_template_does_not_persist_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_template_does_not_record_decision',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_template_does_not_approve_code',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_template_does_not_merge',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_template_does_not_dispatch_work',
+            ],
+            'human_summary' => $templateReady
+                ? 'Codex review merge post-execution action signed receipt persistence template is ready as a non-writing contract. It still does not accept, validate, write, persist, approve or merge.'
+                : 'Codex review merge post-execution action signed receipt persistence template is blocked until signed receipt preflight is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergePostExecutionActionSignedReceiptPersistenceReceiptDraft(array $options = []): array
+    {
+        $templatePayload = $this->codexReviewMergePostExecutionActionSignedReceiptPersistenceTemplate($options);
+        $template = (array) data_get($templatePayload, 'template', []);
+        $receiptReady = data_get($templatePayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_template_ready';
+
+        $receipt = [
+            'receipt_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-RECEIPT-DRAFT-SELF-CONSTRUCTION-0001',
+            'status' => $receiptReady ? 'unsigned_waiting_for_external_persistence_evidence' : 'blocked_before_signed_action_receipt_persistence_template',
+            'source_signed_action_receipt_persistence_template_hash' => data_get($templatePayload, 'template_hash'),
+            'source_signed_action_receipt_preflight_hash' => data_get($template, 'source_signed_action_receipt_preflight_hash'),
+            'source_signed_action_receipt_template_hash' => data_get($template, 'source_signed_action_receipt_template_hash'),
+            'source_action_signature_request_hash' => data_get($template, 'source_action_signature_request_hash'),
+            'source_action_signable_payload_hash' => data_get($template, 'source_action_signable_payload_hash'),
+            'source_action_receipt_hash' => data_get($template, 'source_action_receipt_hash'),
+            'future_append_only_event_type' => data_get($template, 'future_append_only_event_type'),
+            'required_persistence_fields' => data_get($template, 'future_append_only_event_fields', []),
+            'required_pre_persistence_checks' => data_get($template, 'required_pre_persistence_checks', []),
+            'future_verification_outputs' => data_get($template, 'future_verification_outputs', []),
+            'required_receipt_evidence' => [
+                'signed_action_receipt_hash',
+                'append_only_event_hash',
+                'ledger_sequence_number',
+                'persistence_actor_identity',
+                'persistence_timestamp',
+                'source_hash_match_report',
+                'hot_scope_recheck_report',
+                'unreviewed_diff_absence_report',
+            ],
+            'still_forbidden_by_receipt_draft' => [
+                'ledger_write_by_post_execution_action_signed_receipt_persistence_receipt_draft',
+                'signature_acceptance_by_post_execution_action_signed_receipt_persistence_receipt_draft',
+                'signature_validation_by_post_execution_action_signed_receipt_persistence_receipt_draft',
+                'receipt_persistence_by_post_execution_action_signed_receipt_persistence_receipt_draft',
+                'decision_recording_by_post_execution_action_signed_receipt_persistence_receipt_draft',
+                'approval_from_post_execution_action_signed_receipt_persistence_receipt_draft',
+                'merge_from_post_execution_action_signed_receipt_persistence_receipt_draft',
+                'dispatch_from_post_execution_action_signed_receipt_persistence_receipt_draft',
+            ],
+            'ledger_write_allowed' => false,
+            'signature_valid' => false,
+            'receipt_persisted' => false,
+            'receipt_signed' => false,
+            'decision_recorded' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_receipt_draft.v1',
+            'status' => $receiptReady ? 'merge_post_execution_action_signed_receipt_persistence_receipt_draft_ready' : 'merge_post_execution_action_signed_receipt_persistence_receipt_draft_blocked',
+            'mode' => 'read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_receipt_draft',
+            'execution_allowed' => false,
+            'ledger_write_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'receipt_persisted' => false,
+            'receipt_signed' => false,
+            'receipt' => $receipt,
+            'receipt_hash' => $this->stableHash($receipt),
+            'non_execution_guarantees' => [
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_receipt_draft_does_not_claim_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_receipt_draft_does_not_complete_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_receipt_draft_does_not_accept_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_receipt_draft_does_not_validate_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_receipt_draft_does_not_write_ledger',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_receipt_draft_does_not_persist_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_receipt_draft_does_not_record_decision',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_receipt_draft_does_not_approve_code',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_receipt_draft_does_not_merge',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_receipt_draft_does_not_dispatch_work',
+            ],
+            'human_summary' => $receiptReady
+                ? 'Codex review merge post-execution action signed receipt persistence receipt draft is ready as an unsigned, non-writing receipt. It still does not accept signatures, validate, write ledger, persist, approve or merge.'
+                : 'Codex review merge post-execution action signed receipt persistence receipt draft is blocked until the persistence template is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergePostExecutionActionSignedReceiptPersistencePreflight(array $options = []): array
+    {
+        $receiptPayload = $this->codexReviewMergePostExecutionActionSignedReceiptPersistenceReceiptDraft($options);
+        $receipt = (array) data_get($receiptPayload, 'receipt', []);
+        $receiptDraftReady = data_get($receiptPayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_receipt_draft_ready';
+
+        $blockingConditions = $receiptDraftReady ? [
+            'external_persistence_actor_identity_missing',
+            'external_persistence_timestamp_missing',
+            'external_signed_action_receipt_hash_missing',
+            'external_append_only_event_hash_missing',
+            'external_ledger_sequence_number_missing',
+            'source_hash_match_report_missing',
+            'hot_scope_recheck_report_missing',
+            'unreviewed_diff_absence_report_missing',
+            'ledger_write_surface_not_implemented',
+            'human_persistence_confirmation_missing',
+        ] : [
+            'signed_action_receipt_persistence_receipt_draft_not_ready',
+        ];
+
+        $preflight = [
+            'preflight_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-PREFLIGHT-SELF-CONSTRUCTION-0001',
+            'status' => $receiptDraftReady ? 'waiting_for_external_append_only_persistence_evidence' : 'blocked_before_signed_action_receipt_persistence_receipt_draft',
+            'source_persistence_receipt_draft_hash' => data_get($receiptPayload, 'receipt_hash'),
+            'source_signed_action_receipt_persistence_template_hash' => data_get($receipt, 'source_signed_action_receipt_persistence_template_hash'),
+            'future_append_only_event_type' => data_get($receipt, 'future_append_only_event_type'),
+            'required_persistence_fields' => data_get($receipt, 'required_persistence_fields', []),
+            'required_receipt_evidence' => data_get($receipt, 'required_receipt_evidence', []),
+            'blocking_count' => count($blockingConditions),
+            'blocking_conditions' => $blockingConditions,
+            'release_conditions_for_future_persistence_surface' => [
+                'receipt_draft_ready',
+                'all_blocking_conditions_resolved',
+                'source_hashes_match_receipt_draft',
+                'append_only_event_hash_present',
+                'ledger_sequence_number_present',
+                'human_persistence_confirmation_present',
+                'persistence_surface_allows_append_only_write_only',
+            ],
+            'still_forbidden_by_preflight' => [
+                'ledger_write_by_post_execution_action_signed_receipt_persistence_preflight',
+                'signature_acceptance_by_post_execution_action_signed_receipt_persistence_preflight',
+                'signature_validation_by_post_execution_action_signed_receipt_persistence_preflight',
+                'receipt_persistence_by_post_execution_action_signed_receipt_persistence_preflight',
+                'decision_recording_by_post_execution_action_signed_receipt_persistence_preflight',
+                'approval_from_post_execution_action_signed_receipt_persistence_preflight',
+                'merge_from_post_execution_action_signed_receipt_persistence_preflight',
+                'dispatch_from_post_execution_action_signed_receipt_persistence_preflight',
+            ],
+            'ledger_write_allowed' => false,
+            'signature_valid' => false,
+            'receipt_persisted' => false,
+            'receipt_signed' => false,
+            'decision_recorded' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_preflight.v1',
+            'status' => $receiptDraftReady ? 'merge_post_execution_action_signed_receipt_persistence_preflight_ready' : 'merge_post_execution_action_signed_receipt_persistence_preflight_blocked',
+            'mode' => 'read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_preflight',
+            'execution_allowed' => false,
+            'ledger_write_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'receipt_persisted' => false,
+            'receipt_signed' => false,
+            'preflight' => $preflight,
+            'preflight_hash' => $this->stableHash($preflight),
+            'non_execution_guarantees' => [
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_preflight_does_not_claim_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_preflight_does_not_complete_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_preflight_does_not_accept_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_preflight_does_not_validate_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_preflight_does_not_write_ledger',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_preflight_does_not_persist_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_preflight_does_not_record_decision',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_preflight_does_not_approve_code',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_preflight_does_not_merge',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_preflight_does_not_dispatch_work',
+            ],
+            'human_summary' => $receiptDraftReady
+                ? 'Codex review merge post-execution action signed receipt persistence preflight is ready as a blocker report. It still does not write ledger, persist receipts, approve or merge.'
+                : 'Codex review merge post-execution action signed receipt persistence preflight is blocked until the persistence receipt draft is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergePostExecutionActionSignedReceiptPersistencePostPreflightRunbook(array $options = []): array
+    {
+        $preflightPayload = $this->codexReviewMergePostExecutionActionSignedReceiptPersistencePreflight($options);
+        $preflight = (array) data_get($preflightPayload, 'preflight', []);
+        $preflightReady = data_get($preflightPayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_preflight_ready';
+
+        $steps = [
+            [
+                'id' => 'step_01_reconfirm_preflight_hash',
+                'action' => 'Recompute and compare the persistence preflight hash before any future persistence attempt.',
+                'required_evidence' => ['preflight_hash_match_report'],
+            ],
+            [
+                'id' => 'step_02_collect_external_persistence_evidence',
+                'action' => 'Collect actor identity, timestamp, signed receipt hash, append-only event hash and ledger sequence number.',
+                'required_evidence' => ['persistence_actor_identity', 'persistence_timestamp', 'signed_action_receipt_hash', 'append_only_event_hash', 'ledger_sequence_number'],
+            ],
+            [
+                'id' => 'step_03_verify_source_hashes',
+                'action' => 'Verify every source hash still matches the receipt draft chain.',
+                'required_evidence' => ['source_hash_match_report'],
+            ],
+            [
+                'id' => 'step_04_recheck_hot_scope',
+                'action' => 'Recheck hot scopes and reject persistence if unreviewed drift appears.',
+                'required_evidence' => ['hot_scope_recheck_report', 'unreviewed_diff_absence_report'],
+            ],
+            [
+                'id' => 'step_05_require_human_persistence_confirmation',
+                'action' => 'Require explicit human confirmation before any later append-only write surface is invoked.',
+                'required_evidence' => ['human_persistence_confirmation_hash'],
+            ],
+            [
+                'id' => 'step_06_prepare_future_append_only_write',
+                'action' => 'Prepare the future append-only event payload without writing it.',
+                'required_evidence' => ['future_append_only_event_payload_hash'],
+            ],
+        ];
+
+        $runbook = [
+            'runbook_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-POST-PREFLIGHT-RUNBOOK-SELF-CONSTRUCTION-0001',
+            'status' => $preflightReady ? 'waiting_for_external_persistence_evidence_collection' : 'blocked_before_signed_action_receipt_persistence_preflight',
+            'source_persistence_preflight_hash' => data_get($preflightPayload, 'preflight_hash'),
+            'source_persistence_receipt_draft_hash' => data_get($preflight, 'source_persistence_receipt_draft_hash'),
+            'future_append_only_event_type' => data_get($preflight, 'future_append_only_event_type'),
+            'preflight_blocking_count' => data_get($preflight, 'blocking_count'),
+            'preflight_blocking_conditions' => data_get($preflight, 'blocking_conditions', []),
+            'step_count' => count($steps),
+            'steps' => $steps,
+            'exit_conditions' => [
+                'all_runbook_steps_have_evidence',
+                'all_preflight_blockers_resolved',
+                'append_only_event_payload_hash_created',
+                'human_persistence_confirmation_hash_present',
+                'future_writer_surface_separately_authorized',
+            ],
+            'still_forbidden_by_runbook' => [
+                'ledger_write_by_post_execution_action_signed_receipt_persistence_post_preflight_runbook',
+                'signature_acceptance_by_post_execution_action_signed_receipt_persistence_post_preflight_runbook',
+                'signature_validation_by_post_execution_action_signed_receipt_persistence_post_preflight_runbook',
+                'receipt_persistence_by_post_execution_action_signed_receipt_persistence_post_preflight_runbook',
+                'decision_recording_by_post_execution_action_signed_receipt_persistence_post_preflight_runbook',
+                'approval_from_post_execution_action_signed_receipt_persistence_post_preflight_runbook',
+                'merge_from_post_execution_action_signed_receipt_persistence_post_preflight_runbook',
+                'dispatch_from_post_execution_action_signed_receipt_persistence_post_preflight_runbook',
+            ],
+            'ledger_write_allowed' => false,
+            'signature_valid' => false,
+            'receipt_persisted' => false,
+            'receipt_signed' => false,
+            'decision_recorded' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_post_preflight_runbook.v1',
+            'status' => $preflightReady ? 'merge_post_execution_action_signed_receipt_persistence_post_preflight_runbook_ready' : 'merge_post_execution_action_signed_receipt_persistence_post_preflight_runbook_blocked',
+            'mode' => 'read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_post_preflight_runbook',
+            'execution_allowed' => false,
+            'ledger_write_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'receipt_persisted' => false,
+            'receipt_signed' => false,
+            'runbook' => $runbook,
+            'runbook_hash' => $this->stableHash($runbook),
+            'non_execution_guarantees' => [
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_post_preflight_runbook_does_not_claim_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_post_preflight_runbook_does_not_complete_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_post_preflight_runbook_does_not_accept_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_post_preflight_runbook_does_not_validate_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_post_preflight_runbook_does_not_write_ledger',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_post_preflight_runbook_does_not_persist_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_post_preflight_runbook_does_not_record_decision',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_post_preflight_runbook_does_not_approve_code',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_post_preflight_runbook_does_not_merge',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_post_preflight_runbook_does_not_dispatch_work',
+            ],
+            'human_summary' => $preflightReady
+                ? 'Codex review merge post-execution action signed receipt persistence post-preflight runbook is ready as a non-writing sequence. It still does not write ledger, persist receipts, approve or merge.'
+                : 'Codex review merge post-execution action signed receipt persistence post-preflight runbook is blocked until persistence preflight is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergePostExecutionActionSignedReceiptPersistenceAppendOnlyEventPayloadTemplate(array $options = []): array
+    {
+        $runbookPayload = $this->codexReviewMergePostExecutionActionSignedReceiptPersistencePostPreflightRunbook($options);
+        $runbook = (array) data_get($runbookPayload, 'runbook', []);
+        $runbookReady = data_get($runbookPayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_post_preflight_runbook_ready';
+
+        $payload = [
+            'payload_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-APPEND-ONLY-EVENT-PAYLOAD-TEMPLATE-SELF-CONSTRUCTION-0001',
+            'status' => $runbookReady ? 'waiting_for_future_writer_surface_authorization' : 'blocked_before_signed_action_receipt_persistence_post_preflight_runbook',
+            'event_type' => data_get($runbook, 'future_append_only_event_type'),
+            'source_persistence_post_preflight_runbook_hash' => data_get($runbookPayload, 'runbook_hash'),
+            'source_persistence_preflight_hash' => data_get($runbook, 'source_persistence_preflight_hash'),
+            'source_persistence_receipt_draft_hash' => data_get($runbook, 'source_persistence_receipt_draft_hash'),
+            'required_payload_fields' => [
+                'event_id',
+                'event_type',
+                'signed_action_receipt_id',
+                'signed_action_receipt_hash',
+                'source_persistence_post_preflight_runbook_hash',
+                'source_persistence_preflight_hash',
+                'source_persistence_receipt_draft_hash',
+                'append_only_event_hash',
+                'ledger_sequence_number',
+                'persistence_actor_identity',
+                'persistence_timestamp',
+                'human_persistence_confirmation_hash',
+                'source_hash_match_report_hash',
+                'hot_scope_recheck_report_hash',
+                'unreviewed_diff_absence_report_hash',
+            ],
+            'field_values' => [
+                'event_id' => null,
+                'event_type' => data_get($runbook, 'future_append_only_event_type'),
+                'signed_action_receipt_id' => null,
+                'signed_action_receipt_hash' => null,
+                'source_persistence_post_preflight_runbook_hash' => data_get($runbookPayload, 'runbook_hash'),
+                'source_persistence_preflight_hash' => data_get($runbook, 'source_persistence_preflight_hash'),
+                'source_persistence_receipt_draft_hash' => data_get($runbook, 'source_persistence_receipt_draft_hash'),
+                'append_only_event_hash' => null,
+                'ledger_sequence_number' => null,
+                'persistence_actor_identity' => null,
+                'persistence_timestamp' => null,
+                'human_persistence_confirmation_hash' => null,
+                'source_hash_match_report_hash' => null,
+                'hot_scope_recheck_report_hash' => null,
+                'unreviewed_diff_absence_report_hash' => null,
+            ],
+            'required_before_write' => [
+                'post_preflight_runbook_ready',
+                'all_runbook_steps_have_evidence',
+                'all_preflight_blockers_resolved',
+                'all_required_payload_fields_non_null',
+                'payload_hash_recomputed_by_writer',
+                'future_writer_surface_separately_authorized',
+            ],
+            'still_forbidden_by_payload_template' => [
+                'ledger_write_by_post_execution_action_signed_receipt_persistence_append_only_event_payload_template',
+                'signature_acceptance_by_post_execution_action_signed_receipt_persistence_append_only_event_payload_template',
+                'signature_validation_by_post_execution_action_signed_receipt_persistence_append_only_event_payload_template',
+                'receipt_persistence_by_post_execution_action_signed_receipt_persistence_append_only_event_payload_template',
+                'decision_recording_by_post_execution_action_signed_receipt_persistence_append_only_event_payload_template',
+                'approval_from_post_execution_action_signed_receipt_persistence_append_only_event_payload_template',
+                'merge_from_post_execution_action_signed_receipt_persistence_append_only_event_payload_template',
+                'dispatch_from_post_execution_action_signed_receipt_persistence_append_only_event_payload_template',
+            ],
+            'ledger_write_allowed' => false,
+            'signature_valid' => false,
+            'receipt_persisted' => false,
+            'receipt_signed' => false,
+            'decision_recorded' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_append_only_event_payload_template.v1',
+            'status' => $runbookReady ? 'merge_post_execution_action_signed_receipt_persistence_append_only_event_payload_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_append_only_event_payload_template_blocked',
+            'mode' => 'read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_append_only_event_payload_template',
+            'execution_allowed' => false,
+            'ledger_write_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'receipt_persisted' => false,
+            'receipt_signed' => false,
+            'payload' => $payload,
+            'payload_hash' => $this->stableHash($payload),
+            'non_execution_guarantees' => [
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_append_only_event_payload_template_does_not_claim_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_append_only_event_payload_template_does_not_complete_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_append_only_event_payload_template_does_not_accept_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_append_only_event_payload_template_does_not_validate_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_append_only_event_payload_template_does_not_write_ledger',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_append_only_event_payload_template_does_not_persist_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_append_only_event_payload_template_does_not_record_decision',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_append_only_event_payload_template_does_not_approve_code',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_append_only_event_payload_template_does_not_merge',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_append_only_event_payload_template_does_not_dispatch_work',
+            ],
+            'human_summary' => $runbookReady
+                ? 'Codex review merge post-execution action signed receipt persistence append-only event payload template is ready as a non-writing payload contract. It still does not write ledger, persist receipts, approve or merge.'
+                : 'Codex review merge post-execution action signed receipt persistence append-only event payload template is blocked until post-preflight runbook is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterPreflight(array $options = []): array
+    {
+        $payloadTemplate = $this->codexReviewMergePostExecutionActionSignedReceiptPersistenceAppendOnlyEventPayloadTemplate($options);
+        $payload = (array) data_get($payloadTemplate, 'payload', []);
+        $payloadReady = data_get($payloadTemplate, 'status') === 'merge_post_execution_action_signed_receipt_persistence_append_only_event_payload_template_ready';
+
+        $blockingConditions = $payloadReady ? [
+            'future_writer_surface_not_implemented',
+            'future_writer_surface_not_separately_authorized',
+            'payload_required_fields_still_null',
+            'payload_hash_not_recomputed_by_writer',
+            'append_only_event_hash_missing',
+            'ledger_sequence_number_missing',
+            'persistence_actor_identity_missing',
+            'persistence_timestamp_missing',
+            'human_persistence_confirmation_hash_missing',
+            'source_hash_match_report_hash_missing',
+            'hot_scope_recheck_report_hash_missing',
+            'unreviewed_diff_absence_report_hash_missing',
+        ] : [
+            'append_only_event_payload_template_not_ready',
+        ];
+
+        $writerPreflight = [
+            'writer_preflight_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-PREFLIGHT-SELF-CONSTRUCTION-0001',
+            'status' => $payloadReady ? 'waiting_for_future_writer_surface_authorization' : 'blocked_before_append_only_event_payload_template',
+            'source_append_only_event_payload_template_hash' => data_get($payloadTemplate, 'payload_hash'),
+            'source_persistence_post_preflight_runbook_hash' => data_get($payload, 'source_persistence_post_preflight_runbook_hash'),
+            'event_type' => data_get($payload, 'event_type'),
+            'required_payload_fields' => data_get($payload, 'required_payload_fields', []),
+            'required_before_write' => data_get($payload, 'required_before_write', []),
+            'blocking_count' => count($blockingConditions),
+            'blocking_conditions' => $blockingConditions,
+            'writer_contract_required_capabilities' => [
+                'append_only_ledger_write_only',
+                'payload_hash_recompute',
+                'source_hash_match_enforcement',
+                'hot_scope_recheck_enforcement',
+                'human_confirmation_hash_enforcement',
+                'no_merge_authority',
+                'no_dispatch_authority',
+            ],
+            'future_writer_release_conditions' => [
+                'writer_surface_implemented',
+                'writer_surface_separately_authorized',
+                'all_payload_fields_non_null',
+                'all_writer_contract_capabilities_present',
+                'all_blocking_conditions_resolved',
+                'writer_preflight_hash_bound_to_writer_contract',
+            ],
+            'still_forbidden_by_writer_preflight' => [
+                'ledger_write_by_post_execution_action_signed_receipt_persistence_writer_preflight',
+                'signature_acceptance_by_post_execution_action_signed_receipt_persistence_writer_preflight',
+                'signature_validation_by_post_execution_action_signed_receipt_persistence_writer_preflight',
+                'receipt_persistence_by_post_execution_action_signed_receipt_persistence_writer_preflight',
+                'decision_recording_by_post_execution_action_signed_receipt_persistence_writer_preflight',
+                'approval_from_post_execution_action_signed_receipt_persistence_writer_preflight',
+                'merge_from_post_execution_action_signed_receipt_persistence_writer_preflight',
+                'dispatch_from_post_execution_action_signed_receipt_persistence_writer_preflight',
+            ],
+            'ledger_write_allowed' => false,
+            'signature_valid' => false,
+            'receipt_persisted' => false,
+            'receipt_signed' => false,
+            'decision_recorded' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_preflight.v1',
+            'status' => $payloadReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_preflight_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_preflight_blocked',
+            'mode' => 'read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_preflight',
+            'execution_allowed' => false,
+            'ledger_write_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'receipt_persisted' => false,
+            'receipt_signed' => false,
+            'writer_preflight' => $writerPreflight,
+            'writer_preflight_hash' => $this->stableHash($writerPreflight),
+            'non_execution_guarantees' => [
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_preflight_does_not_claim_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_preflight_does_not_complete_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_preflight_does_not_accept_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_preflight_does_not_validate_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_preflight_does_not_write_ledger',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_preflight_does_not_persist_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_preflight_does_not_record_decision',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_preflight_does_not_approve_code',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_preflight_does_not_merge',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_preflight_does_not_dispatch_work',
+            ],
+            'human_summary' => $payloadReady
+                ? 'Codex review merge post-execution action signed receipt persistence writer preflight is ready as a blocker report. It still does not create a writer, write ledger, persist receipts, approve or merge.'
+                : 'Codex review merge post-execution action signed receipt persistence writer preflight is blocked until the append-only event payload template is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterContractTemplate(array $options = []): array
+    {
+        $preflightPayload = $this->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterPreflight($options);
+        $writerPreflight = (array) data_get($preflightPayload, 'writer_preflight', []);
+        $preflightReady = data_get($preflightPayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_preflight_ready';
+
+        $capabilities = data_get($writerPreflight, 'writer_contract_required_capabilities', []);
+        $contract = [
+            'contract_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-CONTRACT-TEMPLATE-SELF-CONSTRUCTION-0001',
+            'status' => $preflightReady ? 'waiting_for_future_writer_implementation' : 'blocked_before_persistence_writer_preflight',
+            'source_writer_preflight_hash' => data_get($preflightPayload, 'writer_preflight_hash'),
+            'source_append_only_event_payload_template_hash' => data_get($writerPreflight, 'source_append_only_event_payload_template_hash'),
+            'event_type' => data_get($writerPreflight, 'event_type'),
+            'capability_count' => count($capabilities),
+            'required_capabilities' => $capabilities,
+            'required_payload_fields' => data_get($writerPreflight, 'required_payload_fields', []),
+            'required_pre_write_checks' => [
+                'writer_preflight_ready',
+                'writer_contract_hash_bound_to_implementation',
+                'writer_contract_capabilities_verified',
+                'all_payload_fields_non_null',
+                'payload_hash_recomputed_by_writer',
+                'source_hash_match_enforced',
+                'hot_scope_recheck_enforced',
+                'human_confirmation_hash_enforced',
+                'merge_authority_absent',
+                'dispatch_authority_absent',
+            ],
+            'implementation_must_not_include' => [
+                'merge_execution',
+                'dispatch_execution',
+                'signature_acceptance',
+                'signature_validation',
+                'approval_recording',
+                'decision_recording',
+                'packet_claiming',
+                'packet_completion',
+            ],
+            'future_release_conditions' => data_get($writerPreflight, 'future_writer_release_conditions', []),
+            'still_forbidden_by_contract_template' => [
+                'ledger_write_by_post_execution_action_signed_receipt_persistence_writer_contract_template',
+                'signature_acceptance_by_post_execution_action_signed_receipt_persistence_writer_contract_template',
+                'signature_validation_by_post_execution_action_signed_receipt_persistence_writer_contract_template',
+                'receipt_persistence_by_post_execution_action_signed_receipt_persistence_writer_contract_template',
+                'decision_recording_by_post_execution_action_signed_receipt_persistence_writer_contract_template',
+                'approval_from_post_execution_action_signed_receipt_persistence_writer_contract_template',
+                'merge_from_post_execution_action_signed_receipt_persistence_writer_contract_template',
+                'dispatch_from_post_execution_action_signed_receipt_persistence_writer_contract_template',
+            ],
+            'ledger_write_allowed' => false,
+            'signature_valid' => false,
+            'receipt_persisted' => false,
+            'receipt_signed' => false,
+            'decision_recorded' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_contract_template.v1',
+            'status' => $preflightReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_contract_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_contract_template_blocked',
+            'mode' => 'read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_contract_template',
+            'execution_allowed' => false,
+            'ledger_write_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'receipt_persisted' => false,
+            'receipt_signed' => false,
+            'contract' => $contract,
+            'contract_hash' => $this->stableHash($contract),
+            'non_execution_guarantees' => [
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_contract_template_does_not_claim_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_contract_template_does_not_complete_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_contract_template_does_not_accept_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_contract_template_does_not_validate_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_contract_template_does_not_write_ledger',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_contract_template_does_not_persist_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_contract_template_does_not_record_decision',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_contract_template_does_not_approve_code',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_contract_template_does_not_merge',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_contract_template_does_not_dispatch_work',
+            ],
+            'human_summary' => $preflightReady
+                ? 'Codex review merge post-execution action signed receipt persistence writer contract template is ready as a non-writing contract. It still does not implement a writer, write ledger, persist receipts, approve or merge.'
+                : 'Codex review merge post-execution action signed receipt persistence writer contract template is blocked until writer preflight is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterImplementationPreflight(array $options = []): array
+    {
+        $contractPayload = $this->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterContractTemplate($options);
+        $contract = (array) data_get($contractPayload, 'contract', []);
+        $contractReady = data_get($contractPayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_contract_template_ready';
+
+        $blockingConditions = $contractReady ? [
+            'writer_implementation_absent',
+            'writer_contract_hash_not_bound_to_implementation',
+            'writer_capability_tests_absent',
+            'append_only_write_guard_absent',
+            'merge_authority_absence_test_absent',
+            'dispatch_authority_absence_test_absent',
+            'payload_non_null_validation_absent',
+            'payload_hash_recompute_test_absent',
+            'source_hash_match_enforcement_test_absent',
+            'hot_scope_recheck_enforcement_test_absent',
+            'human_confirmation_hash_enforcement_test_absent',
+            'writer_release_authorization_absent',
+        ] : [
+            'writer_contract_template_not_ready',
+        ];
+
+        $implementationPreflight = [
+            'implementation_preflight_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-IMPLEMENTATION-PREFLIGHT-SELF-CONSTRUCTION-0001',
+            'status' => $contractReady ? 'waiting_for_future_writer_implementation_patch' : 'blocked_before_persistence_writer_contract_template',
+            'source_writer_contract_template_hash' => data_get($contractPayload, 'contract_hash'),
+            'source_writer_preflight_hash' => data_get($contract, 'source_writer_preflight_hash'),
+            'event_type' => data_get($contract, 'event_type'),
+            'required_implementation_files' => [
+                'future:app/Services/Ai/SelfConstruction/CodexReviewMergePostExecutionActionSignedReceiptPersistenceWriter.php',
+                'future:tests/Unit/Ai/SelfConstruction/CodexReviewMergePostExecutionActionSignedReceiptPersistenceWriterTest.php',
+            ],
+            'required_implementation_tests' => [
+                'writer_rejects_null_payload_fields',
+                'writer_recomputes_payload_hash',
+                'writer_enforces_source_hash_match',
+                'writer_enforces_hot_scope_recheck',
+                'writer_requires_human_confirmation_hash',
+                'writer_has_no_merge_authority',
+                'writer_has_no_dispatch_authority',
+                'writer_is_append_only_write_only',
+            ],
+            'blocking_count' => count($blockingConditions),
+            'blocking_conditions' => $blockingConditions,
+            'implementation_must_not_include' => data_get($contract, 'implementation_must_not_include', []),
+            'required_capabilities' => data_get($contract, 'required_capabilities', []),
+            'future_release_conditions' => [
+                'implementation_files_exist',
+                'implementation_tests_pass',
+                'contract_hash_bound_to_implementation',
+                'all_required_capabilities_verified',
+                'all_forbidden_authorities_absent',
+                'separate_writer_release_authorization_present',
+            ],
+            'still_forbidden_by_implementation_preflight' => [
+                'writer_file_creation_by_post_execution_action_signed_receipt_persistence_writer_implementation_preflight',
+                'ledger_write_by_post_execution_action_signed_receipt_persistence_writer_implementation_preflight',
+                'signature_acceptance_by_post_execution_action_signed_receipt_persistence_writer_implementation_preflight',
+                'signature_validation_by_post_execution_action_signed_receipt_persistence_writer_implementation_preflight',
+                'receipt_persistence_by_post_execution_action_signed_receipt_persistence_writer_implementation_preflight',
+                'decision_recording_by_post_execution_action_signed_receipt_persistence_writer_implementation_preflight',
+                'approval_from_post_execution_action_signed_receipt_persistence_writer_implementation_preflight',
+                'merge_from_post_execution_action_signed_receipt_persistence_writer_implementation_preflight',
+                'dispatch_from_post_execution_action_signed_receipt_persistence_writer_implementation_preflight',
+            ],
+            'ledger_write_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'signature_valid' => false,
+            'receipt_persisted' => false,
+            'receipt_signed' => false,
+            'decision_recorded' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_implementation_preflight.v1',
+            'status' => $contractReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_implementation_preflight_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_implementation_preflight_blocked',
+            'mode' => 'read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_implementation_preflight',
+            'execution_allowed' => false,
+            'ledger_write_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'receipt_persisted' => false,
+            'receipt_signed' => false,
+            'implementation_preflight' => $implementationPreflight,
+            'implementation_preflight_hash' => $this->stableHash($implementationPreflight),
+            'non_execution_guarantees' => [
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_implementation_preflight_does_not_claim_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_implementation_preflight_does_not_complete_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_implementation_preflight_does_not_create_writer_file',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_implementation_preflight_does_not_accept_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_implementation_preflight_does_not_validate_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_implementation_preflight_does_not_write_ledger',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_implementation_preflight_does_not_persist_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_implementation_preflight_does_not_record_decision',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_implementation_preflight_does_not_approve_code',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_implementation_preflight_does_not_merge',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_implementation_preflight_does_not_dispatch_work',
+            ],
+            'human_summary' => $contractReady
+                ? 'Codex review merge post-execution action signed receipt persistence writer implementation preflight is ready as a blocker report. It still does not create a writer, write ledger, persist receipts, approve or merge.'
+                : 'Codex review merge post-execution action signed receipt persistence writer implementation preflight is blocked until writer contract template is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseAuthorizationTemplate(array $options = []): array
+    {
+        $implementationPreflightPayload = $this->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterImplementationPreflight($options);
+        $implementationPreflight = (array) data_get($implementationPreflightPayload, 'implementation_preflight', []);
+        $implementationPreflightReady = data_get($implementationPreflightPayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_implementation_preflight_ready';
+
+        $requiredEvidence = [
+            'writer_implementation_patch_hash',
+            'writer_contract_template_hash',
+            'writer_implementation_preflight_hash',
+            'writer_capability_test_output_hash',
+            'append_only_guard_test_output_hash',
+            'merge_authority_absence_test_output_hash',
+            'dispatch_authority_absence_test_output_hash',
+            'hot_scope_recheck_output_hash',
+            'human_writer_release_confirmation_hash',
+        ];
+
+        $authorization = [
+            'authorization_template_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-AUTHORIZATION-TEMPLATE-SELF-CONSTRUCTION-0001',
+            'status' => $implementationPreflightReady ? 'waiting_for_future_human_writer_release_authorization' : 'blocked_before_writer_implementation_preflight',
+            'source_writer_implementation_preflight_hash' => data_get($implementationPreflightPayload, 'implementation_preflight_hash'),
+            'source_writer_contract_template_hash' => data_get($implementationPreflight, 'source_writer_contract_template_hash'),
+            'source_writer_preflight_hash' => data_get($implementationPreflight, 'source_writer_preflight_hash'),
+            'event_type' => data_get($implementationPreflight, 'event_type'),
+            'required_evidence_count' => count($requiredEvidence),
+            'required_external_evidence' => $requiredEvidence,
+            'required_authorization_checks' => [
+                'writer_implementation_preflight_ready',
+                'writer_patch_reviewed_by_principal_integrator',
+                'writer_contract_hash_matches_patch',
+                'required_capability_tests_pass',
+                'append_only_guard_passes',
+                'merge_authority_absent',
+                'dispatch_authority_absent',
+                'hot_scope_clean_at_release_time',
+                'human_writer_release_confirmation_present',
+            ],
+            'future_authorized_writer_scope' => [
+                'may_validate_non_null_payload_fields',
+                'may_recompute_payload_hash',
+                'may_enforce_source_hash_match',
+                'may_enforce_hot_scope_recheck',
+                'may_require_human_confirmation_hash',
+                'may_write_one_append_only_persistence_event_after_all_checks_pass',
+            ],
+            'still_forbidden_by_release_authorization_template' => [
+                'writer_file_creation_by_writer_release_authorization_template',
+                'ledger_write_by_writer_release_authorization_template',
+                'signature_acceptance_by_writer_release_authorization_template',
+                'signature_validation_by_writer_release_authorization_template',
+                'receipt_persistence_by_writer_release_authorization_template',
+                'decision_recording_by_writer_release_authorization_template',
+                'approval_from_writer_release_authorization_template',
+                'merge_from_writer_release_authorization_template',
+                'dispatch_from_writer_release_authorization_template',
+            ],
+            'writer_file_creation_allowed' => false,
+            'ledger_write_allowed' => false,
+            'signature_valid' => false,
+            'receipt_persisted' => false,
+            'receipt_signed' => false,
+            'decision_recorded' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_template.v1',
+            'status' => $implementationPreflightReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_template_blocked',
+            'mode' => 'read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_template',
+            'execution_allowed' => false,
+            'ledger_write_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'receipt_persisted' => false,
+            'receipt_signed' => false,
+            'authorization' => $authorization,
+            'authorization_hash' => $this->stableHash($authorization),
+            'non_execution_guarantees' => [
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_template_does_not_claim_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_template_does_not_complete_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_template_does_not_create_writer_file',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_template_does_not_accept_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_template_does_not_validate_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_template_does_not_write_ledger',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_template_does_not_persist_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_template_does_not_record_decision',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_template_does_not_approve_code',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_template_does_not_merge',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_template_does_not_dispatch_work',
+            ],
+            'human_summary' => $implementationPreflightReady
+                ? 'Codex review merge post-execution action signed receipt persistence writer release authorization template is ready as a human authorization contract. It still does not create a writer, write ledger, persist receipts, approve or merge.'
+                : 'Codex review merge post-execution action signed receipt persistence writer release authorization template is blocked until writer implementation preflight is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseAuthorizationPreflight(array $options = []): array
+    {
+        $authorizationPayload = $this->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseAuthorizationTemplate($options);
+        $authorization = (array) data_get($authorizationPayload, 'authorization', []);
+        $authorizationTemplateReady = data_get($authorizationPayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_template_ready';
+
+        $blockingConditions = $authorizationTemplateReady ? [
+            'missing_writer_implementation_patch_hash',
+            'missing_writer_contract_template_hash',
+            'missing_writer_implementation_preflight_hash',
+            'missing_writer_capability_test_output_hash',
+            'missing_append_only_guard_test_output_hash',
+            'missing_merge_authority_absence_test_output_hash',
+            'missing_dispatch_authority_absence_test_output_hash',
+            'missing_hot_scope_recheck_output_hash',
+            'missing_human_writer_release_confirmation_hash',
+            'writer_patch_not_reviewed_by_principal_integrator',
+            'writer_contract_hash_not_verified_against_patch',
+            'writer_release_not_separately_authorized',
+        ] : [
+            'writer_release_authorization_template_not_ready',
+        ];
+
+        $preflight = [
+            'preflight_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-AUTHORIZATION-PREFLIGHT-SELF-CONSTRUCTION-0001',
+            'status' => $authorizationTemplateReady ? 'waiting_for_external_writer_release_evidence' : 'blocked_before_writer_release_authorization_template',
+            'source_writer_release_authorization_template_hash' => data_get($authorizationPayload, 'authorization_hash'),
+            'source_writer_implementation_preflight_hash' => data_get($authorization, 'source_writer_implementation_preflight_hash'),
+            'source_writer_contract_template_hash' => data_get($authorization, 'source_writer_contract_template_hash'),
+            'event_type' => data_get($authorization, 'event_type'),
+            'required_external_evidence' => data_get($authorization, 'required_external_evidence', []),
+            'required_authorization_checks' => data_get($authorization, 'required_authorization_checks', []),
+            'blocking_count' => count($blockingConditions),
+            'blocking_conditions' => $blockingConditions,
+            'future_writer_release_outputs' => [
+                'writer_release_authorization_receipt_hash',
+                'writer_release_authorization_signature_request_hash',
+                'writer_release_signable_payload_hash',
+                'writer_release_runbook_hash',
+            ],
+            'still_forbidden_by_release_authorization_preflight' => [
+                'writer_file_creation_by_writer_release_authorization_preflight',
+                'ledger_write_by_writer_release_authorization_preflight',
+                'signature_acceptance_by_writer_release_authorization_preflight',
+                'signature_validation_by_writer_release_authorization_preflight',
+                'receipt_persistence_by_writer_release_authorization_preflight',
+                'decision_recording_by_writer_release_authorization_preflight',
+                'approval_from_writer_release_authorization_preflight',
+                'merge_from_writer_release_authorization_preflight',
+                'dispatch_from_writer_release_authorization_preflight',
+            ],
+            'writer_file_creation_allowed' => false,
+            'ledger_write_allowed' => false,
+            'signature_valid' => false,
+            'receipt_persisted' => false,
+            'receipt_signed' => false,
+            'decision_recorded' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_preflight.v1',
+            'status' => $authorizationTemplateReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_preflight_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_preflight_blocked',
+            'mode' => 'read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_preflight',
+            'execution_allowed' => false,
+            'ledger_write_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'receipt_persisted' => false,
+            'receipt_signed' => false,
+            'preflight' => $preflight,
+            'preflight_hash' => $this->stableHash($preflight),
+            'non_execution_guarantees' => [
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_preflight_does_not_claim_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_preflight_does_not_complete_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_preflight_does_not_create_writer_file',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_preflight_does_not_accept_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_preflight_does_not_validate_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_preflight_does_not_write_ledger',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_preflight_does_not_persist_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_preflight_does_not_record_decision',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_preflight_does_not_approve_code',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_preflight_does_not_merge',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_preflight_does_not_dispatch_work',
+            ],
+            'human_summary' => $authorizationTemplateReady
+                ? 'Codex review merge post-execution action signed receipt persistence writer release authorization preflight is ready as a blocker report. It still does not create a writer, write ledger, persist receipts, approve or merge.'
+                : 'Codex review merge post-execution action signed receipt persistence writer release authorization preflight is blocked until writer release authorization template is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseAuthorizationReceiptDraft(array $options = []): array
+    {
+        $preflightPayload = $this->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseAuthorizationPreflight($options);
+        $preflight = (array) data_get($preflightPayload, 'preflight', []);
+        $preflightReady = data_get($preflightPayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_preflight_ready';
+
+        $receipt = [
+            'receipt_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-AUTHORIZATION-RECEIPT-DRAFT-SELF-CONSTRUCTION-0001',
+            'status' => $preflightReady ? 'waiting_for_external_writer_release_evidence' : 'blocked_before_writer_release_authorization_preflight',
+            'source_writer_release_authorization_preflight_hash' => data_get($preflightPayload, 'preflight_hash'),
+            'source_writer_release_authorization_template_hash' => data_get($preflight, 'source_writer_release_authorization_template_hash'),
+            'source_writer_implementation_preflight_hash' => data_get($preflight, 'source_writer_implementation_preflight_hash'),
+            'source_writer_contract_template_hash' => data_get($preflight, 'source_writer_contract_template_hash'),
+            'event_type' => data_get($preflight, 'event_type'),
+            'selected_decision' => 'request_external_writer_release_evidence',
+            'allowed_decisions' => [
+                'authorize_writer_release',
+                'request_external_writer_release_evidence',
+                'request_changes',
+                'abort',
+            ],
+            'required_external_evidence' => data_get($preflight, 'required_external_evidence', []),
+            'required_authorization_checks' => data_get($preflight, 'required_authorization_checks', []),
+            'blocking_conditions' => data_get($preflight, 'blocking_conditions', []),
+            'future_signature_request_inputs' => [
+                'receipt_hash',
+                'selected_decision',
+                'writer_release_authorization_preflight_hash',
+                'writer_implementation_patch_hash',
+                'human_writer_release_confirmation_hash',
+                'principal_integrator_identity',
+            ],
+            'signable_payload_fields' => [
+                'receipt_id',
+                'source_writer_release_authorization_preflight_hash',
+                'source_writer_release_authorization_template_hash',
+                'source_writer_implementation_preflight_hash',
+                'source_writer_contract_template_hash',
+                'selected_decision',
+                'required_external_evidence',
+                'required_authorization_checks',
+                'blocking_conditions',
+            ],
+            'still_forbidden_by_receipt_draft' => [
+                'writer_file_creation_by_writer_release_authorization_receipt_draft',
+                'ledger_write_by_writer_release_authorization_receipt_draft',
+                'signature_acceptance_by_writer_release_authorization_receipt_draft',
+                'signature_validation_by_writer_release_authorization_receipt_draft',
+                'receipt_persistence_by_writer_release_authorization_receipt_draft',
+                'decision_recording_by_writer_release_authorization_receipt_draft',
+                'approval_from_writer_release_authorization_receipt_draft',
+                'merge_from_writer_release_authorization_receipt_draft',
+                'dispatch_from_writer_release_authorization_receipt_draft',
+            ],
+            'writer_file_creation_allowed' => false,
+            'ledger_write_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_receipt_draft.v1',
+            'status' => $preflightReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_receipt_draft_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_receipt_draft_blocked',
+            'mode' => 'read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_receipt_draft',
+            'execution_allowed' => false,
+            'ledger_write_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'receipt' => $receipt,
+            'receipt_hash' => $this->stableHash($receipt),
+            'non_execution_guarantees' => [
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_receipt_draft_does_not_claim_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_receipt_draft_does_not_complete_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_receipt_draft_does_not_create_writer_file',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_receipt_draft_does_not_accept_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_receipt_draft_does_not_validate_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_receipt_draft_does_not_write_ledger',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_receipt_draft_does_not_persist_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_receipt_draft_does_not_record_decision',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_receipt_draft_does_not_approve_code',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_receipt_draft_does_not_merge',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_receipt_draft_does_not_dispatch_work',
+            ],
+            'human_summary' => $preflightReady
+                ? 'Codex review merge post-execution action signed receipt persistence writer release authorization receipt draft is ready as an unsigned receipt. It still does not create a writer, write ledger, persist receipts, approve or merge.'
+                : 'Codex review merge post-execution action signed receipt persistence writer release authorization receipt draft is blocked until writer release authorization preflight is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseAuthorizationSignatureRequest(array $options = []): array
+    {
+        $receiptPayload = $this->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseAuthorizationReceiptDraft($options);
+        $receipt = (array) data_get($receiptPayload, 'receipt', []);
+        $receiptReady = data_get($receiptPayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_receipt_draft_ready';
+
+        $signablePayload = [
+            'receipt_hash' => data_get($receiptPayload, 'receipt_hash'),
+            'receipt_id' => data_get($receipt, 'receipt_id'),
+            'selected_decision' => data_get($receipt, 'selected_decision'),
+            'source_writer_release_authorization_preflight_hash' => data_get($receipt, 'source_writer_release_authorization_preflight_hash'),
+            'source_writer_release_authorization_template_hash' => data_get($receipt, 'source_writer_release_authorization_template_hash'),
+            'source_writer_implementation_preflight_hash' => data_get($receipt, 'source_writer_implementation_preflight_hash'),
+            'source_writer_contract_template_hash' => data_get($receipt, 'source_writer_contract_template_hash'),
+            'required_external_evidence' => data_get($receipt, 'required_external_evidence', []),
+            'required_authorization_checks' => data_get($receipt, 'required_authorization_checks', []),
+            'blocking_conditions' => data_get($receipt, 'blocking_conditions', []),
+        ];
+
+        $signatureRequest = [
+            'signature_request_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-AUTHORIZATION-SIGNATURE-REQUEST-SELF-CONSTRUCTION-0001',
+            'status' => $receiptReady ? 'waiting_for_external_writer_release_signature' : 'blocked_before_writer_release_authorization_receipt_draft',
+            'source_writer_release_authorization_receipt_hash' => data_get($receiptPayload, 'receipt_hash'),
+            'source_writer_release_authorization_preflight_hash' => data_get($receipt, 'source_writer_release_authorization_preflight_hash'),
+            'source_writer_release_authorization_template_hash' => data_get($receipt, 'source_writer_release_authorization_template_hash'),
+            'selected_decision' => data_get($receipt, 'selected_decision'),
+            'allowed_decisions' => data_get($receipt, 'allowed_decisions', []),
+            'signature_required' => true,
+            'signature_present' => false,
+            'signature_valid' => false,
+            'signable_payload' => $signablePayload,
+            'signable_payload_hash' => $this->stableHash($signablePayload),
+            'required_external_signature_evidence' => [
+                'external_writer_release_signature_value',
+                'external_writer_release_signature_validator_identity',
+                'external_writer_release_signature_validation_timestamp',
+                'validated_writer_release_authorization_receipt_hash',
+                'validated_writer_release_signable_payload_hash',
+            ],
+            'future_post_signature_outputs' => [
+                'writer_release_authorization_post_signature_runbook_hash',
+                'validated_writer_release_authorization_signature_hash',
+                'signed_writer_release_authorization_receipt_template_hash',
+            ],
+            'still_forbidden_by_signature_request' => [
+                'writer_file_creation_by_writer_release_authorization_signature_request',
+                'ledger_write_by_writer_release_authorization_signature_request',
+                'signature_acceptance_by_writer_release_authorization_signature_request',
+                'signature_validation_by_writer_release_authorization_signature_request',
+                'receipt_persistence_by_writer_release_authorization_signature_request',
+                'decision_recording_by_writer_release_authorization_signature_request',
+                'approval_from_writer_release_authorization_signature_request',
+                'merge_from_writer_release_authorization_signature_request',
+                'dispatch_from_writer_release_authorization_signature_request',
+            ],
+            'writer_file_creation_allowed' => false,
+            'ledger_write_allowed' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_signature_request.v1',
+            'status' => $receiptReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_signature_request_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_signature_request_blocked',
+            'mode' => 'read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_signature_request',
+            'execution_allowed' => false,
+            'ledger_write_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'signature_request' => $signatureRequest,
+            'request_hash' => $this->stableHash($signatureRequest),
+            'signable_payload_hash' => data_get($signatureRequest, 'signable_payload_hash'),
+            'non_execution_guarantees' => [
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_signature_request_does_not_claim_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_signature_request_does_not_complete_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_signature_request_does_not_create_writer_file',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_signature_request_does_not_accept_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_signature_request_does_not_validate_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_signature_request_does_not_write_ledger',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_signature_request_does_not_persist_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_signature_request_does_not_record_decision',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_signature_request_does_not_approve_code',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_signature_request_does_not_merge',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_signature_request_does_not_dispatch_work',
+            ],
+            'human_summary' => $receiptReady
+                ? 'Codex review merge post-execution action signed receipt persistence writer release authorization signature request is ready as a signable payload. It still does not accept signatures, create a writer, write ledger, persist receipts, approve or merge.'
+                : 'Codex review merge post-execution action signed receipt persistence writer release authorization signature request is blocked until writer release authorization receipt draft is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseAuthorizationPostSignatureRunbook(array $options = []): array
+    {
+        $signaturePayload = $this->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseAuthorizationSignatureRequest($options);
+        $signatureRequest = (array) data_get($signaturePayload, 'signature_request', []);
+        $signatureRequestReady = data_get($signaturePayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_signature_request_ready';
+
+        $steps = [
+            'collect_external_writer_release_signature_evidence',
+            'verify_signature_request_hash_matches_signable_payload',
+            'verify_writer_release_authorization_receipt_hash_matches_signed_payload',
+            'verify_writer_release_signable_payload_hash_matches_signature_request',
+            'verify_required_writer_release_authorization_evidence_is_present',
+            'verify_hot_scope_clean_before_release_template',
+            'prepare_signed_writer_release_authorization_receipt_template_candidate',
+            'stop_before_signature_acceptance_writer_creation_or_ledger_write',
+        ];
+
+        $runbook = [
+            'runbook_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-AUTHORIZATION-POST-SIGNATURE-RUNBOOK-SELF-CONSTRUCTION-0001',
+            'status' => $signatureRequestReady ? 'waiting_for_external_writer_release_signature_evidence' : 'blocked_before_writer_release_authorization_signature_request',
+            'source_writer_release_authorization_signature_request_hash' => data_get($signaturePayload, 'request_hash'),
+            'source_writer_release_authorization_signable_payload_hash' => data_get($signaturePayload, 'signable_payload_hash'),
+            'source_writer_release_authorization_receipt_hash' => data_get($signatureRequest, 'source_writer_release_authorization_receipt_hash'),
+            'selected_decision' => data_get($signatureRequest, 'selected_decision'),
+            'required_external_signature_evidence' => data_get($signatureRequest, 'required_external_signature_evidence', []),
+            'ordered_steps' => $steps,
+            'step_count' => count($steps),
+            'future_validator_must_check' => [
+                'external_writer_release_signature_value_present',
+                'writer_release_signature_validator_identity_present',
+                'writer_release_signature_validation_timestamp_present',
+                'validated_writer_release_authorization_receipt_hash_matches_source',
+                'validated_writer_release_signable_payload_hash_matches_source',
+                'selected_decision_explicitly_authorizes_or_requests_more_evidence',
+                'hot_scope_still_clean',
+                'writer_patch_still_matches_contract_hash',
+            ],
+            'future_signed_receipt_template_inputs' => [
+                'validated_writer_release_authorization_signature_hash',
+                'validated_writer_release_authorization_receipt_hash',
+                'validated_writer_release_signable_payload_hash',
+                'writer_release_signature_validator_identity',
+                'writer_release_signature_validated_at',
+            ],
+            'still_forbidden_by_runbook' => [
+                'writer_file_creation_by_writer_release_authorization_post_signature_runbook',
+                'ledger_write_by_writer_release_authorization_post_signature_runbook',
+                'signature_acceptance_by_writer_release_authorization_post_signature_runbook',
+                'signature_validation_by_writer_release_authorization_post_signature_runbook',
+                'receipt_persistence_by_writer_release_authorization_post_signature_runbook',
+                'decision_recording_by_writer_release_authorization_post_signature_runbook',
+                'approval_from_writer_release_authorization_post_signature_runbook',
+                'merge_from_writer_release_authorization_post_signature_runbook',
+                'dispatch_from_writer_release_authorization_post_signature_runbook',
+            ],
+            'writer_file_creation_allowed' => false,
+            'ledger_write_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_post_signature_runbook.v1',
+            'status' => $signatureRequestReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_post_signature_runbook_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_post_signature_runbook_blocked',
+            'mode' => 'read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_post_signature_runbook',
+            'execution_allowed' => false,
+            'ledger_write_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'runbook' => $runbook,
+            'runbook_hash' => $this->stableHash($runbook),
+            'non_execution_guarantees' => [
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_post_signature_runbook_does_not_claim_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_post_signature_runbook_does_not_complete_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_post_signature_runbook_does_not_create_writer_file',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_post_signature_runbook_does_not_accept_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_post_signature_runbook_does_not_validate_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_post_signature_runbook_does_not_write_ledger',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_post_signature_runbook_does_not_persist_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_post_signature_runbook_does_not_record_decision',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_post_signature_runbook_does_not_approve_code',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_post_signature_runbook_does_not_merge',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_post_signature_runbook_does_not_dispatch_work',
+            ],
+            'human_summary' => $signatureRequestReady
+                ? 'Codex review merge post-execution action signed receipt persistence writer release authorization post-signature runbook is ready as a read-only evidence sequence. It still does not accept signatures, create a writer, write ledger, persist receipts, approve or merge.'
+                : 'Codex review merge post-execution action signed receipt persistence writer release authorization post-signature runbook is blocked until writer release authorization signature request is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseAuthorizationSignedReceiptTemplate(array $options = []): array
+    {
+        $runbookPayload = $this->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseAuthorizationPostSignatureRunbook($options);
+        $runbook = (array) data_get($runbookPayload, 'runbook', []);
+        $runbookReady = data_get($runbookPayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_post_signature_runbook_ready';
+
+        $template = [
+            'template_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-AUTHORIZATION-SIGNED-RECEIPT-TEMPLATE-SELF-CONSTRUCTION-0001',
+            'status' => $runbookReady ? 'waiting_for_external_signed_writer_release_authorization_evidence' : 'blocked_before_writer_release_authorization_post_signature_runbook',
+            'source_writer_release_authorization_post_signature_runbook_hash' => data_get($runbookPayload, 'runbook_hash'),
+            'source_writer_release_authorization_signature_request_hash' => data_get($runbook, 'source_writer_release_authorization_signature_request_hash'),
+            'source_writer_release_authorization_signable_payload_hash' => data_get($runbook, 'source_writer_release_authorization_signable_payload_hash'),
+            'source_writer_release_authorization_receipt_hash' => data_get($runbook, 'source_writer_release_authorization_receipt_hash'),
+            'selected_decision' => data_get($runbook, 'selected_decision'),
+            'required_external_signed_receipt_evidence' => [
+                'external_writer_release_signature_value',
+                'writer_release_signature_validator_identity',
+                'writer_release_signature_validated_at',
+                'validated_writer_release_authorization_signature_hash',
+                'validated_writer_release_authorization_receipt_hash',
+                'validated_writer_release_signable_payload_hash',
+            ],
+            'signed_receipt_fields_to_persist_in_future' => [
+                'signed_writer_release_authorization_receipt_id',
+                'source_writer_release_authorization_receipt_hash',
+                'source_writer_release_authorization_signable_payload_hash',
+                'source_writer_release_authorization_post_signature_runbook_hash',
+                'validated_writer_release_authorization_signature_hash',
+                'writer_release_signature_validator_identity',
+                'writer_release_signature_validated_at',
+                'selected_decision',
+                'writer_contract_template_hash',
+                'writer_implementation_preflight_hash',
+                'writer_release_authorization_actor_identity',
+                'signed_at',
+            ],
+            'future_writer_release_preflight_requirements' => [
+                'signed_writer_release_authorization_receipt_template_ready',
+                'external_signed_receipt_evidence_present',
+                'selected_decision_equals_authorize_writer_release',
+                'writer_contract_hash_still_matches_patch',
+                'hot_scope_still_clean',
+                'writer_capability_tests_still_pass',
+            ],
+            'still_forbidden_by_template' => [
+                'writer_file_creation_by_writer_release_authorization_signed_receipt_template',
+                'ledger_write_by_writer_release_authorization_signed_receipt_template',
+                'signature_acceptance_by_writer_release_authorization_signed_receipt_template',
+                'signature_validation_by_writer_release_authorization_signed_receipt_template',
+                'receipt_persistence_by_writer_release_authorization_signed_receipt_template',
+                'decision_recording_by_writer_release_authorization_signed_receipt_template',
+                'approval_from_writer_release_authorization_signed_receipt_template',
+                'merge_from_writer_release_authorization_signed_receipt_template',
+                'dispatch_from_writer_release_authorization_signed_receipt_template',
+            ],
+            'writer_file_creation_allowed' => false,
+            'ledger_write_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_signed_receipt_template.v1',
+            'status' => $runbookReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_signed_receipt_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_signed_receipt_template_blocked',
+            'mode' => 'read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_signed_receipt_template',
+            'execution_allowed' => false,
+            'ledger_write_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'template' => $template,
+            'template_hash' => $this->stableHash($template),
+            'non_execution_guarantees' => [
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_signed_receipt_template_does_not_claim_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_signed_receipt_template_does_not_complete_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_signed_receipt_template_does_not_create_writer_file',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_signed_receipt_template_does_not_accept_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_signed_receipt_template_does_not_validate_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_signed_receipt_template_does_not_write_ledger',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_signed_receipt_template_does_not_persist_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_signed_receipt_template_does_not_record_decision',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_signed_receipt_template_does_not_approve_code',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_signed_receipt_template_does_not_merge',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_signed_receipt_template_does_not_dispatch_work',
+            ],
+            'human_summary' => $runbookReady
+                ? 'Codex review merge post-execution action signed receipt persistence writer release authorization signed receipt template is ready as a non-persisting contract. It still does not accept signatures, create a writer, write ledger, persist receipts, approve or merge.'
+                : 'Codex review merge post-execution action signed receipt persistence writer release authorization signed receipt template is blocked until writer release authorization post-signature runbook is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleasePreflight(array $options = []): array
+    {
+        $templatePayload = $this->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseAuthorizationSignedReceiptTemplate($options);
+        $template = (array) data_get($templatePayload, 'template', []);
+        $templateReady = data_get($templatePayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_signed_receipt_template_ready';
+
+        $blockingConditions = $templateReady
+            ? [
+                'missing_external_signed_writer_release_authorization_evidence',
+                'selected_decision_not_authorize_writer_release',
+                'writer_contract_hash_not_rechecked_against_patch',
+                'hot_scope_recheck_missing',
+                'writer_capability_tests_not_rerun',
+                'writer_merge_authority_absence_not_verified',
+                'writer_dispatch_authority_absence_not_verified',
+                'writer_release_actor_identity_missing',
+                'writer_release_receipt_persistence_plan_missing',
+                'writer_release_still_not_authorized',
+            ]
+            : [
+                'writer_release_authorization_signed_receipt_template_not_ready',
+            ];
+
+        $preflight = [
+            'preflight_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-PREFLIGHT-SELF-CONSTRUCTION-0001',
+            'status' => $templateReady ? 'waiting_for_external_signed_writer_release_authorization_evidence' : 'blocked_before_writer_release_authorization_signed_receipt_template',
+            'source_writer_release_authorization_signed_receipt_template_hash' => data_get($templatePayload, 'template_hash'),
+            'source_writer_release_authorization_post_signature_runbook_hash' => data_get($template, 'source_writer_release_authorization_post_signature_runbook_hash'),
+            'source_writer_release_authorization_signature_request_hash' => data_get($template, 'source_writer_release_authorization_signature_request_hash'),
+            'source_writer_release_authorization_signable_payload_hash' => data_get($template, 'source_writer_release_authorization_signable_payload_hash'),
+            'source_writer_release_authorization_receipt_hash' => data_get($template, 'source_writer_release_authorization_receipt_hash'),
+            'selected_decision' => data_get($template, 'selected_decision'),
+            'required_external_signed_receipt_evidence' => data_get($template, 'required_external_signed_receipt_evidence', []),
+            'required_release_checks' => [
+                'signed_writer_release_authorization_receipt_template_ready',
+                'external_signed_receipt_evidence_present',
+                'selected_decision_equals_authorize_writer_release',
+                'writer_contract_hash_still_matches_patch',
+                'hot_scope_still_clean',
+                'writer_capability_tests_still_pass',
+                'writer_has_no_merge_authority',
+                'writer_has_no_dispatch_authority',
+            ],
+            'blocking_conditions' => $blockingConditions,
+            'blocking_count' => count($blockingConditions),
+            'future_release_outputs' => [
+                'writer_release_receipt_hash',
+                'writer_release_signature_request_hash',
+                'writer_release_runbook_hash',
+                'writer_release_execution_contract_hash',
+            ],
+            'still_forbidden_by_release_preflight' => [
+                'writer_file_creation_by_writer_release_preflight',
+                'ledger_write_by_writer_release_preflight',
+                'signature_acceptance_by_writer_release_preflight',
+                'signature_validation_by_writer_release_preflight',
+                'receipt_persistence_by_writer_release_preflight',
+                'decision_recording_by_writer_release_preflight',
+                'approval_from_writer_release_preflight',
+                'merge_from_writer_release_preflight',
+                'dispatch_from_writer_release_preflight',
+            ],
+            'writer_file_creation_allowed' => false,
+            'ledger_write_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'dispatch_allowed' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_preflight.v1',
+            'status' => $templateReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_preflight_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_preflight_blocked',
+            'mode' => 'read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_preflight',
+            'execution_allowed' => false,
+            'ledger_write_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'preflight' => $preflight,
+            'preflight_hash' => $this->stableHash($preflight),
+            'non_execution_guarantees' => [
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_preflight_does_not_claim_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_preflight_does_not_complete_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_preflight_does_not_create_writer_file',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_preflight_does_not_accept_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_preflight_does_not_validate_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_preflight_does_not_write_ledger',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_preflight_does_not_persist_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_preflight_does_not_record_decision',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_preflight_does_not_approve_code',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_preflight_does_not_merge',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_preflight_does_not_dispatch_work',
+            ],
+            'human_summary' => $templateReady
+                ? 'Codex review merge post-execution action signed receipt persistence writer release preflight is ready as a blocker report. It still does not create a writer, write ledger, persist receipts, approve or merge.'
+                : 'Codex review merge post-execution action signed receipt persistence writer release preflight is blocked until writer release authorization signed receipt template is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseReceiptDraft(array $options = []): array
+    {
+        $preflightPayload = $this->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleasePreflight($options);
+        $preflight = (array) data_get($preflightPayload, 'preflight', []);
+        $preflightReady = data_get($preflightPayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_release_preflight_ready';
+
+        $receipt = [
+            'receipt_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-RECEIPT-DRAFT-SELF-CONSTRUCTION-0001',
+            'status' => $preflightReady ? 'unsigned_writer_release_receipt_draft_waiting_for_external_evidence' : 'blocked_before_writer_release_preflight',
+            'source_writer_release_preflight_hash' => data_get($preflightPayload, 'preflight_hash'),
+            'source_writer_release_authorization_signed_receipt_template_hash' => data_get($preflight, 'source_writer_release_authorization_signed_receipt_template_hash'),
+            'source_writer_release_authorization_receipt_hash' => data_get($preflight, 'source_writer_release_authorization_receipt_hash'),
+            'source_writer_release_authorization_signable_payload_hash' => data_get($preflight, 'source_writer_release_authorization_signable_payload_hash'),
+            'selected_decision' => data_get($preflight, 'selected_decision'),
+            'inherited_blocking_conditions' => data_get($preflight, 'blocking_conditions', []),
+            'inherited_blocking_count' => data_get($preflight, 'blocking_count', 0),
+            'release_receipt_fields' => [
+                'writer_release_receipt_id',
+                'source_writer_release_preflight_hash',
+                'source_writer_release_authorization_signed_receipt_template_hash',
+                'validated_writer_release_authorization_signature_hash',
+                'writer_release_actor_identity',
+                'writer_contract_hash_rechecked_at_release',
+                'hot_scope_recheck_hash',
+                'writer_capability_test_run_hash',
+                'writer_no_merge_authority_evidence_hash',
+                'writer_no_dispatch_authority_evidence_hash',
+                'writer_release_decision',
+                'writer_release_rationale',
+                'signed_at',
+            ],
+            'future_signature_request_inputs' => [
+                'writer_release_receipt_hash',
+                'writer_release_receipt_id',
+                'writer_release_decision',
+                'writer_release_actor_identity',
+                'writer_release_blocking_conditions',
+            ],
+            'future_post_signature_outputs' => [
+                'writer_release_signature_request_hash',
+                'writer_release_signed_receipt_template_hash',
+                'writer_release_execution_contract_hash',
+            ],
+            'still_forbidden_by_receipt_draft' => [
+                'writer_file_creation_by_writer_release_receipt_draft',
+                'ledger_write_by_writer_release_receipt_draft',
+                'signature_acceptance_by_writer_release_receipt_draft',
+                'signature_validation_by_writer_release_receipt_draft',
+                'receipt_persistence_by_writer_release_receipt_draft',
+                'decision_recording_by_writer_release_receipt_draft',
+                'approval_from_writer_release_receipt_draft',
+                'merge_from_writer_release_receipt_draft',
+                'dispatch_from_writer_release_receipt_draft',
+            ],
+            'writer_file_creation_allowed' => false,
+            'ledger_write_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'dispatch_allowed' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_receipt_draft.v1',
+            'status' => $preflightReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_receipt_draft_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_receipt_draft_blocked',
+            'mode' => 'read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_receipt_draft',
+            'execution_allowed' => false,
+            'ledger_write_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'receipt' => $receipt,
+            'receipt_hash' => $this->stableHash($receipt),
+            'non_execution_guarantees' => [
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_receipt_draft_does_not_claim_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_receipt_draft_does_not_complete_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_receipt_draft_does_not_create_writer_file',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_receipt_draft_does_not_accept_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_receipt_draft_does_not_validate_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_receipt_draft_does_not_write_ledger',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_receipt_draft_does_not_persist_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_receipt_draft_does_not_record_decision',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_receipt_draft_does_not_approve_code',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_receipt_draft_does_not_merge',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_receipt_draft_does_not_dispatch_work',
+            ],
+            'human_summary' => $preflightReady
+                ? 'Codex review merge post-execution action signed receipt persistence writer release receipt draft is ready as an unsigned non-authorizing receipt. It still does not create a writer, write ledger, persist receipts, approve or merge.'
+                : 'Codex review merge post-execution action signed receipt persistence writer release receipt draft is blocked until writer release preflight is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseSignatureRequest(array $options = []): array
+    {
+        $receiptPayload = $this->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseReceiptDraft($options);
+        $receipt = (array) data_get($receiptPayload, 'receipt', []);
+        $receiptReady = data_get($receiptPayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_release_receipt_draft_ready';
+        $signablePayload = [
+            'receipt_id' => data_get($receipt, 'receipt_id'),
+            'receipt_hash' => data_get($receiptPayload, 'receipt_hash'),
+            'source_writer_release_preflight_hash' => data_get($receipt, 'source_writer_release_preflight_hash'),
+            'source_writer_release_authorization_signed_receipt_template_hash' => data_get($receipt, 'source_writer_release_authorization_signed_receipt_template_hash'),
+            'selected_decision' => data_get($receipt, 'selected_decision'),
+            'inherited_blocking_conditions' => data_get($receipt, 'inherited_blocking_conditions', []),
+            'requested_signature_scope' => 'writer_release_receipt_only',
+            'requested_signer_role' => 'human_operator_or_policy_authority',
+        ];
+        $signablePayloadHash = $this->stableHash($signablePayload);
+
+        $signatureRequest = [
+            'request_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-SIGNATURE-REQUEST-SELF-CONSTRUCTION-0001',
+            'status' => $receiptReady ? 'waiting_for_external_writer_release_signature' : 'blocked_before_writer_release_receipt_draft',
+            'source_writer_release_receipt_hash' => data_get($receiptPayload, 'receipt_hash'),
+            'source_writer_release_preflight_hash' => data_get($receipt, 'source_writer_release_preflight_hash'),
+            'source_writer_release_authorization_signed_receipt_template_hash' => data_get($receipt, 'source_writer_release_authorization_signed_receipt_template_hash'),
+            'selected_decision' => data_get($receipt, 'selected_decision'),
+            'signature_required' => true,
+            'signature_present' => false,
+            'signature_valid' => false,
+            'signable_payload' => $signablePayload,
+            'signable_payload_hash' => $signablePayloadHash,
+            'required_signature_evidence' => [
+                'external_writer_release_signature_value',
+                'writer_release_signer_identity',
+                'writer_release_signed_at',
+                'writer_release_signature_algorithm',
+                'writer_release_signature_scope',
+                'writer_release_receipt_hash_signed',
+                'writer_release_signable_payload_hash_signed',
+            ],
+            'future_post_signature_outputs' => [
+                'writer_release_signature_validation_hash',
+                'writer_release_signed_receipt_template_hash',
+                'writer_release_post_signature_runbook_hash',
+                'writer_release_execution_contract_hash',
+            ],
+            'still_forbidden_by_signature_request' => [
+                'writer_file_creation_by_writer_release_signature_request',
+                'ledger_write_by_writer_release_signature_request',
+                'signature_acceptance_by_writer_release_signature_request',
+                'signature_validation_by_writer_release_signature_request',
+                'receipt_persistence_by_writer_release_signature_request',
+                'decision_recording_by_writer_release_signature_request',
+                'approval_from_writer_release_signature_request',
+                'merge_from_writer_release_signature_request',
+                'dispatch_from_writer_release_signature_request',
+            ],
+            'writer_file_creation_allowed' => false,
+            'ledger_write_allowed' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'dispatch_allowed' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_signature_request.v1',
+            'status' => $receiptReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_signature_request_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_signature_request_blocked',
+            'mode' => 'read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_signature_request',
+            'execution_allowed' => false,
+            'ledger_write_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'signature_request' => $signatureRequest,
+            'signable_payload_hash' => $signablePayloadHash,
+            'request_hash' => $this->stableHash($signatureRequest),
+            'non_execution_guarantees' => [
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_signature_request_does_not_claim_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_signature_request_does_not_complete_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_signature_request_does_not_create_writer_file',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_signature_request_does_not_accept_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_signature_request_does_not_validate_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_signature_request_does_not_write_ledger',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_signature_request_does_not_persist_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_signature_request_does_not_record_decision',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_signature_request_does_not_approve_code',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_signature_request_does_not_merge',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_signature_request_does_not_dispatch_work',
+            ],
+            'human_summary' => $receiptReady
+                ? 'Codex review merge post-execution action signed receipt persistence writer release signature request is ready as a non-authorizing request. It still does not accept signatures, create a writer, write ledger, persist receipts, approve or merge.'
+                : 'Codex review merge post-execution action signed receipt persistence writer release signature request is blocked until writer release receipt draft is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleasePostSignatureRunbook(array $options = []): array
+    {
+        $requestPayload = $this->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseSignatureRequest($options);
+        $signatureRequest = (array) data_get($requestPayload, 'signature_request', []);
+        $requestReady = data_get($requestPayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_release_signature_request_ready';
+
+        $runbook = [
+            'runbook_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-POST-SIGNATURE-RUNBOOK-SELF-CONSTRUCTION-0001',
+            'status' => $requestReady ? 'waiting_for_external_writer_release_signature_evidence' : 'blocked_before_writer_release_signature_request',
+            'source_writer_release_signature_request_hash' => data_get($requestPayload, 'request_hash'),
+            'source_writer_release_signable_payload_hash' => data_get($requestPayload, 'signable_payload_hash'),
+            'source_writer_release_receipt_hash' => data_get($signatureRequest, 'source_writer_release_receipt_hash'),
+            'source_writer_release_preflight_hash' => data_get($signatureRequest, 'source_writer_release_preflight_hash'),
+            'selected_decision' => data_get($signatureRequest, 'selected_decision'),
+            'signature_required' => true,
+            'signature_present' => false,
+            'signature_valid' => false,
+            'ordered_steps' => [
+                'collect_external_writer_release_signature_evidence',
+                'verify_signature_scope_matches_writer_release_receipt_only',
+                'verify_signed_receipt_hash_matches_source_writer_release_receipt_hash',
+                'verify_signed_payload_hash_matches_source_writer_release_signable_payload_hash',
+                'recheck_writer_release_blockers_before_validation',
+                'prepare_signed_writer_release_receipt_template_inputs',
+                'prepare_writer_release_execution_contract_inputs',
+                'stop_before_signature_acceptance_or_writer_release',
+            ],
+            'step_count' => 8,
+            'required_external_signature_evidence' => data_get($signatureRequest, 'required_signature_evidence', []),
+            'future_signed_receipt_template_inputs' => [
+                'validated_writer_release_signature_hash',
+                'validated_writer_release_signable_payload_hash',
+                'validated_writer_release_receipt_hash',
+                'writer_release_signer_identity',
+                'writer_release_signature_validated_at',
+                'writer_release_post_signature_runbook_hash',
+            ],
+            'future_validator_must_check' => [
+                'writer_release_signature_value_present',
+                'writer_release_signature_scope_exact',
+                'writer_release_receipt_hash_still_matches',
+                'writer_release_signable_payload_hash_still_matches',
+                'writer_contract_hash_still_matches_patch',
+                'hot_scope_still_clean',
+                'writer_capability_tests_still_pass',
+                'writer_no_merge_authority_still_true',
+                'writer_no_dispatch_authority_still_true',
+            ],
+            'still_forbidden_by_runbook' => [
+                'writer_file_creation_by_writer_release_post_signature_runbook',
+                'ledger_write_by_writer_release_post_signature_runbook',
+                'signature_acceptance_by_writer_release_post_signature_runbook',
+                'signature_validation_by_writer_release_post_signature_runbook',
+                'receipt_persistence_by_writer_release_post_signature_runbook',
+                'decision_recording_by_writer_release_post_signature_runbook',
+                'approval_from_writer_release_post_signature_runbook',
+                'merge_from_writer_release_post_signature_runbook',
+                'dispatch_from_writer_release_post_signature_runbook',
+            ],
+            'writer_file_creation_allowed' => false,
+            'ledger_write_allowed' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'dispatch_allowed' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_post_signature_runbook.v1',
+            'status' => $requestReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_post_signature_runbook_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_post_signature_runbook_blocked',
+            'mode' => 'read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_post_signature_runbook',
+            'execution_allowed' => false,
+            'ledger_write_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'runbook' => $runbook,
+            'runbook_hash' => $this->stableHash($runbook),
+            'non_execution_guarantees' => [
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_post_signature_runbook_does_not_claim_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_post_signature_runbook_does_not_complete_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_post_signature_runbook_does_not_create_writer_file',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_post_signature_runbook_does_not_accept_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_post_signature_runbook_does_not_validate_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_post_signature_runbook_does_not_write_ledger',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_post_signature_runbook_does_not_persist_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_post_signature_runbook_does_not_record_decision',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_post_signature_runbook_does_not_approve_code',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_post_signature_runbook_does_not_merge',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_post_signature_runbook_does_not_dispatch_work',
+            ],
+            'human_summary' => $requestReady
+                ? 'Codex review merge post-execution action signed receipt persistence writer release post-signature runbook is ready as a non-authorizing sequence. It still does not accept signatures, create a writer, write ledger, persist receipts, approve or merge.'
+                : 'Codex review merge post-execution action signed receipt persistence writer release post-signature runbook is blocked until writer release signature request is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseSignedReceiptTemplate(array $options = []): array
+    {
+        $runbookPayload = $this->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleasePostSignatureRunbook($options);
+        $runbook = (array) data_get($runbookPayload, 'runbook', []);
+        $runbookReady = data_get($runbookPayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_release_post_signature_runbook_ready';
+
+        $template = [
+            'template_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-SIGNED-RECEIPT-TEMPLATE-SELF-CONSTRUCTION-0001',
+            'status' => $runbookReady ? 'waiting_for_external_validated_writer_release_signature_evidence' : 'blocked_before_writer_release_post_signature_runbook',
+            'source_writer_release_post_signature_runbook_hash' => data_get($runbookPayload, 'runbook_hash'),
+            'source_writer_release_signature_request_hash' => data_get($runbook, 'source_writer_release_signature_request_hash'),
+            'source_writer_release_signable_payload_hash' => data_get($runbook, 'source_writer_release_signable_payload_hash'),
+            'source_writer_release_receipt_hash' => data_get($runbook, 'source_writer_release_receipt_hash'),
+            'source_writer_release_preflight_hash' => data_get($runbook, 'source_writer_release_preflight_hash'),
+            'selected_decision' => data_get($runbook, 'selected_decision'),
+            'required_external_validated_signature_evidence' => [
+                'external_writer_release_signature_value',
+                'writer_release_signature_validator_identity',
+                'writer_release_signature_validated_at',
+                'validated_writer_release_signature_hash',
+                'validated_writer_release_receipt_hash',
+                'validated_writer_release_signable_payload_hash',
+            ],
+            'signed_receipt_fields_to_persist_in_future' => [
+                'signed_writer_release_receipt_id',
+                'source_writer_release_receipt_hash',
+                'source_writer_release_signable_payload_hash',
+                'source_writer_release_post_signature_runbook_hash',
+                'validated_writer_release_signature_hash',
+                'writer_release_signature_validator_identity',
+                'writer_release_signature_validated_at',
+                'writer_release_signer_identity',
+                'writer_release_decision',
+                'writer_release_rationale',
+                'writer_release_execution_contract_hash',
+                'signed_at',
+            ],
+            'future_execution_contract_requirements' => [
+                'signed_writer_release_receipt_template_ready',
+                'external_validated_signature_evidence_present',
+                'selected_decision_equals_authorize_writer_release',
+                'writer_contract_hash_still_matches_patch',
+                'hot_scope_still_clean',
+                'writer_capability_tests_still_pass',
+                'writer_has_no_merge_authority',
+                'writer_has_no_dispatch_authority',
+            ],
+            'still_forbidden_by_template' => [
+                'writer_file_creation_by_writer_release_signed_receipt_template',
+                'ledger_write_by_writer_release_signed_receipt_template',
+                'signature_acceptance_by_writer_release_signed_receipt_template',
+                'signature_validation_by_writer_release_signed_receipt_template',
+                'receipt_persistence_by_writer_release_signed_receipt_template',
+                'decision_recording_by_writer_release_signed_receipt_template',
+                'approval_from_writer_release_signed_receipt_template',
+                'merge_from_writer_release_signed_receipt_template',
+                'dispatch_from_writer_release_signed_receipt_template',
+            ],
+            'writer_file_creation_allowed' => false,
+            'ledger_write_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'dispatch_allowed' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_signed_receipt_template.v1',
+            'status' => $runbookReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_signed_receipt_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_signed_receipt_template_blocked',
+            'mode' => 'read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_signed_receipt_template',
+            'execution_allowed' => false,
+            'ledger_write_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'template' => $template,
+            'template_hash' => $this->stableHash($template),
+            'non_execution_guarantees' => [
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_signed_receipt_template_does_not_claim_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_signed_receipt_template_does_not_complete_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_signed_receipt_template_does_not_create_writer_file',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_signed_receipt_template_does_not_accept_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_signed_receipt_template_does_not_validate_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_signed_receipt_template_does_not_write_ledger',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_signed_receipt_template_does_not_persist_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_signed_receipt_template_does_not_record_decision',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_signed_receipt_template_does_not_approve_code',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_signed_receipt_template_does_not_merge',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_signed_receipt_template_does_not_dispatch_work',
+            ],
+            'human_summary' => $runbookReady
+                ? 'Codex review merge post-execution action signed receipt persistence writer release signed receipt template is ready as a non-persisting contract. It still does not accept signatures, create a writer, write ledger, persist receipts, approve or merge.'
+                : 'Codex review merge post-execution action signed receipt persistence writer release signed receipt template is blocked until writer release post-signature runbook is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseExecutionContractPreflight(array $options = []): array
+    {
+        $templatePayload = $this->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseSignedReceiptTemplate($options);
+        $template = (array) data_get($templatePayload, 'template', []);
+        $templateReady = data_get($templatePayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_release_signed_receipt_template_ready';
+
+        $blockingConditions = $templateReady
+            ? [
+                'missing_external_validated_writer_release_signature_evidence',
+                'selected_decision_not_authorize_writer_release',
+                'writer_contract_hash_not_rechecked_against_patch',
+                'hot_scope_recheck_missing',
+                'writer_capability_tests_not_rerun',
+                'writer_no_merge_authority_not_verified',
+                'writer_no_dispatch_authority_not_verified',
+                'writer_release_execution_actor_identity_missing',
+                'writer_release_execution_scope_missing',
+                'writer_release_execution_still_not_authorized',
+            ]
+            : [
+                'writer_release_signed_receipt_template_not_ready',
+            ];
+
+        $preflight = [
+            'preflight_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-EXECUTION-CONTRACT-PREFLIGHT-SELF-CONSTRUCTION-0001',
+            'status' => $templateReady ? 'waiting_for_external_validated_writer_release_signature_evidence' : 'blocked_before_writer_release_signed_receipt_template',
+            'source_writer_release_signed_receipt_template_hash' => data_get($templatePayload, 'template_hash'),
+            'source_writer_release_post_signature_runbook_hash' => data_get($template, 'source_writer_release_post_signature_runbook_hash'),
+            'source_writer_release_signature_request_hash' => data_get($template, 'source_writer_release_signature_request_hash'),
+            'source_writer_release_receipt_hash' => data_get($template, 'source_writer_release_receipt_hash'),
+            'source_writer_release_preflight_hash' => data_get($template, 'source_writer_release_preflight_hash'),
+            'selected_decision' => data_get($template, 'selected_decision'),
+            'required_external_validated_signature_evidence' => data_get($template, 'required_external_validated_signature_evidence', []),
+            'required_execution_contract_checks' => [
+                'signed_writer_release_receipt_template_ready',
+                'external_validated_signature_evidence_present',
+                'selected_decision_equals_authorize_writer_release',
+                'writer_contract_hash_still_matches_patch',
+                'hot_scope_still_clean',
+                'writer_capability_tests_still_pass',
+                'writer_has_no_merge_authority',
+                'writer_has_no_dispatch_authority',
+                'execution_scope_is_writer_release_only',
+                'rollback_and_disable_path_defined',
+            ],
+            'blocking_conditions' => $blockingConditions,
+            'blocking_count' => count($blockingConditions),
+            'future_execution_contract_outputs' => [
+                'writer_release_execution_contract_hash',
+                'writer_release_disable_contract_hash',
+                'writer_release_observability_contract_hash',
+                'writer_release_post_execution_receipt_hash',
+            ],
+            'still_forbidden_by_execution_contract_preflight' => [
+                'writer_file_creation_by_writer_release_execution_contract_preflight',
+                'ledger_write_by_writer_release_execution_contract_preflight',
+                'signature_acceptance_by_writer_release_execution_contract_preflight',
+                'signature_validation_by_writer_release_execution_contract_preflight',
+                'receipt_persistence_by_writer_release_execution_contract_preflight',
+                'decision_recording_by_writer_release_execution_contract_preflight',
+                'approval_from_writer_release_execution_contract_preflight',
+                'merge_from_writer_release_execution_contract_preflight',
+                'dispatch_from_writer_release_execution_contract_preflight',
+            ],
+            'writer_file_creation_allowed' => false,
+            'ledger_write_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'dispatch_allowed' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_execution_contract_preflight.v1',
+            'status' => $templateReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_execution_contract_preflight_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_execution_contract_preflight_blocked',
+            'mode' => 'read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_execution_contract_preflight',
+            'execution_allowed' => false,
+            'ledger_write_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'preflight' => $preflight,
+            'preflight_hash' => $this->stableHash($preflight),
+            'non_execution_guarantees' => [
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_execution_contract_preflight_does_not_claim_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_execution_contract_preflight_does_not_complete_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_execution_contract_preflight_does_not_create_writer_file',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_execution_contract_preflight_does_not_accept_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_execution_contract_preflight_does_not_validate_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_execution_contract_preflight_does_not_write_ledger',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_execution_contract_preflight_does_not_persist_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_execution_contract_preflight_does_not_record_decision',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_execution_contract_preflight_does_not_approve_code',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_execution_contract_preflight_does_not_merge',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_execution_contract_preflight_does_not_dispatch_work',
+            ],
+            'human_summary' => $templateReady
+                ? 'Codex review merge post-execution action signed receipt persistence writer release execution contract preflight is ready as a blocker report. It still does not create a writer, write ledger, persist receipts, approve, merge or dispatch.'
+                : 'Codex review merge post-execution action signed receipt persistence writer release execution contract preflight is blocked until writer release signed receipt template is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseExecutionContractTemplate(array $options = []): array
+    {
+        $preflightPayload = $this->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseExecutionContractPreflight($options);
+        $preflight = (array) data_get($preflightPayload, 'preflight', []);
+        $preflightReady = data_get($preflightPayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_release_execution_contract_preflight_ready';
+
+        $blockingConditions = $preflightReady
+            ? (array) data_get($preflight, 'blocking_conditions', [])
+            : [
+                'writer_release_execution_contract_preflight_not_ready',
+            ];
+
+        $contract = [
+            'contract_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-EXECUTION-CONTRACT-TEMPLATE-SELF-CONSTRUCTION-0001',
+            'status' => $preflightReady ? 'blocked_waiting_for_external_writer_release_execution_authority' : 'blocked_before_writer_release_execution_contract_preflight',
+            'source_writer_release_execution_contract_preflight_hash' => data_get($preflightPayload, 'preflight_hash'),
+            'source_writer_release_signed_receipt_template_hash' => data_get($preflight, 'source_writer_release_signed_receipt_template_hash'),
+            'source_writer_release_post_signature_runbook_hash' => data_get($preflight, 'source_writer_release_post_signature_runbook_hash'),
+            'source_writer_release_signature_request_hash' => data_get($preflight, 'source_writer_release_signature_request_hash'),
+            'source_writer_release_receipt_hash' => data_get($preflight, 'source_writer_release_receipt_hash'),
+            'source_writer_release_preflight_hash' => data_get($preflight, 'source_writer_release_preflight_hash'),
+            'selected_decision' => data_get($preflight, 'selected_decision'),
+            'required_external_validated_signature_evidence' => data_get($preflight, 'required_external_validated_signature_evidence', []),
+            'required_execution_contract_checks' => data_get($preflight, 'required_execution_contract_checks', []),
+            'blocking_conditions' => $blockingConditions,
+            'blocking_count' => count($blockingConditions),
+            'execution_scope' => [
+                'allowed_scope' => 'future_writer_release_only_after_external_authorization',
+                'forbidden_scope' => [
+                    'merge_execution',
+                    'dispatch_execution',
+                    'receipt_persistence_execution',
+                    'policy_mutation',
+                    'hot_scope_mutation',
+                    'unscoped_file_creation',
+                ],
+                'writer_contract_expected_capability' => 'signed_post_execution_action_receipt_persistence_writer_only',
+                'writer_contract_forbidden_capabilities' => [
+                    'merge_authority',
+                    'dispatch_authority',
+                    'signature_validation_authority',
+                    'approval_authority',
+                    'self_release_authority',
+                ],
+            ],
+            'required_actor_evidence' => [
+                'writer_release_executor_identity',
+                'writer_release_executor_session',
+                'writer_release_execution_reason',
+                'writer_release_execution_scope_hash',
+                'writer_release_execution_contract_reviewer_identity',
+            ],
+            'required_recheck_evidence' => [
+                'writer_contract_hash_rechecked_against_patch',
+                'hot_scope_clean_recheck_hash',
+                'writer_capability_test_output_hash',
+                'writer_no_merge_authority_evidence_hash',
+                'writer_no_dispatch_authority_evidence_hash',
+                'rollback_and_disable_plan_hash',
+            ],
+            'future_post_execution_outputs' => [
+                'writer_release_execution_contract_hash',
+                'writer_release_disable_contract_hash',
+                'writer_release_observability_contract_hash',
+                'writer_release_post_execution_receipt_hash',
+            ],
+            'still_forbidden_by_execution_contract_template' => [
+                'writer_file_creation_by_writer_release_execution_contract_template',
+                'ledger_write_by_writer_release_execution_contract_template',
+                'signature_acceptance_by_writer_release_execution_contract_template',
+                'signature_validation_by_writer_release_execution_contract_template',
+                'receipt_persistence_by_writer_release_execution_contract_template',
+                'decision_recording_by_writer_release_execution_contract_template',
+                'approval_from_writer_release_execution_contract_template',
+                'merge_from_writer_release_execution_contract_template',
+                'dispatch_from_writer_release_execution_contract_template',
+            ],
+            'writer_file_creation_allowed' => false,
+            'ledger_write_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'dispatch_allowed' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_execution_contract_template.v1',
+            'status' => $preflightReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_execution_contract_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_execution_contract_template_blocked',
+            'mode' => 'read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_execution_contract_template',
+            'execution_allowed' => false,
+            'ledger_write_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'contract' => $contract,
+            'contract_hash' => $this->stableHash($contract),
+            'non_execution_guarantees' => [
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_execution_contract_template_does_not_claim_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_execution_contract_template_does_not_complete_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_execution_contract_template_does_not_create_writer_file',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_execution_contract_template_does_not_accept_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_execution_contract_template_does_not_validate_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_execution_contract_template_does_not_write_ledger',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_execution_contract_template_does_not_persist_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_execution_contract_template_does_not_record_decision',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_execution_contract_template_does_not_approve_code',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_execution_contract_template_does_not_merge',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_execution_contract_template_does_not_dispatch_work',
+            ],
+            'human_summary' => $preflightReady
+                ? 'Codex review merge post-execution action signed receipt persistence writer release execution contract template is ready as a non-authorizing contract. It still does not create a writer, write ledger, persist receipts, approve, merge or dispatch.'
+                : 'Codex review merge post-execution action signed receipt persistence writer release execution contract template is blocked until execution contract preflight is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseDisableContractTemplate(array $options = []): array
+    {
+        $contractPayload = $this->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseExecutionContractTemplate($options);
+        $contract = (array) data_get($contractPayload, 'contract', []);
+        $contractReady = data_get($contractPayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_release_execution_contract_template_ready';
+
+        $disableTriggers = [
+            'writer_contract_hash_drift_detected',
+            'hot_scope_dirty_after_release',
+            'writer_capability_tests_failed_after_release',
+            'writer_merge_authority_detected',
+            'writer_dispatch_authority_detected',
+            'unexpected_signature_validation_attempt',
+            'unexpected_receipt_persistence_attempt',
+            'unexpected_ledger_write_attempt',
+            'operator_revocation_requested',
+            'rollback_plan_missing_or_invalid',
+        ];
+
+        $disableContract = [
+            'disable_contract_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-DISABLE-CONTRACT-TEMPLATE-SELF-CONSTRUCTION-0001',
+            'status' => $contractReady ? 'ready_as_future_disable_template' : 'blocked_before_writer_release_execution_contract_template',
+            'source_writer_release_execution_contract_hash' => data_get($contractPayload, 'contract_hash'),
+            'source_writer_release_execution_contract_preflight_hash' => data_get($contract, 'source_writer_release_execution_contract_preflight_hash'),
+            'source_writer_release_signed_receipt_template_hash' => data_get($contract, 'source_writer_release_signed_receipt_template_hash'),
+            'source_writer_release_post_signature_runbook_hash' => data_get($contract, 'source_writer_release_post_signature_runbook_hash'),
+            'source_writer_release_signature_request_hash' => data_get($contract, 'source_writer_release_signature_request_hash'),
+            'source_writer_release_receipt_hash' => data_get($contract, 'source_writer_release_receipt_hash'),
+            'disable_triggers' => $disableTriggers,
+            'trigger_count' => count($disableTriggers),
+            'required_disable_steps' => [
+                'stop_writer_release_runtime',
+                'revoke_writer_release_capability_flag',
+                'quarantine_writer_release_outputs',
+                'rerun_writer_no_merge_authority_check',
+                'rerun_writer_no_dispatch_authority_check',
+                'capture_disable_reason_and_actor',
+                'generate_future_post_disable_receipt',
+                'require_human_review_before_reenable',
+            ],
+            'required_disable_evidence' => [
+                'disable_actor_identity',
+                'disable_reason',
+                'disable_trigger_id',
+                'runtime_stop_evidence_hash',
+                'capability_revocation_evidence_hash',
+                'quarantine_manifest_hash',
+                'post_disable_no_merge_authority_evidence_hash',
+                'post_disable_no_dispatch_authority_evidence_hash',
+            ],
+            'future_disable_outputs' => [
+                'writer_release_disable_contract_hash',
+                'writer_release_disable_receipt_hash',
+                'writer_release_revocation_event_hash',
+                'writer_release_reenable_review_packet_hash',
+            ],
+            'reenable_requirements' => [
+                'new_execution_contract_preflight',
+                'new_execution_contract_template',
+                'new_disable_contract_template',
+                'fresh_human_authorization',
+                'fresh_hot_scope_recheck',
+                'fresh_writer_capability_tests',
+            ],
+            'still_forbidden_by_disable_contract_template' => [
+                'writer_file_creation_by_writer_release_disable_contract_template',
+                'ledger_write_by_writer_release_disable_contract_template',
+                'signature_acceptance_by_writer_release_disable_contract_template',
+                'signature_validation_by_writer_release_disable_contract_template',
+                'receipt_persistence_by_writer_release_disable_contract_template',
+                'decision_recording_by_writer_release_disable_contract_template',
+                'approval_from_writer_release_disable_contract_template',
+                'merge_from_writer_release_disable_contract_template',
+                'dispatch_from_writer_release_disable_contract_template',
+            ],
+            'writer_file_creation_allowed' => false,
+            'ledger_write_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'dispatch_allowed' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_disable_contract_template.v1',
+            'status' => $contractReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_disable_contract_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_disable_contract_template_blocked',
+            'mode' => 'read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_disable_contract_template',
+            'execution_allowed' => false,
+            'ledger_write_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'disable_contract' => $disableContract,
+            'disable_contract_hash' => $this->stableHash($disableContract),
+            'non_execution_guarantees' => [
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_disable_contract_template_does_not_claim_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_disable_contract_template_does_not_complete_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_disable_contract_template_does_not_create_writer_file',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_disable_contract_template_does_not_accept_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_disable_contract_template_does_not_validate_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_disable_contract_template_does_not_write_ledger',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_disable_contract_template_does_not_persist_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_disable_contract_template_does_not_record_decision',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_disable_contract_template_does_not_approve_code',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_disable_contract_template_does_not_merge',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_disable_contract_template_does_not_dispatch_work',
+            ],
+            'human_summary' => $contractReady
+                ? 'Codex review merge post-execution action signed receipt persistence writer release disable contract template is ready as a rollback contract. It still does not create a writer, write ledger, persist receipts, approve, merge or dispatch.'
+                : 'Codex review merge post-execution action signed receipt persistence writer release disable contract template is blocked until execution contract template is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseObservabilityContractTemplate(array $options = []): array
+    {
+        $disablePayload = $this->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseDisableContractTemplate($options);
+        $disableContract = (array) data_get($disablePayload, 'disable_contract', []);
+        $disableReady = data_get($disablePayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_release_disable_contract_template_ready';
+
+        $signals = [
+            'writer_release_execution_contract_loaded',
+            'writer_release_runtime_started',
+            'writer_release_capability_flag_checked',
+            'writer_release_receipt_persistence_attempted',
+            'writer_release_ledger_write_attempted',
+            'writer_release_forbidden_merge_attempt_detected',
+            'writer_release_forbidden_dispatch_attempt_detected',
+            'writer_release_disable_trigger_detected',
+            'writer_release_disable_completed',
+            'writer_release_reenable_requested',
+            'writer_release_post_execution_receipt_generated',
+            'writer_release_human_review_required',
+        ];
+
+        $observabilityContract = [
+            'observability_contract_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-OBSERVABILITY-CONTRACT-TEMPLATE-SELF-CONSTRUCTION-0001',
+            'status' => $disableReady ? 'ready_as_future_observability_template' : 'blocked_before_writer_release_disable_contract_template',
+            'source_writer_release_disable_contract_hash' => data_get($disablePayload, 'disable_contract_hash'),
+            'source_writer_release_execution_contract_hash' => data_get($disableContract, 'source_writer_release_execution_contract_hash'),
+            'source_writer_release_execution_contract_preflight_hash' => data_get($disableContract, 'source_writer_release_execution_contract_preflight_hash'),
+            'source_writer_release_signed_receipt_template_hash' => data_get($disableContract, 'source_writer_release_signed_receipt_template_hash'),
+            'source_writer_release_post_signature_runbook_hash' => data_get($disableContract, 'source_writer_release_post_signature_runbook_hash'),
+            'source_writer_release_signature_request_hash' => data_get($disableContract, 'source_writer_release_signature_request_hash'),
+            'source_writer_release_receipt_hash' => data_get($disableContract, 'source_writer_release_receipt_hash'),
+            'required_signals' => $signals,
+            'signal_count' => count($signals),
+            'required_metrics' => [
+                'writer_release_attempt_count',
+                'writer_release_success_count',
+                'writer_release_blocked_count',
+                'writer_release_disable_trigger_count',
+                'writer_release_forbidden_merge_attempt_count',
+                'writer_release_forbidden_dispatch_attempt_count',
+                'writer_release_unexpected_ledger_write_attempt_count',
+                'writer_release_unexpected_receipt_persistence_attempt_count',
+                'writer_release_time_to_disable_ms',
+            ],
+            'required_alerts' => [
+                'alert_on_writer_contract_hash_drift',
+                'alert_on_hot_scope_dirty_after_release',
+                'alert_on_writer_capability_test_failure',
+                'alert_on_forbidden_merge_authority',
+                'alert_on_forbidden_dispatch_authority',
+                'alert_on_unexpected_signature_validation',
+                'alert_on_unexpected_receipt_persistence',
+                'alert_on_unexpected_ledger_write',
+            ],
+            'required_observability_evidence' => [
+                'trace_id',
+                'operation_id',
+                'writer_release_contract_hash',
+                'writer_release_disable_contract_hash',
+                'signal_manifest_hash',
+                'metrics_snapshot_hash',
+                'alert_policy_hash',
+                'post_release_monitoring_window',
+            ],
+            'minimum_monitoring_window' => [
+                'after_future_release_minutes' => 60,
+                'after_future_disable_minutes' => 30,
+                'requires_human_review_before_window_close' => true,
+            ],
+            'future_observability_outputs' => [
+                'writer_release_observability_contract_hash',
+                'writer_release_signal_manifest_hash',
+                'writer_release_metrics_snapshot_hash',
+                'writer_release_alert_policy_hash',
+                'writer_release_post_monitoring_review_hash',
+            ],
+            'still_forbidden_by_observability_contract_template' => [
+                'writer_file_creation_by_writer_release_observability_contract_template',
+                'ledger_write_by_writer_release_observability_contract_template',
+                'signature_acceptance_by_writer_release_observability_contract_template',
+                'signature_validation_by_writer_release_observability_contract_template',
+                'receipt_persistence_by_writer_release_observability_contract_template',
+                'decision_recording_by_writer_release_observability_contract_template',
+                'approval_from_writer_release_observability_contract_template',
+                'merge_from_writer_release_observability_contract_template',
+                'dispatch_from_writer_release_observability_contract_template',
+            ],
+            'writer_file_creation_allowed' => false,
+            'ledger_write_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'dispatch_allowed' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_observability_contract_template.v1',
+            'status' => $disableReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_observability_contract_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_observability_contract_template_blocked',
+            'mode' => 'read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_observability_contract_template',
+            'execution_allowed' => false,
+            'ledger_write_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'observability_contract' => $observabilityContract,
+            'observability_contract_hash' => $this->stableHash($observabilityContract),
+            'non_execution_guarantees' => [
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_observability_contract_template_does_not_claim_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_observability_contract_template_does_not_complete_packets',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_observability_contract_template_does_not_create_writer_file',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_observability_contract_template_does_not_accept_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_observability_contract_template_does_not_validate_signature',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_observability_contract_template_does_not_write_ledger',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_observability_contract_template_does_not_persist_receipt',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_observability_contract_template_does_not_record_decision',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_observability_contract_template_does_not_approve_code',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_observability_contract_template_does_not_merge',
+                'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_observability_contract_template_does_not_dispatch_work',
+            ],
+            'human_summary' => $disableReady
+                ? 'Codex review merge post-execution action signed receipt persistence writer release observability contract template is ready as a monitoring contract. It still does not create a writer, write ledger, persist receipts, approve, merge or dispatch.'
+                : 'Codex review merge post-execution action signed receipt persistence writer release observability contract template is blocked until disable contract template is ready.',
         ];
     }
 

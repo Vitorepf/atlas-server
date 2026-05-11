@@ -401,7 +401,7 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
         $this->assertFalse($structured['writes']);
         $this->assertSame('atlas.architecture_operations.v1', data_get($structured, 'architecture_operations.schema_version'));
         $this->assertSame('arquitetura_mae', data_get($structured, 'architecture_operations.section'));
-        $this->assertSame(61, data_get($structured, 'architecture_operations.command_count'));
+        $this->assertSame(66, data_get($structured, 'architecture_operations.command_count'));
         $this->assertContains('architecture_operations', data_get($structured, 'architecture_operations.operation_ids'));
         $this->assertContains('architecture_readiness', data_get($structured, 'architecture_operations.operation_ids'));
         $this->assertContains('session_bootstrap', data_get($structured, 'architecture_operations.operation_ids'));
@@ -586,7 +586,7 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
 
         $this->assertTrue($structured['ok']);
         $this->assertSame(['section' => 'arquitetura_mae'], data_get($structured, 'architecture_operations.filters'));
-        $this->assertSame(61, data_get($structured, 'architecture_operations.command_count'));
+        $this->assertSame(66, data_get($structured, 'architecture_operations.command_count'));
         $this->assertContains('architecture_operations', data_get($structured, 'architecture_operations.operation_ids'));
 
         $response = $service->handleJsonRpc([
@@ -681,6 +681,12 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
         $this->assertSame('php artisan atlas:ai:voice dependencies --json', data_get($structured, 'architecture_operations.commands.0.command'));
         $this->assertSame('/ai/voice/runtime/dependencies', data_get($structured, 'architecture_operations.commands.0.api_endpoint'));
         $this->assertSame('/v1/mobile/ai/voice/runtime/dependencies', data_get($structured, 'architecture_operations.commands.0.mobile_endpoint'));
+        $this->assertSame('atlas.voice_realtime.python_runtime_plan.v1', data_get($structured, 'architecture_operations.commands.0.runtime_dependency_contract'));
+        $this->assertSame('ATLAS_VOICE_PYTHON_BIN', data_get($structured, 'architecture_operations.commands.0.python_binary_policy.environment_variable'));
+        $this->assertSame('atlas_ai.voice_realtime.python_binary', data_get($structured, 'architecture_operations.commands.0.python_binary_policy.config_key'));
+        $this->assertTrue(data_get($structured, 'architecture_operations.commands.0.pre_implementation_gate'));
+        $this->assertFalse(data_get($structured, 'architecture_operations.commands.0.python_binary_policy.auto_install'));
+        $this->assertContains('configured_binary', data_get($structured, 'architecture_operations.commands.0.output_contract.python_runtime'));
 
         $response = $service->handleJsonRpc([
             'jsonrpc' => '2.0',
@@ -767,6 +773,12 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
         $this->assertContains('architecture_validate', data_get($bootstrap, 'architecture_operations.operation_ids'));
         $this->assertContains('runtime_language_boundary', data_get($bootstrap, 'architecture_operations.operation_ids'));
         $this->assertContains('ap_agent_workflow_registry', data_get($bootstrap, 'architecture_operations.operation_ids'));
+        $this->assertContains('voice_realtime_dependencies', data_get($bootstrap, 'architecture_operations.operation_ids'));
+        $this->assertSame(
+            'atlas.voice_realtime.python_runtime_plan.v1',
+            collect(data_get($bootstrap, 'architecture_operations.commands', []))
+                ->firstWhere('id', 'voice_realtime_dependencies')['runtime_dependency_contract'] ?? null,
+        );
         $this->assertContains('php artisan atlas:ai:runtime-boundary --json', data_get($bootstrap, 'required_validation'));
         $this->assertContains('docs/engineering-knowledge-base/atlas-ai-session-bootstrap.md', $bootstrap['read_first']);
         $this->assertFalse($bootstrap['writes']);

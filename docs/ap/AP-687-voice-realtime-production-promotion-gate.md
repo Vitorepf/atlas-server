@@ -74,8 +74,9 @@ produto real. O runtime pode estar `certified_scaffold` e ainda assim ter
   review humano, Decision Receipt e rollback plan continuam obrigatorios mesmo
   quando os gates tecnicos ficarem prontos.
 - `--callback-loop-wired` e `--production-sdk-loop-wired` expõem o caminho de
-  wiring de produto em checks governados; mesmo com ambos verdadeiros, o daemon
-  nao inicia e `auto_promotion_allowed=false` permanece obrigatorio.
+  wiring de produto em checks governados, `product-loop-check`, `runtime-certify`,
+  `promotion-review-packet`, Rivals, API interna e mobile; mesmo com ambos
+  verdadeiros, o daemon nao inicia e `auto_promotion_allowed=false` permanece obrigatorio.
 - `activation-contract` trata `production_sdk_loop_wired` como gate separado:
   callback router sozinho nao habilita worker start.
 - `LiveKitSdkHandlerRegistry` formaliza o loop real do SDK: cada handler deve
@@ -90,6 +91,12 @@ produto real. O runtime pode estar `certified_scaffold` e ainda assim ter
   se um deles falha, o next action manda corrigir probe ou blueprint antes do daemon.
   Esse gate exige `handler_registry_contract`, `complete_handler_registry=true`
   e blueprint por callback; documentar handlers sem registry nao basta.
+  O mesmo artefato e publicado por CLI, API interna
+  `/ai/voice/runtime/product-loop-check`, mobile
+  `/v1/mobile/ai/voice/runtime/product-loop-check` e bootstrap
+  `kernel.runtime_product_loop_check_url`, para o app mobile e runtimes Python
+  consumirem o contrato sem criar caminho paralelo; os mesmos flags de wiring
+  devem atravessar CLI, API e mobile.
 - `daemon-supervisor-check` expõe `atlas.voice_realtime.daemon_supervisor_execution.v1`
   como fronteira unica de execucao futura. Hoje é `supervised_contract_only`:
   avalia receipts, preflight e health, mas conserva `process_launch_attempted=false`,
@@ -155,6 +162,12 @@ produto real. O runtime pode estar `certified_scaffold` e ainda assim ter
   aplica permissao `0600`, retorna `content_sha256`, nunca retorna conteudo,
   nunca inicia processo e emite
   `atlas.voice_realtime.managed_env_write_execution.v1`.
+  O `subprocess_start_contract`
+  (`atlas.voice_realtime.subprocess_start_contract.v1`) e a fronteira seguinte:
+  exige pre-start checks executados sob autorizacao propria, mas ainda conserva
+  `subprocess_launch_implemented=false`, `process_launch_attempted=false`,
+  `daemon_started=false`, `subprocess_module_imported=false`,
+  `livekit_sdk_imported=false`, provider/tool proibidos e audio cru intocado.
 - `runtime/events/normalize` e `runtime/events/normalize-sequence` expõem o
   normalizador do Kernel para API interna e mobile. Eles validam eventos SDK,
   removem campos fora do contrato e falham fechado em segredo/audio cru, mas
@@ -187,6 +200,11 @@ produto real. O runtime pode estar `certified_scaffold` e ainda assim ter
   `kernel_normalizer_contract_report.status=valid` como parte obrigatoria de
   `production_loop_smoke_passed`; bridge/handler/worker verdes sem normalizer
   do Kernel nao certificam o runtime.
+- `runtime-certify` tambem coleta `pre-start-health-checks-smoke` como
+  artefato oficial e machine gate. Esse smoke fecha a cadeia writer ->
+  pre-start checks -> subprocess start contract sem iniciar processo; ele e
+  evidencia obrigatoria do review packet, mas nunca conta como prova de
+  LiveKit real ou promocao de producao.
 
 ## Machine Gates
 
@@ -205,9 +223,16 @@ produto real. O runtime pode estar `certified_scaffold` e ainda assim ter
 | `launch_authorization_contract_available` | adapter declara autorizacao de implementacao do launch sem permitir iniciar processo |
 | `managed_env_writer_contract_available` | writer governado existe, valida placeholders e continua sem escrever `.env` |
 | `managed_env_write_execution_available` | funcao de escrita existe, exige receipt/autorizacao e escreve apenas placeholder `atlas-voice-*.env` com `0600` |
+| `supervised_launch_execution_contract_available` | contrato pre-subprocess existe, consome env-write execution futura, exige launch execution authorization, expoe `pre_start_health_checks_execution_available=true`, mas conserva `subprocess_launch_implemented=false`, `process_launch_attempted=false` e `daemon_started=false` |
+| `pre_start_health_checks_execution_available` | executor dos checks pre-start existe, exige authorization propria, recusa provider/tool/audio/processo e emite evidence sem iniciar daemon |
+| `pre_start_health_checks_smoke_passed` | certification executa o smoke seguro, recebe `passed_no_process_start`, confirma `smoke_only=true`, `production_readiness=not_proven_by_smoke`, `.env` temporario removido, nenhum processo/provider/tool/audio acionado e `subprocess_start_contract.status=ready_for_reviewed_subprocess_start_implementation` |
+| `subprocess_start_contract_available` | contrato de start existe, exige checks pre-start antes de ficar ready, mas conserva `subprocess_launch_implemented=false`, `process_launch_attempted=false`, `daemon_started=false`, `subprocess_module_imported=false` e `livekit_sdk_imported=false` |
+| `dependency_install_plan_available` | plano operator-managed existe com `requirements-livekit.txt`, comando install/verify e `pip_execution_attempted=false`, sem importar SDK ou iniciar daemon |
 | `sdk_probe_import_safe` | SDK readiness usa probe/metadata e nao importa LiveKit runtime |
 | `sdk_handler_registry_complete` | todos os event kinds do SDK tem handler governado por `LiveKitSdkHandlerRegistry` |
-| `production_review_receipt_valid` | `--production-promotion-approved` nao basta; `--production-promotion-review-file` deve validar `decision_receipt_id`, rollback plan, forbidden-action ack, `review_receipt_valid=true` e `boolean_approval_is_sufficient=false` |
+| `production_review_receipt_valid` | `--production-promotion-approved` nao basta; `--production-promotion-review-file` deve validar `decision_receipt_id`, rollback plan, forbidden-action ack, vinculo ao `production_promotion_review_bundle` (`reviewed_bundle_hash`, status de gate, evidence reviewed), `review_receipt_valid=true` e `boolean_approval_is_sufficient=false` |
+| `production_review_bound_to_expected_bundle` | quando `--promotion-review-bundle-file` e fornecido, o receipt humano deve bater exatamente com `bundle_hash`, schema e status do bundle atual; sem isso, review valido por shape nao conta como caminho enterprise final |
+| `production_review_expected_bundle_validated` | torna visivel para CLI/API/IA que o bundle real foi validado, nao apenas um hash textual declarado pelo operador |
 | `daemon_implementation_review_valid` | daemon real so pode virar implementacao supervisionada com review receipt tecnico separado do review humano de promocao |
 
 `product-loop-check` separa `ready_for_human_review`,
@@ -237,6 +262,16 @@ rollback plan obrigatorios.
 `review_packet` deve acompanhar certification, Rivals-Voice e review_signal:
 ele declara evidencias, rollback e proibicoes para qualquer humano ou IA saber
 que promocao real nunca e automatica.
+O review humano que fecha esse pacote deve ser um receipt especifico para o
+bundle: `reviewed_bundle_schema_version` precisa ser
+`atlas.voice_realtime.production_promotion_review_bundle.v1`,
+`reviewed_bundle_hash` precisa ser SHA-256 canonico, `reviewed_machine_gate_status`
+precisa indicar que a maquina chegou ao estado de review, e
+`required_evidence_reviewed` precisa conter `runtime_certification`,
+`product_loop_check`, `pre_start_health_checks_smoke` e
+`rivals_voice_comparison`. `failed_machine_gates_acknowledged` deve existir como
+lista explicita, mesmo vazia, para impedir que uma aprovacao antiga ou booleana
+seja reaproveitada contra outro pacote de evidencias.
 O Curator/Self-Improvement deve projetar esse mesmo `review_packet` no finding
 de voz para que proposal inbox, review humano e rollback tenham a mesma fonte.
 Session lease deve escopar toda sala LiveKit no namespace `atlas-voice-`, mesmo
@@ -247,6 +282,34 @@ Token LiveKit so pode ser emitido quando issuer estiver habilitado, URL, key e
 secret estiverem configurados; caso contrario o lease fica sem `access_token`.
 O proprio token issuer deve rejeitar lease com sala fora de `atlas-voice-` ou
 participante fora do namespace do `client_surface`, mesmo que chamado direto.
+`token-issuer-plan` e o contrato de configuracao segura em CLI, API interna e
+mobile gateway: lista env/config keys, indica faltantes, inclui template
+redigido e hash, mas `secrets_exposed=false`, `writes_env_file=false`,
+`issues_token_during_plan=false` e `starts_daemon=false`.
+`token-issuer-smoke` prova a emissao redigida quando existe config real. Com
+`--ephemeral-test-config`, ele usa apenas config nao-producao em memoria,
+restaura a config antes de sair e marca `production_readiness` como
+`not_proven_by_ephemeral_smoke`; portanto nao satisfaz promocao de producao.
+O SDK gate tambem valida runtime Python: `livekit-agents>=1.3.12,<2.0.0`
+exige Python `>=3.10`; Python 3.9 deve bloquear com
+`upgrade_python_runtime_for_livekit_agents_sdk`, mesmo que `find_spec` encontre
+o pacote. Isso evita falso positivo onde o import real quebra por
+`typing.TypeAlias`.
+O runtime Python consome `token-issuer-plan` e `token-issuer-smoke` apenas como
+leitura governada do Kernel: `kernel.runtime_token_issuer_plan_url` e
+`kernel.runtime_token_issuer_smoke_url` sao obrigatorios no bootstrap,
+`AtlasKernelClient.token_issuer_plan()` e `token_issuer_smoke()` validam os
+schemas e falham se houver segredo, token cru, template sem redacao, escrita de
+`.env`, daemon start, provider/tool direto, audio raw, sala fora de
+`atlas-voice-` ou participante fora de `mobile:`. Esse caminho existe para
+certificacao/review e nao autoriza configurar LiveKit.
+`pre-start-health-checks-smoke` prova a cadeia posterior ao writer sem iniciar
+processo: cria apenas `.env` temporario de placeholders `atlas-voice-*.env`,
+redige o path, remove o arquivo antes de retornar, executa checks pre-start
+sinteticos seguros e deixa `subprocess_start_contract` pronto para review. O
+resultado esperado e `passed_no_process_start`, com `smoke_only=true` e
+`production_readiness=not_proven_by_smoke`; isso prova contrato, nao LiveKit
+real.
 
 ## Non Goals
 
@@ -262,7 +325,17 @@ participante fora do namespace do `client_surface`, mesmo que chamado direto.
 php artisan test tests/Unit/Ai/Voice/AtlasVoiceRuntimeCertificationServiceTest.php
 php artisan test tests/Unit/Ai/Voice/AtlasVoiceRuntimeEventNormalizerTest.php
 php artisan test tests/Feature/Ai/AtlasAiVoiceRealtimeCommandTest.php tests/Feature/Ai/AtlasAiVoiceRealtimeApiTest.php
+php artisan atlas:ai:voice token-issuer-plan --json
+php artisan atlas:ai:voice token-issuer-smoke --json
+php artisan atlas:ai:voice token-issuer-smoke --ephemeral-test-config --json
+php artisan atlas:ai:voice pre-start-health-checks-smoke --json
+curl -H "X-Atlas-Token: $ATLAS_TOKEN" "http://localhost/ai/voice/runtime/token-issuer-plan?runtime=livekit_agents_sdk"
+curl -H "X-Atlas-Token: $ATLAS_TOKEN" "http://localhost/ai/voice/runtime/token-issuer-smoke?runtime=livekit_agents_sdk"
+curl -H "X-Atlas-Token: $ATLAS_TOKEN" "http://localhost/ai/voice/runtime/pre-start-health-checks-smoke?runtime=livekit_agents_sdk"
 php artisan atlas:ai:voice runtime-certify --json
+php artisan atlas:ai:voice promotion-review-packet --json
+curl -H "X-Atlas-Token: $ATLAS_TOKEN" "http://localhost/ai/voice/runtime/promotion-review-packet?runtime=livekit_agents_sdk&hours=24"
+PYTHONPATH=runtimes/python/voice_realtime python3 -m atlas_voice_agent.main --bootstrap /path/to/bootstrap.json --mock-kernel --promotion-review-packet --hours 24
 ```
 
 ## Definition Of Done
@@ -275,6 +348,15 @@ php artisan atlas:ai:voice runtime-certify --json
   `rollback_plan_required=true`;
 - gate fica `blocked` quando LiveKit Agents SDK esta ausente;
 - gate fica `blocked` quando token issuer nao esta configurado;
+- `token-issuer-plan` gera
+  `atlas.voice_realtime.livekit_token_issuer_config_plan.v1` com env vars
+  necessarias, missing env, template redigido, `secrets_exposed=false`,
+  `writes_env_file=false`, `issues_token_during_plan=false` e
+  `starts_daemon=false`;
+- `token-issuer-smoke` gera
+  `atlas.voice_realtime.livekit_token_issuer_smoke.v1`, remove `access_token`,
+  publica apenas hash do token quando emitido e nunca trata smoke efemero como
+  prontidao de producao;
 - `review_packet` declara decisao humana, evidencias, rollback e proibicoes;
 - artifacts de token issuer nao expõem secrets;
 - `base_url` de bootstrap/runtime-certify nao permite injecao por newline, path
@@ -288,6 +370,42 @@ php artisan atlas:ai:voice runtime-certify --json
   fora do contrato antes de iniciar qualquer room;
 - runtime Python rejeita bootstrap sem URLs do runtime event normalizer, porque
   eventos SDK devem ter caminho canônico de normalizacao governado pelo Kernel;
+- `promotion-review-packet` gera, via CLI/API interna/mobile a partir de
+  `AtlasVoiceProductionPromotionReviewBundleService`,
+  `atlas.voice_realtime.production_promotion_review_bundle.v1`: bundle
+  hashavel com certification `--require-sdk`, `product-loop-check`,
+  `pre-start-health-checks-smoke`, Rivals-Voice, `review_packet`, failed gates,
+  evidence hashes, guardrails e flags de wiring `callback_loop_wired` /
+  `production_sdk_loop_wired`.
+  Ele prepara review humano, mas preserva `promotion_allowed=false`,
+  `auto_promotion_allowed=false`, `daemon_started=false` e
+  `start_daemon_allowed=false`.
+- runtime Python exige `kernel.runtime_promotion_review_packet_url` no bootstrap
+  e consegue buscar o mesmo bundle com `--promotion-review-packet`, apenas como
+  leitura governada do Kernel; isso nao autoriza promocao, provider, tool,
+  audio raw, daemon ou bypass de Decision Receipt.
+- runtime Python exige `kernel.runtime_token_issuer_plan_url` e
+  `kernel.runtime_token_issuer_smoke_url` no bootstrap e consegue buscar ambos
+  com `--token-issuer-plan` / `--token-issuer-smoke`, sempre como leitura
+  governada; validadores Python bloqueiam secret/token leak, `.env` write,
+  daemon start, provider/tool direto e namespace de sala/participante invalido.
+- runtime Python valida o bundle com `validate_promotion_review_packet`: schema,
+  surface, runtime, `kernel_only`, `mobile_first`, review humano, receipt,
+  rollback, review packet, evidence summaries hashados, machine gates,
+  `bundle_hash` e guardrails devem permanecer fail-closed; qualquer relaxamento
+  de promocao, daemon, provider direto, tool direto, memory write, audio raw ou
+  boolean approval suficiente deve falhar antes de qualquer output confiavel.
+- runtime Python valida o receipt humano com
+  `validate_production_promotion_review`: o receipt deve referenciar o bundle
+  revisado por `reviewed_bundle_hash`, declarar evidence reviewed, ack explicito
+  dos failed gates e continuar com `auto_promotion_allowed=false`; receipt
+  generico, sem hash, sem evidence ou com aprovacao booleana deve falhar.
+- `product-loop-check`, `daemon-supervisor-check` e `worker-start-check`
+  aceitam `--promotion-review-bundle-file` como bundle real do Kernel revisado.
+  Quando fornecido, o runtime precisa validar o bundle e exigir match exato de
+  `reviewed_bundle_hash`, `reviewed_bundle_schema_version` e
+  `reviewed_machine_gate_status`; receipt humano antigo, stale ou apontando para
+  outro pacote de evidencias deve manter `production_review_receipt_valid=false`.
 - worker start nao permite promocao implicita: o payload expõe
   `worker_start_without_production_promotion_allowed=false`;
 - worker start distingue `blocked_pending_human_review` de
@@ -325,4 +443,13 @@ php artisan atlas:ai:voice runtime-certify --json
   mas so escreve arquivo placeholder com autorizacao
   `atlas.voice_realtime.managed_env_write_authorization.v1` e nunca inicia
   daemon;
+- tambem exige `subprocess_start_contract`
+  `atlas.voice_realtime.subprocess_start_contract.v1`, com
+  `process_launch_attempted=false`, `daemon_started=false`,
+  `subprocess_module_imported=false` e `livekit_sdk_imported=false`;
+- `dependency-install-plan` publica
+  `atlas.voice_realtime.dependency_install_plan.v1`, aponta
+  `runtimes/python/voice_realtime/requirements-livekit.txt` e conserva
+  `pip_execution_attempted=false`, `sdk_imported=false` e
+  `daemon_started=false`;
 - promotion para produto real exige review humano.

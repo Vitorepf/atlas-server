@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\Ai\Voice\AtlasVoiceLiveKitTokenIssuer;
+use App\Services\Ai\Voice\AtlasVoiceProductionPromotionReviewBundleService;
 use App\Services\Ai\Voice\AtlasVoiceRealtimeService;
 use App\Services\Ai\Voice\AtlasVoiceRivalsRunner;
 use App\Services\Ai\Voice\AtlasVoiceRuntimeCertificationService;
@@ -13,9 +15,11 @@ final class AtlasAiVoiceRealtimeController extends Controller
 {
     public function __construct(
         private readonly AtlasVoiceRealtimeService $voice,
+        private readonly AtlasVoiceLiveKitTokenIssuer $liveKitTokens,
         private readonly AtlasVoiceRivalsRunner $rivals,
         private readonly AtlasVoiceRuntimeCertificationService $certification,
         private readonly AtlasVoiceRuntimeEventNormalizer $runtimeEvents,
+        private readonly AtlasVoiceProductionPromotionReviewBundleService $promotionReviews,
     ) {}
 
     public function health(Request $request): JsonResponse
@@ -39,6 +43,8 @@ final class AtlasAiVoiceRealtimeController extends Controller
             'runtime' => ['nullable', 'in:livekit_agents_sdk'],
             'base_url' => ['nullable', 'string', 'max:240'],
             'require_sdk' => ['nullable', 'boolean'],
+            'callback_loop_wired' => ['nullable', 'boolean'],
+            'production_sdk_loop_wired' => ['nullable', 'boolean'],
         ]);
 
         return response()->json($this->rivals->report($data));
@@ -77,15 +83,80 @@ final class AtlasAiVoiceRealtimeController extends Controller
         return response()->json($this->voice->runtimeDependencyPlan());
     }
 
+    public function dependencyInstallPlan(Request $request): JsonResponse
+    {
+        $request->validate([
+            'runtime' => ['nullable', 'in:livekit_agents_sdk'],
+        ]);
+
+        return response()->json($this->voice->runtimeDependencyInstallPlan());
+    }
+
+    public function tokenIssuerPlan(Request $request): JsonResponse
+    {
+        $request->validate([
+            'runtime' => ['nullable', 'in:livekit_agents_sdk'],
+        ]);
+
+        return response()->json($this->liveKitTokens->configurationPlan());
+    }
+
+    public function tokenIssuerSmoke(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'runtime' => ['nullable', 'in:livekit_agents_sdk'],
+            'ephemeral_test_config' => ['nullable', 'boolean'],
+        ]);
+
+        return response()->json($this->liveKitTokens->smoke((bool) ($data['ephemeral_test_config'] ?? false)));
+    }
+
+    public function preStartHealthChecksSmoke(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'runtime' => ['nullable', 'in:livekit_agents_sdk'],
+            'base_url' => ['nullable', 'string', 'max:240'],
+        ]);
+
+        return response()->json($this->voice->preStartHealthChecksSmoke($data));
+    }
+
     public function runtimeCertification(Request $request): JsonResponse
     {
         $data = $request->validate([
             'runtime' => ['nullable', 'in:livekit_agents_sdk'],
             'base_url' => ['nullable', 'string', 'max:240'],
             'require_sdk' => ['nullable', 'boolean'],
+            'callback_loop_wired' => ['nullable', 'boolean'],
+            'production_sdk_loop_wired' => ['nullable', 'boolean'],
         ]);
 
         return response()->json($this->certification->certify($data));
+    }
+
+    public function productLoopCheck(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'runtime' => ['nullable', 'in:livekit_agents_sdk'],
+            'base_url' => ['nullable', 'string', 'max:240'],
+            'callback_loop_wired' => ['nullable', 'boolean'],
+            'production_sdk_loop_wired' => ['nullable', 'boolean'],
+        ]);
+
+        return response()->json($this->voice->productLoopCheck($data));
+    }
+
+    public function promotionReviewPacket(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'runtime' => ['nullable', 'in:livekit_agents_sdk'],
+            'base_url' => ['nullable', 'string', 'max:240'],
+            'hours' => ['nullable', 'integer', 'between:1,8760'],
+            'callback_loop_wired' => ['nullable', 'boolean'],
+            'production_sdk_loop_wired' => ['nullable', 'boolean'],
+        ]);
+
+        return response()->json($this->promotionReviews->bundle($data));
     }
 
     public function normalizeRuntimeEvent(Request $request): JsonResponse

@@ -26,6 +26,11 @@ def manifest() -> dict:
             "session_end_url": "http://atlas.test/ai/voice/session/end",
             "readiness_url": "http://atlas.test/ai/voice/readiness",
             "rivals_url": "http://atlas.test/ai/voice/rivals",
+            "runtime_dependency_install_plan_url": "http://atlas.test/ai/voice/runtime/dependency-install-plan",
+            "runtime_token_issuer_plan_url": "http://atlas.test/ai/voice/runtime/token-issuer-plan",
+            "runtime_token_issuer_smoke_url": "http://atlas.test/ai/voice/runtime/token-issuer-smoke",
+            "runtime_product_loop_check_url": "http://atlas.test/ai/voice/runtime/product-loop-check",
+            "runtime_promotion_review_packet_url": "http://atlas.test/ai/voice/runtime/promotion-review-packet",
             "wake_word_url": "http://atlas.test/ai/voice/wake-word",
             "mobile_wake_word_url": "http://atlas.test/v1/mobile/ai/voice/wake-word",
             "turn_url": "http://atlas.test/ai/voice/turn",
@@ -130,6 +135,17 @@ class AtlasVoiceRuntimeContractTest(unittest.TestCase):
         self.assertEqual("http://atlas.test/ai/voice/session/end", contract.session_end_url)
         self.assertEqual("http://atlas.test/ai/voice/readiness", contract.readiness_url)
         self.assertEqual("http://atlas.test/ai/voice/rivals", contract.rivals_url)
+        self.assertEqual(
+            "http://atlas.test/ai/voice/runtime/dependency-install-plan",
+            contract.runtime_dependency_install_plan_url,
+        )
+        self.assertEqual("http://atlas.test/ai/voice/runtime/token-issuer-plan", contract.runtime_token_issuer_plan_url)
+        self.assertEqual("http://atlas.test/ai/voice/runtime/token-issuer-smoke", contract.runtime_token_issuer_smoke_url)
+        self.assertEqual("http://atlas.test/ai/voice/runtime/product-loop-check", contract.runtime_product_loop_check_url)
+        self.assertEqual(
+            "http://atlas.test/ai/voice/runtime/promotion-review-packet",
+            contract.runtime_promotion_review_packet_url,
+        )
         self.assertEqual("http://atlas.test/ai/voice/turn", contract.turn_url)
         self.assertEqual("http://atlas.test/ai/voice/runtime/events/normalize", contract.runtime_event_normalizer_url)
         self.assertEqual(
@@ -209,6 +225,33 @@ class AtlasVoiceRuntimeContractTest(unittest.TestCase):
     def test_rejects_kernel_url_without_host(self) -> None:
         payload = copy.deepcopy(manifest())
         payload["kernel"]["readiness_url"] = "https:///ai/voice/readiness"
+
+        with self.assertRaises(ContractViolation):
+            AtlasVoiceRuntimeContract.from_manifest(payload)
+
+    def test_rejects_manifest_without_promotion_review_packet_url(self) -> None:
+        payload = copy.deepcopy(manifest())
+        del payload["kernel"]["runtime_promotion_review_packet_url"]
+
+        with self.assertRaises(ContractViolation):
+            AtlasVoiceRuntimeContract.from_manifest(payload)
+
+    def test_rejects_manifest_without_dependency_install_plan_url(self) -> None:
+        payload = copy.deepcopy(manifest())
+        del payload["kernel"]["runtime_dependency_install_plan_url"]
+
+        with self.assertRaises(ContractViolation):
+            AtlasVoiceRuntimeContract.from_manifest(payload)
+
+    def test_rejects_manifest_without_token_issuer_urls(self) -> None:
+        payload = copy.deepcopy(manifest())
+        del payload["kernel"]["runtime_token_issuer_plan_url"]
+
+        with self.assertRaises(ContractViolation):
+            AtlasVoiceRuntimeContract.from_manifest(payload)
+
+        payload = copy.deepcopy(manifest())
+        payload["kernel"]["runtime_token_issuer_smoke_url"] = "file:///tmp/token"
 
         with self.assertRaises(ContractViolation):
             AtlasVoiceRuntimeContract.from_manifest(payload)

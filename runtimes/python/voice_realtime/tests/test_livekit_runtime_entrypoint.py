@@ -1,12 +1,15 @@
 from __future__ import annotations
 
+import json
+import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 from atlas_voice_agent.contract import AtlasVoiceRuntimeContract
 from atlas_voice_agent.daemon_implementation_review import SCHEMA_VERSION as DAEMON_REVIEW_SCHEMA_VERSION
 from atlas_voice_agent.livekit_runtime_entrypoint import start_livekit_agents_worker
-from atlas_voice_agent.production_promotion_review import SCHEMA_VERSION
+from atlas_voice_agent.production_promotion_review import REVIEWED_BUNDLE_SCHEMA_VERSION, SCHEMA_VERSION
 
 from test_contract import manifest
 
@@ -17,9 +20,19 @@ def valid_review() -> dict[str, object]:
         "status": "approved",
         "surface_id": "voice_realtime",
         "runtime_id": "livekit_agents_sdk",
+        "reviewed_bundle_schema_version": REVIEWED_BUNDLE_SCHEMA_VERSION,
+        "reviewed_bundle_hash": "b"*64,
+        "reviewed_machine_gate_status": "ready_for_human_review",
         "decision_receipt_id": "decision_receipt_voice_1",
         "approved_by": "vitor",
         "approved_at": "2026-05-10T12:00:00Z",
+        "required_evidence_reviewed": [
+            "runtime_certification",
+            "product_loop_check",
+            "pre_start_health_checks_smoke",
+            "rivals_voice_comparison",
+        ],
+        "failed_machine_gates_acknowledged": [],
         "rollback_plan": [
             "disable_livekit_token_issuer",
             "stop_livekit_worker",
@@ -59,6 +72,25 @@ def valid_daemon_review() -> dict[str, object]:
         "kernel_decision_receipt_required": True,
         "direct_provider_call_allowed": False,
         "raw_audio_persistence_allowed": False,
+    }
+
+
+def write_manifest(payload: dict | None = None) -> Path:
+    handle = tempfile.NamedTemporaryFile("w", encoding="utf-8", delete=False)
+    json.dump(payload or manifest(), handle)
+    handle.close()
+
+    return Path(handle.name)
+
+
+def runtime_env(path: Path) -> dict[str, str]:
+    return {
+        "ATLAS_BASE_URL": "http://atlas.test",
+        "ATLAS_TOKEN": "atlas-token",
+        "LIVEKIT_URL": "http://livekit.test",
+        "LIVEKIT_API_KEY": "livekit-key",
+        "LIVEKIT_API_SECRET": "livekit-secret",
+        "ATLAS_VOICE_BOOTSTRAP": str(path),
     }
 
 
@@ -181,7 +213,7 @@ class LiveKitRuntimeEntrypointTest(unittest.TestCase):
         contract = AtlasVoiceRuntimeContract.from_manifest(manifest())
         payload = start_livekit_agents_worker(
             contract,
-            env={},
+            env=runtime_env(write_manifest()),
             settings_loaded=True,
             boundary_created=True,
             callback_loop_wired=False,
@@ -198,7 +230,7 @@ class LiveKitRuntimeEntrypointTest(unittest.TestCase):
         contract = AtlasVoiceRuntimeContract.from_manifest(manifest())
         payload = start_livekit_agents_worker(
             contract,
-            env={},
+            env=runtime_env(write_manifest()),
             settings_loaded=True,
             boundary_created=True,
             callback_loop_wired=True,
@@ -218,7 +250,7 @@ class LiveKitRuntimeEntrypointTest(unittest.TestCase):
         contract = AtlasVoiceRuntimeContract.from_manifest(manifest())
         payload = start_livekit_agents_worker(
             contract,
-            env={},
+            env=runtime_env(write_manifest()),
             settings_loaded=True,
             boundary_created=True,
             callback_loop_wired=True,
@@ -243,7 +275,7 @@ class LiveKitRuntimeEntrypointTest(unittest.TestCase):
         contract = AtlasVoiceRuntimeContract.from_manifest(manifest())
         payload = start_livekit_agents_worker(
             contract,
-            env={},
+            env=runtime_env(write_manifest()),
             settings_loaded=True,
             boundary_created=True,
             callback_loop_wired=True,

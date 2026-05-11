@@ -66,11 +66,12 @@ def build_production_loop_plan(
             "access_token_log_allowed": False,
             "worker_start_allowed_by_this_plan": False,
         },
-        "next_action": _next_action(sdk_ready, settings_loaded, boundary_created, translation_ready, wiring_coverage_ready, production_sdk_loop_wired),
+        "next_action": _next_action(sdk, sdk_ready, settings_loaded, boundary_created, translation_ready, wiring_coverage_ready, production_sdk_loop_wired),
     }
 
 
 def _next_action(
+    sdk_status: Mapping[str, Any],
     sdk_ready: bool,
     settings_loaded: bool,
     boundary_created: bool,
@@ -79,7 +80,7 @@ def _next_action(
     production_sdk_loop_wired: bool,
 ) -> str:
     if not sdk_ready:
-        return "install_livekit_agents_sdk"
+        return str(sdk_status.get("next_action") or "install_livekit_agents_sdk")
     if not settings_loaded:
         return "load_runtime_settings"
     if not boundary_created:

@@ -103,7 +103,13 @@ $registerAtlasVoiceRoutes = static function (): void {
     Route::get('/ai/voice/runtime/contract', [AtlasAiVoiceRealtimeController::class, 'contract']);
     Route::get('/ai/voice/runtime/bootstrap', [AtlasAiVoiceRealtimeController::class, 'bootstrap']);
     Route::get('/ai/voice/runtime/dependencies', [AtlasAiVoiceRealtimeController::class, 'dependencies']);
+    Route::get('/ai/voice/runtime/dependency-install-plan', [AtlasAiVoiceRealtimeController::class, 'dependencyInstallPlan']);
+    Route::get('/ai/voice/runtime/token-issuer-plan', [AtlasAiVoiceRealtimeController::class, 'tokenIssuerPlan']);
+    Route::get('/ai/voice/runtime/token-issuer-smoke', [AtlasAiVoiceRealtimeController::class, 'tokenIssuerSmoke']);
+    Route::get('/ai/voice/runtime/pre-start-health-checks-smoke', [AtlasAiVoiceRealtimeController::class, 'preStartHealthChecksSmoke']);
     Route::get('/ai/voice/runtime/certification', [AtlasAiVoiceRealtimeController::class, 'runtimeCertification']);
+    Route::get('/ai/voice/runtime/product-loop-check', [AtlasAiVoiceRealtimeController::class, 'productLoopCheck']);
+    Route::get('/ai/voice/runtime/promotion-review-packet', [AtlasAiVoiceRealtimeController::class, 'promotionReviewPacket']);
     Route::post('/ai/voice/runtime/events/normalize', [AtlasAiVoiceRealtimeController::class, 'normalizeRuntimeEvent']);
     Route::post('/ai/voice/runtime/events/normalize-sequence', [AtlasAiVoiceRealtimeController::class, 'normalizeRuntimeEventSequence']);
     Route::post('/ai/voice/session/start', [AtlasAiVoiceRealtimeController::class, 'start']);

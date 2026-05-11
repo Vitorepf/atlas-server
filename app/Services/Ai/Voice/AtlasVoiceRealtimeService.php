@@ -15,10 +15,14 @@ use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use App\Services\Ai\Kernel\Slo\KernelSloTargets;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
+use Symfony\Component\Process\Exception\ProcessTimedOutException;
+use Symfony\Component\Process\Process;
 
 final class AtlasVoiceRealtimeService
 {
     public const SCHEMA_VERSION = 'atlas.voice_realtime.scaffold.v1';
+
+    private const PYTHON_COMMAND_TIMEOUT_SECONDS = 30;
 
     private const ALLOWED_CLIENT_SURFACES = ['mobile', 'mac_edge'];
 
@@ -514,6 +518,14 @@ final class AtlasVoiceRealtimeService
         $until = now();
         $phase0Hardening = $this->phase0HardeningGate();
         $productLoopCheck = $this->productLoopCheckReference();
+        $runtimeDependencies = $this->runtimeDependencyPlan();
+        $runtimeDependencySummary = $this->runtimeDependencySummary($runtimeDependencies);
+        $required = [
+            LedgerEventType::VoiceSessionStarted->value,
+            LedgerEventType::VoiceTurnDecided->value,
+            LedgerEventType::VoiceTurnSynthesized->value,
+            LedgerEventType::VoiceTurnPlayed->value,
+        ];
 
         if (! Schema::hasTable('atlas_ledger_events')) {
             return [
@@ -522,13 +534,28 @@ final class AtlasVoiceRealtimeService
                 'status' => 'ledger_unavailable',
                 'hours' => $hours,
                 'window' => ['since' => $since->toJSON(), 'until' => $until->toJSON()],
+                'mobile_first' => true,
+                'score' => null,
+                'event_counts' => [],
+                'required_events' => $required,
+                'missing_events' => $required,
+                'gates' => [
+                    'ledger_available' => false,
+                    'required_events_present' => false,
+                    'latency_slo_clean' => false,
+                    'raw_audio_forbidden' => true,
+                    'kernel_decision_per_turn' => true,
+                    'rivals_voice_ready' => false,
+                ],
                 'review_signal' => [
                     'status' => 'blocked',
                     'severity' => 'high',
                     'recommended_action' => 'run_ledger_migrations_before_voice_readiness',
                 ],
+                'next_action' => 'run_ledger_migrations_before_voice_readiness',
                 'phase0_hardening' => $phase0Hardening,
                 'product_loop_check' => $productLoopCheck,
+                'runtime_dependency_summary' => $runtimeDependencySummary,
             ];
         }
 
@@ -547,12 +574,6 @@ final class AtlasVoiceRealtimeService
             ->get()
             ->filter(fn (AtlasLedgerEvent $event): bool => str_starts_with((string) data_get($event->payload, 'stage'), 'voice.'));
         $eventCounts = $events->pluck('event_type')->countBy()->all();
-        $required = [
-            LedgerEventType::VoiceSessionStarted->value,
-            LedgerEventType::VoiceTurnDecided->value,
-            LedgerEventType::VoiceTurnSynthesized->value,
-            LedgerEventType::VoiceTurnPlayed->value,
-        ];
         $missing = collect($required)
             ->filter(fn (string $type): bool => (int) ($eventCounts[$type] ?? 0) === 0)
             ->values()
@@ -571,6 +592,7 @@ final class AtlasVoiceRealtimeService
             'mobile_first' => true,
             'phase0_hardening' => $phase0Hardening,
             'product_loop_check' => $productLoopCheck,
+            'runtime_dependency_summary' => $runtimeDependencySummary,
             'score' => $score,
             'event_counts' => $eventCounts,
             'session_count' => $events->pluck('correlation_id')->filter()->unique()->count(),
@@ -595,6 +617,26 @@ final class AtlasVoiceRealtimeService
                     ? ($sloBreaches === 0 ? 'voice_readiness_can_enter_rivals_voice' : 'investigate_voice_latency_slo_breaches')
                     : 'complete_voice_required_events_before_rivals_voice',
             ],
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $dependencies
+     * @return array<string,mixed>
+     */
+    private function runtimeDependencySummary(array $dependencies): array
+    {
+        return [
+            'schema_version' => 'atlas.voice_realtime.runtime_dependency_summary.v1',
+            'status' => $dependencies['status'] ?? 'unknown',
+            'python_runtime_status' => data_get($dependencies, 'python_runtime.status'),
+            'configured_python_binary' => data_get($dependencies, 'python_runtime.configured_binary'),
+            'configured_python_version' => data_get($dependencies, 'python_runtime.configured_version'),
+            'python_minimum_version' => data_get($dependencies, 'python_runtime.minimum_version'),
+            'python_satisfies_minimum' => data_get($dependencies, 'python_runtime.configured_satisfies_minimum'),
+            'operator_managed' => data_get($dependencies, 'python_runtime.operator_managed'),
+            'auto_install_allowed' => data_get($dependencies, 'python_runtime.auto_install_allowed'),
+            'next_action' => data_get($dependencies, 'python_runtime.next_action', $dependencies['next_action'] ?? null),
         ];
     }
 
@@ -738,7 +780,13 @@ final class AtlasVoiceRealtimeService
             'readiness_endpoint' => '/ai/voice/readiness',
             'rivals_endpoint' => '/ai/voice/rivals',
             'runtime_dependencies_endpoint' => '/ai/voice/runtime/dependencies',
+            'runtime_dependency_install_plan_endpoint' => '/ai/voice/runtime/dependency-install-plan',
+            'runtime_token_issuer_plan_endpoint' => '/ai/voice/runtime/token-issuer-plan',
+            'runtime_token_issuer_smoke_endpoint' => '/ai/voice/runtime/token-issuer-smoke',
+            'runtime_pre_start_health_checks_smoke_endpoint' => '/ai/voice/runtime/pre-start-health-checks-smoke',
             'runtime_certification_endpoint' => '/ai/voice/runtime/certification',
+            'runtime_product_loop_check_endpoint' => '/ai/voice/runtime/product-loop-check',
+            'runtime_promotion_review_packet_endpoint' => '/ai/voice/runtime/promotion-review-packet',
             'runtime_event_normalizer_endpoint' => '/ai/voice/runtime/events/normalize',
             'runtime_event_sequence_normalizer_endpoint' => '/ai/voice/runtime/events/normalize-sequence',
             'mobile_session_start_endpoint' => '/v1/mobile/ai/voice/session/start',
@@ -746,7 +794,13 @@ final class AtlasVoiceRealtimeService
             'mobile_readiness_endpoint' => '/v1/mobile/ai/voice/readiness',
             'mobile_rivals_endpoint' => '/v1/mobile/ai/voice/rivals',
             'mobile_runtime_dependencies_endpoint' => '/v1/mobile/ai/voice/runtime/dependencies',
+            'mobile_runtime_dependency_install_plan_endpoint' => '/v1/mobile/ai/voice/runtime/dependency-install-plan',
+            'mobile_runtime_token_issuer_plan_endpoint' => '/v1/mobile/ai/voice/runtime/token-issuer-plan',
+            'mobile_runtime_token_issuer_smoke_endpoint' => '/v1/mobile/ai/voice/runtime/token-issuer-smoke',
+            'mobile_runtime_pre_start_health_checks_smoke_endpoint' => '/v1/mobile/ai/voice/runtime/pre-start-health-checks-smoke',
             'mobile_runtime_certification_endpoint' => '/v1/mobile/ai/voice/runtime/certification',
+            'mobile_runtime_product_loop_check_endpoint' => '/v1/mobile/ai/voice/runtime/product-loop-check',
+            'mobile_runtime_promotion_review_packet_endpoint' => '/v1/mobile/ai/voice/runtime/promotion-review-packet',
             'mobile_runtime_event_normalizer_endpoint' => '/v1/mobile/ai/voice/runtime/events/normalize',
             'mobile_runtime_event_sequence_normalizer_endpoint' => '/v1/mobile/ai/voice/runtime/events/normalize-sequence',
             'wake_word_endpoint' => '/ai/voice/wake-word',
@@ -867,13 +921,25 @@ final class AtlasVoiceRealtimeService
                 'readiness_url' => $baseUrl.$contract['readiness_endpoint'],
                 'rivals_url' => $baseUrl.$contract['rivals_endpoint'],
                 'runtime_dependencies_url' => $baseUrl.$contract['runtime_dependencies_endpoint'],
+                'runtime_dependency_install_plan_url' => $baseUrl.$contract['runtime_dependency_install_plan_endpoint'],
+                'runtime_token_issuer_plan_url' => $baseUrl.$contract['runtime_token_issuer_plan_endpoint'],
+                'runtime_token_issuer_smoke_url' => $baseUrl.$contract['runtime_token_issuer_smoke_endpoint'],
+                'runtime_pre_start_health_checks_smoke_url' => $baseUrl.$contract['runtime_pre_start_health_checks_smoke_endpoint'],
                 'runtime_certification_url' => $baseUrl.$contract['runtime_certification_endpoint'],
+                'runtime_product_loop_check_url' => $baseUrl.$contract['runtime_product_loop_check_endpoint'],
+                'runtime_promotion_review_packet_url' => $baseUrl.$contract['runtime_promotion_review_packet_endpoint'],
                 'mobile_session_start_url' => $baseUrl.$contract['mobile_session_start_endpoint'],
                 'mobile_session_end_url' => $baseUrl.$contract['mobile_session_end_endpoint'],
                 'mobile_readiness_url' => $baseUrl.$contract['mobile_readiness_endpoint'],
                 'mobile_rivals_url' => $baseUrl.$contract['mobile_rivals_endpoint'],
                 'mobile_runtime_dependencies_url' => $baseUrl.$contract['mobile_runtime_dependencies_endpoint'],
+                'mobile_runtime_dependency_install_plan_url' => $baseUrl.$contract['mobile_runtime_dependency_install_plan_endpoint'],
+                'mobile_runtime_token_issuer_plan_url' => $baseUrl.$contract['mobile_runtime_token_issuer_plan_endpoint'],
+                'mobile_runtime_token_issuer_smoke_url' => $baseUrl.$contract['mobile_runtime_token_issuer_smoke_endpoint'],
+                'mobile_runtime_pre_start_health_checks_smoke_url' => $baseUrl.$contract['mobile_runtime_pre_start_health_checks_smoke_endpoint'],
                 'mobile_runtime_certification_url' => $baseUrl.$contract['mobile_runtime_certification_endpoint'],
+                'mobile_runtime_product_loop_check_url' => $baseUrl.$contract['mobile_runtime_product_loop_check_endpoint'],
+                'mobile_runtime_promotion_review_packet_url' => $baseUrl.$contract['mobile_runtime_promotion_review_packet_endpoint'],
                 'runtime_event_normalizer_url' => $baseUrl.$contract['runtime_event_normalizer_endpoint'],
                 'runtime_event_sequence_normalizer_url' => $baseUrl.$contract['runtime_event_sequence_normalizer_endpoint'],
                 'mobile_runtime_event_normalizer_url' => $baseUrl.$contract['mobile_runtime_event_normalizer_endpoint'],
@@ -1025,6 +1091,7 @@ final class AtlasVoiceRealtimeService
         $manifest = is_file($manifestPath)
             ? json_decode((string) file_get_contents($manifestPath), true)
             : null;
+        $pythonRuntime = $this->voicePythonRuntimePlan(is_array($manifest) ? $manifest : []);
 
         return [
             'schema_version' => 'atlas.voice_realtime.runtime_dependency_plan.v1',
@@ -1034,17 +1101,451 @@ final class AtlasVoiceRealtimeService
             'runtime_family' => 'python_ai_data',
             'manifest_path' => 'runtimes/python/voice_realtime/runtime-dependencies.json',
             'manifest_hash' => is_array($manifest) ? hash('sha256', json_encode($manifest, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES)) : null,
+            'python_runtime' => $pythonRuntime,
             'core_dependencies' => data_get($manifest, 'core.third_party_dependencies', []),
             'optional_livekit_packages' => data_get($manifest, 'optional_livekit.packages', []),
+            'requirements_file' => data_get($manifest, 'optional_livekit.requirements_file'),
             'install_command' => data_get($manifest, 'optional_livekit.install_command'),
+            'verify_command' => data_get($manifest, 'optional_livekit.verify_command'),
             'activation_gate' => data_get($manifest, 'optional_livekit.activation_gate'),
+            'install_policy' => data_get($manifest, 'optional_livekit.install_policy'),
             'guardrails' => [
                 'kernel_decides' => true,
                 'runtime_executes_only_after_decision_receipt' => true,
                 'raw_audio_persistence_allowed' => false,
                 'sdk_dependency_is_optional_until_sdk_check_ready' => true,
+                'dependency_install_is_operator_managed' => true,
             ],
+            'next_action' => data_get($pythonRuntime, 'configured_satisfies_minimum')
+                ? 'run_voice_sdk_check'
+                : 'configure_python_3_10_plus_for_voice_runtime',
         ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    public function runtimeDependencyInstallPlan(): array
+    {
+        $manifestPath = base_path('runtimes/python/voice_realtime/runtime-dependencies.json');
+        $manifest = is_file($manifestPath)
+            ? json_decode((string) file_get_contents($manifestPath), true)
+            : null;
+        $optional = is_array($manifest) ? (array) data_get($manifest, 'optional_livekit', []) : [];
+        $packages = collect((array) ($optional['packages'] ?? []))
+            ->filter(fn (mixed $package): bool => is_array($package))
+            ->values();
+        $requirementsRef = trim((string) ($optional['requirements_file'] ?? ''));
+        $requirementsPath = $this->requirementsFilePath($requirementsRef);
+        $requirementsLines = $this->requirementsLines($requirementsPath);
+        $expectedRequirements = $packages
+            ->map(fn (array $package): string => $this->expectedRequirement($package))
+            ->filter(fn (string $requirement): bool => $requirement !== '')
+            ->values()
+            ->all();
+        $expectedPackages = $packages
+            ->map(fn (array $package): string => trim((string) ($package['pip'] ?? '')))
+            ->filter(fn (string $package): bool => $package !== '')
+            ->values()
+            ->all();
+        $missingRequirements = collect($expectedRequirements)
+            ->reject(fn (string $requirement): bool => in_array($requirement, $requirementsLines, true))
+            ->values()
+            ->all();
+        $unsafeRequirements = collect($requirementsLines)
+            ->filter(fn (string $line): bool => $this->unsafeRequirementLine($line))
+            ->values()
+            ->all();
+        $requirementsReady = $requirementsRef !== ''
+            && $requirementsPath !== null
+            && is_file($requirementsPath)
+            && $missingRequirements === []
+            && $unsafeRequirements === [];
+
+        return [
+            'schema_version' => 'atlas.voice_realtime.dependency_install_plan.v1',
+            'status' => $requirementsReady ? 'ready_to_install_optional_dependency' : 'blocked',
+            'runtime_id' => 'livekit_agents_sdk',
+            'runtime_family' => 'python_ai_data',
+            'surface_id' => 'voice_realtime',
+            'operator_managed' => true,
+            'pip_execution_attempted' => false,
+            'sdk_imported' => false,
+            'daemon_started' => false,
+            'kernel_only' => true,
+            'mobile_first' => true,
+            'requirements_file' => $requirementsRef,
+            'requirements_path' => $requirementsPath,
+            'requirements_sha256' => $requirementsReady ? hash_file('sha256', (string) $requirementsPath) : null,
+            'expected_packages' => $expectedPackages,
+            'expected_requirements' => $expectedRequirements,
+            'requirements_packages' => $requirementsLines,
+            'missing_requirements' => $missingRequirements,
+            'unsafe_requirements' => $unsafeRequirements,
+            'install_command' => $optional['install_command'] ?? null,
+            'verify_command' => $optional['verify_command'] ?? null,
+            'activation_gate' => $optional['activation_gate'] ?? null,
+            'install_policy' => $optional['install_policy'] ?? null,
+            'gates' => [
+                'manifest_available' => is_array($manifest) && ($manifest['schema_version'] ?? null) === 'atlas.voice_realtime.runtime_dependencies.v1',
+                'requirements_file_declared' => $requirementsRef !== '',
+                'requirements_file_exists' => $requirementsPath !== null && is_file($requirementsPath),
+                'requirements_match_manifest' => $missingRequirements === [],
+                'requirements_safe' => $unsafeRequirements === [],
+                'pip_not_executed' => true,
+                'sdk_not_imported' => true,
+                'daemon_not_started' => true,
+            ],
+            'forbidden_shortcuts' => [
+                'run_pip_from_sdk_check',
+                'install_dependency_without_operator_review',
+                'import_livekit_during_install_plan',
+                'start_daemon_after_dependency_install',
+                'change_kernel_policy_from_dependency_install',
+            ],
+            'next_action' => $requirementsReady
+                ? 'run_install_command_then_sdk_check'
+                : 'fix_dependency_install_plan',
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $manifest
+     * @return array<string,mixed>
+     */
+    private function voicePythonRuntimePlan(array $manifest): array
+    {
+        $minimum = (string) data_get($manifest, 'python.minimum_version', '3.10');
+        $recommended = (string) data_get($manifest, 'python.recommended_version', '3.11');
+        $configured = $this->configuredVoicePythonBinary();
+        $candidates = collect([
+            $configured,
+            'python3.13',
+            'python3.12',
+            'python3.11',
+            'python3.10',
+            'python3',
+            '/opt/homebrew/bin/python3.13',
+            '/opt/homebrew/bin/python3.12',
+            '/opt/homebrew/bin/python3.11',
+            '/opt/homebrew/bin/python3.10',
+            '/usr/local/bin/python3.13',
+            '/usr/local/bin/python3.12',
+            '/usr/local/bin/python3.11',
+            '/usr/local/bin/python3.10',
+            '/usr/bin/python3',
+        ])
+            ->filter(fn (string $binary): bool => $binary !== '')
+            ->unique()
+            ->map(fn (string $binary): array => $this->inspectPythonBinary($binary, $minimum))
+            ->values()
+            ->all();
+        $configuredReport = collect($candidates)
+            ->first(fn (array $candidate): bool => $candidate['binary'] === $configured);
+        $readyCandidate = collect($candidates)
+            ->first(fn (array $candidate): bool => (bool) ($candidate['satisfies_minimum'] ?? false));
+
+        return [
+            'schema_version' => 'atlas.voice_realtime.python_runtime_plan.v1',
+            'status' => (bool) data_get($configuredReport, 'satisfies_minimum')
+                ? 'ready'
+                : 'blocked',
+            'binary_config' => data_get($manifest, 'python.binary_config', 'ATLAS_VOICE_PYTHON_BIN or config atlas_ai.voice_realtime.python_binary'),
+            'configured_binary' => $configured,
+            'configured_available' => (bool) data_get($configuredReport, 'available'),
+            'configured_version' => data_get($configuredReport, 'version'),
+            'minimum_version' => $minimum,
+            'recommended_version' => $recommended,
+            'configured_satisfies_minimum' => (bool) data_get($configuredReport, 'satisfies_minimum'),
+            'best_available_binary' => data_get($readyCandidate, 'binary'),
+            'best_available_version' => data_get($readyCandidate, 'version'),
+            'candidates' => $candidates,
+            'operator_managed' => true,
+            'auto_install_allowed' => false,
+            'configuration_examples' => [
+                'env' => 'export ATLAS_VOICE_PYTHON_BIN=/opt/homebrew/bin/python3.11',
+                'cli_override' => 'php artisan atlas:ai:voice sdk-check --python-bin=/opt/homebrew/bin/python3.11 --json',
+                'install_hint_macos' => 'brew install python@3.11',
+            ],
+            'next_action' => (bool) data_get($configuredReport, 'satisfies_minimum')
+                ? 'run_voice_sdk_check'
+                : ((bool) data_get($readyCandidate, 'available')
+                    ? 'set_ATLAS_VOICE_PYTHON_BIN_to_best_available_binary'
+                    : 'install_python_3_11_then_set_ATLAS_VOICE_PYTHON_BIN'),
+        ];
+    }
+
+    private function configuredVoicePythonBinary(): string
+    {
+        $configured = trim((string) config('atlas_ai.voice_realtime.python_binary', 'python3'));
+
+        if ($configured === '' || str_contains($configured, "\0") || str_contains($configured, "\n") || str_contains($configured, "\r")) {
+            return 'python3';
+        }
+
+        return $configured;
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function inspectPythonBinary(string $binary, string $minimum): array
+    {
+        $process = new Process([$binary, '--version'], base_path());
+        $process->setTimeout(5);
+        $process->run();
+
+        $versionOutput = trim($process->getOutput().' '.$process->getErrorOutput());
+        preg_match('/Python\s+([0-9]+(?:\.[0-9]+){1,2})/', $versionOutput, $matches);
+        $version = $matches[1] ?? null;
+
+        return [
+            'binary' => $binary,
+            'available' => $process->isSuccessful() && $version !== null,
+            'version' => $version,
+            'satisfies_minimum' => $version !== null && version_compare($version, $minimum, '>='),
+            'exit_code' => $process->getExitCode(),
+        ];
+    }
+
+    private function requirementsFilePath(string $requirementsRef): ?string
+    {
+        if ($requirementsRef === '') {
+            return null;
+        }
+
+        return str_starts_with($requirementsRef, '/')
+            ? $requirementsRef
+            : base_path($requirementsRef);
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function requirementsLines(?string $requirementsPath): array
+    {
+        if ($requirementsPath === null || ! is_file($requirementsPath)) {
+            return [];
+        }
+
+        return collect(explode("\n", (string) file_get_contents($requirementsPath)))
+            ->map(fn (string $line): string => trim($line))
+            ->filter(fn (string $line): bool => $line !== '' && ! str_starts_with($line, '#'))
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @param  array<string,mixed>  $package
+     */
+    private function expectedRequirement(array $package): string
+    {
+        $pip = trim((string) ($package['pip'] ?? ''));
+        if ($pip === '') {
+            return '';
+        }
+
+        return $pip.trim((string) ($package['version_specifier'] ?? ''));
+    }
+
+    private function unsafeRequirementLine(string $line): bool
+    {
+        return str_starts_with($line, '-')
+            || str_contains($line, '://')
+            || str_starts_with($line, 'git+')
+            || str_contains($line, ';');
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     * @return array<string,mixed>
+     */
+    public function preStartHealthChecksSmoke(array $payload = []): array
+    {
+        $bootstrapPath = tempnam(sys_get_temp_dir(), 'atlas-voice-bootstrap-');
+        if ($bootstrapPath === false) {
+            return [
+                'schema_version' => 'atlas.voice_realtime.pre_start_health_checks_smoke.v1',
+                'status' => 'failed',
+                'surface_id' => 'voice_realtime',
+                'runtime_id' => 'livekit_agents_sdk',
+                'failure' => 'could_not_create_temp_bootstrap',
+            ];
+        }
+
+        $bootstrap = $this->runtimeBootstrapManifest([
+            'runtime' => $payload['runtime'] ?? 'livekit_agents_sdk',
+            'base_url' => $payload['base_url'] ?? 'http://atlas.test',
+        ]);
+        file_put_contents($bootstrapPath, json_encode($bootstrap, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+
+        $process = new Process([
+            $this->configuredVoicePythonBinary(),
+            '-m',
+            'atlas_voice_agent.main',
+            '--bootstrap',
+            $bootstrapPath,
+            '--pre-start-health-checks-smoke',
+        ], base_path(), [
+            'PYTHONPATH' => base_path('runtimes/python/voice_realtime'),
+        ]);
+        $process->setTimeout(self::PYTHON_COMMAND_TIMEOUT_SECONDS);
+
+        try {
+            $process->run();
+            $decoded = json_decode($process->getOutput(), true);
+            if (! is_array($decoded)) {
+                return [
+                    'schema_version' => 'atlas.voice_realtime.pre_start_health_checks_smoke.v1',
+                    'status' => 'failed',
+                    'surface_id' => 'voice_realtime',
+                    'runtime_id' => 'livekit_agents_sdk',
+                    'failure' => 'voice_runtime_command_invalid_json',
+                    'timeout_seconds' => self::PYTHON_COMMAND_TIMEOUT_SECONDS,
+                    'exit_code' => $process->getExitCode(),
+                    'stderr_hash' => $process->getErrorOutput() !== '' ? hash('sha256', $process->getErrorOutput()) : null,
+                ];
+            }
+
+            $decoded = $this->sanitizeRuntimeSmokePayload($decoded);
+            $decoded['timeout_seconds'] = self::PYTHON_COMMAND_TIMEOUT_SECONDS;
+            $decoded['exit_code'] = $process->getExitCode();
+            $decoded['stderr_hash'] = $process->getErrorOutput() !== '' ? hash('sha256', $process->getErrorOutput()) : null;
+
+            return $decoded;
+        } catch (ProcessTimedOutException) {
+            return [
+                'schema_version' => 'atlas.voice_realtime.pre_start_health_checks_smoke.v1',
+                'status' => 'failed',
+                'surface_id' => 'voice_realtime',
+                'runtime_id' => 'livekit_agents_sdk',
+                'failure' => 'voice_runtime_command_timeout',
+                'timeout_seconds' => self::PYTHON_COMMAND_TIMEOUT_SECONDS,
+                'exit_code' => null,
+                'stderr_hash' => null,
+            ];
+        } finally {
+            @unlink($bootstrapPath);
+        }
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     * @return array<string,mixed>
+     */
+    public function productLoopCheck(array $payload = []): array
+    {
+        $args = ['--product-loop-check'];
+        if ((bool) ($payload['callback_loop_wired'] ?? false)) {
+            $args[] = '--callback-loop-wired';
+        }
+        if ((bool) ($payload['production_sdk_loop_wired'] ?? false)) {
+            $args[] = '--production-sdk-loop-wired';
+        }
+
+        return $this->runPythonRuntimeEnvCommand(
+            payload: $payload,
+            args: $args,
+            schemaVersion: 'atlas.voice_realtime.product_loop_check.v1',
+            token: 'product-loop-token',
+            livekitKey: 'product-loop-key',
+            livekitSecret: 'product-loop-secret',
+        );
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     * @param  array<int,string>  $args
+     * @return array<string,mixed>
+     */
+    private function runPythonRuntimeEnvCommand(
+        array $payload,
+        array $args,
+        string $schemaVersion,
+        string $token,
+        string $livekitKey,
+        string $livekitSecret,
+    ): array {
+        $runtime = $this->allowedValue($payload['runtime'] ?? 'livekit_agents_sdk', self::ALLOWED_RUNTIMES, 'runtime');
+        $baseUrl = $this->kernelBaseUrl($payload);
+        $bootstrapPath = tempnam(sys_get_temp_dir(), 'atlas-voice-bootstrap-');
+        $envPath = tempnam(sys_get_temp_dir(), 'atlas-voice-env-');
+        if ($bootstrapPath === false || $envPath === false) {
+            return [
+                'schema_version' => $schemaVersion,
+                'status' => 'failed',
+                'surface_id' => 'voice_realtime',
+                'runtime_id' => $runtime,
+                'failure' => 'could_not_create_temp_runtime_files',
+            ];
+        }
+
+        $bootstrap = $this->runtimeBootstrapManifest([
+            'runtime' => $runtime,
+            'base_url' => $baseUrl,
+        ]);
+        file_put_contents($bootstrapPath, json_encode($bootstrap, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+        file_put_contents($envPath, implode("\n", [
+            'ATLAS_BASE_URL='.$baseUrl,
+            'ATLAS_TOKEN='.$token,
+            'ATLAS_VOICE_BOOTSTRAP='.$bootstrapPath,
+            'LIVEKIT_URL=http://livekit.test',
+            'LIVEKIT_API_KEY='.$livekitKey,
+            'LIVEKIT_API_SECRET='.$livekitSecret,
+            'ATLAS_VOICE_STT_PROVIDER=configurable',
+            'ATLAS_VOICE_TTS_PROVIDER=configurable',
+        ]));
+
+        $process = new Process([
+            $this->configuredVoicePythonBinary(),
+            '-m',
+            'atlas_voice_agent.main',
+            '--env-file',
+            $envPath,
+            ...$args,
+        ], base_path(), [
+            'PYTHONPATH' => base_path('runtimes/python/voice_realtime'),
+        ]);
+        $process->setTimeout(self::PYTHON_COMMAND_TIMEOUT_SECONDS);
+
+        try {
+            $process->run();
+            $decoded = json_decode($process->getOutput(), true);
+            if (! is_array($decoded)) {
+                return [
+                    'schema_version' => $schemaVersion,
+                    'status' => 'failed',
+                    'surface_id' => 'voice_realtime',
+                    'runtime_id' => $runtime,
+                    'failure' => 'voice_runtime_command_invalid_json',
+                    'timeout_seconds' => self::PYTHON_COMMAND_TIMEOUT_SECONDS,
+                    'exit_code' => $process->getExitCode(),
+                    'stderr_hash' => $process->getErrorOutput() !== '' ? hash('sha256', $process->getErrorOutput()) : null,
+                ];
+            }
+
+            $decoded = $this->sanitizeRuntimeSmokePayload($decoded);
+            $decoded['timeout_seconds'] = self::PYTHON_COMMAND_TIMEOUT_SECONDS;
+            $decoded['exit_code'] = $process->getExitCode();
+            $decoded['stderr_hash'] = $process->getErrorOutput() !== '' ? hash('sha256', $process->getErrorOutput()) : null;
+            $decoded['command'] = 'PYTHONPATH=runtimes/python/voice_realtime '.$this->configuredVoicePythonBinary().' -m atlas_voice_agent.main --env-file <generated> '.implode(' ', $args);
+
+            return $decoded;
+        } catch (ProcessTimedOutException) {
+            return [
+                'schema_version' => $schemaVersion,
+                'status' => 'failed',
+                'surface_id' => 'voice_realtime',
+                'runtime_id' => $runtime,
+                'failure' => 'voice_runtime_command_timeout',
+                'timeout_seconds' => self::PYTHON_COMMAND_TIMEOUT_SECONDS,
+                'exit_code' => null,
+                'stderr_hash' => null,
+            ];
+        } finally {
+            @unlink($bootstrapPath);
+            @unlink($envPath);
+        }
     }
 
     /**
@@ -1058,6 +1559,40 @@ final class AtlasVoiceRealtimeService
             'status' => 'ok',
             'eclipse' => $this->eclipseGuard->evaluate($payload),
         ];
+    }
+
+    /**
+     * @param  array<string,mixed>|null  $payload
+     * @return array<string,mixed>|null
+     */
+    private function sanitizeRuntimeSmokePayload(?array $payload): ?array
+    {
+        if ($payload === null) {
+            return null;
+        }
+
+        $forbidden = [
+            'access_token',
+            'token',
+            'livekit_token',
+            'api_key',
+            'api_secret',
+            'raw_audio',
+            'audio_bytes',
+            'pcm',
+            'wav',
+            'response_text',
+            'raw_response_text',
+            'tts_text',
+            'tool_call',
+            'tool_args',
+            'provider_api_key',
+        ];
+
+        return collect($payload)
+            ->reject(fn (mixed $_, string|int $key): bool => in_array((string) $key, $forbidden, true))
+            ->map(fn (mixed $value): mixed => is_array($value) ? $this->sanitizeRuntimeSmokePayload($value) : $value)
+            ->all();
     }
 
     /**

@@ -50,7 +50,7 @@ class AtlasFeaturePlacementService
                 'canonical_doc_count' => $kb['canonical_doc_count'] ?? 0,
             ],
             'risks' => $risks,
-            'architecture_operations' => $this->placementOperations(),
+            'architecture_operations' => $this->placementOperations($placement),
             'required_validation' => [
                 'git diff --check',
                 'atlas engineering knowledge docs-health',
@@ -73,7 +73,7 @@ class AtlasFeaturePlacementService
     /**
      * @return array<string,mixed>
      */
-    private function placementOperations(): array
+    private function placementOperations(array $placement = []): array
     {
         $summary = $this->operations->summary();
         $requiredIds = [
@@ -87,6 +87,10 @@ class AtlasFeaturePlacementService
             'knowledge_sync',
             'code_intelligence_index',
         ];
+        if (($placement['surface'] ?? null) === 'voice_realtime' || ($placement['flow'] ?? null) === 'voice_realtime.session') {
+            $requiredIds[] = 'voice_realtime_dependencies';
+            $requiredIds[] = 'voice_realtime_dependency_install_plan';
+        }
         $commands = collect((array) ($summary['commands'] ?? []))
             ->filter(fn (array $command): bool => in_array((string) ($command['id'] ?? ''), $requiredIds, true))
             ->values()

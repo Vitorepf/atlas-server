@@ -13,8 +13,12 @@ from .callback_payload import (
 )
 from .contract import AtlasVoiceRuntimeContract
 from .payload_safety import reject_forbidden_keys_recursive
+from .product_loop_packet import validate_product_loop_check
+from .promotion_review_packet import validate_promotion_review_packet
 from .session_lease import AtlasVoiceSessionLease
 from .session_payload import AtlasVoiceSessionPayload
+from .sdk_status import validate_dependency_install_plan
+from .token_issuer_contract import validate_token_issuer_plan, validate_token_issuer_smoke
 from .turn_payload import AtlasVoiceTurnPayload, UnsafeVoicePayload
 from .wake_word_payload import AtlasVoiceWakeWordPayload
 
@@ -73,6 +77,71 @@ class AtlasKernelClient:
         bounded_hours = max(1, min(8760, int(hours)))
 
         return self._get_transport(self.contract.rivals_url, {"hours": bounded_hours})
+
+    def production_promotion_review_packet(
+        self,
+        hours: int = 24,
+        *,
+        callback_loop_wired: bool = False,
+        production_sdk_loop_wired: bool = False,
+    ) -> Mapping[str, Any]:
+        bounded_hours = max(1, min(8760, int(hours)))
+
+        response = self._get_transport(
+            self.contract.runtime_promotion_review_packet_url,
+            {
+                "runtime": "livekit_agents_sdk",
+                "hours": bounded_hours,
+                "callback_loop_wired": 1 if callback_loop_wired else 0,
+                "production_sdk_loop_wired": 1 if production_sdk_loop_wired else 0,
+            },
+        )
+
+        return validate_promotion_review_packet(response)
+
+    def product_loop_check(
+        self,
+        *,
+        callback_loop_wired: bool = False,
+        production_sdk_loop_wired: bool = False,
+    ) -> Mapping[str, Any]:
+        response = self._get_transport(
+            self.contract.runtime_product_loop_check_url,
+            {
+                "runtime": "livekit_agents_sdk",
+                "callback_loop_wired": 1 if callback_loop_wired else 0,
+                "production_sdk_loop_wired": 1 if production_sdk_loop_wired else 0,
+            },
+        )
+
+        return validate_product_loop_check(response)
+
+    def dependency_install_plan(self) -> Mapping[str, Any]:
+        response = self._get_transport(
+            self.contract.runtime_dependency_install_plan_url,
+            {"runtime": "livekit_agents_sdk"},
+        )
+
+        return validate_dependency_install_plan(response)
+
+    def token_issuer_plan(self) -> Mapping[str, Any]:
+        response = self._get_transport(
+            self.contract.runtime_token_issuer_plan_url,
+            {"runtime": "livekit_agents_sdk"},
+        )
+
+        return validate_token_issuer_plan(response)
+
+    def token_issuer_smoke(self, *, ephemeral_test_config: bool = False) -> Mapping[str, Any]:
+        response = self._get_transport(
+            self.contract.runtime_token_issuer_smoke_url,
+            {
+                "runtime": "livekit_agents_sdk",
+                "ephemeral_test_config": 1 if ephemeral_test_config else None,
+            },
+        )
+
+        return validate_token_issuer_smoke(response)
 
     def normalize_runtime_event(self, event: Mapping[str, Any]) -> Mapping[str, Any]:
         self._assert_safe_runtime_event(event, label="runtime event")

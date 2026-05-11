@@ -26,6 +26,9 @@ class SupervisedProcessAdapterTest(unittest.TestCase):
         self.assertFalse(payload["livekit_sdk_imported"])
         self.assertIn("start_worker_process", payload["implemented_methods"])
         self.assertIn("execute_managed_env_write", payload["implemented_methods"])
+        self.assertIn("inspect_supervised_launch_execution", payload["implemented_methods"])
+        self.assertIn("execute_pre_start_health_checks", payload["implemented_methods"])
+        self.assertIn("inspect_subprocess_start_contract", payload["implemented_methods"])
         self.assertTrue(payload["gates"]["supervisor_execution_ready"])
         self.assertTrue(payload["gates"]["launch_disabled"])
         self.assertTrue(payload["gates"]["secrets_redacted"])
@@ -92,6 +95,42 @@ class SupervisedProcessAdapterTest(unittest.TestCase):
             "write_env_file_from_writer_contract",
             payload["managed_env_writer"]["forbidden_shortcuts"],
         )
+        self.assertTrue(payload["gates"]["supervised_launch_execution_contract_available"])
+        self.assertEqual(
+            "atlas.voice_realtime.supervised_launch_execution.v1",
+            payload["supervised_launch_execution"]["schema_version"],
+        )
+        self.assertEqual("blocked", payload["supervised_launch_execution"]["status"])
+        self.assertTrue(payload["supervised_launch_execution"]["launch_execution_implemented"])
+        self.assertTrue(payload["supervised_launch_execution"]["pre_start_health_checks_execution_available"])
+        self.assertFalse(payload["supervised_launch_execution"]["pre_start_health_checks_executed"])
+        self.assertFalse(payload["supervised_launch_execution"]["subprocess_launch_implemented"])
+        self.assertFalse(payload["supervised_launch_execution"]["process_launch_attempted"])
+        self.assertFalse(payload["supervised_launch_execution"]["daemon_started"])
+        self.assertFalse(payload["supervised_launch_execution"]["gates"]["managed_env_write_execution_ready"])
+        self.assertIn(
+            "start_without_launch_execution_decision_receipt",
+            payload["supervised_launch_execution"]["forbidden_shortcuts"],
+        )
+        self.assertTrue(payload["gates"]["subprocess_start_contract_available"])
+        self.assertEqual(
+            "atlas.voice_realtime.subprocess_start_contract.v1",
+            payload["subprocess_start_contract"]["schema_version"],
+        )
+        self.assertEqual("blocked", payload["subprocess_start_contract"]["status"])
+        self.assertTrue(payload["subprocess_start_contract"]["subprocess_start_contract_implemented"])
+        self.assertFalse(payload["subprocess_start_contract"]["subprocess_launch_implemented"])
+        self.assertFalse(payload["subprocess_start_contract"]["process_launch_attempted"])
+        self.assertFalse(payload["subprocess_start_contract"]["daemon_started"])
+        self.assertFalse(payload["subprocess_start_contract"]["subprocess_module_imported"])
+        self.assertFalse(payload["subprocess_start_contract"]["livekit_sdk_imported"])
+        self.assertFalse(payload["subprocess_start_contract"]["gates"]["supervised_launch_ready"])
+        self.assertFalse(payload["subprocess_start_contract"]["gates"]["pre_start_health_checks_passed"])
+        self.assertTrue(payload["subprocess_start_contract"]["gates"]["process_launch_disabled"])
+        self.assertIn(
+            "start_without_pre_start_health_checks_execution",
+            payload["subprocess_start_contract"]["forbidden_shortcuts"],
+        )
         self.assertEqual("blocked_launch_not_implemented", payload["start_attempt"]["status"])
         self.assertFalse(payload["start_attempt"]["process_launch_attempted"])
         self.assertFalse(payload["start_attempt"]["daemon_started"])
@@ -102,6 +141,8 @@ class SupervisedProcessAdapterTest(unittest.TestCase):
         self.assertIn("VOICE_DAEMON_MANAGED_ENV_CONTRACT_DECLARED", payload["evidence_events"])
         self.assertIn("VOICE_DAEMON_LAUNCH_AUTHORIZATION_DECLARED", payload["evidence_events"])
         self.assertIn("VOICE_DAEMON_MANAGED_ENV_WRITER_EVALUATED", payload["evidence_events"])
+        self.assertIn("VOICE_DAEMON_SUPERVISED_LAUNCH_EVALUATED", payload["evidence_events"])
+        self.assertIn("VOICE_DAEMON_SUBPROCESS_START_CONTRACT_EVALUATED", payload["evidence_events"])
 
     def test_blocks_when_supervisor_execution_is_not_ready(self) -> None:
         worker_start = ready_worker_start()
@@ -117,6 +158,8 @@ class SupervisedProcessAdapterTest(unittest.TestCase):
         self.assertTrue(payload["gates"]["launch_authorization_contract_available"])
         self.assertFalse(payload["gates"]["launch_authorization_contract_ready"])
         self.assertTrue(payload["gates"]["managed_env_writer_contract_available"])
+        self.assertTrue(payload["gates"]["supervised_launch_execution_contract_available"])
+        self.assertTrue(payload["gates"]["subprocess_start_contract_available"])
         self.assertEqual("blocked", payload["launch_authorization_contract"]["status"])
         self.assertEqual("fix_supervised_process_adapter_prerequisites", payload["next_action"])
 

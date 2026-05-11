@@ -1,12 +1,17 @@
 from __future__ import annotations
 
+from copy import deepcopy
 import unittest
 from unittest.mock import patch
 
 from atlas_voice_agent.contract import AtlasVoiceRuntimeContract
 from atlas_voice_agent.daemon_implementation_review import SCHEMA_VERSION as DAEMON_REVIEW_SCHEMA_VERSION
 from atlas_voice_agent.product_loop_check import build_product_loop_check
-from atlas_voice_agent.production_promotion_review import SCHEMA_VERSION
+from atlas_voice_agent.product_loop_packet import (
+    ProductLoopCheckViolation,
+    validate_product_loop_check,
+)
+from atlas_voice_agent.production_promotion_review import REVIEWED_BUNDLE_SCHEMA_VERSION, SCHEMA_VERSION
 
 from test_contract import manifest
 
@@ -17,9 +22,19 @@ def valid_review() -> dict[str, object]:
         "status": "approved",
         "surface_id": "voice_realtime",
         "runtime_id": "livekit_agents_sdk",
+        "reviewed_bundle_schema_version": REVIEWED_BUNDLE_SCHEMA_VERSION,
+        "reviewed_bundle_hash": "c"*64,
+        "reviewed_machine_gate_status": "ready_for_human_review",
         "decision_receipt_id": "decision_receipt_voice_1",
         "approved_by": "vitor",
         "approved_at": "2026-05-10T12:00:00Z",
+        "required_evidence_reviewed": [
+            "runtime_certification",
+            "product_loop_check",
+            "pre_start_health_checks_smoke",
+            "rivals_voice_comparison",
+        ],
+        "failed_machine_gates_acknowledged": [],
         "rollback_plan": [
             "disable_livekit_token_issuer",
             "stop_livekit_worker",
@@ -31,6 +46,68 @@ def valid_review() -> dict[str, object]:
             "persist_raw_audio",
         ],
         "auto_promotion_allowed": False,
+    }
+
+
+def valid_review_bundle() -> dict[str, object]:
+    evidence = {
+        name: {
+            "name": name,
+            "daemon_started": False,
+            "promotion_allowed": False,
+            "auto_promotion_allowed": False,
+            "payload_hash": f"{index}"*64,
+        }
+        for index, name in enumerate([
+            "runtime_certification",
+            "product_loop_check",
+            "pre_start_health_checks_smoke",
+            "rivals_voice_comparison",
+        ], start=1)
+    }
+
+    return {
+        "schema_version": REVIEWED_BUNDLE_SCHEMA_VERSION,
+        "status": "ready_for_human_review",
+        "surface_id": "voice_realtime",
+        "runtime_id": "livekit_agents_sdk",
+        "kernel_only": True,
+        "mobile_first": True,
+        "promotion_allowed": False,
+        "auto_promotion_allowed": False,
+        "daemon_started": False,
+        "human_review_required": True,
+        "decision_receipt_required": True,
+        "rollback_plan_required": True,
+        "callback_loop_wired": True,
+        "production_sdk_loop_wired": True,
+        "guardrails": {
+            "raw_audio_persistence_allowed": False,
+            "direct_provider_call_allowed": False,
+            "direct_tool_execution_allowed": False,
+            "memory_write_allowed": False,
+            "start_daemon_allowed": False,
+            "boolean_approval_is_sufficient": False,
+        },
+        "production_promotion_gate": {
+            "schema_version": "atlas.voice_realtime.production_promotion_gate.v1",
+            "status": "review_required",
+            "failed_keys": [],
+        },
+        "review_packet": {
+            "schema_version": "atlas.voice_realtime.production_promotion_review_packet.v1",
+            "required_decision_receipt": True,
+            "required_rollback_plan": ["disable_livekit_token_issuer"],
+            "required_evidence": ["runtime_certification"],
+            "forbidden_actions": ["persist_raw_audio"],
+        },
+        "evidence": evidence,
+        "summary": {
+            "evidence_count": len(evidence),
+            "failed_machine_gates": [],
+            "review_ready": True,
+        },
+        "bundle_hash": "c"*64,
     }
 
 
@@ -97,6 +174,8 @@ class ProductLoopCheckTest(unittest.TestCase):
         self.assertTrue(payload["gates"]["launch_authorization_contract_available"])
         self.assertFalse(payload["gates"]["launch_authorization_contract_ready"])
         self.assertTrue(payload["gates"]["managed_env_writer_contract_available"])
+        self.assertTrue(payload["gates"]["supervised_launch_execution_contract_available"])
+        self.assertTrue(payload["gates"]["subprocess_start_contract_available"])
         self.assertFalse(payload["gates"]["production_review_receipt_valid"])
         self.assertFalse(payload["gates"]["daemon_implementation_review_valid"])
         self.assertFalse(payload["gates"]["boolean_approval_is_sufficient"])
@@ -160,6 +239,39 @@ class ProductLoopCheckTest(unittest.TestCase):
         )
         self.assertFalse(
             payload["daemon_supervisor_execution"]["supervised_process_adapter"]["managed_env_writer"]["env_file_write_attempted"]
+        )
+        self.assertEqual(
+            "atlas.voice_realtime.supervised_launch_execution.v1",
+            payload["daemon_supervisor_execution"]["supervised_process_adapter"]["supervised_launch_execution"]["schema_version"],
+        )
+        self.assertFalse(
+            payload["daemon_supervisor_execution"]["supervised_process_adapter"]["supervised_launch_execution"]["process_launch_attempted"]
+        )
+        self.assertTrue(
+            payload["daemon_supervisor_execution"]["supervised_process_adapter"]["supervised_launch_execution"]["pre_start_health_checks_execution_available"]
+        )
+        self.assertFalse(
+            payload["daemon_supervisor_execution"]["supervised_process_adapter"]["supervised_launch_execution"]["pre_start_health_checks_executed"]
+        )
+        self.assertFalse(
+            payload["daemon_supervisor_execution"]["supervised_process_adapter"]["supervised_launch_execution"]["daemon_started"]
+        )
+        self.assertEqual(
+            "atlas.voice_realtime.subprocess_start_contract.v1",
+            payload["daemon_supervisor_execution"]["supervised_process_adapter"]["subprocess_start_contract"]["schema_version"],
+        )
+        self.assertEqual(
+            "blocked",
+            payload["daemon_supervisor_execution"]["supervised_process_adapter"]["subprocess_start_contract"]["status"],
+        )
+        self.assertTrue(
+            payload["daemon_supervisor_execution"]["supervised_process_adapter"]["subprocess_start_contract"]["subprocess_start_contract_implemented"]
+        )
+        self.assertFalse(
+            payload["daemon_supervisor_execution"]["supervised_process_adapter"]["subprocess_start_contract"]["process_launch_attempted"]
+        )
+        self.assertFalse(
+            payload["daemon_supervisor_execution"]["supervised_process_adapter"]["subprocess_start_contract"]["daemon_started"]
         )
 
         if payload["worker_start"]["status"] == "blocked_pending_human_review":
@@ -397,6 +509,29 @@ class ProductLoopCheckTest(unittest.TestCase):
             self.assertTrue(payload["gates"]["production_review_receipt_valid"])
             self.assertFalse(payload["gates"]["daemon_implementation_review_valid"])
 
+    def test_product_loop_check_requires_review_to_match_expected_bundle_when_supplied(self) -> None:
+        contract = AtlasVoiceRuntimeContract.from_manifest(manifest())
+        bundle = valid_review_bundle()
+        bundle["bundle_hash"] = "f"*64
+        payload = build_product_loop_check(
+            contract,
+            env={},
+            settings_loaded=True,
+            boundary_created=True,
+            mock_kernel=False,
+            production_promotion_review=valid_review(),
+            production_promotion_review_bundle=bundle,
+        )
+
+        self.assertFalse(payload["daemon_started"])
+        self.assertFalse(payload["gates"]["production_review_receipt_valid"])
+        self.assertFalse(payload["gates"]["production_review_bound_to_expected_bundle"])
+        self.assertFalse(payload["gates"]["production_review_expected_bundle_validated"])
+        self.assertIn(
+            "reviewed_bundle_hash_mismatch",
+            payload["worker_start"]["production_promotion"]["review_check"]["errors"],
+        )
+
     def test_product_loop_check_reaches_supervised_start_only_with_daemon_review_receipt(self) -> None:
         contract = AtlasVoiceRuntimeContract.from_manifest(manifest())
         payload = build_product_loop_check(
@@ -426,6 +561,7 @@ class ProductLoopCheckTest(unittest.TestCase):
             self.assertTrue(payload["gates"]["launch_authorization_contract_available"])
             self.assertTrue(payload["gates"]["launch_authorization_contract_ready"])
             self.assertTrue(payload["gates"]["managed_env_writer_contract_available"])
+            self.assertTrue(payload["gates"]["subprocess_start_contract_available"])
             self.assertEqual(
                 "ready_for_supervisor_execution_implementation",
                 payload["supervised_start_plan"]["supervisor_preflight"]["status"],
@@ -453,6 +589,60 @@ class ProductLoopCheckTest(unittest.TestCase):
             )
         else:
             self.assertEqual("blocked", payload["status"])
+
+    def test_validate_product_loop_check_accepts_kernel_only_fail_closed_payload(self) -> None:
+        contract = AtlasVoiceRuntimeContract.from_manifest(manifest())
+        payload = build_product_loop_check(
+            contract,
+            env={},
+            settings_loaded=True,
+            boundary_created=True,
+            mock_kernel=False,
+        )
+
+        self.assertIs(validate_product_loop_check(payload), payload)
+
+    def test_validate_product_loop_check_rejects_daemon_started_payload(self) -> None:
+        contract = AtlasVoiceRuntimeContract.from_manifest(manifest())
+        payload = dict(build_product_loop_check(
+            contract,
+            env={},
+            settings_loaded=True,
+            boundary_created=True,
+            mock_kernel=False,
+        ))
+        payload["daemon_started"] = True
+
+        with self.assertRaises(ProductLoopCheckViolation):
+            validate_product_loop_check(payload)
+
+    def test_validate_product_loop_check_rejects_runtime_authority_bypass(self) -> None:
+        contract = AtlasVoiceRuntimeContract.from_manifest(manifest())
+        payload = deepcopy(build_product_loop_check(
+            contract,
+            env={},
+            settings_loaded=True,
+            boundary_created=True,
+            mock_kernel=False,
+        ))
+        payload["guardrails"]["direct_provider_call_allowed"] = True
+
+        with self.assertRaises(ProductLoopCheckViolation):
+            validate_product_loop_check(payload)
+
+    def test_validate_product_loop_check_rejects_missing_critical_gate(self) -> None:
+        contract = AtlasVoiceRuntimeContract.from_manifest(manifest())
+        payload = deepcopy(build_product_loop_check(
+            contract,
+            env={},
+            settings_loaded=True,
+            boundary_created=True,
+            mock_kernel=False,
+        ))
+        del payload["gates"]["raw_audio_forbidden"]
+
+        with self.assertRaises(ProductLoopCheckViolation):
+            validate_product_loop_check(payload)
 
 
 if __name__ == "__main__":

@@ -24,6 +24,7 @@ def start_livekit_agents_worker(
     production_sdk_loop_wired: bool = False,
     production_promotion_approved: bool = False,
     production_promotion_review: Mapping[str, Any] | None = None,
+    production_promotion_review_bundle: Mapping[str, Any] | None = None,
     daemon_implementation_review: Mapping[str, Any] | None = None,
 ) -> Mapping[str, Any]:
     """Fail-closed entrypoint for the future long-running LiveKit worker.
@@ -56,7 +57,10 @@ def start_livekit_agents_worker(
         boundary_created=boundary_created,
         production_sdk_loop_wired=production_sdk_loop_wired,
     )
-    review_check = validate_production_promotion_review(production_promotion_review)
+    review_check = validate_production_promotion_review(
+        production_promotion_review,
+        expected_bundle=production_promotion_review_bundle,
+    )
     review_approved = review_check.get("valid") is True
     daemon_review_check = validate_daemon_implementation_review(daemon_implementation_review)
     daemon_review_approved = daemon_review_check.get("valid") is True

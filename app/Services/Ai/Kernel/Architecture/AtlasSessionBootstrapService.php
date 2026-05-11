@@ -100,7 +100,7 @@ class AtlasSessionBootstrapService
                 'summary' => $projection['summary'] ?? [],
                 'next_actions' => $projection['next_actions'] ?? [],
             ],
-            'architecture_operations' => $this->sessionOperations(),
+            'architecture_operations' => $this->sessionOperations($placement['placement'] ?? []),
             'required_validation' => [
                 'git diff --check',
                 'atlas engineering knowledge docs-health',
@@ -133,7 +133,7 @@ class AtlasSessionBootstrapService
     /**
      * @return array<string,mixed>
      */
-    private function sessionOperations(): array
+    private function sessionOperations(array $placement = []): array
     {
         $summary = $this->operations->summary();
         $requiredIds = [
@@ -150,6 +150,10 @@ class AtlasSessionBootstrapService
             'code_intelligence_index',
             'ap_agent_workflow_registry',
         ];
+        if (($placement['surface'] ?? null) === 'voice_realtime' || ($placement['flow'] ?? null) === 'voice_realtime.session') {
+            $requiredIds[] = 'voice_realtime_dependencies';
+            $requiredIds[] = 'voice_realtime_dependency_install_plan';
+        }
         $commands = collect((array) ($summary['commands'] ?? []))
             ->filter(fn (array $command): bool => in_array((string) ($command['id'] ?? ''), $requiredIds, true))
             ->values()
@@ -207,6 +211,8 @@ class AtlasSessionBootstrapService
     {
         return $this->mentionsPythonAiDataRuntime($text)
             || $this->mentionsSwiftNativeRuntime($text)
+            || str_contains($text, 'voice')
+            || str_contains($text, 'voz')
             || str_contains($text, ' go ')
             || str_contains($text, 'golang')
             || str_contains($text, 'go edge')

@@ -15,7 +15,7 @@ class AtlasArchitectureOperationsCatalogTest extends TestCase
         $this->assertSame('arquitetura_mae', $catalog->sectionKey());
         $this->assertSame('atlas.architecture_operations.v1', $summary['schema_version']);
         $this->assertSame('arquitetura_mae', $summary['section']);
-        $this->assertSame(61, $summary['command_count']);
+        $this->assertSame(66, $summary['command_count']);
         $this->assertSame($catalog->commands(), $summary['commands']);
         $this->assertSame([
             'architecture_operations',
@@ -40,6 +40,7 @@ class AtlasArchitectureOperationsCatalogTest extends TestCase
             'voice_realtime_contract',
             'voice_realtime_bootstrap',
             'voice_realtime_dependencies',
+            'voice_realtime_dependency_install_plan',
             'voice_realtime_scripted_worker_example',
             'voice_realtime_scripted_smoke',
             'voice_realtime_callback_smoke',
@@ -48,12 +49,16 @@ class AtlasArchitectureOperationsCatalogTest extends TestCase
             'voice_realtime_preflight',
             'voice_realtime_activation_contract',
             'voice_realtime_sdk_check',
+            'voice_realtime_token_issuer_plan',
+            'voice_realtime_token_issuer_smoke',
             'voice_realtime_worker_plan',
             'voice_realtime_production_loop_plan',
             'voice_realtime_product_loop_check',
+            'voice_realtime_pre_start_health_checks_smoke',
             'voice_realtime_production_loop_smoke',
             'voice_realtime_worker_start_check',
             'voice_realtime_runtime_certification',
+            'voice_realtime_promotion_review_packet',
             'voice_realtime_readiness',
             'voice_realtime_rivals_report',
             'voice_python_runtime_contract_test',
@@ -104,6 +109,7 @@ class AtlasArchitectureOperationsCatalogTest extends TestCase
         $this->assertContains('php artisan atlas:ai:voice contract --json', $commands);
         $this->assertContains('php artisan atlas:ai:voice bootstrap --json', $commands);
         $this->assertContains('php artisan atlas:ai:voice dependencies --json', $commands);
+        $this->assertContains('php artisan atlas:ai:voice dependency-install-plan --json', $commands);
         $this->assertContains('php artisan atlas:ai:voice scripted-example --json', $commands);
         $this->assertContains('php artisan atlas:ai:voice scripted-smoke --json', $commands);
         $this->assertContains('php artisan atlas:ai:voice callback-smoke --json', $commands);
@@ -112,12 +118,15 @@ class AtlasArchitectureOperationsCatalogTest extends TestCase
         $this->assertContains('php artisan atlas:ai:voice preflight --json', $commands);
         $this->assertContains('php artisan atlas:ai:voice activation-contract --json', $commands);
         $this->assertContains('php artisan atlas:ai:voice sdk-check --json', $commands);
+        $this->assertContains('php artisan atlas:ai:voice token-issuer-plan --json', $commands);
+        $this->assertContains('php artisan atlas:ai:voice token-issuer-smoke --json', $commands);
         $this->assertContains('php artisan atlas:ai:voice worker-plan --json', $commands);
         $this->assertContains('php artisan atlas:ai:voice production-loop-plan --json', $commands);
         $this->assertContains('php artisan atlas:ai:voice product-loop-check --json', $commands);
         $this->assertContains('php artisan atlas:ai:voice production-loop-smoke --json', $commands);
         $this->assertContains('php artisan atlas:ai:voice worker-start-check --json', $commands);
         $this->assertContains('php artisan atlas:ai:voice runtime-certify --json', $commands);
+        $this->assertContains('php artisan atlas:ai:voice promotion-review-packet --hours=24 --json', $commands);
         $this->assertContains('php artisan atlas:ai:voice readiness --hours=24 --json', $commands);
         $this->assertContains('php artisan atlas:ai:voice rivals --hours=24 --json', $commands);
         $this->assertContains('PYTHONPATH=runtimes/python/voice_realtime python3 -m unittest discover -s runtimes/python/voice_realtime/tests', $commands);
@@ -204,12 +213,36 @@ class AtlasArchitectureOperationsCatalogTest extends TestCase
         $this->assertSame('/v1/mobile/ai/voice/runtime/contract', data_get($commandsById, 'voice_realtime_contract.mobile_endpoint'));
         $this->assertSame('/ai/voice/runtime/bootstrap', data_get($commandsById, 'voice_realtime_bootstrap.api_endpoint'));
         $this->assertSame('/v1/mobile/ai/voice/runtime/bootstrap', data_get($commandsById, 'voice_realtime_bootstrap.mobile_endpoint'));
+        $this->assertSame('runtime_contract', data_get($commandsById, 'voice_realtime_dependencies.kind'));
+        $this->assertSame('docs/engineering-knowledge-base/atlas-ai-voice-realtime-surface.md', data_get($commandsById, 'voice_realtime_dependencies.doc'));
+        $this->assertTrue(data_get($commandsById, 'voice_realtime_dependencies.pre_implementation_gate'));
+        $this->assertSame('atlas.voice_realtime.python_runtime_plan.v1', data_get($commandsById, 'voice_realtime_dependencies.runtime_dependency_contract'));
+        $this->assertSame('ATLAS_VOICE_PYTHON_BIN', data_get($commandsById, 'voice_realtime_dependencies.python_binary_policy.environment_variable'));
+        $this->assertSame('atlas_ai.voice_realtime.python_binary', data_get($commandsById, 'voice_realtime_dependencies.python_binary_policy.config_key'));
+        $this->assertSame('3.10', data_get($commandsById, 'voice_realtime_dependencies.python_binary_policy.minimum_version'));
+        $this->assertSame('3.11', data_get($commandsById, 'voice_realtime_dependencies.python_binary_policy.recommended_version'));
+        $this->assertTrue(data_get($commandsById, 'voice_realtime_dependencies.python_binary_policy.operator_managed'));
+        $this->assertFalse(data_get($commandsById, 'voice_realtime_dependencies.python_binary_policy.auto_install'));
+        $this->assertTrue(data_get($commandsById, 'voice_realtime_dependencies.python_binary_policy.fail_closed_when_missing'));
+        $this->assertContains('livekit', data_get($commandsById, 'voice_realtime_dependencies.required_for_terms'));
+        $this->assertContains('configured_binary', data_get($commandsById, 'voice_realtime_dependencies.output_contract.python_runtime'));
+        $this->assertSame('runtime_contract', data_get($commandsById, 'voice_realtime_dependency_install_plan.kind'));
+        $this->assertSame('/ai/voice/runtime/dependency-install-plan', data_get($commandsById, 'voice_realtime_dependency_install_plan.api_endpoint'));
+        $this->assertSame('/v1/mobile/ai/voice/runtime/dependency-install-plan', data_get($commandsById, 'voice_realtime_dependency_install_plan.mobile_endpoint'));
+        $this->assertTrue(data_get($commandsById, 'voice_realtime_dependency_install_plan.pre_implementation_gate'));
+        $this->assertSame('atlas.voice_realtime.dependency_install_plan.v1', data_get($commandsById, 'voice_realtime_dependency_install_plan.runtime_dependency_contract'));
+        $this->assertFalse(data_get($commandsById, 'voice_realtime_dependency_install_plan.operator_managed_policy.auto_install'));
+        $this->assertFalse(data_get($commandsById, 'voice_realtime_dependency_install_plan.operator_managed_policy.pip_execution_allowed'));
+        $this->assertContains('requirements_sha256', data_get($commandsById, 'voice_realtime_dependency_install_plan.output_contract.required_fields'));
         $this->assertSame('validation', data_get($commandsById, 'voice_realtime_scripted_smoke.kind'));
         $this->assertSame('validation', data_get($commandsById, 'voice_realtime_callback_smoke.kind'));
         $this->assertSame('validation', data_get($commandsById, 'voice_realtime_callback_sequence_smoke.kind'));
         $this->assertSame('runtime_contract', data_get($commandsById, 'voice_realtime_callback_loop_check.kind'));
         $this->assertSame('validation', data_get($commandsById, 'voice_realtime_preflight.kind'));
         $this->assertSame('runtime_contract', data_get($commandsById, 'voice_realtime_activation_contract.kind'));
+        $this->assertSame('runtime_readiness', data_get($commandsById, 'voice_realtime_token_issuer_plan.kind'));
+        $this->assertSame('runtime_readiness', data_get($commandsById, 'voice_realtime_token_issuer_smoke.kind'));
+        $this->assertSame('runtime_readiness', data_get($commandsById, 'voice_realtime_pre_start_health_checks_smoke.kind'));
         $this->assertSame('runtime_contract', data_get($commandsById, 'voice_realtime_worker_plan.kind'));
         $this->assertSame('runtime_contract', data_get($commandsById, 'voice_realtime_production_loop_plan.kind'));
         $this->assertSame('runtime_contract', data_get($commandsById, 'voice_realtime_product_loop_check.kind'));
@@ -239,7 +272,7 @@ class AtlasArchitectureOperationsCatalogTest extends TestCase
         $this->assertSame('php artisan atlas:ai:provider-performance --hours=24 --json', data_get($byId, 'commands.0.command'));
 
         $this->assertSame(['section' => 'arquitetura_mae'], $bySection['filters']);
-        $this->assertSame(61, $bySection['command_count']);
+        $this->assertSame(66, $bySection['command_count']);
         $this->assertContains('architecture_operations', $bySection['operation_ids']);
         $this->assertSame(['section' => 'legacy'], $byUnknownSection['filters']);
         $this->assertSame(0, $byUnknownSection['command_count']);
@@ -299,10 +332,18 @@ class AtlasArchitectureOperationsCatalogTest extends TestCase
         $this->assertSame('/ai/provider-release-sources', data_get($byProviderEvolution, 'commands.1.api_endpoint'));
 
         $byRuntimeReadiness = $catalog->summary(['kind' => 'runtime_readiness']);
-        $this->assertSame(1, $byRuntimeReadiness['command_count']);
-        $this->assertSame(['local_rag_readiness'], $byRuntimeReadiness['operation_ids']);
+        $this->assertSame(4, $byRuntimeReadiness['command_count']);
+        $this->assertSame(['local_rag_readiness', 'voice_realtime_token_issuer_plan', 'voice_realtime_token_issuer_smoke', 'voice_realtime_pre_start_health_checks_smoke'], $byRuntimeReadiness['operation_ids']);
         $this->assertSame('php artisan atlas:ai:local-rag-readiness --json', data_get($byRuntimeReadiness, 'commands.0.command'));
         $this->assertSame('docs/engineering-knowledge-base/atlas-ai-local-performance-memory-strategy.md', data_get($byRuntimeReadiness, 'commands.0.doc'));
+        $this->assertSame('php artisan atlas:ai:voice token-issuer-plan --json', data_get($byRuntimeReadiness, 'commands.1.command'));
+        $this->assertSame('docs/ap/AP-687-voice-realtime-production-promotion-gate.md', data_get($byRuntimeReadiness, 'commands.1.doc'));
+        $this->assertSame('php artisan atlas:ai:voice token-issuer-smoke --json', data_get($byRuntimeReadiness, 'commands.2.command'));
+        $this->assertSame('docs/ap/AP-687-voice-realtime-production-promotion-gate.md', data_get($byRuntimeReadiness, 'commands.2.doc'));
+        $this->assertSame('php artisan atlas:ai:voice pre-start-health-checks-smoke --json', data_get($byRuntimeReadiness, 'commands.3.command'));
+        $this->assertSame('/ai/voice/runtime/pre-start-health-checks-smoke', data_get($byRuntimeReadiness, 'commands.3.api_endpoint'));
+        $this->assertSame('/v1/mobile/ai/voice/runtime/pre-start-health-checks-smoke', data_get($byRuntimeReadiness, 'commands.3.mobile_endpoint'));
+        $this->assertSame('docs/ap/AP-687-voice-realtime-production-promotion-gate.md', data_get($byRuntimeReadiness, 'commands.3.doc'));
 
         $byRuntimeBenchmark = $catalog->summary(['kind' => 'runtime_benchmark']);
         $this->assertSame(1, $byRuntimeBenchmark['command_count']);
@@ -328,8 +369,8 @@ class AtlasArchitectureOperationsCatalogTest extends TestCase
         $this->assertSame(['voice_realtime_contract', 'voice_realtime_bootstrap'], $bySurfaceContract['operation_ids']);
 
         $byRuntimeContract = $catalog->summary(['kind' => 'runtime_contract']);
-        $this->assertSame(10, $byRuntimeContract['command_count']);
-        $this->assertSame(['voice_realtime_dependencies', 'voice_realtime_scripted_worker_example', 'voice_realtime_callback_loop_check', 'voice_realtime_activation_contract', 'voice_realtime_sdk_check', 'voice_realtime_worker_plan', 'voice_realtime_production_loop_plan', 'voice_realtime_product_loop_check', 'voice_realtime_worker_start_check', 'voice_python_runtime_contract_test'], $byRuntimeContract['operation_ids']);
+        $this->assertSame(11, $byRuntimeContract['command_count']);
+        $this->assertSame(['voice_realtime_dependencies', 'voice_realtime_dependency_install_plan', 'voice_realtime_scripted_worker_example', 'voice_realtime_callback_loop_check', 'voice_realtime_activation_contract', 'voice_realtime_sdk_check', 'voice_realtime_worker_plan', 'voice_realtime_production_loop_plan', 'voice_realtime_product_loop_check', 'voice_realtime_worker_start_check', 'voice_python_runtime_contract_test'], $byRuntimeContract['operation_ids']);
 
         $this->assertSame(['kind' => 'evidence_report'], $byKind['filters']);
         $this->assertSame(12, $byKind['command_count']);
@@ -362,8 +403,8 @@ class AtlasArchitectureOperationsCatalogTest extends TestCase
         $this->assertSame('php artisan atlas:ai:rivals-strategy report --hours=8760 --json', data_get($byMaturity, 'commands.2.command'));
 
         $byReviewQueue = $catalog->summary(['kind' => 'review_queue']);
-        $this->assertSame(1, $byReviewQueue['command_count']);
-        $this->assertSame(['rivals_strategy_due_reviews'], $byReviewQueue['operation_ids']);
+        $this->assertSame(2, $byReviewQueue['command_count']);
+        $this->assertSame(['voice_realtime_promotion_review_packet', 'rivals_strategy_due_reviews'], $byReviewQueue['operation_ids']);
 
         $byReviewAction = $catalog->summary(['kind' => 'review_action']);
         $this->assertSame(2, $byReviewAction['command_count']);
@@ -449,6 +490,14 @@ class AtlasArchitectureOperationsCatalogTest extends TestCase
         $this->assertSame('php artisan atlas:ai:voice product-loop-check --json', data_get($byVoiceProductLoopCheck, 'commands.0.command'));
         $this->assertSame('runtime_contract', data_get($byVoiceProductLoopCheck, 'commands.0.kind'));
 
+        $byVoicePreStartHealthChecksSmoke = $catalog->summary(['id' => 'voice_realtime_pre_start_health_checks_smoke']);
+        $this->assertSame(1, $byVoicePreStartHealthChecksSmoke['command_count']);
+        $this->assertSame('php artisan atlas:ai:voice pre-start-health-checks-smoke --json', data_get($byVoicePreStartHealthChecksSmoke, 'commands.0.command'));
+        $this->assertSame('runtime_readiness', data_get($byVoicePreStartHealthChecksSmoke, 'commands.0.kind'));
+        $this->assertSame('/ai/voice/runtime/pre-start-health-checks-smoke', data_get($byVoicePreStartHealthChecksSmoke, 'commands.0.api_endpoint'));
+        $this->assertSame('/v1/mobile/ai/voice/runtime/pre-start-health-checks-smoke', data_get($byVoicePreStartHealthChecksSmoke, 'commands.0.mobile_endpoint'));
+        $this->assertSame('docs/ap/AP-687-voice-realtime-production-promotion-gate.md', data_get($byVoicePreStartHealthChecksSmoke, 'commands.0.doc'));
+
         $byVoiceProductionLoopSmoke = $catalog->summary(['id' => 'voice_realtime_production_loop_smoke']);
         $this->assertSame(1, $byVoiceProductionLoopSmoke['command_count']);
         $this->assertSame('php artisan atlas:ai:voice production-loop-smoke --json', data_get($byVoiceProductionLoopSmoke, 'commands.0.command'));
@@ -466,12 +515,44 @@ class AtlasArchitectureOperationsCatalogTest extends TestCase
         $this->assertSame('/ai/voice/runtime/certification', data_get($byVoiceRuntimeCertification, 'commands.0.api_endpoint'));
         $this->assertSame('/v1/mobile/ai/voice/runtime/certification', data_get($byVoiceRuntimeCertification, 'commands.0.mobile_endpoint'));
 
+        $byVoicePromotionReviewPacket = $catalog->summary(['id' => 'voice_realtime_promotion_review_packet']);
+        $this->assertSame(1, $byVoicePromotionReviewPacket['command_count']);
+        $this->assertSame('php artisan atlas:ai:voice promotion-review-packet --hours=24 --json', data_get($byVoicePromotionReviewPacket, 'commands.0.command'));
+        $this->assertSame('review_queue', data_get($byVoicePromotionReviewPacket, 'commands.0.kind'));
+        $this->assertSame('/ai/voice/runtime/promotion-review-packet', data_get($byVoicePromotionReviewPacket, 'commands.0.api_endpoint'));
+        $this->assertSame('/v1/mobile/ai/voice/runtime/promotion-review-packet', data_get($byVoicePromotionReviewPacket, 'commands.0.mobile_endpoint'));
+        $this->assertSame('docs/ap/AP-687-voice-realtime-production-promotion-gate.md', data_get($byVoicePromotionReviewPacket, 'commands.0.doc'));
+
+        $byVoiceTokenIssuerPlan = $catalog->summary(['id' => 'voice_realtime_token_issuer_plan']);
+        $this->assertSame(1, $byVoiceTokenIssuerPlan['command_count']);
+        $this->assertSame('php artisan atlas:ai:voice token-issuer-plan --json', data_get($byVoiceTokenIssuerPlan, 'commands.0.command'));
+        $this->assertSame('runtime_readiness', data_get($byVoiceTokenIssuerPlan, 'commands.0.kind'));
+        $this->assertSame('/ai/voice/runtime/token-issuer-plan', data_get($byVoiceTokenIssuerPlan, 'commands.0.api_endpoint'));
+        $this->assertSame('/v1/mobile/ai/voice/runtime/token-issuer-plan', data_get($byVoiceTokenIssuerPlan, 'commands.0.mobile_endpoint'));
+        $this->assertSame('docs/ap/AP-687-voice-realtime-production-promotion-gate.md', data_get($byVoiceTokenIssuerPlan, 'commands.0.doc'));
+
+        $byVoiceTokenIssuerSmoke = $catalog->summary(['id' => 'voice_realtime_token_issuer_smoke']);
+        $this->assertSame(1, $byVoiceTokenIssuerSmoke['command_count']);
+        $this->assertSame('php artisan atlas:ai:voice token-issuer-smoke --json', data_get($byVoiceTokenIssuerSmoke, 'commands.0.command'));
+        $this->assertSame('runtime_readiness', data_get($byVoiceTokenIssuerSmoke, 'commands.0.kind'));
+        $this->assertSame('/ai/voice/runtime/token-issuer-smoke', data_get($byVoiceTokenIssuerSmoke, 'commands.0.api_endpoint'));
+        $this->assertSame('/v1/mobile/ai/voice/runtime/token-issuer-smoke', data_get($byVoiceTokenIssuerSmoke, 'commands.0.mobile_endpoint'));
+        $this->assertSame('docs/ap/AP-687-voice-realtime-production-promotion-gate.md', data_get($byVoiceTokenIssuerSmoke, 'commands.0.doc'));
+
         $byVoiceDependencies = $catalog->summary(['id' => 'voice_realtime_dependencies']);
         $this->assertSame(1, $byVoiceDependencies['command_count']);
         $this->assertSame('php artisan atlas:ai:voice dependencies --json', data_get($byVoiceDependencies, 'commands.0.command'));
         $this->assertSame('runtime_contract', data_get($byVoiceDependencies, 'commands.0.kind'));
         $this->assertSame('/ai/voice/runtime/dependencies', data_get($byVoiceDependencies, 'commands.0.api_endpoint'));
         $this->assertSame('/v1/mobile/ai/voice/runtime/dependencies', data_get($byVoiceDependencies, 'commands.0.mobile_endpoint'));
+
+        $byDependencyInstallPlan = $catalog->summary(['id' => 'voice_realtime_dependency_install_plan']);
+        $this->assertSame(1, $byDependencyInstallPlan['command_count']);
+        $this->assertSame('php artisan atlas:ai:voice dependency-install-plan --json', data_get($byDependencyInstallPlan, 'commands.0.command'));
+        $this->assertSame('runtime_contract', data_get($byDependencyInstallPlan, 'commands.0.kind'));
+        $this->assertSame('/ai/voice/runtime/dependency-install-plan', data_get($byDependencyInstallPlan, 'commands.0.api_endpoint'));
+        $this->assertSame('/v1/mobile/ai/voice/runtime/dependency-install-plan', data_get($byDependencyInstallPlan, 'commands.0.mobile_endpoint'));
+        $this->assertFalse(data_get($byDependencyInstallPlan, 'commands.0.operator_managed_policy.daemon_start_allowed'));
     }
 
     public function test_catalog_does_not_publish_chat_macro_commands_for_operational_artisan_flows(): void

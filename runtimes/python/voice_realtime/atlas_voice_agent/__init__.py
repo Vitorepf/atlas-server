@@ -32,7 +32,8 @@ from .livekit_worker import AtlasLiveKitWorker, LiveKitWorkerError, LiveKitWorke
 from .mock_kernel import MockKernelTransport
 from .preflight import run_runtime_preflight
 from .product_loop_check import build_product_loop_check
-from .sdk_status import inspect_livekit_sdk
+from .product_loop_packet import ProductLoopCheckViolation, validate_product_loop_check
+from .sdk_status import build_dependency_install_plan, inspect_livekit_sdk, validate_dependency_install_plan
 from .session_lease import AtlasVoiceSessionLease, UnsafeSessionLease
 from .session_payload import AtlasVoiceSessionPayload
 from .settings import AtlasVoiceRuntimeSettings, SettingsError
@@ -69,6 +70,7 @@ __all__ = [
     "LiveKitVoiceSession",
     "KernelRuntimeEventNormalizerGuard",
     "MockKernelTransport",
+    "ProductLoopCheckViolation",
     "REQUIRED_CALLBACK_METHODS",
     "REQUIRED_CALLBACK_PAYLOAD_SCHEMAS",
     "SettingsError",
@@ -76,6 +78,7 @@ __all__ = [
     "UnsafeVoicePayload",
     "build_livekit_worker_plan",
     "build_activation_contract",
+    "build_dependency_install_plan",
     "build_livekit_sdk_wiring_contract",
     "build_livekit_sdk_handler_contract",
     "build_product_loop_check",
@@ -85,4 +88,6 @@ __all__ = [
     "kernel_normalizer_contract_report",
     "run_runtime_preflight",
     "start_livekit_agents_worker",
+    "validate_dependency_install_plan",
+    "validate_product_loop_check",
 ]

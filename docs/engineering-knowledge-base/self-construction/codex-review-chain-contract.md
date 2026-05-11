@@ -20,11 +20,15 @@ decisions:
   - Signature commands may prepare signable payloads, but must not validate or infer a signature.
   - Merge templates may define required fields, but must not merge, dispatch or grant approval.
   - Merge preflight may aggregate readiness, but must not validate signature, approve, merge or dispatch.
+  - Merge action drafts are governed by `codex-merge-action-draft-contract.md`.
+  - Merge authorization and final authorization preflight are governed by `codex-merge-authorization-contract.md`.
   - Approval and merge require a separate explicit human or governed action.
 maintenance:
   - Update before adding any command that records a decision, validates a signature or performs a merge.
 related_paths:
   - docs/engineering-knowledge-base/self-construction/parallel-session-plan-contract.md
+  - docs/engineering-knowledge-base/self-construction/codex-merge-action-draft-contract.md
+  - docs/engineering-knowledge-base/self-construction/codex-merge-authorization-contract.md
   - docs/engineering-knowledge-base/self-construction/reservation-ledger-contract.md
   - docs/ap/AP-691-atlas-self-construction-os-contract.md
 owner: atlas-ai
@@ -274,6 +278,13 @@ The preflight is not evidence of a valid signature. It only says the Atlas
 review chain is ready for a separate explicit governed action that supplies
 external signature evidence, human decision, fresh gates, clean scope result and
 verified evidence integrity.
+
+## Codex Review Merge Action Draft
+
+`--codex-review-merge-action-draft` is governed by
+`codex-merge-action-draft-contract.md`. This chain contract owns only the
+handoff rule: the draft may become structurally ready after merge preflight, but
+it must still keep signature validation, approval, dispatch and merge disabled.
 
 ## Completion Criteria
 

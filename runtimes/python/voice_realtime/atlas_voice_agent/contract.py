@@ -143,6 +143,11 @@ class AtlasVoiceRuntimeContract:
             "kernel.session_end_url",
             "kernel.readiness_url",
             "kernel.rivals_url",
+            "kernel.runtime_dependency_install_plan_url",
+            "kernel.runtime_token_issuer_plan_url",
+            "kernel.runtime_token_issuer_smoke_url",
+            "kernel.runtime_product_loop_check_url",
+            "kernel.runtime_promotion_review_packet_url",
             "kernel.wake_word_url",
             "kernel.turn_url",
             "kernel.runtime_event_normalizer_url",
@@ -187,6 +192,26 @@ class AtlasVoiceRuntimeContract:
     @property
     def rivals_url(self) -> str:
         return str(self._get("kernel.rivals_url"))
+
+    @property
+    def runtime_promotion_review_packet_url(self) -> str:
+        return str(self._get("kernel.runtime_promotion_review_packet_url"))
+
+    @property
+    def runtime_product_loop_check_url(self) -> str:
+        return str(self._get("kernel.runtime_product_loop_check_url"))
+
+    @property
+    def runtime_dependency_install_plan_url(self) -> str:
+        return str(self._get("kernel.runtime_dependency_install_plan_url"))
+
+    @property
+    def runtime_token_issuer_plan_url(self) -> str:
+        return str(self._get("kernel.runtime_token_issuer_plan_url"))
+
+    @property
+    def runtime_token_issuer_smoke_url(self) -> str:
+        return str(self._get("kernel.runtime_token_issuer_smoke_url"))
 
     @property
     def turn_url(self) -> str:

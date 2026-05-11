@@ -1,0 +1,106 @@
+---
+id: atlas-ai-self-construction-codex-merge-post-execution-action-persistence-writer-release-post-signature-runbook
+type: engineering_knowledge
+title: Atlas Self-Construction Codex Merge Post-Execution Action Persistence Writer Release Post-Signature Runbook
+status: active
+category: architecture
+priority: 100
+summary: Read-only post-signature runbook for future writer release receipt evidence, without accepting or validating signatures.
+tags:
+  - atlas-ai
+  - self-construction
+  - codex-review
+  - merge-governance
+capabilities:
+  - self_construction_os
+  - review_governance
+  - merge_authorization
+decisions:
+  - Post-signature runbook is a sequence contract, not signature acceptance.
+  - Signature evidence must still be validated by a later governed surface.
+  - The runbook must not create writer files, write ledger, persist receipts, approve, merge or dispatch.
+maintenance:
+  - Update before adding writer release signed receipt template or execution contract surfaces.
+related_paths:
+  - docs/engineering-knowledge-base/self-construction/codex-merge-post-execution-action-persistence-writer-release-signature-request.md
+  - docs/engineering-knowledge-base/self-construction/codex-merge-post-execution-action-persistence-writer-release-signed-receipt.md
+owner: atlas-ai
+layer: 0.8-self-construction
+line_limit: 200
+---
+
+# Atlas Self-Construction Codex Merge Post-Execution Action Persistence Writer Release Post-Signature Runbook
+
+This document governs the read-only post-signature runbook for a future writer
+release receipt.
+
+The command is:
+
+```bash
+php artisan atlas:ai:self-construction --codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-post-signature-runbook --json
+```
+
+## Boundary
+
+The runbook must keep:
+
+- `execution_allowed=false`;
+- `writer_file_creation_allowed=false`;
+- `ledger_write_allowed=false`;
+- `dispatch_allowed=false`;
+- `approval_granted=false`;
+- `merge_allowed=false`;
+- `signature_valid=false`;
+- `receipt_signed=false`;
+- `receipt_persisted=false`.
+
+It must not:
+
+- create writer files;
+- write ledger events;
+- persist receipts;
+- accept or validate signatures;
+- record decisions;
+- approve code;
+- merge;
+- dispatch work.
+
+## Required Upstream Contract
+
+The runbook depends on the writer release signature request.
+
+If the signature request is not ready, this surface must return:
+
+```text
+blocked_before_writer_release_signature_request
+```
+
+## Ordered Steps
+
+The future post-signature process must:
+
+1. collect external writer release signature evidence;
+2. verify signature scope matches `writer_release_receipt_only`;
+3. verify signed receipt hash matches the source receipt hash;
+4. verify signed payload hash matches the source payload hash;
+5. recheck writer release blockers before validation;
+6. prepare signed writer release receipt template inputs;
+7. prepare writer release execution contract inputs;
+8. stop before signature acceptance or writer release.
+
+## Human Meaning
+
+This surface answers:
+
+```text
+What sequence must happen after external writer release signature evidence appears?
+```
+
+It does not answer:
+
+```text
+Was the signature accepted, validated or used to release the writer?
+```
+
+The answer remains no. Signature validation, signed receipt templating and any
+execution contract belong to later governed surfaces.

@@ -9,7 +9,7 @@ from .agent_runtime import AtlasVoiceAgentRuntime
 from .activation_contract import build_activation_contract
 from .contract import AtlasVoiceRuntimeContract
 from .daemon_supervisor import evaluate_daemon_supervisor
-from .kernel_client import AtlasKernelClient, PostJson
+from .kernel_client import AtlasKernelClient, GetJson, PostJson
 from .livekit_boundary import LiveKitAgentBoundary
 from .livekit_callback_loop import inspect_callback_loop_contract
 from .livekit_callback_router import LiveKitCallbackRouter
@@ -22,8 +22,9 @@ from .livekit_worker import AtlasLiveKitWorker
 from .livekit_runtime_entrypoint import start_livekit_agents_worker
 from .mock_kernel import MockKernelTransport
 from .preflight import run_runtime_preflight
+from .pre_start_health_checks_smoke import build_pre_start_health_checks_smoke
 from .product_loop_check import build_product_loop_check
-from .sdk_status import inspect_livekit_sdk
+from .sdk_status import build_dependency_install_plan, inspect_livekit_sdk
 from .settings import AtlasVoiceRuntimeSettings
 from .worker_plan import build_livekit_worker_plan
 
@@ -51,10 +52,11 @@ def create_atlas_voice_agent(manifest: Mapping[str, Any]) -> AtlasVoiceRuntimeCo
 def create_atlas_voice_agent_from_settings(
     settings: AtlasVoiceRuntimeSettings,
     post_json: PostJson | None = None,
+    get_json: GetJson | None = None,
 ) -> LiveKitAgentBoundary:
     """Build the governed boundary that a LiveKit worker should call."""
 
-    client = settings.build_kernel_client(post_json=post_json)
+    client = settings.build_kernel_client(post_json=post_json, get_json=get_json)
 
     return LiveKitAgentBoundary(AtlasVoiceAgentRuntime(client))
 
@@ -140,6 +142,16 @@ def load_production_promotion_review(path: Path) -> Mapping[str, Any]:
     return payload
 
 
+def load_promotion_review_bundle(path: Path) -> Mapping[str, Any]:
+    with path.open("r", encoding="utf-8") as handle:
+        payload = json.load(handle)
+
+    if not isinstance(payload, Mapping):
+        raise ValueError("promotion review bundle must be a JSON object")
+
+    return payload
+
+
 def load_daemon_implementation_review(path: Path) -> Mapping[str, Any]:
     with path.open("r", encoding="utf-8") as handle:
         payload = json.load(handle)
@@ -157,18 +169,27 @@ def main() -> int:
     parser.add_argument("--env-file", help="Load settings from a dotenv-style file, with process env overriding file values")
     parser.add_argument("--check", action="store_true", help="Validate manifest and exit")
     parser.add_argument("--sdk-check", action="store_true", help="Inspect optional LiveKit Agents SDK availability and exit")
+    parser.add_argument("--dependency-install-plan", action="store_true", help="Describe operator-managed optional LiveKit SDK installation and exit")
+    parser.add_argument("--kernel-dependency-install-plan", action="store_true", help="Fetch Kernel-published operator-managed dependency install plan and exit")
     parser.add_argument("--preflight", action="store_true", help="Validate env/bootstrap/SDK readiness without starting a worker")
     parser.add_argument("--require-sdk", action="store_true", help="Make --preflight fail if LiveKit Agents SDK is missing")
     parser.add_argument("--worker-plan", action="store_true", help="Describe fail-closed LiveKit worker activation plan and exit")
     parser.add_argument("--production-loop-plan", action="store_true", help="Describe real LiveKit SDK loop wiring plan without starting a worker")
     parser.add_argument("--product-loop-check", action="store_true", help="Aggregate callback, SDK loop and worker-start gates without starting a daemon")
+    parser.add_argument("--kernel-product-loop-check", action="store_true", help="Fetch Kernel product loop check without starting a daemon")
+    parser.add_argument("--promotion-review-packet", action="store_true", help="Fetch Kernel production promotion review bundle without starting a daemon")
+    parser.add_argument("--token-issuer-plan", action="store_true", help="Fetch Kernel LiveKit token issuer configuration plan without writing env or issuing tokens")
+    parser.add_argument("--token-issuer-smoke", action="store_true", help="Fetch Kernel LiveKit token issuer smoke without exposing tokens or starting a daemon")
+    parser.add_argument("--ephemeral-test-config", action="store_true", help="Ask Kernel token issuer smoke to use non-production ephemeral config when supported")
     parser.add_argument("--daemon-supervisor-check", action="store_true", help="Evaluate the fail-closed daemon supervisor boundary without starting a process")
+    parser.add_argument("--pre-start-health-checks-smoke", action="store_true", help="Exercise pre-start health checks and subprocess start contract without starting a process")
     parser.add_argument("--activation-contract", action="store_true", help="Publish full preflight + worker-plan activation contract and exit")
     parser.add_argument("--start-worker", action="store_true", help="Attempt governed LiveKit worker startup; returns blocked JSON until all gates pass")
     parser.add_argument("--callback-loop-wired", action="store_true", help="Declare the governed callback router is wired for fail-closed activation checks")
     parser.add_argument("--production-sdk-loop-wired", action="store_true", help="Declare the real LiveKit SDK loop is wired for fail-closed production checks")
     parser.add_argument("--production-promotion-approved", action="store_true", help="Legacy declaration only; a review file is required for actual promotion approval")
     parser.add_argument("--production-promotion-review-file", help="Path to human production-promotion review receipt JSON")
+    parser.add_argument("--promotion-review-bundle-file", help="Path to Kernel production-promotion review bundle JSON that the review receipt must match")
     parser.add_argument("--daemon-implementation-review-file", help="Path to daemon implementation review receipt JSON")
     parser.add_argument("--scripted-events", help="Run a token-safe scripted worker event JSON file and exit")
     parser.add_argument("--callback-event", help="Route one normalized LiveKit SDK callback JSON file and exit")
@@ -176,6 +197,7 @@ def main() -> int:
     parser.add_argument("--sdk-events", help="Run production-shaped LiveKit SDK primitive events through the governed bridge and exit")
     parser.add_argument("--callback-loop-check", action="store_true", help="Inspect callback translation layer readiness without starting a worker")
     parser.add_argument("--mock-kernel", action="store_true", help="Run scripted events against a deterministic local mock Kernel")
+    parser.add_argument("--hours", type=int, default=24, help="Evidence window in hours for readiness, rivals and promotion-review checks")
     args = parser.parse_args()
 
     settings = AtlasVoiceRuntimeSettings.from_env_file(Path(args.env_file)) if args.env_file else None
@@ -197,6 +219,7 @@ def main() -> int:
                 contract=contract,
                 atlas_token="mock-kernel-token",
                 post_json=mock_transport.post_json,
+                get_json=mock_transport.get_json,
             )
             boundary = LiveKitAgentBoundary(AtlasVoiceAgentRuntime(client))
             boundary_created = True
@@ -209,6 +232,10 @@ def main() -> int:
             "session_end_url": contract.session_end_url,
             "readiness_url": contract.readiness_url,
             "rivals_url": contract.rivals_url,
+            "runtime_dependency_install_plan_url": contract.runtime_dependency_install_plan_url,
+            "runtime_token_issuer_plan_url": contract.runtime_token_issuer_plan_url,
+            "runtime_token_issuer_smoke_url": contract.runtime_token_issuer_smoke_url,
+            "runtime_promotion_review_packet_url": contract.runtime_promotion_review_packet_url,
             "wake_word_url": contract.wake_word_url,
             "turn_url": contract.turn_url,
             "room_prefix": contract.room_prefix,
@@ -223,6 +250,14 @@ def main() -> int:
 
     if args.sdk_check:
         print(json.dumps(inspect_livekit_sdk(contract), indent=2))
+
+    if args.dependency_install_plan:
+        print(json.dumps(build_dependency_install_plan(), indent=2))
+
+    if args.kernel_dependency_install_plan:
+        if settings is None and mock_transport is None:
+            parser.error("--kernel-dependency-install-plan requires --env, --env-file or --mock-kernel so the runtime can call the Kernel")
+        print(json.dumps(boundary.runtime.client.dependency_install_plan(), indent=2))
 
     if args.preflight:
         print(json.dumps(run_runtime_preflight(
@@ -253,6 +288,10 @@ def main() -> int:
             load_production_promotion_review(Path(args.production_promotion_review_file))
             if args.production_promotion_review_file else None
         )
+        production_promotion_review_bundle = (
+            load_promotion_review_bundle(Path(args.promotion_review_bundle_file))
+            if args.promotion_review_bundle_file else None
+        )
         daemon_implementation_review = (
             load_daemon_implementation_review(Path(args.daemon_implementation_review_file))
             if args.daemon_implementation_review_file else None
@@ -265,13 +304,47 @@ def main() -> int:
             boundary_created=boundary_created,
             mock_kernel=args.mock_kernel,
             production_promotion_review=production_promotion_review,
+            production_promotion_review_bundle=production_promotion_review_bundle,
             daemon_implementation_review=daemon_implementation_review,
+        ), indent=2))
+
+    if args.kernel_product_loop_check:
+        if settings is None and mock_transport is None:
+            parser.error("--kernel-product-loop-check requires --env, --env-file or --mock-kernel so the runtime can call the Kernel")
+        print(json.dumps(boundary.runtime.client.product_loop_check(
+            callback_loop_wired=args.callback_loop_wired,
+            production_sdk_loop_wired=args.production_sdk_loop_wired,
+        ), indent=2))
+
+    if args.promotion_review_packet:
+        if settings is None and mock_transport is None:
+            parser.error("--promotion-review-packet requires --env, --env-file or --mock-kernel so the runtime can call the Kernel")
+        print(json.dumps(boundary.runtime.client.production_promotion_review_packet(
+            hours=args.hours,
+            callback_loop_wired=args.callback_loop_wired,
+            production_sdk_loop_wired=args.production_sdk_loop_wired,
+        ), indent=2))
+
+    if args.token_issuer_plan:
+        if settings is None and mock_transport is None:
+            parser.error("--token-issuer-plan requires --env, --env-file or --mock-kernel so the runtime can call the Kernel")
+        print(json.dumps(boundary.runtime.client.token_issuer_plan(), indent=2))
+
+    if args.token_issuer_smoke:
+        if settings is None and mock_transport is None:
+            parser.error("--token-issuer-smoke requires --env, --env-file or --mock-kernel so the runtime can call the Kernel")
+        print(json.dumps(boundary.runtime.client.token_issuer_smoke(
+            ephemeral_test_config=args.ephemeral_test_config,
         ), indent=2))
 
     if args.daemon_supervisor_check:
         production_promotion_review = (
             load_production_promotion_review(Path(args.production_promotion_review_file))
             if args.production_promotion_review_file else None
+        )
+        production_promotion_review_bundle = (
+            load_promotion_review_bundle(Path(args.promotion_review_bundle_file))
+            if args.promotion_review_bundle_file else None
         )
         daemon_implementation_review = (
             load_daemon_implementation_review(Path(args.daemon_implementation_review_file))
@@ -288,9 +361,13 @@ def main() -> int:
             production_sdk_loop_wired=args.production_sdk_loop_wired,
             production_promotion_approved=args.production_promotion_approved,
             production_promotion_review=production_promotion_review,
+            production_promotion_review_bundle=production_promotion_review_bundle,
             daemon_implementation_review=daemon_implementation_review,
         )
         print(json.dumps(evaluate_daemon_supervisor(worker_start), indent=2))
+
+    if args.pre_start_health_checks_smoke:
+        print(json.dumps(build_pre_start_health_checks_smoke(), indent=2))
 
     if args.activation_contract:
         print(json.dumps(build_activation_contract(
@@ -308,6 +385,10 @@ def main() -> int:
             load_production_promotion_review(Path(args.production_promotion_review_file))
             if args.production_promotion_review_file else None
         )
+        production_promotion_review_bundle = (
+            load_promotion_review_bundle(Path(args.promotion_review_bundle_file))
+            if args.promotion_review_bundle_file else None
+        )
         daemon_implementation_review = (
             load_daemon_implementation_review(Path(args.daemon_implementation_review_file))
             if args.daemon_implementation_review_file else None
@@ -323,6 +404,7 @@ def main() -> int:
             production_sdk_loop_wired=args.production_sdk_loop_wired,
             production_promotion_approved=args.production_promotion_approved,
             production_promotion_review=production_promotion_review,
+            production_promotion_review_bundle=production_promotion_review_bundle,
             daemon_implementation_review=daemon_implementation_review,
         ), indent=2))
 

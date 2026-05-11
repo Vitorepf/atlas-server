@@ -16,6 +16,9 @@ governanca e validacao da propria sessao.
   `commands`.
 - O payload deve conter `architecture_operations.owner_layer_operations.runtime`
   para descobrir `runtime_language_boundary` antes de qualquer Python/Go/Swift/RAG/ML.
+- Quando `placement.surface=voice_realtime`, o payload deve incluir
+  `voice_realtime_dependencies` e `voice_realtime_dependency_install_plan`
+  para descobrir Python runtime, LiveKit requirements e policy operator-managed.
 - O bloco deve incluir pelo menos `architecture_readiness`,
   `session_bootstrap`, `feature_placement`, `documentation_split_plan`, `architecture_operations`,
   `architecture_validate`, `documentation_health`, `provider_projection_status`,
