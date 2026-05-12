@@ -50,6 +50,18 @@ class SupervisedProcessAdapterTest(unittest.TestCase):
         self.assertIn("inspect_guarded_start_final_enablement_gate_contract", payload["implemented_methods"])
         self.assertIn("inspect_guarded_start_policy_enablement_contract", payload["implemented_methods"])
         self.assertIn("inspect_guarded_start_activation_contract", payload["implemented_methods"])
+        self.assertIn("inspect_guarded_start_execution_attempt_contract", payload["implemented_methods"])
+        self.assertIn("inspect_guarded_start_execution_rehearsal_contract", payload["implemented_methods"])
+        self.assertIn("inspect_guarded_start_observability_contract", payload["implemented_methods"])
+        self.assertIn("inspect_guarded_start_release_candidate_contract", payload["implemented_methods"])
+        self.assertIn("inspect_guarded_start_operator_acceptance_contract", payload["implemented_methods"])
+        self.assertIn("inspect_guarded_start_final_start_receipt_contract", payload["implemented_methods"])
+        self.assertIn("inspect_guarded_start_launch_window_contract", payload["implemented_methods"])
+        self.assertIn("inspect_guarded_start_pre_launch_guard_contract", payload["implemented_methods"])
+        self.assertIn("inspect_guarded_start_executor_runtime_contract", payload["implemented_methods"])
+        self.assertIn("inspect_guarded_start_process_spawn_contract", payload["implemented_methods"])
+        self.assertIn("inspect_guarded_start_spawn_review_contract", payload["implemented_methods"])
+        self.assertIn("inspect_guarded_start_process_runner_promotion_packet", payload["implemented_methods"])
         self.assertTrue(payload["gates"]["supervisor_execution_ready"])
         self.assertTrue(payload["gates"]["launch_disabled"])
         self.assertTrue(payload["gates"]["secrets_redacted"])
@@ -389,6 +401,343 @@ class SupervisedProcessAdapterTest(unittest.TestCase):
         self.assertFalse(payload["guarded_start_activation_contract"]["runtime_policy_start_enabled"])
         self.assertFalse(payload["guarded_start_activation_contract"]["process_launch_attempted"])
         self.assertFalse(payload["guarded_start_activation_contract"]["daemon_started"])
+        self.assertTrue(payload["gates"]["guarded_start_execution_attempt_contract_available"])
+        self.assertEqual(
+            "atlas.voice_realtime.guarded_start_execution_attempt_contract.v1",
+            payload["guarded_start_execution_attempt_contract"]["schema_version"],
+        )
+        self.assertEqual("blocked", payload["guarded_start_execution_attempt_contract"]["status"])
+        self.assertTrue(
+            payload["guarded_start_execution_attempt_contract"][
+                "guarded_start_execution_attempt_contract_implemented"
+            ]
+        )
+        self.assertTrue(payload["guarded_start_execution_attempt_contract"]["execution_attempt_contract_only"])
+        self.assertFalse(payload["guarded_start_execution_attempt_contract"]["runtime_policy_start_enabled"])
+        self.assertFalse(payload["guarded_start_execution_attempt_contract"]["process_launch_attempted"])
+        self.assertFalse(payload["guarded_start_execution_attempt_contract"]["daemon_started"])
+        self.assertTrue(payload["gates"]["guarded_start_execution_rehearsal_contract_available"])
+        self.assertEqual(
+            "atlas.voice_realtime.guarded_start_execution_rehearsal_contract.v1",
+            payload["guarded_start_execution_rehearsal_contract"]["schema_version"],
+        )
+        self.assertEqual("blocked", payload["guarded_start_execution_rehearsal_contract"]["status"])
+        self.assertTrue(
+            payload["guarded_start_execution_rehearsal_contract"][
+                "guarded_start_execution_rehearsal_contract_implemented"
+            ]
+        )
+        self.assertTrue(payload["guarded_start_execution_rehearsal_contract"]["execution_rehearsal_contract_only"])
+        self.assertFalse(payload["guarded_start_execution_rehearsal_contract"]["runtime_policy_start_enabled"])
+        self.assertFalse(payload["guarded_start_execution_rehearsal_contract"]["process_launch_attempted"])
+        self.assertFalse(payload["guarded_start_execution_rehearsal_contract"]["daemon_started"])
+        self.assertTrue(payload["gates"]["guarded_start_observability_contract_available"])
+        self.assertEqual(
+            "atlas.voice_realtime.guarded_start_observability_contract.v1",
+            payload["guarded_start_observability_contract"]["schema_version"],
+        )
+        self.assertEqual("blocked", payload["guarded_start_observability_contract"]["status"])
+        self.assertTrue(payload["guarded_start_observability_contract"]["guarded_start_observability_contract_implemented"])
+        self.assertTrue(payload["guarded_start_observability_contract"]["observability_contract_only"])
+        self.assertFalse(payload["guarded_start_observability_contract"]["runtime_policy_start_enabled"])
+        self.assertFalse(payload["guarded_start_observability_contract"]["process_launch_attempted"])
+        self.assertFalse(payload["guarded_start_observability_contract"]["daemon_started"])
+        self.assertTrue(payload["gates"]["guarded_start_release_candidate_contract_available"])
+        self.assertEqual(
+            "atlas.voice_realtime.guarded_start_release_candidate_contract.v1",
+            payload["guarded_start_release_candidate_contract"]["schema_version"],
+        )
+        self.assertEqual("blocked", payload["guarded_start_release_candidate_contract"]["status"])
+        self.assertTrue(payload["guarded_start_release_candidate_contract"]["guarded_start_release_candidate_contract_implemented"])
+        self.assertTrue(payload["guarded_start_release_candidate_contract"]["release_candidate_contract_only"])
+        self.assertFalse(payload["guarded_start_release_candidate_contract"]["runtime_policy_start_enabled"])
+        self.assertFalse(payload["guarded_start_release_candidate_contract"]["process_launch_attempted"])
+        self.assertFalse(payload["guarded_start_release_candidate_contract"]["daemon_started"])
+        self.assertTrue(payload["gates"]["guarded_start_operator_acceptance_contract_available"])
+        self.assertEqual(
+            "atlas.voice_realtime.guarded_start_operator_acceptance_contract.v1",
+            payload["guarded_start_operator_acceptance_contract"]["schema_version"],
+        )
+        self.assertEqual("blocked", payload["guarded_start_operator_acceptance_contract"]["status"])
+        self.assertTrue(payload["guarded_start_operator_acceptance_contract"]["guarded_start_operator_acceptance_contract_implemented"])
+        self.assertTrue(payload["guarded_start_operator_acceptance_contract"]["operator_acceptance_contract_only"])
+        self.assertFalse(payload["guarded_start_operator_acceptance_contract"]["runtime_policy_start_enabled"])
+        self.assertFalse(payload["guarded_start_operator_acceptance_contract"]["process_launch_attempted"])
+        self.assertFalse(payload["guarded_start_operator_acceptance_contract"]["daemon_started"])
+        self.assertTrue(payload["gates"]["guarded_start_final_start_receipt_contract_available"])
+        self.assertEqual(
+            "atlas.voice_realtime.guarded_start_final_start_receipt_contract.v1",
+            payload["guarded_start_final_start_receipt_contract"]["schema_version"],
+        )
+        self.assertEqual("blocked", payload["guarded_start_final_start_receipt_contract"]["status"])
+        self.assertTrue(payload["guarded_start_final_start_receipt_contract"]["guarded_start_final_start_receipt_contract_implemented"])
+        self.assertTrue(payload["guarded_start_final_start_receipt_contract"]["final_start_receipt_contract_only"])
+        self.assertFalse(payload["guarded_start_final_start_receipt_contract"]["runtime_policy_start_enabled"])
+        self.assertFalse(payload["guarded_start_final_start_receipt_contract"]["process_launch_attempted"])
+        self.assertFalse(payload["guarded_start_final_start_receipt_contract"]["daemon_started"])
+        self.assertTrue(payload["gates"]["guarded_start_launch_window_contract_available"])
+        self.assertEqual(
+            "atlas.voice_realtime.guarded_start_launch_window_contract.v1",
+            payload["guarded_start_launch_window_contract"]["schema_version"],
+        )
+        self.assertEqual("blocked", payload["guarded_start_launch_window_contract"]["status"])
+        self.assertTrue(payload["guarded_start_launch_window_contract"]["guarded_start_launch_window_contract_implemented"])
+        self.assertTrue(payload["guarded_start_launch_window_contract"]["launch_window_contract_only"])
+        self.assertFalse(payload["guarded_start_launch_window_contract"]["runtime_policy_start_enabled"])
+        self.assertFalse(payload["guarded_start_launch_window_contract"]["process_launch_attempted"])
+        self.assertFalse(payload["guarded_start_launch_window_contract"]["daemon_started"])
+        self.assertTrue(payload["gates"]["guarded_start_pre_launch_guard_contract_available"])
+        self.assertEqual(
+            "atlas.voice_realtime.guarded_start_pre_launch_guard_contract.v1",
+            payload["guarded_start_pre_launch_guard_contract"]["schema_version"],
+        )
+        self.assertEqual("blocked", payload["guarded_start_pre_launch_guard_contract"]["status"])
+        self.assertTrue(payload["guarded_start_pre_launch_guard_contract"]["guarded_start_pre_launch_guard_contract_implemented"])
+        self.assertTrue(payload["guarded_start_pre_launch_guard_contract"]["pre_launch_guard_contract_only"])
+        self.assertFalse(payload["guarded_start_pre_launch_guard_contract"]["runtime_policy_start_enabled"])
+        self.assertFalse(payload["guarded_start_pre_launch_guard_contract"]["process_launch_attempted"])
+        self.assertFalse(payload["guarded_start_pre_launch_guard_contract"]["daemon_started"])
+        self.assertTrue(payload["gates"]["guarded_start_executor_runtime_contract_available"])
+        self.assertEqual(
+            "atlas.voice_realtime.guarded_start_executor_runtime_contract.v1",
+            payload["guarded_start_executor_runtime_contract"]["schema_version"],
+        )
+        self.assertEqual("blocked", payload["guarded_start_executor_runtime_contract"]["status"])
+        self.assertTrue(payload["guarded_start_executor_runtime_contract"]["guarded_start_executor_runtime_contract_implemented"])
+        self.assertTrue(payload["guarded_start_executor_runtime_contract"]["executor_runtime_contract_only"])
+        self.assertFalse(payload["guarded_start_executor_runtime_contract"]["runtime_policy_start_enabled"])
+        self.assertFalse(payload["guarded_start_executor_runtime_contract"]["process_launch_attempted"])
+        self.assertFalse(payload["guarded_start_executor_runtime_contract"]["daemon_started"])
+        self.assertTrue(payload["gates"]["guarded_start_process_spawn_contract_available"])
+        self.assertEqual(
+            "atlas.voice_realtime.guarded_start_process_spawn_contract.v1",
+            payload["guarded_start_process_spawn_contract"]["schema_version"],
+        )
+        self.assertEqual("blocked", payload["guarded_start_process_spawn_contract"]["status"])
+        self.assertTrue(payload["guarded_start_process_spawn_contract"]["guarded_start_process_spawn_contract_implemented"])
+        self.assertTrue(payload["guarded_start_process_spawn_contract"]["process_spawn_contract_only"])
+        self.assertFalse(payload["guarded_start_process_spawn_contract"]["runtime_policy_start_enabled"])
+        self.assertFalse(payload["guarded_start_process_spawn_contract"]["subprocess_module_imported"])
+        self.assertFalse(payload["guarded_start_process_spawn_contract"]["process_launch_attempted"])
+        self.assertFalse(payload["guarded_start_process_spawn_contract"]["daemon_started"])
+        self.assertTrue(payload["gates"]["guarded_start_spawn_review_contract_available"])
+        self.assertEqual(
+            "atlas.voice_realtime.guarded_start_spawn_review_contract.v1",
+            payload["guarded_start_spawn_review_contract"]["schema_version"],
+        )
+        self.assertEqual("blocked", payload["guarded_start_spawn_review_contract"]["status"])
+        self.assertTrue(payload["guarded_start_spawn_review_contract"]["guarded_start_spawn_review_contract_implemented"])
+        self.assertTrue(payload["guarded_start_spawn_review_contract"]["spawn_review_contract_only"])
+        self.assertFalse(payload["guarded_start_spawn_review_contract"]["runtime_policy_start_enabled"])
+        self.assertFalse(payload["guarded_start_spawn_review_contract"]["subprocess_module_imported"])
+        self.assertFalse(payload["guarded_start_spawn_review_contract"]["process_launch_attempted"])
+        self.assertFalse(payload["guarded_start_spawn_review_contract"]["daemon_started"])
+        self.assertTrue(payload["gates"]["guarded_start_subprocess_import_contract_available"])
+        self.assertEqual(
+            "atlas.voice_realtime.guarded_start_subprocess_import_contract.v1",
+            payload["guarded_start_subprocess_import_contract"]["schema_version"],
+        )
+        self.assertEqual("blocked", payload["guarded_start_subprocess_import_contract"]["status"])
+        self.assertTrue(payload["guarded_start_subprocess_import_contract"]["guarded_start_subprocess_import_contract_implemented"])
+        self.assertTrue(payload["guarded_start_subprocess_import_contract"]["subprocess_import_contract_only"])
+        self.assertFalse(payload["guarded_start_subprocess_import_contract"]["runtime_policy_start_enabled"])
+        self.assertFalse(payload["guarded_start_subprocess_import_contract"]["subprocess_module_imported"])
+        self.assertFalse(payload["guarded_start_subprocess_import_contract"]["process_launch_attempted"])
+        self.assertFalse(payload["guarded_start_subprocess_import_contract"]["daemon_started"])
+        self.assertTrue(payload["gates"]["guarded_start_launch_invocation_contract_available"])
+        self.assertEqual(
+            "atlas.voice_realtime.guarded_start_launch_invocation_contract.v1",
+            payload["guarded_start_launch_invocation_contract"]["schema_version"],
+        )
+        self.assertEqual("blocked", payload["guarded_start_launch_invocation_contract"]["status"])
+        self.assertTrue(payload["guarded_start_launch_invocation_contract"]["guarded_start_launch_invocation_contract_implemented"])
+        self.assertTrue(payload["guarded_start_launch_invocation_contract"]["launch_invocation_contract_only"])
+        self.assertFalse(payload["guarded_start_launch_invocation_contract"]["runtime_policy_start_enabled"])
+        self.assertFalse(payload["guarded_start_launch_invocation_contract"]["subprocess_module_imported"])
+        self.assertFalse(payload["guarded_start_launch_invocation_contract"]["process_launch_attempted"])
+        self.assertFalse(payload["guarded_start_launch_invocation_contract"]["daemon_started"])
+        self.assertTrue(payload["gates"]["guarded_start_final_process_start_contract_available"])
+        self.assertEqual(
+            "atlas.voice_realtime.guarded_start_final_process_start_contract.v1",
+            payload["guarded_start_final_process_start_contract"]["schema_version"],
+        )
+        self.assertEqual("blocked", payload["guarded_start_final_process_start_contract"]["status"])
+        self.assertTrue(payload["guarded_start_final_process_start_contract"]["guarded_start_final_process_start_contract_implemented"])
+        self.assertTrue(payload["guarded_start_final_process_start_contract"]["final_process_start_contract_only"])
+        self.assertFalse(payload["guarded_start_final_process_start_contract"]["runtime_policy_start_enabled"])
+        self.assertFalse(payload["guarded_start_final_process_start_contract"]["subprocess_module_imported"])
+        self.assertFalse(payload["guarded_start_final_process_start_contract"]["process_launch_attempted"])
+        self.assertFalse(payload["guarded_start_final_process_start_contract"]["daemon_started"])
+        self.assertTrue(payload["gates"]["guarded_start_process_execution_review_available"])
+        self.assertEqual(
+            "atlas.voice_realtime.guarded_start_process_execution_review.v1",
+            payload["guarded_start_process_execution_review"]["schema_version"],
+        )
+        self.assertEqual("blocked", payload["guarded_start_process_execution_review"]["status"])
+        self.assertTrue(payload["guarded_start_process_execution_review"]["guarded_start_process_execution_review_implemented"])
+        self.assertTrue(payload["guarded_start_process_execution_review"]["process_execution_review_only"])
+        self.assertFalse(payload["guarded_start_process_execution_review"]["runtime_policy_start_enabled"])
+        self.assertFalse(payload["guarded_start_process_execution_review"]["subprocess_module_imported"])
+        self.assertFalse(payload["guarded_start_process_execution_review"]["process_launch_attempted"])
+        self.assertFalse(payload["guarded_start_process_execution_review"]["daemon_started"])
+        self.assertTrue(payload["gates"]["guarded_start_process_execution_packet_available"])
+        self.assertTrue(payload["gates"]["guarded_start_process_executor_stub_available"])
+        self.assertTrue(payload["gates"]["guarded_start_process_executor_review_available"])
+        self.assertTrue(payload["gates"]["guarded_start_process_executor_contract_available"])
+        self.assertEqual(
+            "atlas.voice_realtime.guarded_start_process_executor_review.v1",
+            payload["guarded_start_process_executor_review"]["schema_version"],
+        )
+        self.assertEqual("blocked", payload["guarded_start_process_executor_review"]["status"])
+        self.assertTrue(payload["guarded_start_process_executor_review"]["guarded_start_process_executor_review_implemented"])
+        self.assertTrue(payload["guarded_start_process_executor_review"]["process_executor_review_only"])
+        self.assertFalse(payload["guarded_start_process_executor_review"]["runtime_policy_start_enabled"])
+        self.assertFalse(payload["guarded_start_process_executor_review"]["subprocess_module_imported"])
+        self.assertFalse(payload["guarded_start_process_executor_review"]["process_launch_attempted"])
+        self.assertFalse(payload["guarded_start_process_executor_review"]["daemon_started"])
+        self.assertEqual(
+            "atlas.voice_realtime.guarded_start_process_executor_contract.v1",
+            payload["guarded_start_process_executor_contract"]["schema_version"],
+        )
+        self.assertEqual("blocked", payload["guarded_start_process_executor_contract"]["status"])
+        self.assertTrue(payload["guarded_start_process_executor_contract"]["guarded_start_process_executor_contract_implemented"])
+        self.assertTrue(payload["guarded_start_process_executor_contract"]["process_executor_contract_only"])
+        self.assertFalse(payload["guarded_start_process_executor_contract"]["runtime_policy_start_enabled"])
+        self.assertFalse(payload["guarded_start_process_executor_contract"]["subprocess_module_imported"])
+        self.assertFalse(payload["guarded_start_process_executor_contract"]["process_launch_attempted"])
+        self.assertFalse(payload["guarded_start_process_executor_contract"]["daemon_started"])
+        self.assertTrue(payload["gates"]["guarded_start_process_runtime_adapter_available"])
+        self.assertEqual(
+            "atlas.voice_realtime.guarded_start_process_runtime_adapter.v1",
+            payload["guarded_start_process_runtime_adapter"]["schema_version"],
+        )
+        self.assertEqual("blocked", payload["guarded_start_process_runtime_adapter"]["status"])
+        self.assertTrue(payload["guarded_start_process_runtime_adapter"]["guarded_start_process_runtime_adapter_implemented"])
+        self.assertTrue(payload["guarded_start_process_runtime_adapter"]["process_runtime_adapter_only"])
+        self.assertFalse(payload["guarded_start_process_runtime_adapter"]["runtime_policy_start_enabled"])
+        self.assertFalse(payload["guarded_start_process_runtime_adapter"]["subprocess_module_imported"])
+        self.assertFalse(payload["guarded_start_process_runtime_adapter"]["process_launch_attempted"])
+        self.assertFalse(payload["guarded_start_process_runtime_adapter"]["daemon_started"])
+        self.assertTrue(payload["gates"]["guarded_start_process_adapter_review_available"])
+        self.assertEqual(
+            "atlas.voice_realtime.guarded_start_process_adapter_review.v1",
+            payload["guarded_start_process_adapter_review"]["schema_version"],
+        )
+        self.assertEqual("blocked", payload["guarded_start_process_adapter_review"]["status"])
+        self.assertTrue(payload["guarded_start_process_adapter_review"]["guarded_start_process_adapter_review_implemented"])
+        self.assertTrue(payload["guarded_start_process_adapter_review"]["process_adapter_review_only"])
+        self.assertFalse(payload["guarded_start_process_adapter_review"]["runtime_policy_start_enabled"])
+        self.assertFalse(payload["guarded_start_process_adapter_review"]["subprocess_module_imported"])
+        self.assertFalse(payload["guarded_start_process_adapter_review"]["process_launch_attempted"])
+        self.assertFalse(payload["guarded_start_process_adapter_review"]["daemon_started"])
+        self.assertTrue(payload["gates"]["guarded_start_process_adapter_contract_available"])
+        self.assertEqual(
+            "atlas.voice_realtime.guarded_start_process_adapter_contract.v1",
+            payload["guarded_start_process_adapter_contract"]["schema_version"],
+        )
+        self.assertEqual("blocked", payload["guarded_start_process_adapter_contract"]["status"])
+        self.assertTrue(payload["guarded_start_process_adapter_contract"]["guarded_start_process_adapter_contract_implemented"])
+        self.assertTrue(payload["guarded_start_process_adapter_contract"]["process_adapter_contract_only"])
+        self.assertFalse(payload["guarded_start_process_adapter_contract"]["runtime_policy_start_enabled"])
+        self.assertFalse(payload["guarded_start_process_adapter_contract"]["subprocess_module_imported"])
+        self.assertFalse(payload["guarded_start_process_adapter_contract"]["process_launch_attempted"])
+        self.assertFalse(payload["guarded_start_process_adapter_contract"]["daemon_started"])
+        self.assertTrue(payload["gates"]["guarded_start_process_runner_contract_available"])
+        self.assertEqual(
+            "atlas.voice_realtime.guarded_start_process_runner_contract.v1",
+            payload["guarded_start_process_runner_contract"]["schema_version"],
+        )
+        self.assertEqual("blocked", payload["guarded_start_process_runner_contract"]["status"])
+        self.assertTrue(payload["guarded_start_process_runner_contract"]["guarded_start_process_runner_contract_implemented"])
+        self.assertTrue(payload["guarded_start_process_runner_contract"]["process_runner_contract_only"])
+        self.assertFalse(payload["guarded_start_process_runner_contract"]["runtime_policy_start_enabled"])
+        self.assertFalse(payload["guarded_start_process_runner_contract"]["subprocess_module_imported"])
+        self.assertFalse(payload["guarded_start_process_runner_contract"]["process_launch_attempted"])
+        self.assertFalse(payload["guarded_start_process_runner_contract"]["daemon_started"])
+        self.assertTrue(payload["gates"]["guarded_start_process_runner_review_available"])
+        self.assertEqual(
+            "atlas.voice_realtime.guarded_start_process_runner_review.v1",
+            payload["guarded_start_process_runner_review"]["schema_version"],
+        )
+        self.assertEqual("blocked", payload["guarded_start_process_runner_review"]["status"])
+        self.assertTrue(payload["guarded_start_process_runner_review"]["guarded_start_process_runner_review_implemented"])
+        self.assertTrue(payload["guarded_start_process_runner_review"]["process_runner_review_only"])
+        self.assertFalse(payload["guarded_start_process_runner_review"]["runtime_policy_start_enabled"])
+        self.assertFalse(payload["guarded_start_process_runner_review"]["subprocess_module_imported"])
+        self.assertFalse(payload["guarded_start_process_runner_review"]["process_launch_attempted"])
+        self.assertFalse(payload["guarded_start_process_runner_review"]["daemon_started"])
+        self.assertTrue(payload["gates"]["guarded_start_process_runner_packet_available"])
+        self.assertEqual(
+            "atlas.voice_realtime.guarded_start_process_runner_packet.v1",
+            payload["guarded_start_process_runner_packet"]["schema_version"],
+        )
+        self.assertEqual("blocked", payload["guarded_start_process_runner_packet"]["status"])
+        self.assertTrue(payload["guarded_start_process_runner_packet"]["guarded_start_process_runner_packet_implemented"])
+        self.assertTrue(payload["guarded_start_process_runner_packet"]["process_runner_packet_only"])
+        self.assertFalse(payload["guarded_start_process_runner_packet"]["runtime_policy_start_enabled"])
+        self.assertFalse(payload["guarded_start_process_runner_packet"]["subprocess_module_imported"])
+        self.assertFalse(payload["guarded_start_process_runner_packet"]["process_launch_attempted"])
+        self.assertFalse(payload["guarded_start_process_runner_packet"]["daemon_started"])
+        self.assertTrue(payload["gates"]["guarded_start_process_runner_execution_review_available"])
+        self.assertEqual(
+            "atlas.voice_realtime.guarded_start_process_runner_execution_review.v1",
+            payload["guarded_start_process_runner_execution_review"]["schema_version"],
+        )
+        self.assertEqual("blocked", payload["guarded_start_process_runner_execution_review"]["status"])
+        self.assertTrue(payload["guarded_start_process_runner_execution_review"]["guarded_start_process_runner_execution_review_implemented"])
+        self.assertTrue(payload["guarded_start_process_runner_execution_review"]["process_runner_execution_review_only"])
+        self.assertFalse(payload["guarded_start_process_runner_execution_review"]["runtime_policy_start_enabled"])
+        self.assertFalse(payload["guarded_start_process_runner_execution_review"]["subprocess_module_imported"])
+        self.assertFalse(payload["guarded_start_process_runner_execution_review"]["process_launch_attempted"])
+        self.assertFalse(payload["guarded_start_process_runner_execution_review"]["daemon_started"])
+        self.assertTrue(payload["gates"]["guarded_start_process_runner_execution_contract_available"])
+        self.assertEqual(
+            "atlas.voice_realtime.guarded_start_process_runner_execution_contract.v1",
+            payload["guarded_start_process_runner_execution_contract"]["schema_version"],
+        )
+        self.assertEqual("blocked", payload["guarded_start_process_runner_execution_contract"]["status"])
+        self.assertTrue(payload["guarded_start_process_runner_execution_contract"]["guarded_start_process_runner_execution_contract_implemented"])
+        self.assertTrue(payload["guarded_start_process_runner_execution_contract"]["process_runner_execution_contract_only"])
+        self.assertFalse(payload["guarded_start_process_runner_execution_contract"]["runtime_policy_start_enabled"])
+        self.assertFalse(payload["guarded_start_process_runner_execution_contract"]["subprocess_module_imported"])
+        self.assertFalse(payload["guarded_start_process_runner_execution_contract"]["process_launch_attempted"])
+        self.assertFalse(payload["guarded_start_process_runner_execution_contract"]["daemon_started"])
+        self.assertTrue(payload["gates"]["guarded_start_process_runner_start_gate_available"])
+        self.assertEqual(
+            "atlas.voice_realtime.guarded_start_process_runner_start_gate.v1",
+            payload["guarded_start_process_runner_start_gate"]["schema_version"],
+        )
+        self.assertEqual("blocked", payload["guarded_start_process_runner_start_gate"]["status"])
+        self.assertTrue(payload["guarded_start_process_runner_start_gate"]["guarded_start_process_runner_start_gate_implemented"])
+        self.assertTrue(payload["guarded_start_process_runner_start_gate"]["process_runner_start_gate_only"])
+        self.assertFalse(payload["guarded_start_process_runner_start_gate"]["runtime_policy_start_enabled"])
+        self.assertFalse(payload["guarded_start_process_runner_start_gate"]["subprocess_module_imported"])
+        self.assertFalse(payload["guarded_start_process_runner_start_gate"]["process_launch_attempted"])
+        self.assertFalse(payload["guarded_start_process_runner_start_gate"]["daemon_started"])
+        self.assertTrue(payload["gates"]["guarded_start_process_runner_final_review_available"])
+        self.assertEqual(
+            "atlas.voice_realtime.guarded_start_process_runner_final_review.v1",
+            payload["guarded_start_process_runner_final_review"]["schema_version"],
+        )
+        self.assertEqual("blocked", payload["guarded_start_process_runner_final_review"]["status"])
+        self.assertTrue(payload["guarded_start_process_runner_final_review"]["guarded_start_process_runner_final_review_implemented"])
+        self.assertTrue(payload["guarded_start_process_runner_final_review"]["process_runner_final_review_only"])
+        self.assertFalse(payload["guarded_start_process_runner_final_review"]["runtime_policy_start_enabled"])
+        self.assertFalse(payload["guarded_start_process_runner_final_review"]["subprocess_module_imported"])
+        self.assertFalse(payload["guarded_start_process_runner_final_review"]["process_launch_attempted"])
+        self.assertFalse(payload["guarded_start_process_runner_final_review"]["daemon_started"])
+        self.assertTrue(payload["gates"]["guarded_start_process_runner_promotion_packet_available"])
+        self.assertEqual(
+            "atlas.voice_realtime.guarded_start_process_runner_promotion_packet.v1",
+            payload["guarded_start_process_runner_promotion_packet"]["schema_version"],
+        )
+        self.assertEqual("blocked", payload["guarded_start_process_runner_promotion_packet"]["status"])
+        self.assertTrue(payload["guarded_start_process_runner_promotion_packet"]["guarded_start_process_runner_promotion_packet_implemented"])
+        self.assertTrue(payload["guarded_start_process_runner_promotion_packet"]["process_runner_promotion_packet_only"])
+        self.assertFalse(payload["guarded_start_process_runner_promotion_packet"]["runtime_policy_start_enabled"])
+        self.assertFalse(payload["guarded_start_process_runner_promotion_packet"]["subprocess_module_imported"])
+        self.assertFalse(payload["guarded_start_process_runner_promotion_packet"]["process_launch_attempted"])
+        self.assertFalse(payload["guarded_start_process_runner_promotion_packet"]["daemon_started"])
         self.assertEqual("blocked_launch_not_implemented", payload["start_attempt"]["status"])
         self.assertFalse(payload["start_attempt"]["process_launch_attempted"])
         self.assertFalse(payload["start_attempt"]["daemon_started"])
@@ -422,6 +771,14 @@ class SupervisedProcessAdapterTest(unittest.TestCase):
         self.assertIn("VOICE_DAEMON_GUARDED_START_FINAL_ENABLEMENT_GATE_EVALUATED", payload["evidence_events"])
         self.assertIn("VOICE_DAEMON_GUARDED_START_POLICY_ENABLEMENT_CONTRACT_EVALUATED", payload["evidence_events"])
         self.assertIn("VOICE_DAEMON_GUARDED_START_ACTIVATION_CONTRACT_EVALUATED", payload["evidence_events"])
+        self.assertIn("VOICE_DAEMON_GUARDED_START_EXECUTION_ATTEMPT_CONTRACT_EVALUATED", payload["evidence_events"])
+        self.assertIn("VOICE_DAEMON_GUARDED_START_EXECUTION_REHEARSAL_CONTRACT_EVALUATED", payload["evidence_events"])
+        self.assertIn("VOICE_DAEMON_GUARDED_START_OBSERVABILITY_CONTRACT_EVALUATED", payload["evidence_events"])
+        self.assertIn("VOICE_DAEMON_GUARDED_START_RELEASE_CANDIDATE_CONTRACT_EVALUATED", payload["evidence_events"])
+        self.assertIn("VOICE_DAEMON_GUARDED_START_PROCESS_EXECUTION_REVIEWED", payload["evidence_events"])
+        self.assertIn("VOICE_DAEMON_GUARDED_START_PROCESS_EXECUTOR_REVIEWED", payload["evidence_events"])
+        self.assertIn("VOICE_DAEMON_GUARDED_START_PROCESS_EXECUTOR_CONTRACT_EVALUATED", payload["evidence_events"])
+        self.assertIn("VOICE_DAEMON_GUARDED_START_PROCESS_RUNNER_PROMOTION_PACKET_ATTACHED", payload["evidence_events"])
 
     def test_blocks_when_supervisor_execution_is_not_ready(self) -> None:
         worker_start = ready_worker_start()
@@ -456,6 +813,28 @@ class SupervisedProcessAdapterTest(unittest.TestCase):
         self.assertTrue(payload["gates"]["guarded_start_simulation_contract_available"])
         self.assertTrue(payload["gates"]["guarded_start_policy_enablement_contract_available"])
         self.assertTrue(payload["gates"]["guarded_start_activation_contract_available"])
+        self.assertTrue(payload["gates"]["guarded_start_execution_attempt_contract_available"])
+        self.assertTrue(payload["gates"]["guarded_start_execution_rehearsal_contract_available"])
+        self.assertTrue(payload["gates"]["guarded_start_observability_contract_available"])
+        self.assertTrue(payload["gates"]["guarded_start_release_candidate_contract_available"])
+        self.assertTrue(payload["gates"]["guarded_start_operator_acceptance_contract_available"])
+        self.assertTrue(payload["gates"]["guarded_start_final_start_receipt_contract_available"])
+        self.assertTrue(payload["gates"]["guarded_start_process_execution_review_available"])
+        self.assertTrue(payload["gates"]["guarded_start_process_execution_packet_available"])
+        self.assertTrue(payload["gates"]["guarded_start_process_executor_stub_available"])
+        self.assertTrue(payload["gates"]["guarded_start_process_executor_review_available"])
+        self.assertTrue(payload["gates"]["guarded_start_process_executor_contract_available"])
+        self.assertTrue(payload["gates"]["guarded_start_process_runtime_adapter_available"])
+        self.assertTrue(payload["gates"]["guarded_start_process_adapter_review_available"])
+        self.assertTrue(payload["gates"]["guarded_start_process_adapter_contract_available"])
+        self.assertTrue(payload["gates"]["guarded_start_process_runner_contract_available"])
+        self.assertTrue(payload["gates"]["guarded_start_process_runner_review_available"])
+        self.assertTrue(payload["gates"]["guarded_start_process_runner_packet_available"])
+        self.assertTrue(payload["gates"]["guarded_start_process_runner_execution_review_available"])
+        self.assertTrue(payload["gates"]["guarded_start_process_runner_execution_contract_available"])
+        self.assertTrue(payload["gates"]["guarded_start_process_runner_start_gate_available"])
+        self.assertTrue(payload["gates"]["guarded_start_process_runner_final_review_available"])
+        self.assertTrue(payload["gates"]["guarded_start_process_runner_promotion_packet_available"])
         self.assertEqual("blocked", payload["launch_authorization_contract"]["status"])
         self.assertEqual("fix_supervised_process_adapter_prerequisites", payload["next_action"])
 

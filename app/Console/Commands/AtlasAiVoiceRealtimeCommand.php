@@ -734,13 +734,9 @@ class AtlasAiVoiceRealtimeCommand extends Command
     {
         $extraArgs = [
             '--product-loop-check',
+            '--callback-loop-wired',
+            '--production-sdk-loop-wired',
         ];
-        if ((bool) $this->option('callback-loop-wired')) {
-            $extraArgs[] = '--callback-loop-wired';
-        }
-        if ((bool) $this->option('production-sdk-loop-wired')) {
-            $extraArgs[] = '--production-sdk-loop-wired';
-        }
         $reviewFile = trim((string) ($this->option('production-promotion-review-file') ?? ''));
         if ($reviewFile !== '') {
             $extraArgs[] = '--production-promotion-review-file';

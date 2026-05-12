@@ -13,6 +13,36 @@ from .supervised_launch_execution import (
     GUARDED_START_EXECUTOR_AUTHORIZATION_SCHEMA_VERSION,
     GUARDED_START_DRY_RUN_PLAN_SCHEMA_VERSION,
     GUARDED_START_ACTIVATION_AUTHORIZATION_SCHEMA_VERSION,
+    GUARDED_START_EXECUTION_ATTEMPT_AUTHORIZATION_SCHEMA_VERSION,
+    GUARDED_START_EXECUTION_REHEARSAL_AUTHORIZATION_SCHEMA_VERSION,
+    GUARDED_START_OBSERVABILITY_AUTHORIZATION_SCHEMA_VERSION,
+    GUARDED_START_RELEASE_CANDIDATE_AUTHORIZATION_SCHEMA_VERSION,
+    GUARDED_START_OPERATOR_ACCEPTANCE_AUTHORIZATION_SCHEMA_VERSION,
+    GUARDED_START_FINAL_START_RECEIPT_AUTHORIZATION_SCHEMA_VERSION,
+    GUARDED_START_LAUNCH_WINDOW_AUTHORIZATION_SCHEMA_VERSION,
+    GUARDED_START_PRE_LAUNCH_GUARD_AUTHORIZATION_SCHEMA_VERSION,
+    GUARDED_START_EXECUTOR_RUNTIME_AUTHORIZATION_SCHEMA_VERSION,
+    GUARDED_START_PROCESS_SPAWN_AUTHORIZATION_SCHEMA_VERSION,
+    GUARDED_START_SPAWN_REVIEW_AUTHORIZATION_SCHEMA_VERSION,
+    GUARDED_START_SUBPROCESS_IMPORT_AUTHORIZATION_SCHEMA_VERSION,
+    GUARDED_START_LAUNCH_INVOCATION_AUTHORIZATION_SCHEMA_VERSION,
+    GUARDED_START_FINAL_PROCESS_START_AUTHORIZATION_SCHEMA_VERSION,
+    GUARDED_START_PROCESS_EXECUTION_REVIEW_AUTHORIZATION_SCHEMA_VERSION,
+    GUARDED_START_PROCESS_EXECUTION_PACKET_AUTHORIZATION_SCHEMA_VERSION,
+    GUARDED_START_PROCESS_EXECUTOR_STUB_AUTHORIZATION_SCHEMA_VERSION,
+    GUARDED_START_PROCESS_EXECUTOR_REVIEW_AUTHORIZATION_SCHEMA_VERSION,
+    GUARDED_START_PROCESS_EXECUTOR_CONTRACT_AUTHORIZATION_SCHEMA_VERSION,
+    GUARDED_START_PROCESS_RUNTIME_ADAPTER_AUTHORIZATION_SCHEMA_VERSION,
+    GUARDED_START_PROCESS_ADAPTER_REVIEW_AUTHORIZATION_SCHEMA_VERSION,
+    GUARDED_START_PROCESS_ADAPTER_CONTRACT_AUTHORIZATION_SCHEMA_VERSION,
+    GUARDED_START_PROCESS_RUNNER_CONTRACT_AUTHORIZATION_SCHEMA_VERSION,
+    GUARDED_START_PROCESS_RUNNER_EXECUTION_CONTRACT_AUTHORIZATION_SCHEMA_VERSION,
+    GUARDED_START_PROCESS_RUNNER_EXECUTION_REVIEW_AUTHORIZATION_SCHEMA_VERSION,
+    GUARDED_START_PROCESS_RUNNER_PACKET_AUTHORIZATION_SCHEMA_VERSION,
+    GUARDED_START_PROCESS_RUNNER_REVIEW_AUTHORIZATION_SCHEMA_VERSION,
+    GUARDED_START_PROCESS_RUNNER_START_GATE_AUTHORIZATION_SCHEMA_VERSION,
+    GUARDED_START_PROCESS_RUNNER_FINAL_REVIEW_AUTHORIZATION_SCHEMA_VERSION,
+    GUARDED_START_PROCESS_RUNNER_PROMOTION_PACKET_AUTHORIZATION_SCHEMA_VERSION,
     GUARDED_START_FINAL_ENABLEMENT_AUTHORIZATION_SCHEMA_VERSION,
     GUARDED_START_HUMAN_REVIEW_AUTHORIZATION_SCHEMA_VERSION,
     GUARDED_START_POLICY_PATCH_REVIEW_AUTHORIZATION_SCHEMA_VERSION,
@@ -39,6 +69,36 @@ from .supervised_launch_execution import (
     inspect_final_start_executor_enablement_gate,
     inspect_guarded_start_dry_run_contract,
     inspect_guarded_start_activation_contract,
+    inspect_guarded_start_execution_attempt_contract,
+    inspect_guarded_start_execution_rehearsal_contract,
+    inspect_guarded_start_observability_contract,
+    inspect_guarded_start_release_candidate_contract,
+    inspect_guarded_start_operator_acceptance_contract,
+    inspect_guarded_start_final_start_receipt_contract,
+    inspect_guarded_start_launch_window_contract,
+    inspect_guarded_start_pre_launch_guard_contract,
+    inspect_guarded_start_executor_runtime_contract,
+    inspect_guarded_start_process_spawn_contract,
+    inspect_guarded_start_spawn_review_contract,
+    inspect_guarded_start_subprocess_import_contract,
+    inspect_guarded_start_launch_invocation_contract,
+    inspect_guarded_start_final_process_start_contract,
+    inspect_guarded_start_process_execution_review,
+    inspect_guarded_start_process_execution_packet,
+    inspect_guarded_start_process_executor_stub,
+    inspect_guarded_start_process_executor_review,
+    inspect_guarded_start_process_executor_contract,
+    inspect_guarded_start_process_runtime_adapter,
+    inspect_guarded_start_process_adapter_review,
+    inspect_guarded_start_process_adapter_contract,
+    inspect_guarded_start_process_runner_contract,
+    inspect_guarded_start_process_runner_execution_contract,
+    inspect_guarded_start_process_runner_execution_review,
+    inspect_guarded_start_process_runner_packet,
+    inspect_guarded_start_process_runner_review,
+    inspect_guarded_start_process_runner_start_gate,
+    inspect_guarded_start_process_runner_final_review,
+    inspect_guarded_start_process_runner_promotion_packet,
     inspect_guarded_start_final_enablement_gate_contract,
     inspect_guarded_start_human_review_contract,
     inspect_guarded_start_policy_enablement_contract,
@@ -500,6 +560,668 @@ def build_pre_start_health_checks_smoke() -> Mapping[str, Any]:
                 "decision_receipt_id": "decision_receipt_pre_start_smoke_guarded_start_activation",
             },
         )
+        guarded_start_execution_attempt_contract = inspect_guarded_start_execution_attempt_contract(
+            guarded_start_activation_contract=guarded_start_activation_contract,
+            execution_attempt_authorization={
+                "schema_version": GUARDED_START_EXECUTION_ATTEMPT_AUTHORIZATION_SCHEMA_VERSION,
+                "status": "approved_for_guarded_start_execution_attempt_contract",
+                "execution_attempt_contract_allowed": True,
+                "runtime_policy_start_enabled": True,
+                "guarded_start_executor_enabled": False,
+                "start_execution_allowed": False,
+                "process_launch_allowed": False,
+                "subprocess_module_import_allowed": False,
+                "activation_contract_attached": True,
+                "policy_enablement_contract_attached": True,
+                "operator_activation_review_required": True,
+                "post_start_observability_required": True,
+                "pid_guard_required": True,
+                "startup_timeout_required": True,
+                "stdout_stderr_sanitization_required": True,
+                "ready_event_required": True,
+                "rollback_plan_attached": True,
+                "policy_revoke_supported": True,
+                "single_start_per_receipt_required": True,
+                "dry_run_rehearsal_attached": True,
+                "reviewed_policy_patch_hash": "j"*64,
+                "decision_receipt_id": "decision_receipt_pre_start_smoke_guarded_start_execution_attempt",
+            },
+        )
+        guarded_start_execution_rehearsal_contract = inspect_guarded_start_execution_rehearsal_contract(
+            guarded_start_execution_attempt_contract=guarded_start_execution_attempt_contract,
+            execution_rehearsal_authorization={
+                "schema_version": GUARDED_START_EXECUTION_REHEARSAL_AUTHORIZATION_SCHEMA_VERSION,
+                "status": "approved_for_guarded_start_execution_rehearsal_contract",
+                "execution_rehearsal_contract_allowed": True,
+                "runtime_policy_start_enabled": True,
+                "guarded_start_executor_enabled": False,
+                "start_execution_allowed": False,
+                "process_launch_allowed": False,
+                "subprocess_module_import_allowed": False,
+                "execution_attempt_contract_attached": True,
+                "pid_guard_rehearsed": True,
+                "startup_timeout_rehearsed": True,
+                "stdout_stderr_sanitization_rehearsed": True,
+                "ready_event_rehearsed": True,
+                "rollback_rehearsed": True,
+                "policy_revoke_supported": True,
+                "single_start_per_receipt_required": True,
+                "dry_run_rehearsal_only": True,
+                "reviewed_policy_patch_hash": "j"*64,
+                "decision_receipt_id": "decision_receipt_pre_start_smoke_guarded_start_execution_rehearsal",
+            },
+        )
+        guarded_start_observability_contract = inspect_guarded_start_observability_contract(
+            guarded_start_execution_rehearsal_contract=guarded_start_execution_rehearsal_contract,
+            observability_authorization={
+                "schema_version": GUARDED_START_OBSERVABILITY_AUTHORIZATION_SCHEMA_VERSION,
+                "status": "approved_for_guarded_start_observability_contract",
+                "observability_contract_allowed": True,
+                "runtime_policy_start_enabled": True,
+                "guarded_start_executor_enabled": False,
+                "start_execution_allowed": False,
+                "process_launch_allowed": False,
+                "subprocess_module_import_allowed": False,
+                "execution_rehearsal_contract_attached": True,
+                "ready_event_required": True,
+                "health_snapshot_required": True,
+                "stderr_stdout_sanitized_required": True,
+                "latency_slo_metrics_required": True,
+                "rollback_telemetry_required": True,
+                "evidence_sink_required": True,
+                "policy_revoke_supported": True,
+                "single_start_per_receipt_required": True,
+                "reviewed_policy_patch_hash": "j"*64,
+                "decision_receipt_id": "decision_receipt_pre_start_smoke_guarded_start_observability",
+            },
+        )
+        guarded_start_release_candidate_contract = inspect_guarded_start_release_candidate_contract(
+            guarded_start_observability_contract=guarded_start_observability_contract,
+            release_candidate_authorization={
+                "schema_version": GUARDED_START_RELEASE_CANDIDATE_AUTHORIZATION_SCHEMA_VERSION,
+                "status": "approved_for_guarded_start_release_candidate_contract",
+                "release_candidate_contract_allowed": True,
+                "runtime_policy_start_enabled": True,
+                "guarded_start_executor_enabled": False,
+                "start_execution_allowed": False,
+                "process_launch_allowed": False,
+                "subprocess_module_import_allowed": False,
+                "observability_contract_attached": True,
+                "bundle_hash_attached": True,
+                "evidence_manifest_attached": True,
+                "rollback_plan_attached": True,
+                "operator_review_required": True,
+                "final_start_receipt_required": True,
+                "policy_revoke_supported": True,
+                "single_start_per_receipt_required": True,
+                "release_candidate_bundle_hash": "k"*64,
+                "reviewed_policy_patch_hash": "j"*64,
+                "decision_receipt_id": "decision_receipt_pre_start_smoke_guarded_start_release_candidate",
+            },
+        )
+        guarded_start_operator_acceptance_contract = inspect_guarded_start_operator_acceptance_contract(
+            guarded_start_release_candidate_contract=guarded_start_release_candidate_contract,
+            operator_acceptance_authorization={
+                "schema_version": GUARDED_START_OPERATOR_ACCEPTANCE_AUTHORIZATION_SCHEMA_VERSION,
+                "status": "approved_for_guarded_start_operator_acceptance_contract",
+                "operator_acceptance_contract_allowed": True,
+                "runtime_policy_start_enabled": True,
+                "guarded_start_executor_enabled": False,
+                "start_execution_allowed": False,
+                "process_launch_allowed": False,
+                "subprocess_module_import_allowed": False,
+                "operator_review_completed": True,
+                "operator_acceptance_explicit": True,
+                "release_candidate_contract_attached": True,
+                "evidence_manifest_reviewed": True,
+                "rollback_plan_reviewed": True,
+                "final_start_receipt_required": True,
+                "policy_revoke_supported": True,
+                "single_start_per_receipt_required": True,
+                "release_candidate_bundle_hash": "k"*64,
+                "reviewed_policy_patch_hash": "j"*64,
+                "decision_receipt_id": "decision_receipt_pre_start_smoke_guarded_start_operator_acceptance",
+                "operator_acceptance_receipt_id": "operator_acceptance_receipt_pre_start_smoke_1",
+            },
+        )
+        guarded_start_final_start_receipt_contract = inspect_guarded_start_final_start_receipt_contract(
+            guarded_start_operator_acceptance_contract=guarded_start_operator_acceptance_contract,
+            final_start_receipt_authorization={
+                "schema_version": GUARDED_START_FINAL_START_RECEIPT_AUTHORIZATION_SCHEMA_VERSION,
+                "status": "approved_for_guarded_start_final_start_receipt_contract",
+                "final_start_receipt_contract_allowed": True,
+                "runtime_policy_start_enabled": True,
+                "guarded_start_executor_enabled": False,
+                "start_execution_allowed": False,
+                "process_launch_allowed": False,
+                "subprocess_module_import_allowed": False,
+                "operator_acceptance_contract_attached": True,
+                "final_start_receipt_attached": True,
+                "receipt_fresh": True,
+                "single_start_per_receipt_required": True,
+                "ready_event_required": True,
+                "rollback_plan_reviewed": True,
+                "policy_revoke_supported": True,
+                "release_candidate_bundle_hash": "k"*64,
+                "reviewed_policy_patch_hash": "j"*64,
+                "operator_acceptance_receipt_id": "operator_acceptance_receipt_pre_start_smoke_1",
+                "final_start_receipt_id": "final_start_receipt_pre_start_smoke_1",
+                "decision_receipt_id": "decision_receipt_pre_start_smoke_guarded_start_final_start_receipt",
+            },
+        )
+        guarded_start_launch_window_contract = inspect_guarded_start_launch_window_contract(
+            guarded_start_final_start_receipt_contract=guarded_start_final_start_receipt_contract,
+            launch_window_authorization={
+                "schema_version": GUARDED_START_LAUNCH_WINDOW_AUTHORIZATION_SCHEMA_VERSION,
+                "status": "approved_for_guarded_start_launch_window_contract",
+                "launch_window_contract_allowed": True,
+                "runtime_policy_start_enabled": True,
+                "guarded_start_executor_enabled": False,
+                "start_execution_allowed": False,
+                "process_launch_allowed": False,
+                "subprocess_module_import_allowed": False,
+                "final_start_receipt_contract_attached": True,
+                "launch_window_declared": True,
+                "operator_present": True,
+                "receipts_fresh": True,
+                "single_start_per_receipt_required": True,
+                "observability_armed": True,
+                "rollback_armed": True,
+                "policy_revoke_supported": True,
+                "release_candidate_bundle_hash": "k"*64,
+                "reviewed_policy_patch_hash": "j"*64,
+                "final_start_receipt_id": "final_start_receipt_pre_start_smoke_1",
+                "decision_receipt_id": "decision_receipt_pre_start_smoke_guarded_start_launch_window",
+            },
+        )
+        guarded_start_pre_launch_guard_contract = inspect_guarded_start_pre_launch_guard_contract(
+            guarded_start_launch_window_contract=guarded_start_launch_window_contract,
+            pre_launch_guard_authorization={
+                "schema_version": GUARDED_START_PRE_LAUNCH_GUARD_AUTHORIZATION_SCHEMA_VERSION,
+                "status": "approved_for_guarded_start_pre_launch_guard_contract",
+                "pre_launch_guard_contract_allowed": True,
+                "runtime_policy_start_enabled": True,
+                "guarded_start_executor_enabled": False,
+                "start_execution_allowed": False,
+                "process_launch_allowed": False,
+                "subprocess_module_import_allowed": False,
+                "launch_window_contract_attached": True,
+                "kernel_health_fresh": True,
+                "token_lease_fresh": True,
+                "callback_router_fresh": True,
+                "observability_armed": True,
+                "rollback_armed": True,
+                "policy_revoke_supported": True,
+                "operator_present": True,
+                "final_start_receipt_id": "final_start_receipt_pre_start_smoke_1",
+                "decision_receipt_id": "decision_receipt_pre_start_smoke_guarded_start_pre_launch_guard",
+            },
+        )
+        guarded_start_executor_runtime_contract = inspect_guarded_start_executor_runtime_contract(
+            guarded_start_pre_launch_guard_contract=guarded_start_pre_launch_guard_contract,
+            executor_runtime_authorization={
+                "schema_version": GUARDED_START_EXECUTOR_RUNTIME_AUTHORIZATION_SCHEMA_VERSION,
+                "status": "approved_for_guarded_start_executor_runtime_contract",
+                "executor_runtime_contract_allowed": True,
+                "runtime_policy_start_enabled": True,
+                "guarded_start_executor_enabled": False,
+                "start_execution_allowed": False,
+                "process_launch_allowed": False,
+                "subprocess_module_import_allowed": False,
+                "pre_launch_guard_contract_attached": True,
+                "runtime_family": "python_ai_data",
+                "env_contract_attached": True,
+                "argv_redacted": True,
+                "pid_guard_configured": True,
+                "stdout_stderr_sanitized": True,
+                "ready_event_required": True,
+                "rollback_armed": True,
+                "decision_receipt_id": "decision_receipt_pre_start_smoke_guarded_start_executor_runtime",
+            },
+        )
+        guarded_start_process_spawn_contract = inspect_guarded_start_process_spawn_contract(
+            guarded_start_executor_runtime_contract=guarded_start_executor_runtime_contract,
+            process_spawn_authorization={
+                "schema_version": GUARDED_START_PROCESS_SPAWN_AUTHORIZATION_SCHEMA_VERSION,
+                "status": "approved_for_guarded_start_process_spawn_contract",
+                "process_spawn_contract_allowed": True,
+                "executor_runtime_contract_attached": True,
+                "runtime_family": "python_ai_data",
+                "env_contract_attached": True,
+                "argv_redacted": True,
+                "cwd_confined": True,
+                "pid_guard_configured": True,
+                "startup_timeout_configured": True,
+                "stdout_stderr_sanitized": True,
+                "ready_event_required": True,
+                "rollback_armed": True,
+                "process_launch_allowed": False,
+                "subprocess_module_import_allowed": False,
+                "decision_receipt_id": "decision_receipt_pre_start_smoke_guarded_start_process_spawn",
+            },
+        )
+        guarded_start_spawn_review_contract = inspect_guarded_start_spawn_review_contract(
+            guarded_start_process_spawn_contract=guarded_start_process_spawn_contract,
+            spawn_review_authorization={
+                "schema_version": GUARDED_START_SPAWN_REVIEW_AUTHORIZATION_SCHEMA_VERSION,
+                "status": "approved_for_guarded_start_spawn_review_contract",
+                "spawn_review_contract_allowed": True,
+                "process_spawn_contract_attached": True,
+                "technical_review_completed": True,
+                "bundle_hash_reviewed": True,
+                "cwd_confined_reviewed": True,
+                "argv_redaction_reviewed": True,
+                "timeout_reviewed": True,
+                "ready_event_reviewed": True,
+                "rollback_reviewed": True,
+                "process_launch_allowed": False,
+                "subprocess_module_import_allowed": False,
+                "reviewed_bundle_hash": "s"*64,
+                "decision_receipt_id": "decision_receipt_pre_start_smoke_guarded_start_spawn_review",
+            },
+        )
+        guarded_start_subprocess_import_contract = inspect_guarded_start_subprocess_import_contract(
+            guarded_start_spawn_review_contract=guarded_start_spawn_review_contract,
+            subprocess_import_authorization={
+                "schema_version": GUARDED_START_SUBPROCESS_IMPORT_AUTHORIZATION_SCHEMA_VERSION,
+                "status": "approved_for_guarded_start_subprocess_import_contract",
+                "subprocess_import_contract_allowed": True,
+                "spawn_review_contract_attached": True,
+                "localized_import_boundary_declared": True,
+                "no_top_level_subprocess_import": True,
+                "executor_only_import_required": True,
+                "import_audit_event_required": True,
+                "process_launch_allowed": False,
+                "start_execution_allowed": False,
+                "subprocess_module_import_allowed": False,
+                "decision_receipt_id": "decision_receipt_pre_start_smoke_guarded_start_subprocess_import",
+            },
+        )
+        guarded_start_launch_invocation_contract = inspect_guarded_start_launch_invocation_contract(
+            guarded_start_subprocess_import_contract=guarded_start_subprocess_import_contract,
+            launch_invocation_authorization={
+                "schema_version": GUARDED_START_LAUNCH_INVOCATION_AUTHORIZATION_SCHEMA_VERSION,
+                "status": "approved_for_guarded_start_launch_invocation_contract",
+                "launch_invocation_contract_allowed": True,
+                "subprocess_import_contract_attached": True,
+                "command_template_reviewed": True,
+                "argv_redacted": True,
+                "env_redacted": True,
+                "cwd_confined": True,
+                "pid_guard_required": True,
+                "startup_timeout_required": True,
+                "ready_event_required": True,
+                "rollback_required": True,
+                "process_launch_allowed": False,
+                "start_execution_allowed": False,
+                "subprocess_module_import_allowed": False,
+                "decision_receipt_id": "decision_receipt_pre_start_smoke_guarded_start_launch_invocation",
+            },
+        )
+        guarded_start_final_process_start_contract = inspect_guarded_start_final_process_start_contract(
+            guarded_start_launch_invocation_contract=guarded_start_launch_invocation_contract,
+            final_process_start_authorization={
+                "schema_version": GUARDED_START_FINAL_PROCESS_START_AUTHORIZATION_SCHEMA_VERSION,
+                "status": "approved_for_guarded_start_final_process_start_contract",
+                "final_process_start_contract_allowed": True,
+                "launch_invocation_contract_attached": True,
+                "decision_receipt_fresh": True,
+                "single_start_per_receipt_required": True,
+                "ready_event_required": True,
+                "pid_guard_required": True,
+                "startup_timeout_required": True,
+                "stdout_stderr_sanitized": True,
+                "rollback_required": True,
+                "process_launch_allowed": False,
+                "start_execution_allowed": False,
+                "subprocess_module_import_allowed": False,
+                "decision_receipt_id": "decision_receipt_pre_start_smoke_guarded_start_final_process_start",
+            },
+        )
+        guarded_start_process_execution_review = inspect_guarded_start_process_execution_review(
+            guarded_start_final_process_start_contract=guarded_start_final_process_start_contract,
+            process_execution_review_authorization={
+                "schema_version": GUARDED_START_PROCESS_EXECUTION_REVIEW_AUTHORIZATION_SCHEMA_VERSION,
+                "status": "approved_for_guarded_start_process_execution_review",
+                "process_execution_review_allowed": True,
+                "final_process_start_contract_attached": True,
+                "technical_review_completed": True,
+                "receipt_bound_to_final_start": True,
+                "pid_guard_reviewed": True,
+                "startup_timeout_reviewed": True,
+                "ready_event_reviewed": True,
+                "stdout_stderr_sanitization_reviewed": True,
+                "rollback_reviewed": True,
+                "observability_reviewed": True,
+                "process_launch_allowed": False,
+                "start_execution_allowed": False,
+                "subprocess_module_import_allowed": False,
+                "decision_receipt_id": "decision_receipt_pre_start_smoke_guarded_start_process_execution_review",
+            },
+        )
+        guarded_start_process_execution_packet = inspect_guarded_start_process_execution_packet(
+            guarded_start_process_execution_review=guarded_start_process_execution_review,
+            process_execution_packet_authorization={
+                "schema_version": GUARDED_START_PROCESS_EXECUTION_PACKET_AUTHORIZATION_SCHEMA_VERSION,
+                "status": "approved_for_guarded_start_process_execution_packet",
+                "process_execution_packet_allowed": True,
+                "process_execution_review_attached": True,
+                "receipt_bound_to_execution_packet": True,
+                "argv_redacted": True,
+                "env_redacted": True,
+                "cwd_confined": True,
+                "pid_guard_attached": True,
+                "startup_timeout_attached": True,
+                "ready_event_attached": True,
+                "stdout_stderr_sanitizers_attached": True,
+                "rollback_attached": True,
+                "observability_attached": True,
+                "process_launch_allowed": False,
+                "start_execution_allowed": False,
+                "subprocess_module_import_allowed": False,
+                "decision_receipt_id": "decision_receipt_pre_start_smoke_guarded_start_process_execution_packet",
+            },
+        )
+        guarded_start_process_executor_stub = inspect_guarded_start_process_executor_stub(
+            guarded_start_process_execution_packet=guarded_start_process_execution_packet,
+            process_executor_stub_authorization={
+                "schema_version": GUARDED_START_PROCESS_EXECUTOR_STUB_AUTHORIZATION_SCHEMA_VERSION,
+                "status": "approved_for_guarded_start_process_executor_stub",
+                "process_executor_stub_allowed": True,
+                "process_execution_packet_attached": True,
+                "executor_stub_only": True,
+                "localized_subprocess_import_required": True,
+                "pid_guard_required": True,
+                "startup_timeout_required": True,
+                "ready_event_required": True,
+                "stdout_stderr_sanitizers_required": True,
+                "rollback_required": True,
+                "observability_required": True,
+                "process_launch_allowed": False,
+                "start_execution_allowed": False,
+                "subprocess_module_import_allowed": False,
+                "decision_receipt_id": "decision_receipt_pre_start_smoke_guarded_start_process_executor_stub",
+            },
+        )
+        guarded_start_process_executor_review = inspect_guarded_start_process_executor_review(
+            guarded_start_process_executor_stub=guarded_start_process_executor_stub,
+            process_executor_review_authorization={
+                "schema_version": GUARDED_START_PROCESS_EXECUTOR_REVIEW_AUTHORIZATION_SCHEMA_VERSION,
+                "status": "approved_for_guarded_start_process_executor_review",
+                "process_executor_review_allowed": True,
+                "process_executor_stub_attached": True,
+                "technical_review_completed": True,
+                "localized_subprocess_import_reviewed": True,
+                "pid_guard_reviewed": True,
+                "startup_timeout_reviewed": True,
+                "ready_event_reviewed": True,
+                "stdout_stderr_sanitization_reviewed": True,
+                "rollback_reviewed": True,
+                "observability_reviewed": True,
+                "process_launch_allowed": False,
+                "start_execution_allowed": False,
+                "subprocess_module_import_allowed": False,
+                "decision_receipt_id": "decision_receipt_pre_start_smoke_guarded_start_process_executor_review",
+            },
+        )
+        guarded_start_process_executor_contract = inspect_guarded_start_process_executor_contract(
+            guarded_start_process_executor_review=guarded_start_process_executor_review,
+            process_executor_contract_authorization={
+                "schema_version": GUARDED_START_PROCESS_EXECUTOR_CONTRACT_AUTHORIZATION_SCHEMA_VERSION,
+                "status": "approved_for_guarded_start_process_executor_contract",
+                "process_executor_contract_allowed": True,
+                "process_executor_review_attached": True,
+                "localized_subprocess_import_contract_required": True,
+                "pid_guard_contract_required": True,
+                "startup_timeout_contract_required": True,
+                "ready_event_contract_required": True,
+                "stdout_stderr_sanitization_contract_required": True,
+                "rollback_contract_required": True,
+                "observability_contract_required": True,
+                "process_launch_allowed": False,
+                "start_execution_allowed": False,
+                "subprocess_module_import_allowed": False,
+                "decision_receipt_id": "decision_receipt_pre_start_smoke_guarded_start_process_executor_contract",
+            },
+        )
+        guarded_start_process_runtime_adapter = inspect_guarded_start_process_runtime_adapter(
+            guarded_start_process_executor_contract=guarded_start_process_executor_contract,
+            process_runtime_adapter_authorization={
+                "schema_version": GUARDED_START_PROCESS_RUNTIME_ADAPTER_AUTHORIZATION_SCHEMA_VERSION,
+                "status": "approved_for_guarded_start_process_runtime_adapter",
+                "process_runtime_adapter_allowed": True,
+                "process_executor_contract_attached": True,
+                "runtime_adapter_contract_only": True,
+                "localized_subprocess_import_boundary_required": True,
+                "pid_guard_adapter_required": True,
+                "startup_timeout_adapter_required": True,
+                "ready_event_adapter_required": True,
+                "stdout_stderr_sanitizers_required": True,
+                "rollback_adapter_required": True,
+                "observability_adapter_required": True,
+                "process_launch_allowed": False,
+                "start_execution_allowed": False,
+                "subprocess_module_import_allowed": False,
+                "decision_receipt_id": "decision_receipt_pre_start_smoke_guarded_start_process_runtime_adapter",
+            },
+        )
+        guarded_start_process_adapter_review = inspect_guarded_start_process_adapter_review(
+            guarded_start_process_runtime_adapter=guarded_start_process_runtime_adapter,
+            process_adapter_review_authorization={
+                "schema_version": GUARDED_START_PROCESS_ADAPTER_REVIEW_AUTHORIZATION_SCHEMA_VERSION,
+                "status": "approved_for_guarded_start_process_adapter_review",
+                "process_adapter_review_allowed": True,
+                "process_runtime_adapter_attached": True,
+                "technical_review_completed": True,
+                "runtime_adapter_contract_reviewed": True,
+                "localized_subprocess_import_boundary_reviewed": True,
+                "pid_guard_adapter_reviewed": True,
+                "startup_timeout_adapter_reviewed": True,
+                "ready_event_adapter_reviewed": True,
+                "stdout_stderr_sanitizers_reviewed": True,
+                "rollback_adapter_reviewed": True,
+                "observability_adapter_reviewed": True,
+                "process_launch_allowed": False,
+                "start_execution_allowed": False,
+                "subprocess_module_import_allowed": False,
+                "decision_receipt_id": "decision_receipt_pre_start_smoke_guarded_start_process_adapter_review",
+            },
+        )
+        guarded_start_process_adapter_contract = inspect_guarded_start_process_adapter_contract(
+            guarded_start_process_adapter_review=guarded_start_process_adapter_review,
+            process_adapter_contract_authorization={
+                "schema_version": GUARDED_START_PROCESS_ADAPTER_CONTRACT_AUTHORIZATION_SCHEMA_VERSION,
+                "status": "approved_for_guarded_start_process_adapter_contract",
+                "process_adapter_contract_allowed": True,
+                "process_adapter_review_attached": True,
+                "runtime_adapter_contract_required": True,
+                "localized_subprocess_import_boundary_required": True,
+                "pid_guard_adapter_contract_required": True,
+                "startup_timeout_adapter_contract_required": True,
+                "ready_event_adapter_contract_required": True,
+                "stdout_stderr_sanitizers_contract_required": True,
+                "rollback_adapter_contract_required": True,
+                "observability_adapter_contract_required": True,
+                "process_launch_allowed": False,
+                "start_execution_allowed": False,
+                "subprocess_module_import_allowed": False,
+                "decision_receipt_id": "decision_receipt_pre_start_smoke_guarded_start_process_adapter_contract",
+            },
+        )
+        guarded_start_process_runner_contract = inspect_guarded_start_process_runner_contract(
+            guarded_start_process_adapter_contract=guarded_start_process_adapter_contract,
+            process_runner_contract_authorization={
+                "schema_version": GUARDED_START_PROCESS_RUNNER_CONTRACT_AUTHORIZATION_SCHEMA_VERSION,
+                "status": "approved_for_guarded_start_process_runner_contract",
+                "process_runner_contract_allowed": True,
+                "process_adapter_contract_attached": True,
+                "runner_contract_only": True,
+                "single_start_receipt_required": True,
+                "pid_guard_runner_required": True,
+                "startup_timeout_runner_required": True,
+                "ready_event_runner_required": True,
+                "stdout_stderr_sanitizers_runner_required": True,
+                "rollback_runner_required": True,
+                "observability_runner_required": True,
+                "process_launch_allowed": False,
+                "start_execution_allowed": False,
+                "subprocess_module_import_allowed": False,
+                "decision_receipt_id": "decision_receipt_pre_start_smoke_guarded_start_process_runner_contract",
+            },
+        )
+        guarded_start_process_runner_review = inspect_guarded_start_process_runner_review(
+            guarded_start_process_runner_contract=guarded_start_process_runner_contract,
+            process_runner_review_authorization={
+                "schema_version": GUARDED_START_PROCESS_RUNNER_REVIEW_AUTHORIZATION_SCHEMA_VERSION,
+                "status": "approved_for_guarded_start_process_runner_review",
+                "process_runner_review_allowed": True,
+                "process_runner_contract_attached": True,
+                "technical_review_completed": True,
+                "single_start_receipt_reviewed": True,
+                "pid_guard_runner_reviewed": True,
+                "startup_timeout_runner_reviewed": True,
+                "ready_event_runner_reviewed": True,
+                "stdout_stderr_sanitizers_runner_reviewed": True,
+                "rollback_runner_reviewed": True,
+                "observability_runner_reviewed": True,
+                "process_launch_allowed": False,
+                "start_execution_allowed": False,
+                "subprocess_module_import_allowed": False,
+                "decision_receipt_id": "decision_receipt_pre_start_smoke_guarded_start_process_runner_review",
+            },
+        )
+        guarded_start_process_runner_packet = inspect_guarded_start_process_runner_packet(
+            guarded_start_process_runner_review=guarded_start_process_runner_review,
+            process_runner_packet_authorization={
+                "schema_version": GUARDED_START_PROCESS_RUNNER_PACKET_AUTHORIZATION_SCHEMA_VERSION,
+                "status": "approved_for_guarded_start_process_runner_packet",
+                "process_runner_packet_allowed": True,
+                "process_runner_review_attached": True,
+                "runner_packet_only": True,
+                "decision_receipt_attached": True,
+                "argv_env_cwd_redacted": True,
+                "pid_guard_attached": True,
+                "startup_timeout_attached": True,
+                "ready_event_attached": True,
+                "stdout_stderr_sanitizers_attached": True,
+                "rollback_attached": True,
+                "observability_attached": True,
+                "process_launch_allowed": False,
+                "start_execution_allowed": False,
+                "subprocess_module_import_allowed": False,
+                "decision_receipt_id": "decision_receipt_pre_start_smoke_guarded_start_process_runner_packet",
+            },
+        )
+        guarded_start_process_runner_execution_review = inspect_guarded_start_process_runner_execution_review(
+            guarded_start_process_runner_packet=guarded_start_process_runner_packet,
+            process_runner_execution_review_authorization={
+                "schema_version": GUARDED_START_PROCESS_RUNNER_EXECUTION_REVIEW_AUTHORIZATION_SCHEMA_VERSION,
+                "status": "approved_for_guarded_start_process_runner_execution_review",
+                "process_runner_execution_review_allowed": True,
+                "process_runner_packet_attached": True,
+                "technical_review_completed": True,
+                "decision_receipt_reviewed": True,
+                "argv_env_cwd_reviewed": True,
+                "pid_guard_reviewed": True,
+                "startup_timeout_reviewed": True,
+                "ready_event_reviewed": True,
+                "stdout_stderr_sanitizers_reviewed": True,
+                "rollback_reviewed": True,
+                "observability_reviewed": True,
+                "process_launch_allowed": False,
+                "start_execution_allowed": False,
+                "subprocess_module_import_allowed": False,
+                "decision_receipt_id": "decision_receipt_pre_start_smoke_guarded_start_process_runner_execution_review",
+            },
+        )
+        guarded_start_process_runner_execution_contract = inspect_guarded_start_process_runner_execution_contract(
+            guarded_start_process_runner_execution_review=guarded_start_process_runner_execution_review,
+            process_runner_execution_contract_authorization={
+                "schema_version": GUARDED_START_PROCESS_RUNNER_EXECUTION_CONTRACT_AUTHORIZATION_SCHEMA_VERSION,
+                "status": "approved_for_guarded_start_process_runner_execution_contract",
+                "process_runner_execution_contract_allowed": True,
+                "process_runner_execution_review_attached": True,
+                "execution_contract_only": True,
+                "decision_receipt_bound": True,
+                "argv_env_cwd_bound": True,
+                "pid_guard_bound": True,
+                "startup_timeout_bound": True,
+                "ready_event_bound": True,
+                "stdout_stderr_sanitizers_bound": True,
+                "rollback_bound": True,
+                "observability_bound": True,
+                "process_launch_allowed": False,
+                "start_execution_allowed": False,
+                "subprocess_module_import_allowed": False,
+                "decision_receipt_id": "decision_receipt_pre_start_smoke_guarded_start_process_runner_execution_contract",
+            },
+        )
+        guarded_start_process_runner_start_gate = inspect_guarded_start_process_runner_start_gate(
+            guarded_start_process_runner_execution_contract=guarded_start_process_runner_execution_contract,
+            process_runner_start_gate_authorization={
+                "schema_version": GUARDED_START_PROCESS_RUNNER_START_GATE_AUTHORIZATION_SCHEMA_VERSION,
+                "status": "approved_for_guarded_start_process_runner_start_gate",
+                "process_runner_start_gate_allowed": True,
+                "process_runner_execution_contract_attached": True,
+                "start_gate_only": True,
+                "final_receipt_required": True,
+                "single_start_required": True,
+                "pid_guard_required": True,
+                "startup_timeout_required": True,
+                "ready_event_required": True,
+                "stdout_stderr_sanitizers_required": True,
+                "rollback_required": True,
+                "observability_required": True,
+                "process_launch_allowed": False,
+                "start_execution_allowed": False,
+                "subprocess_module_import_allowed": False,
+                "decision_receipt_id": "decision_receipt_pre_start_smoke_guarded_start_process_runner_start_gate",
+            },
+        )
+        guarded_start_process_runner_final_review = inspect_guarded_start_process_runner_final_review(
+            guarded_start_process_runner_start_gate=guarded_start_process_runner_start_gate,
+            process_runner_final_review_authorization={
+                "schema_version": GUARDED_START_PROCESS_RUNNER_FINAL_REVIEW_AUTHORIZATION_SCHEMA_VERSION,
+                "status": "approved_for_guarded_start_process_runner_final_review",
+                "process_runner_final_review_allowed": True,
+                "process_runner_start_gate_attached": True,
+                "final_review_only": True,
+                "final_receipt_attached": True,
+                "single_start_verified": True,
+                "pid_guard_reviewed": True,
+                "startup_timeout_reviewed": True,
+                "ready_event_reviewed": True,
+                "stdout_stderr_sanitizers_reviewed": True,
+                "rollback_reviewed": True,
+                "observability_reviewed": True,
+                "process_launch_allowed": False,
+                "start_execution_allowed": False,
+                "subprocess_module_import_allowed": False,
+                "decision_receipt_id": "decision_receipt_pre_start_smoke_guarded_start_process_runner_final_review",
+                "final_review_receipt_id": "final_review_receipt_pre_start_smoke_guarded_start_process_runner",
+            },
+        )
+        guarded_start_process_runner_promotion_packet = inspect_guarded_start_process_runner_promotion_packet(
+            guarded_start_process_runner_final_review=guarded_start_process_runner_final_review,
+            process_runner_promotion_packet_authorization={
+                "schema_version": GUARDED_START_PROCESS_RUNNER_PROMOTION_PACKET_AUTHORIZATION_SCHEMA_VERSION,
+                "status": "approved_for_guarded_start_process_runner_promotion_packet",
+                "process_runner_promotion_packet_allowed": True,
+                "process_runner_final_review_attached": True,
+                "promotion_packet_only": True,
+                "final_review_receipt_attached": True,
+                "bundle_hash_attached": True,
+                "evidence_manifest_attached": True,
+                "rollback_plan_attached": True,
+                "operator_release_review_required": True,
+                "process_launch_allowed": False,
+                "start_execution_allowed": False,
+                "subprocess_module_import_allowed": False,
+                "decision_receipt_id": "decision_receipt_pre_start_smoke_guarded_start_process_runner_promotion_packet",
+                "promotion_packet_receipt_id": "promotion_packet_receipt_pre_start_smoke_guarded_start_process_runner",
+                "reviewed_bundle_hash": "n"*64,
+            },
+        )
 
         payload = {
             "schema_version": SCHEMA_VERSION,
@@ -527,6 +1249,36 @@ def build_pre_start_health_checks_smoke() -> Mapping[str, Any]:
                 guarded_start_final_enablement_gate,
                 guarded_start_policy_enablement_contract,
                 guarded_start_activation_contract,
+                guarded_start_execution_attempt_contract,
+                guarded_start_execution_rehearsal_contract,
+                guarded_start_observability_contract,
+                guarded_start_release_candidate_contract,
+                guarded_start_operator_acceptance_contract,
+                guarded_start_final_start_receipt_contract,
+                guarded_start_launch_window_contract,
+                guarded_start_pre_launch_guard_contract,
+                guarded_start_executor_runtime_contract,
+                guarded_start_process_spawn_contract,
+                guarded_start_spawn_review_contract,
+                guarded_start_subprocess_import_contract,
+                guarded_start_launch_invocation_contract,
+                guarded_start_final_process_start_contract,
+                guarded_start_process_execution_review,
+                guarded_start_process_execution_packet,
+                guarded_start_process_executor_stub,
+                guarded_start_process_executor_review,
+                guarded_start_process_executor_contract,
+                guarded_start_process_runtime_adapter,
+                guarded_start_process_adapter_review,
+                guarded_start_process_adapter_contract,
+                guarded_start_process_runner_contract,
+                guarded_start_process_runner_review,
+                guarded_start_process_runner_packet,
+                guarded_start_process_runner_execution_review,
+                guarded_start_process_runner_execution_contract,
+                guarded_start_process_runner_start_gate,
+                guarded_start_process_runner_final_review,
+                guarded_start_process_runner_promotion_packet,
             ),
             "surface_id": "voice_realtime",
             "runtime_id": "livekit_agents_sdk",
@@ -566,6 +1318,36 @@ def build_pre_start_health_checks_smoke() -> Mapping[str, Any]:
             "guarded_start_final_enablement_gate": guarded_start_final_enablement_gate,
             "guarded_start_policy_enablement_contract": guarded_start_policy_enablement_contract,
             "guarded_start_activation_contract": guarded_start_activation_contract,
+            "guarded_start_execution_attempt_contract": guarded_start_execution_attempt_contract,
+            "guarded_start_execution_rehearsal_contract": guarded_start_execution_rehearsal_contract,
+            "guarded_start_observability_contract": guarded_start_observability_contract,
+            "guarded_start_release_candidate_contract": guarded_start_release_candidate_contract,
+            "guarded_start_operator_acceptance_contract": guarded_start_operator_acceptance_contract,
+            "guarded_start_final_start_receipt_contract": guarded_start_final_start_receipt_contract,
+            "guarded_start_launch_window_contract": guarded_start_launch_window_contract,
+            "guarded_start_pre_launch_guard_contract": guarded_start_pre_launch_guard_contract,
+            "guarded_start_executor_runtime_contract": guarded_start_executor_runtime_contract,
+            "guarded_start_process_spawn_contract": guarded_start_process_spawn_contract,
+            "guarded_start_spawn_review_contract": guarded_start_spawn_review_contract,
+            "guarded_start_subprocess_import_contract": guarded_start_subprocess_import_contract,
+            "guarded_start_launch_invocation_contract": guarded_start_launch_invocation_contract,
+            "guarded_start_final_process_start_contract": guarded_start_final_process_start_contract,
+            "guarded_start_process_execution_review": guarded_start_process_execution_review,
+            "guarded_start_process_execution_packet": guarded_start_process_execution_packet,
+            "guarded_start_process_executor_stub": guarded_start_process_executor_stub,
+            "guarded_start_process_executor_review": guarded_start_process_executor_review,
+            "guarded_start_process_executor_contract": guarded_start_process_executor_contract,
+            "guarded_start_process_runtime_adapter": guarded_start_process_runtime_adapter,
+            "guarded_start_process_adapter_review": guarded_start_process_adapter_review,
+            "guarded_start_process_adapter_contract": guarded_start_process_adapter_contract,
+            "guarded_start_process_runner_contract": guarded_start_process_runner_contract,
+            "guarded_start_process_runner_review": guarded_start_process_runner_review,
+            "guarded_start_process_runner_packet": guarded_start_process_runner_packet,
+            "guarded_start_process_runner_execution_review": guarded_start_process_runner_execution_review,
+            "guarded_start_process_runner_execution_contract": guarded_start_process_runner_execution_contract,
+            "guarded_start_process_runner_start_gate": guarded_start_process_runner_start_gate,
+            "guarded_start_process_runner_final_review": guarded_start_process_runner_final_review,
+            "guarded_start_process_runner_promotion_packet": guarded_start_process_runner_promotion_packet,
             "gates": {
                 "managed_env_placeholder_written": env_write.get("env_file_written") is True,
                 "managed_env_target_redacted": True,
@@ -593,6 +1375,36 @@ def build_pre_start_health_checks_smoke() -> Mapping[str, Any]:
                 "guarded_start_final_enablement_gate_ready": guarded_start_final_enablement_gate.get("status") == "ready_for_guarded_start_policy_enablement_contract",
                 "guarded_start_policy_enablement_contract_ready": guarded_start_policy_enablement_contract.get("status") == "ready_for_guarded_start_activation_contract",
                 "guarded_start_activation_contract_ready": guarded_start_activation_contract.get("status") == "ready_for_guarded_start_execution_attempt_contract",
+                "guarded_start_execution_attempt_contract_ready": guarded_start_execution_attempt_contract.get("status") == "ready_for_guarded_start_execution_rehearsal_contract",
+                "guarded_start_execution_rehearsal_contract_ready": guarded_start_execution_rehearsal_contract.get("status") == "ready_for_guarded_start_observability_contract",
+                "guarded_start_observability_contract_ready": guarded_start_observability_contract.get("status") == "ready_for_guarded_start_release_candidate_contract",
+                "guarded_start_release_candidate_contract_ready": guarded_start_release_candidate_contract.get("status") == "ready_for_guarded_start_operator_acceptance_contract",
+                "guarded_start_operator_acceptance_contract_ready": guarded_start_operator_acceptance_contract.get("status") == "ready_for_guarded_start_final_start_receipt_contract",
+                "guarded_start_final_start_receipt_contract_ready": guarded_start_final_start_receipt_contract.get("status") == "ready_for_guarded_start_launch_window_contract",
+                "guarded_start_launch_window_contract_ready": guarded_start_launch_window_contract.get("status") == "ready_for_guarded_start_pre_launch_guard_contract",
+                "guarded_start_pre_launch_guard_contract_ready": guarded_start_pre_launch_guard_contract.get("status") == "ready_for_guarded_start_executor_runtime_contract",
+                "guarded_start_executor_runtime_contract_ready": guarded_start_executor_runtime_contract.get("status") == "ready_for_guarded_start_process_spawn_contract",
+                "guarded_start_process_spawn_contract_ready": guarded_start_process_spawn_contract.get("status") == "ready_for_guarded_start_spawn_review_contract",
+                "guarded_start_spawn_review_contract_ready": guarded_start_spawn_review_contract.get("status") == "ready_for_guarded_start_subprocess_import_contract",
+                "guarded_start_subprocess_import_contract_ready": guarded_start_subprocess_import_contract.get("status") == "ready_for_guarded_start_launch_invocation_contract",
+                "guarded_start_launch_invocation_contract_ready": guarded_start_launch_invocation_contract.get("status") == "ready_for_guarded_start_final_process_start_contract",
+                "guarded_start_final_process_start_contract_ready": guarded_start_final_process_start_contract.get("status") == "ready_for_guarded_start_process_execution_review",
+                "guarded_start_process_execution_review_ready": guarded_start_process_execution_review.get("status") == "ready_for_guarded_start_process_execution_packet",
+                "guarded_start_process_execution_packet_ready": guarded_start_process_execution_packet.get("status") == "ready_for_guarded_start_process_executor_stub",
+                "guarded_start_process_executor_stub_ready": guarded_start_process_executor_stub.get("status") == "ready_for_guarded_start_process_executor_review",
+                "guarded_start_process_executor_review_ready": guarded_start_process_executor_review.get("status") == "ready_for_guarded_start_process_executor_contract",
+                "guarded_start_process_executor_contract_ready": guarded_start_process_executor_contract.get("status") == "ready_for_guarded_start_process_runtime_adapter",
+                "guarded_start_process_runtime_adapter_ready": guarded_start_process_runtime_adapter.get("status") == "ready_for_guarded_start_process_adapter_review",
+                "guarded_start_process_adapter_review_ready": guarded_start_process_adapter_review.get("status") == "ready_for_guarded_start_process_adapter_contract",
+                "guarded_start_process_adapter_contract_ready": guarded_start_process_adapter_contract.get("status") == "ready_for_guarded_start_process_runner_contract",
+                "guarded_start_process_runner_contract_ready": guarded_start_process_runner_contract.get("status") == "ready_for_guarded_start_process_runner_review",
+                "guarded_start_process_runner_review_ready": guarded_start_process_runner_review.get("status") == "ready_for_guarded_start_process_runner_packet",
+                "guarded_start_process_runner_packet_ready": guarded_start_process_runner_packet.get("status") == "ready_for_guarded_start_process_runner_execution_review",
+                "guarded_start_process_runner_execution_review_ready": guarded_start_process_runner_execution_review.get("status") == "ready_for_guarded_start_process_runner_execution_contract",
+                "guarded_start_process_runner_execution_contract_ready": guarded_start_process_runner_execution_contract.get("status") == "ready_for_guarded_start_process_runner_start_gate",
+                "guarded_start_process_runner_start_gate_ready": guarded_start_process_runner_start_gate.get("status") == "ready_for_guarded_start_process_runner_final_review",
+                "guarded_start_process_runner_final_review_ready": guarded_start_process_runner_final_review.get("status") == "ready_for_guarded_start_process_runner_promotion_packet",
+                "guarded_start_process_runner_promotion_packet_ready": guarded_start_process_runner_promotion_packet.get("status") == "ready_for_guarded_start_process_runner_operator_release",
                 "process_launch_disabled": True,
                 "provider_calls_forbidden": True,
                 "tool_calls_forbidden": True,
@@ -624,6 +1436,36 @@ def build_pre_start_health_checks_smoke() -> Mapping[str, Any]:
                 "VOICE_DAEMON_GUARDED_START_FINAL_ENABLEMENT_GATE_EVALUATED",
                 "VOICE_DAEMON_GUARDED_START_POLICY_ENABLEMENT_CONTRACT_EVALUATED",
                 "VOICE_DAEMON_GUARDED_START_ACTIVATION_CONTRACT_EVALUATED",
+                "VOICE_DAEMON_GUARDED_START_EXECUTION_ATTEMPT_CONTRACT_EVALUATED",
+                "VOICE_DAEMON_GUARDED_START_EXECUTION_REHEARSAL_CONTRACT_EVALUATED",
+                "VOICE_DAEMON_GUARDED_START_OBSERVABILITY_CONTRACT_EVALUATED",
+                "VOICE_DAEMON_GUARDED_START_RELEASE_CANDIDATE_CONTRACT_EVALUATED",
+                "VOICE_DAEMON_GUARDED_START_OPERATOR_ACCEPTANCE_CONTRACT_EVALUATED",
+                "VOICE_DAEMON_GUARDED_START_FINAL_START_RECEIPT_CONTRACT_EVALUATED",
+                "VOICE_DAEMON_GUARDED_START_LAUNCH_WINDOW_CONTRACT_EVALUATED",
+                "VOICE_DAEMON_GUARDED_START_PRE_LAUNCH_GUARD_CONTRACT_EVALUATED",
+                "VOICE_DAEMON_GUARDED_START_EXECUTOR_RUNTIME_CONTRACT_EVALUATED",
+                "VOICE_DAEMON_GUARDED_START_PROCESS_SPAWN_CONTRACT_EVALUATED",
+                "VOICE_DAEMON_GUARDED_START_SPAWN_REVIEW_CONTRACT_EVALUATED",
+                "VOICE_DAEMON_GUARDED_START_SUBPROCESS_IMPORT_CONTRACT_EVALUATED",
+                "VOICE_DAEMON_GUARDED_START_LAUNCH_INVOCATION_CONTRACT_EVALUATED",
+                "VOICE_DAEMON_GUARDED_START_FINAL_PROCESS_START_CONTRACT_EVALUATED",
+                "VOICE_DAEMON_GUARDED_START_PROCESS_EXECUTION_REVIEWED",
+                "VOICE_DAEMON_GUARDED_START_PROCESS_EXECUTION_PACKET_ATTACHED",
+                "VOICE_DAEMON_GUARDED_START_PROCESS_EXECUTOR_STUB_DECLARED",
+                "VOICE_DAEMON_GUARDED_START_PROCESS_EXECUTOR_REVIEWED",
+                "VOICE_DAEMON_GUARDED_START_PROCESS_EXECUTOR_CONTRACT_EVALUATED",
+                "VOICE_DAEMON_GUARDED_START_PROCESS_RUNTIME_ADAPTER_EVALUATED",
+                "VOICE_DAEMON_GUARDED_START_PROCESS_ADAPTER_REVIEWED",
+                "VOICE_DAEMON_GUARDED_START_PROCESS_ADAPTER_CONTRACT_EVALUATED",
+                "VOICE_DAEMON_GUARDED_START_PROCESS_RUNNER_CONTRACT_EVALUATED",
+                "VOICE_DAEMON_GUARDED_START_PROCESS_RUNNER_REVIEWED",
+                "VOICE_DAEMON_GUARDED_START_PROCESS_RUNNER_PACKET_ATTACHED",
+                "VOICE_DAEMON_GUARDED_START_PROCESS_RUNNER_EXECUTION_REVIEWED",
+                "VOICE_DAEMON_GUARDED_START_PROCESS_RUNNER_EXECUTION_CONTRACT_EVALUATED",
+                "VOICE_DAEMON_GUARDED_START_PROCESS_RUNNER_START_GATE_EVALUATED",
+                "VOICE_DAEMON_GUARDED_START_PROCESS_RUNNER_FINAL_REVIEWED",
+                "VOICE_DAEMON_GUARDED_START_PROCESS_RUNNER_PROMOTION_PACKET_ATTACHED",
                 "VOICE_DAEMON_SUBPROCESS_START_BLOCKED",
             ],
         }
@@ -721,6 +1563,36 @@ def _status(
     guarded_start_final_enablement_gate: Mapping[str, Any] | None = None,
     guarded_start_policy_enablement_contract: Mapping[str, Any] | None = None,
     guarded_start_activation_contract: Mapping[str, Any] | None = None,
+    guarded_start_execution_attempt_contract: Mapping[str, Any] | None = None,
+    guarded_start_execution_rehearsal_contract: Mapping[str, Any] | None = None,
+    guarded_start_observability_contract: Mapping[str, Any] | None = None,
+    guarded_start_release_candidate_contract: Mapping[str, Any] | None = None,
+    guarded_start_operator_acceptance_contract: Mapping[str, Any] | None = None,
+    guarded_start_final_start_receipt_contract: Mapping[str, Any] | None = None,
+    guarded_start_launch_window_contract: Mapping[str, Any] | None = None,
+    guarded_start_pre_launch_guard_contract: Mapping[str, Any] | None = None,
+    guarded_start_executor_runtime_contract: Mapping[str, Any] | None = None,
+    guarded_start_process_spawn_contract: Mapping[str, Any] | None = None,
+    guarded_start_spawn_review_contract: Mapping[str, Any] | None = None,
+    guarded_start_subprocess_import_contract: Mapping[str, Any] | None = None,
+    guarded_start_launch_invocation_contract: Mapping[str, Any] | None = None,
+    guarded_start_final_process_start_contract: Mapping[str, Any] | None = None,
+    guarded_start_process_execution_review: Mapping[str, Any] | None = None,
+    guarded_start_process_execution_packet: Mapping[str, Any] | None = None,
+    guarded_start_process_executor_stub: Mapping[str, Any] | None = None,
+    guarded_start_process_executor_review: Mapping[str, Any] | None = None,
+    guarded_start_process_executor_contract: Mapping[str, Any] | None = None,
+    guarded_start_process_runtime_adapter: Mapping[str, Any] | None = None,
+    guarded_start_process_adapter_review: Mapping[str, Any] | None = None,
+    guarded_start_process_adapter_contract: Mapping[str, Any] | None = None,
+    guarded_start_process_runner_contract: Mapping[str, Any] | None = None,
+    guarded_start_process_runner_review: Mapping[str, Any] | None = None,
+    guarded_start_process_runner_packet: Mapping[str, Any] | None = None,
+    guarded_start_process_runner_execution_review: Mapping[str, Any] | None = None,
+    guarded_start_process_runner_execution_contract: Mapping[str, Any] | None = None,
+    guarded_start_process_runner_start_gate: Mapping[str, Any] | None = None,
+    guarded_start_process_runner_final_review: Mapping[str, Any] | None = None,
+    guarded_start_process_runner_promotion_packet: Mapping[str, Any] | None = None,
 ) -> str:
     if (
         pre_start_health_checks.get("status") == "passed_no_process_start"
@@ -808,6 +1680,156 @@ def _status(
         and (
             guarded_start_activation_contract is None
             or guarded_start_activation_contract.get("status") == "ready_for_guarded_start_execution_attempt_contract"
+        )
+        and (
+            guarded_start_execution_attempt_contract is None
+            or guarded_start_execution_attempt_contract.get("status")
+            == "ready_for_guarded_start_execution_rehearsal_contract"
+        )
+        and (
+            guarded_start_execution_rehearsal_contract is None
+            or guarded_start_execution_rehearsal_contract.get("status")
+            == "ready_for_guarded_start_observability_contract"
+        )
+        and (
+            guarded_start_observability_contract is None
+            or guarded_start_observability_contract.get("status")
+            == "ready_for_guarded_start_release_candidate_contract"
+        )
+        and (
+            guarded_start_release_candidate_contract is None
+            or guarded_start_release_candidate_contract.get("status")
+            == "ready_for_guarded_start_operator_acceptance_contract"
+        )
+        and (
+            guarded_start_operator_acceptance_contract is None
+            or guarded_start_operator_acceptance_contract.get("status")
+            == "ready_for_guarded_start_final_start_receipt_contract"
+        )
+        and (
+            guarded_start_final_start_receipt_contract is None
+            or guarded_start_final_start_receipt_contract.get("status")
+            == "ready_for_guarded_start_launch_window_contract"
+        )
+        and (
+            guarded_start_launch_window_contract is None
+            or guarded_start_launch_window_contract.get("status")
+            == "ready_for_guarded_start_pre_launch_guard_contract"
+        )
+        and (
+            guarded_start_pre_launch_guard_contract is None
+            or guarded_start_pre_launch_guard_contract.get("status")
+            == "ready_for_guarded_start_executor_runtime_contract"
+        )
+        and (
+            guarded_start_executor_runtime_contract is None
+            or guarded_start_executor_runtime_contract.get("status")
+            == "ready_for_guarded_start_process_spawn_contract"
+        )
+        and (
+            guarded_start_process_spawn_contract is None
+            or guarded_start_process_spawn_contract.get("status")
+            == "ready_for_guarded_start_spawn_review_contract"
+        )
+        and (
+            guarded_start_spawn_review_contract is None
+            or guarded_start_spawn_review_contract.get("status")
+            == "ready_for_guarded_start_subprocess_import_contract"
+        )
+        and (
+            guarded_start_subprocess_import_contract is None
+            or guarded_start_subprocess_import_contract.get("status")
+            == "ready_for_guarded_start_launch_invocation_contract"
+        )
+        and (
+            guarded_start_launch_invocation_contract is None
+            or guarded_start_launch_invocation_contract.get("status")
+            == "ready_for_guarded_start_final_process_start_contract"
+        )
+        and (
+            guarded_start_final_process_start_contract is None
+            or guarded_start_final_process_start_contract.get("status")
+            == "ready_for_guarded_start_process_execution_review"
+        )
+        and (
+            guarded_start_process_execution_review is None
+            or guarded_start_process_execution_review.get("status")
+            == "ready_for_guarded_start_process_execution_packet"
+        )
+        and (
+            guarded_start_process_execution_packet is None
+            or guarded_start_process_execution_packet.get("status")
+            == "ready_for_guarded_start_process_executor_stub"
+        )
+        and (
+            guarded_start_process_executor_stub is None
+            or guarded_start_process_executor_stub.get("status")
+            == "ready_for_guarded_start_process_executor_review"
+        )
+        and (
+            guarded_start_process_executor_review is None
+            or guarded_start_process_executor_review.get("status")
+            == "ready_for_guarded_start_process_executor_contract"
+        )
+        and (
+            guarded_start_process_executor_contract is None
+            or guarded_start_process_executor_contract.get("status")
+            == "ready_for_guarded_start_process_runtime_adapter"
+        )
+        and (
+            guarded_start_process_runtime_adapter is None
+            or guarded_start_process_runtime_adapter.get("status")
+            == "ready_for_guarded_start_process_adapter_review"
+        )
+        and (
+            guarded_start_process_adapter_review is None
+            or guarded_start_process_adapter_review.get("status")
+            == "ready_for_guarded_start_process_adapter_contract"
+        )
+        and (
+            guarded_start_process_adapter_contract is None
+            or guarded_start_process_adapter_contract.get("status")
+            == "ready_for_guarded_start_process_runner_contract"
+        )
+        and (
+            guarded_start_process_runner_contract is None
+            or guarded_start_process_runner_contract.get("status")
+            == "ready_for_guarded_start_process_runner_review"
+        )
+        and (
+            guarded_start_process_runner_review is None
+            or guarded_start_process_runner_review.get("status")
+            == "ready_for_guarded_start_process_runner_packet"
+        )
+        and (
+            guarded_start_process_runner_packet is None
+            or guarded_start_process_runner_packet.get("status")
+            == "ready_for_guarded_start_process_runner_execution_review"
+        )
+        and (
+            guarded_start_process_runner_execution_review is None
+            or guarded_start_process_runner_execution_review.get("status")
+            == "ready_for_guarded_start_process_runner_execution_contract"
+        )
+        and (
+            guarded_start_process_runner_execution_contract is None
+            or guarded_start_process_runner_execution_contract.get("status")
+            == "ready_for_guarded_start_process_runner_start_gate"
+        )
+        and (
+            guarded_start_process_runner_start_gate is None
+            or guarded_start_process_runner_start_gate.get("status")
+            == "ready_for_guarded_start_process_runner_final_review"
+        )
+        and (
+            guarded_start_process_runner_final_review is None
+            or guarded_start_process_runner_final_review.get("status")
+            == "ready_for_guarded_start_process_runner_promotion_packet"
+        )
+        and (
+            guarded_start_process_runner_promotion_packet is None
+            or guarded_start_process_runner_promotion_packet.get("status")
+            == "ready_for_guarded_start_process_runner_operator_release"
         )
     ):
         return "passed_no_process_start"

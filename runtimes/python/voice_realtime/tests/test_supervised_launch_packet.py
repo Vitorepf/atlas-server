@@ -6,6 +6,36 @@ import unittest
 from atlas_voice_agent.supervised_launch_execution import (
     execute_pre_start_health_checks,
     inspect_guarded_start_activation_contract,
+    inspect_guarded_start_execution_attempt_contract,
+    inspect_guarded_start_execution_rehearsal_contract,
+    inspect_guarded_start_observability_contract,
+    inspect_guarded_start_operator_acceptance_contract,
+    inspect_guarded_start_final_start_receipt_contract,
+    inspect_guarded_start_launch_window_contract,
+    inspect_guarded_start_pre_launch_guard_contract,
+    inspect_guarded_start_executor_runtime_contract,
+    inspect_guarded_start_process_spawn_contract,
+    inspect_guarded_start_spawn_review_contract,
+    inspect_guarded_start_subprocess_import_contract,
+    inspect_guarded_start_launch_invocation_contract,
+    inspect_guarded_start_final_process_start_contract,
+    inspect_guarded_start_process_execution_review,
+    inspect_guarded_start_process_execution_packet,
+    inspect_guarded_start_process_executor_stub,
+    inspect_guarded_start_process_executor_review,
+    inspect_guarded_start_process_executor_contract,
+    inspect_guarded_start_process_runtime_adapter,
+    inspect_guarded_start_process_adapter_review,
+    inspect_guarded_start_process_adapter_contract,
+    inspect_guarded_start_process_runner_contract,
+    inspect_guarded_start_process_runner_execution_contract,
+    inspect_guarded_start_process_runner_execution_review,
+    inspect_guarded_start_process_runner_packet,
+    inspect_guarded_start_process_runner_review,
+    inspect_guarded_start_process_runner_final_review,
+    inspect_guarded_start_process_runner_promotion_packet,
+    inspect_guarded_start_process_runner_start_gate,
+    inspect_guarded_start_release_candidate_contract,
     inspect_final_start_executor_disabled_by_default,
     inspect_final_start_executor_enablement_gate,
     inspect_guarded_start_dry_run_contract,
@@ -32,6 +62,36 @@ from atlas_voice_agent.supervised_launch_packet import (
     SupervisedLaunchPacketViolation,
     validate_pre_start_health_checks_packet,
     validate_guarded_start_activation_contract_packet,
+    validate_guarded_start_execution_attempt_contract_packet,
+    validate_guarded_start_execution_rehearsal_contract_packet,
+    validate_guarded_start_observability_contract_packet,
+    validate_guarded_start_operator_acceptance_contract_packet,
+    validate_guarded_start_final_start_receipt_contract_packet,
+    validate_guarded_start_launch_window_contract_packet,
+    validate_guarded_start_pre_launch_guard_contract_packet,
+    validate_guarded_start_executor_runtime_contract_packet,
+    validate_guarded_start_process_spawn_contract_packet,
+    validate_guarded_start_spawn_review_contract_packet,
+    validate_guarded_start_subprocess_import_contract_packet,
+    validate_guarded_start_launch_invocation_contract_packet,
+    validate_guarded_start_final_process_start_contract_packet,
+    validate_guarded_start_process_execution_review_packet,
+    validate_guarded_start_process_execution_packet_packet,
+    validate_guarded_start_process_executor_stub_packet,
+    validate_guarded_start_process_executor_review_packet,
+    validate_guarded_start_process_executor_contract_packet,
+    validate_guarded_start_process_runtime_adapter_packet,
+    validate_guarded_start_process_adapter_review_packet,
+    validate_guarded_start_process_adapter_contract_packet,
+    validate_guarded_start_process_runner_contract_packet,
+    validate_guarded_start_process_runner_execution_contract_packet,
+    validate_guarded_start_process_runner_execution_review_packet,
+    validate_guarded_start_process_runner_packet_packet,
+    validate_guarded_start_process_runner_review_packet,
+    validate_guarded_start_process_runner_final_review_packet,
+    validate_guarded_start_process_runner_promotion_packet_packet,
+    validate_guarded_start_process_runner_start_gate_packet,
+    validate_guarded_start_release_candidate_contract_packet,
     validate_final_start_executor_disabled_packet,
     validate_final_start_executor_enablement_gate_packet,
     validate_guarded_start_dry_run_contract_packet,
@@ -70,6 +130,36 @@ from test_supervised_launch_execution import (
     ready_guarded_start_human_review_contract,
     ready_guarded_start_policy_enablement_contract,
     ready_guarded_start_activation_contract,
+    ready_guarded_start_execution_attempt_contract,
+    ready_guarded_start_execution_rehearsal_contract,
+    ready_guarded_start_observability_contract,
+    ready_guarded_start_operator_acceptance_contract,
+    ready_guarded_start_final_start_receipt_contract,
+    ready_guarded_start_launch_window_contract,
+    ready_guarded_start_pre_launch_guard_contract,
+    ready_guarded_start_executor_runtime_contract,
+    ready_guarded_start_process_spawn_contract,
+    ready_guarded_start_spawn_review_contract,
+    ready_guarded_start_subprocess_import_contract,
+    ready_guarded_start_launch_invocation_contract,
+    ready_guarded_start_final_process_start_contract,
+    ready_guarded_start_process_execution_review,
+    ready_guarded_start_process_execution_packet,
+    ready_guarded_start_process_executor_stub,
+    ready_guarded_start_process_executor_review,
+    ready_guarded_start_process_executor_contract,
+    ready_guarded_start_process_runtime_adapter,
+    ready_guarded_start_process_adapter_review,
+    ready_guarded_start_process_adapter_contract,
+    ready_guarded_start_process_runner_contract,
+    ready_guarded_start_process_runner_execution_contract,
+    ready_guarded_start_process_runner_execution_review,
+    ready_guarded_start_process_runner_packet,
+    ready_guarded_start_process_runner_review,
+    ready_guarded_start_process_runner_final_review,
+    ready_guarded_start_process_runner_promotion_packet,
+    ready_guarded_start_process_runner_start_gate,
+    ready_guarded_start_release_candidate_contract,
     ready_guarded_start_policy_patch_review_contract,
     ready_guarded_start_runtime_handoff_contract,
     ready_guarded_start_simulation_contract,
@@ -90,6 +180,36 @@ from test_supervised_launch_execution import (
     valid_guarded_start_human_review_authorization,
     valid_guarded_start_policy_enablement_authorization,
     valid_guarded_start_activation_authorization,
+    valid_guarded_start_execution_attempt_authorization,
+    valid_guarded_start_execution_rehearsal_authorization,
+    valid_guarded_start_observability_authorization,
+    valid_guarded_start_operator_acceptance_authorization,
+    valid_guarded_start_final_start_receipt_authorization,
+    valid_guarded_start_launch_window_authorization,
+    valid_guarded_start_pre_launch_guard_authorization,
+    valid_guarded_start_executor_runtime_authorization,
+    valid_guarded_start_process_spawn_authorization,
+    valid_guarded_start_spawn_review_authorization,
+    valid_guarded_start_subprocess_import_authorization,
+    valid_guarded_start_launch_invocation_authorization,
+    valid_guarded_start_final_process_start_authorization,
+    valid_guarded_start_process_execution_review_authorization,
+    valid_guarded_start_process_execution_packet_authorization,
+    valid_guarded_start_process_executor_stub_authorization,
+    valid_guarded_start_process_executor_review_authorization,
+    valid_guarded_start_process_executor_contract_authorization,
+    valid_guarded_start_process_runtime_adapter_authorization,
+    valid_guarded_start_process_adapter_review_authorization,
+    valid_guarded_start_process_adapter_contract_authorization,
+    valid_guarded_start_process_runner_contract_authorization,
+    valid_guarded_start_process_runner_execution_contract_authorization,
+    valid_guarded_start_process_runner_execution_review_authorization,
+    valid_guarded_start_process_runner_packet_authorization,
+    valid_guarded_start_process_runner_review_authorization,
+    valid_guarded_start_process_runner_final_review_authorization,
+    valid_guarded_start_process_runner_promotion_packet_authorization,
+    valid_guarded_start_process_runner_start_gate_authorization,
+    valid_guarded_start_release_candidate_authorization,
     valid_guarded_start_policy_patch_review_authorization,
     valid_guarded_start_runtime_handoff_plan,
     valid_guarded_start_simulation_plan,
@@ -768,6 +888,907 @@ class SupervisedLaunchPacketTest(unittest.TestCase):
 
         with self.assertRaisesRegex(SupervisedLaunchPacketViolation, "forbidden supervised_launch keys"):
             validate_guarded_start_activation_contract_packet(payload)
+
+    def test_accepts_guarded_start_execution_attempt_contract_without_starting(self) -> None:
+        payload = inspect_guarded_start_execution_attempt_contract(
+            guarded_start_activation_contract=ready_guarded_start_activation_contract(),
+            execution_attempt_authorization=valid_guarded_start_execution_attempt_authorization(),
+        )
+
+        validated = validate_guarded_start_execution_attempt_contract_packet(payload)
+
+        self.assertIs(validated, payload)
+        self.assertTrue(validated["execution_attempt_contract_only"])
+        self.assertTrue(validated["runtime_policy_start_enabled"])
+        self.assertFalse(validated["start_execution_allowed"])
+        self.assertFalse(validated["daemon_started"])
+
+    def test_rejects_guarded_start_execution_attempt_contract_that_starts(self) -> None:
+        payload = dict(ready_guarded_start_execution_attempt_contract())
+        payload["daemon_started"] = True
+
+        with self.assertRaisesRegex(SupervisedLaunchPacketViolation, "daemon_started"):
+            validate_guarded_start_execution_attempt_contract_packet(payload)
+
+    def test_rejects_guarded_start_execution_attempt_contract_with_tool_call(self) -> None:
+        payload = dict(ready_guarded_start_execution_attempt_contract())
+        payload["debug"] = {"tool_call": "never"}
+
+        with self.assertRaisesRegex(SupervisedLaunchPacketViolation, "forbidden supervised_launch keys"):
+            validate_guarded_start_execution_attempt_contract_packet(payload)
+
+    def test_accepts_guarded_start_execution_rehearsal_contract_without_starting(self) -> None:
+        payload = inspect_guarded_start_execution_rehearsal_contract(
+            guarded_start_execution_attempt_contract=ready_guarded_start_execution_attempt_contract(),
+            execution_rehearsal_authorization=valid_guarded_start_execution_rehearsal_authorization(),
+        )
+
+        validated = validate_guarded_start_execution_rehearsal_contract_packet(payload)
+
+        self.assertIs(validated, payload)
+        self.assertTrue(validated["execution_rehearsal_contract_only"])
+        self.assertTrue(validated["runtime_policy_start_enabled"])
+        self.assertFalse(validated["start_execution_allowed"])
+        self.assertFalse(validated["daemon_started"])
+
+    def test_rejects_guarded_start_execution_rehearsal_contract_that_starts(self) -> None:
+        payload = dict(ready_guarded_start_execution_rehearsal_contract())
+        payload["process_launch_attempted"] = True
+
+        with self.assertRaisesRegex(SupervisedLaunchPacketViolation, "process_launch_attempted"):
+            validate_guarded_start_execution_rehearsal_contract_packet(payload)
+
+    def test_rejects_guarded_start_execution_rehearsal_contract_with_raw_audio(self) -> None:
+        payload = dict(ready_guarded_start_execution_rehearsal_contract())
+        payload["debug"] = {"raw_audio": "never"}
+
+        with self.assertRaisesRegex(SupervisedLaunchPacketViolation, "forbidden supervised_launch keys"):
+            validate_guarded_start_execution_rehearsal_contract_packet(payload)
+
+    def test_accepts_guarded_start_observability_contract_without_starting(self) -> None:
+        payload = inspect_guarded_start_observability_contract(
+            guarded_start_execution_rehearsal_contract=ready_guarded_start_execution_rehearsal_contract(),
+            observability_authorization=valid_guarded_start_observability_authorization(),
+        )
+
+        validated = validate_guarded_start_observability_contract_packet(payload)
+
+        self.assertIs(validated, payload)
+        self.assertTrue(validated["observability_contract_only"])
+        self.assertTrue(validated["runtime_policy_start_enabled"])
+        self.assertFalse(validated["start_execution_allowed"])
+        self.assertFalse(validated["daemon_started"])
+
+    def test_rejects_guarded_start_observability_contract_that_starts(self) -> None:
+        payload = dict(ready_guarded_start_observability_contract())
+        payload["process_launch_allowed"] = True
+
+        with self.assertRaisesRegex(SupervisedLaunchPacketViolation, "process_launch_allowed"):
+            validate_guarded_start_observability_contract_packet(payload)
+
+    def test_rejects_guarded_start_observability_contract_with_provider_call(self) -> None:
+        payload = dict(ready_guarded_start_observability_contract())
+        payload["debug"] = {"direct_provider_call": "never"}
+
+        with self.assertRaisesRegex(SupervisedLaunchPacketViolation, "forbidden supervised_launch keys"):
+            validate_guarded_start_observability_contract_packet(payload)
+
+    def test_accepts_guarded_start_release_candidate_contract_without_starting(self) -> None:
+        payload = inspect_guarded_start_release_candidate_contract(
+            guarded_start_observability_contract=ready_guarded_start_observability_contract(),
+            release_candidate_authorization=valid_guarded_start_release_candidate_authorization(),
+        )
+
+        validated = validate_guarded_start_release_candidate_contract_packet(payload)
+
+        self.assertIs(validated, payload)
+        self.assertTrue(validated["release_candidate_contract_only"])
+        self.assertTrue(validated["runtime_policy_start_enabled"])
+        self.assertFalse(validated["start_execution_allowed"])
+        self.assertFalse(validated["daemon_started"])
+
+    def test_rejects_guarded_start_release_candidate_contract_that_starts(self) -> None:
+        payload = dict(ready_guarded_start_release_candidate_contract())
+        payload["daemon_started"] = True
+
+        with self.assertRaisesRegex(SupervisedLaunchPacketViolation, "daemon_started"):
+            validate_guarded_start_release_candidate_contract_packet(payload)
+
+    def test_rejects_guarded_start_release_candidate_contract_with_raw_audio(self) -> None:
+        payload = dict(ready_guarded_start_release_candidate_contract())
+        payload["debug"] = {"raw_audio": "never"}
+
+        with self.assertRaisesRegex(SupervisedLaunchPacketViolation, "forbidden supervised_launch keys"):
+            validate_guarded_start_release_candidate_contract_packet(payload)
+
+    def test_accepts_guarded_start_operator_acceptance_contract_without_starting(self) -> None:
+        payload = inspect_guarded_start_operator_acceptance_contract(
+            guarded_start_release_candidate_contract=ready_guarded_start_release_candidate_contract(),
+            operator_acceptance_authorization=valid_guarded_start_operator_acceptance_authorization(),
+        )
+
+        validated = validate_guarded_start_operator_acceptance_contract_packet(payload)
+
+        self.assertIs(validated, payload)
+        self.assertTrue(validated["operator_acceptance_contract_only"])
+        self.assertTrue(validated["runtime_policy_start_enabled"])
+        self.assertFalse(validated["start_execution_allowed"])
+        self.assertFalse(validated["daemon_started"])
+
+    def test_rejects_guarded_start_operator_acceptance_contract_that_starts(self) -> None:
+        payload = dict(ready_guarded_start_operator_acceptance_contract())
+        payload["daemon_started"] = True
+
+        with self.assertRaisesRegex(SupervisedLaunchPacketViolation, "daemon_started"):
+            validate_guarded_start_operator_acceptance_contract_packet(payload)
+
+    def test_rejects_guarded_start_operator_acceptance_contract_with_raw_audio(self) -> None:
+        payload = dict(ready_guarded_start_operator_acceptance_contract())
+        payload["debug"] = {"raw_audio": "never"}
+
+        with self.assertRaisesRegex(SupervisedLaunchPacketViolation, "forbidden supervised_launch keys"):
+            validate_guarded_start_operator_acceptance_contract_packet(payload)
+
+    def test_accepts_guarded_start_final_start_receipt_contract_without_starting(self) -> None:
+        payload = inspect_guarded_start_final_start_receipt_contract(
+            guarded_start_operator_acceptance_contract=ready_guarded_start_operator_acceptance_contract(),
+            final_start_receipt_authorization=valid_guarded_start_final_start_receipt_authorization(),
+        )
+
+        validated = validate_guarded_start_final_start_receipt_contract_packet(payload)
+
+        self.assertIs(validated, payload)
+        self.assertTrue(validated["final_start_receipt_contract_only"])
+        self.assertTrue(validated["runtime_policy_start_enabled"])
+        self.assertFalse(validated["start_execution_allowed"])
+        self.assertFalse(validated["daemon_started"])
+
+    def test_rejects_guarded_start_final_start_receipt_contract_that_starts(self) -> None:
+        payload = dict(ready_guarded_start_final_start_receipt_contract())
+        payload["daemon_started"] = True
+
+        with self.assertRaisesRegex(SupervisedLaunchPacketViolation, "daemon_started"):
+            validate_guarded_start_final_start_receipt_contract_packet(payload)
+
+    def test_rejects_guarded_start_final_start_receipt_contract_with_raw_audio(self) -> None:
+        payload = dict(ready_guarded_start_final_start_receipt_contract())
+        payload["debug"] = {"raw_audio": "never"}
+
+        with self.assertRaisesRegex(SupervisedLaunchPacketViolation, "forbidden supervised_launch keys"):
+            validate_guarded_start_final_start_receipt_contract_packet(payload)
+
+    def test_accepts_guarded_start_launch_window_contract_without_starting(self) -> None:
+        payload = inspect_guarded_start_launch_window_contract(
+            guarded_start_final_start_receipt_contract=ready_guarded_start_final_start_receipt_contract(),
+            launch_window_authorization=valid_guarded_start_launch_window_authorization(),
+        )
+
+        validated = validate_guarded_start_launch_window_contract_packet(payload)
+
+        self.assertIs(validated, payload)
+        self.assertTrue(validated["launch_window_contract_only"])
+        self.assertTrue(validated["runtime_policy_start_enabled"])
+        self.assertFalse(validated["start_execution_allowed"])
+        self.assertFalse(validated["daemon_started"])
+
+    def test_rejects_guarded_start_launch_window_contract_that_starts(self) -> None:
+        payload = dict(ready_guarded_start_launch_window_contract())
+        payload["daemon_started"] = True
+
+        with self.assertRaisesRegex(SupervisedLaunchPacketViolation, "daemon_started"):
+            validate_guarded_start_launch_window_contract_packet(payload)
+
+    def test_rejects_guarded_start_launch_window_contract_with_raw_audio(self) -> None:
+        payload = dict(ready_guarded_start_launch_window_contract())
+        payload["debug"] = {"raw_audio": "never"}
+
+        with self.assertRaisesRegex(SupervisedLaunchPacketViolation, "forbidden supervised_launch keys"):
+            validate_guarded_start_launch_window_contract_packet(payload)
+
+    def test_accepts_guarded_start_pre_launch_guard_contract_without_starting(self) -> None:
+        payload = inspect_guarded_start_pre_launch_guard_contract(
+            guarded_start_launch_window_contract=ready_guarded_start_launch_window_contract(),
+            pre_launch_guard_authorization=valid_guarded_start_pre_launch_guard_authorization(),
+        )
+
+        validated = validate_guarded_start_pre_launch_guard_contract_packet(payload)
+
+        self.assertIs(validated, payload)
+        self.assertTrue(validated["pre_launch_guard_contract_only"])
+        self.assertTrue(validated["runtime_policy_start_enabled"])
+        self.assertFalse(validated["start_execution_allowed"])
+        self.assertFalse(validated["daemon_started"])
+
+    def test_rejects_guarded_start_pre_launch_guard_contract_that_starts(self) -> None:
+        payload = dict(ready_guarded_start_pre_launch_guard_contract())
+        payload["daemon_started"] = True
+
+        with self.assertRaisesRegex(SupervisedLaunchPacketViolation, "daemon_started"):
+            validate_guarded_start_pre_launch_guard_contract_packet(payload)
+
+    def test_rejects_guarded_start_pre_launch_guard_contract_with_raw_audio(self) -> None:
+        payload = dict(ready_guarded_start_pre_launch_guard_contract())
+        payload["debug"] = {"raw_audio": "never"}
+
+        with self.assertRaisesRegex(SupervisedLaunchPacketViolation, "forbidden supervised_launch keys"):
+            validate_guarded_start_pre_launch_guard_contract_packet(payload)
+
+    def test_accepts_guarded_start_executor_runtime_contract_without_starting(self) -> None:
+        payload = inspect_guarded_start_executor_runtime_contract(
+            guarded_start_pre_launch_guard_contract=ready_guarded_start_pre_launch_guard_contract(),
+            executor_runtime_authorization=valid_guarded_start_executor_runtime_authorization(),
+        )
+
+        validated = validate_guarded_start_executor_runtime_contract_packet(payload)
+
+        self.assertIs(validated, payload)
+        self.assertTrue(validated["executor_runtime_contract_only"])
+        self.assertTrue(validated["runtime_policy_start_enabled"])
+        self.assertFalse(validated["start_execution_allowed"])
+        self.assertFalse(validated["daemon_started"])
+
+    def test_rejects_guarded_start_executor_runtime_contract_that_starts(self) -> None:
+        payload = dict(ready_guarded_start_executor_runtime_contract())
+        payload["daemon_started"] = True
+
+        with self.assertRaisesRegex(SupervisedLaunchPacketViolation, "daemon_started"):
+            validate_guarded_start_executor_runtime_contract_packet(payload)
+
+    def test_rejects_guarded_start_executor_runtime_contract_with_raw_audio(self) -> None:
+        payload = dict(ready_guarded_start_executor_runtime_contract())
+        payload["debug"] = {"raw_audio": "never"}
+
+        with self.assertRaisesRegex(SupervisedLaunchPacketViolation, "forbidden supervised_launch keys"):
+            validate_guarded_start_executor_runtime_contract_packet(payload)
+
+    def test_accepts_guarded_start_process_spawn_contract_without_starting(self) -> None:
+        payload = inspect_guarded_start_process_spawn_contract(
+            guarded_start_executor_runtime_contract=ready_guarded_start_executor_runtime_contract(),
+            process_spawn_authorization=valid_guarded_start_process_spawn_authorization(),
+        )
+
+        validated = validate_guarded_start_process_spawn_contract_packet(payload)
+
+        self.assertIs(validated, payload)
+        self.assertTrue(validated["process_spawn_contract_only"])
+        self.assertTrue(validated["runtime_policy_start_enabled"])
+        self.assertFalse(validated["start_execution_allowed"])
+        self.assertFalse(validated["subprocess_module_imported"])
+        self.assertFalse(validated["daemon_started"])
+
+    def test_rejects_guarded_start_process_spawn_contract_that_imports_subprocess(self) -> None:
+        payload = dict(ready_guarded_start_process_spawn_contract())
+        payload["subprocess_module_imported"] = True
+
+        with self.assertRaisesRegex(SupervisedLaunchPacketViolation, "subprocess_module_imported"):
+            validate_guarded_start_process_spawn_contract_packet(payload)
+
+    def test_rejects_guarded_start_process_spawn_contract_with_raw_audio(self) -> None:
+        payload = dict(ready_guarded_start_process_spawn_contract())
+        payload["debug"] = {"raw_audio": "never"}
+
+        with self.assertRaisesRegex(SupervisedLaunchPacketViolation, "forbidden supervised_launch keys"):
+            validate_guarded_start_process_spawn_contract_packet(payload)
+
+    def test_accepts_guarded_start_spawn_review_contract_without_starting(self) -> None:
+        payload = inspect_guarded_start_spawn_review_contract(
+            guarded_start_process_spawn_contract=ready_guarded_start_process_spawn_contract(),
+            spawn_review_authorization=valid_guarded_start_spawn_review_authorization(),
+        )
+
+        validated = validate_guarded_start_spawn_review_contract_packet(payload)
+
+        self.assertIs(validated, payload)
+        self.assertTrue(validated["spawn_review_contract_only"])
+        self.assertTrue(validated["runtime_policy_start_enabled"])
+        self.assertFalse(validated["start_execution_allowed"])
+        self.assertFalse(validated["subprocess_module_imported"])
+        self.assertFalse(validated["daemon_started"])
+
+    def test_rejects_guarded_start_spawn_review_contract_that_starts(self) -> None:
+        payload = dict(ready_guarded_start_spawn_review_contract())
+        payload["process_launch_attempted"] = True
+
+        with self.assertRaisesRegex(SupervisedLaunchPacketViolation, "process_launch_attempted"):
+            validate_guarded_start_spawn_review_contract_packet(payload)
+
+    def test_rejects_guarded_start_spawn_review_contract_with_raw_audio(self) -> None:
+        payload = dict(ready_guarded_start_spawn_review_contract())
+        payload["debug"] = {"raw_audio": "never"}
+
+        with self.assertRaisesRegex(SupervisedLaunchPacketViolation, "forbidden supervised_launch keys"):
+            validate_guarded_start_spawn_review_contract_packet(payload)
+
+    def test_accepts_guarded_start_subprocess_import_contract_without_importing(self) -> None:
+        payload = inspect_guarded_start_subprocess_import_contract(
+            guarded_start_spawn_review_contract=ready_guarded_start_spawn_review_contract(),
+            subprocess_import_authorization=valid_guarded_start_subprocess_import_authorization(),
+        )
+
+        validated = validate_guarded_start_subprocess_import_contract_packet(payload)
+
+        self.assertIs(validated, payload)
+        self.assertTrue(validated["subprocess_import_contract_only"])
+        self.assertTrue(validated["runtime_policy_start_enabled"])
+        self.assertFalse(validated["subprocess_module_imported"])
+        self.assertFalse(validated["process_launch_attempted"])
+        self.assertFalse(validated["daemon_started"])
+
+    def test_rejects_guarded_start_subprocess_import_contract_that_imports(self) -> None:
+        payload = dict(ready_guarded_start_subprocess_import_contract())
+        payload["subprocess_module_imported"] = True
+
+        with self.assertRaisesRegex(SupervisedLaunchPacketViolation, "subprocess_module_imported"):
+            validate_guarded_start_subprocess_import_contract_packet(payload)
+
+    def test_rejects_guarded_start_subprocess_import_contract_with_raw_audio(self) -> None:
+        payload = dict(ready_guarded_start_subprocess_import_contract())
+        payload["debug"] = {"raw_audio": "never"}
+
+        with self.assertRaisesRegex(SupervisedLaunchPacketViolation, "forbidden supervised_launch keys"):
+            validate_guarded_start_subprocess_import_contract_packet(payload)
+
+    def test_accepts_guarded_start_launch_invocation_contract_without_launching(self) -> None:
+        payload = inspect_guarded_start_launch_invocation_contract(
+            guarded_start_subprocess_import_contract=ready_guarded_start_subprocess_import_contract(),
+            launch_invocation_authorization=valid_guarded_start_launch_invocation_authorization(),
+        )
+
+        validated = validate_guarded_start_launch_invocation_contract_packet(payload)
+
+        self.assertIs(validated, payload)
+        self.assertTrue(validated["launch_invocation_contract_only"])
+        self.assertTrue(validated["runtime_policy_start_enabled"])
+        self.assertFalse(validated["start_execution_allowed"])
+        self.assertFalse(validated["subprocess_module_imported"])
+        self.assertFalse(validated["process_launch_attempted"])
+        self.assertFalse(validated["daemon_started"])
+
+    def test_rejects_guarded_start_launch_invocation_contract_that_launches(self) -> None:
+        payload = dict(ready_guarded_start_launch_invocation_contract())
+        payload["process_launch_attempted"] = True
+
+        with self.assertRaisesRegex(SupervisedLaunchPacketViolation, "process_launch_attempted"):
+            validate_guarded_start_launch_invocation_contract_packet(payload)
+
+    def test_rejects_guarded_start_launch_invocation_contract_with_raw_audio(self) -> None:
+        payload = dict(ready_guarded_start_launch_invocation_contract())
+        payload["debug"] = {"raw_audio": "never"}
+
+        with self.assertRaisesRegex(SupervisedLaunchPacketViolation, "forbidden supervised_launch keys"):
+            validate_guarded_start_launch_invocation_contract_packet(payload)
+
+    def test_accepts_guarded_start_final_process_start_contract_without_starting(self) -> None:
+        payload = inspect_guarded_start_final_process_start_contract(
+            guarded_start_launch_invocation_contract=ready_guarded_start_launch_invocation_contract(),
+            final_process_start_authorization=valid_guarded_start_final_process_start_authorization(),
+        )
+
+        validated = validate_guarded_start_final_process_start_contract_packet(payload)
+
+        self.assertIs(validated, payload)
+        self.assertTrue(validated["final_process_start_contract_only"])
+        self.assertTrue(validated["runtime_policy_start_enabled"])
+        self.assertFalse(validated["start_execution_allowed"])
+        self.assertFalse(validated["process_launch_allowed"])
+        self.assertFalse(validated["subprocess_module_imported"])
+        self.assertFalse(validated["process_launch_attempted"])
+        self.assertFalse(validated["daemon_started"])
+
+    def test_rejects_guarded_start_final_process_start_contract_that_starts(self) -> None:
+        payload = dict(ready_guarded_start_final_process_start_contract())
+        payload["start_execution_allowed"] = True
+
+        with self.assertRaisesRegex(SupervisedLaunchPacketViolation, "start_execution_allowed"):
+            validate_guarded_start_final_process_start_contract_packet(payload)
+
+    def test_rejects_guarded_start_final_process_start_contract_with_raw_audio(self) -> None:
+        payload = dict(ready_guarded_start_final_process_start_contract())
+        payload["debug"] = {"raw_audio": "never"}
+
+        with self.assertRaisesRegex(SupervisedLaunchPacketViolation, "forbidden supervised_launch keys"):
+            validate_guarded_start_final_process_start_contract_packet(payload)
+
+    def test_accepts_guarded_start_process_execution_review_without_starting(self) -> None:
+        payload = inspect_guarded_start_process_execution_review(
+            guarded_start_final_process_start_contract=ready_guarded_start_final_process_start_contract(),
+            process_execution_review_authorization=valid_guarded_start_process_execution_review_authorization(),
+        )
+
+        validated = validate_guarded_start_process_execution_review_packet(payload)
+
+        self.assertIs(validated, payload)
+        self.assertTrue(validated["process_execution_review_only"])
+        self.assertTrue(validated["runtime_policy_start_enabled"])
+        self.assertFalse(validated["start_execution_allowed"])
+        self.assertFalse(validated["process_launch_allowed"])
+        self.assertFalse(validated["subprocess_module_imported"])
+        self.assertFalse(validated["process_launch_attempted"])
+        self.assertFalse(validated["daemon_started"])
+
+    def test_rejects_guarded_start_process_execution_review_that_starts(self) -> None:
+        payload = dict(ready_guarded_start_process_execution_review())
+        payload["process_launch_allowed"] = True
+
+        with self.assertRaisesRegex(SupervisedLaunchPacketViolation, "process_launch_allowed"):
+            validate_guarded_start_process_execution_review_packet(payload)
+
+    def test_rejects_guarded_start_process_execution_review_with_raw_audio(self) -> None:
+        payload = dict(ready_guarded_start_process_execution_review())
+        payload["debug"] = {"raw_audio": "never"}
+
+        with self.assertRaisesRegex(SupervisedLaunchPacketViolation, "forbidden supervised_launch keys"):
+            validate_guarded_start_process_execution_review_packet(payload)
+
+    def test_accepts_guarded_start_process_execution_packet_without_starting(self) -> None:
+        payload = inspect_guarded_start_process_execution_packet(
+            guarded_start_process_execution_review=ready_guarded_start_process_execution_review(),
+            process_execution_packet_authorization=valid_guarded_start_process_execution_packet_authorization(),
+        )
+
+        validated = validate_guarded_start_process_execution_packet_packet(payload)
+
+        self.assertIs(validated, payload)
+        self.assertTrue(validated["process_execution_packet_only"])
+        self.assertTrue(validated["runtime_policy_start_enabled"])
+        self.assertFalse(validated["start_execution_allowed"])
+        self.assertFalse(validated["process_launch_allowed"])
+        self.assertFalse(validated["subprocess_module_imported"])
+        self.assertFalse(validated["process_launch_attempted"])
+        self.assertFalse(validated["daemon_started"])
+
+    def test_rejects_guarded_start_process_execution_packet_that_starts(self) -> None:
+        payload = dict(ready_guarded_start_process_execution_packet())
+        payload["process_launch_allowed"] = True
+
+        with self.assertRaisesRegex(SupervisedLaunchPacketViolation, "process_launch_allowed"):
+            validate_guarded_start_process_execution_packet_packet(payload)
+
+    def test_rejects_guarded_start_process_execution_packet_with_raw_audio(self) -> None:
+        payload = dict(ready_guarded_start_process_execution_packet())
+        payload["debug"] = {"raw_audio": "never"}
+
+        with self.assertRaisesRegex(SupervisedLaunchPacketViolation, "forbidden supervised_launch keys"):
+            validate_guarded_start_process_execution_packet_packet(payload)
+
+    def test_accepts_guarded_start_process_executor_stub_without_starting(self) -> None:
+        payload = inspect_guarded_start_process_executor_stub(
+            guarded_start_process_execution_packet=ready_guarded_start_process_execution_packet(),
+            process_executor_stub_authorization=valid_guarded_start_process_executor_stub_authorization(),
+        )
+
+        validated = validate_guarded_start_process_executor_stub_packet(payload)
+
+        self.assertIs(validated, payload)
+        self.assertTrue(validated["process_executor_stub_only"])
+        self.assertTrue(validated["runtime_policy_start_enabled"])
+        self.assertFalse(validated["start_execution_allowed"])
+        self.assertFalse(validated["process_launch_allowed"])
+        self.assertFalse(validated["subprocess_module_imported"])
+        self.assertFalse(validated["process_launch_attempted"])
+        self.assertFalse(validated["daemon_started"])
+
+    def test_rejects_guarded_start_process_executor_stub_that_starts(self) -> None:
+        payload = dict(ready_guarded_start_process_executor_stub())
+        payload["process_launch_allowed"] = True
+
+        with self.assertRaisesRegex(SupervisedLaunchPacketViolation, "process_launch_allowed"):
+            validate_guarded_start_process_executor_stub_packet(payload)
+
+    def test_rejects_guarded_start_process_executor_stub_with_raw_audio(self) -> None:
+        payload = dict(ready_guarded_start_process_executor_stub())
+        payload["debug"] = {"raw_audio": "never"}
+
+        with self.assertRaisesRegex(SupervisedLaunchPacketViolation, "forbidden supervised_launch keys"):
+            validate_guarded_start_process_executor_stub_packet(payload)
+
+    def test_accepts_guarded_start_process_executor_review_without_starting(self) -> None:
+        payload = inspect_guarded_start_process_executor_review(
+            guarded_start_process_executor_stub=ready_guarded_start_process_executor_stub(),
+            process_executor_review_authorization=valid_guarded_start_process_executor_review_authorization(),
+        )
+
+        validated = validate_guarded_start_process_executor_review_packet(payload)
+
+        self.assertIs(validated, payload)
+        self.assertTrue(validated["process_executor_review_only"])
+        self.assertTrue(validated["runtime_policy_start_enabled"])
+        self.assertFalse(validated["start_execution_allowed"])
+        self.assertFalse(validated["process_launch_allowed"])
+        self.assertFalse(validated["subprocess_module_imported"])
+        self.assertFalse(validated["process_launch_attempted"])
+        self.assertFalse(validated["daemon_started"])
+
+    def test_rejects_guarded_start_process_executor_review_that_starts(self) -> None:
+        payload = dict(ready_guarded_start_process_executor_review())
+        payload["process_launch_allowed"] = True
+
+        with self.assertRaisesRegex(SupervisedLaunchPacketViolation, "process_launch_allowed"):
+            validate_guarded_start_process_executor_review_packet(payload)
+
+    def test_rejects_guarded_start_process_executor_review_with_raw_audio(self) -> None:
+        payload = dict(ready_guarded_start_process_executor_review())
+        payload["debug"] = {"raw_audio": "never"}
+
+        with self.assertRaisesRegex(SupervisedLaunchPacketViolation, "forbidden supervised_launch keys"):
+            validate_guarded_start_process_executor_review_packet(payload)
+
+    def test_accepts_guarded_start_process_executor_contract_without_starting(self) -> None:
+        payload = inspect_guarded_start_process_executor_contract(
+            guarded_start_process_executor_review=ready_guarded_start_process_executor_review(),
+            process_executor_contract_authorization=valid_guarded_start_process_executor_contract_authorization(),
+        )
+
+        validated = validate_guarded_start_process_executor_contract_packet(payload)
+
+        self.assertIs(validated, payload)
+        self.assertTrue(validated["process_executor_contract_only"])
+        self.assertTrue(validated["runtime_policy_start_enabled"])
+        self.assertFalse(validated["start_execution_allowed"])
+        self.assertFalse(validated["process_launch_allowed"])
+        self.assertFalse(validated["subprocess_module_imported"])
+        self.assertFalse(validated["process_launch_attempted"])
+        self.assertFalse(validated["daemon_started"])
+
+    def test_rejects_guarded_start_process_executor_contract_that_starts(self) -> None:
+        payload = dict(ready_guarded_start_process_executor_contract())
+        payload["process_launch_allowed"] = True
+
+        with self.assertRaisesRegex(SupervisedLaunchPacketViolation, "process_launch_allowed"):
+            validate_guarded_start_process_executor_contract_packet(payload)
+
+    def test_rejects_guarded_start_process_executor_contract_with_raw_audio(self) -> None:
+        payload = dict(ready_guarded_start_process_executor_contract())
+        payload["debug"] = {"raw_audio": "never"}
+
+        with self.assertRaisesRegex(SupervisedLaunchPacketViolation, "forbidden supervised_launch keys"):
+            validate_guarded_start_process_executor_contract_packet(payload)
+
+    def test_accepts_guarded_start_process_runtime_adapter_without_starting(self) -> None:
+        payload = inspect_guarded_start_process_runtime_adapter(
+            guarded_start_process_executor_contract=ready_guarded_start_process_executor_contract(),
+            process_runtime_adapter_authorization=valid_guarded_start_process_runtime_adapter_authorization(),
+        )
+
+        validated = validate_guarded_start_process_runtime_adapter_packet(payload)
+
+        self.assertIs(validated, payload)
+        self.assertTrue(validated["process_runtime_adapter_only"])
+        self.assertTrue(validated["runtime_adapter_contract_only"])
+        self.assertTrue(validated["runtime_policy_start_enabled"])
+        self.assertFalse(validated["start_execution_allowed"])
+        self.assertFalse(validated["process_launch_allowed"])
+        self.assertFalse(validated["subprocess_module_imported"])
+        self.assertFalse(validated["process_launch_attempted"])
+        self.assertFalse(validated["daemon_started"])
+
+    def test_rejects_guarded_start_process_runtime_adapter_that_starts(self) -> None:
+        payload = dict(ready_guarded_start_process_runtime_adapter())
+        payload["process_launch_attempted"] = True
+
+        with self.assertRaisesRegex(SupervisedLaunchPacketViolation, "process_launch_attempted"):
+            validate_guarded_start_process_runtime_adapter_packet(payload)
+
+    def test_rejects_guarded_start_process_runtime_adapter_with_raw_audio(self) -> None:
+        payload = dict(ready_guarded_start_process_runtime_adapter())
+        payload["debug"] = {"raw_audio": "never"}
+
+        with self.assertRaisesRegex(SupervisedLaunchPacketViolation, "forbidden supervised_launch keys"):
+            validate_guarded_start_process_runtime_adapter_packet(payload)
+
+    def test_accepts_guarded_start_process_adapter_review_without_starting(self) -> None:
+        payload = inspect_guarded_start_process_adapter_review(
+            guarded_start_process_runtime_adapter=ready_guarded_start_process_runtime_adapter(),
+            process_adapter_review_authorization=valid_guarded_start_process_adapter_review_authorization(),
+        )
+
+        validated = validate_guarded_start_process_adapter_review_packet(payload)
+
+        self.assertIs(validated, payload)
+        self.assertTrue(validated["process_adapter_review_only"])
+        self.assertTrue(validated["runtime_policy_start_enabled"])
+        self.assertFalse(validated["start_execution_allowed"])
+        self.assertFalse(validated["process_launch_allowed"])
+        self.assertFalse(validated["subprocess_module_imported"])
+        self.assertFalse(validated["process_launch_attempted"])
+        self.assertFalse(validated["daemon_started"])
+
+    def test_rejects_guarded_start_process_adapter_review_that_starts(self) -> None:
+        payload = dict(ready_guarded_start_process_adapter_review())
+        payload["daemon_started"] = True
+
+        with self.assertRaisesRegex(SupervisedLaunchPacketViolation, "daemon_started"):
+            validate_guarded_start_process_adapter_review_packet(payload)
+
+    def test_rejects_guarded_start_process_adapter_review_with_raw_audio(self) -> None:
+        payload = dict(ready_guarded_start_process_adapter_review())
+        payload["debug"] = {"raw_audio": "never"}
+
+        with self.assertRaisesRegex(SupervisedLaunchPacketViolation, "forbidden supervised_launch keys"):
+            validate_guarded_start_process_adapter_review_packet(payload)
+
+    def test_accepts_guarded_start_process_adapter_contract_without_starting(self) -> None:
+        payload = inspect_guarded_start_process_adapter_contract(
+            guarded_start_process_adapter_review=ready_guarded_start_process_adapter_review(),
+            process_adapter_contract_authorization=valid_guarded_start_process_adapter_contract_authorization(),
+        )
+
+        validated = validate_guarded_start_process_adapter_contract_packet(payload)
+
+        self.assertIs(validated, payload)
+        self.assertTrue(validated["process_adapter_contract_only"])
+        self.assertTrue(validated["runtime_policy_start_enabled"])
+        self.assertFalse(validated["start_execution_allowed"])
+        self.assertFalse(validated["process_launch_allowed"])
+        self.assertFalse(validated["subprocess_module_imported"])
+        self.assertFalse(validated["process_launch_attempted"])
+        self.assertFalse(validated["daemon_started"])
+
+    def test_rejects_guarded_start_process_adapter_contract_that_starts(self) -> None:
+        payload = dict(ready_guarded_start_process_adapter_contract())
+        payload["process_launch_attempted"] = True
+
+        with self.assertRaisesRegex(SupervisedLaunchPacketViolation, "process_launch_attempted"):
+            validate_guarded_start_process_adapter_contract_packet(payload)
+
+    def test_rejects_guarded_start_process_adapter_contract_with_raw_audio(self) -> None:
+        payload = dict(ready_guarded_start_process_adapter_contract())
+        payload["debug"] = {"raw_audio": "never"}
+
+        with self.assertRaisesRegex(SupervisedLaunchPacketViolation, "forbidden supervised_launch keys"):
+            validate_guarded_start_process_adapter_contract_packet(payload)
+
+    def test_accepts_guarded_start_process_runner_contract_without_starting(self) -> None:
+        payload = inspect_guarded_start_process_runner_contract(
+            guarded_start_process_adapter_contract=ready_guarded_start_process_adapter_contract(),
+            process_runner_contract_authorization=valid_guarded_start_process_runner_contract_authorization(),
+        )
+
+        validated = validate_guarded_start_process_runner_contract_packet(payload)
+
+        self.assertIs(validated, payload)
+        self.assertTrue(validated["process_runner_contract_only"])
+        self.assertTrue(validated["runtime_policy_start_enabled"])
+        self.assertFalse(validated["start_execution_allowed"])
+        self.assertFalse(validated["process_launch_allowed"])
+        self.assertFalse(validated["subprocess_module_imported"])
+        self.assertFalse(validated["process_launch_attempted"])
+        self.assertFalse(validated["daemon_started"])
+
+    def test_rejects_guarded_start_process_runner_contract_that_starts(self) -> None:
+        payload = dict(ready_guarded_start_process_runner_contract())
+        payload["daemon_started"] = True
+
+        with self.assertRaisesRegex(SupervisedLaunchPacketViolation, "daemon_started"):
+            validate_guarded_start_process_runner_contract_packet(payload)
+
+    def test_rejects_guarded_start_process_runner_contract_with_raw_audio(self) -> None:
+        payload = dict(ready_guarded_start_process_runner_contract())
+        payload["debug"] = {"raw_audio": "never"}
+
+        with self.assertRaisesRegex(SupervisedLaunchPacketViolation, "forbidden supervised_launch keys"):
+            validate_guarded_start_process_runner_contract_packet(payload)
+
+    def test_accepts_guarded_start_process_runner_review_without_starting(self) -> None:
+        payload = inspect_guarded_start_process_runner_review(
+            guarded_start_process_runner_contract=ready_guarded_start_process_runner_contract(),
+            process_runner_review_authorization=valid_guarded_start_process_runner_review_authorization(),
+        )
+
+        validated = validate_guarded_start_process_runner_review_packet(payload)
+
+        self.assertIs(validated, payload)
+        self.assertTrue(validated["process_runner_review_only"])
+        self.assertTrue(validated["runtime_policy_start_enabled"])
+        self.assertFalse(validated["start_execution_allowed"])
+        self.assertFalse(validated["process_launch_allowed"])
+        self.assertFalse(validated["subprocess_module_imported"])
+        self.assertFalse(validated["process_launch_attempted"])
+        self.assertFalse(validated["daemon_started"])
+
+    def test_rejects_guarded_start_process_runner_review_that_starts(self) -> None:
+        payload = dict(ready_guarded_start_process_runner_review())
+        payload["process_launch_attempted"] = True
+
+        with self.assertRaisesRegex(SupervisedLaunchPacketViolation, "process_launch_attempted"):
+            validate_guarded_start_process_runner_review_packet(payload)
+
+    def test_rejects_guarded_start_process_runner_review_with_raw_audio(self) -> None:
+        payload = dict(ready_guarded_start_process_runner_review())
+        payload["debug"] = {"raw_audio": "never"}
+
+        with self.assertRaisesRegex(SupervisedLaunchPacketViolation, "forbidden supervised_launch keys"):
+            validate_guarded_start_process_runner_review_packet(payload)
+
+    def test_accepts_guarded_start_process_runner_packet_without_starting(self) -> None:
+        payload = inspect_guarded_start_process_runner_packet(
+            guarded_start_process_runner_review=ready_guarded_start_process_runner_review(),
+            process_runner_packet_authorization=valid_guarded_start_process_runner_packet_authorization(),
+        )
+
+        validated = validate_guarded_start_process_runner_packet_packet(payload)
+
+        self.assertIs(validated, payload)
+        self.assertTrue(validated["process_runner_packet_only"])
+        self.assertTrue(validated["runtime_policy_start_enabled"])
+        self.assertFalse(validated["start_execution_allowed"])
+        self.assertFalse(validated["process_launch_allowed"])
+        self.assertFalse(validated["subprocess_module_imported"])
+        self.assertFalse(validated["process_launch_attempted"])
+        self.assertFalse(validated["daemon_started"])
+
+    def test_rejects_guarded_start_process_runner_packet_that_starts(self) -> None:
+        payload = dict(ready_guarded_start_process_runner_packet())
+        payload["process_launch_attempted"] = True
+
+        with self.assertRaisesRegex(SupervisedLaunchPacketViolation, "process_launch_attempted"):
+            validate_guarded_start_process_runner_packet_packet(payload)
+
+    def test_rejects_guarded_start_process_runner_packet_with_raw_audio(self) -> None:
+        payload = dict(ready_guarded_start_process_runner_packet())
+        payload["debug"] = {"raw_audio": "never"}
+
+        with self.assertRaisesRegex(SupervisedLaunchPacketViolation, "forbidden supervised_launch keys"):
+            validate_guarded_start_process_runner_packet_packet(payload)
+
+    def test_accepts_guarded_start_process_runner_execution_review_without_starting(self) -> None:
+        payload = inspect_guarded_start_process_runner_execution_review(
+            guarded_start_process_runner_packet=ready_guarded_start_process_runner_packet(),
+            process_runner_execution_review_authorization=valid_guarded_start_process_runner_execution_review_authorization(),
+        )
+
+        validated = validate_guarded_start_process_runner_execution_review_packet(payload)
+
+        self.assertIs(validated, payload)
+        self.assertTrue(validated["process_runner_execution_review_only"])
+        self.assertTrue(validated["runtime_policy_start_enabled"])
+        self.assertFalse(validated["start_execution_allowed"])
+        self.assertFalse(validated["process_launch_allowed"])
+        self.assertFalse(validated["subprocess_module_imported"])
+        self.assertFalse(validated["process_launch_attempted"])
+        self.assertFalse(validated["daemon_started"])
+
+    def test_rejects_guarded_start_process_runner_execution_review_that_starts(self) -> None:
+        payload = dict(ready_guarded_start_process_runner_execution_review())
+        payload["process_launch_attempted"] = True
+
+        with self.assertRaisesRegex(SupervisedLaunchPacketViolation, "process_launch_attempted"):
+            validate_guarded_start_process_runner_execution_review_packet(payload)
+
+    def test_rejects_guarded_start_process_runner_execution_review_with_raw_audio(self) -> None:
+        payload = dict(ready_guarded_start_process_runner_execution_review())
+        payload["debug"] = {"raw_audio": "never"}
+
+        with self.assertRaisesRegex(SupervisedLaunchPacketViolation, "forbidden supervised_launch keys"):
+            validate_guarded_start_process_runner_execution_review_packet(payload)
+
+    def test_accepts_guarded_start_process_runner_execution_contract_without_starting(self) -> None:
+        payload = inspect_guarded_start_process_runner_execution_contract(
+            guarded_start_process_runner_execution_review=ready_guarded_start_process_runner_execution_review(),
+            process_runner_execution_contract_authorization=(
+                valid_guarded_start_process_runner_execution_contract_authorization()
+            ),
+        )
+
+        validated = validate_guarded_start_process_runner_execution_contract_packet(payload)
+
+        self.assertIs(validated, payload)
+        self.assertTrue(validated["process_runner_execution_contract_only"])
+        self.assertTrue(validated["runtime_policy_start_enabled"])
+        self.assertFalse(validated["start_execution_allowed"])
+        self.assertFalse(validated["process_launch_allowed"])
+        self.assertFalse(validated["subprocess_module_imported"])
+        self.assertFalse(validated["process_launch_attempted"])
+        self.assertFalse(validated["daemon_started"])
+
+    def test_rejects_guarded_start_process_runner_execution_contract_that_starts(self) -> None:
+        payload = dict(ready_guarded_start_process_runner_execution_contract())
+        payload["process_launch_attempted"] = True
+
+        with self.assertRaisesRegex(SupervisedLaunchPacketViolation, "process_launch_attempted"):
+            validate_guarded_start_process_runner_execution_contract_packet(payload)
+
+    def test_rejects_guarded_start_process_runner_execution_contract_with_raw_audio(self) -> None:
+        payload = dict(ready_guarded_start_process_runner_execution_contract())
+        payload["debug"] = {"raw_audio": "never"}
+
+        with self.assertRaisesRegex(SupervisedLaunchPacketViolation, "forbidden supervised_launch keys"):
+            validate_guarded_start_process_runner_execution_contract_packet(payload)
+
+    def test_accepts_guarded_start_process_runner_start_gate_without_starting(self) -> None:
+        payload = inspect_guarded_start_process_runner_start_gate(
+            guarded_start_process_runner_execution_contract=ready_guarded_start_process_runner_execution_contract(),
+            process_runner_start_gate_authorization=valid_guarded_start_process_runner_start_gate_authorization(),
+        )
+
+        validated = validate_guarded_start_process_runner_start_gate_packet(payload)
+
+        self.assertIs(validated, payload)
+        self.assertTrue(validated["process_runner_start_gate_only"])
+        self.assertTrue(validated["runtime_policy_start_enabled"])
+        self.assertFalse(validated["start_execution_allowed"])
+        self.assertFalse(validated["process_launch_allowed"])
+        self.assertFalse(validated["subprocess_module_imported"])
+        self.assertFalse(validated["process_launch_attempted"])
+        self.assertFalse(validated["daemon_started"])
+
+    def test_rejects_guarded_start_process_runner_start_gate_that_starts(self) -> None:
+        payload = dict(ready_guarded_start_process_runner_start_gate())
+        payload["daemon_started"] = True
+
+        with self.assertRaisesRegex(SupervisedLaunchPacketViolation, "daemon_started"):
+            validate_guarded_start_process_runner_start_gate_packet(payload)
+
+    def test_rejects_guarded_start_process_runner_start_gate_with_raw_audio(self) -> None:
+        payload = dict(ready_guarded_start_process_runner_start_gate())
+        payload["debug"] = {"raw_audio": "never"}
+
+        with self.assertRaisesRegex(SupervisedLaunchPacketViolation, "forbidden supervised_launch keys"):
+            validate_guarded_start_process_runner_start_gate_packet(payload)
+
+    def test_accepts_guarded_start_process_runner_final_review_without_starting(self) -> None:
+        payload = inspect_guarded_start_process_runner_final_review(
+            guarded_start_process_runner_start_gate=ready_guarded_start_process_runner_start_gate(),
+            process_runner_final_review_authorization=valid_guarded_start_process_runner_final_review_authorization(),
+        )
+
+        validated = validate_guarded_start_process_runner_final_review_packet(payload)
+
+        self.assertIs(validated, payload)
+        self.assertTrue(validated["process_runner_final_review_only"])
+        self.assertTrue(validated["runtime_policy_start_enabled"])
+        self.assertFalse(validated["start_execution_allowed"])
+        self.assertFalse(validated["process_launch_allowed"])
+        self.assertFalse(validated["subprocess_module_imported"])
+        self.assertFalse(validated["process_launch_attempted"])
+        self.assertFalse(validated["daemon_started"])
+
+    def test_rejects_guarded_start_process_runner_final_review_that_starts(self) -> None:
+        payload = dict(ready_guarded_start_process_runner_final_review())
+        payload["process_launch_allowed"] = True
+
+        with self.assertRaisesRegex(SupervisedLaunchPacketViolation, "process_launch_allowed"):
+            validate_guarded_start_process_runner_final_review_packet(payload)
+
+    def test_rejects_guarded_start_process_runner_final_review_with_raw_audio(self) -> None:
+        payload = dict(ready_guarded_start_process_runner_final_review())
+        payload["debug"] = {"raw_audio": "never"}
+
+        with self.assertRaisesRegex(SupervisedLaunchPacketViolation, "forbidden supervised_launch keys"):
+            validate_guarded_start_process_runner_final_review_packet(payload)
+
+    def test_accepts_guarded_start_process_runner_promotion_packet_without_starting(self) -> None:
+        payload = inspect_guarded_start_process_runner_promotion_packet(
+            guarded_start_process_runner_final_review=ready_guarded_start_process_runner_final_review(),
+            process_runner_promotion_packet_authorization=(
+                valid_guarded_start_process_runner_promotion_packet_authorization()
+            ),
+        )
+
+        validated = validate_guarded_start_process_runner_promotion_packet_packet(payload)
+
+        self.assertIs(validated, payload)
+        self.assertTrue(validated["process_runner_promotion_packet_only"])
+        self.assertTrue(validated["runtime_policy_start_enabled"])
+        self.assertFalse(validated["start_execution_allowed"])
+        self.assertFalse(validated["process_launch_allowed"])
+        self.assertFalse(validated["subprocess_module_imported"])
+        self.assertFalse(validated["process_launch_attempted"])
+        self.assertFalse(validated["daemon_started"])
+
+    def test_rejects_guarded_start_process_runner_promotion_packet_that_starts(self) -> None:
+        payload = dict(ready_guarded_start_process_runner_promotion_packet())
+        payload["start_execution_allowed"] = True
+
+        with self.assertRaisesRegex(SupervisedLaunchPacketViolation, "start_execution_allowed"):
+            validate_guarded_start_process_runner_promotion_packet_packet(payload)
+
+    def test_rejects_guarded_start_process_runner_promotion_packet_with_raw_audio(self) -> None:
+        payload = dict(ready_guarded_start_process_runner_promotion_packet())
+        payload["debug"] = {"raw_audio": "never"}
+
+        with self.assertRaisesRegex(SupervisedLaunchPacketViolation, "forbidden supervised_launch keys"):
+            validate_guarded_start_process_runner_promotion_packet_packet(payload)
 
 
 if __name__ == "__main__":

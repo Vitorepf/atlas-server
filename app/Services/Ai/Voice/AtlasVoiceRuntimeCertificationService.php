@@ -133,6 +133,23 @@ final class AtlasVoiceRuntimeCertificationService
                     && data_get($productLoopCheck, 'gates.managed_env_writer_contract_available') === true
                     && data_get($productLoopCheck, 'gates.supervised_launch_execution_contract_available') === true
                     && data_get($productLoopCheck, 'gates.subprocess_start_contract_available') === true
+                    && data_get($productLoopCheck, 'gates.guarded_start_final_process_start_contract_available') === true
+                    && data_get($productLoopCheck, 'gates.guarded_start_process_execution_review_available') === true
+                    && data_get($productLoopCheck, 'gates.guarded_start_process_execution_packet_available') === true
+                    && data_get($productLoopCheck, 'gates.guarded_start_process_executor_stub_available') === true
+                    && data_get($productLoopCheck, 'gates.guarded_start_process_executor_review_available') === true
+                    && data_get($productLoopCheck, 'gates.guarded_start_process_executor_contract_available') === true
+                    && data_get($productLoopCheck, 'gates.guarded_start_process_runtime_adapter_available') === true
+                    && data_get($productLoopCheck, 'gates.guarded_start_process_adapter_review_available') === true
+                    && data_get($productLoopCheck, 'gates.guarded_start_process_adapter_contract_available') === true
+                    && data_get($productLoopCheck, 'gates.guarded_start_process_runner_contract_available') === true
+                    && data_get($productLoopCheck, 'gates.guarded_start_process_runner_review_available') === true
+                    && data_get($productLoopCheck, 'gates.guarded_start_process_runner_packet_available') === true
+                    && data_get($productLoopCheck, 'gates.guarded_start_process_runner_execution_review_available') === true
+                    && data_get($productLoopCheck, 'gates.guarded_start_process_runner_execution_contract_available') === true
+                    && data_get($productLoopCheck, 'gates.guarded_start_process_runner_start_gate_available') === true
+                    && data_get($productLoopCheck, 'gates.guarded_start_process_runner_final_review_available') === true
+                    && data_get($productLoopCheck, 'gates.guarded_start_process_runner_promotion_packet_available') === true
                     && data_get($productLoopCheck, 'gates.production_promotion_blocked') === true,
                 'schema_version' => $productLoopCheck['schema_version'] ?? null,
                 'status' => $productLoopCheck['status'] ?? 'unknown',
@@ -153,6 +170,23 @@ final class AtlasVoiceRuntimeCertificationService
                 'managed_env_writer_contract_available' => data_get($productLoopCheck, 'gates.managed_env_writer_contract_available'),
                 'supervised_launch_execution_contract_available' => data_get($productLoopCheck, 'gates.supervised_launch_execution_contract_available'),
                 'subprocess_start_contract_available' => data_get($productLoopCheck, 'gates.subprocess_start_contract_available'),
+                'guarded_start_final_process_start_contract_available' => data_get($productLoopCheck, 'gates.guarded_start_final_process_start_contract_available'),
+                'guarded_start_process_execution_review_available' => data_get($productLoopCheck, 'gates.guarded_start_process_execution_review_available'),
+                'guarded_start_process_execution_packet_available' => data_get($productLoopCheck, 'gates.guarded_start_process_execution_packet_available'),
+                'guarded_start_process_executor_stub_available' => data_get($productLoopCheck, 'gates.guarded_start_process_executor_stub_available'),
+                'guarded_start_process_executor_review_available' => data_get($productLoopCheck, 'gates.guarded_start_process_executor_review_available'),
+                'guarded_start_process_executor_contract_available' => data_get($productLoopCheck, 'gates.guarded_start_process_executor_contract_available'),
+                'guarded_start_process_runtime_adapter_available' => data_get($productLoopCheck, 'gates.guarded_start_process_runtime_adapter_available'),
+                'guarded_start_process_adapter_review_available' => data_get($productLoopCheck, 'gates.guarded_start_process_adapter_review_available'),
+                'guarded_start_process_adapter_contract_available' => data_get($productLoopCheck, 'gates.guarded_start_process_adapter_contract_available'),
+                'guarded_start_process_runner_contract_available' => data_get($productLoopCheck, 'gates.guarded_start_process_runner_contract_available'),
+                'guarded_start_process_runner_review_available' => data_get($productLoopCheck, 'gates.guarded_start_process_runner_review_available'),
+                'guarded_start_process_runner_packet_available' => data_get($productLoopCheck, 'gates.guarded_start_process_runner_packet_available'),
+                'guarded_start_process_runner_execution_review_available' => data_get($productLoopCheck, 'gates.guarded_start_process_runner_execution_review_available'),
+                'guarded_start_process_runner_execution_contract_available' => data_get($productLoopCheck, 'gates.guarded_start_process_runner_execution_contract_available'),
+                'guarded_start_process_runner_start_gate_available' => data_get($productLoopCheck, 'gates.guarded_start_process_runner_start_gate_available'),
+                'guarded_start_process_runner_final_review_available' => data_get($productLoopCheck, 'gates.guarded_start_process_runner_final_review_available'),
+                'guarded_start_process_runner_promotion_packet_available' => data_get($productLoopCheck, 'gates.guarded_start_process_runner_promotion_packet_available'),
                 'supervisor_health_snapshot_schema_version' => data_get($productLoopCheck, 'supervised_start_plan.supervisor_health_snapshot.schema_version'),
                 'supervisor_health_snapshot_daemon_started' => data_get($productLoopCheck, 'supervised_start_plan.supervisor_health_snapshot.daemon_started'),
                 'supervisor_preflight_schema_version' => data_get($productLoopCheck, 'supervised_start_plan.supervisor_preflight.schema_version'),
@@ -373,6 +407,23 @@ final class AtlasVoiceRuntimeCertificationService
                     && data_get($productLoopCheck, 'gates.managed_env_writer_contract_available') === true
                     && data_get($productLoopCheck, 'gates.supervised_launch_execution_contract_available') === true
                     && data_get($productLoopCheck, 'gates.subprocess_start_contract_available') === true
+                    && data_get($productLoopCheck, 'gates.guarded_start_final_process_start_contract_available') === true
+                    && data_get($productLoopCheck, 'gates.guarded_start_process_execution_review_available') === true
+                    && data_get($productLoopCheck, 'gates.guarded_start_process_execution_packet_available') === true
+                    && data_get($productLoopCheck, 'gates.guarded_start_process_executor_stub_available') === true
+                    && data_get($productLoopCheck, 'gates.guarded_start_process_executor_review_available') === true
+                    && data_get($productLoopCheck, 'gates.guarded_start_process_executor_contract_available') === true
+                    && data_get($productLoopCheck, 'gates.guarded_start_process_runtime_adapter_available') === true
+                    && data_get($productLoopCheck, 'gates.guarded_start_process_adapter_review_available') === true
+                    && data_get($productLoopCheck, 'gates.guarded_start_process_adapter_contract_available') === true
+                    && data_get($productLoopCheck, 'gates.guarded_start_process_runner_contract_available') === true
+                    && data_get($productLoopCheck, 'gates.guarded_start_process_runner_review_available') === true
+                    && data_get($productLoopCheck, 'gates.guarded_start_process_runner_packet_available') === true
+                    && data_get($productLoopCheck, 'gates.guarded_start_process_runner_execution_review_available') === true
+                    && data_get($productLoopCheck, 'gates.guarded_start_process_runner_execution_contract_available') === true
+                    && data_get($productLoopCheck, 'gates.guarded_start_process_runner_start_gate_available') === true
+                    && data_get($productLoopCheck, 'gates.guarded_start_process_runner_final_review_available') === true
+                    && data_get($productLoopCheck, 'gates.guarded_start_process_runner_promotion_packet_available') === true
                     && data_get($productLoopCheck, 'gates.production_promotion_blocked') === true,
                 'schema_version' => $productLoopCheck['schema_version'] ?? null,
                 'status' => $productLoopCheck['status'] ?? 'unknown',
@@ -393,6 +444,23 @@ final class AtlasVoiceRuntimeCertificationService
                 'managed_env_writer_contract_available' => data_get($productLoopCheck, 'gates.managed_env_writer_contract_available'),
                 'supervised_launch_execution_contract_available' => data_get($productLoopCheck, 'gates.supervised_launch_execution_contract_available'),
                 'subprocess_start_contract_available' => data_get($productLoopCheck, 'gates.subprocess_start_contract_available'),
+                'guarded_start_final_process_start_contract_available' => data_get($productLoopCheck, 'gates.guarded_start_final_process_start_contract_available'),
+                'guarded_start_process_execution_review_available' => data_get($productLoopCheck, 'gates.guarded_start_process_execution_review_available'),
+                'guarded_start_process_execution_packet_available' => data_get($productLoopCheck, 'gates.guarded_start_process_execution_packet_available'),
+                'guarded_start_process_executor_stub_available' => data_get($productLoopCheck, 'gates.guarded_start_process_executor_stub_available'),
+                'guarded_start_process_executor_review_available' => data_get($productLoopCheck, 'gates.guarded_start_process_executor_review_available'),
+                'guarded_start_process_executor_contract_available' => data_get($productLoopCheck, 'gates.guarded_start_process_executor_contract_available'),
+                'guarded_start_process_runtime_adapter_available' => data_get($productLoopCheck, 'gates.guarded_start_process_runtime_adapter_available'),
+                'guarded_start_process_adapter_review_available' => data_get($productLoopCheck, 'gates.guarded_start_process_adapter_review_available'),
+                'guarded_start_process_adapter_contract_available' => data_get($productLoopCheck, 'gates.guarded_start_process_adapter_contract_available'),
+                'guarded_start_process_runner_contract_available' => data_get($productLoopCheck, 'gates.guarded_start_process_runner_contract_available'),
+                'guarded_start_process_runner_review_available' => data_get($productLoopCheck, 'gates.guarded_start_process_runner_review_available'),
+                'guarded_start_process_runner_packet_available' => data_get($productLoopCheck, 'gates.guarded_start_process_runner_packet_available'),
+                'guarded_start_process_runner_execution_review_available' => data_get($productLoopCheck, 'gates.guarded_start_process_runner_execution_review_available'),
+                'guarded_start_process_runner_execution_contract_available' => data_get($productLoopCheck, 'gates.guarded_start_process_runner_execution_contract_available'),
+                'guarded_start_process_runner_start_gate_available' => data_get($productLoopCheck, 'gates.guarded_start_process_runner_start_gate_available'),
+                'guarded_start_process_runner_final_review_available' => data_get($productLoopCheck, 'gates.guarded_start_process_runner_final_review_available'),
+                'guarded_start_process_runner_promotion_packet_available' => data_get($productLoopCheck, 'gates.guarded_start_process_runner_promotion_packet_available'),
                 'supervisor_health_snapshot_schema_version' => data_get($productLoopCheck, 'supervised_start_plan.supervisor_health_snapshot.schema_version'),
                 'supervisor_health_snapshot_daemon_started' => data_get($productLoopCheck, 'supervised_start_plan.supervisor_health_snapshot.daemon_started'),
                 'supervisor_preflight_schema_version' => data_get($productLoopCheck, 'supervised_start_plan.supervisor_preflight.schema_version'),

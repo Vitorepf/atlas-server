@@ -57,8 +57,7 @@ def build_product_loop_check(
         and sdk_status.get("import_probe_only") is True
     )
     sdk_handler_blueprint_available = (
-        str(production_loop.get("sdk_wiring_contract", {}).get("status") or "") == "wired"
-        and production_loop.get("sdk_wiring_contract", {}).get("complete_handler_registry") is True
+        production_loop.get("sdk_wiring_contract", {}).get("complete_handler_registry") is True
         and isinstance(production_loop.get("sdk_wiring_contract", {}).get("handler_registry_contract"), Mapping)
         and production_loop.get("sdk_wiring_contract", {}).get("wiring_invariants") != []
         and all(
@@ -468,6 +467,457 @@ def build_product_loop_check(
         and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_activation_contract", {}).get("subprocess_module_imported") is False
         and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_activation_contract", {}).get("livekit_sdk_imported") is False
     )
+    guarded_start_execution_attempt_contract_available = (
+        guarded_start_activation_contract_available
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_execution_attempt_contract", {}).get("schema_version")
+        == "atlas.voice_realtime.guarded_start_execution_attempt_contract.v1"
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_execution_attempt_contract", {}).get("guarded_start_execution_attempt_contract_implemented") is True
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_execution_attempt_contract", {}).get("execution_attempt_contract_only") is True
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_execution_attempt_contract", {}).get("guarded_start_executor_enabled") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_execution_attempt_contract", {}).get("guarded_start_executor_implemented") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_execution_attempt_contract", {}).get("start_execution_allowed") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_execution_attempt_contract", {}).get("real_subprocess_start_implemented") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_execution_attempt_contract", {}).get("process_launch_attempted") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_execution_attempt_contract", {}).get("daemon_started") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_execution_attempt_contract", {}).get("subprocess_module_imported") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_execution_attempt_contract", {}).get("livekit_sdk_imported") is False
+    )
+    guarded_start_execution_rehearsal_contract_available = (
+        guarded_start_execution_attempt_contract_available
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_execution_rehearsal_contract", {}).get("schema_version")
+        == "atlas.voice_realtime.guarded_start_execution_rehearsal_contract.v1"
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_execution_rehearsal_contract", {}).get("guarded_start_execution_rehearsal_contract_implemented") is True
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_execution_rehearsal_contract", {}).get("execution_rehearsal_contract_only") is True
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_execution_rehearsal_contract", {}).get("guarded_start_executor_enabled") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_execution_rehearsal_contract", {}).get("guarded_start_executor_implemented") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_execution_rehearsal_contract", {}).get("start_execution_allowed") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_execution_rehearsal_contract", {}).get("real_subprocess_start_implemented") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_execution_rehearsal_contract", {}).get("process_launch_attempted") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_execution_rehearsal_contract", {}).get("daemon_started") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_execution_rehearsal_contract", {}).get("subprocess_module_imported") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_execution_rehearsal_contract", {}).get("livekit_sdk_imported") is False
+    )
+    guarded_start_observability_contract_available = (
+        guarded_start_execution_rehearsal_contract_available
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_observability_contract", {}).get("schema_version")
+        == "atlas.voice_realtime.guarded_start_observability_contract.v1"
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_observability_contract", {}).get("guarded_start_observability_contract_implemented") is True
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_observability_contract", {}).get("observability_contract_only") is True
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_observability_contract", {}).get("guarded_start_executor_enabled") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_observability_contract", {}).get("guarded_start_executor_implemented") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_observability_contract", {}).get("start_execution_allowed") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_observability_contract", {}).get("real_subprocess_start_implemented") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_observability_contract", {}).get("process_launch_attempted") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_observability_contract", {}).get("daemon_started") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_observability_contract", {}).get("subprocess_module_imported") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_observability_contract", {}).get("livekit_sdk_imported") is False
+    )
+    guarded_start_release_candidate_contract_available = (
+        guarded_start_observability_contract_available
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_release_candidate_contract", {}).get("schema_version")
+        == "atlas.voice_realtime.guarded_start_release_candidate_contract.v1"
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_release_candidate_contract", {}).get("guarded_start_release_candidate_contract_implemented") is True
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_release_candidate_contract", {}).get("release_candidate_contract_only") is True
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_release_candidate_contract", {}).get("guarded_start_executor_enabled") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_release_candidate_contract", {}).get("guarded_start_executor_implemented") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_release_candidate_contract", {}).get("start_execution_allowed") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_release_candidate_contract", {}).get("real_subprocess_start_implemented") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_release_candidate_contract", {}).get("process_launch_attempted") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_release_candidate_contract", {}).get("daemon_started") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_release_candidate_contract", {}).get("subprocess_module_imported") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_release_candidate_contract", {}).get("livekit_sdk_imported") is False
+    )
+    guarded_start_operator_acceptance_contract_available = (
+        guarded_start_release_candidate_contract_available
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_operator_acceptance_contract", {}).get("schema_version")
+        == "atlas.voice_realtime.guarded_start_operator_acceptance_contract.v1"
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_operator_acceptance_contract", {}).get("guarded_start_operator_acceptance_contract_implemented") is True
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_operator_acceptance_contract", {}).get("operator_acceptance_contract_only") is True
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_operator_acceptance_contract", {}).get("guarded_start_executor_enabled") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_operator_acceptance_contract", {}).get("guarded_start_executor_implemented") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_operator_acceptance_contract", {}).get("start_execution_allowed") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_operator_acceptance_contract", {}).get("real_subprocess_start_implemented") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_operator_acceptance_contract", {}).get("process_launch_attempted") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_operator_acceptance_contract", {}).get("daemon_started") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_operator_acceptance_contract", {}).get("subprocess_module_imported") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_operator_acceptance_contract", {}).get("livekit_sdk_imported") is False
+    )
+    guarded_start_final_start_receipt_contract_available = (
+        guarded_start_operator_acceptance_contract_available
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_final_start_receipt_contract", {}).get("schema_version")
+        == "atlas.voice_realtime.guarded_start_final_start_receipt_contract.v1"
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_final_start_receipt_contract", {}).get("guarded_start_final_start_receipt_contract_implemented") is True
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_final_start_receipt_contract", {}).get("final_start_receipt_contract_only") is True
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_final_start_receipt_contract", {}).get("guarded_start_executor_enabled") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_final_start_receipt_contract", {}).get("guarded_start_executor_implemented") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_final_start_receipt_contract", {}).get("start_execution_allowed") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_final_start_receipt_contract", {}).get("real_subprocess_start_implemented") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_final_start_receipt_contract", {}).get("process_launch_attempted") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_final_start_receipt_contract", {}).get("daemon_started") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_final_start_receipt_contract", {}).get("subprocess_module_imported") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_final_start_receipt_contract", {}).get("livekit_sdk_imported") is False
+    )
+    guarded_start_launch_window_contract_available = (
+        guarded_start_final_start_receipt_contract_available
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_launch_window_contract", {}).get("schema_version")
+        == "atlas.voice_realtime.guarded_start_launch_window_contract.v1"
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_launch_window_contract", {}).get("guarded_start_launch_window_contract_implemented") is True
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_launch_window_contract", {}).get("launch_window_contract_only") is True
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_launch_window_contract", {}).get("guarded_start_executor_enabled") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_launch_window_contract", {}).get("guarded_start_executor_implemented") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_launch_window_contract", {}).get("start_execution_allowed") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_launch_window_contract", {}).get("real_subprocess_start_implemented") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_launch_window_contract", {}).get("process_launch_attempted") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_launch_window_contract", {}).get("daemon_started") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_launch_window_contract", {}).get("subprocess_module_imported") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_launch_window_contract", {}).get("livekit_sdk_imported") is False
+    )
+    guarded_start_pre_launch_guard_contract_available = (
+        guarded_start_launch_window_contract_available
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_pre_launch_guard_contract", {}).get("schema_version")
+        == "atlas.voice_realtime.guarded_start_pre_launch_guard_contract.v1"
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_pre_launch_guard_contract", {}).get("guarded_start_pre_launch_guard_contract_implemented") is True
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_pre_launch_guard_contract", {}).get("pre_launch_guard_contract_only") is True
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_pre_launch_guard_contract", {}).get("guarded_start_executor_enabled") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_pre_launch_guard_contract", {}).get("guarded_start_executor_implemented") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_pre_launch_guard_contract", {}).get("start_execution_allowed") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_pre_launch_guard_contract", {}).get("real_subprocess_start_implemented") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_pre_launch_guard_contract", {}).get("process_launch_attempted") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_pre_launch_guard_contract", {}).get("daemon_started") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_pre_launch_guard_contract", {}).get("subprocess_module_imported") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_pre_launch_guard_contract", {}).get("livekit_sdk_imported") is False
+    )
+    guarded_start_executor_runtime_contract_available = (
+        guarded_start_pre_launch_guard_contract_available
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_executor_runtime_contract", {}).get("schema_version")
+        == "atlas.voice_realtime.guarded_start_executor_runtime_contract.v1"
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_executor_runtime_contract", {}).get("guarded_start_executor_runtime_contract_implemented") is True
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_executor_runtime_contract", {}).get("executor_runtime_contract_only") is True
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_executor_runtime_contract", {}).get("guarded_start_executor_enabled") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_executor_runtime_contract", {}).get("guarded_start_executor_implemented") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_executor_runtime_contract", {}).get("start_execution_allowed") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_executor_runtime_contract", {}).get("real_subprocess_start_implemented") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_executor_runtime_contract", {}).get("process_launch_attempted") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_executor_runtime_contract", {}).get("daemon_started") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_executor_runtime_contract", {}).get("subprocess_module_imported") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_executor_runtime_contract", {}).get("livekit_sdk_imported") is False
+    )
+    guarded_start_process_spawn_contract_available = (
+        guarded_start_executor_runtime_contract_available
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_spawn_contract", {}).get("schema_version")
+        == "atlas.voice_realtime.guarded_start_process_spawn_contract.v1"
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_spawn_contract", {}).get("guarded_start_process_spawn_contract_implemented") is True
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_spawn_contract", {}).get("process_spawn_contract_only") is True
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_spawn_contract", {}).get("guarded_start_executor_enabled") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_spawn_contract", {}).get("guarded_start_executor_implemented") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_spawn_contract", {}).get("start_execution_allowed") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_spawn_contract", {}).get("real_subprocess_start_implemented") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_spawn_contract", {}).get("process_launch_attempted") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_spawn_contract", {}).get("daemon_started") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_spawn_contract", {}).get("subprocess_module_imported") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_spawn_contract", {}).get("livekit_sdk_imported") is False
+    )
+    guarded_start_spawn_review_contract_available = (
+        guarded_start_process_spawn_contract_available
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_spawn_review_contract", {}).get("schema_version")
+        == "atlas.voice_realtime.guarded_start_spawn_review_contract.v1"
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_spawn_review_contract", {}).get("guarded_start_spawn_review_contract_implemented") is True
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_spawn_review_contract", {}).get("spawn_review_contract_only") is True
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_spawn_review_contract", {}).get("guarded_start_executor_enabled") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_spawn_review_contract", {}).get("guarded_start_executor_implemented") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_spawn_review_contract", {}).get("start_execution_allowed") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_spawn_review_contract", {}).get("real_subprocess_start_implemented") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_spawn_review_contract", {}).get("process_launch_attempted") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_spawn_review_contract", {}).get("daemon_started") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_spawn_review_contract", {}).get("subprocess_module_imported") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_spawn_review_contract", {}).get("livekit_sdk_imported") is False
+    )
+    guarded_start_subprocess_import_contract_available = (
+        guarded_start_spawn_review_contract_available
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_subprocess_import_contract", {}).get("schema_version")
+        == "atlas.voice_realtime.guarded_start_subprocess_import_contract.v1"
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_subprocess_import_contract", {}).get("guarded_start_subprocess_import_contract_implemented") is True
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_subprocess_import_contract", {}).get("subprocess_import_contract_only") is True
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_subprocess_import_contract", {}).get("guarded_start_executor_enabled") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_subprocess_import_contract", {}).get("guarded_start_executor_implemented") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_subprocess_import_contract", {}).get("start_execution_allowed") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_subprocess_import_contract", {}).get("real_subprocess_start_implemented") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_subprocess_import_contract", {}).get("process_launch_attempted") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_subprocess_import_contract", {}).get("daemon_started") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_subprocess_import_contract", {}).get("subprocess_module_imported") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_subprocess_import_contract", {}).get("livekit_sdk_imported") is False
+    )
+    guarded_start_launch_invocation_contract_available = (
+        guarded_start_subprocess_import_contract_available
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_launch_invocation_contract", {}).get("schema_version")
+        == "atlas.voice_realtime.guarded_start_launch_invocation_contract.v1"
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_launch_invocation_contract", {}).get("guarded_start_launch_invocation_contract_implemented") is True
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_launch_invocation_contract", {}).get("launch_invocation_contract_only") is True
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_launch_invocation_contract", {}).get("guarded_start_executor_enabled") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_launch_invocation_contract", {}).get("guarded_start_executor_implemented") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_launch_invocation_contract", {}).get("start_execution_allowed") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_launch_invocation_contract", {}).get("real_subprocess_start_implemented") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_launch_invocation_contract", {}).get("process_launch_attempted") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_launch_invocation_contract", {}).get("daemon_started") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_launch_invocation_contract", {}).get("subprocess_module_imported") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_launch_invocation_contract", {}).get("livekit_sdk_imported") is False
+    )
+    guarded_start_final_process_start_contract_available = (
+        guarded_start_launch_invocation_contract_available
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_final_process_start_contract", {}).get("schema_version")
+        == "atlas.voice_realtime.guarded_start_final_process_start_contract.v1"
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_final_process_start_contract", {}).get("guarded_start_final_process_start_contract_implemented") is True
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_final_process_start_contract", {}).get("final_process_start_contract_only") is True
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_final_process_start_contract", {}).get("guarded_start_executor_enabled") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_final_process_start_contract", {}).get("guarded_start_executor_implemented") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_final_process_start_contract", {}).get("start_execution_allowed") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_final_process_start_contract", {}).get("real_subprocess_start_implemented") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_final_process_start_contract", {}).get("process_launch_attempted") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_final_process_start_contract", {}).get("daemon_started") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_final_process_start_contract", {}).get("subprocess_module_imported") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_final_process_start_contract", {}).get("livekit_sdk_imported") is False
+    )
+    guarded_start_process_execution_review_available = (
+        guarded_start_final_process_start_contract_available
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_execution_review", {}).get("schema_version")
+        == "atlas.voice_realtime.guarded_start_process_execution_review.v1"
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_execution_review", {}).get("guarded_start_process_execution_review_implemented") is True
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_execution_review", {}).get("process_execution_review_only") is True
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_execution_review", {}).get("guarded_start_executor_enabled") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_execution_review", {}).get("guarded_start_executor_implemented") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_execution_review", {}).get("start_execution_allowed") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_execution_review", {}).get("real_subprocess_start_implemented") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_execution_review", {}).get("process_launch_attempted") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_execution_review", {}).get("daemon_started") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_execution_review", {}).get("subprocess_module_imported") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_execution_review", {}).get("livekit_sdk_imported") is False
+    )
+    guarded_start_process_execution_packet_available = (
+        guarded_start_process_execution_review_available
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_execution_packet", {}).get("schema_version")
+        == "atlas.voice_realtime.guarded_start_process_execution_packet.v1"
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_execution_packet", {}).get("guarded_start_process_execution_packet_implemented") is True
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_execution_packet", {}).get("process_execution_packet_only") is True
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_execution_packet", {}).get("guarded_start_executor_enabled") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_execution_packet", {}).get("guarded_start_executor_implemented") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_execution_packet", {}).get("start_execution_allowed") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_execution_packet", {}).get("real_subprocess_start_implemented") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_execution_packet", {}).get("process_launch_attempted") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_execution_packet", {}).get("daemon_started") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_execution_packet", {}).get("subprocess_module_imported") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_execution_packet", {}).get("livekit_sdk_imported") is False
+    )
+    guarded_start_process_executor_stub_available = (
+        guarded_start_process_execution_packet_available
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_executor_stub", {}).get("schema_version")
+        == "atlas.voice_realtime.guarded_start_process_executor_stub.v1"
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_executor_stub", {}).get("guarded_start_process_executor_stub_implemented") is True
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_executor_stub", {}).get("process_executor_stub_only") is True
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_executor_stub", {}).get("guarded_start_executor_enabled") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_executor_stub", {}).get("guarded_start_executor_implemented") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_executor_stub", {}).get("start_execution_allowed") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_executor_stub", {}).get("real_subprocess_start_implemented") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_executor_stub", {}).get("process_launch_attempted") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_executor_stub", {}).get("daemon_started") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_executor_stub", {}).get("subprocess_module_imported") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_executor_stub", {}).get("livekit_sdk_imported") is False
+    )
+    guarded_start_process_executor_review_available = (
+        guarded_start_process_executor_stub_available
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_executor_review", {}).get("schema_version")
+        == "atlas.voice_realtime.guarded_start_process_executor_review.v1"
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_executor_review", {}).get("guarded_start_process_executor_review_implemented") is True
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_executor_review", {}).get("process_executor_review_only") is True
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_executor_review", {}).get("guarded_start_executor_enabled") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_executor_review", {}).get("guarded_start_executor_implemented") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_executor_review", {}).get("start_execution_allowed") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_executor_review", {}).get("real_subprocess_start_implemented") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_executor_review", {}).get("process_launch_attempted") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_executor_review", {}).get("daemon_started") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_executor_review", {}).get("subprocess_module_imported") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_executor_review", {}).get("livekit_sdk_imported") is False
+    )
+    guarded_start_process_executor_contract_available = (
+        guarded_start_process_executor_review_available
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_executor_contract", {}).get("schema_version")
+        == "atlas.voice_realtime.guarded_start_process_executor_contract.v1"
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_executor_contract", {}).get("guarded_start_process_executor_contract_implemented") is True
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_executor_contract", {}).get("process_executor_contract_only") is True
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_executor_contract", {}).get("guarded_start_executor_enabled") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_executor_contract", {}).get("guarded_start_executor_implemented") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_executor_contract", {}).get("start_execution_allowed") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_executor_contract", {}).get("real_subprocess_start_implemented") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_executor_contract", {}).get("process_launch_attempted") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_executor_contract", {}).get("daemon_started") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_executor_contract", {}).get("subprocess_module_imported") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_executor_contract", {}).get("livekit_sdk_imported") is False
+    )
+    guarded_start_process_runtime_adapter_available = (
+        guarded_start_process_executor_contract_available
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_runtime_adapter", {}).get("schema_version")
+        == "atlas.voice_realtime.guarded_start_process_runtime_adapter.v1"
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_runtime_adapter", {}).get("guarded_start_process_runtime_adapter_implemented") is True
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_runtime_adapter", {}).get("process_runtime_adapter_only") is True
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_runtime_adapter", {}).get("runtime_adapter_contract_only") is True
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_runtime_adapter", {}).get("guarded_start_executor_enabled") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_runtime_adapter", {}).get("guarded_start_executor_implemented") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_runtime_adapter", {}).get("start_execution_allowed") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_runtime_adapter", {}).get("real_subprocess_start_implemented") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_runtime_adapter", {}).get("process_launch_attempted") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_runtime_adapter", {}).get("daemon_started") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_runtime_adapter", {}).get("subprocess_module_imported") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_runtime_adapter", {}).get("livekit_sdk_imported") is False
+    )
+    guarded_start_process_adapter_review_available = (
+        guarded_start_process_runtime_adapter_available
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_adapter_review", {}).get("schema_version")
+        == "atlas.voice_realtime.guarded_start_process_adapter_review.v1"
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_adapter_review", {}).get("guarded_start_process_adapter_review_implemented") is True
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_adapter_review", {}).get("process_adapter_review_only") is True
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_adapter_review", {}).get("guarded_start_executor_enabled") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_adapter_review", {}).get("guarded_start_executor_implemented") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_adapter_review", {}).get("start_execution_allowed") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_adapter_review", {}).get("real_subprocess_start_implemented") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_adapter_review", {}).get("process_launch_attempted") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_adapter_review", {}).get("daemon_started") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_adapter_review", {}).get("subprocess_module_imported") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_adapter_review", {}).get("livekit_sdk_imported") is False
+    )
+    guarded_start_process_adapter_contract_available = (
+        guarded_start_process_adapter_review_available
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_adapter_contract", {}).get("schema_version")
+        == "atlas.voice_realtime.guarded_start_process_adapter_contract.v1"
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_adapter_contract", {}).get("guarded_start_process_adapter_contract_implemented") is True
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_adapter_contract", {}).get("process_adapter_contract_only") is True
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_adapter_contract", {}).get("guarded_start_executor_enabled") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_adapter_contract", {}).get("guarded_start_executor_implemented") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_adapter_contract", {}).get("start_execution_allowed") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_adapter_contract", {}).get("real_subprocess_start_implemented") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_adapter_contract", {}).get("process_launch_attempted") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_adapter_contract", {}).get("daemon_started") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_adapter_contract", {}).get("subprocess_module_imported") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_adapter_contract", {}).get("livekit_sdk_imported") is False
+    )
+    guarded_start_process_runner_contract_available = (
+        guarded_start_process_adapter_contract_available
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_runner_contract", {}).get("schema_version")
+        == "atlas.voice_realtime.guarded_start_process_runner_contract.v1"
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_runner_contract", {}).get("guarded_start_process_runner_contract_implemented") is True
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_runner_contract", {}).get("process_runner_contract_only") is True
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_runner_contract", {}).get("guarded_start_executor_enabled") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_runner_contract", {}).get("guarded_start_executor_implemented") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_runner_contract", {}).get("start_execution_allowed") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_runner_contract", {}).get("real_subprocess_start_implemented") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_runner_contract", {}).get("process_launch_attempted") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_runner_contract", {}).get("daemon_started") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_runner_contract", {}).get("subprocess_module_imported") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_runner_contract", {}).get("livekit_sdk_imported") is False
+    )
+    guarded_start_process_runner_review_available = (
+        guarded_start_process_runner_contract_available
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_runner_review", {}).get("schema_version")
+        == "atlas.voice_realtime.guarded_start_process_runner_review.v1"
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_runner_review", {}).get("guarded_start_process_runner_review_implemented") is True
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_runner_review", {}).get("process_runner_review_only") is True
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_runner_review", {}).get("guarded_start_executor_enabled") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_runner_review", {}).get("guarded_start_executor_implemented") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_runner_review", {}).get("start_execution_allowed") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_runner_review", {}).get("real_subprocess_start_implemented") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_runner_review", {}).get("process_launch_attempted") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_runner_review", {}).get("daemon_started") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_runner_review", {}).get("subprocess_module_imported") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_runner_review", {}).get("livekit_sdk_imported") is False
+    )
+    guarded_start_process_runner_packet_available = (
+        guarded_start_process_runner_review_available
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_runner_packet", {}).get("schema_version")
+        == "atlas.voice_realtime.guarded_start_process_runner_packet.v1"
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_runner_packet", {}).get("guarded_start_process_runner_packet_implemented") is True
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_runner_packet", {}).get("process_runner_packet_only") is True
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_runner_packet", {}).get("guarded_start_executor_enabled") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_runner_packet", {}).get("guarded_start_executor_implemented") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_runner_packet", {}).get("start_execution_allowed") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_runner_packet", {}).get("real_subprocess_start_implemented") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_runner_packet", {}).get("process_launch_attempted") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_runner_packet", {}).get("daemon_started") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_runner_packet", {}).get("subprocess_module_imported") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_runner_packet", {}).get("livekit_sdk_imported") is False
+    )
+    guarded_start_process_runner_execution_review_available = (
+        guarded_start_process_runner_packet_available
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_runner_execution_review", {}).get("schema_version")
+        == "atlas.voice_realtime.guarded_start_process_runner_execution_review.v1"
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_runner_execution_review", {}).get("guarded_start_process_runner_execution_review_implemented") is True
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_runner_execution_review", {}).get("process_runner_execution_review_only") is True
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_runner_execution_review", {}).get("guarded_start_executor_enabled") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_runner_execution_review", {}).get("guarded_start_executor_implemented") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_runner_execution_review", {}).get("start_execution_allowed") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_runner_execution_review", {}).get("real_subprocess_start_implemented") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_runner_execution_review", {}).get("process_launch_attempted") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_runner_execution_review", {}).get("daemon_started") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_runner_execution_review", {}).get("subprocess_module_imported") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_runner_execution_review", {}).get("livekit_sdk_imported") is False
+    )
+    guarded_start_process_runner_execution_contract_available = (
+        guarded_start_process_runner_execution_review_available
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_runner_execution_contract", {}).get("schema_version")
+        == "atlas.voice_realtime.guarded_start_process_runner_execution_contract.v1"
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_runner_execution_contract", {}).get("guarded_start_process_runner_execution_contract_implemented") is True
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_runner_execution_contract", {}).get("process_runner_execution_contract_only") is True
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_runner_execution_contract", {}).get("guarded_start_executor_enabled") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_runner_execution_contract", {}).get("guarded_start_executor_implemented") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_runner_execution_contract", {}).get("start_execution_allowed") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_runner_execution_contract", {}).get("real_subprocess_start_implemented") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_runner_execution_contract", {}).get("process_launch_attempted") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_runner_execution_contract", {}).get("daemon_started") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_runner_execution_contract", {}).get("subprocess_module_imported") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_runner_execution_contract", {}).get("livekit_sdk_imported") is False
+    )
+    guarded_start_process_runner_start_gate_available = (
+        guarded_start_process_runner_execution_contract_available
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_runner_start_gate", {}).get("schema_version")
+        == "atlas.voice_realtime.guarded_start_process_runner_start_gate.v1"
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_runner_start_gate", {}).get("guarded_start_process_runner_start_gate_implemented") is True
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_runner_start_gate", {}).get("process_runner_start_gate_only") is True
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_runner_start_gate", {}).get("guarded_start_executor_enabled") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_runner_start_gate", {}).get("guarded_start_executor_implemented") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_runner_start_gate", {}).get("start_execution_allowed") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_runner_start_gate", {}).get("real_subprocess_start_implemented") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_runner_start_gate", {}).get("process_launch_attempted") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_runner_start_gate", {}).get("daemon_started") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_runner_start_gate", {}).get("subprocess_module_imported") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_runner_start_gate", {}).get("livekit_sdk_imported") is False
+    )
+    guarded_start_process_runner_final_review_available = (
+        guarded_start_process_runner_start_gate_available
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_runner_final_review", {}).get("schema_version")
+        == "atlas.voice_realtime.guarded_start_process_runner_final_review.v1"
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_runner_final_review", {}).get("guarded_start_process_runner_final_review_implemented") is True
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_runner_final_review", {}).get("process_runner_final_review_only") is True
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_runner_final_review", {}).get("guarded_start_executor_enabled") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_runner_final_review", {}).get("guarded_start_executor_implemented") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_runner_final_review", {}).get("start_execution_allowed") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_runner_final_review", {}).get("real_subprocess_start_implemented") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_runner_final_review", {}).get("process_launch_attempted") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_runner_final_review", {}).get("daemon_started") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_runner_final_review", {}).get("subprocess_module_imported") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_runner_final_review", {}).get("livekit_sdk_imported") is False
+    )
+    guarded_start_process_runner_promotion_packet_available = (
+        guarded_start_process_runner_final_review_available
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_runner_promotion_packet", {}).get("schema_version")
+        == "atlas.voice_realtime.guarded_start_process_runner_promotion_packet.v1"
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_runner_promotion_packet", {}).get("guarded_start_process_runner_promotion_packet_implemented") is True
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_runner_promotion_packet", {}).get("process_runner_promotion_packet_only") is True
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_runner_promotion_packet", {}).get("guarded_start_executor_enabled") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_runner_promotion_packet", {}).get("guarded_start_executor_implemented") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_runner_promotion_packet", {}).get("start_execution_allowed") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_runner_promotion_packet", {}).get("real_subprocess_start_implemented") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_runner_promotion_packet", {}).get("process_launch_attempted") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_runner_promotion_packet", {}).get("daemon_started") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_runner_promotion_packet", {}).get("subprocess_module_imported") is False
+        and daemon_supervisor_execution.get("supervised_process_adapter", {}).get("guarded_start_process_runner_promotion_packet", {}).get("livekit_sdk_imported") is False
+    )
     machine_ready = (
         worker_start.get("status") in [
             "blocked_pending_human_review",
@@ -507,6 +957,36 @@ def build_product_loop_check(
         and guarded_start_final_enablement_gate_available
         and guarded_start_policy_enablement_contract_available
         and guarded_start_activation_contract_available
+        and guarded_start_execution_attempt_contract_available
+        and guarded_start_execution_rehearsal_contract_available
+        and guarded_start_observability_contract_available
+        and guarded_start_release_candidate_contract_available
+        and guarded_start_operator_acceptance_contract_available
+        and guarded_start_final_start_receipt_contract_available
+        and guarded_start_launch_window_contract_available
+        and guarded_start_pre_launch_guard_contract_available
+        and guarded_start_executor_runtime_contract_available
+        and guarded_start_process_spawn_contract_available
+        and guarded_start_spawn_review_contract_available
+        and guarded_start_subprocess_import_contract_available
+        and guarded_start_launch_invocation_contract_available
+        and guarded_start_final_process_start_contract_available
+        and guarded_start_process_execution_review_available
+        and guarded_start_process_execution_packet_available
+        and guarded_start_process_executor_stub_available
+        and guarded_start_process_executor_review_available
+        and guarded_start_process_executor_contract_available
+        and guarded_start_process_runtime_adapter_available
+        and guarded_start_process_adapter_review_available
+        and guarded_start_process_adapter_contract_available
+        and guarded_start_process_runner_contract_available
+        and guarded_start_process_runner_review_available
+        and guarded_start_process_runner_packet_available
+        and guarded_start_process_runner_execution_review_available
+        and guarded_start_process_runner_execution_contract_available
+        and guarded_start_process_runner_start_gate_available
+        and guarded_start_process_runner_final_review_available
+        and guarded_start_process_runner_promotion_packet_available
     )
     review_receipt_valid = worker_start.get("production_promotion", {}).get("review_receipt_valid") is True
     daemon_review_receipt_valid = worker_start.get("daemon_implementation", {}).get("review_receipt_valid") is True
@@ -578,6 +1058,36 @@ def build_product_loop_check(
             "guarded_start_final_enablement_gate_available": guarded_start_final_enablement_gate_available,
             "guarded_start_policy_enablement_contract_available": guarded_start_policy_enablement_contract_available,
             "guarded_start_activation_contract_available": guarded_start_activation_contract_available,
+            "guarded_start_execution_attempt_contract_available": guarded_start_execution_attempt_contract_available,
+            "guarded_start_execution_rehearsal_contract_available": guarded_start_execution_rehearsal_contract_available,
+            "guarded_start_observability_contract_available": guarded_start_observability_contract_available,
+            "guarded_start_release_candidate_contract_available": guarded_start_release_candidate_contract_available,
+            "guarded_start_operator_acceptance_contract_available": guarded_start_operator_acceptance_contract_available,
+            "guarded_start_final_start_receipt_contract_available": guarded_start_final_start_receipt_contract_available,
+            "guarded_start_launch_window_contract_available": guarded_start_launch_window_contract_available,
+            "guarded_start_pre_launch_guard_contract_available": guarded_start_pre_launch_guard_contract_available,
+            "guarded_start_executor_runtime_contract_available": guarded_start_executor_runtime_contract_available,
+            "guarded_start_process_spawn_contract_available": guarded_start_process_spawn_contract_available,
+            "guarded_start_spawn_review_contract_available": guarded_start_spawn_review_contract_available,
+            "guarded_start_subprocess_import_contract_available": guarded_start_subprocess_import_contract_available,
+            "guarded_start_launch_invocation_contract_available": guarded_start_launch_invocation_contract_available,
+            "guarded_start_final_process_start_contract_available": guarded_start_final_process_start_contract_available,
+            "guarded_start_process_execution_review_available": guarded_start_process_execution_review_available,
+            "guarded_start_process_execution_packet_available": guarded_start_process_execution_packet_available,
+            "guarded_start_process_executor_stub_available": guarded_start_process_executor_stub_available,
+            "guarded_start_process_executor_review_available": guarded_start_process_executor_review_available,
+            "guarded_start_process_executor_contract_available": guarded_start_process_executor_contract_available,
+            "guarded_start_process_runtime_adapter_available": guarded_start_process_runtime_adapter_available,
+            "guarded_start_process_adapter_review_available": guarded_start_process_adapter_review_available,
+            "guarded_start_process_adapter_contract_available": guarded_start_process_adapter_contract_available,
+            "guarded_start_process_runner_contract_available": guarded_start_process_runner_contract_available,
+            "guarded_start_process_runner_review_available": guarded_start_process_runner_review_available,
+            "guarded_start_process_runner_packet_available": guarded_start_process_runner_packet_available,
+            "guarded_start_process_runner_execution_review_available": guarded_start_process_runner_execution_review_available,
+            "guarded_start_process_runner_execution_contract_available": guarded_start_process_runner_execution_contract_available,
+            "guarded_start_process_runner_start_gate_available": guarded_start_process_runner_start_gate_available,
+            "guarded_start_process_runner_final_review_available": guarded_start_process_runner_final_review_available,
+            "guarded_start_process_runner_promotion_packet_available": guarded_start_process_runner_promotion_packet_available,
             "boolean_approval_is_sufficient": worker_start.get("production_promotion", {}).get("boolean_approval_is_sufficient") is True,
             "direct_provider_forbidden": worker_start.get("guardrails", {}).get("direct_provider_call_allowed") is False,
             "raw_audio_forbidden": worker_start.get("guardrails", {}).get("raw_audio_persistence_allowed") is False,

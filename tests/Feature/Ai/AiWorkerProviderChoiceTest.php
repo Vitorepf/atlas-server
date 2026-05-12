@@ -4,10 +4,12 @@ namespace Tests\Feature\Ai;
 
 use App\Models\AiJob;
 use App\Models\AiRouterDecision;
+use App\Models\AiThread;
 use App\Models\AiTrace;
-use App\Models\AiYoutubeIngestion;
 use App\Models\AiWorkerEvent;
+use App\Models\AiYoutubeIngestion;
 use App\Models\AtlasLedgerEvent;
+use App\Services\Ai\AiGatewayService;
 use App\Services\Ai\AiPermissionDecision;
 use App\Services\Ai\AiPermissionEngine;
 use App\Services\Ai\AiProvider;
@@ -23,6 +25,7 @@ use App\Services\Ai\Kernel\Pipeline\KernelPipelineContract;
 use App\Services\Ai\Kernel\Pipeline\KernelPipelineStage;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
+use ReflectionClass;
 use Tests\TestCase;
 
 class AiWorkerProviderChoiceTest extends TestCase
@@ -704,6 +707,129 @@ class AiWorkerProviderChoiceTest extends TestCase
         $this->assertSame('succeeded', $job->status);
         $this->assertSame('ready', data_get($job->payload, 'youtube_ingestion.videos.0.status'));
         $this->assertStringContainsString('<transcript_chunk', $job->prompt);
+    }
+
+    public function test_gateway_continuation_reuses_recent_thread_youtube_when_follow_up_has_no_link(): void
+    {
+        if (! Schema::hasTable('ai_youtube_ingestions')) {
+            Schema::create('ai_youtube_ingestions', function (Blueprint $table): void {
+                $table->uuid('id')->primary();
+                $table->string('video_id', 32)->unique();
+                $table->text('url');
+                $table->text('title')->nullable();
+                $table->string('channel')->nullable();
+                $table->string('status', 48)->index();
+                $table->text('reason')->nullable();
+                $table->string('metadata_source', 96)->nullable()->index();
+                $table->string('caption_kind', 64)->nullable();
+                $table->string('caption_language', 24)->nullable();
+                $table->string('audio_fallback_status', 64)->nullable()->index();
+                $table->unsignedInteger('chunk_count')->default(0);
+                $table->unsignedInteger('transcript_chars')->default(0);
+                $table->unsignedInteger('ingestion_ms')->nullable();
+                $table->boolean('cache_hit')->default(false);
+                $table->json('metadata')->nullable();
+                $table->json('caption')->nullable();
+                $table->json('chunks')->nullable();
+                $table->json('diagnostics')->nullable();
+                $table->timestamp('last_ingested_at')->nullable()->index();
+                $table->timestamps();
+            });
+        }
+
+        $url = 'https://www.youtube.com/watch?v=followUpReady';
+        AiYoutubeIngestion::query()->create([
+            'video_id' => 'followUpReady',
+            'url' => $url,
+            'title' => 'Video pronto depois do background',
+            'channel' => 'Atlas Test',
+            'status' => 'ready',
+            'caption_kind' => 'whisper_audio',
+            'caption_language' => 'pt',
+            'audio_fallback_status' => 'ready',
+            'chunk_count' => 1,
+            'transcript_chars' => 48,
+            'metadata' => [
+                'id' => 'followUpReady',
+                'title' => 'Video pronto depois do background',
+                'channel' => 'Atlas Test',
+                'duration_seconds' => 600,
+                'webpage_url' => $url,
+            ],
+            'caption' => [
+                'language' => 'pt',
+                'kind' => 'whisper_audio',
+                'timestamp_source' => 'estimated',
+            ],
+            'chunks' => [[
+                'index' => 0,
+                'start' => 0,
+                'end' => 120,
+                'start_label' => '0:00',
+                'end_label' => '2:00',
+                'text' => 'Transcricao recuperada no follow-up curto.',
+            ]],
+            'diagnostics' => ['audio_fallback' => ['status' => 'ready']],
+            'last_ingested_at' => now(),
+        ]);
+
+        $thread = AiThread::query()->create([
+            'title' => 'YouTube follow-up',
+            'status' => 'active',
+            'surface' => 'app',
+            'message_count' => 1,
+            'last_message_at' => now(),
+            'metadata' => [],
+        ]);
+
+        $trace = AiTrace::query()->create([
+            'trace_key' => 'tr_'.uniqid(),
+            'thread_id' => $thread->id,
+            'source_type' => 'app',
+            'agent_slug' => 'orquestrador',
+            'operator_input' => $url.' me fala tudo',
+            'status' => 'succeeded',
+        ]);
+
+        $job = AiJob::query()->create([
+            'trace_id' => $trace->id,
+            'kind' => 'interaction',
+            'status' => 'succeeded',
+            'agent_slug' => 'orquestrador',
+            'provider' => 'claude_cli',
+            'model' => 'claude-sonnet-4-6',
+            'input_text' => $url.' me fala tudo',
+            'prompt' => 'prompt inicial',
+            'result_text' => 'Atlas ainda esta transcrevendo.',
+            'available_at' => now()->subMinute(),
+            'payload' => [
+                'youtube_ingestion' => [
+                    'status' => 'processing',
+                    'videos' => [[
+                        'url' => $url,
+                        'status' => 'processing',
+                        'metadata' => ['title' => 'Video pronto depois do background'],
+                    ]],
+                ],
+            ],
+        ]);
+
+        $gateway = app(AiGatewayService::class);
+        $method = (new ReflectionClass($gateway))->getMethod('optionsWithYouTubeKnowledge');
+
+        $options = $method->invoke($gateway, 'Conseguiu?', [
+            'payload' => [
+                'thread_id' => $thread->id,
+            ],
+        ]);
+
+        $this->assertSame('ready', data_get($options, 'payload.youtube_ingestion.videos.0.status'));
+        $this->assertSame($url, data_get($options, 'payload.youtube_continuation.url'));
+        $this->assertSame($job->id, data_get($options, 'payload.youtube_continuation.previous_job_id'));
+        $this->assertStringContainsString(
+            'Transcricao recuperada no follow-up curto.',
+            data_get($options, 'payload.youtube_ingestion.videos.0.chunks.0.text'),
+        );
     }
 
     public function test_worker_blocks_provider_mismatch_decision_receipt_before_provider_execution(): void

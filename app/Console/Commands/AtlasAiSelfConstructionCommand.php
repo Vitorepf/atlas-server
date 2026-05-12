@@ -248,6 +248,101 @@ class AtlasAiSelfConstructionCommand extends Command
         {--agent-review-merge-authorization-signature-request : Generate a read-only provider-neutral signature request for the Forge Workspace merge authorization receipt draft}
         {--agent-review-merge-authorization-post-signature-runbook : Generate a read-only provider-neutral post-signature runbook for the Forge Workspace merge authorization flow}
         {--agent-review-merge-final-authorization-preflight : Evaluate read-only provider-neutral final authorization preflight before any future Forge Workspace merge executor}
+        {--agent-review-merge-authorizing-action-template : Generate a read-only provider-neutral template for the future Forge Workspace merge authorizing action}
+        {--agent-review-merge-final-receipt-draft : Generate a read-only provider-neutral final merge receipt draft without authorizing or executing merge}
+        {--agent-review-merge-final-signature-request : Generate a read-only provider-neutral signature request for the Forge Workspace final merge receipt draft}
+        {--agent-review-merge-final-post-signature-runbook : Generate a read-only provider-neutral post-signature runbook for the Forge Workspace final merge receipt flow}
+        {--agent-review-merge-signed-final-receipt-template : Generate a read-only provider-neutral template for a future signed Forge Workspace final merge receipt}
+        {--agent-review-merge-signed-final-receipt-preflight : Evaluate read-only provider-neutral preflight for a future signed Forge Workspace final merge receipt}
+        {--agent-review-merge-signed-final-receipt-persistence-template : Generate a read-only provider-neutral template for future signed Forge Workspace final receipt persistence}
+        {--agent-review-merge-executor-release-preflight : Evaluate read-only provider-neutral preflight for a future Forge Workspace merge executor release}
+        {--agent-review-merge-executor-contract-template : Generate a read-only provider-neutral contract template for a future Forge Workspace merge executor}
+        {--agent-review-merge-execution-receipt-template : Generate a read-only provider-neutral post-execution receipt template for a future Forge Workspace merge executor}
+        {--agent-review-merge-post-execution-preflight : Evaluate read-only provider-neutral preflight for a future post-execution Forge Workspace merge}
+        {--agent-review-merge-post-execution-action-template : Generate a read-only provider-neutral action template for a future post-execution Forge Workspace merge}
+        {--agent-review-merge-post-execution-action-receipt-draft : Generate a read-only unsigned provider-neutral receipt draft for a future post-execution Forge Workspace merge action}
+        {--agent-review-merge-post-execution-action-signature-request : Generate a read-only provider-neutral signature request for the future post-execution Forge Workspace merge action receipt}
+        {--agent-review-merge-post-execution-action-post-signature-runbook : Generate a read-only provider-neutral post-signature runbook for the future post-execution Forge Workspace merge action}
+        {--agent-review-merge-post-execution-action-signed-receipt-template : Generate a read-only provider-neutral signed receipt template for the future post-execution Forge Workspace merge action}
+        {--agent-review-merge-post-execution-action-signed-receipt-preflight : Evaluate read-only provider-neutral preflight for future signed post-execution Forge Workspace merge action receipt persistence}
+        {--agent-review-merge-post-execution-action-signed-receipt-persistence-template : Generate a read-only provider-neutral persistence template for the future signed post-execution Forge Workspace merge action receipt}
+        {--agent-review-merge-post-execution-action-signed-receipt-persistence-receipt-draft : Generate a read-only provider-neutral receipt draft for future signed post-execution Forge Workspace merge action receipt persistence}
+        {--agent-review-merge-post-execution-action-signed-receipt-persistence-preflight : Evaluate read-only provider-neutral preflight for future signed post-execution Forge Workspace merge action receipt persistence}
+        {--agent-review-merge-post-execution-action-signed-receipt-persistence-post-preflight-runbook : Generate a read-only provider-neutral post-preflight runbook for future signed post-execution Forge Workspace merge action receipt persistence}
+        {--agent-review-merge-post-execution-action-signed-receipt-persistence-append-only-event-payload-template : Generate a read-only provider-neutral append-only event payload template for future signed post-execution Forge Workspace merge action receipt persistence}
+        {--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-preflight : Evaluate read-only provider-neutral preflight for a future signed post-execution Forge Workspace merge action receipt persistence writer}
+        {--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-contract-template : Generate a read-only provider-neutral contract template for a future signed post-execution Forge Workspace merge action receipt persistence writer}
+        {--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-implementation-preflight : Evaluate read-only provider-neutral preflight for a future signed post-execution Forge Workspace merge action receipt persistence writer implementation}
+        {--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-authorization-template : Generate a read-only provider-neutral release authorization template for a future signed post-execution Forge Workspace merge action receipt persistence writer}
+        {--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-authorization-preflight : Evaluate read-only provider-neutral preflight for future signed post-execution Forge Workspace merge action receipt persistence writer release authorization}
+        {--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-authorization-receipt-draft : Generate a read-only unsigned provider-neutral receipt draft for future signed post-execution Forge Workspace merge action receipt persistence writer release authorization}
+        {--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-authorization-signature-request : Generate a read-only provider-neutral signature request for future signed post-execution Forge Workspace merge action receipt persistence writer release authorization}
+        {--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-authorization-post-signature-runbook : Generate a read-only provider-neutral post-signature runbook for future signed post-execution Forge Workspace merge action receipt persistence writer release authorization}
+        {--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-authorization-signed-receipt-template : Generate a read-only provider-neutral signed receipt template for future signed post-execution Forge Workspace merge action receipt persistence writer release authorization}
+        {--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-preflight : Evaluate read-only provider-neutral preflight for future signed post-execution Forge Workspace merge action receipt persistence writer release}
+        {--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-receipt-draft : Generate a read-only provider-neutral unsigned receipt draft for future signed post-execution Forge Workspace merge action receipt persistence writer release}
+        {--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-signature-request : Generate a read-only provider-neutral signature request for the future Forge Workspace writer release receipt}
+        {--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-post-signature-runbook : Generate a read-only provider-neutral post-signature runbook for the future Forge Workspace writer release receipt}
+        {--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-signed-receipt-template : Generate a read-only provider-neutral signed receipt template for the future Forge Workspace writer release receipt}
+        {--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-execution-contract-preflight : Evaluate read-only provider-neutral preflight before any future Forge Workspace writer release execution contract}
+        {--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-execution-contract-template : Generate a read-only provider-neutral execution contract template for a future Forge Workspace writer release}
+        {--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-disable-contract-template : Generate a read-only provider-neutral disable contract template for a future Forge Workspace writer release}
+        {--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-observability-contract-template : Generate a read-only provider-neutral observability contract template for a future Forge Workspace writer release}
+        {--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-post-monitoring-review-template : Generate a read-only provider-neutral post-monitoring review template for a future Forge Workspace writer release}
+        {--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-reenable-review-packet-template : Generate a read-only provider-neutral re-enable review packet template for a future Forge Workspace writer release}
+        {--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-request-template : Generate a read-only provider-neutral fresh authorization request template for a future Forge Workspace writer re-enable}
+        {--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-receipt-draft-template : Generate a read-only provider-neutral unsigned receipt draft template for a future Forge Workspace writer re-enable fresh authorization}
+        {--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-signature-request-template : Generate a read-only provider-neutral signature request template for a future Forge Workspace writer re-enable fresh authorization receipt}
+        {--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-post-signature-runbook-template : Generate a read-only provider-neutral post-signature runbook template for a future Forge Workspace writer re-enable fresh authorization receipt}
+        {--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-signed-receipt-template : Generate a read-only provider-neutral signed receipt template for a future Forge Workspace writer re-enable fresh authorization receipt}
+        {--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-execution-contract-preflight-template : Generate a read-only provider-neutral execution contract preflight template for a future Forge Workspace writer re-enable fresh authorization}
+        {--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-execution-contract-template : Generate a read-only provider-neutral execution contract template for a future Forge Workspace writer re-enable fresh authorization}
+        {--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-disable-contract-template : Generate a read-only provider-neutral disable contract template for a future Forge Workspace writer re-enable fresh authorization}
+        {--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-observability-contract-template : Generate a read-only provider-neutral observability contract template for a future Forge Workspace writer re-enable fresh authorization}
+        {--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-post-monitoring-review-template : Generate a read-only provider-neutral post-monitoring review template for a future Forge Workspace writer re-enable fresh authorization}
+        {--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-health-decision-template : Generate a read-only provider-neutral health decision template for a future Forge Workspace writer re-enable fresh authorization}
+        {--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-disable-request-template : Generate a read-only provider-neutral disable request template for a future Forge Workspace writer re-enable fresh authorization}
+        {--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-request-template : Generate a read-only provider-neutral new-cycle request template for a future Forge Workspace writer re-enable fresh authorization}
+        {--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-authorization-request-template : Generate a read-only provider-neutral authorization request template for a future Forge Workspace writer re-enable fresh authorization new cycle}
+        {--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-receipt-draft-template : Generate a read-only provider-neutral unsigned receipt draft template for a future Forge Workspace writer re-enable fresh authorization new cycle}
+        {--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-signature-request-template : Generate a read-only provider-neutral signature request template for a future Forge Workspace writer re-enable fresh authorization new cycle receipt}
+        {--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-post-signature-runbook-template : Generate a read-only provider-neutral post-signature runbook template for a future Forge Workspace writer re-enable fresh authorization new cycle receipt}
+        {--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-signed-receipt-template : Generate a read-only provider-neutral signed receipt template for a future Forge Workspace writer re-enable fresh authorization new cycle receipt}
+        {--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-execution-contract-preflight-template : Generate a read-only provider-neutral execution contract preflight template for a future Forge Workspace writer re-enable fresh authorization new cycle}
+        {--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-execution-contract-template : Generate a read-only provider-neutral execution contract template for a future Forge Workspace writer re-enable fresh authorization new cycle}
+        {--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-contract-template : Generate a read-only provider-neutral disable contract template for a future Forge Workspace writer re-enable fresh authorization new cycle}
+        {--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-observability-contract-template : Generate a read-only provider-neutral observability contract template for a future Forge Workspace writer re-enable fresh authorization new cycle}
+        {--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-post-monitoring-review-template : Generate a read-only provider-neutral post-monitoring review template for a future Forge Workspace writer re-enable fresh authorization new cycle}
+        {--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-health-decision-template : Generate a read-only provider-neutral health decision template for a future Forge Workspace writer re-enable fresh authorization new cycle}
+        {--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-request-template : Generate a read-only provider-neutral disable request template for a future Forge Workspace writer re-enable fresh authorization new cycle}
+        {--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-preflight-template : Generate a read-only provider-neutral disable execution preflight template for a future Forge Workspace writer re-enable fresh authorization new cycle}
+        {--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-receipt-draft-template : Generate a read-only provider-neutral disable execution receipt draft template for a future Forge Workspace writer re-enable fresh authorization new cycle}
+        {--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-signed-receipt-template : Generate a read-only provider-neutral signed disable execution receipt template for a future Forge Workspace writer re-enable fresh authorization new cycle}
+        {--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-persistence-preflight-template : Generate a read-only provider-neutral disable execution persistence preflight template for a future Forge Workspace writer re-enable fresh authorization new cycle}
+        {--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-persistence-receipt-template : Generate a read-only provider-neutral disable execution persistence receipt template for a future Forge Workspace writer re-enable fresh authorization new cycle}
+        {--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-post-persistence-review-template : Generate a read-only provider-neutral disable execution post-persistence review template for a future Forge Workspace writer re-enable fresh authorization new cycle}
+        {--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-follow-up-observability-template : Generate a read-only provider-neutral disable execution follow-up observability template for a future Forge Workspace writer re-enable fresh authorization new cycle}
+        {--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-evidence-repair-request-template : Generate a read-only provider-neutral disable execution evidence repair request template for a future Forge Workspace writer re-enable fresh authorization new cycle}
+        {--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-repaired-evidence-packet-template : Generate a read-only provider-neutral disable execution repaired evidence packet template for a future Forge Workspace writer re-enable fresh authorization new cycle}
+        {--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-repair-review-template : Generate a read-only provider-neutral disable execution repair review template for a future Forge Workspace writer re-enable fresh authorization new cycle}
+        {--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-repair-outcome-packet-template : Generate a read-only provider-neutral disable execution repair outcome packet template for a future Forge Workspace writer re-enable fresh authorization new cycle}
+        {--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-request-template : Generate a read-only provider-neutral later-cycle request template for a future Forge Workspace writer re-enable fresh authorization new cycle}
+        {--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-preflight-template : Generate a read-only provider-neutral later-cycle preflight template for a future Forge Workspace writer re-enable fresh authorization new cycle}
+        {--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-request-template : Generate a read-only provider-neutral later-cycle authorization request template for a future Forge Workspace writer re-enable fresh authorization new cycle}
+        {--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-receipt-draft-template : Generate a read-only provider-neutral later-cycle authorization receipt draft template for a future Forge Workspace writer re-enable fresh authorization new cycle}
+        {--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-signature-request-template : Generate a read-only provider-neutral later-cycle authorization signature request template for a future Forge Workspace writer re-enable fresh authorization new cycle}
+        {--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-post-signature-runbook-template : Generate a read-only provider-neutral later-cycle authorization post-signature runbook template for a future Forge Workspace writer re-enable fresh authorization new cycle}
+        {--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-signature-validation-report-template : Generate a read-only provider-neutral later-cycle authorization signature validation report template for a future Forge Workspace writer re-enable fresh authorization new cycle}
+        {--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-signed-receipt-template : Generate a read-only provider-neutral later-cycle authorization signed receipt template for a future Forge Workspace writer re-enable fresh authorization new cycle}
+        {--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-signed-receipt-preflight-template : Generate a read-only provider-neutral later-cycle authorization signed receipt preflight template for a future Forge Workspace writer re-enable fresh authorization new cycle}
+        {--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-persistence-preflight-template : Generate a read-only provider-neutral later-cycle authorization persistence preflight template for a future Forge Workspace writer re-enable fresh authorization new cycle}
+        {--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-persistence-receipt-template : Generate a read-only provider-neutral later-cycle authorization persistence receipt template for a future Forge Workspace writer re-enable fresh authorization new cycle}
+        {--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-post-persistence-review-template : Generate a read-only provider-neutral later-cycle authorization post-persistence review template for a future Forge Workspace writer re-enable fresh authorization new cycle}
+        {--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-follow-up-observability-template : Generate a read-only provider-neutral later-cycle authorization follow-up observability template for a future Forge Workspace writer re-enable fresh authorization new cycle}
+        {--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-evidence-repair-request-template : Generate a read-only provider-neutral later-cycle authorization evidence repair request template for a future Forge Workspace writer re-enable fresh authorization new cycle}
+        {--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-repaired-evidence-packet-template : Generate a read-only provider-neutral later-cycle authorization repaired evidence packet template for a future Forge Workspace writer re-enable fresh authorization new cycle}
+        {--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-repair-review-template : Generate a read-only provider-neutral later-cycle authorization repair review template for a future Forge Workspace writer re-enable fresh authorization new cycle}
+        {--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-persistence-rejection-template : Generate a read-only provider-neutral later-cycle authorization persistence rejection template for a future Forge Workspace writer re-enable fresh authorization new cycle}
         {--agent-start-packet : Durably claim the next packet and emit the canonical provider-neutral agent start contract}
         {--codex-start-packet : Durably claim the next packet and emit the canonical Codex session start contract}
         {--reservation-status : Read durable local packet reservation ledger status}
@@ -282,6 +377,101 @@ class AtlasAiSelfConstructionCommand extends Command
         $payload = match (true) {
             (bool) $this->option('release-packet') => $readiness->releasePacket($options),
             (bool) $this->option('complete-packet') => $readiness->completePacket($options),
+            (bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-persistence-rejection-template') => $readiness->agentReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationPersistenceRejectionTemplate($options),
+            (bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-repair-review-template') => $readiness->agentReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationRepairReviewTemplate($options),
+            (bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-repaired-evidence-packet-template') => $readiness->agentReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationRepairedEvidencePacketTemplate($options),
+            (bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-evidence-repair-request-template') => $readiness->agentReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationEvidenceRepairRequestTemplate($options),
+            (bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-follow-up-observability-template') => $readiness->agentReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationFollowUpObservabilityTemplate($options),
+            (bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-post-persistence-review-template') => $readiness->agentReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationPostPersistenceReviewTemplate($options),
+            (bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-persistence-receipt-template') => $readiness->agentReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationPersistenceReceiptTemplate($options),
+            (bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-persistence-preflight-template') => $readiness->agentReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationPersistencePreflightTemplate($options),
+            (bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-signed-receipt-preflight-template') => $readiness->agentReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationSignedReceiptPreflightTemplate($options),
+            (bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-signed-receipt-template') => $readiness->agentReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationSignedReceiptTemplate($options),
+            (bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-signature-validation-report-template') => $readiness->agentReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationSignatureValidationReportTemplate($options),
+            (bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-post-signature-runbook-template') => $readiness->agentReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationPostSignatureRunbookTemplate($options),
+            (bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-signature-request-template') => $readiness->agentReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationSignatureRequestTemplate($options),
+            (bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-receipt-draft-template') => $readiness->agentReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationReceiptDraftTemplate($options),
+            (bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-request-template') => $readiness->agentReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationRequestTemplate($options),
+            (bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-preflight-template') => $readiness->agentReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCyclePreflightTemplate($options),
+            (bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-request-template') => $readiness->agentReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleRequestTemplate($options),
+            (bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-repair-outcome-packet-template') => $readiness->agentReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionRepairOutcomePacketTemplate($options),
+            (bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-repair-review-template') => $readiness->agentReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionRepairReviewTemplate($options),
+            (bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-repaired-evidence-packet-template') => $readiness->agentReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionRepairedEvidencePacketTemplate($options),
+            (bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-evidence-repair-request-template') => $readiness->agentReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionEvidenceRepairRequestTemplate($options),
+            (bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-follow-up-observability-template') => $readiness->agentReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionFollowUpObservabilityTemplate($options),
+            (bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-post-persistence-review-template') => $readiness->agentReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionPostPersistenceReviewTemplate($options),
+            (bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-persistence-receipt-template') => $readiness->agentReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionPersistenceReceiptTemplate($options),
+            (bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-persistence-preflight-template') => $readiness->agentReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionPersistencePreflightTemplate($options),
+            (bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-signed-receipt-template') => $readiness->agentReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionSignedReceiptTemplate($options),
+            (bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-receipt-draft-template') => $readiness->agentReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionReceiptDraftTemplate($options),
+            (bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-preflight-template') => $readiness->agentReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionPreflightTemplate($options),
+            (bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-request-template') => $readiness->agentReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableRequestTemplate($options),
+            (bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-health-decision-template') => $readiness->agentReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleHealthDecisionTemplate($options),
+            (bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-post-monitoring-review-template') => $readiness->agentReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCyclePostMonitoringReviewTemplate($options),
+            (bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-observability-contract-template') => $readiness->agentReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleObservabilityContractTemplate($options),
+            (bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-contract-template') => $readiness->agentReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableContractTemplate($options),
+            (bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-execution-contract-template') => $readiness->agentReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleExecutionContractTemplate($options),
+            (bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-execution-contract-preflight-template') => $readiness->agentReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleExecutionContractPreflightTemplate($options),
+            (bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-signed-receipt-template') => $readiness->agentReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleSignedReceiptTemplate($options),
+            (bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-post-signature-runbook-template') => $readiness->agentReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCyclePostSignatureRunbookTemplate($options),
+            (bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-signature-request-template') => $readiness->agentReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleSignatureRequestTemplate($options),
+            (bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-receipt-draft-template') => $readiness->agentReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleReceiptDraftTemplate($options),
+            (bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-authorization-request-template') => $readiness->agentReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleAuthorizationRequestTemplate($options),
+            (bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-request-template') => $readiness->agentReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleRequestTemplate($options),
+            (bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-disable-request-template') => $readiness->agentReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationDisableRequestTemplate($options),
+            (bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-health-decision-template') => $readiness->agentReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationHealthDecisionTemplate($options),
+            (bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-post-monitoring-review-template') => $readiness->agentReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationPostMonitoringReviewTemplate($options),
+            (bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-observability-contract-template') => $readiness->agentReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationObservabilityContractTemplate($options),
+            (bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-disable-contract-template') => $readiness->agentReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationDisableContractTemplate($options),
+            (bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-execution-contract-template') => $readiness->agentReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationExecutionContractTemplate($options),
+            (bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-execution-contract-preflight-template') => $readiness->agentReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationExecutionContractPreflightTemplate($options),
+            (bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-signed-receipt-template') => $readiness->agentReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationSignedReceiptTemplate($options),
+            (bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-post-signature-runbook-template') => $readiness->agentReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationPostSignatureRunbookTemplate($options),
+            (bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-signature-request-template') => $readiness->agentReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationSignatureRequestTemplate($options),
+            (bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-receipt-draft-template') => $readiness->agentReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationReceiptDraftTemplate($options),
+            (bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-request-template') => $readiness->agentReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationRequestTemplate($options),
+            (bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-reenable-review-packet-template') => $readiness->agentReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseReenableReviewPacketTemplate($options),
+            (bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-post-monitoring-review-template') => $readiness->agentReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleasePostMonitoringReviewTemplate($options),
+            (bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-observability-contract-template') => $readiness->agentReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseObservabilityContractTemplate($options),
+            (bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-disable-contract-template') => $readiness->agentReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseDisableContractTemplate($options),
+            (bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-execution-contract-template') => $readiness->agentReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseExecutionContractTemplate($options),
+            (bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-execution-contract-preflight') => $readiness->agentReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseExecutionContractPreflight($options),
+            (bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-signed-receipt-template') => $readiness->agentReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseSignedReceiptTemplate($options),
+            (bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-post-signature-runbook') => $readiness->agentReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleasePostSignatureRunbook($options),
+            (bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-signature-request') => $readiness->agentReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseSignatureRequest($options),
+            (bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-receipt-draft') => $readiness->agentReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseReceiptDraft($options),
+            (bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-preflight') => $readiness->agentReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleasePreflight($options),
+            (bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-authorization-signed-receipt-template') => $readiness->agentReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseAuthorizationSignedReceiptTemplate($options),
+            (bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-authorization-post-signature-runbook') => $readiness->agentReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseAuthorizationPostSignatureRunbook($options),
+            (bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-authorization-signature-request') => $readiness->agentReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseAuthorizationSignatureRequest($options),
+            (bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-authorization-receipt-draft') => $readiness->agentReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseAuthorizationReceiptDraft($options),
+            (bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-authorization-preflight') => $readiness->agentReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseAuthorizationPreflight($options),
+            (bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-authorization-template') => $readiness->agentReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseAuthorizationTemplate($options),
+            (bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-implementation-preflight') => $readiness->agentReviewMergePostExecutionActionSignedReceiptPersistenceWriterImplementationPreflight($options),
+            (bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-contract-template') => $readiness->agentReviewMergePostExecutionActionSignedReceiptPersistenceWriterContractTemplate($options),
+            (bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-preflight') => $readiness->agentReviewMergePostExecutionActionSignedReceiptPersistenceWriterPreflight($options),
+            (bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-append-only-event-payload-template') => $readiness->agentReviewMergePostExecutionActionSignedReceiptPersistenceAppendOnlyEventPayloadTemplate($options),
+            (bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-post-preflight-runbook') => $readiness->agentReviewMergePostExecutionActionSignedReceiptPersistencePostPreflightRunbook($options),
+            (bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-preflight') => $readiness->agentReviewMergePostExecutionActionSignedReceiptPersistencePreflight($options),
+            (bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-receipt-draft') => $readiness->agentReviewMergePostExecutionActionSignedReceiptPersistenceReceiptDraft($options),
+            (bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-template') => $readiness->agentReviewMergePostExecutionActionSignedReceiptPersistenceTemplate($options),
+            (bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-preflight') => $readiness->agentReviewMergePostExecutionActionSignedReceiptPreflight($options),
+            (bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-template') => $readiness->agentReviewMergePostExecutionActionSignedReceiptTemplate($options),
+            (bool) $this->option('agent-review-merge-post-execution-action-post-signature-runbook') => $readiness->agentReviewMergePostExecutionActionPostSignatureRunbook($options),
+            (bool) $this->option('agent-review-merge-post-execution-action-signature-request') => $readiness->agentReviewMergePostExecutionActionSignatureRequest($options),
+            (bool) $this->option('agent-review-merge-post-execution-action-receipt-draft') => $readiness->agentReviewMergePostExecutionActionReceiptDraft($options),
+            (bool) $this->option('agent-review-merge-post-execution-action-template') => $readiness->agentReviewMergePostExecutionActionTemplate($options),
+            (bool) $this->option('agent-review-merge-post-execution-preflight') => $readiness->agentReviewMergePostExecutionPreflight($options),
+            (bool) $this->option('agent-review-merge-execution-receipt-template') => $readiness->agentReviewMergeExecutionReceiptTemplate($options),
+            (bool) $this->option('agent-review-merge-executor-contract-template') => $readiness->agentReviewMergeExecutorContractTemplate($options),
+            (bool) $this->option('agent-review-merge-executor-release-preflight') => $readiness->agentReviewMergeExecutorReleasePreflight($options),
+            (bool) $this->option('agent-review-merge-signed-final-receipt-persistence-template') => $readiness->agentReviewMergeSignedFinalReceiptPersistenceTemplate($options),
+            (bool) $this->option('agent-review-merge-signed-final-receipt-preflight') => $readiness->agentReviewMergeSignedFinalReceiptPreflight($options),
+            (bool) $this->option('agent-review-merge-signed-final-receipt-template') => $readiness->agentReviewMergeSignedFinalReceiptTemplate($options),
+            (bool) $this->option('agent-review-merge-final-post-signature-runbook') => $readiness->agentReviewMergeFinalPostSignatureRunbook($options),
+            (bool) $this->option('agent-review-merge-final-signature-request') => $readiness->agentReviewMergeFinalSignatureRequest($options),
+            (bool) $this->option('agent-review-merge-final-receipt-draft') => $readiness->agentReviewMergeFinalReceiptDraft($options),
+            (bool) $this->option('agent-review-merge-authorizing-action-template') => $readiness->agentReviewMergeAuthorizingActionTemplate($options),
             (bool) $this->option('agent-review-merge-final-authorization-preflight') => $readiness->agentReviewMergeFinalAuthorizationPreflight($options),
             (bool) $this->option('agent-review-merge-authorization-post-signature-runbook') => $readiness->agentReviewMergeAuthorizationPostSignatureRunbook($options),
             (bool) $this->option('agent-review-merge-authorization-signature-request') => $readiness->agentReviewMergeAuthorizationSignatureRequest($options),
@@ -843,6 +1033,1202 @@ class AtlasAiSelfConstructionCommand extends Command
             $this->components->twoColumnDetail('Authorization ready', data_get($payload, 'preflight.authorization_ready') ? 'yes' : 'no');
             $this->components->twoColumnDetail('Merge allowed', data_get($payload, 'merge_allowed') ? 'yes' : 'no');
             $this->components->twoColumnDetail('Preflight hash', (string) data_get($payload, 'preflight_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-authorizing-action-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'template.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Template status', (string) data_get($payload, 'template.status'));
+            $this->components->twoColumnDetail('Default decision', (string) data_get($payload, 'template.default_decision'));
+            $this->components->twoColumnDetail('Merge allowed', data_get($payload, 'merge_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Template hash', (string) data_get($payload, 'template_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-final-receipt-draft')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'receipt.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Receipt status', (string) data_get($payload, 'receipt.status'));
+            $this->components->twoColumnDetail('Default decision', (string) data_get($payload, 'receipt.default_decision'));
+            $this->components->twoColumnDetail('Merge allowed', data_get($payload, 'merge_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Receipt hash', (string) data_get($payload, 'receipt_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-final-signature-request')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'signature_request.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Signature status', (string) data_get($payload, 'signature_request.status'));
+            $this->components->twoColumnDetail('Signature present', data_get($payload, 'signature_request.signature_present') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Merge allowed', data_get($payload, 'merge_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Request hash', (string) data_get($payload, 'request_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-final-post-signature-runbook')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'runbook.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Runbook status', (string) data_get($payload, 'runbook.status'));
+            $this->components->twoColumnDetail('Signature required', data_get($payload, 'runbook.signature_required') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Merge allowed', data_get($payload, 'merge_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Runbook hash', (string) data_get($payload, 'runbook_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-signed-final-receipt-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'template.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Template status', (string) data_get($payload, 'template.status'));
+            $this->components->twoColumnDetail('Executor allowed', data_get($payload, 'executor_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Merge allowed', data_get($payload, 'merge_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Template hash', (string) data_get($payload, 'template_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-signed-final-receipt-preflight')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'preflight.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Preflight status', (string) data_get($payload, 'preflight.status'));
+            $this->components->twoColumnDetail('Executor allowed', data_get($payload, 'executor_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Merge allowed', data_get($payload, 'merge_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Preflight hash', (string) data_get($payload, 'preflight_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-signed-final-receipt-persistence-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'template.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Template status', (string) data_get($payload, 'template.status'));
+            $this->components->twoColumnDetail('Receipt persisted', data_get($payload, 'receipt_persisted') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Executor allowed', data_get($payload, 'executor_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Template hash', (string) data_get($payload, 'template_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-executor-release-preflight')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'preflight.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Preflight status', (string) data_get($payload, 'preflight.status'));
+            $this->components->twoColumnDetail('Receipt persisted', data_get($payload, 'receipt_persisted') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Executor allowed', data_get($payload, 'executor_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Preflight hash', (string) data_get($payload, 'preflight_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-executor-contract-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'template.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Template status', (string) data_get($payload, 'template.status'));
+            $this->components->twoColumnDetail('Patch execution allowed', data_get($payload, 'patch_execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Merge allowed', data_get($payload, 'merge_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Template hash', (string) data_get($payload, 'template_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-execution-receipt-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'template.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Template status', (string) data_get($payload, 'template.status'));
+            $this->components->twoColumnDetail('Patch executed', data_get($payload, 'patch_executed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Merge allowed', data_get($payload, 'merge_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Template hash', (string) data_get($payload, 'template_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-post-execution-preflight')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'preflight.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Preflight status', (string) data_get($payload, 'preflight.status'));
+            $this->components->twoColumnDetail('Execution receipt persisted', data_get($payload, 'execution_receipt_persisted') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Merge allowed', data_get($payload, 'merge_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Preflight hash', (string) data_get($payload, 'preflight_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-post-execution-action-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'template.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Template status', (string) data_get($payload, 'template.status'));
+            $this->components->twoColumnDetail('Default decision', (string) data_get($payload, 'template.default_decision'));
+            $this->components->twoColumnDetail('Merge allowed', data_get($payload, 'merge_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Template hash', (string) data_get($payload, 'template_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-post-execution-action-receipt-draft')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'receipt.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Receipt status', (string) data_get($payload, 'receipt.status'));
+            $this->components->twoColumnDetail('Default decision', (string) data_get($payload, 'receipt.default_decision'));
+            $this->components->twoColumnDetail('Signature required', data_get($payload, 'receipt.signature_required') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Receipt hash', (string) data_get($payload, 'receipt_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-post-execution-action-signature-request')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'signable_payload.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Signature status', (string) data_get($payload, 'signature_request.status'));
+            $this->components->twoColumnDetail('Signature present', data_get($payload, 'signature_request.signature_present') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Signable hash', (string) data_get($payload, 'signable_payload_hash'));
+            $this->components->twoColumnDetail('Request hash', (string) data_get($payload, 'request_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-post-execution-action-post-signature-runbook')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'runbook.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Runbook status', (string) data_get($payload, 'runbook.status'));
+            $this->components->twoColumnDetail('Signature required', data_get($payload, 'runbook.signature_required') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Step count', (string) data_get($payload, 'runbook.step_count'));
+            $this->components->twoColumnDetail('Runbook hash', (string) data_get($payload, 'runbook_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'template.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Template status', (string) data_get($payload, 'template.status'));
+            $this->components->twoColumnDetail('Receipt persisted', data_get($payload, 'receipt_persisted') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Merge allowed', data_get($payload, 'merge_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Template hash', (string) data_get($payload, 'template_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-preflight')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'preflight.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Preflight status', (string) data_get($payload, 'preflight.status'));
+            $this->components->twoColumnDetail('Blocking count', (string) data_get($payload, 'preflight.blocking_count'));
+            $this->components->twoColumnDetail('Receipt persisted', data_get($payload, 'receipt_persisted') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Preflight hash', (string) data_get($payload, 'preflight_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'template.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Template status', (string) data_get($payload, 'template.status'));
+            $this->components->twoColumnDetail('Ledger write allowed', data_get($payload, 'ledger_write_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Receipt persisted', data_get($payload, 'receipt_persisted') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Template hash', (string) data_get($payload, 'template_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-receipt-draft')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'receipt.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Receipt status', (string) data_get($payload, 'receipt.status'));
+            $this->components->twoColumnDetail('Ledger write allowed', data_get($payload, 'ledger_write_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Receipt persisted', data_get($payload, 'receipt_persisted') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Receipt hash', (string) data_get($payload, 'receipt_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-preflight')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'preflight.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Preflight status', (string) data_get($payload, 'preflight.status'));
+            $this->components->twoColumnDetail('Blocking count', (string) data_get($payload, 'preflight.blocking_count'));
+            $this->components->twoColumnDetail('Ledger write allowed', data_get($payload, 'ledger_write_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Preflight hash', (string) data_get($payload, 'preflight_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-post-preflight-runbook')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'runbook.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Runbook status', (string) data_get($payload, 'runbook.status'));
+            $this->components->twoColumnDetail('Step count', (string) data_get($payload, 'runbook.step_count'));
+            $this->components->twoColumnDetail('Ledger write allowed', data_get($payload, 'ledger_write_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Runbook hash', (string) data_get($payload, 'runbook_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-append-only-event-payload-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'payload.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Payload status', (string) data_get($payload, 'payload.status'));
+            $this->components->twoColumnDetail('Event type', (string) data_get($payload, 'payload.event_type'));
+            $this->components->twoColumnDetail('Ledger write allowed', data_get($payload, 'ledger_write_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Payload hash', (string) data_get($payload, 'payload_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-preflight')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'writer_preflight.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Writer preflight status', (string) data_get($payload, 'writer_preflight.status'));
+            $this->components->twoColumnDetail('Blocking count', (string) data_get($payload, 'writer_preflight.blocking_count'));
+            $this->components->twoColumnDetail('Ledger write allowed', data_get($payload, 'ledger_write_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Writer preflight hash', (string) data_get($payload, 'writer_preflight_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-contract-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'contract.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Contract status', (string) data_get($payload, 'contract.status'));
+            $this->components->twoColumnDetail('Capability count', (string) data_get($payload, 'contract.capability_count'));
+            $this->components->twoColumnDetail('Ledger write allowed', data_get($payload, 'ledger_write_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Contract hash', (string) data_get($payload, 'contract_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-implementation-preflight')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'implementation_preflight.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Implementation preflight status', (string) data_get($payload, 'implementation_preflight.status'));
+            $this->components->twoColumnDetail('Blocking count', (string) data_get($payload, 'implementation_preflight.blocking_count'));
+            $this->components->twoColumnDetail('Ledger write allowed', data_get($payload, 'ledger_write_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Implementation preflight hash', (string) data_get($payload, 'implementation_preflight_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-authorization-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'authorization.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Release authorization status', (string) data_get($payload, 'authorization.status'));
+            $this->components->twoColumnDetail('Required evidence count', (string) data_get($payload, 'authorization.required_evidence_count'));
+            $this->components->twoColumnDetail('Ledger write allowed', data_get($payload, 'ledger_write_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Authorization hash', (string) data_get($payload, 'authorization_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-authorization-preflight')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'preflight.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Release authorization preflight status', (string) data_get($payload, 'preflight.status'));
+            $this->components->twoColumnDetail('Blocking count', (string) data_get($payload, 'preflight.blocking_count'));
+            $this->components->twoColumnDetail('Ledger write allowed', data_get($payload, 'ledger_write_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Preflight hash', (string) data_get($payload, 'preflight_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-authorization-receipt-draft')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'receipt.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Receipt status', (string) data_get($payload, 'receipt.status'));
+            $this->components->twoColumnDetail('Selected decision', (string) data_get($payload, 'receipt.selected_decision'));
+            $this->components->twoColumnDetail('Ledger write allowed', data_get($payload, 'ledger_write_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Receipt hash', (string) data_get($payload, 'receipt_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-authorization-signature-request')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'signature_request.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Signature request status', (string) data_get($payload, 'signature_request.status'));
+            $this->components->twoColumnDetail('Signature required', data_get($payload, 'signature_request.signature_required') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Ledger write allowed', data_get($payload, 'ledger_write_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Request hash', (string) data_get($payload, 'request_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-authorization-post-signature-runbook')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'runbook.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Runbook status', (string) data_get($payload, 'runbook.status'));
+            $this->components->twoColumnDetail('Step count', (string) data_get($payload, 'runbook.step_count'));
+            $this->components->twoColumnDetail('Ledger write allowed', data_get($payload, 'ledger_write_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Runbook hash', (string) data_get($payload, 'runbook_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-authorization-signed-receipt-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'template.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Template status', (string) data_get($payload, 'template.status'));
+            $this->components->twoColumnDetail('Receipt signed', data_get($payload, 'receipt_signed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Ledger write allowed', data_get($payload, 'ledger_write_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Template hash', (string) data_get($payload, 'template_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-preflight')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'preflight.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Release preflight status', (string) data_get($payload, 'preflight.status'));
+            $this->components->twoColumnDetail('Blocking count', (string) data_get($payload, 'preflight.blocking_count'));
+            $this->components->twoColumnDetail('Ledger write allowed', data_get($payload, 'ledger_write_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Preflight hash', (string) data_get($payload, 'preflight_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-receipt-draft')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'receipt.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Receipt status', (string) data_get($payload, 'receipt.status'));
+            $this->components->twoColumnDetail('Selected decision', (string) data_get($payload, 'receipt.selected_decision'));
+            $this->components->twoColumnDetail('Ledger write allowed', data_get($payload, 'ledger_write_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Receipt hash', (string) data_get($payload, 'receipt_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-signature-request')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'signature_request.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Signature request status', (string) data_get($payload, 'signature_request.status'));
+            $this->components->twoColumnDetail('Signature required', data_get($payload, 'signature_request.signature_required') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Ledger write allowed', data_get($payload, 'ledger_write_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Request hash', (string) data_get($payload, 'request_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-post-signature-runbook')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'runbook.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Runbook status', (string) data_get($payload, 'runbook.status'));
+            $this->components->twoColumnDetail('Step count', (string) data_get($payload, 'runbook.step_count'));
+            $this->components->twoColumnDetail('Ledger write allowed', data_get($payload, 'ledger_write_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Runbook hash', (string) data_get($payload, 'runbook_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-signed-receipt-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'template.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Template status', (string) data_get($payload, 'template.status'));
+            $this->components->twoColumnDetail('Receipt signed', data_get($payload, 'receipt_signed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Ledger write allowed', data_get($payload, 'ledger_write_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Template hash', (string) data_get($payload, 'template_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-execution-contract-preflight')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'preflight.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Execution preflight status', (string) data_get($payload, 'preflight.status'));
+            $this->components->twoColumnDetail('Blocking count', (string) data_get($payload, 'preflight.blocking_count'));
+            $this->components->twoColumnDetail('Writer file creation allowed', data_get($payload, 'writer_file_creation_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Preflight hash', (string) data_get($payload, 'preflight_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-execution-contract-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'contract.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Contract status', (string) data_get($payload, 'contract.status'));
+            $this->components->twoColumnDetail('Blocking count', (string) data_get($payload, 'contract.blocking_count'));
+            $this->components->twoColumnDetail('Writer file creation allowed', data_get($payload, 'writer_file_creation_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Contract hash', (string) data_get($payload, 'contract_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-disable-contract-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'disable_contract.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Disable status', (string) data_get($payload, 'disable_contract.status'));
+            $this->components->twoColumnDetail('Trigger count', (string) data_get($payload, 'disable_contract.trigger_count'));
+            $this->components->twoColumnDetail('Writer file creation allowed', data_get($payload, 'writer_file_creation_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Disable hash', (string) data_get($payload, 'disable_contract_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-observability-contract-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'observability_contract.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Observability status', (string) data_get($payload, 'observability_contract.status'));
+            $this->components->twoColumnDetail('Signal count', (string) data_get($payload, 'observability_contract.signal_count'));
+            $this->components->twoColumnDetail('Writer file creation allowed', data_get($payload, 'writer_file_creation_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Observability hash', (string) data_get($payload, 'observability_contract_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-post-monitoring-review-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'review_template.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Review status', (string) data_get($payload, 'review_template.status'));
+            $this->components->twoColumnDetail('Decision count', (string) data_get($payload, 'review_template.allowed_decision_count'));
+            $this->components->twoColumnDetail('Writer file creation allowed', data_get($payload, 'writer_file_creation_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Review hash', (string) data_get($payload, 'review_template_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-reenable-review-packet-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'reenable_packet.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Re-enable status', (string) data_get($payload, 'reenable_packet.status'));
+            $this->components->twoColumnDetail('Requirement count', (string) data_get($payload, 'reenable_packet.requirement_count'));
+            $this->components->twoColumnDetail('Writer file creation allowed', data_get($payload, 'writer_file_creation_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Re-enable hash', (string) data_get($payload, 'reenable_packet_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-request-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'authorization_request.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Authorization status', (string) data_get($payload, 'authorization_request.status'));
+            $this->components->twoColumnDetail('Required signer count', (string) data_get($payload, 'authorization_request.required_signer_count'));
+            $this->components->twoColumnDetail('Approval granted', data_get($payload, 'approval_granted') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Authorization hash', (string) data_get($payload, 'authorization_request_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-receipt-draft-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'receipt_draft.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Receipt status', (string) data_get($payload, 'receipt_draft.status'));
+            $this->components->twoColumnDetail('Receipt claim count', (string) data_get($payload, 'receipt_draft.receipt_claim_count'));
+            $this->components->twoColumnDetail('Receipt signed', data_get($payload, 'receipt_signed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Receipt draft hash', (string) data_get($payload, 'receipt_draft_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-signature-request-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'signature_request.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Signature status', (string) data_get($payload, 'signature_request.status'));
+            $this->components->twoColumnDetail('Signable field count', (string) data_get($payload, 'signature_request.signable_payload_field_count'));
+            $this->components->twoColumnDetail('Signature valid', data_get($payload, 'signature_valid') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Signature request hash', (string) data_get($payload, 'signature_request_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-post-signature-runbook-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'runbook.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Runbook status', (string) data_get($payload, 'runbook.status'));
+            $this->components->twoColumnDetail('Step count', (string) data_get($payload, 'runbook.step_count'));
+            $this->components->twoColumnDetail('Signature valid', data_get($payload, 'signature_valid') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Runbook hash', (string) data_get($payload, 'runbook_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-signed-receipt-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'template.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Template status', (string) data_get($payload, 'template.status'));
+            $this->components->twoColumnDetail('Receipt signed', data_get($payload, 'receipt_signed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Receipt persisted', data_get($payload, 'receipt_persisted') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Template hash', (string) data_get($payload, 'template_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-execution-contract-preflight-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'preflight.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Preflight status', (string) data_get($payload, 'preflight.status'));
+            $this->components->twoColumnDetail('Blocking count', (string) data_get($payload, 'preflight.blocking_condition_count'));
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Preflight hash', (string) data_get($payload, 'preflight_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-execution-contract-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'contract.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Contract status', (string) data_get($payload, 'contract.status'));
+            $this->components->twoColumnDetail('Blocking count', (string) data_get($payload, 'contract.blocking_count'));
+            $this->components->twoColumnDetail('Writer file creation allowed', data_get($payload, 'writer_file_creation_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Contract hash', (string) data_get($payload, 'contract_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-disable-contract-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'disable_contract.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Disable status', (string) data_get($payload, 'disable_contract.status'));
+            $this->components->twoColumnDetail('Trigger count', (string) data_get($payload, 'disable_contract.trigger_count'));
+            $this->components->twoColumnDetail('Writer file creation allowed', data_get($payload, 'writer_file_creation_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Disable hash', (string) data_get($payload, 'disable_contract_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-observability-contract-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'observability_contract.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Observability status', (string) data_get($payload, 'observability_contract.status'));
+            $this->components->twoColumnDetail('Signal count', (string) data_get($payload, 'observability_contract.signal_count'));
+            $this->components->twoColumnDetail('Writer file creation allowed', data_get($payload, 'writer_file_creation_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Observability hash', (string) data_get($payload, 'observability_contract_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-post-monitoring-review-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'review_template.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Review status', (string) data_get($payload, 'review_template.status'));
+            $this->components->twoColumnDetail('Decision count', (string) data_get($payload, 'review_template.allowed_decision_count'));
+            $this->components->twoColumnDetail('Writer file creation allowed', data_get($payload, 'writer_file_creation_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Review hash', (string) data_get($payload, 'review_template_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-health-decision-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'health_decision.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Decision status', (string) data_get($payload, 'health_decision.status'));
+            $this->components->twoColumnDetail('Decision state count', (string) data_get($payload, 'health_decision.allowed_decision_state_count'));
+            $this->components->twoColumnDetail('Decision recorded', data_get($payload, 'decision_recorded') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Decision hash', (string) data_get($payload, 'health_decision_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-disable-request-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'disable_request.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Disable request status', (string) data_get($payload, 'disable_request.status'));
+            $this->components->twoColumnDetail('Trigger count', (string) data_get($payload, 'disable_request.trigger_count'));
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Disable request hash', (string) data_get($payload, 'disable_request_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-request-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'new_cycle_request.workspace.canonical_name'));
+            $this->components->twoColumnDetail('New cycle status', (string) data_get($payload, 'new_cycle_request.status'));
+            $this->components->twoColumnDetail('Requirement count', (string) data_get($payload, 'new_cycle_request.requirement_count'));
+            $this->components->twoColumnDetail('Approval granted', data_get($payload, 'approval_granted') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('New cycle hash', (string) data_get($payload, 'new_cycle_request_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-authorization-request-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'authorization_request.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Authorization status', (string) data_get($payload, 'authorization_request.status'));
+            $this->components->twoColumnDetail('Evidence count', (string) data_get($payload, 'authorization_request.required_evidence_count'));
+            $this->components->twoColumnDetail('Approval granted', data_get($payload, 'approval_granted') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Authorization hash', (string) data_get($payload, 'authorization_request_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-receipt-draft-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'receipt_draft.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Receipt status', (string) data_get($payload, 'receipt_draft.status'));
+            $this->components->twoColumnDetail('Receipt signed', data_get($payload, 'receipt_signed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Receipt persisted', data_get($payload, 'receipt_persisted') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Receipt draft hash', (string) data_get($payload, 'receipt_draft_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-signature-request-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'signature_request.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Signature status', (string) data_get($payload, 'signature_request.status'));
+            $this->components->twoColumnDetail('Required signer count', (string) data_get($payload, 'signature_request.required_signer_count'));
+            $this->components->twoColumnDetail('Signature valid', data_get($payload, 'signature_valid') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Signature request hash', (string) data_get($payload, 'signature_request_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-post-signature-runbook-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'runbook.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Runbook status', (string) data_get($payload, 'runbook.status'));
+            $this->components->twoColumnDetail('Step count', (string) data_get($payload, 'runbook.step_count'));
+            $this->components->twoColumnDetail('Signature valid', data_get($payload, 'signature_valid') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Runbook hash', (string) data_get($payload, 'runbook_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-signed-receipt-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'template.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Template status', (string) data_get($payload, 'template.status'));
+            $this->components->twoColumnDetail('Receipt signed', data_get($payload, 'receipt_signed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Receipt persisted', data_get($payload, 'receipt_persisted') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Template hash', (string) data_get($payload, 'template_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-execution-contract-preflight-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'preflight.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Preflight status', (string) data_get($payload, 'preflight.status'));
+            $this->components->twoColumnDetail('Blocking count', (string) data_get($payload, 'preflight.blocking_condition_count'));
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Preflight hash', (string) data_get($payload, 'preflight_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-execution-contract-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'contract.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Contract status', (string) data_get($payload, 'contract.status'));
+            $this->components->twoColumnDetail('Blocking count', (string) data_get($payload, 'contract.blocking_count'));
+            $this->components->twoColumnDetail('Writer file creation allowed', data_get($payload, 'writer_file_creation_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Contract hash', (string) data_get($payload, 'contract_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-contract-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'disable_contract.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Disable status', (string) data_get($payload, 'disable_contract.status'));
+            $this->components->twoColumnDetail('Trigger count', (string) data_get($payload, 'disable_contract.trigger_count'));
+            $this->components->twoColumnDetail('Writer file creation allowed', data_get($payload, 'writer_file_creation_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Disable hash', (string) data_get($payload, 'disable_contract_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-observability-contract-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'observability_contract.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Observability status', (string) data_get($payload, 'observability_contract.status'));
+            $this->components->twoColumnDetail('Signal count', (string) data_get($payload, 'observability_contract.signal_count'));
+            $this->components->twoColumnDetail('Writer file creation allowed', data_get($payload, 'writer_file_creation_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Observability hash', (string) data_get($payload, 'observability_contract_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-post-monitoring-review-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'review_template.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Review status', (string) data_get($payload, 'review_template.status'));
+            $this->components->twoColumnDetail('Allowed decision count', (string) data_get($payload, 'review_template.allowed_decision_count'));
+            $this->components->twoColumnDetail('Writer file creation allowed', data_get($payload, 'writer_file_creation_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Review hash', (string) data_get($payload, 'review_template_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-health-decision-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'health_decision.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Decision status', (string) data_get($payload, 'health_decision.status'));
+            $this->components->twoColumnDetail('Decision state count', (string) data_get($payload, 'health_decision.allowed_decision_state_count'));
+            $this->components->twoColumnDetail('Decision recorded', data_get($payload, 'decision_recorded') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Decision hash', (string) data_get($payload, 'health_decision_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-request-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'disable_request.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Disable request status', (string) data_get($payload, 'disable_request.status'));
+            $this->components->twoColumnDetail('Trigger count', (string) data_get($payload, 'disable_request.trigger_count'));
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Disable request hash', (string) data_get($payload, 'disable_request_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-preflight-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'disable_execution_preflight.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Preflight status', (string) data_get($payload, 'disable_execution_preflight.status'));
+            $this->components->twoColumnDetail('Check count', (string) data_get($payload, 'disable_execution_preflight.check_count'));
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Preflight hash', (string) data_get($payload, 'disable_execution_preflight_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-receipt-draft-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'disable_execution_receipt_draft.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Receipt draft status', (string) data_get($payload, 'disable_execution_receipt_draft.status'));
+            $this->components->twoColumnDetail('Required field count', (string) data_get($payload, 'disable_execution_receipt_draft.required_receipt_field_count'));
+            $this->components->twoColumnDetail('Receipt persisted', data_get($payload, 'receipt_persisted') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Receipt draft hash', (string) data_get($payload, 'disable_execution_receipt_draft_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-signed-receipt-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'disable_execution_signed_receipt.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Signed receipt status', (string) data_get($payload, 'disable_execution_signed_receipt.status'));
+            $this->components->twoColumnDetail('Required signer count', (string) data_get($payload, 'disable_execution_signed_receipt.required_signer_count'));
+            $this->components->twoColumnDetail('Signature valid', data_get($payload, 'signature_valid') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Signed receipt hash', (string) data_get($payload, 'disable_execution_signed_receipt_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-persistence-preflight-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'disable_execution_persistence_preflight.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Persistence preflight status', (string) data_get($payload, 'disable_execution_persistence_preflight.status'));
+            $this->components->twoColumnDetail('Check count', (string) data_get($payload, 'disable_execution_persistence_preflight.check_count'));
+            $this->components->twoColumnDetail('Ledger write allowed', data_get($payload, 'ledger_write_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Persistence preflight hash', (string) data_get($payload, 'disable_execution_persistence_preflight_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-persistence-receipt-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'disable_execution_persistence_receipt.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Persistence receipt status', (string) data_get($payload, 'disable_execution_persistence_receipt.status'));
+            $this->components->twoColumnDetail('Receipt field count', (string) data_get($payload, 'disable_execution_persistence_receipt.required_receipt_field_count'));
+            $this->components->twoColumnDetail('Receipt persisted', data_get($payload, 'receipt_persisted') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Persistence receipt hash', (string) data_get($payload, 'disable_execution_persistence_receipt_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-post-persistence-review-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'disable_execution_post_persistence_review.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Review status', (string) data_get($payload, 'disable_execution_post_persistence_review.status'));
+            $this->components->twoColumnDetail('Review decision count', (string) data_get($payload, 'disable_execution_post_persistence_review.allowed_review_decision_count'));
+            $this->components->twoColumnDetail('Ledger write allowed', data_get($payload, 'ledger_write_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Review hash', (string) data_get($payload, 'disable_execution_post_persistence_review_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-follow-up-observability-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'disable_execution_follow_up_observability.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Observability status', (string) data_get($payload, 'disable_execution_follow_up_observability.status'));
+            $this->components->twoColumnDetail('Signal count', (string) data_get($payload, 'disable_execution_follow_up_observability.observation_signal_count'));
+            $this->components->twoColumnDetail('Ledger write allowed', data_get($payload, 'ledger_write_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Observability hash', (string) data_get($payload, 'disable_execution_follow_up_observability_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-evidence-repair-request-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'disable_execution_evidence_repair_request.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Repair request status', (string) data_get($payload, 'disable_execution_evidence_repair_request.status'));
+            $this->components->twoColumnDetail('Repair item count', (string) data_get($payload, 'disable_execution_evidence_repair_request.repair_item_count'));
+            $this->components->twoColumnDetail('Ledger write allowed', data_get($payload, 'ledger_write_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Repair request hash', (string) data_get($payload, 'disable_execution_evidence_repair_request_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-repaired-evidence-packet-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'disable_execution_repaired_evidence_packet.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Repaired packet status', (string) data_get($payload, 'disable_execution_repaired_evidence_packet.status'));
+            $this->components->twoColumnDetail('Packet field count', (string) data_get($payload, 'disable_execution_repaired_evidence_packet.required_packet_field_count'));
+            $this->components->twoColumnDetail('Ledger write allowed', data_get($payload, 'ledger_write_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Repaired packet hash', (string) data_get($payload, 'disable_execution_repaired_evidence_packet_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-repair-review-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'disable_execution_repair_review.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Repair review status', (string) data_get($payload, 'disable_execution_repair_review.status'));
+            $this->components->twoColumnDetail('Review outcome count', (string) data_get($payload, 'disable_execution_repair_review.allowed_repair_review_outcome_count'));
+            $this->components->twoColumnDetail('Ledger write allowed', data_get($payload, 'ledger_write_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Repair review hash', (string) data_get($payload, 'disable_execution_repair_review_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-repair-outcome-packet-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'disable_execution_repair_outcome_packet.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Repair outcome status', (string) data_get($payload, 'disable_execution_repair_outcome_packet.status'));
+            $this->components->twoColumnDetail('Outcome field count', (string) data_get($payload, 'disable_execution_repair_outcome_packet.required_outcome_field_count'));
+            $this->components->twoColumnDetail('Ledger write allowed', data_get($payload, 'ledger_write_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Repair outcome hash', (string) data_get($payload, 'disable_execution_repair_outcome_packet_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-request-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'disable_execution_later_cycle_request.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Later cycle request status', (string) data_get($payload, 'disable_execution_later_cycle_request.status'));
+            $this->components->twoColumnDetail('Request field count', (string) data_get($payload, 'disable_execution_later_cycle_request.required_request_field_count'));
+            $this->components->twoColumnDetail('Later cycle authorized', data_get($payload, 'later_cycle_authorized') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Later cycle request hash', (string) data_get($payload, 'disable_execution_later_cycle_request_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-preflight-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'disable_execution_later_cycle_preflight.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Later cycle preflight status', (string) data_get($payload, 'disable_execution_later_cycle_preflight.status'));
+            $this->components->twoColumnDetail('Preflight check count', (string) data_get($payload, 'disable_execution_later_cycle_preflight.preflight_check_count'));
+            $this->components->twoColumnDetail('Later cycle authorized', data_get($payload, 'later_cycle_authorized') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Later cycle preflight hash', (string) data_get($payload, 'disable_execution_later_cycle_preflight_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-request-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'disable_execution_later_cycle_authorization_request.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Later cycle authorization request status', (string) data_get($payload, 'disable_execution_later_cycle_authorization_request.status'));
+            $this->components->twoColumnDetail('Authorization request field count', (string) data_get($payload, 'disable_execution_later_cycle_authorization_request.required_authorization_request_field_count'));
+            $this->components->twoColumnDetail('Approval granted', data_get($payload, 'approval_granted') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Later cycle authorization request hash', (string) data_get($payload, 'disable_execution_later_cycle_authorization_request_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-receipt-draft-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'disable_execution_later_cycle_authorization_receipt_draft.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Later cycle authorization receipt draft status', (string) data_get($payload, 'disable_execution_later_cycle_authorization_receipt_draft.status'));
+            $this->components->twoColumnDetail('Receipt draft field count', (string) data_get($payload, 'disable_execution_later_cycle_authorization_receipt_draft.required_receipt_draft_field_count'));
+            $this->components->twoColumnDetail('Receipt signed', data_get($payload, 'receipt_signed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Later cycle authorization receipt draft hash', (string) data_get($payload, 'disable_execution_later_cycle_authorization_receipt_draft_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-signature-request-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'disable_execution_later_cycle_authorization_signature_request.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Later cycle authorization signature request status', (string) data_get($payload, 'disable_execution_later_cycle_authorization_signature_request.status'));
+            $this->components->twoColumnDetail('Signature request field count', (string) data_get($payload, 'disable_execution_later_cycle_authorization_signature_request.required_signature_request_field_count'));
+            $this->components->twoColumnDetail('Signature valid', data_get($payload, 'signature_valid') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Later cycle authorization signature request hash', (string) data_get($payload, 'disable_execution_later_cycle_authorization_signature_request_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-post-signature-runbook-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'disable_execution_later_cycle_authorization_post_signature_runbook.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Later cycle authorization post-signature runbook status', (string) data_get($payload, 'disable_execution_later_cycle_authorization_post_signature_runbook.status'));
+            $this->components->twoColumnDetail('Runbook step count', (string) data_get($payload, 'disable_execution_later_cycle_authorization_post_signature_runbook.runbook_step_count'));
+            $this->components->twoColumnDetail('Signature valid', data_get($payload, 'signature_valid') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Later cycle authorization post-signature runbook hash', (string) data_get($payload, 'disable_execution_later_cycle_authorization_post_signature_runbook_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-signature-validation-report-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'disable_execution_later_cycle_authorization_signature_validation_report.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Later cycle authorization signature validation report status', (string) data_get($payload, 'disable_execution_later_cycle_authorization_signature_validation_report.status'));
+            $this->components->twoColumnDetail('Validation check count', (string) data_get($payload, 'disable_execution_later_cycle_authorization_signature_validation_report.validation_check_count'));
+            $this->components->twoColumnDetail('Signature accepted', data_get($payload, 'signature_accepted') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Later cycle authorization signature validation report hash', (string) data_get($payload, 'disable_execution_later_cycle_authorization_signature_validation_report_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-signed-receipt-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'disable_execution_later_cycle_authorization_signed_receipt_template.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Later cycle authorization signed receipt template status', (string) data_get($payload, 'disable_execution_later_cycle_authorization_signed_receipt_template.status'));
+            $this->components->twoColumnDetail('Signed receipt field count', (string) data_get($payload, 'disable_execution_later_cycle_authorization_signed_receipt_template.required_signed_receipt_field_count'));
+            $this->components->twoColumnDetail('Receipt signed', data_get($payload, 'receipt_signed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Later cycle authorization signed receipt template hash', (string) data_get($payload, 'disable_execution_later_cycle_authorization_signed_receipt_template_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-signed-receipt-preflight-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'disable_execution_later_cycle_authorization_signed_receipt_preflight.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Later cycle authorization signed receipt preflight status', (string) data_get($payload, 'disable_execution_later_cycle_authorization_signed_receipt_preflight.status'));
+            $this->components->twoColumnDetail('Preflight check count', (string) data_get($payload, 'disable_execution_later_cycle_authorization_signed_receipt_preflight.preflight_check_count'));
+            $this->components->twoColumnDetail('Receipt persisted', data_get($payload, 'receipt_persisted') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Later cycle authorization signed receipt preflight hash', (string) data_get($payload, 'disable_execution_later_cycle_authorization_signed_receipt_preflight_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-persistence-preflight-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'disable_execution_later_cycle_authorization_persistence_preflight.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Later cycle authorization persistence preflight status', (string) data_get($payload, 'disable_execution_later_cycle_authorization_persistence_preflight.status'));
+            $this->components->twoColumnDetail('Persistence preflight check count', (string) data_get($payload, 'disable_execution_later_cycle_authorization_persistence_preflight.persistence_preflight_check_count'));
+            $this->components->twoColumnDetail('Ledger write allowed', data_get($payload, 'ledger_write_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Later cycle authorization persistence preflight hash', (string) data_get($payload, 'disable_execution_later_cycle_authorization_persistence_preflight_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-persistence-receipt-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'disable_execution_later_cycle_authorization_persistence_receipt_template.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Later cycle authorization persistence receipt template status', (string) data_get($payload, 'disable_execution_later_cycle_authorization_persistence_receipt_template.status'));
+            $this->components->twoColumnDetail('Persistence receipt field count', (string) data_get($payload, 'disable_execution_later_cycle_authorization_persistence_receipt_template.required_persistence_receipt_field_count'));
+            $this->components->twoColumnDetail('Receipt persisted', data_get($payload, 'receipt_persisted') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Later cycle authorization persistence receipt template hash', (string) data_get($payload, 'disable_execution_later_cycle_authorization_persistence_receipt_template_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-post-persistence-review-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'disable_execution_later_cycle_authorization_post_persistence_review.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Later cycle authorization post-persistence review status', (string) data_get($payload, 'disable_execution_later_cycle_authorization_post_persistence_review.status'));
+            $this->components->twoColumnDetail('Allowed review decision count', (string) data_get($payload, 'disable_execution_later_cycle_authorization_post_persistence_review.allowed_review_decision_count'));
+            $this->components->twoColumnDetail('Later cycle authorized', data_get($payload, 'later_cycle_authorized') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Later cycle authorization post-persistence review hash', (string) data_get($payload, 'disable_execution_later_cycle_authorization_post_persistence_review_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-follow-up-observability-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'disable_execution_later_cycle_authorization_follow_up_observability.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Later cycle authorization follow-up observability status', (string) data_get($payload, 'disable_execution_later_cycle_authorization_follow_up_observability.status'));
+            $this->components->twoColumnDetail('Observation signal count', (string) data_get($payload, 'disable_execution_later_cycle_authorization_follow_up_observability.observation_signal_count'));
+            $this->components->twoColumnDetail('Signature authority', data_get($payload, 'signature_authority') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Later cycle authorization follow-up observability hash', (string) data_get($payload, 'disable_execution_later_cycle_authorization_follow_up_observability_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-evidence-repair-request-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'disable_execution_later_cycle_authorization_evidence_repair_request.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Later cycle authorization evidence repair request status', (string) data_get($payload, 'disable_execution_later_cycle_authorization_evidence_repair_request.status'));
+            $this->components->twoColumnDetail('Repair item count', (string) data_get($payload, 'disable_execution_later_cycle_authorization_evidence_repair_request.repair_item_count'));
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Later cycle authorization evidence repair request hash', (string) data_get($payload, 'disable_execution_later_cycle_authorization_evidence_repair_request_hash'));
             $this->newLine();
             $this->line((string) $payload['human_summary']);
 
@@ -2208,6 +3594,45 @@ class AtlasAiSelfConstructionCommand extends Command
             $this->components->twoColumnDetail('Repair item count', (string) data_get($payload, 'disable_execution_later_cycle_authorization_evidence_repair_request.repair_item_count'));
             $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
             $this->components->twoColumnDetail('Later cycle authorization evidence repair request hash', (string) data_get($payload, 'disable_execution_later_cycle_authorization_evidence_repair_request_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-repaired-evidence-packet-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'disable_execution_later_cycle_authorization_repaired_evidence_packet.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Later cycle authorization repaired evidence packet status', (string) data_get($payload, 'disable_execution_later_cycle_authorization_repaired_evidence_packet.status'));
+            $this->components->twoColumnDetail('Packet field count', (string) data_get($payload, 'disable_execution_later_cycle_authorization_repaired_evidence_packet.required_packet_field_count'));
+            $this->components->twoColumnDetail('Signature authority', data_get($payload, 'signature_authority') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Later cycle authorization repaired evidence packet hash', (string) data_get($payload, 'disable_execution_later_cycle_authorization_repaired_evidence_packet_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-repair-review-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'disable_execution_later_cycle_authorization_repair_review.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Later cycle authorization repair review status', (string) data_get($payload, 'disable_execution_later_cycle_authorization_repair_review.status'));
+            $this->components->twoColumnDetail('Review outcome count', (string) data_get($payload, 'disable_execution_later_cycle_authorization_repair_review.allowed_repair_review_outcome_count'));
+            $this->components->twoColumnDetail('Signature authority', data_get($payload, 'signature_authority') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Later cycle authorization repair review hash', (string) data_get($payload, 'disable_execution_later_cycle_authorization_repair_review_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-persistence-rejection-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'disable_execution_later_cycle_authorization_persistence_rejection.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Later cycle authorization persistence rejection status', (string) data_get($payload, 'disable_execution_later_cycle_authorization_persistence_rejection.status'));
+            $this->components->twoColumnDetail('Rejection field count', (string) data_get($payload, 'disable_execution_later_cycle_authorization_persistence_rejection.required_rejection_field_count'));
+            $this->components->twoColumnDetail('Signature authority', data_get($payload, 'signature_authority') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Later cycle authorization persistence rejection hash', (string) data_get($payload, 'disable_execution_later_cycle_authorization_persistence_rejection_hash'));
             $this->newLine();
             $this->line((string) $payload['human_summary']);
 

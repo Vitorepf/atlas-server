@@ -11,8 +11,8 @@ use App\Models\AiSession;
 use App\Models\AiThread;
 use App\Models\AiTrace;
 use App\Models\Capture;
-use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Cli\AtlasFileAttachmentService;
+use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Telemetry\AiTelemetryCollector;
 use App\Services\Ai\ValueObjects\AiThreadResolution;
 use App\Services\AuditLogService;
@@ -1225,8 +1225,9 @@ PROMPT;
             return $options;
         }
 
-        if ($this->youtubeKnowledge->extractUrls($input) === []) {
-            return $options;
+        $urls = $this->youtubeKnowledge->extractUrls($input);
+        if ($urls === []) {
+            return $this->optionsWithRecentThreadYouTubeKnowledge($input, $options);
         }
 
         try {
@@ -1246,6 +1247,128 @@ PROMPT;
         $options['payload'] = $payload;
 
         return $options;
+    }
+
+    private function optionsWithRecentThreadYouTubeKnowledge(string $input, array $options): array
+    {
+        if (! $this->isLikelyYouTubeContinuation($input)) {
+            return $options;
+        }
+
+        $threadId = data_get($options, 'payload.thread_id', data_get($options, 'thread_id'));
+        if (! is_string($threadId) || trim($threadId) === '') {
+            return $options;
+        }
+
+        $recent = $this->recentThreadYouTubeVideo($threadId);
+        $url = is_array($recent) ? (string) ($recent['url'] ?? '') : '';
+        if ($url === '') {
+            return $options;
+        }
+
+        try {
+            $ingestion = $this->youtubeKnowledge->ingestFromInput($url, [
+                'defer_audio_fallback' => (bool) config('atlas.youtube.defer_audio_fallback', true),
+            ]);
+        } catch (\Throwable $e) {
+            $ingestion = [
+                'schema_version' => 1,
+                'status' => 'failed',
+                'reason' => Str::limit($e->getMessage(), 220, ''),
+                'videos' => [],
+            ];
+        }
+
+        if (! is_array($ingestion['videos'] ?? null) || $ingestion['videos'] === []) {
+            return $options;
+        }
+
+        $payload = is_array($options['payload'] ?? null) ? $options['payload'] : [];
+        $payload['youtube_ingestion'] = $ingestion;
+        $payload['youtube_continuation'] = [
+            'source' => 'recent_thread_youtube',
+            'matched_by' => 'short_follow_up_without_url',
+            'previous_job_id' => $recent['job_id'] ?? null,
+            'previous_trace_id' => $recent['trace_id'] ?? null,
+            'url' => $url,
+        ];
+        $options['payload'] = $payload;
+
+        return $options;
+    }
+
+    private function isLikelyYouTubeContinuation(string $input): bool
+    {
+        $normalized = Str::of($input)->lower()->ascii()->squish()->toString();
+        if ($normalized === '' || mb_strlen($normalized) > 180) {
+            return false;
+        }
+
+        foreach ([
+            'conseguiu',
+            'ficou pronto',
+            'ja ficou pronto',
+            'ja terminou',
+            'terminou',
+            'e agora',
+            'agora vai',
+            'deu certo',
+            'pode analisar',
+            'analise completa',
+            'manda a analise',
+            'me manda',
+            'continua',
+            'pronto',
+        ] as $needle) {
+            if (str_contains($normalized, $needle)) {
+                return true;
+            }
+        }
+
+        return str_contains($normalized, 'video')
+            && (str_contains($normalized, 'transcricao') || str_contains($normalized, 'youtube'));
+    }
+
+    /**
+     * @return array{url:string,job_id:string|null,trace_id:string|null}|null
+     */
+    private function recentThreadYouTubeVideo(string $threadId): ?array
+    {
+        $jobs = AiJob::query()
+            ->whereHas('trace', fn ($query) => $query->where('thread_id', $threadId))
+            ->latest('created_at')
+            ->limit(12)
+            ->get(['id', 'trace_id', 'payload', 'created_at']);
+
+        foreach ($jobs as $job) {
+            if ($job->created_at && $job->created_at->lt(now()->subHours(6))) {
+                continue;
+            }
+
+            $videos = data_get($job->payload, 'youtube_ingestion.videos', []);
+            if (! is_array($videos)) {
+                continue;
+            }
+
+            foreach ($videos as $video) {
+                if (! is_array($video)) {
+                    continue;
+                }
+
+                $url = (string) ($video['url'] ?? data_get($video, 'metadata.webpage_url', ''));
+                if ($url === '') {
+                    continue;
+                }
+
+                return [
+                    'url' => $url,
+                    'job_id' => $job->id,
+                    'trace_id' => $job->trace_id,
+                ];
+            }
+        }
+
+        return null;
     }
 
     private function optionsWithProgrammingModelGraphReceipt(array $options, string $provider, ?string $model, array $runtimeProviders = []): array

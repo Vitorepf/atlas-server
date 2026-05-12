@@ -378,6 +378,7 @@ final class AtlasSelfConstructionReservationRepository
 
     /**
      * @template T
+     *
      * @param  callable(): T  $callback
      * @return T
      */
@@ -402,8 +403,14 @@ final class AtlasSelfConstructionReservationRepository
 
     private function ensureDirectory(): void
     {
-        if (! is_dir($this->directory())) {
-            mkdir($this->directory(), 0775, true);
+        $directory = $this->directory();
+
+        if (is_dir($directory)) {
+            return;
+        }
+
+        if (! @mkdir($directory, 0775, true) && ! is_dir($directory)) {
+            throw new \RuntimeException('Unable to create Self-Construction reservation directory.');
         }
     }
 

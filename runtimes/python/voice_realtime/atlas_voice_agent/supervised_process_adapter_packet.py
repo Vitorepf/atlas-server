@@ -483,6 +483,1130 @@ def validate_supervised_process_adapter_packet(payload: Mapping[str, Any]) -> Ma
     _expect("guarded_start_activation_contract.tool_calls_made", activation_contract.get("tool_calls_made"), False)
     _expect("guarded_start_activation_contract.raw_audio_touched", activation_contract.get("raw_audio_touched"), False)
 
+    execution_attempt = _expect_mapping(
+        "guarded_start_execution_attempt_contract",
+        payload.get("guarded_start_execution_attempt_contract"),
+    )
+    _expect(
+        "guarded_start_execution_attempt_contract.schema_version",
+        execution_attempt.get("schema_version"),
+        "atlas.voice_realtime.guarded_start_execution_attempt_contract.v1",
+    )
+    _expect(
+        "guarded_start_execution_attempt_contract.guarded_start_execution_attempt_contract_implemented",
+        execution_attempt.get("guarded_start_execution_attempt_contract_implemented"),
+        True,
+    )
+    _expect(
+        "guarded_start_execution_attempt_contract.execution_attempt_contract_only",
+        execution_attempt.get("execution_attempt_contract_only"),
+        True,
+    )
+    _expect("guarded_start_execution_attempt_contract.guarded_start_executor_enabled", execution_attempt.get("guarded_start_executor_enabled"), False)
+    _expect("guarded_start_execution_attempt_contract.guarded_start_executor_implemented", execution_attempt.get("guarded_start_executor_implemented"), False)
+    _expect("guarded_start_execution_attempt_contract.final_start_executor_enabled", execution_attempt.get("final_start_executor_enabled"), False)
+    _expect(
+        "guarded_start_execution_attempt_contract.runtime_policy_start_enabled",
+        execution_attempt.get("runtime_policy_start_enabled"),
+        execution_attempt.get("status") == "ready_for_guarded_start_execution_rehearsal_contract",
+    )
+    _expect("guarded_start_execution_attempt_contract.real_start_adapter_enabled", execution_attempt.get("real_start_adapter_enabled"), False)
+    _expect("guarded_start_execution_attempt_contract.start_execution_allowed", execution_attempt.get("start_execution_allowed"), False)
+    _expect("guarded_start_execution_attempt_contract.real_subprocess_start_implemented", execution_attempt.get("real_subprocess_start_implemented"), False)
+    _expect("guarded_start_execution_attempt_contract.process_launch_attempted", execution_attempt.get("process_launch_attempted"), False)
+    _expect("guarded_start_execution_attempt_contract.daemon_started", execution_attempt.get("daemon_started"), False)
+    _expect("guarded_start_execution_attempt_contract.process_launch_allowed", execution_attempt.get("process_launch_allowed"), False)
+    _expect("guarded_start_execution_attempt_contract.subprocess_module_imported", execution_attempt.get("subprocess_module_imported"), False)
+    _expect("guarded_start_execution_attempt_contract.livekit_sdk_imported", execution_attempt.get("livekit_sdk_imported"), False)
+    _expect("guarded_start_execution_attempt_contract.provider_calls_made", execution_attempt.get("provider_calls_made"), False)
+    _expect("guarded_start_execution_attempt_contract.tool_calls_made", execution_attempt.get("tool_calls_made"), False)
+    _expect("guarded_start_execution_attempt_contract.raw_audio_touched", execution_attempt.get("raw_audio_touched"), False)
+
+    execution_rehearsal = _expect_mapping(
+        "guarded_start_execution_rehearsal_contract",
+        payload.get("guarded_start_execution_rehearsal_contract"),
+    )
+    _expect(
+        "guarded_start_execution_rehearsal_contract.schema_version",
+        execution_rehearsal.get("schema_version"),
+        "atlas.voice_realtime.guarded_start_execution_rehearsal_contract.v1",
+    )
+    _expect(
+        "guarded_start_execution_rehearsal_contract.guarded_start_execution_rehearsal_contract_implemented",
+        execution_rehearsal.get("guarded_start_execution_rehearsal_contract_implemented"),
+        True,
+    )
+    _expect(
+        "guarded_start_execution_rehearsal_contract.execution_rehearsal_contract_only",
+        execution_rehearsal.get("execution_rehearsal_contract_only"),
+        True,
+    )
+    _expect("guarded_start_execution_rehearsal_contract.guarded_start_executor_enabled", execution_rehearsal.get("guarded_start_executor_enabled"), False)
+    _expect("guarded_start_execution_rehearsal_contract.guarded_start_executor_implemented", execution_rehearsal.get("guarded_start_executor_implemented"), False)
+    _expect("guarded_start_execution_rehearsal_contract.final_start_executor_enabled", execution_rehearsal.get("final_start_executor_enabled"), False)
+    _expect(
+        "guarded_start_execution_rehearsal_contract.runtime_policy_start_enabled",
+        execution_rehearsal.get("runtime_policy_start_enabled"),
+        execution_rehearsal.get("status") == "ready_for_guarded_start_observability_contract",
+    )
+    _expect("guarded_start_execution_rehearsal_contract.real_start_adapter_enabled", execution_rehearsal.get("real_start_adapter_enabled"), False)
+    _expect("guarded_start_execution_rehearsal_contract.start_execution_allowed", execution_rehearsal.get("start_execution_allowed"), False)
+    _expect("guarded_start_execution_rehearsal_contract.real_subprocess_start_implemented", execution_rehearsal.get("real_subprocess_start_implemented"), False)
+    _expect("guarded_start_execution_rehearsal_contract.process_launch_attempted", execution_rehearsal.get("process_launch_attempted"), False)
+    _expect("guarded_start_execution_rehearsal_contract.daemon_started", execution_rehearsal.get("daemon_started"), False)
+    _expect("guarded_start_execution_rehearsal_contract.process_launch_allowed", execution_rehearsal.get("process_launch_allowed"), False)
+    _expect("guarded_start_execution_rehearsal_contract.subprocess_module_imported", execution_rehearsal.get("subprocess_module_imported"), False)
+    _expect("guarded_start_execution_rehearsal_contract.livekit_sdk_imported", execution_rehearsal.get("livekit_sdk_imported"), False)
+    _expect("guarded_start_execution_rehearsal_contract.provider_calls_made", execution_rehearsal.get("provider_calls_made"), False)
+    _expect("guarded_start_execution_rehearsal_contract.tool_calls_made", execution_rehearsal.get("tool_calls_made"), False)
+    _expect("guarded_start_execution_rehearsal_contract.raw_audio_touched", execution_rehearsal.get("raw_audio_touched"), False)
+
+    observability = _expect_mapping("guarded_start_observability_contract", payload.get("guarded_start_observability_contract"))
+    _expect(
+        "guarded_start_observability_contract.schema_version",
+        observability.get("schema_version"),
+        "atlas.voice_realtime.guarded_start_observability_contract.v1",
+    )
+    _expect(
+        "guarded_start_observability_contract.guarded_start_observability_contract_implemented",
+        observability.get("guarded_start_observability_contract_implemented"),
+        True,
+    )
+    _expect("guarded_start_observability_contract.observability_contract_only", observability.get("observability_contract_only"), True)
+    _expect("guarded_start_observability_contract.guarded_start_executor_enabled", observability.get("guarded_start_executor_enabled"), False)
+    _expect("guarded_start_observability_contract.guarded_start_executor_implemented", observability.get("guarded_start_executor_implemented"), False)
+    _expect("guarded_start_observability_contract.final_start_executor_enabled", observability.get("final_start_executor_enabled"), False)
+    _expect(
+        "guarded_start_observability_contract.runtime_policy_start_enabled",
+        observability.get("runtime_policy_start_enabled"),
+        observability.get("status") == "ready_for_guarded_start_release_candidate_contract",
+    )
+    _expect("guarded_start_observability_contract.real_start_adapter_enabled", observability.get("real_start_adapter_enabled"), False)
+    _expect("guarded_start_observability_contract.start_execution_allowed", observability.get("start_execution_allowed"), False)
+    _expect("guarded_start_observability_contract.real_subprocess_start_implemented", observability.get("real_subprocess_start_implemented"), False)
+    _expect("guarded_start_observability_contract.process_launch_attempted", observability.get("process_launch_attempted"), False)
+    _expect("guarded_start_observability_contract.daemon_started", observability.get("daemon_started"), False)
+    _expect("guarded_start_observability_contract.process_launch_allowed", observability.get("process_launch_allowed"), False)
+    _expect("guarded_start_observability_contract.subprocess_module_imported", observability.get("subprocess_module_imported"), False)
+    _expect("guarded_start_observability_contract.livekit_sdk_imported", observability.get("livekit_sdk_imported"), False)
+    _expect("guarded_start_observability_contract.provider_calls_made", observability.get("provider_calls_made"), False)
+    _expect("guarded_start_observability_contract.tool_calls_made", observability.get("tool_calls_made"), False)
+    _expect("guarded_start_observability_contract.raw_audio_touched", observability.get("raw_audio_touched"), False)
+
+    release_candidate = _expect_mapping(
+        "guarded_start_release_candidate_contract",
+        payload.get("guarded_start_release_candidate_contract"),
+    )
+    _expect(
+        "guarded_start_release_candidate_contract.schema_version",
+        release_candidate.get("schema_version"),
+        "atlas.voice_realtime.guarded_start_release_candidate_contract.v1",
+    )
+    _expect(
+        "guarded_start_release_candidate_contract.guarded_start_release_candidate_contract_implemented",
+        release_candidate.get("guarded_start_release_candidate_contract_implemented"),
+        True,
+    )
+    _expect("guarded_start_release_candidate_contract.release_candidate_contract_only", release_candidate.get("release_candidate_contract_only"), True)
+    _expect("guarded_start_release_candidate_contract.guarded_start_executor_enabled", release_candidate.get("guarded_start_executor_enabled"), False)
+    _expect("guarded_start_release_candidate_contract.guarded_start_executor_implemented", release_candidate.get("guarded_start_executor_implemented"), False)
+    _expect("guarded_start_release_candidate_contract.final_start_executor_enabled", release_candidate.get("final_start_executor_enabled"), False)
+    _expect(
+        "guarded_start_release_candidate_contract.runtime_policy_start_enabled",
+        release_candidate.get("runtime_policy_start_enabled"),
+        release_candidate.get("status") == "ready_for_guarded_start_operator_acceptance_contract",
+    )
+    _expect("guarded_start_release_candidate_contract.real_start_adapter_enabled", release_candidate.get("real_start_adapter_enabled"), False)
+    _expect("guarded_start_release_candidate_contract.start_execution_allowed", release_candidate.get("start_execution_allowed"), False)
+    _expect("guarded_start_release_candidate_contract.real_subprocess_start_implemented", release_candidate.get("real_subprocess_start_implemented"), False)
+    _expect("guarded_start_release_candidate_contract.process_launch_attempted", release_candidate.get("process_launch_attempted"), False)
+    _expect("guarded_start_release_candidate_contract.daemon_started", release_candidate.get("daemon_started"), False)
+    _expect("guarded_start_release_candidate_contract.process_launch_allowed", release_candidate.get("process_launch_allowed"), False)
+    _expect("guarded_start_release_candidate_contract.subprocess_module_imported", release_candidate.get("subprocess_module_imported"), False)
+    _expect("guarded_start_release_candidate_contract.livekit_sdk_imported", release_candidate.get("livekit_sdk_imported"), False)
+    _expect("guarded_start_release_candidate_contract.provider_calls_made", release_candidate.get("provider_calls_made"), False)
+    _expect("guarded_start_release_candidate_contract.tool_calls_made", release_candidate.get("tool_calls_made"), False)
+    _expect("guarded_start_release_candidate_contract.raw_audio_touched", release_candidate.get("raw_audio_touched"), False)
+
+    operator_acceptance = _expect_mapping(
+        "guarded_start_operator_acceptance_contract",
+        payload.get("guarded_start_operator_acceptance_contract"),
+    )
+    _expect(
+        "guarded_start_operator_acceptance_contract.schema_version",
+        operator_acceptance.get("schema_version"),
+        "atlas.voice_realtime.guarded_start_operator_acceptance_contract.v1",
+    )
+    _expect(
+        "guarded_start_operator_acceptance_contract.guarded_start_operator_acceptance_contract_implemented",
+        operator_acceptance.get("guarded_start_operator_acceptance_contract_implemented"),
+        True,
+    )
+    _expect("guarded_start_operator_acceptance_contract.operator_acceptance_contract_only", operator_acceptance.get("operator_acceptance_contract_only"), True)
+    _expect("guarded_start_operator_acceptance_contract.guarded_start_executor_enabled", operator_acceptance.get("guarded_start_executor_enabled"), False)
+    _expect("guarded_start_operator_acceptance_contract.guarded_start_executor_implemented", operator_acceptance.get("guarded_start_executor_implemented"), False)
+    _expect("guarded_start_operator_acceptance_contract.final_start_executor_enabled", operator_acceptance.get("final_start_executor_enabled"), False)
+    _expect(
+        "guarded_start_operator_acceptance_contract.runtime_policy_start_enabled",
+        operator_acceptance.get("runtime_policy_start_enabled"),
+        operator_acceptance.get("status") == "ready_for_guarded_start_final_start_receipt_contract",
+    )
+    _expect("guarded_start_operator_acceptance_contract.real_start_adapter_enabled", operator_acceptance.get("real_start_adapter_enabled"), False)
+    _expect("guarded_start_operator_acceptance_contract.start_execution_allowed", operator_acceptance.get("start_execution_allowed"), False)
+    _expect("guarded_start_operator_acceptance_contract.real_subprocess_start_implemented", operator_acceptance.get("real_subprocess_start_implemented"), False)
+    _expect("guarded_start_operator_acceptance_contract.process_launch_attempted", operator_acceptance.get("process_launch_attempted"), False)
+    _expect("guarded_start_operator_acceptance_contract.daemon_started", operator_acceptance.get("daemon_started"), False)
+    _expect("guarded_start_operator_acceptance_contract.process_launch_allowed", operator_acceptance.get("process_launch_allowed"), False)
+    _expect("guarded_start_operator_acceptance_contract.subprocess_module_imported", operator_acceptance.get("subprocess_module_imported"), False)
+    _expect("guarded_start_operator_acceptance_contract.livekit_sdk_imported", operator_acceptance.get("livekit_sdk_imported"), False)
+    _expect("guarded_start_operator_acceptance_contract.provider_calls_made", operator_acceptance.get("provider_calls_made"), False)
+    _expect("guarded_start_operator_acceptance_contract.tool_calls_made", operator_acceptance.get("tool_calls_made"), False)
+    _expect("guarded_start_operator_acceptance_contract.raw_audio_touched", operator_acceptance.get("raw_audio_touched"), False)
+
+    final_start_receipt = _expect_mapping(
+        "guarded_start_final_start_receipt_contract",
+        payload.get("guarded_start_final_start_receipt_contract"),
+    )
+    _expect(
+        "guarded_start_final_start_receipt_contract.schema_version",
+        final_start_receipt.get("schema_version"),
+        "atlas.voice_realtime.guarded_start_final_start_receipt_contract.v1",
+    )
+    _expect(
+        "guarded_start_final_start_receipt_contract.guarded_start_final_start_receipt_contract_implemented",
+        final_start_receipt.get("guarded_start_final_start_receipt_contract_implemented"),
+        True,
+    )
+    _expect("guarded_start_final_start_receipt_contract.final_start_receipt_contract_only", final_start_receipt.get("final_start_receipt_contract_only"), True)
+    _expect("guarded_start_final_start_receipt_contract.guarded_start_executor_enabled", final_start_receipt.get("guarded_start_executor_enabled"), False)
+    _expect("guarded_start_final_start_receipt_contract.guarded_start_executor_implemented", final_start_receipt.get("guarded_start_executor_implemented"), False)
+    _expect("guarded_start_final_start_receipt_contract.final_start_executor_enabled", final_start_receipt.get("final_start_executor_enabled"), False)
+    _expect(
+        "guarded_start_final_start_receipt_contract.runtime_policy_start_enabled",
+        final_start_receipt.get("runtime_policy_start_enabled"),
+        final_start_receipt.get("status") == "ready_for_guarded_start_launch_window_contract",
+    )
+    _expect("guarded_start_final_start_receipt_contract.real_start_adapter_enabled", final_start_receipt.get("real_start_adapter_enabled"), False)
+    _expect("guarded_start_final_start_receipt_contract.start_execution_allowed", final_start_receipt.get("start_execution_allowed"), False)
+    _expect("guarded_start_final_start_receipt_contract.real_subprocess_start_implemented", final_start_receipt.get("real_subprocess_start_implemented"), False)
+    _expect("guarded_start_final_start_receipt_contract.process_launch_attempted", final_start_receipt.get("process_launch_attempted"), False)
+    _expect("guarded_start_final_start_receipt_contract.daemon_started", final_start_receipt.get("daemon_started"), False)
+    _expect("guarded_start_final_start_receipt_contract.process_launch_allowed", final_start_receipt.get("process_launch_allowed"), False)
+    _expect("guarded_start_final_start_receipt_contract.subprocess_module_imported", final_start_receipt.get("subprocess_module_imported"), False)
+    _expect("guarded_start_final_start_receipt_contract.livekit_sdk_imported", final_start_receipt.get("livekit_sdk_imported"), False)
+    _expect("guarded_start_final_start_receipt_contract.provider_calls_made", final_start_receipt.get("provider_calls_made"), False)
+    _expect("guarded_start_final_start_receipt_contract.tool_calls_made", final_start_receipt.get("tool_calls_made"), False)
+    _expect("guarded_start_final_start_receipt_contract.raw_audio_touched", final_start_receipt.get("raw_audio_touched"), False)
+
+    launch_window = _expect_mapping(
+        "guarded_start_launch_window_contract",
+        payload.get("guarded_start_launch_window_contract"),
+    )
+    _expect(
+        "guarded_start_launch_window_contract.schema_version",
+        launch_window.get("schema_version"),
+        "atlas.voice_realtime.guarded_start_launch_window_contract.v1",
+    )
+    _expect(
+        "guarded_start_launch_window_contract.guarded_start_launch_window_contract_implemented",
+        launch_window.get("guarded_start_launch_window_contract_implemented"),
+        True,
+    )
+    _expect("guarded_start_launch_window_contract.launch_window_contract_only", launch_window.get("launch_window_contract_only"), True)
+    _expect("guarded_start_launch_window_contract.guarded_start_executor_enabled", launch_window.get("guarded_start_executor_enabled"), False)
+    _expect("guarded_start_launch_window_contract.guarded_start_executor_implemented", launch_window.get("guarded_start_executor_implemented"), False)
+    _expect("guarded_start_launch_window_contract.final_start_executor_enabled", launch_window.get("final_start_executor_enabled"), False)
+    _expect(
+        "guarded_start_launch_window_contract.runtime_policy_start_enabled",
+        launch_window.get("runtime_policy_start_enabled"),
+        launch_window.get("status") == "ready_for_guarded_start_pre_launch_guard_contract",
+    )
+    _expect("guarded_start_launch_window_contract.real_start_adapter_enabled", launch_window.get("real_start_adapter_enabled"), False)
+    _expect("guarded_start_launch_window_contract.start_execution_allowed", launch_window.get("start_execution_allowed"), False)
+    _expect("guarded_start_launch_window_contract.real_subprocess_start_implemented", launch_window.get("real_subprocess_start_implemented"), False)
+    _expect("guarded_start_launch_window_contract.process_launch_attempted", launch_window.get("process_launch_attempted"), False)
+    _expect("guarded_start_launch_window_contract.daemon_started", launch_window.get("daemon_started"), False)
+    _expect("guarded_start_launch_window_contract.process_launch_allowed", launch_window.get("process_launch_allowed"), False)
+    _expect("guarded_start_launch_window_contract.subprocess_module_imported", launch_window.get("subprocess_module_imported"), False)
+    _expect("guarded_start_launch_window_contract.livekit_sdk_imported", launch_window.get("livekit_sdk_imported"), False)
+    _expect("guarded_start_launch_window_contract.provider_calls_made", launch_window.get("provider_calls_made"), False)
+    _expect("guarded_start_launch_window_contract.tool_calls_made", launch_window.get("tool_calls_made"), False)
+    _expect("guarded_start_launch_window_contract.raw_audio_touched", launch_window.get("raw_audio_touched"), False)
+
+    pre_launch_guard = _expect_mapping(
+        "guarded_start_pre_launch_guard_contract",
+        payload.get("guarded_start_pre_launch_guard_contract"),
+    )
+    _expect(
+        "guarded_start_pre_launch_guard_contract.schema_version",
+        pre_launch_guard.get("schema_version"),
+        "atlas.voice_realtime.guarded_start_pre_launch_guard_contract.v1",
+    )
+    _expect(
+        "guarded_start_pre_launch_guard_contract.guarded_start_pre_launch_guard_contract_implemented",
+        pre_launch_guard.get("guarded_start_pre_launch_guard_contract_implemented"),
+        True,
+    )
+    _expect("guarded_start_pre_launch_guard_contract.pre_launch_guard_contract_only", pre_launch_guard.get("pre_launch_guard_contract_only"), True)
+    _expect("guarded_start_pre_launch_guard_contract.guarded_start_executor_enabled", pre_launch_guard.get("guarded_start_executor_enabled"), False)
+    _expect("guarded_start_pre_launch_guard_contract.guarded_start_executor_implemented", pre_launch_guard.get("guarded_start_executor_implemented"), False)
+    _expect("guarded_start_pre_launch_guard_contract.final_start_executor_enabled", pre_launch_guard.get("final_start_executor_enabled"), False)
+    _expect(
+        "guarded_start_pre_launch_guard_contract.runtime_policy_start_enabled",
+        pre_launch_guard.get("runtime_policy_start_enabled"),
+        pre_launch_guard.get("status") == "ready_for_guarded_start_executor_runtime_contract",
+    )
+    _expect("guarded_start_pre_launch_guard_contract.real_start_adapter_enabled", pre_launch_guard.get("real_start_adapter_enabled"), False)
+    _expect("guarded_start_pre_launch_guard_contract.start_execution_allowed", pre_launch_guard.get("start_execution_allowed"), False)
+    _expect("guarded_start_pre_launch_guard_contract.real_subprocess_start_implemented", pre_launch_guard.get("real_subprocess_start_implemented"), False)
+    _expect("guarded_start_pre_launch_guard_contract.process_launch_attempted", pre_launch_guard.get("process_launch_attempted"), False)
+    _expect("guarded_start_pre_launch_guard_contract.daemon_started", pre_launch_guard.get("daemon_started"), False)
+    _expect("guarded_start_pre_launch_guard_contract.process_launch_allowed", pre_launch_guard.get("process_launch_allowed"), False)
+    _expect("guarded_start_pre_launch_guard_contract.subprocess_module_imported", pre_launch_guard.get("subprocess_module_imported"), False)
+    _expect("guarded_start_pre_launch_guard_contract.livekit_sdk_imported", pre_launch_guard.get("livekit_sdk_imported"), False)
+    _expect("guarded_start_pre_launch_guard_contract.provider_calls_made", pre_launch_guard.get("provider_calls_made"), False)
+    _expect("guarded_start_pre_launch_guard_contract.tool_calls_made", pre_launch_guard.get("tool_calls_made"), False)
+    _expect("guarded_start_pre_launch_guard_contract.raw_audio_touched", pre_launch_guard.get("raw_audio_touched"), False)
+
+    executor_runtime = _expect_mapping(
+        "guarded_start_executor_runtime_contract",
+        payload.get("guarded_start_executor_runtime_contract"),
+    )
+    _expect(
+        "guarded_start_executor_runtime_contract.schema_version",
+        executor_runtime.get("schema_version"),
+        "atlas.voice_realtime.guarded_start_executor_runtime_contract.v1",
+    )
+    _expect(
+        "guarded_start_executor_runtime_contract.guarded_start_executor_runtime_contract_implemented",
+        executor_runtime.get("guarded_start_executor_runtime_contract_implemented"),
+        True,
+    )
+    _expect("guarded_start_executor_runtime_contract.executor_runtime_contract_only", executor_runtime.get("executor_runtime_contract_only"), True)
+    _expect("guarded_start_executor_runtime_contract.guarded_start_executor_enabled", executor_runtime.get("guarded_start_executor_enabled"), False)
+    _expect("guarded_start_executor_runtime_contract.guarded_start_executor_implemented", executor_runtime.get("guarded_start_executor_implemented"), False)
+    _expect("guarded_start_executor_runtime_contract.final_start_executor_enabled", executor_runtime.get("final_start_executor_enabled"), False)
+    _expect(
+        "guarded_start_executor_runtime_contract.runtime_policy_start_enabled",
+        executor_runtime.get("runtime_policy_start_enabled"),
+        executor_runtime.get("status") == "ready_for_guarded_start_process_spawn_contract",
+    )
+    _expect("guarded_start_executor_runtime_contract.real_start_adapter_enabled", executor_runtime.get("real_start_adapter_enabled"), False)
+    _expect("guarded_start_executor_runtime_contract.start_execution_allowed", executor_runtime.get("start_execution_allowed"), False)
+    _expect("guarded_start_executor_runtime_contract.real_subprocess_start_implemented", executor_runtime.get("real_subprocess_start_implemented"), False)
+    _expect("guarded_start_executor_runtime_contract.process_launch_attempted", executor_runtime.get("process_launch_attempted"), False)
+    _expect("guarded_start_executor_runtime_contract.daemon_started", executor_runtime.get("daemon_started"), False)
+    _expect("guarded_start_executor_runtime_contract.process_launch_allowed", executor_runtime.get("process_launch_allowed"), False)
+    _expect("guarded_start_executor_runtime_contract.subprocess_module_imported", executor_runtime.get("subprocess_module_imported"), False)
+    _expect("guarded_start_executor_runtime_contract.livekit_sdk_imported", executor_runtime.get("livekit_sdk_imported"), False)
+    _expect("guarded_start_executor_runtime_contract.provider_calls_made", executor_runtime.get("provider_calls_made"), False)
+    _expect("guarded_start_executor_runtime_contract.tool_calls_made", executor_runtime.get("tool_calls_made"), False)
+    _expect("guarded_start_executor_runtime_contract.raw_audio_touched", executor_runtime.get("raw_audio_touched"), False)
+
+    process_spawn = _expect_mapping(
+        "guarded_start_process_spawn_contract",
+        payload.get("guarded_start_process_spawn_contract"),
+    )
+    _expect(
+        "guarded_start_process_spawn_contract.schema_version",
+        process_spawn.get("schema_version"),
+        "atlas.voice_realtime.guarded_start_process_spawn_contract.v1",
+    )
+    _expect(
+        "guarded_start_process_spawn_contract.guarded_start_process_spawn_contract_implemented",
+        process_spawn.get("guarded_start_process_spawn_contract_implemented"),
+        True,
+    )
+    _expect("guarded_start_process_spawn_contract.process_spawn_contract_only", process_spawn.get("process_spawn_contract_only"), True)
+    _expect("guarded_start_process_spawn_contract.guarded_start_executor_enabled", process_spawn.get("guarded_start_executor_enabled"), False)
+    _expect("guarded_start_process_spawn_contract.guarded_start_executor_implemented", process_spawn.get("guarded_start_executor_implemented"), False)
+    _expect("guarded_start_process_spawn_contract.final_start_executor_enabled", process_spawn.get("final_start_executor_enabled"), False)
+    _expect(
+        "guarded_start_process_spawn_contract.runtime_policy_start_enabled",
+        process_spawn.get("runtime_policy_start_enabled"),
+        process_spawn.get("status") == "ready_for_guarded_start_spawn_review_contract",
+    )
+    _expect("guarded_start_process_spawn_contract.real_start_adapter_enabled", process_spawn.get("real_start_adapter_enabled"), False)
+    _expect("guarded_start_process_spawn_contract.start_execution_allowed", process_spawn.get("start_execution_allowed"), False)
+    _expect("guarded_start_process_spawn_contract.real_subprocess_start_implemented", process_spawn.get("real_subprocess_start_implemented"), False)
+    _expect("guarded_start_process_spawn_contract.process_launch_attempted", process_spawn.get("process_launch_attempted"), False)
+    _expect("guarded_start_process_spawn_contract.daemon_started", process_spawn.get("daemon_started"), False)
+    _expect("guarded_start_process_spawn_contract.process_launch_allowed", process_spawn.get("process_launch_allowed"), False)
+    _expect("guarded_start_process_spawn_contract.subprocess_module_imported", process_spawn.get("subprocess_module_imported"), False)
+    _expect("guarded_start_process_spawn_contract.livekit_sdk_imported", process_spawn.get("livekit_sdk_imported"), False)
+    _expect("guarded_start_process_spawn_contract.provider_calls_made", process_spawn.get("provider_calls_made"), False)
+    _expect("guarded_start_process_spawn_contract.tool_calls_made", process_spawn.get("tool_calls_made"), False)
+    _expect("guarded_start_process_spawn_contract.raw_audio_touched", process_spawn.get("raw_audio_touched"), False)
+
+    spawn_review = _expect_mapping(
+        "guarded_start_spawn_review_contract",
+        payload.get("guarded_start_spawn_review_contract"),
+    )
+    _expect(
+        "guarded_start_spawn_review_contract.schema_version",
+        spawn_review.get("schema_version"),
+        "atlas.voice_realtime.guarded_start_spawn_review_contract.v1",
+    )
+    _expect(
+        "guarded_start_spawn_review_contract.guarded_start_spawn_review_contract_implemented",
+        spawn_review.get("guarded_start_spawn_review_contract_implemented"),
+        True,
+    )
+    _expect("guarded_start_spawn_review_contract.spawn_review_contract_only", spawn_review.get("spawn_review_contract_only"), True)
+    _expect("guarded_start_spawn_review_contract.guarded_start_executor_enabled", spawn_review.get("guarded_start_executor_enabled"), False)
+    _expect("guarded_start_spawn_review_contract.guarded_start_executor_implemented", spawn_review.get("guarded_start_executor_implemented"), False)
+    _expect("guarded_start_spawn_review_contract.final_start_executor_enabled", spawn_review.get("final_start_executor_enabled"), False)
+    _expect(
+        "guarded_start_spawn_review_contract.runtime_policy_start_enabled",
+        spawn_review.get("runtime_policy_start_enabled"),
+        spawn_review.get("status") == "ready_for_guarded_start_subprocess_import_contract",
+    )
+    _expect("guarded_start_spawn_review_contract.real_start_adapter_enabled", spawn_review.get("real_start_adapter_enabled"), False)
+    _expect("guarded_start_spawn_review_contract.start_execution_allowed", spawn_review.get("start_execution_allowed"), False)
+    _expect("guarded_start_spawn_review_contract.real_subprocess_start_implemented", spawn_review.get("real_subprocess_start_implemented"), False)
+    _expect("guarded_start_spawn_review_contract.process_launch_attempted", spawn_review.get("process_launch_attempted"), False)
+    _expect("guarded_start_spawn_review_contract.daemon_started", spawn_review.get("daemon_started"), False)
+    _expect("guarded_start_spawn_review_contract.process_launch_allowed", spawn_review.get("process_launch_allowed"), False)
+    _expect("guarded_start_spawn_review_contract.subprocess_module_imported", spawn_review.get("subprocess_module_imported"), False)
+    _expect("guarded_start_spawn_review_contract.livekit_sdk_imported", spawn_review.get("livekit_sdk_imported"), False)
+    _expect("guarded_start_spawn_review_contract.provider_calls_made", spawn_review.get("provider_calls_made"), False)
+    _expect("guarded_start_spawn_review_contract.tool_calls_made", spawn_review.get("tool_calls_made"), False)
+    _expect("guarded_start_spawn_review_contract.raw_audio_touched", spawn_review.get("raw_audio_touched"), False)
+
+    subprocess_import = _expect_mapping(
+        "guarded_start_subprocess_import_contract",
+        payload.get("guarded_start_subprocess_import_contract"),
+    )
+    _expect(
+        "guarded_start_subprocess_import_contract.schema_version",
+        subprocess_import.get("schema_version"),
+        "atlas.voice_realtime.guarded_start_subprocess_import_contract.v1",
+    )
+    _expect(
+        "guarded_start_subprocess_import_contract.guarded_start_subprocess_import_contract_implemented",
+        subprocess_import.get("guarded_start_subprocess_import_contract_implemented"),
+        True,
+    )
+    _expect("guarded_start_subprocess_import_contract.subprocess_import_contract_only", subprocess_import.get("subprocess_import_contract_only"), True)
+    _expect("guarded_start_subprocess_import_contract.guarded_start_executor_enabled", subprocess_import.get("guarded_start_executor_enabled"), False)
+    _expect("guarded_start_subprocess_import_contract.guarded_start_executor_implemented", subprocess_import.get("guarded_start_executor_implemented"), False)
+    _expect("guarded_start_subprocess_import_contract.final_start_executor_enabled", subprocess_import.get("final_start_executor_enabled"), False)
+    _expect(
+        "guarded_start_subprocess_import_contract.runtime_policy_start_enabled",
+        subprocess_import.get("runtime_policy_start_enabled"),
+        subprocess_import.get("status") == "ready_for_guarded_start_launch_invocation_contract",
+    )
+    _expect("guarded_start_subprocess_import_contract.real_start_adapter_enabled", subprocess_import.get("real_start_adapter_enabled"), False)
+    _expect("guarded_start_subprocess_import_contract.start_execution_allowed", subprocess_import.get("start_execution_allowed"), False)
+    _expect("guarded_start_subprocess_import_contract.real_subprocess_start_implemented", subprocess_import.get("real_subprocess_start_implemented"), False)
+    _expect("guarded_start_subprocess_import_contract.process_launch_attempted", subprocess_import.get("process_launch_attempted"), False)
+    _expect("guarded_start_subprocess_import_contract.daemon_started", subprocess_import.get("daemon_started"), False)
+    _expect("guarded_start_subprocess_import_contract.process_launch_allowed", subprocess_import.get("process_launch_allowed"), False)
+    _expect("guarded_start_subprocess_import_contract.subprocess_module_imported", subprocess_import.get("subprocess_module_imported"), False)
+    _expect("guarded_start_subprocess_import_contract.livekit_sdk_imported", subprocess_import.get("livekit_sdk_imported"), False)
+    _expect("guarded_start_subprocess_import_contract.provider_calls_made", subprocess_import.get("provider_calls_made"), False)
+    _expect("guarded_start_subprocess_import_contract.tool_calls_made", subprocess_import.get("tool_calls_made"), False)
+    _expect("guarded_start_subprocess_import_contract.raw_audio_touched", subprocess_import.get("raw_audio_touched"), False)
+
+    launch_invocation = _expect_mapping(
+        "guarded_start_launch_invocation_contract",
+        payload.get("guarded_start_launch_invocation_contract"),
+    )
+    _expect(
+        "guarded_start_launch_invocation_contract.schema_version",
+        launch_invocation.get("schema_version"),
+        "atlas.voice_realtime.guarded_start_launch_invocation_contract.v1",
+    )
+    _expect(
+        "guarded_start_launch_invocation_contract.guarded_start_launch_invocation_contract_implemented",
+        launch_invocation.get("guarded_start_launch_invocation_contract_implemented"),
+        True,
+    )
+    _expect("guarded_start_launch_invocation_contract.launch_invocation_contract_only", launch_invocation.get("launch_invocation_contract_only"), True)
+    _expect("guarded_start_launch_invocation_contract.guarded_start_executor_enabled", launch_invocation.get("guarded_start_executor_enabled"), False)
+    _expect("guarded_start_launch_invocation_contract.guarded_start_executor_implemented", launch_invocation.get("guarded_start_executor_implemented"), False)
+    _expect("guarded_start_launch_invocation_contract.final_start_executor_enabled", launch_invocation.get("final_start_executor_enabled"), False)
+    _expect(
+        "guarded_start_launch_invocation_contract.runtime_policy_start_enabled",
+        launch_invocation.get("runtime_policy_start_enabled"),
+        launch_invocation.get("status") == "ready_for_guarded_start_final_process_start_contract",
+    )
+    _expect("guarded_start_launch_invocation_contract.real_start_adapter_enabled", launch_invocation.get("real_start_adapter_enabled"), False)
+    _expect("guarded_start_launch_invocation_contract.start_execution_allowed", launch_invocation.get("start_execution_allowed"), False)
+    _expect("guarded_start_launch_invocation_contract.real_subprocess_start_implemented", launch_invocation.get("real_subprocess_start_implemented"), False)
+    _expect("guarded_start_launch_invocation_contract.process_launch_attempted", launch_invocation.get("process_launch_attempted"), False)
+    _expect("guarded_start_launch_invocation_contract.daemon_started", launch_invocation.get("daemon_started"), False)
+    _expect("guarded_start_launch_invocation_contract.process_launch_allowed", launch_invocation.get("process_launch_allowed"), False)
+    _expect("guarded_start_launch_invocation_contract.subprocess_module_imported", launch_invocation.get("subprocess_module_imported"), False)
+    _expect("guarded_start_launch_invocation_contract.livekit_sdk_imported", launch_invocation.get("livekit_sdk_imported"), False)
+    _expect("guarded_start_launch_invocation_contract.provider_calls_made", launch_invocation.get("provider_calls_made"), False)
+    _expect("guarded_start_launch_invocation_contract.tool_calls_made", launch_invocation.get("tool_calls_made"), False)
+    _expect("guarded_start_launch_invocation_contract.raw_audio_touched", launch_invocation.get("raw_audio_touched"), False)
+
+    final_process_start = _expect_mapping(
+        "guarded_start_final_process_start_contract",
+        payload.get("guarded_start_final_process_start_contract"),
+    )
+    _expect(
+        "guarded_start_final_process_start_contract.schema_version",
+        final_process_start.get("schema_version"),
+        "atlas.voice_realtime.guarded_start_final_process_start_contract.v1",
+    )
+    _expect(
+        "guarded_start_final_process_start_contract.guarded_start_final_process_start_contract_implemented",
+        final_process_start.get("guarded_start_final_process_start_contract_implemented"),
+        True,
+    )
+    _expect("guarded_start_final_process_start_contract.final_process_start_contract_only", final_process_start.get("final_process_start_contract_only"), True)
+    _expect("guarded_start_final_process_start_contract.guarded_start_executor_enabled", final_process_start.get("guarded_start_executor_enabled"), False)
+    _expect("guarded_start_final_process_start_contract.guarded_start_executor_implemented", final_process_start.get("guarded_start_executor_implemented"), False)
+    _expect("guarded_start_final_process_start_contract.final_start_executor_enabled", final_process_start.get("final_start_executor_enabled"), False)
+    _expect(
+        "guarded_start_final_process_start_contract.runtime_policy_start_enabled",
+        final_process_start.get("runtime_policy_start_enabled"),
+        final_process_start.get("status") == "ready_for_guarded_start_process_execution_review",
+    )
+    _expect("guarded_start_final_process_start_contract.real_start_adapter_enabled", final_process_start.get("real_start_adapter_enabled"), False)
+    _expect("guarded_start_final_process_start_contract.start_execution_allowed", final_process_start.get("start_execution_allowed"), False)
+    _expect("guarded_start_final_process_start_contract.real_subprocess_start_implemented", final_process_start.get("real_subprocess_start_implemented"), False)
+    _expect("guarded_start_final_process_start_contract.process_launch_attempted", final_process_start.get("process_launch_attempted"), False)
+    _expect("guarded_start_final_process_start_contract.daemon_started", final_process_start.get("daemon_started"), False)
+    _expect("guarded_start_final_process_start_contract.process_launch_allowed", final_process_start.get("process_launch_allowed"), False)
+    _expect("guarded_start_final_process_start_contract.subprocess_module_imported", final_process_start.get("subprocess_module_imported"), False)
+    _expect("guarded_start_final_process_start_contract.livekit_sdk_imported", final_process_start.get("livekit_sdk_imported"), False)
+    _expect("guarded_start_final_process_start_contract.provider_calls_made", final_process_start.get("provider_calls_made"), False)
+    _expect("guarded_start_final_process_start_contract.tool_calls_made", final_process_start.get("tool_calls_made"), False)
+    _expect("guarded_start_final_process_start_contract.raw_audio_touched", final_process_start.get("raw_audio_touched"), False)
+
+    process_execution_review = _expect_mapping(
+        "guarded_start_process_execution_review",
+        payload.get("guarded_start_process_execution_review"),
+    )
+    _expect(
+        "guarded_start_process_execution_review.schema_version",
+        process_execution_review.get("schema_version"),
+        "atlas.voice_realtime.guarded_start_process_execution_review.v1",
+    )
+    _expect(
+        "guarded_start_process_execution_review.guarded_start_process_execution_review_implemented",
+        process_execution_review.get("guarded_start_process_execution_review_implemented"),
+        True,
+    )
+    _expect(
+        "guarded_start_process_execution_review.process_execution_review_only",
+        process_execution_review.get("process_execution_review_only"),
+        True,
+    )
+    _expect("guarded_start_process_execution_review.guarded_start_executor_enabled", process_execution_review.get("guarded_start_executor_enabled"), False)
+    _expect("guarded_start_process_execution_review.guarded_start_executor_implemented", process_execution_review.get("guarded_start_executor_implemented"), False)
+    _expect("guarded_start_process_execution_review.final_start_executor_enabled", process_execution_review.get("final_start_executor_enabled"), False)
+    _expect(
+        "guarded_start_process_execution_review.runtime_policy_start_enabled",
+        process_execution_review.get("runtime_policy_start_enabled"),
+        process_execution_review.get("status") == "ready_for_guarded_start_process_execution_packet",
+    )
+    _expect("guarded_start_process_execution_review.real_start_adapter_enabled", process_execution_review.get("real_start_adapter_enabled"), False)
+    _expect("guarded_start_process_execution_review.start_execution_allowed", process_execution_review.get("start_execution_allowed"), False)
+    _expect("guarded_start_process_execution_review.real_subprocess_start_implemented", process_execution_review.get("real_subprocess_start_implemented"), False)
+    _expect("guarded_start_process_execution_review.process_launch_attempted", process_execution_review.get("process_launch_attempted"), False)
+    _expect("guarded_start_process_execution_review.daemon_started", process_execution_review.get("daemon_started"), False)
+    _expect("guarded_start_process_execution_review.process_launch_allowed", process_execution_review.get("process_launch_allowed"), False)
+    _expect("guarded_start_process_execution_review.subprocess_module_imported", process_execution_review.get("subprocess_module_imported"), False)
+    _expect("guarded_start_process_execution_review.livekit_sdk_imported", process_execution_review.get("livekit_sdk_imported"), False)
+    _expect("guarded_start_process_execution_review.provider_calls_made", process_execution_review.get("provider_calls_made"), False)
+    _expect("guarded_start_process_execution_review.tool_calls_made", process_execution_review.get("tool_calls_made"), False)
+    _expect("guarded_start_process_execution_review.raw_audio_touched", process_execution_review.get("raw_audio_touched"), False)
+
+    process_execution_packet = _expect_mapping(
+        "guarded_start_process_execution_packet",
+        payload.get("guarded_start_process_execution_packet"),
+    )
+    _expect(
+        "guarded_start_process_execution_packet.schema_version",
+        process_execution_packet.get("schema_version"),
+        "atlas.voice_realtime.guarded_start_process_execution_packet.v1",
+    )
+    _expect(
+        "guarded_start_process_execution_packet.guarded_start_process_execution_packet_implemented",
+        process_execution_packet.get("guarded_start_process_execution_packet_implemented"),
+        True,
+    )
+    _expect(
+        "guarded_start_process_execution_packet.process_execution_packet_only",
+        process_execution_packet.get("process_execution_packet_only"),
+        True,
+    )
+    _expect("guarded_start_process_execution_packet.guarded_start_executor_enabled", process_execution_packet.get("guarded_start_executor_enabled"), False)
+    _expect("guarded_start_process_execution_packet.guarded_start_executor_implemented", process_execution_packet.get("guarded_start_executor_implemented"), False)
+    _expect("guarded_start_process_execution_packet.final_start_executor_enabled", process_execution_packet.get("final_start_executor_enabled"), False)
+    _expect(
+        "guarded_start_process_execution_packet.runtime_policy_start_enabled",
+        process_execution_packet.get("runtime_policy_start_enabled"),
+        process_execution_packet.get("status") == "ready_for_guarded_start_process_executor_stub",
+    )
+    _expect("guarded_start_process_execution_packet.real_start_adapter_enabled", process_execution_packet.get("real_start_adapter_enabled"), False)
+    _expect("guarded_start_process_execution_packet.start_execution_allowed", process_execution_packet.get("start_execution_allowed"), False)
+    _expect("guarded_start_process_execution_packet.real_subprocess_start_implemented", process_execution_packet.get("real_subprocess_start_implemented"), False)
+    _expect("guarded_start_process_execution_packet.process_launch_attempted", process_execution_packet.get("process_launch_attempted"), False)
+    _expect("guarded_start_process_execution_packet.daemon_started", process_execution_packet.get("daemon_started"), False)
+    _expect("guarded_start_process_execution_packet.process_launch_allowed", process_execution_packet.get("process_launch_allowed"), False)
+    _expect("guarded_start_process_execution_packet.subprocess_module_imported", process_execution_packet.get("subprocess_module_imported"), False)
+    _expect("guarded_start_process_execution_packet.livekit_sdk_imported", process_execution_packet.get("livekit_sdk_imported"), False)
+    _expect("guarded_start_process_execution_packet.provider_calls_made", process_execution_packet.get("provider_calls_made"), False)
+    _expect("guarded_start_process_execution_packet.tool_calls_made", process_execution_packet.get("tool_calls_made"), False)
+    _expect("guarded_start_process_execution_packet.raw_audio_touched", process_execution_packet.get("raw_audio_touched"), False)
+
+    process_executor_stub = _expect_mapping(
+        "guarded_start_process_executor_stub",
+        payload.get("guarded_start_process_executor_stub"),
+    )
+    _expect(
+        "guarded_start_process_executor_stub.schema_version",
+        process_executor_stub.get("schema_version"),
+        "atlas.voice_realtime.guarded_start_process_executor_stub.v1",
+    )
+    _expect(
+        "guarded_start_process_executor_stub.guarded_start_process_executor_stub_implemented",
+        process_executor_stub.get("guarded_start_process_executor_stub_implemented"),
+        True,
+    )
+    _expect(
+        "guarded_start_process_executor_stub.process_executor_stub_only",
+        process_executor_stub.get("process_executor_stub_only"),
+        True,
+    )
+    _expect("guarded_start_process_executor_stub.guarded_start_executor_enabled", process_executor_stub.get("guarded_start_executor_enabled"), False)
+    _expect("guarded_start_process_executor_stub.guarded_start_executor_implemented", process_executor_stub.get("guarded_start_executor_implemented"), False)
+    _expect("guarded_start_process_executor_stub.final_start_executor_enabled", process_executor_stub.get("final_start_executor_enabled"), False)
+    _expect(
+        "guarded_start_process_executor_stub.runtime_policy_start_enabled",
+        process_executor_stub.get("runtime_policy_start_enabled"),
+        process_executor_stub.get("status") == "ready_for_guarded_start_process_executor_review",
+    )
+    _expect("guarded_start_process_executor_stub.real_start_adapter_enabled", process_executor_stub.get("real_start_adapter_enabled"), False)
+    _expect("guarded_start_process_executor_stub.start_execution_allowed", process_executor_stub.get("start_execution_allowed"), False)
+    _expect("guarded_start_process_executor_stub.real_subprocess_start_implemented", process_executor_stub.get("real_subprocess_start_implemented"), False)
+    _expect("guarded_start_process_executor_stub.process_launch_attempted", process_executor_stub.get("process_launch_attempted"), False)
+    _expect("guarded_start_process_executor_stub.daemon_started", process_executor_stub.get("daemon_started"), False)
+    _expect("guarded_start_process_executor_stub.process_launch_allowed", process_executor_stub.get("process_launch_allowed"), False)
+    _expect("guarded_start_process_executor_stub.subprocess_module_imported", process_executor_stub.get("subprocess_module_imported"), False)
+    _expect("guarded_start_process_executor_stub.livekit_sdk_imported", process_executor_stub.get("livekit_sdk_imported"), False)
+    _expect("guarded_start_process_executor_stub.provider_calls_made", process_executor_stub.get("provider_calls_made"), False)
+    _expect("guarded_start_process_executor_stub.tool_calls_made", process_executor_stub.get("tool_calls_made"), False)
+    _expect("guarded_start_process_executor_stub.raw_audio_touched", process_executor_stub.get("raw_audio_touched"), False)
+
+    process_executor_review = _expect_mapping(
+        "guarded_start_process_executor_review",
+        payload.get("guarded_start_process_executor_review"),
+    )
+    _expect(
+        "guarded_start_process_executor_review.schema_version",
+        process_executor_review.get("schema_version"),
+        "atlas.voice_realtime.guarded_start_process_executor_review.v1",
+    )
+    _expect(
+        "guarded_start_process_executor_review.guarded_start_process_executor_review_implemented",
+        process_executor_review.get("guarded_start_process_executor_review_implemented"),
+        True,
+    )
+    _expect(
+        "guarded_start_process_executor_review.process_executor_review_only",
+        process_executor_review.get("process_executor_review_only"),
+        True,
+    )
+    _expect("guarded_start_process_executor_review.guarded_start_executor_enabled", process_executor_review.get("guarded_start_executor_enabled"), False)
+    _expect("guarded_start_process_executor_review.guarded_start_executor_implemented", process_executor_review.get("guarded_start_executor_implemented"), False)
+    _expect("guarded_start_process_executor_review.final_start_executor_enabled", process_executor_review.get("final_start_executor_enabled"), False)
+    _expect(
+        "guarded_start_process_executor_review.runtime_policy_start_enabled",
+        process_executor_review.get("runtime_policy_start_enabled"),
+        process_executor_review.get("status") == "ready_for_guarded_start_process_executor_contract",
+    )
+    _expect("guarded_start_process_executor_review.real_start_adapter_enabled", process_executor_review.get("real_start_adapter_enabled"), False)
+    _expect("guarded_start_process_executor_review.start_execution_allowed", process_executor_review.get("start_execution_allowed"), False)
+    _expect("guarded_start_process_executor_review.real_subprocess_start_implemented", process_executor_review.get("real_subprocess_start_implemented"), False)
+    _expect("guarded_start_process_executor_review.process_launch_attempted", process_executor_review.get("process_launch_attempted"), False)
+    _expect("guarded_start_process_executor_review.daemon_started", process_executor_review.get("daemon_started"), False)
+    _expect("guarded_start_process_executor_review.process_launch_allowed", process_executor_review.get("process_launch_allowed"), False)
+    _expect("guarded_start_process_executor_review.subprocess_module_imported", process_executor_review.get("subprocess_module_imported"), False)
+    _expect("guarded_start_process_executor_review.livekit_sdk_imported", process_executor_review.get("livekit_sdk_imported"), False)
+    _expect("guarded_start_process_executor_review.provider_calls_made", process_executor_review.get("provider_calls_made"), False)
+    _expect("guarded_start_process_executor_review.tool_calls_made", process_executor_review.get("tool_calls_made"), False)
+    _expect("guarded_start_process_executor_review.raw_audio_touched", process_executor_review.get("raw_audio_touched"), False)
+
+    process_executor_contract = _expect_mapping(
+        "guarded_start_process_executor_contract",
+        payload.get("guarded_start_process_executor_contract"),
+    )
+    _expect(
+        "guarded_start_process_executor_contract.schema_version",
+        process_executor_contract.get("schema_version"),
+        "atlas.voice_realtime.guarded_start_process_executor_contract.v1",
+    )
+    _expect(
+        "guarded_start_process_executor_contract.guarded_start_process_executor_contract_implemented",
+        process_executor_contract.get("guarded_start_process_executor_contract_implemented"),
+        True,
+    )
+    _expect(
+        "guarded_start_process_executor_contract.process_executor_contract_only",
+        process_executor_contract.get("process_executor_contract_only"),
+        True,
+    )
+    _expect("guarded_start_process_executor_contract.guarded_start_executor_enabled", process_executor_contract.get("guarded_start_executor_enabled"), False)
+    _expect("guarded_start_process_executor_contract.guarded_start_executor_implemented", process_executor_contract.get("guarded_start_executor_implemented"), False)
+    _expect("guarded_start_process_executor_contract.final_start_executor_enabled", process_executor_contract.get("final_start_executor_enabled"), False)
+    _expect(
+        "guarded_start_process_executor_contract.runtime_policy_start_enabled",
+        process_executor_contract.get("runtime_policy_start_enabled"),
+        process_executor_contract.get("status") == "ready_for_guarded_start_process_runtime_adapter",
+    )
+    _expect("guarded_start_process_executor_contract.real_start_adapter_enabled", process_executor_contract.get("real_start_adapter_enabled"), False)
+    _expect("guarded_start_process_executor_contract.start_execution_allowed", process_executor_contract.get("start_execution_allowed"), False)
+    _expect("guarded_start_process_executor_contract.real_subprocess_start_implemented", process_executor_contract.get("real_subprocess_start_implemented"), False)
+    _expect("guarded_start_process_executor_contract.process_launch_attempted", process_executor_contract.get("process_launch_attempted"), False)
+    _expect("guarded_start_process_executor_contract.daemon_started", process_executor_contract.get("daemon_started"), False)
+    _expect("guarded_start_process_executor_contract.process_launch_allowed", process_executor_contract.get("process_launch_allowed"), False)
+    _expect("guarded_start_process_executor_contract.subprocess_module_imported", process_executor_contract.get("subprocess_module_imported"), False)
+    _expect("guarded_start_process_executor_contract.livekit_sdk_imported", process_executor_contract.get("livekit_sdk_imported"), False)
+    _expect("guarded_start_process_executor_contract.provider_calls_made", process_executor_contract.get("provider_calls_made"), False)
+    _expect("guarded_start_process_executor_contract.tool_calls_made", process_executor_contract.get("tool_calls_made"), False)
+    _expect("guarded_start_process_executor_contract.raw_audio_touched", process_executor_contract.get("raw_audio_touched"), False)
+
+    process_runtime_adapter = _expect_mapping(
+        "guarded_start_process_runtime_adapter",
+        payload.get("guarded_start_process_runtime_adapter"),
+    )
+    _expect(
+        "guarded_start_process_runtime_adapter.schema_version",
+        process_runtime_adapter.get("schema_version"),
+        "atlas.voice_realtime.guarded_start_process_runtime_adapter.v1",
+    )
+    _expect(
+        "guarded_start_process_runtime_adapter.guarded_start_process_runtime_adapter_implemented",
+        process_runtime_adapter.get("guarded_start_process_runtime_adapter_implemented"),
+        True,
+    )
+    _expect(
+        "guarded_start_process_runtime_adapter.process_runtime_adapter_only",
+        process_runtime_adapter.get("process_runtime_adapter_only"),
+        True,
+    )
+    _expect(
+        "guarded_start_process_runtime_adapter.runtime_adapter_contract_only",
+        process_runtime_adapter.get("runtime_adapter_contract_only"),
+        True,
+    )
+    _expect("guarded_start_process_runtime_adapter.guarded_start_executor_enabled", process_runtime_adapter.get("guarded_start_executor_enabled"), False)
+    _expect("guarded_start_process_runtime_adapter.guarded_start_executor_implemented", process_runtime_adapter.get("guarded_start_executor_implemented"), False)
+    _expect("guarded_start_process_runtime_adapter.final_start_executor_enabled", process_runtime_adapter.get("final_start_executor_enabled"), False)
+    _expect(
+        "guarded_start_process_runtime_adapter.runtime_policy_start_enabled",
+        process_runtime_adapter.get("runtime_policy_start_enabled"),
+        process_runtime_adapter.get("status") == "ready_for_guarded_start_process_adapter_review",
+    )
+    _expect("guarded_start_process_runtime_adapter.real_start_adapter_enabled", process_runtime_adapter.get("real_start_adapter_enabled"), False)
+    _expect("guarded_start_process_runtime_adapter.start_execution_allowed", process_runtime_adapter.get("start_execution_allowed"), False)
+    _expect("guarded_start_process_runtime_adapter.real_subprocess_start_implemented", process_runtime_adapter.get("real_subprocess_start_implemented"), False)
+    _expect("guarded_start_process_runtime_adapter.process_launch_attempted", process_runtime_adapter.get("process_launch_attempted"), False)
+    _expect("guarded_start_process_runtime_adapter.daemon_started", process_runtime_adapter.get("daemon_started"), False)
+    _expect("guarded_start_process_runtime_adapter.process_launch_allowed", process_runtime_adapter.get("process_launch_allowed"), False)
+    _expect("guarded_start_process_runtime_adapter.subprocess_module_imported", process_runtime_adapter.get("subprocess_module_imported"), False)
+    _expect("guarded_start_process_runtime_adapter.livekit_sdk_imported", process_runtime_adapter.get("livekit_sdk_imported"), False)
+    _expect("guarded_start_process_runtime_adapter.provider_calls_made", process_runtime_adapter.get("provider_calls_made"), False)
+    _expect("guarded_start_process_runtime_adapter.tool_calls_made", process_runtime_adapter.get("tool_calls_made"), False)
+    _expect("guarded_start_process_runtime_adapter.raw_audio_touched", process_runtime_adapter.get("raw_audio_touched"), False)
+
+    process_adapter_review = _expect_mapping(
+        "guarded_start_process_adapter_review",
+        payload.get("guarded_start_process_adapter_review"),
+    )
+    _expect(
+        "guarded_start_process_adapter_review.schema_version",
+        process_adapter_review.get("schema_version"),
+        "atlas.voice_realtime.guarded_start_process_adapter_review.v1",
+    )
+    _expect(
+        "guarded_start_process_adapter_review.guarded_start_process_adapter_review_implemented",
+        process_adapter_review.get("guarded_start_process_adapter_review_implemented"),
+        True,
+    )
+    _expect(
+        "guarded_start_process_adapter_review.process_adapter_review_only",
+        process_adapter_review.get("process_adapter_review_only"),
+        True,
+    )
+    _expect("guarded_start_process_adapter_review.guarded_start_executor_enabled", process_adapter_review.get("guarded_start_executor_enabled"), False)
+    _expect("guarded_start_process_adapter_review.guarded_start_executor_implemented", process_adapter_review.get("guarded_start_executor_implemented"), False)
+    _expect("guarded_start_process_adapter_review.final_start_executor_enabled", process_adapter_review.get("final_start_executor_enabled"), False)
+    _expect(
+        "guarded_start_process_adapter_review.runtime_policy_start_enabled",
+        process_adapter_review.get("runtime_policy_start_enabled"),
+        process_adapter_review.get("status") == "ready_for_guarded_start_process_adapter_contract",
+    )
+    _expect("guarded_start_process_adapter_review.real_start_adapter_enabled", process_adapter_review.get("real_start_adapter_enabled"), False)
+    _expect("guarded_start_process_adapter_review.start_execution_allowed", process_adapter_review.get("start_execution_allowed"), False)
+    _expect("guarded_start_process_adapter_review.real_subprocess_start_implemented", process_adapter_review.get("real_subprocess_start_implemented"), False)
+    _expect("guarded_start_process_adapter_review.process_launch_attempted", process_adapter_review.get("process_launch_attempted"), False)
+    _expect("guarded_start_process_adapter_review.daemon_started", process_adapter_review.get("daemon_started"), False)
+    _expect("guarded_start_process_adapter_review.process_launch_allowed", process_adapter_review.get("process_launch_allowed"), False)
+    _expect("guarded_start_process_adapter_review.subprocess_module_imported", process_adapter_review.get("subprocess_module_imported"), False)
+    _expect("guarded_start_process_adapter_review.livekit_sdk_imported", process_adapter_review.get("livekit_sdk_imported"), False)
+    _expect("guarded_start_process_adapter_review.provider_calls_made", process_adapter_review.get("provider_calls_made"), False)
+    _expect("guarded_start_process_adapter_review.tool_calls_made", process_adapter_review.get("tool_calls_made"), False)
+    _expect("guarded_start_process_adapter_review.raw_audio_touched", process_adapter_review.get("raw_audio_touched"), False)
+
+    process_adapter_contract = _expect_mapping(
+        "guarded_start_process_adapter_contract",
+        payload.get("guarded_start_process_adapter_contract"),
+    )
+    _expect(
+        "guarded_start_process_adapter_contract.schema_version",
+        process_adapter_contract.get("schema_version"),
+        "atlas.voice_realtime.guarded_start_process_adapter_contract.v1",
+    )
+    _expect(
+        "guarded_start_process_adapter_contract.guarded_start_process_adapter_contract_implemented",
+        process_adapter_contract.get("guarded_start_process_adapter_contract_implemented"),
+        True,
+    )
+    _expect(
+        "guarded_start_process_adapter_contract.process_adapter_contract_only",
+        process_adapter_contract.get("process_adapter_contract_only"),
+        True,
+    )
+    _expect("guarded_start_process_adapter_contract.guarded_start_executor_enabled", process_adapter_contract.get("guarded_start_executor_enabled"), False)
+    _expect("guarded_start_process_adapter_contract.guarded_start_executor_implemented", process_adapter_contract.get("guarded_start_executor_implemented"), False)
+    _expect("guarded_start_process_adapter_contract.final_start_executor_enabled", process_adapter_contract.get("final_start_executor_enabled"), False)
+    _expect(
+        "guarded_start_process_adapter_contract.runtime_policy_start_enabled",
+        process_adapter_contract.get("runtime_policy_start_enabled"),
+        process_adapter_contract.get("status") == "ready_for_guarded_start_process_runner_contract",
+    )
+    _expect("guarded_start_process_adapter_contract.real_start_adapter_enabled", process_adapter_contract.get("real_start_adapter_enabled"), False)
+    _expect("guarded_start_process_adapter_contract.start_execution_allowed", process_adapter_contract.get("start_execution_allowed"), False)
+    _expect("guarded_start_process_adapter_contract.real_subprocess_start_implemented", process_adapter_contract.get("real_subprocess_start_implemented"), False)
+    _expect("guarded_start_process_adapter_contract.process_launch_attempted", process_adapter_contract.get("process_launch_attempted"), False)
+    _expect("guarded_start_process_adapter_contract.daemon_started", process_adapter_contract.get("daemon_started"), False)
+    _expect("guarded_start_process_adapter_contract.process_launch_allowed", process_adapter_contract.get("process_launch_allowed"), False)
+    _expect("guarded_start_process_adapter_contract.subprocess_module_imported", process_adapter_contract.get("subprocess_module_imported"), False)
+    _expect("guarded_start_process_adapter_contract.livekit_sdk_imported", process_adapter_contract.get("livekit_sdk_imported"), False)
+    _expect("guarded_start_process_adapter_contract.provider_calls_made", process_adapter_contract.get("provider_calls_made"), False)
+    _expect("guarded_start_process_adapter_contract.tool_calls_made", process_adapter_contract.get("tool_calls_made"), False)
+    _expect("guarded_start_process_adapter_contract.raw_audio_touched", process_adapter_contract.get("raw_audio_touched"), False)
+
+    process_runner_contract = _expect_mapping(
+        "guarded_start_process_runner_contract",
+        payload.get("guarded_start_process_runner_contract"),
+    )
+    _expect(
+        "guarded_start_process_runner_contract.schema_version",
+        process_runner_contract.get("schema_version"),
+        "atlas.voice_realtime.guarded_start_process_runner_contract.v1",
+    )
+    _expect(
+        "guarded_start_process_runner_contract.guarded_start_process_runner_contract_implemented",
+        process_runner_contract.get("guarded_start_process_runner_contract_implemented"),
+        True,
+    )
+    _expect(
+        "guarded_start_process_runner_contract.process_runner_contract_only",
+        process_runner_contract.get("process_runner_contract_only"),
+        True,
+    )
+    _expect("guarded_start_process_runner_contract.guarded_start_executor_enabled", process_runner_contract.get("guarded_start_executor_enabled"), False)
+    _expect("guarded_start_process_runner_contract.guarded_start_executor_implemented", process_runner_contract.get("guarded_start_executor_implemented"), False)
+    _expect("guarded_start_process_runner_contract.final_start_executor_enabled", process_runner_contract.get("final_start_executor_enabled"), False)
+    _expect(
+        "guarded_start_process_runner_contract.runtime_policy_start_enabled",
+        process_runner_contract.get("runtime_policy_start_enabled"),
+        process_runner_contract.get("status") == "ready_for_guarded_start_process_runner_review",
+    )
+    _expect("guarded_start_process_runner_contract.real_start_adapter_enabled", process_runner_contract.get("real_start_adapter_enabled"), False)
+    _expect("guarded_start_process_runner_contract.start_execution_allowed", process_runner_contract.get("start_execution_allowed"), False)
+    _expect("guarded_start_process_runner_contract.real_subprocess_start_implemented", process_runner_contract.get("real_subprocess_start_implemented"), False)
+    _expect("guarded_start_process_runner_contract.process_launch_attempted", process_runner_contract.get("process_launch_attempted"), False)
+    _expect("guarded_start_process_runner_contract.daemon_started", process_runner_contract.get("daemon_started"), False)
+    _expect("guarded_start_process_runner_contract.process_launch_allowed", process_runner_contract.get("process_launch_allowed"), False)
+    _expect("guarded_start_process_runner_contract.subprocess_module_imported", process_runner_contract.get("subprocess_module_imported"), False)
+    _expect("guarded_start_process_runner_contract.livekit_sdk_imported", process_runner_contract.get("livekit_sdk_imported"), False)
+    _expect("guarded_start_process_runner_contract.provider_calls_made", process_runner_contract.get("provider_calls_made"), False)
+    _expect("guarded_start_process_runner_contract.tool_calls_made", process_runner_contract.get("tool_calls_made"), False)
+    _expect("guarded_start_process_runner_contract.raw_audio_touched", process_runner_contract.get("raw_audio_touched"), False)
+
+    process_runner_review = _expect_mapping(
+        "guarded_start_process_runner_review",
+        payload.get("guarded_start_process_runner_review"),
+    )
+    _expect(
+        "guarded_start_process_runner_review.schema_version",
+        process_runner_review.get("schema_version"),
+        "atlas.voice_realtime.guarded_start_process_runner_review.v1",
+    )
+    _expect(
+        "guarded_start_process_runner_review.guarded_start_process_runner_review_implemented",
+        process_runner_review.get("guarded_start_process_runner_review_implemented"),
+        True,
+    )
+    _expect(
+        "guarded_start_process_runner_review.process_runner_review_only",
+        process_runner_review.get("process_runner_review_only"),
+        True,
+    )
+    _expect("guarded_start_process_runner_review.guarded_start_executor_enabled", process_runner_review.get("guarded_start_executor_enabled"), False)
+    _expect("guarded_start_process_runner_review.guarded_start_executor_implemented", process_runner_review.get("guarded_start_executor_implemented"), False)
+    _expect("guarded_start_process_runner_review.final_start_executor_enabled", process_runner_review.get("final_start_executor_enabled"), False)
+    _expect(
+        "guarded_start_process_runner_review.runtime_policy_start_enabled",
+        process_runner_review.get("runtime_policy_start_enabled"),
+        process_runner_review.get("status") == "ready_for_guarded_start_process_runner_packet",
+    )
+    _expect("guarded_start_process_runner_review.real_start_adapter_enabled", process_runner_review.get("real_start_adapter_enabled"), False)
+    _expect("guarded_start_process_runner_review.start_execution_allowed", process_runner_review.get("start_execution_allowed"), False)
+    _expect("guarded_start_process_runner_review.real_subprocess_start_implemented", process_runner_review.get("real_subprocess_start_implemented"), False)
+    _expect("guarded_start_process_runner_review.process_launch_attempted", process_runner_review.get("process_launch_attempted"), False)
+    _expect("guarded_start_process_runner_review.daemon_started", process_runner_review.get("daemon_started"), False)
+    _expect("guarded_start_process_runner_review.process_launch_allowed", process_runner_review.get("process_launch_allowed"), False)
+    _expect("guarded_start_process_runner_review.subprocess_module_imported", process_runner_review.get("subprocess_module_imported"), False)
+    _expect("guarded_start_process_runner_review.livekit_sdk_imported", process_runner_review.get("livekit_sdk_imported"), False)
+    _expect("guarded_start_process_runner_review.provider_calls_made", process_runner_review.get("provider_calls_made"), False)
+    _expect("guarded_start_process_runner_review.tool_calls_made", process_runner_review.get("tool_calls_made"), False)
+    _expect("guarded_start_process_runner_review.raw_audio_touched", process_runner_review.get("raw_audio_touched"), False)
+
+    process_runner_packet = _expect_mapping(
+        "guarded_start_process_runner_packet",
+        payload.get("guarded_start_process_runner_packet"),
+    )
+    _expect(
+        "guarded_start_process_runner_packet.schema_version",
+        process_runner_packet.get("schema_version"),
+        "atlas.voice_realtime.guarded_start_process_runner_packet.v1",
+    )
+    _expect(
+        "guarded_start_process_runner_packet.guarded_start_process_runner_packet_implemented",
+        process_runner_packet.get("guarded_start_process_runner_packet_implemented"),
+        True,
+    )
+    _expect(
+        "guarded_start_process_runner_packet.process_runner_packet_only",
+        process_runner_packet.get("process_runner_packet_only"),
+        True,
+    )
+    _expect("guarded_start_process_runner_packet.guarded_start_executor_enabled", process_runner_packet.get("guarded_start_executor_enabled"), False)
+    _expect("guarded_start_process_runner_packet.guarded_start_executor_implemented", process_runner_packet.get("guarded_start_executor_implemented"), False)
+    _expect("guarded_start_process_runner_packet.final_start_executor_enabled", process_runner_packet.get("final_start_executor_enabled"), False)
+    _expect(
+        "guarded_start_process_runner_packet.runtime_policy_start_enabled",
+        process_runner_packet.get("runtime_policy_start_enabled"),
+        process_runner_packet.get("status") == "ready_for_guarded_start_process_runner_execution_review",
+    )
+    _expect("guarded_start_process_runner_packet.real_start_adapter_enabled", process_runner_packet.get("real_start_adapter_enabled"), False)
+    _expect("guarded_start_process_runner_packet.start_execution_allowed", process_runner_packet.get("start_execution_allowed"), False)
+    _expect("guarded_start_process_runner_packet.real_subprocess_start_implemented", process_runner_packet.get("real_subprocess_start_implemented"), False)
+    _expect("guarded_start_process_runner_packet.process_launch_attempted", process_runner_packet.get("process_launch_attempted"), False)
+    _expect("guarded_start_process_runner_packet.daemon_started", process_runner_packet.get("daemon_started"), False)
+    _expect("guarded_start_process_runner_packet.process_launch_allowed", process_runner_packet.get("process_launch_allowed"), False)
+    _expect("guarded_start_process_runner_packet.subprocess_module_imported", process_runner_packet.get("subprocess_module_imported"), False)
+    _expect("guarded_start_process_runner_packet.livekit_sdk_imported", process_runner_packet.get("livekit_sdk_imported"), False)
+    _expect("guarded_start_process_runner_packet.provider_calls_made", process_runner_packet.get("provider_calls_made"), False)
+    _expect("guarded_start_process_runner_packet.tool_calls_made", process_runner_packet.get("tool_calls_made"), False)
+    _expect("guarded_start_process_runner_packet.raw_audio_touched", process_runner_packet.get("raw_audio_touched"), False)
+
+    process_runner_execution_review = _expect_mapping(
+        "guarded_start_process_runner_execution_review",
+        payload.get("guarded_start_process_runner_execution_review"),
+    )
+    _expect(
+        "guarded_start_process_runner_execution_review.schema_version",
+        process_runner_execution_review.get("schema_version"),
+        "atlas.voice_realtime.guarded_start_process_runner_execution_review.v1",
+    )
+    _expect(
+        "guarded_start_process_runner_execution_review.guarded_start_process_runner_execution_review_implemented",
+        process_runner_execution_review.get("guarded_start_process_runner_execution_review_implemented"),
+        True,
+    )
+    _expect(
+        "guarded_start_process_runner_execution_review.process_runner_execution_review_only",
+        process_runner_execution_review.get("process_runner_execution_review_only"),
+        True,
+    )
+    _expect("guarded_start_process_runner_execution_review.guarded_start_executor_enabled", process_runner_execution_review.get("guarded_start_executor_enabled"), False)
+    _expect("guarded_start_process_runner_execution_review.guarded_start_executor_implemented", process_runner_execution_review.get("guarded_start_executor_implemented"), False)
+    _expect("guarded_start_process_runner_execution_review.final_start_executor_enabled", process_runner_execution_review.get("final_start_executor_enabled"), False)
+    _expect(
+        "guarded_start_process_runner_execution_review.runtime_policy_start_enabled",
+        process_runner_execution_review.get("runtime_policy_start_enabled"),
+        process_runner_execution_review.get("status") == "ready_for_guarded_start_process_runner_execution_contract",
+    )
+    _expect("guarded_start_process_runner_execution_review.real_start_adapter_enabled", process_runner_execution_review.get("real_start_adapter_enabled"), False)
+    _expect("guarded_start_process_runner_execution_review.start_execution_allowed", process_runner_execution_review.get("start_execution_allowed"), False)
+    _expect("guarded_start_process_runner_execution_review.real_subprocess_start_implemented", process_runner_execution_review.get("real_subprocess_start_implemented"), False)
+    _expect("guarded_start_process_runner_execution_review.process_launch_attempted", process_runner_execution_review.get("process_launch_attempted"), False)
+    _expect("guarded_start_process_runner_execution_review.daemon_started", process_runner_execution_review.get("daemon_started"), False)
+    _expect("guarded_start_process_runner_execution_review.process_launch_allowed", process_runner_execution_review.get("process_launch_allowed"), False)
+    _expect("guarded_start_process_runner_execution_review.subprocess_module_imported", process_runner_execution_review.get("subprocess_module_imported"), False)
+    _expect("guarded_start_process_runner_execution_review.livekit_sdk_imported", process_runner_execution_review.get("livekit_sdk_imported"), False)
+    _expect("guarded_start_process_runner_execution_review.provider_calls_made", process_runner_execution_review.get("provider_calls_made"), False)
+    _expect("guarded_start_process_runner_execution_review.tool_calls_made", process_runner_execution_review.get("tool_calls_made"), False)
+    _expect("guarded_start_process_runner_execution_review.raw_audio_touched", process_runner_execution_review.get("raw_audio_touched"), False)
+
+    process_runner_execution_contract = _expect_mapping(
+        "guarded_start_process_runner_execution_contract",
+        payload.get("guarded_start_process_runner_execution_contract"),
+    )
+    _expect(
+        "guarded_start_process_runner_execution_contract.schema_version",
+        process_runner_execution_contract.get("schema_version"),
+        "atlas.voice_realtime.guarded_start_process_runner_execution_contract.v1",
+    )
+    _expect(
+        "guarded_start_process_runner_execution_contract.guarded_start_process_runner_execution_contract_implemented",
+        process_runner_execution_contract.get("guarded_start_process_runner_execution_contract_implemented"),
+        True,
+    )
+    _expect(
+        "guarded_start_process_runner_execution_contract.process_runner_execution_contract_only",
+        process_runner_execution_contract.get("process_runner_execution_contract_only"),
+        True,
+    )
+    _expect("guarded_start_process_runner_execution_contract.guarded_start_executor_enabled", process_runner_execution_contract.get("guarded_start_executor_enabled"), False)
+    _expect("guarded_start_process_runner_execution_contract.guarded_start_executor_implemented", process_runner_execution_contract.get("guarded_start_executor_implemented"), False)
+    _expect("guarded_start_process_runner_execution_contract.final_start_executor_enabled", process_runner_execution_contract.get("final_start_executor_enabled"), False)
+    _expect(
+        "guarded_start_process_runner_execution_contract.runtime_policy_start_enabled",
+        process_runner_execution_contract.get("runtime_policy_start_enabled"),
+        process_runner_execution_contract.get("status") == "ready_for_guarded_start_process_runner_start_gate",
+    )
+    _expect("guarded_start_process_runner_execution_contract.real_start_adapter_enabled", process_runner_execution_contract.get("real_start_adapter_enabled"), False)
+    _expect("guarded_start_process_runner_execution_contract.start_execution_allowed", process_runner_execution_contract.get("start_execution_allowed"), False)
+    _expect("guarded_start_process_runner_execution_contract.real_subprocess_start_implemented", process_runner_execution_contract.get("real_subprocess_start_implemented"), False)
+    _expect("guarded_start_process_runner_execution_contract.process_launch_attempted", process_runner_execution_contract.get("process_launch_attempted"), False)
+    _expect("guarded_start_process_runner_execution_contract.daemon_started", process_runner_execution_contract.get("daemon_started"), False)
+    _expect("guarded_start_process_runner_execution_contract.process_launch_allowed", process_runner_execution_contract.get("process_launch_allowed"), False)
+    _expect("guarded_start_process_runner_execution_contract.subprocess_module_imported", process_runner_execution_contract.get("subprocess_module_imported"), False)
+    _expect("guarded_start_process_runner_execution_contract.livekit_sdk_imported", process_runner_execution_contract.get("livekit_sdk_imported"), False)
+    _expect("guarded_start_process_runner_execution_contract.provider_calls_made", process_runner_execution_contract.get("provider_calls_made"), False)
+    _expect("guarded_start_process_runner_execution_contract.tool_calls_made", process_runner_execution_contract.get("tool_calls_made"), False)
+    _expect("guarded_start_process_runner_execution_contract.raw_audio_touched", process_runner_execution_contract.get("raw_audio_touched"), False)
+
+    process_runner_start_gate = _expect_mapping(
+        "guarded_start_process_runner_start_gate",
+        payload.get("guarded_start_process_runner_start_gate"),
+    )
+    _expect(
+        "guarded_start_process_runner_start_gate.schema_version",
+        process_runner_start_gate.get("schema_version"),
+        "atlas.voice_realtime.guarded_start_process_runner_start_gate.v1",
+    )
+    _expect(
+        "guarded_start_process_runner_start_gate.guarded_start_process_runner_start_gate_implemented",
+        process_runner_start_gate.get("guarded_start_process_runner_start_gate_implemented"),
+        True,
+    )
+    _expect(
+        "guarded_start_process_runner_start_gate.process_runner_start_gate_only",
+        process_runner_start_gate.get("process_runner_start_gate_only"),
+        True,
+    )
+    _expect("guarded_start_process_runner_start_gate.guarded_start_executor_enabled", process_runner_start_gate.get("guarded_start_executor_enabled"), False)
+    _expect("guarded_start_process_runner_start_gate.guarded_start_executor_implemented", process_runner_start_gate.get("guarded_start_executor_implemented"), False)
+    _expect("guarded_start_process_runner_start_gate.final_start_executor_enabled", process_runner_start_gate.get("final_start_executor_enabled"), False)
+    _expect(
+        "guarded_start_process_runner_start_gate.runtime_policy_start_enabled",
+        process_runner_start_gate.get("runtime_policy_start_enabled"),
+        process_runner_start_gate.get("status") == "ready_for_guarded_start_process_runner_final_review",
+    )
+    _expect("guarded_start_process_runner_start_gate.real_start_adapter_enabled", process_runner_start_gate.get("real_start_adapter_enabled"), False)
+    _expect("guarded_start_process_runner_start_gate.start_execution_allowed", process_runner_start_gate.get("start_execution_allowed"), False)
+    _expect("guarded_start_process_runner_start_gate.real_subprocess_start_implemented", process_runner_start_gate.get("real_subprocess_start_implemented"), False)
+    _expect("guarded_start_process_runner_start_gate.process_launch_attempted", process_runner_start_gate.get("process_launch_attempted"), False)
+    _expect("guarded_start_process_runner_start_gate.daemon_started", process_runner_start_gate.get("daemon_started"), False)
+    _expect("guarded_start_process_runner_start_gate.process_launch_allowed", process_runner_start_gate.get("process_launch_allowed"), False)
+    _expect("guarded_start_process_runner_start_gate.subprocess_module_imported", process_runner_start_gate.get("subprocess_module_imported"), False)
+    _expect("guarded_start_process_runner_start_gate.livekit_sdk_imported", process_runner_start_gate.get("livekit_sdk_imported"), False)
+    _expect("guarded_start_process_runner_start_gate.provider_calls_made", process_runner_start_gate.get("provider_calls_made"), False)
+    _expect("guarded_start_process_runner_start_gate.tool_calls_made", process_runner_start_gate.get("tool_calls_made"), False)
+    _expect("guarded_start_process_runner_start_gate.raw_audio_touched", process_runner_start_gate.get("raw_audio_touched"), False)
+
+    process_runner_final_review = _expect_mapping(
+        "guarded_start_process_runner_final_review",
+        payload.get("guarded_start_process_runner_final_review"),
+    )
+    _expect(
+        "guarded_start_process_runner_final_review.schema_version",
+        process_runner_final_review.get("schema_version"),
+        "atlas.voice_realtime.guarded_start_process_runner_final_review.v1",
+    )
+    _expect(
+        "guarded_start_process_runner_final_review.guarded_start_process_runner_final_review_implemented",
+        process_runner_final_review.get("guarded_start_process_runner_final_review_implemented"),
+        True,
+    )
+    _expect(
+        "guarded_start_process_runner_final_review.process_runner_final_review_only",
+        process_runner_final_review.get("process_runner_final_review_only"),
+        True,
+    )
+    _expect("guarded_start_process_runner_final_review.guarded_start_executor_enabled", process_runner_final_review.get("guarded_start_executor_enabled"), False)
+    _expect("guarded_start_process_runner_final_review.guarded_start_executor_implemented", process_runner_final_review.get("guarded_start_executor_implemented"), False)
+    _expect("guarded_start_process_runner_final_review.final_start_executor_enabled", process_runner_final_review.get("final_start_executor_enabled"), False)
+    _expect(
+        "guarded_start_process_runner_final_review.runtime_policy_start_enabled",
+        process_runner_final_review.get("runtime_policy_start_enabled"),
+        process_runner_final_review.get("status") == "ready_for_guarded_start_process_runner_promotion_packet",
+    )
+    _expect("guarded_start_process_runner_final_review.real_start_adapter_enabled", process_runner_final_review.get("real_start_adapter_enabled"), False)
+    _expect("guarded_start_process_runner_final_review.start_execution_allowed", process_runner_final_review.get("start_execution_allowed"), False)
+    _expect("guarded_start_process_runner_final_review.real_subprocess_start_implemented", process_runner_final_review.get("real_subprocess_start_implemented"), False)
+    _expect("guarded_start_process_runner_final_review.process_launch_attempted", process_runner_final_review.get("process_launch_attempted"), False)
+    _expect("guarded_start_process_runner_final_review.daemon_started", process_runner_final_review.get("daemon_started"), False)
+    _expect("guarded_start_process_runner_final_review.process_launch_allowed", process_runner_final_review.get("process_launch_allowed"), False)
+    _expect("guarded_start_process_runner_final_review.subprocess_module_imported", process_runner_final_review.get("subprocess_module_imported"), False)
+    _expect("guarded_start_process_runner_final_review.livekit_sdk_imported", process_runner_final_review.get("livekit_sdk_imported"), False)
+    _expect("guarded_start_process_runner_final_review.provider_calls_made", process_runner_final_review.get("provider_calls_made"), False)
+    _expect("guarded_start_process_runner_final_review.tool_calls_made", process_runner_final_review.get("tool_calls_made"), False)
+    _expect("guarded_start_process_runner_final_review.raw_audio_touched", process_runner_final_review.get("raw_audio_touched"), False)
+
+    process_runner_promotion_packet = _expect_mapping(
+        "guarded_start_process_runner_promotion_packet",
+        payload.get("guarded_start_process_runner_promotion_packet"),
+    )
+    _expect(
+        "guarded_start_process_runner_promotion_packet.schema_version",
+        process_runner_promotion_packet.get("schema_version"),
+        "atlas.voice_realtime.guarded_start_process_runner_promotion_packet.v1",
+    )
+    _expect(
+        "guarded_start_process_runner_promotion_packet.guarded_start_process_runner_promotion_packet_implemented",
+        process_runner_promotion_packet.get("guarded_start_process_runner_promotion_packet_implemented"),
+        True,
+    )
+    _expect(
+        "guarded_start_process_runner_promotion_packet.process_runner_promotion_packet_only",
+        process_runner_promotion_packet.get("process_runner_promotion_packet_only"),
+        True,
+    )
+    _expect("guarded_start_process_runner_promotion_packet.guarded_start_executor_enabled", process_runner_promotion_packet.get("guarded_start_executor_enabled"), False)
+    _expect("guarded_start_process_runner_promotion_packet.guarded_start_executor_implemented", process_runner_promotion_packet.get("guarded_start_executor_implemented"), False)
+    _expect("guarded_start_process_runner_promotion_packet.final_start_executor_enabled", process_runner_promotion_packet.get("final_start_executor_enabled"), False)
+    _expect(
+        "guarded_start_process_runner_promotion_packet.runtime_policy_start_enabled",
+        process_runner_promotion_packet.get("runtime_policy_start_enabled"),
+        process_runner_promotion_packet.get("status") == "ready_for_guarded_start_process_runner_operator_release",
+    )
+    _expect("guarded_start_process_runner_promotion_packet.real_start_adapter_enabled", process_runner_promotion_packet.get("real_start_adapter_enabled"), False)
+    _expect("guarded_start_process_runner_promotion_packet.start_execution_allowed", process_runner_promotion_packet.get("start_execution_allowed"), False)
+    _expect("guarded_start_process_runner_promotion_packet.real_subprocess_start_implemented", process_runner_promotion_packet.get("real_subprocess_start_implemented"), False)
+    _expect("guarded_start_process_runner_promotion_packet.process_launch_attempted", process_runner_promotion_packet.get("process_launch_attempted"), False)
+    _expect("guarded_start_process_runner_promotion_packet.daemon_started", process_runner_promotion_packet.get("daemon_started"), False)
+    _expect("guarded_start_process_runner_promotion_packet.process_launch_allowed", process_runner_promotion_packet.get("process_launch_allowed"), False)
+    _expect("guarded_start_process_runner_promotion_packet.subprocess_module_imported", process_runner_promotion_packet.get("subprocess_module_imported"), False)
+    _expect("guarded_start_process_runner_promotion_packet.livekit_sdk_imported", process_runner_promotion_packet.get("livekit_sdk_imported"), False)
+    _expect("guarded_start_process_runner_promotion_packet.provider_calls_made", process_runner_promotion_packet.get("provider_calls_made"), False)
+    _expect("guarded_start_process_runner_promotion_packet.tool_calls_made", process_runner_promotion_packet.get("tool_calls_made"), False)
+    _expect("guarded_start_process_runner_promotion_packet.raw_audio_touched", process_runner_promotion_packet.get("raw_audio_touched"), False)
+
     start_attempt = _expect_mapping("start_attempt", payload.get("start_attempt"))
     _expect("start_attempt.process_launch_attempted", start_attempt.get("process_launch_attempted"), False)
     _expect("start_attempt.daemon_started", start_attempt.get("daemon_started"), False)
