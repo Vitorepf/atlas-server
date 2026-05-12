@@ -203,6 +203,8 @@ class AtlasMemoryDeltaPromotionService
             'resolution' => 'resolution',
             'benchmark', 'benchmark_observation' => 'benchmark_observation',
             'harness_learning' => 'harness_learning',
+            'anti_memory' => 'anti_memory',
+            'strategic_insight' => 'strategic_insight',
             default => 'technical_context',
         };
 

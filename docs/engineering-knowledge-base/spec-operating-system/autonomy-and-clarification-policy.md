@@ -62,3 +62,14 @@ Block when:
 - demands hardcoded behavior against architecture;
 - requires destructive action without explicit approval.
 
+## Scheduled Work Error Hygiene
+
+Long-running scheduled work may persist local status, output paths and delivery
+state for operator review. Error metadata must be provider-safe: exception
+messages are redacted before being written to `ai_scheduled_tasks.metadata`, and
+rendered output files are redacted before storage.
+
+Scheduler failure metadata is evidence, not authority. It must not expose API
+keys, bearer tokens, cookies, private keys or raw provider credentials, and it
+does not authorize retries, provider changes, notification delivery or task
+mutation beyond the guarded scheduled-run contract.

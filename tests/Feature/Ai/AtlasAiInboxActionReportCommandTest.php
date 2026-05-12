@@ -146,6 +146,104 @@ class AtlasAiInboxActionReportCommandTest extends TestCase
         $this->assertSame(480, data_get($payload, 'inbox_actions.recent_events.0.provider_cost_rate_output_microusd'));
     }
 
+    public function test_command_exposes_retrieval_regression_review_as_json(): void
+    {
+        $this->recordInboxAction(
+            '01HINBOXACTIONCMDRETRIEVAL1',
+            'cmd-inbox-retrieval-regression',
+            'review_retrieval_regression',
+            'operator_cli',
+            'open_memory_retrieval_regression_review',
+            [],
+            [],
+            [],
+            [],
+            [
+                'schema_version' => 'atlas.inbox_action.memory_retrieval_regression_review.v1',
+                'decision' => 'needs_more_evidence',
+                'reviewed' => true,
+                'report_hash' => hash('sha256', 'retrieval-report-command'),
+                'latest_snapshot_hash' => hash('sha256', 'retrieval-latest-command'),
+                'previous_snapshot_hash' => hash('sha256', 'retrieval-previous-command'),
+                'no_external_action' => true,
+                'no_runtime_execution' => true,
+                'no_policy_patch' => true,
+            ],
+        );
+
+        $exit = Artisan::call('atlas:ai:inbox-action-report', [
+            '--hours' => 24,
+            '--action' => 'review_retrieval_regression',
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame(1, data_get($payload, 'inbox_actions.retrieval_regression_review_count'));
+        $this->assertSame(1, data_get($payload, 'inbox_actions.retrieval_regression_reviewed_count'));
+        $this->assertSame(['needs_more_evidence' => 1], data_get($payload, 'inbox_actions.retrieval_regression_decision_counts'));
+        $this->assertSame('ok', data_get($payload, 'inbox_actions.review_signal.status'));
+        $this->assertSame('memory_retrieval_regression_review_recorded', data_get($payload, 'inbox_actions.review_signal.reasons.0'));
+        $this->assertSame('needs_more_evidence', data_get($payload, 'inbox_actions.recent_events.0.retrieval_regression_decision'));
+        $this->assertTrue((bool) data_get($payload, 'inbox_actions.recent_events.0.retrieval_regression_no_runtime_execution'));
+        $this->assertTrue((bool) data_get($payload, 'inbox_actions.recent_events.0.retrieval_regression_no_policy_patch'));
+    }
+
+    public function test_command_exposes_retrieval_shadow_scope_review_receipt_as_json(): void
+    {
+        $receiptHash = hash('sha256', 'retrieval-shadow-scope-command-receipt');
+
+        $this->recordInboxAction(
+            '01HINBOXACTIONCMDSHADOW01',
+            'cmd-inbox-retrieval-shadow-scope',
+            'review_retrieval_shadow_scope',
+            'operator_cli',
+            'review_retrieval_shadow_scope',
+            [],
+            [],
+            [],
+            [],
+            [],
+            [
+                'schema_version' => 'atlas.inbox_action.memory_retrieval_shadow_scope_review.v1',
+                'decision' => 'needs_more_evidence',
+                'reviewed' => true,
+                'plan_hash' => hash('sha256', 'retrieval-shadow-scope-command-plan'),
+                'review_ap' => 'docs/ap/AP-693-retrieval-rivals-shadow-comparison-contract.md',
+                'decision_receipt_hash' => $receiptHash,
+                'decision_receipt' => [
+                    'schema_version' => 'atlas.memory_retrieval_shadow_scope_decision_receipt.v1',
+                    'receipt_hash' => $receiptHash,
+                    'shadow_execution_allowed_now' => false,
+                ],
+                'no_external_action' => true,
+                'no_runtime_execution' => true,
+                'no_policy_patch' => true,
+                'no_provider_call' => true,
+            ],
+        );
+
+        $exit = Artisan::call('atlas:ai:inbox-action-report', [
+            '--hours' => 24,
+            '--action' => 'review_retrieval_shadow_scope',
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame(1, data_get($payload, 'inbox_actions.retrieval_shadow_scope_review_count'));
+        $this->assertSame(1, data_get($payload, 'inbox_actions.retrieval_shadow_scope_reviewed_count'));
+        $this->assertSame(1, data_get($payload, 'inbox_actions.retrieval_shadow_scope_decision_receipt_count'));
+        $this->assertSame(0, data_get($payload, 'inbox_actions.retrieval_shadow_scope_runtime_allowed_count'));
+        $this->assertSame(['needs_more_evidence' => 1], data_get($payload, 'inbox_actions.retrieval_shadow_scope_decision_counts'));
+        $this->assertSame('ok', data_get($payload, 'inbox_actions.review_signal.status'));
+        $this->assertSame('memory_retrieval_shadow_scope_review_recorded', data_get($payload, 'inbox_actions.review_signal.reasons.0'));
+        $this->assertSame('needs_more_evidence', data_get($payload, 'inbox_actions.recent_events.0.retrieval_shadow_scope_decision'));
+        $this->assertSame($receiptHash, data_get($payload, 'inbox_actions.recent_events.0.retrieval_shadow_scope_decision_receipt_hash'));
+        $this->assertFalse((bool) data_get($payload, 'inbox_actions.recent_events.0.retrieval_shadow_scope_shadow_execution_allowed_now'));
+        $this->assertTrue((bool) data_get($payload, 'inbox_actions.recent_events.0.retrieval_shadow_scope_no_provider_call'));
+    }
+
     public function test_command_human_output_includes_inbox_action_review_signal(): void
     {
         $this->recordInboxAction('01HINBOXACTIONCMDHUMAN01', 'cmd-inbox-human', 'review_patch', 'operator_cli', 'review_observability_patch', []);
@@ -222,6 +320,102 @@ class AtlasAiInboxActionReportCommandTest extends TestCase
         $this->assertStringContainsString('Cost-rate recommended action', $output);
         $this->assertStringContainsString('Cost-rate review reasons', $output);
         $this->assertStringContainsString('provider_cost_rates_configured', $output);
+    }
+
+    public function test_command_human_output_includes_retrieval_regression_summary_when_reviewed(): void
+    {
+        $this->recordInboxAction(
+            '01HINBOXACTIONCMDHUMANRETRIEVAL1',
+            'cmd-inbox-human-retrieval-regression',
+            'review_retrieval_regression',
+            'operator_cli',
+            'open_memory_retrieval_regression_review',
+            [],
+            [],
+            [],
+            [],
+            [
+                'schema_version' => 'atlas.inbox_action.memory_retrieval_regression_review.v1',
+                'decision' => 'accepted_regression',
+                'reviewed' => true,
+                'report_hash' => 'report-hash-human',
+                'latest_snapshot_hash' => 'latest-hash-human',
+                'previous_snapshot_hash' => 'previous-hash-human',
+                'no_external_action' => true,
+                'no_runtime_execution' => true,
+                'no_policy_patch' => true,
+            ],
+        );
+
+        $exit = Artisan::call('atlas:ai:inbox-action-report', [
+            '--hours' => 24,
+            '--action' => 'review_retrieval_regression',
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Memory Retrieval Regression Reviews', $output);
+        $this->assertStringContainsString('Retrieval regression reviews', $output);
+        $this->assertStringContainsString('Retrieval regression completion', $output);
+        $this->assertStringContainsString('1/1 reviewed', $output);
+        $this->assertStringContainsString('accepted_regression', $output);
+        $this->assertStringContainsString('report-hash-human', $output);
+        $this->assertStringContainsString('latest-hash-human', $output);
+        $this->assertStringContainsString('previous-hash-human', $output);
+        $this->assertStringContainsString('memory_retrieval_regression_review_recorded', $output);
+    }
+
+    public function test_command_human_output_includes_retrieval_shadow_scope_summary_when_receipted(): void
+    {
+        $receiptHash = hash('sha256', 'retrieval-shadow-scope-human-receipt');
+
+        $this->recordInboxAction(
+            '01HINBOXACTIONCMDHUMANSHADOW01',
+            'cmd-inbox-human-retrieval-shadow-scope',
+            'review_retrieval_shadow_scope',
+            'operator_cli',
+            'review_retrieval_shadow_scope',
+            [],
+            [],
+            [],
+            [],
+            [],
+            [
+                'schema_version' => 'atlas.inbox_action.memory_retrieval_shadow_scope_review.v1',
+                'decision' => 'approved_scope',
+                'reviewed' => true,
+                'plan_hash' => 'shadow-plan-hash-human',
+                'review_ap' => 'docs/ap/AP-693-retrieval-rivals-shadow-comparison-contract.md',
+                'decision_receipt_hash' => $receiptHash,
+                'decision_receipt' => [
+                    'schema_version' => 'atlas.memory_retrieval_shadow_scope_decision_receipt.v1',
+                    'receipt_hash' => $receiptHash,
+                    'shadow_execution_allowed_now' => false,
+                ],
+                'no_external_action' => true,
+                'no_runtime_execution' => true,
+                'no_policy_patch' => true,
+                'no_provider_call' => true,
+            ],
+        );
+
+        $exit = Artisan::call('atlas:ai:inbox-action-report', [
+            '--hours' => 24,
+            '--action' => 'review_retrieval_shadow_scope',
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Memory Retrieval Shadow Scope Reviews', $output);
+        $this->assertStringContainsString('Retrieval shadow-scope reviews', $output);
+        $this->assertStringContainsString('Shadow-scope decision receipts', $output);
+        $this->assertStringContainsString('Shadow execution allowed now', $output);
+        $this->assertStringContainsString('1/1 reviewed, 1/1 receipted', $output);
+        $this->assertStringContainsString('approved_scope', $output);
+        $this->assertStringContainsString($receiptHash, $output);
+        $this->assertStringContainsString('shadow-plan-hash-human', $output);
+        $this->assertStringContainsString('docs/ap/AP-693-retrieval-rivals-shadow-comparison-contract.md', $output);
+        $this->assertStringContainsString('memory_retrieval_shadow_scope_review_recorded', $output);
     }
 
     public function test_command_human_output_flags_provider_cost_rate_preview_without_applied_rate(): void
@@ -353,6 +547,8 @@ class AtlasAiInboxActionReportCommandTest extends TestCase
         array $rivalsReviewAction = [],
         array $providerCostRateAction = [],
         array $upsertedRate = [],
+        array $retrievalRegressionReviewAction = [],
+        array $retrievalShadowScopeReviewAction = [],
     ): void {
         AtlasLedgerEvent::query()->create([
             'event_id' => $eventId,
@@ -389,6 +585,8 @@ class AtlasAiInboxActionReportCommandTest extends TestCase
                     'rivals_review_action' => $rivalsReviewAction,
                     'provider_cost_rate_action' => $providerCostRateAction,
                     'upserted_rate' => $upsertedRate,
+                    'retrieval_regression_review_action' => $retrievalRegressionReviewAction,
+                    'retrieval_shadow_scope_review_action' => $retrievalShadowScopeReviewAction,
                 ],
                 'recommended_action' => $recommendedAction,
                 'review_signal' => [

@@ -836,6 +836,142 @@ class LedgerReplayServiceTest extends TestCase
         $this->assertSame(77, data_get($report, 'recent_events.0.provider_cost_rate_id'));
     }
 
+    public function test_inbox_action_window_report_projects_retrieval_regression_reviews(): void
+    {
+        $this->recordInboxActionEvent(
+            eventId: '01HINBOXACTIONRETRIEVAL001',
+            inboxItemId: 'inbox-retrieval-regression-1',
+            action: 'review_retrieval_regression',
+            actorType: 'operator_cli',
+            category: 'memory',
+            severity: 'medium',
+            recommendedAction: 'open_memory_retrieval_regression_review',
+            retrievalRegressionReviewAction: [
+                'schema_version' => 'atlas.inbox_action.memory_retrieval_regression_review.v1',
+                'decision' => 'needs_more_evidence',
+                'reviewed' => true,
+                'report_hash' => hash('sha256', 'retrieval-report-replay'),
+                'latest_snapshot_hash' => hash('sha256', 'retrieval-latest-replay'),
+                'previous_snapshot_hash' => hash('sha256', 'retrieval-previous-replay'),
+                'no_external_action' => true,
+                'no_runtime_execution' => true,
+                'no_policy_patch' => true,
+            ],
+        );
+
+        $report = app(AtlasLedgerReplayService::class)->inboxActionReportForWindow(
+            now()->subHour(),
+            now()->addMinute(),
+            ['action' => 'review_retrieval_regression'],
+        );
+
+        $this->assertTrue($report['available']);
+        $this->assertSame(1, $report['inbox_action_count']);
+        $this->assertSame(1, $report['retrieval_regression_review_count']);
+        $this->assertSame(1, $report['retrieval_regression_reviewed_count']);
+        $this->assertSame(['needs_more_evidence' => 1], $report['retrieval_regression_decision_counts']);
+        $this->assertSame('ok', data_get($report, 'review_signal.status'));
+        $this->assertSame('none', data_get($report, 'review_signal.recommended_action'));
+        $this->assertContains('memory_retrieval_regression_review_recorded', data_get($report, 'review_signal.reasons'));
+        $this->assertSame('atlas.inbox_action.memory_retrieval_regression_review.v1', data_get($report, 'recent_events.0.retrieval_regression_review_schema_version'));
+        $this->assertSame('needs_more_evidence', data_get($report, 'recent_events.0.retrieval_regression_decision'));
+        $this->assertTrue((bool) data_get($report, 'recent_events.0.retrieval_regression_reviewed'));
+        $this->assertTrue((bool) data_get($report, 'recent_events.0.retrieval_regression_no_external_action'));
+        $this->assertTrue((bool) data_get($report, 'recent_events.0.retrieval_regression_no_runtime_execution'));
+        $this->assertTrue((bool) data_get($report, 'recent_events.0.retrieval_regression_no_policy_patch'));
+    }
+
+    public function test_inbox_action_window_report_projects_retrieval_shadow_scope_decision_receipts(): void
+    {
+        $receiptHash = hash('sha256', 'retrieval-shadow-scope-receipt');
+
+        $this->recordInboxActionEvent(
+            eventId: '01HINBOXACTIONSHADOWSCOPE01',
+            inboxItemId: 'inbox-retrieval-shadow-scope-1',
+            action: 'review_retrieval_shadow_scope',
+            actorType: 'operator_cli',
+            category: 'memory',
+            severity: 'medium',
+            recommendedAction: 'review_retrieval_shadow_scope',
+            retrievalShadowScopeReviewAction: [
+                'schema_version' => 'atlas.inbox_action.memory_retrieval_shadow_scope_review.v1',
+                'decision' => 'needs_more_evidence',
+                'reviewed' => true,
+                'plan_hash' => hash('sha256', 'retrieval-shadow-plan'),
+                'review_ap' => 'docs/ap/AP-693-retrieval-rivals-shadow-comparison-contract.md',
+                'decision_receipt_hash' => $receiptHash,
+                'decision_receipt' => [
+                    'schema_version' => 'atlas.memory_retrieval_shadow_scope_decision_receipt.v1',
+                    'receipt_hash' => $receiptHash,
+                    'shadow_execution_allowed_now' => false,
+                ],
+                'no_external_action' => true,
+                'no_runtime_execution' => true,
+                'no_policy_patch' => true,
+                'no_provider_call' => true,
+            ],
+        );
+
+        $report = app(AtlasLedgerReplayService::class)->inboxActionReportForWindow(
+            now()->subHour(),
+            now()->addMinute(),
+            ['action' => 'review_retrieval_shadow_scope'],
+        );
+
+        $this->assertTrue($report['available']);
+        $this->assertSame(1, $report['inbox_action_count']);
+        $this->assertSame(1, $report['retrieval_shadow_scope_review_count']);
+        $this->assertSame(1, $report['retrieval_shadow_scope_reviewed_count']);
+        $this->assertSame(1, $report['retrieval_shadow_scope_decision_receipt_count']);
+        $this->assertSame(0, $report['retrieval_shadow_scope_runtime_allowed_count']);
+        $this->assertSame(['needs_more_evidence' => 1], $report['retrieval_shadow_scope_decision_counts']);
+        $this->assertSame('ok', data_get($report, 'review_signal.status'));
+        $this->assertSame('none', data_get($report, 'review_signal.recommended_action'));
+        $this->assertContains('memory_retrieval_shadow_scope_review_recorded', data_get($report, 'review_signal.reasons'));
+        $this->assertSame('atlas.inbox_action.memory_retrieval_shadow_scope_review.v1', data_get($report, 'recent_events.0.retrieval_shadow_scope_review_schema_version'));
+        $this->assertSame('atlas.memory_retrieval_shadow_scope_decision_receipt.v1', data_get($report, 'recent_events.0.retrieval_shadow_scope_receipt_schema_version'));
+        $this->assertSame('needs_more_evidence', data_get($report, 'recent_events.0.retrieval_shadow_scope_decision'));
+        $this->assertSame($receiptHash, data_get($report, 'recent_events.0.retrieval_shadow_scope_decision_receipt_hash'));
+        $this->assertFalse((bool) data_get($report, 'recent_events.0.retrieval_shadow_scope_shadow_execution_allowed_now'));
+        $this->assertTrue((bool) data_get($report, 'recent_events.0.retrieval_shadow_scope_no_runtime_execution'));
+        $this->assertTrue((bool) data_get($report, 'recent_events.0.retrieval_shadow_scope_no_policy_patch'));
+        $this->assertTrue((bool) data_get($report, 'recent_events.0.retrieval_shadow_scope_no_provider_call'));
+    }
+
+    public function test_inbox_action_window_report_warns_when_shadow_scope_review_missing_receipt(): void
+    {
+        $this->recordInboxActionEvent(
+            eventId: '01HINBOXACTIONSHADOWSCOPE02',
+            inboxItemId: 'inbox-retrieval-shadow-scope-missing-receipt',
+            action: 'review_retrieval_shadow_scope',
+            actorType: 'operator_cli',
+            category: 'memory',
+            severity: 'medium',
+            recommendedAction: 'review_retrieval_shadow_scope',
+            retrievalShadowScopeReviewAction: [
+                'schema_version' => 'atlas.inbox_action.memory_retrieval_shadow_scope_review.v1',
+                'decision' => 'reviewed',
+                'reviewed' => true,
+                'plan_hash' => hash('sha256', 'retrieval-shadow-plan-missing-receipt'),
+                'no_runtime_execution' => true,
+                'no_policy_patch' => true,
+                'no_provider_call' => true,
+            ],
+        );
+
+        $report = app(AtlasLedgerReplayService::class)->inboxActionReportForWindow(
+            now()->subHour(),
+            now()->addMinute(),
+            ['action' => 'review_retrieval_shadow_scope'],
+        );
+
+        $this->assertSame(1, $report['retrieval_shadow_scope_review_count']);
+        $this->assertSame(0, $report['retrieval_shadow_scope_decision_receipt_count']);
+        $this->assertSame('warning', data_get($report, 'review_signal.status'));
+        $this->assertSame('review_retrieval_shadow_scope', data_get($report, 'review_signal.recommended_action'));
+        $this->assertContains('review_retrieval_shadow_scope_action_without_decision_receipt', data_get($report, 'review_signal.reasons'));
+    }
+
     public function test_inbox_action_window_report_warns_when_provider_cost_rate_action_is_only_previewed(): void
     {
         $this->recordInboxActionEvent(
@@ -1170,6 +1306,8 @@ class LedgerReplayServiceTest extends TestCase
         array $rivalsReviewAction = [],
         array $providerCostRateAction = [],
         array $upsertedRate = [],
+        array $retrievalRegressionReviewAction = [],
+        array $retrievalShadowScopeReviewAction = [],
         mixed $occurredAt = null,
     ): void {
         AtlasLedgerEvent::query()->create([
@@ -1211,6 +1349,8 @@ class LedgerReplayServiceTest extends TestCase
                     'rivals_review_action' => $rivalsReviewAction,
                     'provider_cost_rate_action' => $providerCostRateAction,
                     'upserted_rate' => $upsertedRate,
+                    'retrieval_regression_review_action' => $retrievalRegressionReviewAction,
+                    'retrieval_shadow_scope_review_action' => $retrievalShadowScopeReviewAction,
                 ],
                 'proposal_contract' => [
                     'review_signal' => [

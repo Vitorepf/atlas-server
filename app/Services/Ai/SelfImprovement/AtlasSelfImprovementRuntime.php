@@ -1773,7 +1773,7 @@ class AtlasSelfImprovementRuntime
             'php artisan atlas:ai:architecture-validate',
             'atlas engineering knowledge docs-health --json',
             'atlas engineering knowledge sync --prune --json',
-            'atlas engineering knowledge index-code --prune --json',
+            'atlas engineering knowledge index-code --prune --summary-only --json',
             'php artisan atlas:ai:slo --hours=24 --json',
             'php artisan atlas:ai:voice contract --json',
             'php artisan atlas:ai:voice bootstrap --json',

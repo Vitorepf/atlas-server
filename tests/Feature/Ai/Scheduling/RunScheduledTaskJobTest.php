@@ -162,6 +162,46 @@ class RunScheduledTaskJobTest extends TestCase
         $this->assertStringContainsString('power_helper_not_ready', $output);
     }
 
+    public function test_job_redacts_exception_secrets_from_metadata_and_output(): void
+    {
+        $task = AiScheduledTask::query()->create([
+            'title' => 'Falha com segredo',
+            'prompt' => 'Tente rodar.',
+            'schedule' => '30m',
+            'kind' => 'once',
+            'skill_ids' => [],
+            'target_platform' => 'local',
+            'workspace' => base_path(),
+            'enabled' => true,
+            'next_run_at' => now(),
+            'repeat_remaining' => 1,
+            'context_from_task_ids' => [],
+            'wrap_response' => true,
+            'metadata' => ['timeout_seconds' => 30],
+        ]);
+
+        $secret = 'sk-proj-abcdefghijklmnopqrstuvwxyz123456';
+        $this->mock(AiGatewayService::class, function (MockInterface $mock) use ($secret): void {
+            $mock->shouldReceive('enqueueInteraction')
+                ->once()
+                ->andThrow(new \RuntimeException('provider failed api_key='.$secret));
+        });
+        $this->mock(AiWorker::class, function (MockInterface $mock): void {
+            $mock->shouldNotReceive('runNextForTrace');
+        });
+
+        RunScheduledTaskJob::dispatchSync($task->id);
+
+        $task->refresh();
+        $this->assertSame('failure', $task->last_status);
+        $this->assertIsString($task->last_output_path);
+        $this->assertFileExists($task->last_output_path);
+        $this->assertStringNotContainsString($secret, (string) data_get($task->metadata, 'last_error'));
+        $this->assertStringContainsString('[redacted]', (string) data_get($task->metadata, 'last_error'));
+        $this->assertStringNotContainsString($secret, File::get($task->last_output_path));
+        $this->assertStringContainsString('[redacted]', File::get($task->last_output_path));
+    }
+
     private function trace(array $overrides = []): AiTrace
     {
         return AiTrace::query()->create(array_merge([

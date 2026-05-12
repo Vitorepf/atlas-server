@@ -81,7 +81,7 @@ class RunScheduledTaskJob implements ShouldQueue
                 'last_duration_ms' => $durationMs,
                 'last_delivery_suppressed' => $silent,
                 'last_delivery_status' => $this->deliveryStatus($task, $status, $silent),
-                'last_error' => $error ? Str::limit($error->getMessage(), 500, '') : null,
+                'last_error' => $error ? Str::limit(AtlasSecurity::redactString($error->getMessage()), 500, '') : null,
             ]),
         ]);
     }

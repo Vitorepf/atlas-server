@@ -1,0 +1,2066 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AtlasVault · Cartografia</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500;1,600&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --cream: #f3ecda;
+      --cream-deep: #ebe2cb;
+      --cream-paper: #f7f1e3;
+      --ink: #1a1714;
+      --ink2: #4a4138;
+      --ink3: #8a7f70;
+      --ink4: #b6ac9c;
+      --bronze: #8a6a35;
+      --bronze-deep: #5e4520;
+      --bronze-soft: rgba(138,106,53,.28);
+      --bronze-veil: rgba(138,106,53,.07);
+      --bronze-glow: rgba(138,106,53,.18);
+      --prussian: #2b3e54;
+      --moss: #4a5f3a;
+      --rec-red: #8a3025;
+      --hair: rgba(26,23,20,.16);
+      --hair-soft: rgba(26,23,20,.07);
+      --serif: 'Cormorant Garamond', 'IM Fell English', Georgia, serif;
+      --mono: 'JetBrains Mono', ui-monospace, 'Menlo', monospace;
+      --sans: 'Inter', system-ui, -apple-system, sans-serif;
+      --ease-i: cubic-bezier(0.32, 0.72, 0.24, 1);
+      --ease-c: cubic-bezier(0.4, 1, 0.2, 1);
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; overflow: hidden; }
+    body { background: var(--cream); color: var(--ink); font-family: var(--serif); font-size: 16px; -webkit-font-smoothing: antialiased; }
+    button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+    input { font: inherit; color: inherit; }
+
+    /* ─── APP ───────────────────────────────────── */
+    .app { display: grid; grid-template-rows: 56px 1fr; height: 100vh; }
+
+    .topbar {
+      display: grid;
+      grid-template-columns: auto 1fr auto auto;
+      align-items: center;
+      gap: 22px;
+      padding: 0 24px;
+      border-bottom: 1px solid var(--bronze-soft);
+      background: var(--cream-paper);
+      z-index: 30;
+    }
+    .topbar .brand { display: flex; align-items: baseline; gap: 14px; }
+    .topbar .brand-name { font-weight: 500; font-size: 17px; letter-spacing: 3.5px; color: var(--ink); text-transform: uppercase; }
+    .topbar .brand-sub { font-style: italic; font-size: 12.5px; color: var(--ink2); }
+
+    .mode-toggle {
+      display: flex;
+      background: var(--cream);
+      border: 1px solid var(--hair);
+      border-radius: 2px;
+      padding: 2px;
+    }
+    .mode-toggle button {
+      padding: 7px 14px;
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 1.6px;
+      color: var(--ink2);
+      text-transform: uppercase;
+      border-radius: 2px;
+      transition: background 180ms var(--ease-i), color 180ms var(--ease-i);
+    }
+    .mode-toggle button.on {
+      background: var(--ink);
+      color: var(--cream);
+    }
+    .mode-toggle button:not(.on):hover { background: var(--bronze-veil); color: var(--bronze); }
+    .mode-toggle button:disabled { opacity: 0.35; cursor: not-allowed; }
+
+    .search-wrap {
+      position: relative;
+      max-width: 380px;
+      width: 100%;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      border: 1px solid var(--hair);
+      border-radius: 2px;
+      background: var(--cream);
+      transition: border-color 180ms var(--ease-i);
+      justify-self: end;
+    }
+    .search-wrap:focus-within { border-color: var(--bronze); }
+    .search-wrap .glyph { font-family: var(--mono); font-size: 11px; letter-spacing: 1.2px; color: var(--bronze); }
+    .search-wrap input { flex: 1; border: 0; outline: none; background: transparent; font-style: italic; font-size: 13.5px; color: var(--ink); }
+    .search-wrap input::placeholder { color: var(--ink3); font-style: italic; }
+
+    .topbar .folio { font-family: var(--mono); font-size: 10px; letter-spacing: 1.6px; color: var(--prussian); text-transform: uppercase; }
+    .topbar .folio .div { color: var(--bronze); margin: 0 5px; }
+
+    /* ─── WORK + INSPECTOR ───────────────────── */
+    .work {
+      display: grid;
+      grid-template-columns: 1fr 340px;
+      min-height: 0;
+    }
+    .inspector {
+      border-left: 1px solid var(--bronze-soft);
+      background: var(--cream-paper);
+      overflow-y: auto;
+      padding: 22px 24px 32px;
+    }
+
+    .viewport {
+      position: relative;
+      overflow: hidden;
+      background:
+        radial-gradient(rgba(138,106,53,.05) 1px, transparent 1px) 0 0 / 32px 32px,
+        var(--cream);
+      cursor: grab;
+    }
+    .viewport.is-panning { cursor: grabbing; }
+
+    .world {
+      position: absolute;
+      left: 0; top: 0;
+      width: 1800px;
+      height: 1380px;
+      transform-origin: 0 0;
+      will-change: transform;
+      transition: transform 420ms var(--ease-c);
+    }
+    .world.no-transition { transition: none; }
+
+    .world-svg {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      overflow: visible;
+    }
+    .trail {
+      fill: none;
+      stroke: rgba(138,106,53,.45);
+      stroke-width: 1.2;
+      transition: stroke 220ms var(--ease-c), stroke-width 220ms var(--ease-c), opacity 220ms var(--ease-c);
+    }
+    .trail.dashed { stroke-dasharray: 5 3; }
+    .trail.path-active {
+      stroke: var(--bronze-deep);
+      stroke-width: 2.2;
+      opacity: 1;
+    }
+    .world.dim-others .trail:not(.path-active) { opacity: 0.10; }
+
+    .trail-label {
+      font-family: var(--mono);
+      font-size: 9.5px;
+      letter-spacing: 1.5px;
+      fill: var(--bronze-deep);
+      text-transform: uppercase;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 280ms var(--ease-c) 80ms;
+    }
+    .trail-label-bg {
+      fill: var(--cream);
+      stroke: var(--bronze);
+      stroke-width: 0.8;
+      opacity: 0;
+      transition: opacity 280ms var(--ease-c) 80ms;
+    }
+    /* labels só aparecem nas trilhas active (não em todas em modo foco) */
+    .trail-label.label-active,
+    .trail-label-bg.label-active { opacity: 1; }
+
+    /* ─── REGIONS ─────────────────────────────── */
+    .region { position: absolute; }
+    .region-head {
+      font-family: var(--mono);
+      font-size: 10.5px;
+      letter-spacing: 2px;
+      color: var(--bronze);
+      text-transform: uppercase;
+      padding-bottom: 6px;
+      border-bottom: 1px solid var(--bronze-soft);
+      margin-bottom: 14px;
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+    }
+    .region-head .deck {
+      font-family: var(--serif);
+      font-style: italic;
+      font-size: 11.5px;
+      color: var(--ink3);
+      letter-spacing: 0;
+      text-transform: none;
+      font-weight: 400;
+    }
+    .region-atoms { display: grid; gap: 8px; }
+
+    /* ─── ATOMS ───────────────────────────────── */
+    .atom {
+      position: relative;
+      background: var(--cream-paper);
+      border: 1px solid var(--hair);
+      border-radius: 3px;
+      padding: 10px 12px;
+      cursor: pointer;
+      transition: background 200ms var(--ease-i), border-color 200ms var(--ease-i), transform 320ms var(--ease-c), opacity 320ms var(--ease-c), box-shadow 320ms var(--ease-c);
+      display: grid;
+      gap: 3px;
+      min-height: 34px;
+    }
+    .atom:hover { background: var(--cream-deep); border-color: var(--bronze-soft); }
+    .atom.active {
+      border: 1.5px solid var(--bronze);
+      background: var(--cream);
+    }
+    /* hover em modo Mapa: realça relacionadas, esmaece resto SUTILMENTE */
+    .world.dim-others .atom:not(.active):not(.kin) { opacity: 0.30; }
+    .world.dim-others .atom.kin { opacity: 0.95; border-color: var(--bronze-soft); }
+    .atom .a-name {
+      font-weight: 500;
+      font-size: 13px;
+      letter-spacing: 0.3px;
+      color: var(--ink);
+      line-height: 1.2;
+    }
+    .atom .a-deck {
+      font-style: italic;
+      font-size: 11px;
+      color: var(--ink2);
+      line-height: 1.4;
+    }
+    .atom .a-subs {
+      margin-top: 4px;
+      padding-top: 6px;
+      border-top: 1px solid var(--hair-soft);
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 4px 10px;
+    }
+    .atom .a-sub {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 6px;
+      align-items: baseline;
+      font-size: 10.5px;
+      line-height: 1.3;
+    }
+    .atom .a-sub .s-name { color: var(--ink); font-weight: 500; }
+    .atom .a-sub .s-meta {
+      font-family: var(--mono);
+      font-size: 8.5px;
+      letter-spacing: 1px;
+      color: var(--bronze);
+      text-transform: uppercase;
+    }
+
+    .atom-pipe {
+      display: grid;
+      grid-template-columns: 26px 1fr;
+      gap: 10px;
+      align-items: start;
+      padding: 11px 12px 11px 8px;
+    }
+    .atom-pipe .a-num {
+      font-family: var(--mono);
+      font-size: 9.5px;
+      letter-spacing: 1px;
+      color: var(--bronze);
+      text-transform: uppercase;
+      padding-top: 3px;
+      text-align: right;
+    }
+    .atom-pipe .a-body { display: grid; gap: 3px; min-width: 0; }
+    .atom-pipe .a-body .a-name { font-size: 14px; }
+    .atom-pipe .a-body .a-deck { font-size: 11.5px; }
+
+    .ribbon {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 8px 22px;
+      background: var(--ink);
+      color: var(--cream);
+      font-weight: 500;
+      font-size: 12px;
+      letter-spacing: 2.6px;
+      text-transform: uppercase;
+      border-radius: 2px;
+      z-index: 2;
+    }
+
+    /* ─── LOD ─────────────────────────────────── */
+    .world.zoom-far .atom .a-deck { display: none; }
+    .world.zoom-far .atom .a-subs { display: none; }
+    .world.zoom-far .region-head .deck { display: none; }
+    .world.zoom-far .atom { padding: 8px 10px; min-height: 32px; }
+    .world.zoom-far .atom .a-name { font-size: 12.5px; letter-spacing: 0.4px; }
+    .world.zoom-far .atom-pipe .a-body .a-name { font-size: 13px; }
+
+    .world.zoom-mid .atom .a-subs { display: none; }
+
+    .world.zoom-close .atom .a-subs { display: grid; }
+    .world.zoom-close .atom .a-deck { display: block; }
+
+    /* ─── GEAR FOCUS STAGE (cena substitutiva) ────────── */
+    .gear-focus-stage {
+      position: absolute;
+      left: 50%;
+      top: 0;
+      transform: translateX(-50%);
+      width: 1400px;
+      display: grid;
+      grid-template-columns: minmax(220px, 1fr) minmax(440px, 1.6fr) minmax(220px, 1fr);
+      grid-template-rows: auto 1fr auto;
+      gap: 36px 64px;
+      padding: 60px 60px 50px;
+      align-content: start;
+      animation: focusIn 320ms var(--ease-c) both;
+    }
+    @keyframes focusIn {
+      from { opacity: 0; transform: scale(0.992); }
+      to   { opacity: 1; transform: scale(1); }
+    }
+
+    .focus-header {
+      grid-column: 1 / -1;
+      grid-row: 1;
+      text-align: center;
+    }
+    .focus-header .focus-eyebrow {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 2.4px;
+      color: var(--bronze);
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+    .focus-header .focus-title {
+      margin: 0;
+      font-weight: 500;
+      font-size: 40px;
+      letter-spacing: 1.4px;
+      color: var(--ink);
+      text-transform: uppercase;
+      line-height: 1.05;
+    }
+    .focus-header .focus-lede {
+      max-width: 760px;
+      margin: 14px auto 0;
+      font-style: italic;
+      font-size: 17px;
+      color: var(--ink2);
+      line-height: 1.5;
+    }
+
+    .focus-side {
+      display: grid;
+      gap: 12px;
+      align-content: start;
+      padding-top: 22px;
+    }
+    .focus-side.left { grid-column: 1; grid-row: 2; }
+    .focus-side.right { grid-column: 3; grid-row: 2; }
+
+    .focus-side .side-label {
+      font-family: var(--mono);
+      font-size: 10.5px;
+      letter-spacing: 2px;
+      color: var(--bronze);
+      text-transform: uppercase;
+      padding-bottom: 6px;
+      border-bottom: 1px solid var(--bronze-soft);
+      margin-bottom: 6px;
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+    }
+    .focus-side .side-label .side-glyph {
+      font-size: 15px;
+      color: var(--bronze-deep);
+    }
+    .focus-side .empty-state {
+      font-style: italic;
+      font-size: 13px;
+      color: var(--ink3);
+      padding: 8px 0;
+    }
+
+    .satellite {
+      padding: 13px 16px;
+      background: var(--cream-paper);
+      border: 1px solid var(--hair);
+      border-radius: 3px;
+      cursor: pointer;
+      transition: background 180ms var(--ease-i), border-color 180ms var(--ease-i), transform 320ms var(--ease-c);
+      text-align: left;
+    }
+    .satellite:hover {
+      background: var(--cream);
+      border-color: var(--bronze);
+    }
+    .focus-side.right .satellite:hover { transform: translateX(3px); }
+    .focus-side.left .satellite:hover { transform: translateX(-3px); }
+    .satellite .s-name {
+      display: block;
+      font-weight: 500;
+      font-size: 14.5px;
+      letter-spacing: 0.3px;
+      color: var(--ink);
+      line-height: 1.25;
+    }
+    .satellite .s-sub {
+      display: block;
+      margin-top: 5px;
+      font-style: italic;
+      font-size: 12.5px;
+      color: var(--ink2);
+      line-height: 1.4;
+    }
+
+    .focus-center-card {
+      grid-column: 2;
+      grid-row: 2;
+      padding: 28px 32px 30px;
+      background: var(--cream);
+      border: 2px solid var(--bronze);
+      border-radius: 3px;
+      box-shadow: 0 28px 56px rgba(26,23,20,.08);
+      align-self: start;
+      margin-top: 14px;
+    }
+    .focus-center-card .center-fields {
+      display: grid;
+      gap: 0;
+    }
+    .focus-center-card .field-row {
+      display: grid;
+      grid-template-columns: 130px 1fr;
+      gap: 18px;
+      padding: 13px 0;
+      border-bottom: 1px solid var(--hair-soft);
+      align-items: start;
+    }
+    .focus-center-card .field-row:first-child { padding-top: 0; }
+    .focus-center-card .field-row:last-child { border-bottom: 0; }
+    .focus-center-card .field-label {
+      font-family: var(--mono);
+      font-size: 9.5px;
+      letter-spacing: 1.8px;
+      color: var(--bronze);
+      text-transform: uppercase;
+      padding-top: 3px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .focus-center-card .field-label .fglyph {
+      font-size: 12px;
+      color: var(--bronze-deep);
+    }
+    .focus-center-card .field-value {
+      font-style: italic;
+      font-size: 14.5px;
+      color: var(--ink);
+      line-height: 1.5;
+    }
+    .focus-center-card .field-row.risk .field-value { color: var(--rec-red); }
+    .focus-center-card .field-row.next {
+      background: var(--bronze-veil);
+      margin: 4px -14px 0;
+      padding: 13px 14px;
+      border-radius: 2px;
+      border-bottom: 0;
+    }
+    .focus-center-card .field-row.next .field-value { font-weight: 500; font-style: normal; color: var(--ink); }
+
+    .focus-footer {
+      grid-column: 1 / -1;
+      grid-row: 3;
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      flex-wrap: wrap;
+      padding-top: 14px;
+    }
+    .focus-action {
+      padding: 9px 16px;
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 1.6px;
+      color: var(--bronze);
+      text-transform: uppercase;
+      border: 1px solid var(--bronze-soft);
+      border-radius: 2px;
+      transition: all 180ms var(--ease-i);
+      cursor: pointer;
+    }
+    .focus-action:hover { background: var(--bronze-veil); border-color: var(--bronze); }
+    .focus-action.primary { background: var(--ink); color: var(--cream); border-color: var(--ink); }
+    .focus-action.primary:hover { background: var(--bronze-deep); border-color: var(--bronze-deep); }
+
+    /* trilhas SVG da cena de foco */
+    .focus-trail {
+      fill: none;
+      stroke: var(--bronze);
+      stroke-width: 1.5;
+      opacity: 0.6;
+    }
+    .focus-trail-label {
+      font-family: var(--mono);
+      font-size: 9px;
+      letter-spacing: 1.4px;
+      fill: var(--bronze-deep);
+      text-transform: uppercase;
+    }
+
+    /* ─── CONTROLS ─────────────────────────────── */
+    .canvas-controls {
+      position: absolute;
+      bottom: 22px;
+      right: 22px;
+      display: flex;
+      gap: 5px;
+      background: var(--cream-paper);
+      border: 1px solid var(--hair);
+      border-radius: 2px;
+      padding: 4px;
+      z-index: 20;
+    }
+    .canvas-controls button {
+      width: 34px; height: 34px;
+      display: grid; place-items: center;
+      font-family: var(--mono);
+      font-size: 15px;
+      color: var(--ink2);
+      border-radius: 2px;
+      transition: background 180ms var(--ease-i), color 180ms var(--ease-i);
+    }
+    .canvas-controls button:hover { background: var(--bronze-veil); color: var(--bronze); }
+
+    .zoom-indicator {
+      position: absolute;
+      bottom: 22px;
+      left: 22px;
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 1.5px;
+      color: var(--ink3);
+      background: var(--cream-paper);
+      border: 1px solid var(--hair);
+      padding: 7px 11px;
+      border-radius: 2px;
+      text-transform: uppercase;
+      z-index: 20;
+    }
+
+    /* ─── MINIMAP CONTINENTES ────────────────── */
+    .minimap-floater {
+      position: absolute;
+      top: 22px;
+      left: 22px;
+      width: 220px;
+      background: var(--cream-paper);
+      border: 1px solid var(--bronze-soft);
+      border-radius: 2px;
+      padding: 12px 14px;
+      z-index: 20;
+    }
+    .minimap-floater .mf-head {
+      font-family: var(--mono);
+      font-size: 9.5px;
+      letter-spacing: 1.8px;
+      color: var(--bronze);
+      text-transform: uppercase;
+      margin-bottom: 8px;
+      padding-bottom: 5px;
+      border-bottom: 1px solid var(--hair);
+    }
+    .mf-list { display: grid; gap: 0; }
+    .mf-row {
+      display: grid;
+      grid-template-columns: 10px 1fr auto;
+      gap: 8px;
+      align-items: baseline;
+      padding: 6px 0;
+      border-bottom: 1px solid var(--hair-soft);
+      cursor: pointer;
+      transition: padding-left 180ms var(--ease-i);
+      text-align: left;
+    }
+    .mf-row:last-child { border-bottom: 0; }
+    .mf-row:hover { padding-left: 4px; }
+    .mf-row.active { padding-left: 4px; }
+    .mf-row.active .mf-name { color: var(--bronze); font-weight: 500; }
+    .mf-row .mf-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ink3); align-self: center; }
+    .mf-row[data-id="atlas"] .mf-dot { background: var(--bronze); }
+    .mf-row[data-id="memory"] .mf-dot { background: var(--moss); }
+    .mf-row[data-id="works"] .mf-dot { background: var(--prussian); }
+    .mf-row[data-id="forge"] .mf-dot { background: #6e3a2f; }
+    .mf-row[data-id="philosophy"] .mf-dot { background: var(--ink2); }
+    .mf-row[data-id="risks"] .mf-dot { background: var(--rec-red); }
+    .mf-row .mf-name { font-size: 12.5px; color: var(--ink); letter-spacing: 0.2px; }
+    .mf-row .mf-count { font-family: var(--mono); font-size: 9.5px; letter-spacing: 1px; color: var(--ink3); text-transform: uppercase; }
+
+    /* ─── BREADCRUMB ──────────────────────────── */
+    .breadcrumb-floater {
+      position: absolute;
+      top: 22px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 7px 14px;
+      background: var(--cream-paper);
+      border: 1px solid var(--hair);
+      border-radius: 2px;
+      font-style: italic;
+      font-size: 12.5px;
+      color: var(--ink2);
+      letter-spacing: 0.2px;
+      z-index: 20;
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+    .breadcrumb-floater .sep { color: var(--ink3); }
+    .breadcrumb-floater .current { color: var(--bronze); font-style: normal; font-weight: 500; }
+
+    /* ─── BACK-TO-MAP CTA (em modo foco) ─────── */
+    .back-to-map {
+      position: absolute;
+      top: 22px;
+      right: 22px;
+      padding: 8px 14px;
+      background: var(--cream-paper);
+      border: 1px solid var(--bronze);
+      border-radius: 2px;
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 1.5px;
+      color: var(--bronze-deep);
+      text-transform: uppercase;
+      z-index: 20;
+      display: none;
+      transition: background 180ms var(--ease-i);
+    }
+    .back-to-map.show { display: block; }
+    .back-to-map:hover { background: var(--bronze-veil); }
+
+    /* ─── INSPECTOR ──────────────────────────── */
+    .inspector .ins-kind {
+      font-family: var(--mono);
+      font-size: 9.5px;
+      letter-spacing: 1.8px;
+      color: var(--bronze);
+      text-transform: uppercase;
+    }
+    .inspector h2 {
+      margin: 6px 0 0;
+      font-weight: 500;
+      font-size: 24px;
+      letter-spacing: 0.4px;
+      color: var(--ink);
+      line-height: 1.18;
+    }
+    .inspector .ins-lede {
+      margin: 12px 0 18px;
+      font-style: italic;
+      font-size: 14.5px;
+      line-height: 1.5;
+      color: var(--ink2);
+    }
+
+    /* the 7 canonical fields */
+    .ficha-7 {
+      display: grid;
+      gap: 0;
+      margin: 14px 0 22px;
+      border-top: 1px solid var(--hair);
+    }
+    .ficha-7 .row {
+      padding: 11px 0 12px;
+      border-bottom: 1px solid var(--hair-soft);
+      display: grid;
+      gap: 4px;
+    }
+    .ficha-7 .row:last-child { border-bottom: 1px solid var(--hair); }
+    .ficha-7 .label {
+      font-family: var(--mono);
+      font-size: 9px;
+      letter-spacing: 1.6px;
+      color: var(--bronze);
+      text-transform: uppercase;
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+    .ficha-7 .label .glyph {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--bronze-deep);
+    }
+    .ficha-7 .value {
+      font-style: italic;
+      font-size: 14px;
+      color: var(--ink);
+      line-height: 1.45;
+    }
+    .ficha-7 .value.empty { color: var(--ink3); font-style: italic; }
+    .ficha-7 .row.risk .value { color: var(--rec-red); }
+    .ficha-7 .row.next {
+      background: var(--bronze-veil);
+      margin: 0 -8px;
+      padding: 11px 12px 12px;
+      border-radius: 2px;
+    }
+
+    .ins-section { margin: 22px 0 0; }
+    .ins-section h3 {
+      margin: 0 0 8px;
+      padding-bottom: 5px;
+      border-bottom: 1px solid var(--hair);
+      font-family: var(--mono);
+      font-size: 9.5px;
+      letter-spacing: 1.8px;
+      color: var(--bronze);
+      text-transform: uppercase;
+      font-weight: 400;
+    }
+    .ins-actions { display: grid; gap: 0; margin-top: 4px; }
+    .ins-action {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 9px 0;
+      border-bottom: 1px solid var(--hair-soft);
+      cursor: pointer;
+      transition: padding-left 180ms var(--ease-i);
+    }
+    .ins-action:hover { padding-left: 3px; }
+    .ins-action:last-child { border-bottom: 0; }
+    .ins-action .a-label { font-size: 13.5px; color: var(--ink); }
+    .ins-action .a-glyph { font-family: var(--mono); font-size: 11px; color: var(--bronze); }
+    .ins-tags { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 6px; }
+    .ins-tag {
+      font-family: var(--mono);
+      font-size: 9px;
+      letter-spacing: 1.2px;
+      color: var(--ink2);
+      text-transform: uppercase;
+      padding-bottom: 2px;
+      border-bottom: 1px solid var(--hair);
+    }
+
+    @media (max-width: 1080px) {
+      .work { grid-template-columns: 1fr; }
+      .inspector { border-left: 0; border-top: 1px solid var(--bronze-soft); max-height: 42vh; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-name">Atlas · Vault</span>
+        <span class="brand-sub">cartografia viva</span>
+      </div>
+      <div class="mode-toggle" id="modeToggle">
+        <button data-mode="map" class="on">Mapa</button>
+        <button data-mode="focus" disabled>Foco</button>
+      </div>
+      <div class="search-wrap">
+        <span class="glyph">∴</span>
+        <input id="searchInput" type="search" placeholder="buscar engrenagem, lane, sistema…" autocomplete="off">
+      </div>
+      <div class="folio">vol I <span class="div">·</span> no 004 <span class="div">·</span> 12 mai 2026</div>
+    </header>
+
+    <div class="work">
+      <div class="viewport" id="viewport">
+        <aside class="minimap-floater">
+          <div class="mf-head">Continentes do Vault</div>
+          <div class="mf-list" id="mfList"></div>
+        </aside>
+
+        <div class="breadcrumb-floater" id="breadcrumb"></div>
+
+        <button class="back-to-map" id="backToMap">← Voltar ao mapa</button>
+
+        <div class="world" id="world">
+          <svg class="world-svg" id="worldSvg" viewBox="0 0 1800 1380" preserveAspectRatio="none">
+            <defs>
+              <marker id="tip" viewBox="0 0 8 8" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+                <path d="M 0 0 L 8 4 L 0 8 Z" fill="currentColor"/>
+              </marker>
+            </defs>
+          </svg>
+        </div>
+
+        <div class="zoom-indicator" id="zoomIndicator">100%</div>
+        <div class="canvas-controls">
+          <button data-zoom="out" title="Diminuir">−</button>
+          <button data-zoom="in" title="Aumentar">+</button>
+          <button data-zoom="fit" title="Ajustar tudo">⊟</button>
+          <button data-zoom="kernel" title="Focar início">◉</button>
+        </div>
+      </div>
+
+      <aside class="inspector" id="inspector">
+        <div class="ins-kind" id="insKind">Fluxo operacional</div>
+        <h2 id="insTitle">Atlas AI Kernel</h2>
+        <p class="ins-lede" id="insLede">Pipeline canônico de toda decisão do Atlas. Passe o mouse sobre qualquer peça pra ver as conexões; clique pra entrar em modo Foco.</p>
+
+        <div class="ficha-7" id="insFicha"></div>
+
+        <div class="ins-section">
+          <h3>Ações</h3>
+          <div class="ins-actions" id="insActions"></div>
+        </div>
+
+        <div class="ins-section">
+          <h3>Tags</h3>
+          <div class="ins-tags" id="insTags"></div>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <script>
+  // ═══════════════════════════════════════════════════════════════════════
+  //  HELPERS
+  // ═══════════════════════════════════════════════════════════════════════
+  const ROMAN = ['','i','ii','iii','iv','v','vi','vii','viii','ix','x','xi','xii','xiii','xiv','xv','xvi','xvii'];
+  const toRoman = n => ROMAN[n] || String(n);
+  const $ = s => document.querySelector(s);
+  const $$ = s => document.querySelectorAll(s);
+  const el = (tag, cls, html) => { const n = document.createElement(tag); if (cls) n.className = cls; if (html != null) n.innerHTML = html; return n; };
+  const slug = s => s.toLowerCase().replace(/[\/\s]+/g,'-').replace(/[^a-z0-9-]+/g,'').replace(/(^-|-$)/g,'');
+
+  // ═══════════════════════════════════════════════════════════════════════
+  //  DATA
+  // ═══════════════════════════════════════════════════════════════════════
+  const universe = [
+    { id:'atlas',      name:'Atlas',      count:41 },
+    { id:'memory',     name:'Memória',    count:26 },
+    { id:'works',      name:'Obras',      count:18 },
+    { id:'forge',      name:'Forge',      count:15 },
+    { id:'philosophy', name:'Filosofia',  count:22 },
+    { id:'risks',      name:'Gargalos',   count:7  }
+  ];
+
+  // ATLAS · pipeline + lanes
+  const pipeline = [
+    { i:1, name:'Surface Plane', deck:'Usuário · App · Mobile · CLI · API · MCP',
+      role:'Plano canônico de entrada. Cinco canais, um envelope único.',
+      input:'Pedido humano cru em qualquer canal autorizado.',
+      output:'Operation Envelope normalizado e assinado.',
+      depends:['hks-vault'], unblocks:['pipe-2'],
+      evidence:'Headers do envelope, hash do canal, tenant.',
+      risk:'Surface tentar decidir — anti-canon documentado.',
+      next:'Cobrir os 5 canais com mesma test suite.',
+      vault:'docs/architecture/surface-plane.md',
+      subs:[['App web','TS'],['App mobile','RN'],['CLI','Bun'],['API REST','PHP'],['MCP','SDK']] },
+    { i:2, name:'Surface Adapter', deck:'coleta input, apresenta output, não decide',
+      role:'Cola entre canal e Atlas. Adapta, não interpreta.',
+      input:'Stream cru do canal.', output:'Atlas Input normalizado.',
+      depends:['pipe-1'], unblocks:['pipe-3'],
+      evidence:'Trace de adaptação, headers normalizados.',
+      risk:'Lógica vazando pro adapter.', next:'Mesma test suite em todos os adapters.',
+      vault:'docs/architecture/surface-adapter.md',
+      subs:[['Web','prod'],['Mobile','prod'],['CLI','prod'],['API','beta'],['MCP','beta']] },
+    { i:3, name:'Atlas Input', deck:'texto, imagem, áudio, arquivo, paste, contexto',
+      role:'Forma canônica do input antes de virar envelope.',
+      input:'Stream do adapter.', output:'Payload tipado.',
+      depends:['pipe-2'], unblocks:['pipe-4'],
+      evidence:'Schema validation passou; tipo registrado.',
+      risk:'Inputs híbridos não unificados.', next:'Definir tipos para multipart.',
+      vault:'docs/architecture/atlas-input.md',
+      subs:[['Texto','canon'],['Imagem','canon'],['Áudio','canon'],['Arquivo','canon'],['Paste','canon'],['Contexto','canon']] },
+    { i:4, name:'Operation Envelope', deck:'unidade canônica · trace, tenant, origem',
+      role:'Toda operação vive dentro de um envelope assinado.',
+      input:'Atlas Input + metadata do canal.', output:'Envelope assinado.',
+      depends:['pipe-3'], unblocks:['pipe-5'],
+      evidence:'Trace ID gerado, envelope persistido.',
+      risk:'Sem padrão para workflows longos.', next:'Schema canônico v1.',
+      vault:'docs/architecture/operation-envelope.md',
+      subs:[['trace_id','canon'],['tenant','canon'],['anexos','canon'],['limites','canon']] },
+    { i:5, name:'Intent / Routing', deck:'entende pedido, risco, tipo de tarefa',
+      role:'Classificador de intent + scorer de risco + roteador.',
+      input:'Operation Envelope.', output:'Intent + risk + route.',
+      depends:['pipe-4'], unblocks:['pipe-6','pipe-7'],
+      evidence:'Classifier confidence, intent label, risk score.',
+      risk:'Classifier sem evidência longitudinal — drift.', next:'Telemetry de intent vs outcome real.',
+      vault:'docs/architecture/intent-routing.md',
+      subs:[['intent','prod'],['risk scorer','beta'],['type tagger','prod']] },
+    { i:6, name:'Business Context', deck:'projeto, ambiente, empresa, produto',
+      role:'Fonte única de verdade contextual da operação.',
+      input:'Intent + tenant.', output:'Context Pack de negócio.',
+      depends:['pipe-5'], unblocks:['pipe-7','pipe-8'],
+      evidence:'Context Pack hash, fontes citadas.',
+      risk:'Contexto duplicado em vários lugares.', next:'Migrar consumidores pro Context Pack.',
+      vault:'docs/engineering-knowledge-base/business-context.md',
+      subs:[['projeto','canon'],['ambiente','canon'],['empresa','canon'],['produto','canon']] },
+    { i:7, name:'Domain / Profile / Flow', deck:'domínio cognitivo + sistema vertical',
+      role:'Resolve qual domínio + perfil + fluxo executa o pedido.',
+      input:'Business Context + Intent + Domain Plane.', output:'Tripla (domain, profile, flow).',
+      depends:['region-domain','pipe-6'], unblocks:['pipe-8','pipe-10'],
+      evidence:'Decision log do domain resolver.',
+      risk:'Domain Plane decidindo sozinho — anti-canon.', next:'Mapear todos os flows operacionais.',
+      vault:'docs/architecture/domain-profile-flow.md',
+      subs:[['domain resolver','prod'],['profile selector','prod'],['flow chooser','beta']] },
+    { i:8, name:'Context Builder', deck:'Open Brain · Memory · Engineering KB · Sync',
+      role:'Monta o pacote denso de contexto para o Decide.',
+      input:'Domain/Profile/Flow + Business Context + AtlasVault (managed sync).', output:'Context Pack denso e citável.',
+      depends:['pipe-7','region-hks'], unblocks:['pipe-9','pipe-10'],
+      evidence:'Pack hash, fontes citadas, idade do cache.',
+      risk:'HKS entrar como fonte crua — anti-canon.', next:'Validar managed sync com curador humano.',
+      vault:'docs/engineering-knowledge-base/context-builder.md',
+      subs:[['Open Brain','prod'],['Memory Core','prod'],['Engineering KB','prod'],['Curated Sync','beta']] },
+    { i:9, name:'Policy / Profile', deck:'permissão, privacidade, autonomia, custo',
+      role:'Resolve a policy efetiva desta operação.',
+      input:'Context Pack + Business Context.', output:'Policy resolvida.',
+      depends:['pipe-8'], unblocks:['pipe-10'],
+      evidence:'Policy resolution trace, hash da versão.',
+      risk:'Policies sem versionamento drift.', next:'Versionar policies + audit trail.',
+      vault:'docs/governance/policy-profile.md',
+      subs:[['permission','canon'],['autonomy','canon'],['cost','canon'],['tools','canon']] },
+    { i:10, name:'Atlas Decide', deck:'escolhe modelo, provider, budget, contrato',
+      role:'Cérebro decisório. Recebe contexto + policy e produz receipt.',
+      input:'Context Pack + Policy + Capabilities + sinais Evidence Ledger.', output:'Decision Receipt assinada.',
+      depends:['pipe-8','pipe-9','region-cap','region-evi'], unblocks:['pipe-11'],
+      evidence:'Decisão com hash, custo previsto, alternativa.',
+      risk:'Decide sem dry-run gasta budget errado em alta autonomia.', next:'Dry-run obrigatório acima de budget X.',
+      vault:'docs/architecture/atlas-decide.md',
+      subs:[['model selector','prod'],['provider router','prod'],['budget gate','prod'],['fallback','beta']] },
+    { i:11, name:'Decision Receipt', deck:'contrato assinado · hash · dry-run · audit',
+      role:'Forma material da decisão. Contrato auditável.',
+      input:'Decisão do Atlas Decide.', output:'Receipt persistido em ledger.',
+      depends:['pipe-10'], unblocks:['pipe-12'],
+      evidence:'Receipt hash em ledger; replay possível.',
+      risk:'Receipts não versionados quebram replay.', next:'Schema v2 com mais campos auditáveis.',
+      vault:'docs/architecture/decision-receipt.md',
+      subs:[['contract','canon'],['hash','canon'],['dry-run','beta'],['audit','canon']] },
+    { i:12, name:'Runtime / Executor', deck:'executa via runtime, drivers, harnesses, tools',
+      role:'Roda o que foi decidido. Sandboxes, drivers, tools.',
+      input:'Decision Receipt + Capabilities (harnesses).', output:'Resultado bruto + execution trace.',
+      depends:['pipe-11','region-cap'], unblocks:['pipe-13'],
+      evidence:'Execution trace, tool calls, tokens, custo real.',
+      risk:'Sandboxes inconsistentes entre harnesses.', next:'Sandbox uniforme para todos os harnesses.',
+      vault:'docs/architecture/runtime-executor.md',
+      subs:[['Laravel Kernel','prod'],['Provider Drivers','prod'],['Super Tool Runtime','prod'],['Engineering Harness','prod'],['Python AI Runtime','beta'],['Go Edge Runtime','beta'],['Swift Native Mac','beta']] },
+    { i:13, name:'Quality Gates', deck:'segurança, testes, SLO, compliance, visual QA',
+      role:'Filtros antes do resultado virar oficial.',
+      input:'Resultado runtime + contrato de evidência.', output:'Resultado validado ou falha tipada.',
+      depends:['pipe-12'], unblocks:['pipe-14','pipe-15','pipe-17'],
+      evidence:'Gate results, failure modes, pass/fail por gate.',
+      risk:'Gates ainda manuais em visual QA.', next:'Automatizar gates de visual QA.',
+      vault:'docs/quality/gates.md',
+      subs:[['security','prod'],['tests','prod'],['SLO','prod'],['compliance','beta'],['visual QA','beta']] },
+    { i:14, name:'Repair / Escalation', deck:'corrige, reexecuta, escala ou bloqueia',
+      role:'Triagem da falha tipada de Quality Gates.',
+      input:'Falha tipada.', output:'Patch+retry, escalation, ou block.',
+      depends:['pipe-13'], unblocks:['pipe-15'],
+      evidence:'Repair attempts, escalation log, taxa de sucesso.',
+      risk:'Loop infinito se classifier de falha errar.', next:'Limite máximo de retries por flow.',
+      vault:'docs/architecture/repair-escalation.md',
+      subs:[['auto-repair','beta'],['retry','prod'],['escalate','prod'],['block','canon']] },
+    { i:15, name:'Evidence Ledger', deck:'eventos append-only · replay · auditoria',
+      role:'Memória factual de tudo que o Atlas executou.',
+      input:'Resultado de Gates + Repair + métricas.', output:'Event stream + read models.',
+      depends:['pipe-13','pipe-14'], unblocks:['pipe-16','pipe-10','region-evi'],
+      evidence:'O ledger é a evidência. Replay ad-hoc valida.',
+      risk:'Pruning policy não definida para long-tail.', next:'Política de retention + compaction.',
+      vault:'docs/architecture/evidence-ledger.md',
+      subs:[['append-only','canon'],['replay','prod'],['projections','prod'],['audit','canon']] },
+    { i:16, name:'Learning / Proposals', deck:'memória, métricas, quality score, propostas',
+      role:'Aprende mas não auto-altera comportamento crítico.',
+      input:'Evidence Ledger.', output:'Propostas + updates de memória.',
+      depends:['pipe-15'], unblocks:['pipe-17','region-evi'],
+      evidence:'Proposals geradas, taxa de adoção.',
+      risk:'Auto-apply de proposta crítica sem humano.', next:'Threshold de "crítico" explícito em policy.',
+      vault:'docs/learning/proposals.md',
+      subs:[['signals','prod'],['metrics','prod'],['proposals','beta'],['memory updater','beta']] },
+    { i:17, name:'Output Renderer', deck:'resposta, patch, plano, proposta, briefing',
+      role:'Materializa a resposta de volta para o canal.',
+      input:'Resultado validado + format requested.', output:'Saída pra Surface Adapter.',
+      depends:['pipe-13','pipe-16'], unblocks:['pipe-1'],
+      evidence:'Render trace, format guard passed, latência final.',
+      risk:'Format drift entre canais.', next:'Render contract por canal.',
+      vault:'docs/architecture/output-renderer.md',
+      subs:[['text','canon'],['patch','prod'],['plan','prod'],['proposal','beta'],['screen','beta']] }
+  ];
+
+  const regions = {
+    domain: { id:'region-domain', side:'left', head:'Domain Plane', deck:'conecta domain/profile/flow',
+      nodes:[
+        { id:'dom-prog', name:'Programming', deck:'dev, forge, fix, review, QA' },
+        { id:'dom-fin', name:'Finance', deck:'análise, risco, compliance' },
+        { id:'dom-pd', name:'Personal Development', deck:'hábitos, performance' },
+        { id:'dom-mkt', name:'Marketing', deck:'campanha, criativos, brand' },
+        { id:'dom-strat', name:'Strategic Decision', deck:'trade-offs operacionais' },
+        { id:'dom-research', name:'Research / Learning', deck:'papers, docs' },
+        { id:'dom-self', name:'Self-Improvement', deck:'audita Atlas, acha gaps' },
+        { id:'dom-health', name:'Health / Writing', deck:'safety, escrita' }
+      ]},
+    cap: { id:'region-cap', side:'left', head:'Capabilities / Harnesses', deck:'não são domínio',
+      nodes:[
+        { id:'cap-prog', name:'Programming Harness', deck:'execução técnica' },
+        { id:'cap-frontend', name:'Frontend Design Harness', deck:'UI, visual QA' },
+        { id:'cap-scenario', name:'Scenario Simulation', deck:'simulação de fluxos' },
+        { id:'cap-content', name:'Content Intelligence', deck:'curadoria, escrita' },
+        { id:'cap-sandbox', name:'Tool Synthesis Sandbox', deck:'ferramentas novas' },
+        { id:'cap-market', name:'Dynamic Compute Market', deck:'roteamento de custo' },
+        { id:'cap-multimodal', name:'Continuous Multimodal Context', deck:'streams contínuos' }
+      ]},
+    biz: { id:'region-biz', side:'mid', head:'Business / Product', deck:'fonte contextual única',
+      nodes:[ { id:'biz-ctx', name:'Business Context', deck:'projeto · ambiente · empresa · cliente' } ]},
+    hks: { id:'region-hks', side:'right', head:'Human Knowledge Surface', deck:'AtlasVault como contexto',
+      nodes:[
+        { id:'hks-vault', name:'AtlasVault / Obsidian', deck:'segundo cérebro compartilhado' },
+        { id:'hks-pkw', name:'Personal Knowledge', deck:'livros, filosofia, histórias' },
+        { id:'hks-sync', name:'Managed sync · review', deck:'curadoria humana' },
+        { id:'hks-raw', name:'Não fonte operacional crua', deck:'entra via contexto revisado' }
+      ]},
+    evi: { id:'region-evi', side:'right', head:'Evidence + Learning Loop', deck:'tudo que executa volta',
+      nodes:[
+        { id:'evi-ledger', name:'Evidence Ledger', deck:'append-only · replay · audit' },
+        { id:'evi-tele', name:'Read Models / Telemetry', deck:'SLO, custo, repair' },
+        { id:'evi-learn', name:'Learning Signals', deck:'memória · métrica · outcome' },
+        { id:'evi-self', name:'Self-Improvement / Curator', deck:'proposal · gaps · drift' },
+        { id:'evi-inbox', name:'Proposal Inbox / Human Review', deck:'humano confirma o crítico' }
+      ]},
+    doc: { id:'region-doc', side:'right', head:'Documentation OS', deck:'orienta humanos e IAs',
+      nodes:[ { id:'doc-canonical', name:'START_HERE + Canonical Index', deck:'impede duplicação e escopo errado' } ]}
+  };
+
+  const regionAtoms = {};
+  Object.values(regions).forEach(r => r.nodes.forEach(n => { regionAtoms[n.id] = { ...n, regionId: r.id, regionHead: r.head }; }));
+
+  // OUTROS CONTINENTES · constellations rasas
+  const otherWorlds = {
+    memory: {
+      title:'Memória',
+      sub:'segundo cérebro · livros · filosofia · histórias',
+      sections: [
+        { id:'m-books', head:'Livros', deck:'leituras e marginalia', nodes:[
+          { id:'mb-letters-stoic', name:'Cartas a Lucílio', deck:'Sêneca · 124 cartas',
+            role:'Tronco filosófico do uso pessoal do Atlas.', input:'Leitura linear ou consulta.',
+            output:'Princípios destilados em notes.', depends:['mb-medit'], unblocks:['principle-now'],
+            evidence:'12 marginalias, 4 princípios extraídos.', risk:'Risco de citação descontextualizada.',
+            next:'Mapear cartas → princípios canônicos.', vault:'memoria/livros/cartas-luclio.md' },
+          { id:'mb-medit', name:'Meditações', deck:'Marco Aurélio',
+            role:'Diário filosófico de operação cotidiana.', input:'Leitura por excerto.', output:'Hábitos diários.',
+            depends:[], unblocks:['mb-letters-stoic','principle-now'], evidence:'8 marginalias, 3 hábitos derivados.',
+            risk:'—', next:'Cruzar com Cartas a Lucílio.', vault:'memoria/livros/meditacoes.md' },
+          { id:'mb-godfather', name:'O Padrinho · Puzo', deck:'arquetipo Don Corleone',
+            role:'Modelo estético-narrativo do DNA Atlas.', input:'Leitura + filme.', output:'Vocabulário de peso.',
+            depends:[], unblocks:['principle-weight'], evidence:'DNA estético declarado.', risk:'Citação superficial.',
+            next:'Mapear cenas → princípios estéticos.', vault:'memoria/livros/padrinho.md' },
+          { id:'mb-shogun', name:'Xógum · Clavell', deck:'paciência e leitura de poder',
+            role:'Modelo de leitura paciente de jogos longos.', input:'Leitura.', output:'Padrões de movimento.',
+            depends:[], unblocks:[], evidence:'—', risk:'—', next:'Marginalia ainda pendente.', vault:'memoria/livros/xogum.md' }
+        ]},
+        { id:'m-philo', head:'Filosofia', deck:'modelos mentais aplicados', nodes:[
+          { id:'mp-stoa', name:'Estoicismo', deck:'controle, dever, paciência',
+            role:'Espinha filosófica do Atlas.', input:'Cartas a Lucílio, Meditações.', output:'Princípios de operação.',
+            depends:['mb-letters-stoic','mb-medit'], unblocks:['principle-now','principle-effort'],
+            evidence:'4 princípios canônicos derivados.', risk:'—', next:'Atualizar com leituras novas trimestralmente.',
+            vault:'memoria/filosofia/estoicismo.md' },
+          { id:'mp-lindy', name:'Lindy', deck:'o que dura prova que dura',
+            role:'Heurística de seleção de fontes.', input:'Tempo + reuso.', output:'Filtros de leitura.',
+            depends:[], unblocks:['principle-canon'], evidence:'Aplicado em 14 decisões de canon.', risk:'—',
+            next:'Documentar exceções fundamentadas.', vault:'memoria/filosofia/lindy.md' }
+        ]},
+        { id:'m-stories', head:'Histórias', deck:'casos e biografias', nodes:[
+          { id:'ms-vito', name:'Vito Corleone', deck:'autoridade não-performada',
+            role:'Personagem-modelo do DNA Atlas.', input:'O Padrinho (livro + filme).', output:'Repertório estético.',
+            depends:['mb-godfather'], unblocks:['principle-weight'], evidence:'DNA Atlas referencia explícito.',
+            risk:'—', next:'—', vault:'memoria/historias/vito.md' }
+        ]},
+        { id:'m-principles', head:'Princípios destilados', deck:'da memória pra operação', nodes:[
+          { id:'principle-now', name:'O presente é seu domínio', deck:'tudo o resto é ilusão',
+            role:'Princípio operacional de foco.', input:'Estoicismo.', output:'Decisões diárias.',
+            depends:['mp-stoa'], unblocks:[], evidence:'Aplicado em 23 capturas.', risk:'—',
+            next:'—', vault:'memoria/principios/agora.md' },
+          { id:'principle-effort', name:'Esforço é a moeda', deck:'não há atalho honesto',
+            role:'Anti-trickery operacional.', input:'Estoicismo + experiência.', output:'Padrões de trabalho.',
+            depends:['mp-stoa'], unblocks:[], evidence:'8 referências em diário.', risk:'—',
+            next:'—', vault:'memoria/principios/esforco.md' },
+          { id:'principle-canon', name:'Canon é leitura repetida', deck:'tudo repetido vira core',
+            role:'Critério de promoção pra canon.', input:'Lindy + Evidence Ledger.', output:'Decisões de promoção.',
+            depends:['mp-lindy'], unblocks:[], evidence:'4 itens promovidos em 6 meses.', risk:'—',
+            next:'—', vault:'memoria/principios/canon-repetido.md' },
+          { id:'principle-weight', name:'Peso, não sussurro', deck:'Atlas tem peso · Don Corleone',
+            role:'DNA estético canônico.', input:'O Padrinho · Vito.', output:'Decisões de design/motion.',
+            depends:['ms-vito','mb-godfather'], unblocks:[], evidence:'Aplicado em todos os mockups Atlas.',
+            risk:'Confundir peso com pesar/agressivo.', next:'—', vault:'memoria/principios/peso.md' }
+        ]}
+      ]
+    },
+    works: {
+      title:'Obras', sub:'produtos, empresas, narrativas',
+      sections: [{ id:'w-prods', head:'Produtos em curso', deck:'4 obras vivas', nodes:[
+        { id:'wo-atlas', name:'Atlas App', deck:'segundo cérebro mobile',
+          role:'Interface principal do AtlasVault em mobile.', input:'Captura, leitura, decisão.', output:'Vault atualizado.',
+          depends:['wo-foundry'], unblocks:[], evidence:'L2 · em uso pessoal diário.', risk:'Escopo crescente.',
+          next:'Audit de telas canônicas vs implementação real.', vault:'obras/atlas-app.md' },
+        { id:'wo-obraos', name:'ObraOS', deck:'sistema operacional de obras',
+          role:'Meta-sistema de produção em série.', input:'Atlas + capacidades.', output:'Obras com ritmo.',
+          depends:['wo-atlas','wo-foundry'], unblocks:[], evidence:'L1 · em design.', risk:'Risco de sobre-abstração.',
+          next:'Definir primeira obra real produzida via ObraOS.', vault:'obras/obraos.md' },
+        { id:'wo-foundry', name:'Foundry', deck:'forja de produtos novos',
+          role:'Camada de tooling pra criar produtos.', input:'Ideias + capacidades.', output:'Esqueletos prontos.',
+          depends:[], unblocks:['wo-atlas','wo-obraos'], evidence:'L1.', risk:'—',
+          next:'Documentar primeiros templates canônicos.', vault:'obras/foundry.md' },
+        { id:'wo-sovereign', name:'Sovereign OS', deck:'operação autônoma de empresa',
+          role:'Visão de longo prazo.', input:'Atlas maduro.', output:'Empresa que se opera.',
+          depends:['wo-obraos'], unblocks:[], evidence:'L0 · ideia.', risk:'Distância da execução atual.',
+          next:'Manter como visão · não executável agora.', vault:'obras/sovereign.md' }
+      ]}]
+    },
+    forge: {
+      title:'Forge', sub:'programação, SDD, execução técnica',
+      sections: [{ id:'f-stack', head:'Stack canônico', deck:'4 sistemas centrais', nodes:[
+        { id:'fo-sdd', name:'SDD Core', deck:'specification-driven development',
+          role:'Vocabulário de specs canônicas.', input:'Decisões + canon.', output:'Specs auditáveis.',
+          depends:[], unblocks:['fo-exec','fo-splitter'], evidence:'L2 em uso.', risk:'Curva de aprendizado.',
+          next:'Migrar últimos specs ad-hoc.', vault:'forge/sdd-core.md' },
+        { id:'fo-exec', name:'Execution Workspace', deck:'harnesses + ferramentas',
+          role:'Ambiente real de execução.', input:'Decision Receipt.', output:'Resultado bruto.',
+          depends:['fo-sdd'], unblocks:['fo-gates'], evidence:'L2.', risk:'Sandboxes inconsistentes.',
+          next:'Sandbox uniforme.', vault:'forge/execution-workspace.md' },
+        { id:'fo-gates', name:'Quality Gates', deck:'segurança, testes, SLO, visual QA',
+          role:'Filtros antes do resultado virar oficial.', input:'Resultado runtime.', output:'Validado ou falha.',
+          depends:['fo-exec'], unblocks:[], evidence:'L2 parcial.', risk:'Visual QA manual.',
+          next:'Automatizar visual QA.', vault:'forge/quality-gates.md' },
+        { id:'fo-splitter', name:'Work Splitter', deck:'decompõe pedido em packets',
+          role:'Tradutor de pedido grande em packets seguros.', input:'Pedido + contexto.', output:'Packets executáveis.',
+          depends:['fo-sdd'], unblocks:['fo-exec'], evidence:'L1.', risk:'Splits inadequados quebram cadeia.',
+          next:'Telemetry de split quality.', vault:'forge/work-splitter.md' }
+      ]}]
+    },
+    philosophy: {
+      title:'Filosofia', sub:'princípios, modelos, estética, identidade',
+      sections: [{ id:'ph-pillars', head:'Pilares', deck:'4 frentes filosóficas', nodes:[
+        { id:'ph-principles', name:'Princípios', deck:'regras canônicas de operação',
+          role:'O que o Atlas honra sempre.', input:'Estoicismo, Lindy, experiência.', output:'Decisões consistentes.',
+          depends:[], unblocks:['ph-aesthetic','ph-identity'], evidence:'14 princípios documentados.',
+          risk:'Princípios virarem dogmas.', next:'Revisão trimestral.', vault:'filosofia/principios.md' },
+        { id:'ph-models', name:'Modelos mentais', deck:'lentes pro mundo',
+          role:'Repertório cognitivo do Atlas.', input:'Leituras, experiências, casos.', output:'Mapas mentais.',
+          depends:[], unblocks:['ph-principles'], evidence:'6 modelos canônicos.', risk:'—',
+          next:'Adicionar 2 modelos novos.', vault:'filosofia/modelos-mentais.md' },
+        { id:'ph-aesthetic', name:'Estética', deck:'vocabulário visual e tátil',
+          role:'DNA visual do Atlas.', input:'Princípios + casos (Vito).', output:'Decisões de design.',
+          depends:['ph-principles'], unblocks:['ph-identity'], evidence:'Aplicado em todos os mockups.',
+          risk:'—', next:'—', vault:'filosofia/estetica.md' },
+        { id:'ph-identity', name:'Identidade', deck:'quem o Atlas é',
+          role:'Síntese de tudo acima.', input:'Princípios + modelos + estética.', output:'Marca operacional.',
+          depends:['ph-principles','ph-aesthetic'], unblocks:[], evidence:'Manifesto Atlas v1.',
+          risk:'—', next:'—', vault:'filosofia/identidade.md' }
+      ]}]
+    },
+    risks: {
+      title:'Gargalos', sub:'bloqueios atuais por severidade',
+      sections: [{ id:'r-current', head:'Abertos', deck:'7 gargalos catalogados', nodes:[
+        { id:'rk-vqa', name:'Visual QA manual', deck:'gates de QA visual ainda manuais',
+          role:'Gargalo em Quality Gates.', input:'Quality Gates.', output:'Resultados não-determinísticos.',
+          depends:['fo-gates'], unblocks:[], evidence:'3 incidentes registrados.', risk:'Bloqueia escala.',
+          next:'Modelo dedicado pra visual QA.', vault:'gargalos/vqa-manual.md' },
+        { id:'rk-sandbox', name:'Sandbox não-uniforme', deck:'harnesses divergentes',
+          role:'Gargalo em Runtime.', input:'Runtime.', output:'Isolamento desigual.',
+          depends:['fo-exec'], unblocks:[], evidence:'2 incidentes.', risk:'Risco de segurança.',
+          next:'Definir sandbox canônico v1.', vault:'gargalos/sandbox.md' },
+        { id:'rk-pruning', name:'Pruning do Ledger', deck:'sem política',
+          role:'Gargalo em Evidence Ledger.', input:'Evidence Ledger.', output:'Tamanho crescente.',
+          depends:[], unblocks:[], evidence:'—', risk:'Custo de storage.',
+          next:'Política de retention + compaction.', vault:'gargalos/pruning.md' },
+        { id:'rk-policy', name:'Policies sem versionamento', deck:'drift silencioso',
+          role:'Gargalo em Policy/Profile.', input:'Policy resolver.', output:'Mudanças não rastreáveis.',
+          depends:[], unblocks:[], evidence:'1 incidente.', risk:'Audit comprometido.',
+          next:'Versionar policies + audit trail.', vault:'gargalos/policy-vers.md' }
+      ]}]
+    }
+  };
+
+  // ═══════════════════════════════════════════════════════════════════════
+  //  LAYOUT COORDS · ATLAS WORLD
+  // ═══════════════════════════════════════════════════════════════════════
+  const LAYOUT_ATLAS = {
+    pipeline:    { x: 660, y: 80,  w: 480 },
+    pipelineStep: 64,
+    pipelineRuntimeHeight: 220,
+    domain:      { x: 40,  y: 100, w: 240 },
+    cap:         { x: 40,  y: 620, w: 240 },
+    biz:         { x: 340, y: 380, w: 260 },
+    hks:         { x: 1200, y: 100, w: 280 },
+    evi:         { x: 1200, y: 440, w: 280 },
+    doc:         { x: 1200, y: 1040, w: 280 }
+  };
+
+  const stepY = [];
+  let curY = LAYOUT_ATLAS.pipeline.y + 40;
+  pipeline.forEach((p, idx) => {
+    stepY[idx] = curY;
+    curY += (p.i === 12 ? LAYOUT_ATLAS.pipelineRuntimeHeight : LAYOUT_ATLAS.pipelineStep);
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════
+  //  STATE
+  // ═══════════════════════════════════════════════════════════════════════
+  const state = {
+    continent: 'atlas',
+    mode: 'map',         // 'map' | 'focus'
+    focusedId: null,     // id do atom em foco
+    focusedMeta: null    // metadados do atom em foco
+  };
+
+  // ═══════════════════════════════════════════════════════════════════════
+  //  RENDER · WORLD (delega por continente)
+  // ═══════════════════════════════════════════════════════════════════════
+  function renderWorld() {
+    const world = $('#world');
+    Array.from(world.children).forEach(c => { if (c.tagName !== 'svg') c.remove(); });
+    $('#worldSvg').innerHTML = `<defs>
+      <marker id="tip" viewBox="0 0 8 8" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+        <path d="M 0 0 L 8 4 L 0 8 Z" fill="currentColor"/>
+      </marker>
+    </defs>`;
+
+    if (state.continent === 'atlas') renderAtlasWorld(world);
+    else renderOtherWorld(world, state.continent);
+
+    drawAllTrails();
+  }
+
+  function renderAtlasWorld(world) {
+    const ribbon = el('div', 'ribbon', 'Atlas Kernel Pipeline');
+    ribbon.style.left = (LAYOUT_ATLAS.pipeline.x + LAYOUT_ATLAS.pipeline.w/2) + 'px';
+    ribbon.style.top = LAYOUT_ATLAS.pipeline.y + 'px';
+    ribbon.style.transform = 'translateX(-50%)';
+    world.appendChild(ribbon);
+
+    pipeline.forEach((p, idx) => {
+      const atom = el('div', 'atom atom-pipe');
+      atom.id = `pipe-${p.i}`;
+      atom.style.position = 'absolute';
+      atom.style.left = LAYOUT_ATLAS.pipeline.x + 'px';
+      atom.style.top = stepY[idx] + 'px';
+      atom.style.width = LAYOUT_ATLAS.pipeline.w + 'px';
+      const subsHtml = p.subs?.length ? `<div class="a-subs">${p.subs.map(s => `<div class="a-sub"><span class="s-name">${s[0]}</span><span class="s-meta">${s[1]}</span></div>`).join('')}</div>` : '';
+      atom.innerHTML = `
+        <span class="a-num">${toRoman(p.i)}.</span>
+        <div class="a-body">
+          <span class="a-name">${p.name}</span>
+          <span class="a-deck">${p.deck}</span>
+          ${subsHtml}
+        </div>
+      `;
+      attachAtomHandlers(atom, { kind:'pipeline', id:`pipe-${p.i}`, data:p });
+      world.appendChild(atom);
+    });
+
+    Object.entries(regions).forEach(([key, r]) => {
+      const lay = LAYOUT_ATLAS[key];
+      if (!lay) return;
+      const wrap = el('div', 'region');
+      wrap.id = r.id;
+      wrap.style.left = lay.x + 'px';
+      wrap.style.top = lay.y + 'px';
+      wrap.style.width = lay.w + 'px';
+      const atomsWrap = el('div', 'region-atoms');
+      r.nodes.forEach(n => {
+        const a = el('div', 'atom');
+        a.id = n.id;
+        a.innerHTML = `<span class="a-name">${n.name}</span><span class="a-deck">${n.deck}</span>`;
+        attachAtomHandlers(a, { kind:'lateral', id:n.id, data:{...n, region:r} });
+        atomsWrap.appendChild(a);
+      });
+      wrap.innerHTML = `<div class="region-head">${r.head}<span class="deck">${r.deck}</span></div>`;
+      wrap.appendChild(atomsWrap);
+      world.appendChild(wrap);
+    });
+  }
+
+  function renderOtherWorld(world, contId) {
+    const w = otherWorlds[contId];
+    if (!w) return;
+
+    // título grande do continente
+    const title = el('div', 'region');
+    title.style.left = '40px'; title.style.top = '40px'; title.style.width = '1720px';
+    title.innerHTML = `<div class="region-head">${w.title}<span class="deck">${w.sub}</span></div>`;
+    world.appendChild(title);
+
+    // sections em grid horizontal
+    let xCursor = 40;
+    const yStart = 120;
+    const sectionW = 380;
+    const sectionGap = 60;
+
+    w.sections.forEach(sec => {
+      const wrap = el('div', 'region');
+      wrap.id = `sec-${sec.id}`;
+      wrap.style.left = xCursor + 'px';
+      wrap.style.top = yStart + 'px';
+      wrap.style.width = sectionW + 'px';
+      const atomsWrap = el('div', 'region-atoms');
+      sec.nodes.forEach(n => {
+        const a = el('div', 'atom');
+        a.id = n.id;
+        a.innerHTML = `<span class="a-name">${n.name}</span><span class="a-deck">${n.deck}</span>`;
+        attachAtomHandlers(a, { kind:'other', id:n.id, data:{...n, region:{head:sec.head}} });
+        atomsWrap.appendChild(a);
+      });
+      wrap.innerHTML = `<div class="region-head">${sec.head}<span class="deck">${sec.deck}</span></div>`;
+      wrap.appendChild(atomsWrap);
+      world.appendChild(wrap);
+      xCursor += sectionW + sectionGap;
+    });
+  }
+
+  function attachAtomHandlers(node, meta) {
+    node.addEventListener('mouseenter', () => {
+      if (state.mode === 'focus') return;
+      hoverAtom(meta);
+    });
+    node.addEventListener('mouseleave', () => {
+      if (state.mode === 'focus') return;
+      clearActivePaths();
+    });
+    node.addEventListener('click', e => {
+      e.stopPropagation();
+      enterFocus(meta);
+    });
+  }
+
+  function hoverAtom(meta) {
+    activatePathsFor(meta.id);
+    renderInspector(meta);
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  //  RENDER · MINIMAP
+  // ═══════════════════════════════════════════════════════════════════════
+  function renderMinimap() {
+    const list = $('#mfList');
+    list.innerHTML = '';
+    universe.forEach(c => {
+      const row = el('button', 'mf-row' + (c.id === state.continent ? ' active' : ''));
+      row.dataset.id = c.id;
+      row.innerHTML = `<span class="mf-dot"></span><span class="mf-name">${c.name}</span><span class="mf-count">${c.count}</span>`;
+      row.addEventListener('click', () => selectContinent(c.id));
+      list.appendChild(row);
+    });
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  //  TRAILS · SVG
+  // ═══════════════════════════════════════════════════════════════════════
+  function rectCenter(el) {
+    if (!el) return null;
+    return { x: el.offsetLeft + el.offsetWidth/2, y: el.offsetTop + el.offsetHeight/2,
+             l: el.offsetLeft, r: el.offsetLeft + el.offsetWidth,
+             t: el.offsetTop, b: el.offsetTop + el.offsetHeight };
+  }
+
+  function buildConnections() {
+    const out = [];
+
+    if (state.continent === 'atlas') {
+      // pipeline sequence
+      for (let i = 0; i < pipeline.length - 1; i++) {
+        out.push({ from:`pipe-${i+1}`, to:`pipe-${i+2}`, kind:'sequence', label:'alimenta' });
+      }
+      out.push({ from:'region-domain', to:'pipe-7', kind:'feed', label:'alimenta' });
+      out.push({ from:'region-biz',    to:'pipe-6', kind:'feed', label:'contexto' });
+      out.push({ from:'region-cap',    to:'pipe-12', kind:'feed', label:'capability' });
+      out.push({ from:'region-hks',    to:'pipe-8', kind:'feed', label:'managed sync' });
+      out.push({ from:'region-evi',    to:'pipe-10', kind:'feedback', label:'evidência' });
+      out.push({ from:'pipe-15', to:'region-evi', kind:'feed', label:'eventos' });
+      out.push({ from:'pipe-16', to:'region-evi', kind:'feed', label:'propostas' });
+      out.push({ from:'region-doc', to:'pipe-8', kind:'feed', label:'guia' });
+    } else {
+      // other continents: conexões entre atoms via depends/unblocks
+      const w = otherWorlds[state.continent];
+      if (w) {
+        const allNodes = w.sections.flatMap(s => s.nodes);
+        allNodes.forEach(n => {
+          (n.unblocks || []).forEach(targetId => {
+            if (allNodes.find(x => x.id === targetId)) {
+              out.push({ from:n.id, to:targetId, kind:'sequence', label:'alimenta' });
+            }
+          });
+        });
+      }
+    }
+
+    return out;
+  }
+
+  function drawAllTrails() {
+    const svg = $('#worldSvg');
+    Array.from(svg.querySelectorAll('path, text, rect.label-bg')).forEach(p => p.remove());
+
+    const connections = buildConnections();
+    connections.forEach(c => {
+      const fromEl = document.getElementById(c.from);
+      const toEl = document.getElementById(c.to);
+      if (!fromEl || !toEl) return;
+      const fr = rectCenter(fromEl);
+      const tr = rectCenter(toEl);
+      if (!fr || !tr) return;
+
+      let d, midX, midY;
+      if (c.kind === 'sequence' && c.from.startsWith('pipe-') && c.to.startsWith('pipe-')) {
+        const sx = fr.x, sy = fr.b;
+        const ex = tr.x, ey = tr.t;
+        d = `M ${sx} ${sy} L ${ex} ${ey}`;
+        midX = (sx + ex) / 2;
+        midY = (sy + ey) / 2;
+      } else if (c.kind === 'feedback') {
+        const sx = fr.r, sy = fr.y;
+        const ex = tr.r, ey = tr.y;
+        const cp1x = sx + 100, cp1y = sy + 30;
+        const cp2x = ex + 220, cp2y = ey - 30;
+        d = `M ${sx} ${sy} C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${ex} ${ey}`;
+        midX = (sx + ex) / 2 + 100;
+        midY = (sy + ey) / 2;
+      } else {
+        const fromLeft = fr.x < tr.x;
+        const sx = fromLeft ? fr.r : fr.l;
+        const sy = fr.y;
+        const ex = fromLeft ? tr.l : tr.r;
+        const ey = tr.y;
+        const dx = Math.abs(ex - sx);
+        const cp1x = sx + (fromLeft ? dx*0.5 : -dx*0.5);
+        const cp2x = ex + (fromLeft ? -dx*0.5 : dx*0.5);
+        d = `M ${sx} ${sy} C ${cp1x} ${sy}, ${cp2x} ${ey}, ${ex} ${ey}`;
+        midX = (sx + ex) / 2;
+        midY = (sy + ey) / 2;
+      }
+
+      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      path.setAttribute('d', d);
+      path.setAttribute('class', 'trail' + (c.kind === 'feedback' ? ' dashed' : ''));
+      path.dataset.from = c.from;
+      path.dataset.to = c.to;
+      path.dataset.kind = c.kind;
+      path.dataset.label = c.label || '';
+      if (c.kind !== 'feedback') path.setAttribute('marker-end', 'url(#tip)');
+      svg.appendChild(path);
+
+      // label (apenas usado em focus mode)
+      if (c.label) {
+        const labelText = c.label.toUpperCase();
+        const w = labelText.length * 6.5 + 14;
+        const h = 14;
+        const bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        bg.setAttribute('x', midX - w/2);
+        bg.setAttribute('y', midY - h/2);
+        bg.setAttribute('width', w);
+        bg.setAttribute('height', h);
+        bg.setAttribute('rx', 2);
+        bg.setAttribute('class', 'trail-label-bg');
+        bg.dataset.from = c.from;
+        bg.dataset.to = c.to;
+        svg.appendChild(bg);
+
+        const t = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        t.setAttribute('x', midX);
+        t.setAttribute('y', midY + 3);
+        t.setAttribute('text-anchor', 'middle');
+        t.setAttribute('class', 'trail-label');
+        t.dataset.from = c.from;
+        t.dataset.to = c.to;
+        t.textContent = labelText;
+        svg.appendChild(t);
+      }
+    });
+  }
+
+  function activatePathsFor(id) {
+    const svg = $('#worldSvg');
+    const world = $('#world');
+    const related = new Set([id]);
+    svg.querySelectorAll('path.trail').forEach(p => {
+      const inv = p.dataset.from === id || p.dataset.to === id;
+      p.classList.toggle('path-active', inv);
+      if (inv) { related.add(p.dataset.from); related.add(p.dataset.to); }
+    });
+    svg.querySelectorAll('text.trail-label, rect.trail-label-bg').forEach(t => {
+      const inv = t.dataset.from === id || t.dataset.to === id;
+      t.classList.toggle('label-active', inv);
+    });
+    world.querySelectorAll('.atom, .region').forEach(a => a.classList.toggle('kin', related.has(a.id)));
+    const node = document.getElementById(id);
+    if (node) node.classList.add('active');
+    world.classList.add('dim-others');
+  }
+
+  function clearActivePaths() {
+    const svg = $('#worldSvg');
+    const world = $('#world');
+    svg.querySelectorAll('path.trail').forEach(p => p.classList.remove('path-active'));
+    svg.querySelectorAll('text.trail-label, rect.trail-label-bg').forEach(t => t.classList.remove('label-active'));
+    world.querySelectorAll('.atom, .region').forEach(a => { a.classList.remove('kin'); a.classList.remove('active'); });
+    world.classList.remove('dim-others');
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  //  FOCUS MODE
+  // ═══════════════════════════════════════════════════════════════════════
+  // ───── FOCUS MODE: substitui a cena do mundo ─────
+  // ao entrar em foco: limpa o world e renderiza gear-focus-stage
+  // com a peça focada no centro, satélites (depends/unblocks) à esquerda/direita
+  function enterFocus(meta) {
+    state.mode = 'focus';
+    state.focusedId = meta.id;
+    state.focusedMeta = meta;
+
+    renderFocusScene(meta);
+    renderInspector(meta);
+
+    $('#modeToggle').querySelectorAll('button').forEach(b => {
+      b.classList.toggle('on', b.dataset.mode === 'focus');
+      if (b.dataset.mode === 'focus') b.disabled = false;
+    });
+    $('#backToMap').classList.add('show');
+    setBreadcrumb(meta);
+    // fit pra mostrar a cena toda
+    requestAnimationFrame(() => requestAnimationFrame(() => fit()));
+  }
+
+  function exitFocus() {
+    state.mode = 'map';
+    state.focusedId = null;
+    state.focusedMeta = null;
+
+    renderWorld();    // re-renderiza o mundo normal do continente
+    $('#modeToggle').querySelectorAll('button').forEach(b => {
+      b.classList.toggle('on', b.dataset.mode === 'map');
+      if (b.dataset.mode === 'focus') b.disabled = true;
+    });
+    $('#backToMap').classList.remove('show');
+    setBreadcrumb(null);
+    fit();
+    renderInspectorDefault();
+  }
+
+  // ────────────────────────────────────────────────────────────
+  //  RENDER · FOCUS SCENE (substitui o conteúdo do mundo)
+  // ────────────────────────────────────────────────────────────
+  function renderFocusScene(meta) {
+    const world = $('#world');
+    // limpa world (mantém svg pra trilhas)
+    Array.from(world.children).forEach(c => { if (c.tagName !== 'svg') c.remove(); });
+    // limpa svg também
+    $('#worldSvg').innerHTML = `<defs>
+      <marker id="tip" viewBox="0 0 8 8" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+        <path d="M 0 0 L 8 4 L 0 8 Z" fill="currentColor"/>
+      </marker>
+    </defs>`;
+
+    const data = meta.data;
+    const isPipe = meta.kind === 'pipeline';
+    const isLateral = meta.kind === 'lateral';
+    const isOther = meta.kind === 'other';
+
+    const cont = universe.find(c => c.id === state.continent);
+    const parentName = isPipe ? 'Atlas AI Kernel' : isLateral ? data.region?.head : isOther ? data.region?.head : cont.name;
+    const eyebrowText = isPipe
+      ? `${cont.name} · ${parentName} · ${toRoman(data.i)}`
+      : `${cont.name} · ${parentName}`;
+
+    const stage = el('div', 'gear-focus-stage');
+    stage.id = 'focusStage';
+
+    // HEADER
+    const header = el('div', 'focus-header');
+    header.innerHTML = `
+      <div class="focus-eyebrow">${eyebrowText}</div>
+      <h2 class="focus-title">${data.name}</h2>
+      ${data.role ? `<p class="focus-lede">${data.role}</p>` : data.deck ? `<p class="focus-lede">${data.deck}</p>` : ''}
+    `;
+    stage.appendChild(header);
+
+    // LEFT · depends
+    const left = el('div', 'focus-side left');
+    left.innerHTML = `<div class="side-label"><span class="side-glyph">←</span>Depende de</div>`;
+    const depends = data.depends || [];
+    if (depends.length === 0) {
+      left.appendChild(el('div', 'empty-state', '—'));
+    } else {
+      depends.forEach(id => {
+        const sat = makeSatellite(id, 'left');
+        if (sat) left.appendChild(sat);
+      });
+    }
+    stage.appendChild(left);
+
+    // RIGHT · unblocks
+    const right = el('div', 'focus-side right');
+    right.innerHTML = `<div class="side-label"><span class="side-glyph">→</span>Alimenta</div>`;
+    const unblocks = data.unblocks || [];
+    if (unblocks.length === 0) {
+      right.appendChild(el('div', 'empty-state', '—'));
+    } else {
+      unblocks.forEach(id => {
+        const sat = makeSatellite(id, 'right');
+        if (sat) right.appendChild(sat);
+      });
+    }
+    stage.appendChild(right);
+
+    // CENTER · ficha 4-5 campos textuais (Entrada/Saída/Evidência/Gargalo/Próxima)
+    const center = el('div', 'focus-center-card');
+    const fields = [
+      { label:'Entrada',       glyph:'↑', val: data.input },
+      { label:'Saída',         glyph:'↓', val: data.output },
+      { label:'Evidência',     glyph:'☷', val: data.evidence },
+      { label:'Gargalo',       glyph:'△', val: data.risk, riskClass: true },
+      { label:'Próxima ação',  glyph:'✦', val: data.next, nextClass: true }
+    ];
+    const fieldsHtml = fields.map(f => {
+      const v = f.val || '—';
+      const cls = (f.riskClass && v !== '—' ? 'risk' : '') + (f.nextClass ? ' next' : '');
+      return `<div class="field-row ${cls}">
+        <span class="field-label"><span class="fglyph">${f.glyph}</span>${f.label}</span>
+        <span class="field-value">${v}</span>
+      </div>`;
+    }).join('');
+    center.innerHTML = `<div class="center-fields">${fieldsHtml}</div>`;
+    stage.appendChild(center);
+
+    // FOOTER · ações
+    const footer = el('div', 'focus-footer');
+    footer.innerHTML = `
+      <button class="focus-action primary">↗ Abrir no Vault</button>
+      ${(data.subs && data.subs.length) ? '<button class="focus-action" data-act="dive">↓ Mergulhar em subcomponentes</button>' : ''}
+      <button class="focus-action">↻ Ver loop de evidência</button>
+      <button class="focus-action">△ Marcar gargalo</button>
+      <button class="focus-action">← Voltar ao mapa</button>
+    `;
+    footer.querySelector('[data-act="dive"]')?.addEventListener('click', () => alert('Mergulhar em subcomponentes — TODO'));
+    footer.querySelectorAll('.focus-action').forEach(b => {
+      if (b.textContent.includes('Voltar')) b.addEventListener('click', exitFocus);
+    });
+    stage.appendChild(footer);
+
+    world.appendChild(stage);
+
+    // desenhar trilhas SVG entre satélites e centro
+    requestAnimationFrame(() => requestAnimationFrame(() => drawFocusTrails()));
+  }
+
+  function makeSatellite(id, side) {
+    const data = resolveAtomById(id);
+    if (!data) return null;
+    const sat = el('button', 'satellite');
+    sat.dataset.targetId = id;
+    sat.dataset.side = side;
+    sat.id = `sat-${id}`;
+    sat.innerHTML = `
+      <span class="s-name">${data.name}</span>
+      ${data.deck ? `<span class="s-sub">${data.deck}</span>` : ''}
+    `;
+    sat.addEventListener('click', e => {
+      e.stopPropagation();
+      // mergulho lateral: vira o novo centro
+      const newMeta = wrapMetaForId(id);
+      if (newMeta) enterFocus(newMeta);
+    });
+    return sat;
+  }
+
+  function resolveAtomById(id) {
+    if (id.startsWith('pipe-')) {
+      const idx = parseInt(id.split('-')[1]) - 1;
+      return pipeline[idx];
+    }
+    if (id.startsWith('region-')) {
+      const reg = Object.values(regions).find(r => r.id === id);
+      return reg ? { name: reg.head, deck: reg.deck } : null;
+    }
+    if (regionAtoms[id]) return regionAtoms[id];
+    // otherWorlds
+    for (const w of Object.values(otherWorlds)) {
+      for (const sec of w.sections) {
+        const n = sec.nodes.find(x => x.id === id);
+        if (n) return n;
+      }
+    }
+    return null;
+  }
+
+  function wrapMetaForId(id) {
+    const data = resolveAtomById(id);
+    if (!data) return null;
+    if (id.startsWith('pipe-')) return { kind:'pipeline', id, data };
+    if (id.startsWith('region-')) {
+      const reg = Object.values(regions).find(r => r.id === id);
+      return { kind:'lateral', id, data: { name: reg.head, deck: reg.deck, region: reg } };
+    }
+    if (regionAtoms[id]) {
+      const ra = regionAtoms[id];
+      const reg = Object.values(regions).find(r => r.id === ra.regionId);
+      return { kind:'lateral', id, data: { ...ra, region: reg } };
+    }
+    // otherWorlds
+    for (const w of Object.values(otherWorlds)) {
+      for (const sec of w.sections) {
+        const n = sec.nodes.find(x => x.id === id);
+        if (n) return { kind:'other', id, data: { ...n, region:{ head: sec.head } } };
+      }
+    }
+    return null;
+  }
+
+  function drawFocusTrails() {
+    const svg = $('#worldSvg');
+    const stage = $('#focusStage');
+    if (!stage) return;
+    const center = stage.querySelector('.focus-center-card');
+    if (!center) return;
+    const stageRect = stage.getBoundingClientRect();
+
+    const centerRect = center.getBoundingClientRect();
+    const cL = { x: centerRect.left - stageRect.left, y: centerRect.top + centerRect.height/2 - stageRect.top };
+    const cR = { x: centerRect.right - stageRect.left, y: centerRect.top + centerRect.height/2 - stageRect.top };
+
+    // trilhas da esquerda (depends → center)
+    stage.querySelectorAll('.focus-side.left .satellite').forEach(sat => {
+      const r = sat.getBoundingClientRect();
+      const sx = r.right - stageRect.left;
+      const sy = r.top + r.height/2 - stageRect.top;
+      const ex = cL.x;
+      const ey = cL.y;
+      const midX = (sx + ex) / 2;
+      const d = `M ${sx} ${sy} C ${midX} ${sy}, ${midX} ${ey}, ${ex} ${ey}`;
+      const p = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      p.setAttribute('d', d);
+      p.setAttribute('class', 'focus-trail');
+      p.setAttribute('marker-end', 'url(#tip)');
+      svg.appendChild(p);
+    });
+
+    // trilhas da direita (center → unblocks)
+    stage.querySelectorAll('.focus-side.right .satellite').forEach(sat => {
+      const r = sat.getBoundingClientRect();
+      const sx = cR.x;
+      const sy = cR.y;
+      const ex = r.left - stageRect.left;
+      const ey = r.top + r.height/2 - stageRect.top;
+      const midX = (sx + ex) / 2;
+      const d = `M ${sx} ${sy} C ${midX} ${sy}, ${midX} ${ey}, ${ex} ${ey}`;
+      const p = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      p.setAttribute('d', d);
+      p.setAttribute('class', 'focus-trail');
+      p.setAttribute('marker-end', 'url(#tip)');
+      svg.appendChild(p);
+    });
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  //  INSPECTOR (ficha 7 campos canônicos)
+  // ═══════════════════════════════════════════════════════════════════════
+  function renderInspector(meta) {
+    const data = meta.data;
+    const isContinent = meta.kind === 'continent';
+
+    $('#insKind').textContent = meta.kind === 'pipeline' ? `Engrenagem · ${toRoman(data.i)}. Atlas AI Kernel`
+                              : meta.kind === 'lateral' ? `Lateral · ${data.region?.head}`
+                              : meta.kind === 'other' ? `${data.region?.head}`
+                              : 'Continente';
+    $('#insTitle').textContent = data.name || data.title || '—';
+    $('#insLede').textContent = data.role || data.deck || '—';
+
+    const ficha = $('#insFicha');
+    ficha.innerHTML = '';
+
+    const fields = [
+      { label:'Entrada',       glyph:'↑', key:'input' },
+      { label:'Saída',         glyph:'↓', key:'output' },
+      { label:'Depende de',    glyph:'←', key:'depends', map:true },
+      { label:'Alimenta',      glyph:'→', key:'unblocks', map:true },
+      { label:'Evidência',     glyph:'☷', key:'evidence' },
+      { label:'Gargalo',       glyph:'△', key:'risk',  riskRow:true },
+      { label:'Próxima ação',  glyph:'✦', key:'next',  nextRow:true }
+    ];
+
+    fields.forEach(f => {
+      let val = data[f.key];
+      if (f.map && Array.isArray(val)) val = val.map(humanizeId).join(' · ');
+      if (val == null || val === '') val = '—';
+      const row = el('div', 'row' + (f.riskRow && val !== '—' ? ' risk' : '') + (f.nextRow ? ' next' : ''));
+      row.innerHTML = `
+        <span class="label"><span class="glyph">${f.glyph}</span>${f.label}</span>
+        <span class="value${val === '—' ? ' empty' : ''}">${val}</span>
+      `;
+      ficha.appendChild(row);
+    });
+
+    const actions = $('#insActions');
+    actions.innerHTML = '';
+    pushAction(actions, 'Abrir nota no Vault', '↗');
+    if (meta.kind === 'pipeline') pushAction(actions, 'Ver loop de evidência', '↻');
+    pushAction(actions, 'Gerar packet de evolução', '✦');
+    pushAction(actions, 'Marcar gargalo', '△');
+
+    const tags = $('#insTags');
+    tags.innerHTML = '';
+    const tagSet = meta.kind === 'pipeline' ? ['engrenagem','atlas ai', slug(data.name).split('-')[0]]
+                  : meta.kind === 'lateral' ? ['lateral', slug(data.region.head)]
+                  : meta.kind === 'other'   ? ['nota', state.continent, slug(data.region.head)]
+                  : ['continente', state.continent];
+    tagSet.forEach(t => tags.appendChild(el('span','ins-tag',t)));
+  }
+
+  function renderInspectorDefault() {
+    if (state.continent === 'atlas') {
+      $('#insKind').textContent = 'Fluxo operacional';
+      $('#insTitle').textContent = 'Atlas AI Kernel';
+      $('#insLede').textContent = '17 etapas em sequência. Lateral alimenta; loop de evidência volta ao Decide. Passe o mouse sobre uma peça pra ver conexões; clique pra entrar em Foco.';
+    } else {
+      const w = otherWorlds[state.continent];
+      $('#insKind').textContent = 'Continente do Vault';
+      $('#insTitle').textContent = w?.title || universe.find(u=>u.id===state.continent)?.name || '—';
+      $('#insLede').textContent = w?.sub || '—';
+    }
+    $('#insFicha').innerHTML = '';
+    $('#insActions').innerHTML = '';
+    pushAction($('#insActions'), 'Voltar ao Atlas', '↩');
+    pushAction($('#insActions'), 'Abrir continente no Vault', '↗');
+    $('#insTags').innerHTML = '';
+    ['continente', state.continent].forEach(t => $('#insTags').appendChild(el('span','ins-tag',t)));
+  }
+
+  function pushAction(parent, label, glyph) {
+    const row = el('div', 'ins-action');
+    row.innerHTML = `<span class="a-label">${label}</span><span class="a-glyph">${glyph}</span>`;
+    parent.appendChild(row);
+  }
+
+  function humanizeId(id) {
+    if (id.startsWith('pipe-')) {
+      const idx = parseInt(id.split('-')[1]) - 1;
+      return pipeline[idx]?.name || id;
+    }
+    if (id.startsWith('region-')) {
+      const reg = Object.values(regions).find(r => r.id === id);
+      return reg?.head || id;
+    }
+    if (regionAtoms[id]) return regionAtoms[id].name;
+    // procura em otherWorlds
+    for (const w of Object.values(otherWorlds)) {
+      for (const sec of w.sections) {
+        const node = sec.nodes.find(n => n.id === id);
+        if (node) return node.name;
+      }
+    }
+    return id;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  //  BREADCRUMB
+  // ═══════════════════════════════════════════════════════════════════════
+  function setBreadcrumb(meta) {
+    const bc = $('#breadcrumb');
+    bc.innerHTML = '';
+    const parts = [{label:'AtlasVault'}];
+    const cont = universe.find(c => c.id === state.continent);
+    parts.push({label: cont.name});
+    if (state.continent === 'atlas') parts.push({label:'Atlas AI Kernel'});
+    if (meta) parts.push({label: meta.data.name, current: true});
+    else parts.push({label: state.continent === 'atlas' ? 'Kernel Pipeline' : (otherWorlds[state.continent]?.title || ''), current: true});
+    parts.forEach((p, idx) => {
+      if (idx > 0) bc.appendChild(el('span', 'sep', '›'));
+      bc.appendChild(el('span', p.current ? 'current' : '', p.label));
+    });
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  //  PAN + ZOOM
+  // ═══════════════════════════════════════════════════════════════════════
+  const view = {
+    scale: 0.8, x: 0, y: 0,
+    min: 0.35, max: 2.4
+  };
+
+  function applyTransform(animate = false) {
+    const world = $('#world');
+    if (!animate) world.classList.add('no-transition');
+    world.style.transform = `translate(${view.x}px, ${view.y}px) scale(${view.scale})`;
+    if (!animate) requestAnimationFrame(() => world.classList.remove('no-transition'));
+    world.classList.remove('zoom-far','zoom-mid','zoom-close');
+    if (view.scale < 0.65) world.classList.add('zoom-far');
+    else if (view.scale < 1.15) world.classList.add('zoom-mid');
+    else world.classList.add('zoom-close');
+    $('#zoomIndicator').textContent = Math.round(view.scale * 100) + '%';
+  }
+
+  function fit() {
+    const vp = $('#viewport');
+    const vw = vp.clientWidth - 40;
+    const vh = vp.clientHeight - 40;
+    if (state.mode === 'focus') {
+      const stage = $('#focusStage');
+      if (stage) {
+        const sw = stage.offsetWidth || 1400;
+        const sh = stage.offsetHeight || 800;
+        const s = Math.min(vw/sw, vh/sh);
+        view.scale = Math.max(view.min, Math.min(view.max, s));
+        // stage está centrado horizontalmente dentro do world(1800): center.x = 900
+        // stage começa em top:0, então center.y = sh/2
+        view.x = vp.clientWidth/2 - 900 * view.scale;
+        view.y = vp.clientHeight/2 - (sh/2) * view.scale;
+        applyTransform(true);
+        return;
+      }
+    }
+    const sw = 1800, sh = 1380;
+    const s = Math.min(vw/sw, vh/sh);
+    view.scale = Math.max(view.min, Math.min(view.max, s));
+    view.x = (vp.clientWidth - sw * view.scale) / 2;
+    view.y = (vp.clientHeight - sh * view.scale) / 2;
+    applyTransform(true);
+  }
+
+  function zoomBy(factor, cx, cy) {
+    const vp = $('#viewport');
+    if (cx == null) cx = vp.clientWidth / 2;
+    if (cy == null) cy = vp.clientHeight / 2;
+    const newScale = Math.max(view.min, Math.min(view.max, view.scale * factor));
+    const ratio = newScale / view.scale;
+    view.x = cx - (cx - view.x) * ratio;
+    view.y = cy - (cy - view.y) * ratio;
+    view.scale = newScale;
+    applyTransform(true);
+  }
+
+  // pan
+  const vp = $('#viewport');
+  let panning = false, lastX = 0, lastY = 0, didDrag = false;
+  vp.addEventListener('mousedown', e => {
+    if (e.target.closest('.atom') || e.target.closest('.minimap-floater') || e.target.closest('.canvas-controls') || e.target.closest('.breadcrumb-floater') || e.target.closest('.back-to-map')) return;
+    panning = true; didDrag = false;
+    lastX = e.clientX; lastY = e.clientY;
+    vp.classList.add('is-panning');
+  });
+  window.addEventListener('mousemove', e => {
+    if (!panning) return;
+    const dx = e.clientX - lastX, dy = e.clientY - lastY;
+    if (Math.abs(dx) + Math.abs(dy) > 2) didDrag = true;
+    view.x += dx; view.y += dy;
+    lastX = e.clientX; lastY = e.clientY;
+    applyTransform(false);
+  });
+  window.addEventListener('mouseup', e => {
+    if (!panning) return;
+    panning = false; vp.classList.remove('is-panning');
+    // click em espaço vazio do viewport em modo foco = sair
+    if (!didDrag && state.mode === 'focus' && !e.target.closest('.atom')) exitFocus();
+  });
+
+  // wheel zoom
+  vp.addEventListener('wheel', e => {
+    e.preventDefault();
+    const rect = vp.getBoundingClientRect();
+    const cx = e.clientX - rect.left;
+    const cy = e.clientY - rect.top;
+    const factor = e.deltaY > 0 ? 0.92 : 1.08;
+    zoomBy(factor, cx, cy);
+  }, { passive: false });
+
+  // controles
+  $$('.canvas-controls button').forEach(b => {
+    b.addEventListener('click', () => {
+      const k = b.dataset.zoom;
+      if (k === 'in') zoomBy(1.2);
+      else if (k === 'out') zoomBy(0.83);
+      else if (k === 'fit') { exitFocus(); }
+      else if (k === 'kernel') {
+        if (state.continent === 'atlas') focusOnAtomVisual('pipe-1');
+        else fit();
+      }
+    });
+  });
+
+  // toggle Mapa/Foco
+  $$('#modeToggle button').forEach(b => {
+    b.addEventListener('click', () => {
+      const m = b.dataset.mode;
+      if (m === 'map' && state.mode === 'focus') exitFocus();
+      if (m === 'focus' && state.focusedId == null) { /* nada a focar */ }
+    });
+  });
+
+  $('#backToMap').addEventListener('click', exitFocus);
+
+  // ESC
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && state.mode === 'focus') exitFocus();
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════
+  //  CONTINENT SWITCH
+  // ═══════════════════════════════════════════════════════════════════════
+  function selectContinent(id) {
+    if (state.mode === 'focus') exitFocus();
+    state.continent = id;
+    state.focusedId = null;
+    state.focusedMeta = null;
+    renderWorld();
+    renderMinimap();
+    renderInspectorDefault();
+    setBreadcrumb(null);
+    requestAnimationFrame(() => requestAnimationFrame(() => fit()));
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  //  SEARCH
+  // ═══════════════════════════════════════════════════════════════════════
+  $('#searchInput').addEventListener('input', e => {
+    const q = e.target.value.trim().toLowerCase();
+    if (q.length < 2) return;
+    // pipeline
+    const pHit = pipeline.find(p => p.name.toLowerCase().includes(q));
+    if (pHit) { if (state.continent !== 'atlas') selectContinent('atlas'); setTimeout(() => enterFocus({kind:'pipeline', id:`pipe-${pHit.i}`, data:pHit}), 200); return; }
+    // laterais atlas
+    const lEntry = Object.values(regionAtoms).find(n => n.name.toLowerCase().includes(q));
+    if (lEntry) { if (state.continent !== 'atlas') selectContinent('atlas'); setTimeout(() => enterFocus({kind:'lateral', id:lEntry.id, data:{...lEntry, region:Object.values(regions).find(r=>r.id===lEntry.regionId)}}), 200); return; }
+    // outros mundos
+    for (const [contId, w] of Object.entries(otherWorlds)) {
+      for (const sec of w.sections) {
+        const node = sec.nodes.find(n => n.name.toLowerCase().includes(q));
+        if (node) {
+          if (state.continent !== contId) selectContinent(contId);
+          setTimeout(() => enterFocus({kind:'other', id:node.id, data:{...node, region:{head:sec.head}}}), 200);
+          return;
+        }
+      }
+    }
+    // continente
+    const cHit = universe.find(c => c.name.toLowerCase().includes(q));
+    if (cHit) selectContinent(cHit.id);
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════
+  //  BOOT
+  // ═══════════════════════════════════════════════════════════════════════
+  renderWorld();
+  renderMinimap();
+  setBreadcrumb(null);
+  renderInspectorDefault();
+  requestAnimationFrame(() => fit());
+  </script>
+</body>
+</html>

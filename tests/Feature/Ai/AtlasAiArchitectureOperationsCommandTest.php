@@ -18,7 +18,7 @@ class AtlasAiArchitectureOperationsCommandTest extends TestCase
         $this->assertSame('ok', $payload['status']);
         $this->assertSame('atlas.architecture_operations.v1', data_get($payload, 'architecture_operations.schema_version'));
         $this->assertSame('arquitetura_mae', data_get($payload, 'architecture_operations.section'));
-        $this->assertSame(66, data_get($payload, 'architecture_operations.command_count'));
+        $this->assertSame(72, data_get($payload, 'architecture_operations.command_count'));
         $this->assertContains('architecture_operations', data_get($payload, 'architecture_operations.operation_ids'));
 
         $commands = array_column(data_get($payload, 'architecture_operations.commands'), 'command');
@@ -36,8 +36,13 @@ class AtlasAiArchitectureOperationsCommandTest extends TestCase
         $this->assertContains('php artisan atlas:ai:provider-release-review --provider=<provider> --title="<release>" --json', $commands);
         $this->assertContains('php artisan atlas:ai:provider-release-sources --json', $commands);
         $this->assertContains('php artisan atlas:ai:external-graph-harness --json', $commands);
+        $this->assertContains('php artisan atlas:ai:local-rag-benchmark --schedule-plan --json', $commands);
+        $this->assertContains('php artisan atlas:ai:local-rag-benchmark --rivals-report --json', $commands);
+        $this->assertContains('php artisan atlas:ai:local-rag-benchmark --rivals-shadow-plan --json', $commands);
+        $this->assertContains('php artisan atlas:ai:local-rag-benchmark --rivals-shadow-plan --emit-rivals-shadow-inbox --json', $commands);
+        $this->assertContains('php artisan atlas:ai:local-rag-benchmark --rivals-report --emit-rivals-inbox --json', $commands);
         $this->assertContains('atlas engineering knowledge sync --prune --json', $commands);
-        $this->assertContains('atlas engineering knowledge index-code --prune --json', $commands);
+        $this->assertContains('atlas engineering knowledge index-code --prune --summary-only --json', $commands);
         $this->assertContains('php artisan atlas:ai:dynamic-compute-market --provider=<provider> --domain=<domain> --flow=<flow> --json', $commands);
         $this->assertContains('php artisan atlas:ai:voice contract --json', $commands);
         $this->assertContains('php artisan atlas:ai:voice bootstrap --json', $commands);
@@ -124,8 +129,11 @@ class AtlasAiArchitectureOperationsCommandTest extends TestCase
         $this->assertStringContainsString('php artisan atlas:memory:projection write --target=all --workspace=<workspace> --force --json', $output);
         $this->assertStringContainsString('php artisan atlas:ai:provider-release-review --provider=<provider> --title="<release>" --json', $output);
         $this->assertStringContainsString('php artisan atlas:ai:external-graph-harness --json', $output);
+        $this->assertStringContainsString('php artisan atlas:ai:local-rag-benchmark --schedule-plan --json', $output);
+        $this->assertStringContainsString('php artisan atlas:ai:local-rag-benchmark --rivals-report --json', $output);
+        $this->assertStringContainsString('php artisan atlas:ai:local-rag-benchmark --rivals-report --emit-rivals-inbox --json', $output);
         $this->assertStringContainsString('atlas engineering knowledge sync --prune --json', $output);
-        $this->assertStringContainsString('atlas engineering knowledge index-code --prune --json', $output);
+        $this->assertStringContainsString('atlas engineering knowledge index-code --prune --summary-only --json', $output);
         $this->assertStringContainsString('php artisan atlas:ai:provider-performance --hours=24 --json', $output);
         $this->assertStringContainsString('php artisan atlas:ai:agent-behavior-report --hours=24 --json', $output);
         $this->assertStringContainsString('php artisan atlas:ai:dynamic-compute-market --provider=<provider> --domain=<domain> --flow=<flow> --json', $output);
@@ -189,7 +197,7 @@ class AtlasAiArchitectureOperationsCommandTest extends TestCase
 
         $this->assertSame(0, $exit);
         $this->assertSame(['section' => 'arquitetura_mae'], data_get($payload, 'architecture_operations.filters'));
-        $this->assertSame(66, data_get($payload, 'architecture_operations.command_count'));
+        $this->assertSame(72, data_get($payload, 'architecture_operations.command_count'));
         $this->assertContains('architecture_operations', data_get($payload, 'architecture_operations.operation_ids'));
 
         $exit = Artisan::call('atlas:ai:architecture-operations', [

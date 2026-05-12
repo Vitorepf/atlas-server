@@ -70,7 +70,11 @@ Ja existe base operacional:
 5. `semantic_notes` como memoria semantica humana/indexada;
 6. triagem de captura para `semantic_note`, `task`, `project` ou `archive`;
 7. privacy gate que bloqueia IA externa para conteudo privado/sensivel;
-8. AtlasVault como Human Knowledge Surface, nao fonte operacional crua.
+8. aceite de proposta com `promote_to_memory=true` promove delta ratificado para
+   Memory Registry com receipt;
+9. `captures.metadata.semantic_curation` liga proposta automatica ao
+   `CaptureResource.review_workflow` sem marcar destino como resolvido;
+10. AtlasVault como Human Knowledge Surface, nao fonte operacional crua.
 
 Falta transformar isso em Content Intelligence completo para fontes externas,
 source reputation, YouTube global, PDFs, feeds e routing multi-dominio.
@@ -150,6 +154,11 @@ Permitido automaticamente:
 3. criar proposta de curadoria;
 4. descartar candidato claramente ruim mantendo auditoria minima;
 5. atualizar reputacao de fonte em modo conservador.
+
+Criacao automatica de proposta deve continuar review-only: ela pode gravar
+`semantic_curation.status=proposal_pending`, atualizar quarantine e expor acoes
+de ratificacao/promocao no resource, mas nao pode promover memoria, escrever
+contexto operacional nem resolver destino sem operador.
 
 Exige review/approval:
 

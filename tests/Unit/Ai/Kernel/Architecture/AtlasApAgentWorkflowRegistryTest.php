@@ -18,6 +18,14 @@ final class AtlasApAgentWorkflowRegistryTest extends TestCase
         $this->assertSame('ap_agent_documented_work_session', $payload['workflow_id']);
         $this->assertSame(5, $payload['step_count']);
         $this->assertSame(['AP-200', 'AP-201', 'AP-202', 'AP-205', 'AP-203'], array_column($payload['steps'], 'ap'));
+        $this->assertSame('atlas.ap_agent_workflow_summary.v1', data_get($payload, 'summary.schema_version'));
+        $this->assertSame(5, data_get($payload, 'summary.primary_trace.step_count'));
+        $this->assertSame(['AP-200', 'AP-201', 'AP-202', 'AP-205', 'AP-203'], data_get($payload, 'summary.primary_trace.aps'));
+        $this->assertSame('AP-206', data_get($payload, 'summary.post_completion_review_chain.first_ap'));
+        $this->assertSame('AP-682', data_get($payload, 'summary.post_completion_review_chain.last_ap'));
+        $this->assertSame('AP-228', data_get($payload, 'summary.post_completion_review_chain.human_display_until_ap'));
+        $this->assertSame(23, data_get($payload, 'summary.post_completion_review_chain.human_display_count'));
+        $this->assertTrue(data_get($payload, 'summary.machine_output.full_chain_included'));
         $this->assertSame([
             'AP-206',
             'AP-207',

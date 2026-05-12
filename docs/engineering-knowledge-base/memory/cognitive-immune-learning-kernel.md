@@ -69,6 +69,10 @@ promotion_status: unclassified
 Apagar e higiene/privacidade. A blindagem principal e o gate cognitivo. Mesmo
 se o operador nunca apagar nada, captura trivial nao pode piorar o Atlas.
 
+Implementacao ativa: `CaptureService` grava `metadata.cognitive_quarantine` em
+capturas API/app; `CurationProposalService` herda como proposta pendente,
+mantem memoria/contexto/embedding bloqueados e registra audit evidence redigida.
+
 ## Pipeline
 
 ```text

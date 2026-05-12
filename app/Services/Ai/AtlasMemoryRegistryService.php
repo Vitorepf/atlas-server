@@ -328,9 +328,12 @@ class AtlasMemoryRegistryService
         $status = in_array($attributes['status'] ?? 'active', AtlasMemoryEntry::STATUSES, true)
             ? (string) ($attributes['status'] ?? 'active')
             : 'active';
+        $memoryType = $this->memoryType($attributes['memory_type'] ?? ($attributes['type'] ?? 'technical_context'));
+        $body = trim((string) ($attributes['body'] ?? $attributes['content'] ?? ''));
+        $summary = isset($attributes['summary']) ? trim((string) $attributes['summary']) : null;
 
         $payload = [
-            'memory_type' => $this->memoryType($attributes['memory_type'] ?? ($attributes['type'] ?? 'technical_context')),
+            'memory_type' => $memoryType,
             'scope_type' => $scopeType,
             'scope_id' => $scopeType === 'global' ? null : $scopeId,
             'project_id' => $projectId,
@@ -340,8 +343,8 @@ class AtlasMemoryRegistryService
             'session_id' => $this->uuidOrNull($attributes['session_id'] ?? null),
             'user_id' => isset($attributes['user_id']) ? trim((string) $attributes['user_id']) : null,
             'title' => isset($attributes['title']) ? Str::limit(trim((string) $attributes['title']), 180, '') : null,
-            'body' => trim((string) ($attributes['body'] ?? $attributes['content'] ?? '')),
-            'summary' => isset($attributes['summary']) ? trim((string) $attributes['summary']) : null,
+            'body' => $body,
+            'summary' => $summary,
             'importance' => max(1, min(5, (int) ($attributes['importance'] ?? 3))),
             'priority' => max(0, min(100, (int) ($attributes['priority'] ?? 50))),
             'confidence' => $this->confidence($attributes['confidence'] ?? null),
@@ -355,6 +358,10 @@ class AtlasMemoryRegistryService
             'last_used_at' => $attributes['last_used_at'] ?? null,
             'archived_at' => $status === 'archived' ? ($attributes['archived_at'] ?? now()) : ($attributes['archived_at'] ?? null),
         ];
+
+        if (Schema::hasColumn('atlas_memory_entries', 'content_hash')) {
+            $payload['content_hash'] = $this->contentHash($attributes['content_hash'] ?? null, $memoryType, $scopeType, $scopeId, $body, $summary);
+        }
 
         return $this->privacy->normalizeForStorage($payload, $attributes);
     }
@@ -453,6 +460,21 @@ class AtlasMemoryRegistryService
         }
 
         return max(0, min(1, (float) $confidence));
+    }
+
+    private function contentHash(mixed $hash, string $memoryType, string $scopeType, ?string $scopeId, string $body, ?string $summary): string
+    {
+        if (is_string($hash) && preg_match('/^[a-f0-9]{64}$/i', $hash) === 1) {
+            return strtolower($hash);
+        }
+
+        return hash('sha256', json_encode([
+            'memory_type' => $memoryType,
+            'scope_type' => $scopeType,
+            'scope_id' => $scopeId,
+            'body' => $body,
+            'summary' => $summary,
+        ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '');
     }
 
     private function uuidOrNull(mixed $value): ?string

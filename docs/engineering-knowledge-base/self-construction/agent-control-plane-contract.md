@@ -33,17 +33,19 @@ related_paths:
   - app/Console/Commands/AtlasAiSelfConstructionCommand.php
   - app/Models/AtlasSelfConstructionAgentRun.php
   - app/Models/AtlasSelfConstructionAgentHeartbeat.php
+  - app/Models/AtlasSelfConstructionAgentSandboxBinding.php
+  - app/Services/Ai/SelfConstruction/AgentProviderAdapterRegistry.php
+  - app/Services/Ai/SelfConstruction/AgentProviderAdapterExecutionGuard.php
+  - app/Services/Ai/SelfConstruction/AgentDispatchExecutorAdapterInvocationBoundary.php
   - database/migrations/2026_05_12_010000_create_atlas_self_construction_agent_control_plane_tables.php
+  - database/migrations/2026_05_12_030000_create_atlas_self_construction_agent_sandbox_bindings_table.php
 owner: atlas-ai
 layer: 0.8-self-construction
 line_limit: 300
 ---
 
 # Atlas Agent Control Plane Contract
-
-Status: canonical read-only implementation contract.
-
-Parent program: Atlas Self-Construction OS.
+Status: canonical read-only implementation contract. Parent program: Atlas Self-Construction OS.
 
 Canonical command:
 
@@ -80,12 +82,24 @@ php artisan atlas:ai:self-construction --agent-dispatch-executor-release-authori
 php artisan atlas:ai:self-construction --agent-dispatch-executor-release-authorization-persistence-status --actor=<actor> --session=<session> --json
 php artisan atlas:ai:self-construction --agent-dispatch-executor-receipt-use-writer-contract-template --actor=<actor> --session=<session> --json
 php artisan atlas:ai:self-construction --agent-dispatch-executor-receipt-use-writer-preflight --actor=<actor> --session=<session> --json
+php artisan atlas:ai:self-construction --agent-dispatch-executor-receipt-use-writer-implementation-packet --actor=<actor> --session=<session> --json
+php artisan atlas:ai:self-construction --agent-dispatch-executor-sandbox-binding-contract-template --actor=<actor> --session=<session> --json
+php artisan atlas:ai:self-construction --agent-dispatch-executor-sandbox-binding-preflight --actor=<actor> --session=<session> --json
+php artisan atlas:ai:self-construction --agent-dispatch-executor-sandbox-binding-implementation-packet --actor=<actor> --session=<session> --json
+php artisan atlas:ai:self-construction --agent-dispatch-executor-provider-start-driver-contract-template --actor=<actor> --session=<session> --json
+php artisan atlas:ai:self-construction --agent-dispatch-executor-provider-start-driver-preflight --actor=<actor> --session=<session> --json
+php artisan atlas:ai:self-construction --agent-dispatch-executor-provider-start-driver-implementation-packet --actor=<actor> --session=<session> --json
+php artisan atlas:ai:self-construction --agent-dispatch-executor-adapter-invocation-boundary-contract-template --actor=<actor> --session=<session> --json
+php artisan atlas:ai:self-construction --agent-dispatch-executor-adapter-invocation-boundary-preflight --actor=<actor> --session=<session> --json
+php artisan atlas:ai:self-construction --agent-dispatch-executor-adapter-invocation-boundary-implementation-packet --actor=<actor> --session=<session> --json
+php artisan atlas:ai:self-construction --agent-provider-adapter-registry-contract-template --actor=<actor> --session=<session> --json
+php artisan atlas:ai:self-construction --agent-provider-adapter-registry-preflight --actor=<actor> --session=<session> --json
+php artisan atlas:ai:self-construction --agent-provider-adapter-registry-implementation-packet --actor=<actor> --session=<session> --json
+php artisan atlas:ai:self-construction --agent-{provider-adapter-execution-guard,codex-provider-execution,codex-process-start-release,codex-supervised-start-executor,codex-process-spawn-enablement,codex-process-spawn-executor,codex-external-process-runtime-driver,codex-external-process-invocation-authorization,codex-external-process-invoker-dry-run,codex-real-invoker-release-preflight,codex-signed-real-invoker-release-gate,codex-real-invoker-implementation-boundary}-{contract-template,preflight,implementation-packet} --actor=<actor> --session=<session> --json
 ```
 
 ## Purpose
-
 Atlas Agent Control Plane is the operational layer that lets Atlas coordinate multiple AI implementation sessions without loose chat, duplicated scope or invisible state.
-
 It is not the Self-Programming OS yet. It is the control layer inside Self-Construction OS that projects:
 
 - packet queue state;
@@ -98,48 +112,35 @@ It is not the Self-Programming OS yet. It is the control layer inside Self-Const
 - next runtime slices needed for full automation.
 
 ## Current Capability
-
 The current implementation is a read-only projection backed by existing durable reservation state.
-
 It can:
 
-- show available, claimed, completed and withheld packets;
-- show active provider sessions from claimed reservations;
-- show completed runs from completed reservations;
+- show available, claimed, completed and withheld packets, active provider sessions from claims and completed runs from completed reservations;
 - connect sessions to the Obras Shared Workspace / Forge Workspace;
-- expose liveness from lease expiry;
-- expose persistent runtime schema readiness for agent runs and heartbeats;
-- inspect synced runtime runs for active, stale, expired and terminal liveness without mutating state;
-- record controlled provider/model cost events for synced runs when runtime schema exists;
-- record controlled work products for synced runs when runtime schema exists;
+- expose liveness from lease expiry, persistent runtime schema readiness for agent runs/heartbeats and synced run liveness without mutating state;
+- record controlled provider/model cost events and work products for synced runs when runtime schema exists;
 - expose the provider-neutral adapter invocation contract for Codex, Claude, Gemini and local runtime;
-- project wakeup queue candidates for stale, expired, terminal and review-ready runs;
-- materialize wakeup queue candidates into runtime wakeup items without scheduling jobs;
-- select ready wakeup items for future resume without claiming or dispatching them;
-- claim one ready wakeup item for governed manual/provider resume without dispatching providers or mutating packet state;
-- build a read-only provider dispatch preflight from a claimed wakeup item without starting providers;
-- generate a read-only signed dispatch receipt template without signing or starting providers;
-- validate readiness to persist a future signed dispatch receipt without writing, signing or starting providers;
-- define the durable dispatch receipt schema/model required before signed dispatch can ever be persisted;
+- project, materialize, select and claim wakeup queue items without scheduling jobs, dispatching providers or mutating packet state;
+- build dispatch preflight, signed dispatch receipt template, validation preflight and durable receipt schema/model before signed dispatch persistence;
 - persist a validated signed dispatch receipt without starting providers or dispatching work;
 - verify a signed dispatch receipt is valid for a future executor without starting providers or marking the receipt used;
 - generate the provider dispatch executor contract template that binds receipt, packet, adapter, token policy, atomic receipt use, heartbeat, cost events and work products before any future provider start;
 - verify that executor release remains blocked until persisted signed release authorization status, provider sandbox binding, atomic receipt-use writer and provider start driver exist;
-- generate the read-only executor release authorization template with required signatures, evidence, denial conditions and one-shot execution limits without accepting signatures or approving dispatch;
-- generate the unsigned executor release authorization receipt draft without accepting signatures, persisting authorization, marking receipts used or starting providers;
-- generate the executor release authorization signature request without accepting signatures, validating signatures, persisting authorization or starting providers;
-- generate the post-signature runbook that sequences hash checks, external signature validation, evidence checks, denial conditions and signed receipt template preparation without validating signatures or granting release;
-- generate the signed receipt template shape without accepting signatures, validating signatures, persisting authorization, marking receipts used or starting providers;
-- verify the signed receipt persistence prerequisites without accepting signatures, validating signatures, persisting authorization, marking receipts used or starting providers;
-- generate the signed release authorization persistence template with future storage, idempotency and ledger fields without persisting authorization, marking receipts used, writing ledger events or starting providers;
-- verify the authorization persistence prerequisites for storage, repository, external signature validation, append-only event writer, idempotency and atomic receipt-use writer without persisting authorization or writing ledger events;
-- generate the authorization persistence writer contract template with service interface, required inputs, validations, forbidden behaviors and tests without creating writer files or writing authorization;
-- verify the persistence writer implementation scope, allowed files, first changes, constraints and gates without creating writer files or writing authorization;
-- generate the scoped persistence writer implementation packet with tasks, allowed files, non-goals, acceptance criteria, gates and stop conditions without creating writer files;
+- generate executor release authorization template, receipt draft, signature request, post-signature runbook, signed receipt template/preflight and persistence template/preflight without accepting signatures, persisting authorization, marking receipts used or starting providers;
+- generate authorization persistence writer contract, implementation preflight and implementation packet without creating writer files or writing authorization;
 - persist signed executor release authorizations through the scoped writer service only when called by a future release path, using idempotency, expiry checks, external signature validation report hash, database transaction and append-only ledger event while never starting providers or dispatching work;
 - inspect persisted executor release authorization state, selected receipt hash, expiry, pending release status and storage readiness without marking receipts used, writing ledger events, starting providers or dispatching work;
-- generate the atomic dispatch receipt-use writer contract and preflight so a future executor can mark one signed dispatch receipt used exactly once before provider start, without marking receipts used yet;
+- generate the atomic dispatch receipt-use writer contract, preflight and implementation packet so a future executor can mark one signed dispatch receipt used exactly once before provider start, without marking receipts used yet;
+- mark a signed dispatch receipt used through the scoped receipt-use writer service only when called by a future release path, with row locking, idempotency, expiry checks, packet/provider guards and append-only ledger event while never starting providers or dispatching work;
+- generate the provider sandbox/worktree binding contract, preflight and implementation packet so every future provider start is tied to one receipt, one packet scope, one workspace identity and one non-overlapping worktree before any provider can run;
+- bind a future provider executor to one workspace/worktree through the scoped sandbox binding writer service only when called by a future release path, using one active binding per receipt, workspace-root guards, scope hashes, hot-scope rejection and append-only ledger event while never creating worktrees, marking receipts used or starting providers;
+- generate the provider start driver contract, preflight and implementation packet with mandatory used-receipt, active-binding, run-state, heartbeat, budget and scoped-context guards while never invoking an adapter from the command surface;
+- generate the provider adapter registry contract, preflight and implementation packet so Codex, Claude, Gemini, local shell and HTTP adapters are declared as provider-specific descriptors with process start and token spend disabled by default;
+- generate the provider adapter execution guard contract, preflight and implementation packet so prepared adapter invocations are explicitly blocked until provider-specific execution contracts exist;
+- generate the Codex provider execution, process start release and supervised start executor contract/preflight/packet chain, and prepare a Codex execution envelope through the scoped driver, so the first provider path is Codex-only and still unable to start Codex or spend tokens;
+- prepare the adapter invocation boundary through a scoped service requiring a pre-start guarded run, pre-start heartbeat, explicit context pack hash, explicit continuation summary hash, adapter/command/cwd match and append-only ledger event while never spawning a provider process, calling Codex/Claude/Gemini/local/HTTP adapters or spending tokens;
 - expose continuation commands for the next AI session;
+- expose a read-only checkpoint receipt hash in the readiness digest and continuation token so long-running work can resume from auditable phase/blocker lineage without enabling dispatch;
 - show which Paperclip-style control-plane primitives are absorbed;
 - show what is still missing before provider dispatch can become automatic.
 
@@ -244,6 +245,7 @@ The Control Plane is not complete until these become durable runtime objects:
 - Loose provider-to-provider chat is not source of truth.
 - The control-plane projection does not dispatch agents.
 - The control-plane projection does not enable self-programming.
+- Readiness checkpoint receipts are unsigned, non-authorizing and cannot write ledger events.
 
 ## Operator Flow
 

@@ -10,6 +10,7 @@ use App\Services\AuditLogService;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Schema;
 use RuntimeException;
 use Throwable;
 
@@ -34,6 +35,12 @@ class MobilePushService
             return;
         }
 
+        if (! $this->pushInfrastructureAvailable()) {
+            $this->recordPushUnavailableAudit($item, 'push_infrastructure_unavailable');
+
+            return;
+        }
+
         $devices = AtlasMobileDevice::query()
             ->where('user_id', $item->user_id)
             ->whereNull('revoked_at')
@@ -51,6 +58,12 @@ class MobilePushService
 
     public function dispatchToDevice(AtlasMobileDevice $device, AiInboxItem $item): bool
     {
+        if (! $this->pushInfrastructureAvailable()) {
+            $this->recordPushUnavailableAudit($item, 'push_infrastructure_unavailable');
+
+            return false;
+        }
+
         if ($device->expo_push_token === null) {
             return false;
         }
@@ -510,6 +523,42 @@ class MobilePushService
             ],
             'privacy' => ['sensitivity' => 'private'],
         ]);
+    }
+
+    private function recordPushUnavailableAudit(AiInboxItem $item, string $reason): void
+    {
+        $this->audit->record('push.unavailable', [
+            'subject_type' => 'ai_inbox_item',
+            'subject_id' => $item->id,
+            'actor_type' => 'system',
+            'severity' => 'warning',
+            'summary' => 'Push indisponivel; Inbox item preservado.',
+            'evidence' => [
+                'inbox_item_id' => $item->id,
+                'reason' => $reason,
+                'missing_tables' => $this->missingPushTables(),
+                'type' => $item->type,
+                'category' => $item->category,
+                'severity' => $item->severity,
+            ],
+            'privacy' => ['sensitivity' => 'private'],
+        ]);
+    }
+
+    private function pushInfrastructureAvailable(): bool
+    {
+        return $this->missingPushTables() === [];
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function missingPushTables(): array
+    {
+        return array_values(array_filter([
+            Schema::hasTable('atlas_mobile_devices') ? null : 'atlas_mobile_devices',
+            Schema::hasTable('mobile_push_deliveries') ? null : 'mobile_push_deliveries',
+        ]));
     }
 
     private function createDelivery(AtlasMobileDevice $device, AiInboxItem $item, string $status, array $payload): MobilePushDelivery

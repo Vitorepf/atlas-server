@@ -53,6 +53,23 @@ Every tool definition declares:
 Missing optional binaries produce `missing` or `skipped` with reason. They do not
 silently disappear and do not become mandatory paid dependencies.
 
+## Evidence Persistence Contract
+
+Tool evidence writes are all-or-nothing. `AtlasToolEvidenceStore` requires
+`atlas_tool_definitions`, `atlas_tool_runs`, `atlas_tool_artifacts` and
+`atlas_tool_findings` before recording external tool evidence. If any required
+table is unavailable, it fails closed and writes no partial run, artifact,
+finding or ledger event.
+
+Run, artifact and finding persistence share one transaction. Ledger projection is
+recorded only after the local evidence graph exists, and ledger failures do not
+turn partial evidence into success.
+
+Run metadata includes the tool definition's category, type, execution tier,
+expected cost, default trigger, authority group and authority role. `context`
+metadata may add recipe or execution-origin fields, but it does not create a new
+authority model outside the registry.
+
 ## Policy Contract
 
 `AtlasToolPolicyEngine` emits auditable decisions:

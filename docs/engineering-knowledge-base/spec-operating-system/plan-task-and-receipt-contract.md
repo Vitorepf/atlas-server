@@ -55,6 +55,18 @@ tasks:
     title: Add save button using design-system Button
 ```
 
+## Task Lifecycle Audit
+
+Task orchestration surfaces must preserve a local lifecycle trail before they
+claim progress. Open Brain MCP task tools write `AtlasTaskEvent` records with
+schema `atlas.task_orchestration.event.v1` for `started`, `milestone` and
+`completed` events. If `atlas_tasks` or `atlas_task_events` is unavailable, the
+tool fails closed with no task write.
+
+Lifecycle events must state when they did not execute providers or runtimes.
+Provider dispatch, external runtime execution, merge, approval and policy change
+remain outside the task event contract and require a Decision Receipt.
+
 ## Decision Receipt Fields
 
 SDD receipt must preserve:
@@ -76,4 +88,3 @@ SDD receipt must preserve:
 
 Runtime may edit only what the receipt allows. Any need outside receipt creates
 a new proposal or clarification, not silent scope expansion.
-

@@ -21,6 +21,7 @@ class AtlasHybridMemoryRetrievalService
         private readonly AtlasMemorySourcePrivacyPolicy $sourcePrivacy,
         private readonly AtlasMemoryContextComposer $composer,
         private readonly MemoryRecallInput $input,
+        private readonly AtlasMemoryUsageService $usage,
     ) {}
 
     /**
@@ -46,6 +47,9 @@ class AtlasHybridMemoryRetrievalService
             'memory_recall_budget_chars' => $this->input->budgetChars($options['budget_chars'] ?? null),
             'memory_recall_item_chars' => $this->input->itemChars($options['item_chars'] ?? null),
         ]);
+        $usage = $this->usage->recordRecallUsages($query, $this->publicContext($context), $recall, [
+            'source' => is_scalar($options['requester'] ?? null) ? (string) $options['requester'] : 'atlas_memory_recall',
+        ]);
 
         return [
             'query' => $query,
@@ -55,6 +59,8 @@ class AtlasHybridMemoryRetrievalService
                 'verbatim_candidates' => count($verbatim),
                 'semantic_candidates' => count($semantic),
                 'recall_count' => count($recall),
+                'usage_recorded_count' => $usage['recorded_count'],
+                'usage_audit_id' => $usage['audit_id'],
                 'budget_chars' => collect($recall)->sum(fn (array $item): int => (int) ($item['estimated_chars'] ?? 0)),
                 'policy' => 'provider_safe_only',
             ],
@@ -93,9 +99,16 @@ class AtlasHybridMemoryRetrievalService
                 'importance' => $entry->importance,
                 'priority' => $entry->priority,
                 'confidence' => $entry->confidence,
+                'privacy_class' => $entry->privacy_class,
+                'redaction_status' => $entry->redaction_status,
                 'source_type' => $entry->source_type,
                 'source_id' => $entry->source_id,
+                'source_label' => $entry->source_label,
+                'content_hash' => $entry->content_hash,
                 'recorded_at' => $entry->recorded_at?->toJSON(),
+                'last_used_at' => $entry->last_used_at?->toJSON(),
+                'governance_checked_at' => $entry->governance_checked_at?->toJSON(),
+                'privacy_reviewed_at' => $entry->privacy_reviewed_at?->toJSON(),
                 'reason' => $this->reasonForRegistry($entry, $query),
                 'hybrid_score' => $this->lexicalScore($query, [
                     $entry->title,
@@ -131,9 +144,15 @@ class AtlasHybridMemoryRetrievalService
                 'title' => $memory->title,
                 'summary' => $memory->summary,
                 'snippet' => Str::limit((string) $memory->redacted_text, $this->input->itemChars(), '...'),
+                'privacy_class' => $memory->privacy_class,
+                'redaction_status' => $memory->redaction_status,
                 'source_type' => $memory->source_type,
                 'source_id' => $memory->source_id,
+                'source_label' => $memory->source_label,
+                'content_hash' => $memory->content_hash,
+                'redacted_hash' => $memory->redacted_hash,
                 'recorded_at' => $memory->recorded_at?->toJSON(),
+                'reviewed_at' => $memory->reviewed_at?->toJSON(),
                 'reason' => $query !== '' ? 'recall verbatim provider-safe filtrado por contexto e query' : 'recall verbatim provider-safe por escopo',
                 'hybrid_score' => $this->lexicalScore($query, [
                     $memory->title,
@@ -190,6 +209,16 @@ class AtlasHybridMemoryRetrievalService
             'privacy_class' => $privacy['privacy_class'],
             'external_ai_allowed' => $privacy['external_ai_allowed'],
             'redaction_status' => $privacy['redaction_status'],
+            'source_type' => 'semantic_note',
+            'source_id' => $note->id,
+            'source_label' => $note->path,
+            'content_hash' => is_scalar(data_get($note->metadata, 'content_hash')) ? (string) data_get($note->metadata, 'content_hash') : hash('sha256', implode('|', [
+                (string) $note->path,
+                (string) $note->title,
+                (string) $note->summary,
+                (string) $note->body_excerpt,
+            ])),
+            'recorded_at' => $note->updated_at?->toJSON() ?? $note->created_at?->toJSON(),
         ];
     }
 

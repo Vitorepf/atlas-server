@@ -1824,7 +1824,7 @@ PROMPT;
         $hasImageAttachments = $this->hasImageAttachments($options);
 
         if ($hasImageAttachments && $explicitProvider && ! $this->providerSupportsImageAttachments($provider)) {
-            throw new RuntimeException("Provider {$provider} nao suporta anexos de imagem neste runtime. Use codex_cli ou gemini_cli, ou remova o override manual.");
+            return $this->imageAttachmentFallbackProvider($options);
         }
 
         if ($hasImageAttachments && ! $explicitProvider && ! $this->providerSupportsImageAttachments($provider)) {
@@ -2030,6 +2030,13 @@ PROMPT;
 
         if ($candidateProvider === 'gemini_cli' && $this->geminiBlockedForInvocation($options)) {
             return 'gemini_blocked_for_dev_like_task';
+        }
+
+        if ($this->hasImageAttachments($options)
+            && ! $this->providerSupportsImageAttachments($candidateProvider)
+            && $this->providerSupportsImageAttachments($selectedProvider)
+        ) {
+            return 'image_attachment_provider_fallback';
         }
 
         if ($this->isAutomaticInvocation($options)

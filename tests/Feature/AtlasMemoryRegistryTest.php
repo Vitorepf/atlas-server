@@ -547,6 +547,60 @@ class AtlasMemoryRegistryTest extends TestCase
         $this->assertSame('promoted', $cliDelta->refresh()->status);
     }
 
+    public function test_memory_delta_review_api_accepts_rejects_lists_and_audits(): void
+    {
+        $this->createMemoryDeltaTable();
+        $this->createAuditEventsTable();
+        $accepted = $this->memoryDelta('technical_context', 'pending', 'Aceitar candidato de memoria sem vazar texto cru.');
+        $rejected = $this->memoryDelta('issue', 'pending', 'Rejeitar candidato de memoria com motivo sensivel.');
+
+        $this->getJson('/ai/memory/deltas?status=pending', $this->headers)
+            ->assertOk()
+            ->assertJsonCount(2, 'memory_deltas')
+            ->assertJsonPath('memory_deltas.0.status', 'pending');
+
+        $this->getJson("/ai/memory/deltas/{$accepted->id}", $this->headers)
+            ->assertOk()
+            ->assertJsonPath('memory_delta.id', $accepted->id)
+            ->assertJsonPath('memory_delta.evidence.0.kind', 'test');
+
+        $this->postJson("/ai/memory/deltas/{$accepted->id}/review", [
+            'action' => 'accept',
+            'reviewed_by' => 'feature-test',
+            'reason' => 'Aprovado para promocao manual posterior.',
+        ], $this->headers)
+            ->assertOk()
+            ->assertJsonPath('memory_delta.status', 'accepted')
+            ->assertJsonPath('review_receipt.schema_version', 'atlas.memory_delta.review_receipt.v1')
+            ->assertJsonPath('review_receipt.previous_status', 'pending')
+            ->assertJsonPath('review_receipt.status', 'accepted')
+            ->assertJsonPath('review_receipt.reviewed_by', 'feature-test');
+
+        $this->postJson("/ai/memory/deltas/{$rejected->id}/review", [
+            'action' => 'reject',
+            'reviewed_by' => 'feature-test',
+            'reason' => 'Contem dado privado que nao deve entrar em memoria.',
+        ], $this->headers)
+            ->assertOk()
+            ->assertJsonPath('memory_delta.status', 'rejected');
+
+        $this->assertSame('accepted', $accepted->refresh()->status);
+        $this->assertSame('rejected', $rejected->refresh()->status);
+        $this->assertDatabaseCount('audit_events', 2);
+
+        $event = \DB::table('audit_events')
+            ->where('event_type', 'memory_delta_reviewed')
+            ->where('subject_id', $accepted->id)
+            ->first();
+        $evidence = json_decode($event->evidence, true, flags: JSON_THROW_ON_ERROR);
+        $this->assertSame($accepted->id, $evidence['memory_delta_id']);
+        $this->assertSame('accepted', $evidence['status']);
+        $this->assertArrayHasKey('claim_hash', $evidence);
+        $this->assertArrayHasKey('reason_hash', $evidence);
+        $this->assertArrayNotHasKey('claim', $evidence);
+        $this->assertArrayNotHasKey('reason', $evidence);
+    }
+
     public function test_learning_promotion_promotes_accepted_deltas_and_gates_unreviewed_candidates(): void
     {
         $this->migrateMemoryTable();
@@ -642,6 +696,10 @@ class AtlasMemoryRegistryTest extends TestCase
         ]);
         app(AtlasMemoryGovernanceService::class)->scan(['scope_type' => 'global'], dryRun: false);
         $usage = $this->usage($safe);
+        $usage->forceFill([
+            'source_type' => 'memory_recall',
+            'source_id' => 'recall:test-quality',
+        ])->save();
         app(AtlasMemoryUsageService::class)->recordFeedback($usage, [
             'feedback_action' => 'wrong_context',
             'feedback_score' => 1,
@@ -655,12 +713,17 @@ class AtlasMemoryRegistryTest extends TestCase
         $this->assertSame(1, data_get($scorecard, 'counts.deltas.accepted'));
         $this->assertGreaterThanOrEqual(1, data_get($scorecard, 'counts.relations.open_duplicates'));
         $this->assertSame(1, data_get($scorecard, 'counts.feedback.wrong_context'));
+        $this->assertSame(1, data_get($scorecard, 'counts.retrieval_eval.recall_usage_total'));
+        $this->assertSame(1, data_get($scorecard, 'counts.retrieval_eval.recall_wrong_context_feedback'));
+        $this->assertArrayHasKey('retrieval_eval', $scorecard['components']);
         $this->assertContains('accepted_learning_not_promoted', collect($scorecard['issues'])->pluck('code')->all());
+        $this->assertContains('retrieval_eval_negative_feedback', collect($scorecard['issues'])->pluck('code')->all());
 
         $this->getJson('/ai/memory/quality', $this->headers)
             ->assertOk()
             ->assertJsonPath('memory_quality.counts.deltas.accepted', 1)
-            ->assertJsonPath('memory_quality.counts.feedback.wrong_context', 1);
+            ->assertJsonPath('memory_quality.counts.feedback.wrong_context', 1)
+            ->assertJsonPath('memory_quality.counts.retrieval_eval.recall_usage_total', 1);
 
         $exit = Artisan::call('atlas:memory:quality', [
             '--json' => true,
@@ -1618,6 +1681,18 @@ class AtlasMemoryRegistryTest extends TestCase
         $this->assertSame($canonical->id, data_get($recall, '0.source_ref_id'));
         $this->assertSame($verbatim->id, data_get($recall, '1.source_ref_id'));
         $this->assertSame($semantic->id, data_get($recall, '2.source_ref_id'));
+        $this->assertSame('atlas_memory_entry', data_get($recall, '0.lineage.source_ref_type'));
+        $this->assertSame('manual', data_get($recall, '0.lineage.origin_type'));
+        $this->assertSame($canonical->content_hash, data_get($recall, '0.lineage.content_hash'));
+        $this->assertSame('fresh', data_get($recall, '0.freshness.status'));
+        $this->assertTrue(data_get($recall, '0.audit.provider_safe'));
+        $this->assertSame('normal', data_get($recall, '0.audit.privacy_class'));
+        $this->assertSame('atlas.memory.recall_audit.v1', data_get($recall, '0.audit_trail.schema_version'));
+        $this->assertSame($canonical->content_hash, data_get($recall, '0.audit_trail.content_hash'));
+        $this->assertSame('atlas_verbatim_memory', data_get($recall, '1.lineage.source_ref_type'));
+        $this->assertSame($verbatim->content_hash, data_get($recall, '1.lineage.content_hash'));
+        $this->assertSame('semantic_note', data_get($recall, '2.lineage.source_ref_type'));
+        $this->assertNotEmpty(data_get($recall, '2.lineage.content_hash'));
         $this->assertNotContains($lowPriority->id, collect($recall)->pluck('source_ref_id')->all());
         $this->assertNotContains($blockedSemantic->id, collect($recall)->pluck('source_ref_id')->all());
         $this->assertLessThanOrEqual(320, collect($recall)->sum('estimated_chars'));
@@ -1631,10 +1706,11 @@ class AtlasMemoryRegistryTest extends TestCase
     public function test_hybrid_memory_recall_api_and_cli_respect_provider_safety(): void
     {
         $this->migrateMemoryTable();
+        $this->migrateMemoryUsageTable();
         $this->migrateVerbatimMemoryTable();
         [$project, $task] = $this->fixtures();
 
-        app(AtlasMemoryRegistryService::class)->record([
+        $memory = app(AtlasMemoryRegistryService::class)->record([
             'memory_type' => 'decision',
             'scope_type' => 'task',
             'project_id' => $project->id,
@@ -1682,13 +1758,19 @@ class AtlasMemoryRegistryTest extends TestCase
             ],
         ], $this->headers)
             ->assertOk()
-            ->assertJsonPath('memory_recall.summary.policy', 'provider_safe_only');
+            ->assertJsonPath('memory_recall.summary.policy', 'provider_safe_only')
+            ->assertJsonPath('memory_recall.recall.0.audit.provider_safe', true)
+            ->assertJsonPath('memory_recall.summary.usage_recorded_count', 1);
 
         $recallText = json_encode(data_get($response->json(), 'memory_recall.recall'), JSON_UNESCAPED_UNICODE);
         $this->assertIsString($recallText);
         $this->assertStringContainsString('Recall safe architecture', $recallText);
         $this->assertStringContainsString('Exact recall evidence', $recallText);
+        $this->assertStringContainsString('lineage', $recallText);
+        $this->assertStringContainsString('freshness', $recallText);
         $this->assertStringNotContainsString('abcdefghijklmno', $recallText);
+        $this->assertSame(1, AtlasMemoryEntryUsage::query()->where('source_type', 'memory_recall')->count());
+        $this->assertNotNull($memory->refresh()->last_used_at);
 
         $exit = Artisan::call('atlas:memory:recall', [
             'query' => ['hybrid', 'provider-safe', 'recall'],
@@ -1700,6 +1782,10 @@ class AtlasMemoryRegistryTest extends TestCase
 
         $this->assertSame(0, $exit);
         $this->assertGreaterThanOrEqual(1, data_get($payload, 'memory_recall.summary.recall_count'));
+        $this->assertSame(1, data_get($payload, 'memory_recall.summary.usage_recorded_count'));
+        $this->assertSame('atlas_memory_entry', data_get($payload, 'memory_recall.recall.0.lineage.source_ref_type'));
+        $this->assertSame(2, AtlasMemoryEntryUsage::query()->where('source_type', 'memory_recall')->count());
+        $this->assertSame('atlas_hybrid_memory_retrieval', AtlasMemoryEntryUsage::query()->latest('created_at')->first()?->metadata['created_by'] ?? null);
         $this->assertStringNotContainsString('abcdefghijklmno', Artisan::output());
     }
 
@@ -3039,6 +3125,26 @@ class AtlasMemoryRegistryTest extends TestCase
         });
     }
 
+    private function createAuditEventsTable(): void
+    {
+        Schema::create('audit_events', function (Blueprint $table): void {
+            $table->uuid('id')->primary();
+            $table->string('event_type');
+            $table->string('subject_type')->nullable();
+            $table->uuid('subject_id')->nullable();
+            $table->string('actor_type')->default('system');
+            $table->string('actor_id')->nullable();
+            $table->string('severity')->default('info');
+            $table->text('summary');
+            $table->json('evidence')->default('{}');
+            $table->json('privacy')->default('{}');
+            $table->json('refs')->default('{}');
+            $table->json('metadata')->default('{}');
+            $table->timestamp('occurred_at')->useCurrent();
+            $table->timestamps();
+        });
+    }
+
     private function memoryDelta(string $type, string $status, string $claim): AiMemoryDelta
     {
         return AiMemoryDelta::query()->create([
@@ -3232,6 +3338,7 @@ class AtlasMemoryRegistryTest extends TestCase
             'atlas_memory_entry_usages',
             'atlas_memory_entry_relations',
             'ai_memory_deltas',
+            'audit_events',
             'atlas_memory_entries',
             'atlas_engineering_runs',
             'atlas_tasks',

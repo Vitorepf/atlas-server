@@ -30,6 +30,7 @@ use App\Services\Ai\SelfImprovement\AtlasSelfImprovementScheduleService;
 use App\Services\Engineering\EngineeringCodeIntelligenceService;
 use App\Services\Engineering\EngineeringKnowledgeBaseService;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Symfony\Component\Process\Process;
 use Throwable;
@@ -169,7 +170,7 @@ class AtlasOpenBrainMcpService
                 'inputSchema' => [
                     'type' => 'object',
                     'properties' => [
-                        'memory_type' => ['type' => 'string', 'description' => 'Tipo: decision, technical_context, harness_learning, preference, feedback, issue, resolution, benchmark_observation.'],
+                        'memory_type' => ['type' => 'string', 'description' => 'Tipo: decision, technical_context, harness_learning, preference, feedback, issue, resolution, benchmark_observation, anti_memory, strategic_insight.'],
                         'scope_type' => ['type' => 'string', 'description' => 'Scope: global, project, task, engineering_run, workspace, user, session.'],
                         'scope_id' => ['type' => 'string', 'description' => 'ID do scope (ex: project slug, task UUID). Omit para scope global.'],
                         'title' => ['type' => 'string', 'description' => 'Título curto da entry (até 200 chars).'],
@@ -1860,28 +1861,47 @@ class AtlasOpenBrainMcpService
      */
     private function taskStart(array $arguments): array
     {
+        if (! $this->taskOrchestrationAvailable()) {
+            return $this->taskOrchestrationUnavailable('atlas_task_start');
+        }
+
         $title = $this->string($arguments['title'] ?? null);
         if ($title === null) {
             return ['ok' => false, 'tool' => 'atlas_task_start', 'error' => 'title_required'];
         }
 
-        $task = AtlasTask::create([
-            'title' => $title,
-            'description' => $this->string($arguments['objective'] ?? null),
-            'status' => 'open',
-            'domain' => $this->string($arguments['domain'] ?? null) ?: 'dev',
-            'project_id' => $this->string($arguments['project_id'] ?? null),
-            'metadata' => array_merge(
-                $this->object($arguments['metadata'] ?? []),
-                ['workspace' => $this->workspace($arguments['workspace'] ?? null), 'source' => 'mcp_tool'],
-            ),
-        ]);
+        $workspace = $this->workspace($arguments['workspace'] ?? null);
+        $task = DB::transaction(function () use ($arguments, $title, $workspace): AtlasTask {
+            $task = AtlasTask::create([
+                'title' => $title,
+                'description' => $this->string($arguments['objective'] ?? null),
+                'status' => 'open',
+                'domain' => $this->string($arguments['domain'] ?? null) ?: 'dev',
+                'project_id' => $this->string($arguments['project_id'] ?? null),
+                'metadata' => array_merge(
+                    $this->object($arguments['metadata'] ?? []),
+                    ['workspace' => $workspace, 'source' => 'mcp_tool'],
+                ),
+            ]);
+
+            $this->recordTaskLifecycleEvent($task, 'started', [
+                'title' => $task->title,
+                'objective_present' => $task->description !== null && trim((string) $task->description) !== '',
+                'workspace_hash' => $workspace ? hash('sha256', $workspace) : null,
+                'project_id' => $task->project_id,
+                'no_provider_execution' => true,
+                'no_runtime_execution' => true,
+            ]);
+
+            return $task;
+        });
 
         return [
             'ok' => true,
             'tool' => 'atlas_task_start',
             'task_id' => (string) $task->id,
             'status' => $task->status,
+            'event_type' => 'started',
             'created_at' => $task->created_at?->toJSON(),
         ];
     }
@@ -1892,6 +1912,10 @@ class AtlasOpenBrainMcpService
      */
     private function taskProgress(array $arguments): array
     {
+        if (! $this->taskOrchestrationAvailable()) {
+            return $this->taskOrchestrationUnavailable('atlas_task_progress');
+        }
+
         $taskId = $this->string($arguments['task_id'] ?? null);
         $milestone = $this->string($arguments['milestone'] ?? null);
 
@@ -1904,17 +1928,15 @@ class AtlasOpenBrainMcpService
             return ['ok' => false, 'tool' => 'atlas_task_progress', 'error' => 'task_not_found'];
         }
 
-        $event = AtlasTaskEvent::create([
-            'task_id' => $taskId,
-            'event_type' => 'milestone',
-            'source' => 'mcp_tool',
-            'payload' => [
+        $event = DB::transaction(function () use ($arguments, $task, $milestone): AtlasTaskEvent {
+            return $this->recordTaskLifecycleEvent($task, 'milestone', [
                 'milestone' => $milestone,
                 'details' => $this->string($arguments['details'] ?? null),
-                'progress_pct' => isset($arguments['progress_pct']) ? (int) $arguments['progress_pct'] : null,
-            ],
-            'occurred_at' => now(),
-        ]);
+                'progress_pct' => isset($arguments['progress_pct']) ? max(0, min(100, (int) $arguments['progress_pct'])) : null,
+                'no_provider_execution' => true,
+                'no_runtime_execution' => true,
+            ]);
+        });
 
         return [
             'ok' => true,
@@ -1932,6 +1954,10 @@ class AtlasOpenBrainMcpService
      */
     private function taskComplete(array $arguments): array
     {
+        if (! $this->taskOrchestrationAvailable()) {
+            return $this->taskOrchestrationUnavailable('atlas_task_complete');
+        }
+
         $taskId = $this->string($arguments['task_id'] ?? null);
         if ($taskId === null) {
             return ['ok' => false, 'tool' => 'atlas_task_complete', 'error' => 'task_id_required'];
@@ -1942,23 +1968,23 @@ class AtlasOpenBrainMcpService
             return ['ok' => false, 'tool' => 'atlas_task_complete', 'error' => 'task_not_found'];
         }
 
-        $task->update([
-            'status' => 'done',
-            'completed_at' => now(),
-        ]);
+        $event = DB::transaction(function () use ($arguments, $task): AtlasTaskEvent {
+            $task->update([
+                'status' => 'done',
+                'completed_at' => now(),
+            ]);
 
-        $event = AtlasTaskEvent::create([
-            'task_id' => $taskId,
-            'event_type' => 'completed',
-            'source' => 'mcp_tool',
-            'payload' => [
+            return $this->recordTaskLifecycleEvent($task, 'completed', [
                 'summary' => $this->string($arguments['summary'] ?? null),
-                'files_changed' => is_array($arguments['files_changed'] ?? null) ? $arguments['files_changed'] : [],
+                'files_changed' => is_array($arguments['files_changed'] ?? null) ? $this->stringList($arguments['files_changed']) : [],
                 'outcome' => $this->string($arguments['outcome'] ?? null) ?: 'success',
-                'memory_entry_ids' => is_array($arguments['memory_entry_ids'] ?? null) ? $arguments['memory_entry_ids'] : [],
-            ],
-            'occurred_at' => now(),
-        ]);
+                'memory_entry_ids' => is_array($arguments['memory_entry_ids'] ?? null) ? $this->stringList($arguments['memory_entry_ids']) : [],
+                'no_provider_execution' => true,
+                'no_runtime_execution' => true,
+            ]);
+        });
+
+        $task->refresh();
 
         return [
             'ok' => true,
@@ -1968,6 +1994,46 @@ class AtlasOpenBrainMcpService
             'event_id' => (string) $event->id,
             'completed_at' => $task->completed_at?->toJSON(),
         ];
+    }
+
+    private function taskOrchestrationAvailable(): bool
+    {
+        return Schema::hasTable('atlas_tasks') && Schema::hasTable('atlas_task_events');
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function taskOrchestrationUnavailable(string $tool): array
+    {
+        return [
+            'ok' => false,
+            'tool' => $tool,
+            'error' => 'task_orchestration_unavailable',
+            'missing_tables' => array_values(array_filter([
+                Schema::hasTable('atlas_tasks') ? null : 'atlas_tasks',
+                Schema::hasTable('atlas_task_events') ? null : 'atlas_task_events',
+            ])),
+            'writes' => false,
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     */
+    private function recordTaskLifecycleEvent(AtlasTask $task, string $eventType, array $payload): AtlasTaskEvent
+    {
+        return AtlasTaskEvent::create([
+            'task_id' => (string) $task->id,
+            'event_type' => $eventType,
+            'source' => 'mcp_tool',
+            'payload' => [
+                'schema_version' => 'atlas.task_orchestration.event.v1',
+                'tool' => 'atlas_open_brain_mcp',
+                ...$payload,
+            ],
+            'occurred_at' => now(),
+        ]);
     }
 
     /**
@@ -2383,7 +2449,7 @@ class AtlasOpenBrainMcpService
             $actions[] = './bin/atlas engineering knowledge sync --prune --json';
         }
         if (($code['status'] ?? null) !== 'ready' || ($codeAudit !== null && ($codeAudit['status'] ?? null) !== 'fresh')) {
-            $actions[] = './bin/atlas engineering knowledge index-code --prune'.$workspaceArg.' --json';
+            $actions[] = './bin/atlas engineering knowledge index-code --prune'.$workspaceArg.' --summary-only --json';
         }
         if (($projection['status'] ?? null) !== 'passed') {
             $actions[] = './bin/atlas memory projection review --target=all'.$workspaceArg.' --json';

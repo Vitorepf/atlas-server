@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Jobs\ProcessAudioTranscription;
 use App\Models\Capture;
 use App\Models\TranscriptionJob;
+use App\Services\Ai\AiMemoryDeltaProposer;
 use App\Services\Semantic\ActivationEngine;
 use App\Services\Semantic\CaptureSemanticClarifier;
 use App\Services\Semantic\CurationProposalService;
@@ -26,6 +27,7 @@ class CaptureService
         private readonly CaptureSemanticClarifier $clarifier,
         private readonly CurationProposalService $curation,
         private readonly ActivationEngine $activations,
+        private readonly AiMemoryDeltaProposer $memoryDeltas,
     ) {}
 
     public function create(array $data, ?UploadedFile $file = null): array
@@ -51,7 +53,12 @@ class CaptureService
 
             $result = DB::transaction(function () use ($data, $storedFile): array {
                 $domain = $data['domain'] ?? app(AtlasDomainRegistry::class)->defaultSlug();
-                $metadata = $this->privacy->normalizeMetadata($data['metadata'] ?? [], $domain, $data['kind']);
+                $metadata = $this->withCognitiveQuarantine(
+                    $this->privacy->normalizeMetadata($data['metadata'] ?? [], $domain, $data['kind']),
+                    $data,
+                    $storedFile,
+                    $domain,
+                );
                 $capture = Capture::create([
                     'client_id' => $data['client_id'],
                     'kind' => $data['kind'],
@@ -97,9 +104,10 @@ class CaptureService
                     'evidence' => [
                         'kind' => $capture->kind,
                         'domain' => $capture->domain,
-                        'content_text' => $capture->content_text,
+                        'content_text' => $this->redactedCaptureTextEvidence($capture->content_text),
                         'transcription_status' => $capture->transcription_status,
                         'content_file_path' => $capture->content_file_path,
+                        'cognitive_quarantine' => data_get($capture->metadata, 'cognitive_quarantine'),
                     ],
                     'privacy' => $this->capturePrivacy($capture),
                     'refs' => [
@@ -130,10 +138,22 @@ class CaptureService
             ? $data['metadata']
             : ($capture->metadata ?? []);
 
-        $data['metadata'] = Metadata::forStorage($this->privacy->normalizeMetadata(
-            is_array($metadata) ? $metadata : [],
+        $data['metadata'] = Metadata::forStorage($this->withCognitiveQuarantine(
+            $this->privacy->normalizeMetadata(
+                is_array($metadata) ? $metadata : [],
+                $domain,
+                $kind,
+            ),
+            [
+                ...$data,
+                'client_id' => $capture->client_id,
+                'kind' => $kind,
+                'content_text' => $data['content_text'] ?? $capture->content_text,
+                'content_sha256' => $data['content_sha256'] ?? $capture->content_sha256,
+                'captured_at' => $data['captured_at'] ?? $capture->captured_at?->toJSON(),
+            ],
+            null,
             $domain,
-            $kind,
         ));
 
         $capture->update($data);
@@ -150,7 +170,8 @@ class CaptureService
             'evidence' => [
                 'changed_fields' => array_keys($data),
                 'domain' => $capture->domain,
-                'content_text' => $capture->content_text,
+                'content_text' => $this->redactedCaptureTextEvidence($capture->content_text),
+                'cognitive_quarantine' => data_get($capture->metadata, 'cognitive_quarantine'),
             ],
             'privacy' => $this->capturePrivacy($capture),
             'refs' => [
@@ -160,6 +181,86 @@ class CaptureService
         ]);
 
         return $capture;
+    }
+
+    /**
+     * @param  array<string,mixed>  $metadata
+     * @param  array<string,mixed>  $data
+     * @param  array<string,mixed>|null  $storedFile
+     * @return array<string,mixed>
+     */
+    private function withCognitiveQuarantine(array $metadata, array $data, ?array $storedFile, string $domain): array
+    {
+        $existing = is_array($metadata['cognitive_quarantine'] ?? null) ? $metadata['cognitive_quarantine'] : [];
+        $contentHash = $this->captureContentHash($data, $storedFile);
+        $now = now()->toJSON();
+
+        return [
+            ...$metadata,
+            'cognitive_quarantine' => [
+                ...$existing,
+                'schema_version' => 'atlas.capture.cognitive_quarantine.v1',
+                'raw_capture' => true,
+                'memory_eligible' => false,
+                'context_eligible' => false,
+                'constellation_eligible' => false,
+                'embedding_allowed' => false,
+                'promotion_status' => $existing['promotion_status'] ?? 'unclassified',
+                'promotion_target' => $existing['promotion_target'] ?? null,
+                'source_type' => 'capture',
+                'source_client_id' => is_scalar($data['client_id'] ?? null) ? (string) $data['client_id'] : null,
+                'source_kind' => is_scalar($data['kind'] ?? null) ? (string) $data['kind'] : null,
+                'source_domain' => $domain,
+                'content_hash' => $contentHash,
+                'lineage' => [
+                    'origin' => 'capture_pipeline',
+                    'captured_at' => is_scalar($data['captured_at'] ?? null) ? (string) $data['captured_at'] : null,
+                    'content_hash' => $contentHash,
+                ],
+                'review' => [
+                    'required' => true,
+                    'status' => $existing['review']['status'] ?? 'pending',
+                    'reason' => 'raw_capture_quarantined_before_memory_or_context',
+                ],
+                'updated_at' => $now,
+                'created_at' => $existing['created_at'] ?? $now,
+            ],
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $data
+     * @param  array<string,mixed>|null  $storedFile
+     */
+    private function captureContentHash(array $data, ?array $storedFile): ?string
+    {
+        if (is_scalar($storedFile['sha256'] ?? null)) {
+            return (string) $storedFile['sha256'];
+        }
+
+        if (is_scalar($data['content_sha256'] ?? null)) {
+            return (string) $data['content_sha256'];
+        }
+
+        if (is_scalar($data['content_text'] ?? null) && trim((string) $data['content_text']) !== '') {
+            return hash('sha256', (string) $data['content_text']);
+        }
+
+        return null;
+    }
+
+    /**
+     * @return array{redacted:bool,sha256:?string,present:bool}
+     */
+    private function redactedCaptureTextEvidence(?string $content): array
+    {
+        $present = is_string($content) && $content !== '';
+
+        return [
+            'redacted' => true,
+            'sha256' => $present ? hash('sha256', $content) : null,
+            'present' => $present,
+        ];
     }
 
     public function retryTranscription(Capture $capture): Capture
@@ -247,6 +348,11 @@ class CaptureService
                         ],
                     ]);
                 }
+
+                $delta = $this->memoryDeltas->proposeForCapture($capture->refresh(), [
+                    'proposal_id' => $proposal?->id,
+                    'memory_type' => $action === 'create_hypothesis' ? 'technical_context' : null,
+                ]);
             }
 
             $metadata = $capture->metadata;
@@ -268,6 +374,7 @@ class CaptureService
                 'at' => now()->toJSON(),
                 'reason' => $data['reason'] ?? null,
                 'proposal_id' => $proposal?->id,
+                'memory_delta_id' => isset($delta) ? $delta?->id : null,
                 'target_type' => $destination['target_type'],
                 'target_id' => $destination['target_id'],
                 'target_title' => $destination['target_title'],
@@ -284,6 +391,10 @@ class CaptureService
             }
 
             $metadata['triage'] = $triage;
+            if (isset($delta) && $delta) {
+                $metadata['triage']['memory_delta_id'] = $delta->id;
+                $metadata['triage']['memory_delta_status'] = $delta->status;
+            }
             $metadata['triage_history'] = array_slice([
                 $historyEntry,
                 ...$history,
@@ -301,6 +412,7 @@ class CaptureService
                     'action' => $action,
                     'triage' => $triage,
                     'proposal_id' => $proposal?->id,
+                    'memory_delta_id' => isset($delta) ? $delta?->id : null,
                     'target_type' => $destination['target_type'],
                     'target_id' => $destination['target_id'],
                     'previous_destination' => $previousDestination,
@@ -446,10 +558,56 @@ class CaptureService
     {
         $capture = $this->clarifier->handleReady($capture, $source);
         $proposal = $this->curation->createFromCapture($capture);
+        $this->attachSemanticCurationReview($capture, $source, $proposal?->id, $proposal?->status);
 
         $this->activateForCapture($capture, $source, $proposal?->id);
 
         return $capture->refresh();
+    }
+
+    private function attachSemanticCurationReview(Capture $capture, string $source, ?string $proposalId, ?string $proposalStatus): void
+    {
+        if (! $proposalId) {
+            return;
+        }
+
+        $metadata = is_array($capture->metadata) ? $capture->metadata : [];
+        $cognitiveQuarantine = is_array($metadata['cognitive_quarantine'] ?? null)
+            ? $metadata['cognitive_quarantine']
+            : [];
+        $review = is_array($cognitiveQuarantine['review'] ?? null)
+            ? $cognitiveQuarantine['review']
+            : [];
+
+        $metadata['semantic_curation'] = [
+            'schema_version' => 'atlas.capture.semantic_curation_review.v1',
+            'status' => 'proposal_pending',
+            'source' => $source,
+            'proposal_id' => $proposalId,
+            'proposal_status' => $proposalStatus ?? 'pending',
+            'human_gate' => 'ratify_or_dismiss',
+            'next_action' => 'ratify_proposal',
+            'updated_at' => now()->toJSON(),
+        ];
+        $metadata['cognitive_quarantine'] = [
+            ...$cognitiveQuarantine,
+            'promotion_status' => 'proposal_pending',
+            'proposal' => [
+                'proposal_id' => $proposalId,
+                'proposal_status' => $proposalStatus ?? 'pending',
+            ],
+            'review' => [
+                ...$review,
+                'required' => true,
+                'status' => 'pending',
+                'reason' => 'semantic_curation_proposal_requires_operator_review',
+            ],
+            'updated_at' => now()->toJSON(),
+        ];
+
+        $capture->update([
+            'metadata' => Metadata::forStorage($metadata),
+        ]);
     }
 
     private function activateForCapture(Capture $capture, string $source, ?string $proposalId): void

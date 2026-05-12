@@ -7,6 +7,7 @@ use App\Services\Ai\AtlasMemorySourcePrivacyPolicy;
 use App\Support\Metadata;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class SemanticNoteIndexer
@@ -122,7 +123,9 @@ class SemanticNoteIndexer
                 }
             }
 
-            DB::update('UPDATE semantic_notes SET embedding = ?::vector WHERE id = ?', [$embedding, $existing->id]);
+            if (Schema::hasColumn('semantic_notes', 'embedding')) {
+                DB::update('UPDATE semantic_notes SET embedding = ?::vector WHERE id = ?', [$embedding, $existing->id]);
+            }
         });
 
         return ['note' => $existing->refresh(), 'created' => $created, 'updated' => $updated || ! $created, 'skipped' => false];

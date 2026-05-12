@@ -72,6 +72,8 @@ class AtlasAiInboxActionReportCommand extends Command
         $this->components->twoColumnDetail('Review signal', (string) data_get($actions, 'review_signal.status', 'unknown'));
         $this->components->twoColumnDetail('Review severity', (string) data_get($actions, 'review_signal.severity', 'unknown'));
         $this->components->twoColumnDetail('Recommended action', (string) data_get($actions, 'review_signal.recommended_action', 'none'));
+        $this->renderRetrievalShadowScopeSummary($actions);
+        $this->renderRetrievalRegressionSummary($actions);
         $this->renderProviderCostRateSummary($actions);
 
         $actionRows = collect((array) ($actions['action_counts'] ?? []))
@@ -106,6 +108,74 @@ class AtlasAiInboxActionReportCommand extends Command
         }
 
         return ($payload['status'] ?? null) === 'ok' ? self::SUCCESS : self::FAILURE;
+    }
+
+    /**
+     * @param  array<string,mixed>  $actions
+     */
+    private function renderRetrievalShadowScopeSummary(array $actions): void
+    {
+        $actionCount = (int) ($actions['retrieval_shadow_scope_review_count'] ?? 0);
+        if ($actionCount < 1) {
+            return;
+        }
+
+        $this->newLine();
+        $reviewedCount = (int) ($actions['retrieval_shadow_scope_reviewed_count'] ?? 0);
+        $receiptCount = (int) ($actions['retrieval_shadow_scope_decision_receipt_count'] ?? 0);
+        $runtimeAllowedCount = (int) ($actions['retrieval_shadow_scope_runtime_allowed_count'] ?? 0);
+        $status = $reviewedCount === $actionCount && $receiptCount === $actionCount && $runtimeAllowedCount === 0
+            ? 'reviewed'
+            : 'needs review';
+
+        $this->components->twoColumnDetail('<fg=bright-blue;options=bold>Memory Retrieval Shadow Scope Reviews</>', $status);
+        $this->components->twoColumnDetail('Retrieval shadow-scope reviews', (string) $actionCount);
+        $this->components->twoColumnDetail('Reviewed shadow scopes', (string) $reviewedCount);
+        $this->components->twoColumnDetail('Shadow-scope decision receipts', (string) $receiptCount);
+        $this->components->twoColumnDetail('Shadow execution allowed now', (string) $runtimeAllowedCount);
+        $this->components->twoColumnDetail('Shadow-scope completion', $reviewedCount.'/'.$actionCount.' reviewed, '.$receiptCount.'/'.$actionCount.' receipted');
+        $this->components->twoColumnDetail('Shadow-scope decisions', json_encode($actions['retrieval_shadow_scope_decision_counts'] ?? [], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
+        $this->components->twoColumnDetail('Shadow-scope review signal', (string) data_get($actions, 'review_signal.status', 'unknown'));
+        $this->components->twoColumnDetail('Shadow-scope review severity', (string) data_get($actions, 'review_signal.severity', 'unknown'));
+        $this->components->twoColumnDetail('Shadow-scope recommended action', (string) data_get($actions, 'review_signal.recommended_action', 'none'));
+        $this->components->twoColumnDetail('Shadow-scope review reasons', implode(', ', (array) data_get($actions, 'review_signal.reasons', [])) ?: 'none');
+
+        $eventRows = $this->retrievalShadowScopeEventRows((array) ($actions['recent_events'] ?? []));
+        $this->components->twoColumnDetail('Retrieval shadow-scope events', (string) count($eventRows));
+        if ($eventRows !== []) {
+            $this->table(['decision', 'reviewed', 'receipt hash', 'plan hash', 'review ap', 'runtime allowed', 'no provider', 'no policy', 'item'], $eventRows);
+        }
+    }
+
+    /**
+     * @param  array<string,mixed>  $actions
+     */
+    private function renderRetrievalRegressionSummary(array $actions): void
+    {
+        $actionCount = (int) ($actions['retrieval_regression_review_count'] ?? 0);
+        if ($actionCount < 1) {
+            return;
+        }
+
+        $this->newLine();
+        $reviewedCount = (int) ($actions['retrieval_regression_reviewed_count'] ?? 0);
+        $status = $reviewedCount === $actionCount ? 'reviewed' : 'needs review';
+
+        $this->components->twoColumnDetail('<fg=bright-blue;options=bold>Memory Retrieval Regression Reviews</>', $status);
+        $this->components->twoColumnDetail('Retrieval regression reviews', (string) $actionCount);
+        $this->components->twoColumnDetail('Reviewed retrieval regressions', (string) $reviewedCount);
+        $this->components->twoColumnDetail('Retrieval regression completion', $reviewedCount.'/'.$actionCount.' reviewed');
+        $this->components->twoColumnDetail('Retrieval regression decisions', json_encode($actions['retrieval_regression_decision_counts'] ?? [], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
+        $this->components->twoColumnDetail('Retrieval review signal', (string) data_get($actions, 'review_signal.status', 'unknown'));
+        $this->components->twoColumnDetail('Retrieval review severity', (string) data_get($actions, 'review_signal.severity', 'unknown'));
+        $this->components->twoColumnDetail('Retrieval recommended action', (string) data_get($actions, 'review_signal.recommended_action', 'none'));
+        $this->components->twoColumnDetail('Retrieval review reasons', implode(', ', (array) data_get($actions, 'review_signal.reasons', [])) ?: 'none');
+
+        $eventRows = $this->retrievalRegressionEventRows((array) ($actions['recent_events'] ?? []));
+        $this->components->twoColumnDetail('Retrieval regression events', (string) count($eventRows));
+        if ($eventRows !== []) {
+            $this->table(['decision', 'reviewed', 'report hash', 'latest snapshot', 'previous snapshot', 'no external', 'no runtime', 'no policy', 'item'], $eventRows);
+        }
     }
 
     /**
@@ -160,6 +230,54 @@ class AtlasAiInboxActionReportCommand extends Command
     {
         return collect($counts)
             ->map(fn (int $count, string $name): array => [$name, $count])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $events
+     * @return array<int,array<int,mixed>>
+     */
+    private function retrievalRegressionEventRows(array $events): array
+    {
+        return collect($events)
+            ->filter(fn (array $event): bool => ($event['action'] ?? null) === 'review_retrieval_regression'
+                || ($event['retrieval_regression_review_schema_version'] ?? null) !== null)
+            ->map(fn (array $event): array => [
+                $event['retrieval_regression_decision'] ?? '-',
+                $this->yesNo((bool) ($event['retrieval_regression_reviewed'] ?? false)),
+                $event['retrieval_regression_report_hash'] ?? '-',
+                $event['retrieval_regression_latest_snapshot_hash'] ?? '-',
+                $event['retrieval_regression_previous_snapshot_hash'] ?? '-',
+                $this->yesNo((bool) ($event['retrieval_regression_no_external_action'] ?? false)),
+                $this->yesNo((bool) ($event['retrieval_regression_no_runtime_execution'] ?? false)),
+                $this->yesNo((bool) ($event['retrieval_regression_no_policy_patch'] ?? false)),
+                $event['inbox_item_id'] ?? '-',
+            ])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $events
+     * @return array<int,array<int,mixed>>
+     */
+    private function retrievalShadowScopeEventRows(array $events): array
+    {
+        return collect($events)
+            ->filter(fn (array $event): bool => ($event['action'] ?? null) === 'review_retrieval_shadow_scope'
+                || ($event['retrieval_shadow_scope_review_schema_version'] ?? null) !== null)
+            ->map(fn (array $event): array => [
+                $event['retrieval_shadow_scope_decision'] ?? '-',
+                $this->yesNo((bool) ($event['retrieval_shadow_scope_reviewed'] ?? false)),
+                $event['retrieval_shadow_scope_decision_receipt_hash'] ?? '-',
+                $event['retrieval_shadow_scope_plan_hash'] ?? '-',
+                $event['retrieval_shadow_scope_review_ap'] ?? '-',
+                $this->yesNo((bool) ($event['retrieval_shadow_scope_shadow_execution_allowed_now'] ?? false)),
+                $this->yesNo((bool) ($event['retrieval_shadow_scope_no_provider_call'] ?? false)),
+                $this->yesNo((bool) ($event['retrieval_shadow_scope_no_policy_patch'] ?? false)),
+                $event['inbox_item_id'] ?? '-',
+            ])
             ->values()
             ->all();
     }

@@ -55,6 +55,7 @@ class AtlasEngineeringKnowledgeBaseTest extends TestCase
         $exitCode = Artisan::call('atlas:engineering:knowledge', [
             'action' => 'list',
             '--category' => 'architecture',
+            '--q' => 'overview',
             '--json' => true,
         ]);
         $listPayload = json_decode(Artisan::output(), true);
@@ -124,6 +125,7 @@ class AtlasEngineeringKnowledgeBaseTest extends TestCase
         $this->assertSame(0, $exitCode);
         $this->assertSame('ok', data_get($payload, 'status'));
         $this->assertSame(0, data_get($payload, 'summary.required_missing_count'));
+        $this->assertSame(0, data_get($payload, 'summary.oversized_count'));
         $this->assertSame(0, data_get($payload, 'summary.frontmatter_violation_count'));
         $this->assertContains(
             'docs/engineering-knowledge-base/atlas-ai-session-bootstrap.md',
@@ -141,16 +143,13 @@ class AtlasEngineeringKnowledgeBaseTest extends TestCase
             'docs/engineering-knowledge-base/atlas-ai-qualitative-levels-roadmap.md',
             collect(data_get($payload, 'required_docs', []))->pluck('path')->all(),
         );
-        $this->assertContains(
-            'docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md',
-            collect(data_get($payload, 'oversized_docs', []))->pluck('path')->all(),
-        );
+        $this->assertSame([], data_get($payload, 'oversized_docs', []));
     }
 
     public function test_canonical_docs_link_ap146_provider_cost_rate_replay_contract(): void
     {
         $startHere = File::get(base_path('docs/engineering-knowledge-base/START_HERE.md'));
-        $canonicalIndex = File::get(base_path('docs/engineering-knowledge-base/atlas-ai-canonical-architecture-index.md'));
+        $roadmapApIndex = File::get(base_path('docs/engineering-knowledge-base/kernel/roadmap-ap-index.md'));
         $documentationOs = File::get(base_path('docs/engineering-knowledge-base/atlas-ai-documentation-operating-system.md'));
         $ap146 = File::get(base_path('docs/ap/AP-146-provider-cost-rate-inbox-replay.md'));
 
@@ -158,9 +157,8 @@ class AtlasEngineeringKnowledgeBaseTest extends TestCase
         $this->assertStringContainsString('Provider Cost Rate Inbox Replay', $startHere);
         $this->assertStringContainsString('AP-99/model selection/cost governance', $startHere);
 
-        $this->assertStringContainsString('docs/ap/AP-146-provider-cost-rate-inbox-replay.md', $canonicalIndex);
-        $this->assertStringContainsString('contrato operacional do ciclo AP-99/model selection/cost governance', $canonicalIndex);
-        $this->assertStringContainsString('configure_provider_cost_rates', $canonicalIndex);
+        $this->assertStringContainsString('Provider performance', $roadmapApIndex);
+        $this->assertStringContainsString('AP-146 to AP-147 and AP-99 family', $roadmapApIndex);
 
         $this->assertStringContainsString('links nos indices certos', $documentationOs);
         $this->assertStringContainsString('sem colar texto longo de AP em docs mae', $documentationOs);
@@ -172,25 +170,23 @@ class AtlasEngineeringKnowledgeBaseTest extends TestCase
     public function test_canonical_docs_link_ap147_dynamic_compute_market_shadow_contract(): void
     {
         $startHere = File::get(base_path('docs/engineering-knowledge-base/START_HERE.md'));
-        $canonicalIndex = File::get(base_path('docs/engineering-knowledge-base/atlas-ai-canonical-architecture-index.md'));
+        $roadmapApIndex = File::get(base_path('docs/engineering-knowledge-base/kernel/roadmap-ap-index.md'));
         $modelSelection = File::get(base_path('docs/engineering-knowledge-base/atlas-ai-model-selection-strategy.md'));
-        $kernelArchitecture = File::get(base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md'));
         $ap147 = File::get(base_path('docs/ap/AP-147-dynamic-compute-market-shadow-surface.md'));
 
         $this->assertStringContainsString('docs/ap/AP-147-dynamic-compute-market-shadow-surface.md', $startHere);
         $this->assertStringContainsString('Dynamic Compute Market, arbitragem shadow, benchmark candidate ou report read-only de provider', $startHere);
 
-        $this->assertStringContainsString('docs/ap/AP-147-dynamic-compute-market-shadow-surface.md', $canonicalIndex);
-        $this->assertStringContainsString('Model selection, Atlas Decide, AP-99, provider performance e cost governance', $canonicalIndex);
+        $this->assertStringContainsString('Provider performance', $roadmapApIndex);
+        $this->assertStringContainsString('AP-146 to AP-147 and AP-99 family', $roadmapApIndex);
 
         $this->assertStringContainsString('Dynamic Compute Market Report', $modelSelection);
         $this->assertStringContainsString('atlas.dynamic_compute_market_report.v1', $modelSelection);
         $this->assertStringContainsString('read_only_no_routing_change', $modelSelection);
 
-        $this->assertStringContainsString('AP-147', $kernelArchitecture);
-        $this->assertStringContainsString('routing_control.changes_provider=false', $kernelArchitecture);
+        $this->assertStringContainsString('routing_control.changes_provider=false', $modelSelection);
 
-        $this->assertStringContainsString('implemented-shadow-contract', $ap147);
+        $this->assertStringContainsString('implemented-shadow-evidence-contract', $ap147);
         $this->assertStringContainsString('routing_control.changes_provider=false', $ap147);
         $this->assertStringContainsString('atlas_dynamic_compute_market_report', $ap147);
         $this->assertStringContainsString('AtlasAiDynamicComputeMarketApiTest', $ap147);
@@ -456,6 +452,8 @@ PHP);
             ]);
 
             $this->assertTrue($payload['ok']);
+            $this->assertIsInt($payload['duration_ms']);
+            $this->assertGreaterThanOrEqual(0, $payload['duration_ms']);
             $this->assertGreaterThanOrEqual(5, data_get($payload, 'summary.module_count'));
             $this->assertGreaterThanOrEqual(10, data_get($payload, 'summary.symbol_count'));
             $this->assertGreaterThanOrEqual(1, data_get($payload, 'summary.doc_link_count'));
@@ -510,6 +508,15 @@ PHP);
                 'run_context_id' => $runContextId,
                 'status' => 'passed',
             ]);
+            $indexToolRun = AtlasToolRun::query()
+                ->where('tool_slug', 'atlas_code_intelligence')
+                ->where('run_context_type', 'engineering_run')
+                ->where('run_context_id', $runContextId)
+                ->where('status', 'passed')
+                ->firstOrFail();
+            $this->assertSame('index', data_get($indexToolRun->metadata_json, 'operation'));
+            $this->assertIsInt(data_get($indexToolRun->metadata_json, 'duration_ms'));
+            $this->assertGreaterThanOrEqual(0, $indexToolRun->duration_ms);
 
             $codeRefs = $service->contextRefs(['contract' => ['tags' => ['engineering']]], 5);
             $this->assertNotEmpty($codeRefs);
@@ -568,6 +575,22 @@ PHP);
                 'status' => 'skipped',
             ]);
 
+            $summaryOnlyExitCode = Artisan::call('atlas:engineering:knowledge', [
+                'action' => 'index-code',
+                '--workspace' => $workspace,
+                '--dry-run' => true,
+                '--summary-only' => true,
+                '--json' => true,
+            ]);
+            $summaryOnlyPayload = json_decode(Artisan::output(), true);
+
+            $this->assertSame(0, $summaryOnlyExitCode);
+            $this->assertTrue((bool) data_get($summaryOnlyPayload, 'summary_only'));
+            $this->assertTrue((bool) data_get($summaryOnlyPayload, 'dry_run'));
+            $this->assertGreaterThanOrEqual(5, data_get($summaryOnlyPayload, 'summary.module_count'));
+            $this->assertArrayNotHasKey('modules', $summaryOnlyPayload);
+            $this->assertArrayNotHasKey('symbols_preview', $summaryOnlyPayload);
+
             Artisan::call('atlas:engineering:knowledge', [
                 'action' => 'modules',
                 '--q' => 'engineering',
@@ -618,6 +641,8 @@ PHP);
                 'run_context_id' => $runContextId,
             ]);
             $this->assertSame('drift_detected', $driftAudit['status']);
+            $this->assertIsInt($driftAudit['duration_ms']);
+            $this->assertGreaterThanOrEqual(0, $driftAudit['duration_ms']);
             $this->assertGreaterThan(0, data_get($driftAudit, 'summary.drift.total'));
             $this->assertSame(
                 'engineering_harness_services',

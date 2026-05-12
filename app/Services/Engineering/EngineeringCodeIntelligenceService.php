@@ -32,6 +32,7 @@ class EngineeringCodeIntelligenceService
      */
     public function index(array $options = []): array
     {
+        $startedAt = microtime(true);
         $this->ensureIndexMemoryBudget();
         $this->ensureTables();
 
@@ -51,6 +52,7 @@ class EngineeringCodeIntelligenceService
                 'summary' => $scan['summary'],
                 'modules' => $moduleRows,
                 'symbols_preview' => array_slice($symbolRows, 0, 80),
+                'duration_ms' => $this->elapsedMs($startedAt),
                 'generated_at' => now()->toJSON(),
             ];
             $this->recordToolRuntimeEvidence('index', $workspace, $payload, $context);
@@ -72,6 +74,7 @@ class EngineeringCodeIntelligenceService
             'summary' => $summary,
             'modules' => $this->catalog([], 30)['modules'],
             'symbol_count' => $symbolCount,
+            'duration_ms' => $this->elapsedMs($startedAt),
             'generated_at' => now()->toJSON(),
         ];
         $this->recordToolRuntimeEvidence('index', $workspace, $payload, $context);
@@ -115,6 +118,7 @@ class EngineeringCodeIntelligenceService
      */
     public function audit(array $options = []): array
     {
+        $startedAt = microtime(true);
         $this->ensureTables();
 
         $workspace = $this->workspace($options['workspace'] ?? base_path());
@@ -154,6 +158,7 @@ class EngineeringCodeIntelligenceService
                 'symbols' => $symbols,
                 'doc_links' => $docLinks,
             ],
+            'duration_ms' => $this->elapsedMs($startedAt),
             'generated_at' => now()->toJSON(),
         ];
         $this->recordToolRuntimeEvidence('audit', $workspace, $payload, $context);
@@ -414,7 +419,7 @@ class EngineeringCodeIntelligenceService
                 'required' => false,
                 'failure_policy' => 'advisory',
                 'policy_decision' => 'allowed',
-                'duration_ms' => 0,
+                'duration_ms' => (int) ($payload['duration_ms'] ?? 0),
                 'exit_code' => ($payload['ok'] ?? false) ? 0 : 1,
                 'category' => 'code_intelligence',
                 'metrics' => [
@@ -442,6 +447,7 @@ class EngineeringCodeIntelligenceService
                     'dry_run' => (bool) ($payload['dry_run'] ?? false),
                     'writes' => (bool) ($payload['writes'] ?? ! (bool) ($payload['dry_run'] ?? false)),
                     'status' => $payload['status'] ?? null,
+                    'duration_ms' => (int) ($payload['duration_ms'] ?? 0),
                     'generated_at' => $payload['generated_at'] ?? null,
                 ],
             ]);
@@ -542,6 +548,11 @@ class EngineeringCodeIntelligenceService
     private function safeDriftType(mixed $value): string
     {
         return Str::slug((string) $value, '_') ?: 'drift';
+    }
+
+    private function elapsedMs(float $startedAt): int
+    {
+        return max(0, (int) round((microtime(true) - $startedAt) * 1000));
     }
 
     /**

@@ -1668,7 +1668,7 @@ class AtlasSelfImprovementRuntimeTest extends TestCase
         $this->assertContains('php artisan atlas:ai:architecture-operations --json', data_get($finding, 'metadata.missing_commands'));
         $this->assertContains('atlas engineering knowledge docs-health --json', data_get($finding, 'metadata.missing_commands'));
         $this->assertContains('atlas engineering knowledge sync --prune --json', data_get($finding, 'metadata.missing_commands'));
-        $this->assertContains('atlas engineering knowledge index-code --prune --json', data_get($finding, 'metadata.missing_commands'));
+        $this->assertContains('atlas engineering knowledge index-code --prune --summary-only --json', data_get($finding, 'metadata.missing_commands'));
         $this->assertContains('php artisan atlas:ai:voice contract --json', data_get($finding, 'metadata.missing_commands'));
         $this->assertContains('php artisan atlas:ai:voice bootstrap --json', data_get($finding, 'metadata.missing_commands'));
         $this->assertContains('php artisan atlas:ai:voice dependencies --json', data_get($finding, 'metadata.missing_commands'));

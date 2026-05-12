@@ -20,6 +20,8 @@ final class AtlasAiApAgentWorkflowCommandTest extends TestCase
         $this->assertSame('read_only_workflow_registry', data_get($payload, 'ap_agent_workflow.mode'));
         $this->assertSame(['AP-200', 'AP-201', 'AP-202', 'AP-205', 'AP-203'], array_column(data_get($payload, 'ap_agent_workflow.steps'), 'ap'));
         $this->assertContains('AP-228', array_column(data_get($payload, 'ap_agent_workflow.post_completion_review_chain'), 'ap'));
+        $this->assertSame('AP-228', data_get($payload, 'ap_agent_workflow.summary.post_completion_review_chain.human_display_until_ap'));
+        $this->assertSame(23, data_get($payload, 'ap_agent_workflow.summary.post_completion_review_chain.human_display_count'));
         $this->assertSame('atlas engineering knowledge docs-health', data_get($payload, 'ap_agent_workflow.required_validation_commands.docs_health'));
         $this->assertFalse(data_get($payload, 'ap_agent_workflow.guardrails.executes_commands'));
     }
@@ -33,6 +35,8 @@ final class AtlasAiApAgentWorkflowCommandTest extends TestCase
         $this->assertStringContainsString('Atlas AP Agent Workflow', $output);
         $this->assertStringContainsString('AP-200', $output);
         $this->assertStringContainsString('AP-228', $output);
+        $this->assertStringNotContainsString('AP-229', $output);
+        $this->assertStringContainsString('Extended steps hidden', $output);
         $this->assertStringContainsString('Post-completion steps', $output);
     }
 }

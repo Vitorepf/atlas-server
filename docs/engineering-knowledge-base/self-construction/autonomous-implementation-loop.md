@@ -112,6 +112,19 @@ loop_receipt:
   max_scope:
 ```
 
+## Long-Running Checkpoint Receipt
+
+Before Atlas treats a resumed construction session as part of a long-running loop, the session must carry a read-only checkpoint receipt from the readiness digest:
+
+```bash
+php artisan atlas:ai:self-construction --readiness-digest --json
+php artisan atlas:ai:self-construction --continuation-token --json
+```
+
+The checkpoint receipt is unsigned and non-authorizing. It binds current phase, next action, blockers, checklist count, required next commands and lineage hashes into `checkpoint_receipt_hash` so a future session can resume from auditable state without relying on chat history.
+
+The checkpoint receipt does not write ledger events, sign execution, enable provider dispatch, mark completion or change autonomy policy. Any future durable checkpoint writer needs a separate AP, signed receipt and tests.
+
 ## Learning Rule
 
 The loop may generate learning proposals such as:

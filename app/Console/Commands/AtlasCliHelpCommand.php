@@ -401,8 +401,8 @@ class AtlasCliHelpCommand extends Command
                     'description' => 'Sincroniza os docs canonicos de engenharia para o registry Postgres usado pelo context pack, manutencao e revisao do Atlas.',
                 ],
                 [
-                    'command' => 'atlas engineering knowledge index-code --prune',
-                    'description' => 'Indexa modulos reais, simbolos, rotas, comandos, migrations, testes e links docs->codigo para a IA entender o Harness pelo codigo atual.',
+                    'command' => 'atlas engineering knowledge index-code --prune --summary-only --json',
+                    'description' => 'Indexa modulos reais, simbolos, rotas, comandos, migrations, testes e links docs->codigo com saida compacta para gates e sessoes longas.',
                 ],
                 [
                     'command' => 'atlas engineering knowledge modules --docs-status=undocumented',

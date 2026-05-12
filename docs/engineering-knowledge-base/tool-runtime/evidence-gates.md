@@ -42,6 +42,10 @@ Tool runs persist:
 - context ids such as `engineering_run`;
 - surface, recipe and authority group metadata.
 
+`ToolEvidenceRecorded` ledger events mirror authority group and role from the
+persisted run metadata so audit/replay can reason about which tool family
+produced the evidence without exposing raw workspace paths or command output.
+
 Exports use sanitized metadata and hashes. Raw secrets or unsafe artifacts do not
 leave the evidence boundary.
 

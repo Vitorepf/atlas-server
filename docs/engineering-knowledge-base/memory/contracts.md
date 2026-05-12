@@ -62,6 +62,44 @@ embedding_allowed=false
 promotion_status=unclassified
 ```
 
+For API/app captures, this is persisted as `captures.metadata.cognitive_quarantine`
+with source lineage and a content hash. The capture can feed review and curation,
+but cannot enter provider context, memory registry, embeddings or constellation
+surfaces until an explicit promotion path changes those flags.
+
+Semantic curation proposals inherit that quarantine as
+`atlas.capture.curation_proposal_quarantine.v1`. A proposal may preserve the raw
+source for local human ratification, but audit evidence must store only redacted
+source fingerprints and the quarantine receipt.
+
+Accepting a curation proposal can explicitly promote memory only when the caller
+sets `promote_to_memory=true`. That path must use `ai_memory_deltas`,
+`AtlasMemoryDeltaPromotionService` and a `atlas.memory.promotion_receipt.v1`
+receipt linking proposal, capture, semantic note, delta and memory entry.
+Exact capture evidence can be promoted only when the caller sets
+`promote_to_verbatim=true`. That path must use `AtlasVerbatimMemoryService`,
+store provider-safe redaction metadata and emit
+`atlas.verbatim_memory.promotion_receipt.v1`.
+
+Pending `ai_memory_deltas` are first-class review items. The API must expose
+list/show/review surfaces and review writes must produce
+`atlas.memory_delta.review_receipt.v1` with previous status, target status,
+reviewer, timestamp and hash-only reason/claim evidence. Review can accept or
+reject a delta; promotion into Memory Registry remains a separate operation and
+must fail closed unless the delta is accepted or an explicit force override is
+used by a governed operator path.
+
+Accepting a curation proposal can also promote exact reviewed local text to
+Verbatim Store with `promote_to_verbatim=true`. That path must write
+`atlas.verbatim_memory.promotion_receipt.v1`, link proposal, capture, semantic
+note and verbatim memory, and keep external AI disabled by default unless an
+operator explicitly overrides the provider-safe redaction policy.
+
+Capture and Inbox responses expose `review_workflow` as the UI contract for this
+stage. It lists only IDs, receipt summaries and action descriptors for proposal
+ratification, Memory Registry promotion, Verbatim Store promotion and memory
+delta review. It must not include raw capture evidence.
+
 Promotion is earned by evidence, scope, privacy, utility, outcome and review.
 Delete/archive/manual cleanup are helpful hygiene, but they are not the primary
 intelligence filter.
@@ -109,6 +147,18 @@ Rules:
 - full body inclusion is exceptional and budgeted;
 - `content_hash` or equivalent identity is required for drift detection;
 - undocumented code refs are maintenance gaps, not proof that code is absent.
+
+## Recall Metadata Contract
+
+Every composed `memory.recall[]` item must expose:
+
+- `lineage`: selected source, source ref type/id, origin type/id/label and `content_hash`;
+- `freshness`: `recorded_at`, optional `last_used_at`, age and stale-review status;
+- `audit_trail`: schema version, provider-safe flag, privacy/redaction status, review timestamps and `content_hash`.
+
+This metadata is part of the Open Brain foundation. It lets Kernel/surfaces
+explain why context was included, detect stale or drifted memory, and audit
+provider exports without logging raw private content.
 
 ## Privacy Contract
 

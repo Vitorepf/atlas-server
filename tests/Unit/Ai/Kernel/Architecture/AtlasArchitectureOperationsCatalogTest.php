@@ -15,7 +15,7 @@ class AtlasArchitectureOperationsCatalogTest extends TestCase
         $this->assertSame('arquitetura_mae', $catalog->sectionKey());
         $this->assertSame('atlas.architecture_operations.v1', $summary['schema_version']);
         $this->assertSame('arquitetura_mae', $summary['section']);
-        $this->assertSame(67, $summary['command_count']);
+        $this->assertSame(72, $summary['command_count']);
         $this->assertSame($catalog->commands(), $summary['commands']);
         $this->assertSame([
             'architecture_operations',
@@ -32,6 +32,11 @@ class AtlasArchitectureOperationsCatalogTest extends TestCase
             'provider_release_sources',
             'local_rag_readiness',
             'local_rag_benchmark',
+            'local_rag_benchmark_schedule',
+            'local_rag_benchmark_rivals_report',
+            'local_rag_benchmark_rivals_shadow_plan',
+            'local_rag_benchmark_rivals_shadow_inbox',
+            'local_rag_benchmark_rivals_inbox',
             'local_rag_graph_promotion_review',
             'external_graph_harness_report',
             'knowledge_sync',
@@ -103,9 +108,13 @@ class AtlasArchitectureOperationsCatalogTest extends TestCase
         $this->assertContains('php artisan atlas:ai:provider-release-sources --json', $commands);
         $this->assertContains('php artisan atlas:ai:local-rag-readiness --json', $commands);
         $this->assertContains('php artisan atlas:ai:local-rag-benchmark --json', $commands);
+        $this->assertContains('php artisan atlas:ai:local-rag-benchmark --schedule-plan --json', $commands);
+        $this->assertContains('php artisan atlas:ai:local-rag-benchmark --rivals-report --json', $commands);
+        $this->assertContains('php artisan atlas:ai:local-rag-benchmark --rivals-shadow-plan --json', $commands);
+        $this->assertContains('php artisan atlas:ai:local-rag-benchmark --rivals-shadow-plan --emit-rivals-shadow-inbox --json', $commands);
         $this->assertContains('php artisan atlas:ai:external-graph-harness --json', $commands);
         $this->assertContains('atlas engineering knowledge sync --prune --json', $commands);
-        $this->assertContains('atlas engineering knowledge index-code --prune --json', $commands);
+        $this->assertContains('atlas engineering knowledge index-code --prune --summary-only --json', $commands);
         $this->assertContains('php artisan atlas:ai:slo --hours=24 --json', $commands);
         $this->assertContains('php artisan atlas:ai:voice contract --json', $commands);
         $this->assertContains('php artisan atlas:ai:voice bootstrap --json', $commands);
@@ -160,9 +169,14 @@ class AtlasArchitectureOperationsCatalogTest extends TestCase
         $this->assertSame('provider_evolution', data_get($summary, 'commands.11.kind'));
         $this->assertSame('runtime_readiness', data_get($summary, 'commands.12.kind'));
         $this->assertSame('runtime_benchmark', data_get($summary, 'commands.13.kind'));
-        $this->assertSame('governance_gate', data_get($summary, 'commands.14.kind'));
-        $this->assertSame('code_intelligence_report', data_get($summary, 'commands.15.kind'));
-        $this->assertSame('maintenance', data_get($summary, 'commands.16.kind'));
+        $this->assertSame('runtime_benchmark_schedule', data_get($summary, 'commands.14.kind'));
+        $this->assertSame('maturity_report', data_get($summary, 'commands.15.kind'));
+        $this->assertSame('governance_gate', data_get($summary, 'commands.16.kind'));
+        $this->assertSame('review_queue', data_get($summary, 'commands.17.kind'));
+        $this->assertSame('review_queue', data_get($summary, 'commands.18.kind'));
+        $this->assertSame('governance_gate', data_get($summary, 'commands.19.kind'));
+        $this->assertSame('code_intelligence_report', data_get($summary, 'commands.20.kind'));
+        $this->assertSame('maintenance', data_get($summary, 'commands.21.kind'));
 
         $commandsById = collect($summary['commands'])->keyBy('id');
         $this->assertSame('catalog', data_get($commandsById, 'architecture_operations.kind'));
@@ -204,6 +218,17 @@ class AtlasArchitectureOperationsCatalogTest extends TestCase
         $this->assertSame('provider_evolution', data_get($commandsById, 'provider_release_review.kind'));
         $this->assertSame('runtime_readiness', data_get($commandsById, 'local_rag_readiness.kind'));
         $this->assertSame('runtime_benchmark', data_get($commandsById, 'local_rag_benchmark.kind'));
+        $this->assertSame('runtime_benchmark_schedule', data_get($commandsById, 'local_rag_benchmark_schedule.kind'));
+        $this->assertSame('docs/engineering-knowledge-base/cognitive-runtime/retrieval-benchmark.md', data_get($commandsById, 'local_rag_benchmark_schedule.doc'));
+        $this->assertSame('maturity_report', data_get($commandsById, 'local_rag_benchmark_rivals_report.kind'));
+        $this->assertSame('docs/engineering-knowledge-base/cognitive-runtime/retrieval-benchmark.md', data_get($commandsById, 'local_rag_benchmark_rivals_report.doc'));
+        $this->assertSame('governance_gate', data_get($commandsById, 'local_rag_benchmark_rivals_shadow_plan.kind'));
+        $this->assertSame('docs/ap/AP-693-retrieval-rivals-shadow-comparison-contract.md', data_get($commandsById, 'local_rag_benchmark_rivals_shadow_plan.doc'));
+        $this->assertSame('atlas.memory_retrieval_rivals_shadow_plan_review_packet.v1', data_get($commandsById, 'local_rag_benchmark_rivals_shadow_plan.review_contract'));
+        $this->assertSame('review_queue', data_get($commandsById, 'local_rag_benchmark_rivals_shadow_inbox.kind'));
+        $this->assertSame('atlas.memory_retrieval_rivals_shadow_inbox.v1', data_get($commandsById, 'local_rag_benchmark_rivals_shadow_inbox.review_contract'));
+        $this->assertSame('review_queue', data_get($commandsById, 'local_rag_benchmark_rivals_inbox.kind'));
+        $this->assertSame('atlas.memory_retrieval_rivals_inbox.v1', data_get($commandsById, 'local_rag_benchmark_rivals_inbox.review_contract'));
         $this->assertSame('governance_gate', data_get($commandsById, 'local_rag_graph_promotion_review.kind'));
         $this->assertSame('atlas.local_rag_graph_promotion_review.v1', data_get($commandsById, 'local_rag_graph_promotion_review.review_contract'));
         $this->assertSame('code_intelligence_report', data_get($commandsById, 'external_graph_harness_report.kind'));
@@ -274,7 +299,7 @@ class AtlasArchitectureOperationsCatalogTest extends TestCase
         $this->assertSame('php artisan atlas:ai:provider-performance --hours=24 --json', data_get($byId, 'commands.0.command'));
 
         $this->assertSame(['section' => 'arquitetura_mae'], $bySection['filters']);
-        $this->assertSame(67, $bySection['command_count']);
+        $this->assertSame(72, $bySection['command_count']);
         $this->assertContains('architecture_operations', $bySection['operation_ids']);
         $this->assertSame(['section' => 'legacy'], $byUnknownSection['filters']);
         $this->assertSame(0, $byUnknownSection['command_count']);
@@ -319,8 +344,8 @@ class AtlasArchitectureOperationsCatalogTest extends TestCase
         $this->assertSame(['session_bootstrap'], $byBootstrap['operation_ids']);
 
         $byGovernanceGate = $catalog->summary(['kind' => 'governance_gate']);
-        $this->assertSame(4, $byGovernanceGate['command_count']);
-        $this->assertSame(['feature_placement', 'documentation_split_plan', 'ap_agent_workflow_registry', 'local_rag_graph_promotion_review'], $byGovernanceGate['operation_ids']);
+        $this->assertSame(5, $byGovernanceGate['command_count']);
+        $this->assertSame(['feature_placement', 'documentation_split_plan', 'ap_agent_workflow_registry', 'local_rag_benchmark_rivals_shadow_plan', 'local_rag_graph_promotion_review'], $byGovernanceGate['operation_ids']);
 
         $byProviderProjection = $catalog->summary(['kind' => 'provider_projection']);
         $this->assertSame(2, $byProviderProjection['command_count']);
@@ -402,15 +427,16 @@ class AtlasArchitectureOperationsCatalogTest extends TestCase
         $this->assertSame('php artisan atlas:ai:strategic-decision review --json', data_get($byPlanning, 'commands.0.command'));
 
         $byMaturity = $catalog->summary(['kind' => 'maturity_report']);
-        $this->assertSame(3, $byMaturity['command_count']);
-        $this->assertSame(['voice_realtime_rivals_report', 'qualitative_levels_report', 'rivals_strategy_report'], $byMaturity['operation_ids']);
-        $this->assertSame('php artisan atlas:ai:voice rivals --hours=24 --json', data_get($byMaturity, 'commands.0.command'));
-        $this->assertSame('php artisan atlas:ai:qualitative-levels --hours=720 --json', data_get($byMaturity, 'commands.1.command'));
-        $this->assertSame('php artisan atlas:ai:rivals-strategy report --hours=8760 --json', data_get($byMaturity, 'commands.2.command'));
+        $this->assertSame(4, $byMaturity['command_count']);
+        $this->assertSame(['local_rag_benchmark_rivals_report', 'voice_realtime_rivals_report', 'qualitative_levels_report', 'rivals_strategy_report'], $byMaturity['operation_ids']);
+        $this->assertSame('php artisan atlas:ai:local-rag-benchmark --rivals-report --json', data_get($byMaturity, 'commands.0.command'));
+        $this->assertSame('php artisan atlas:ai:voice rivals --hours=24 --json', data_get($byMaturity, 'commands.1.command'));
+        $this->assertSame('php artisan atlas:ai:qualitative-levels --hours=720 --json', data_get($byMaturity, 'commands.2.command'));
+        $this->assertSame('php artisan atlas:ai:rivals-strategy report --hours=8760 --json', data_get($byMaturity, 'commands.3.command'));
 
         $byReviewQueue = $catalog->summary(['kind' => 'review_queue']);
-        $this->assertSame(2, $byReviewQueue['command_count']);
-        $this->assertSame(['voice_realtime_promotion_review_packet', 'rivals_strategy_due_reviews'], $byReviewQueue['operation_ids']);
+        $this->assertSame(4, $byReviewQueue['command_count']);
+        $this->assertSame(['local_rag_benchmark_rivals_shadow_inbox', 'local_rag_benchmark_rivals_inbox', 'voice_realtime_promotion_review_packet', 'rivals_strategy_due_reviews'], $byReviewQueue['operation_ids']);
 
         $byReviewAction = $catalog->summary(['kind' => 'review_action']);
         $this->assertSame(2, $byReviewAction['command_count']);

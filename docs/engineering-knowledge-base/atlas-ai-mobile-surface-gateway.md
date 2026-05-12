@@ -131,6 +131,10 @@ Mobile deve consumir o mesmo catalogo que CLI/API/app:
 - Conteudo sensivel fica atras de API autenticada.
 - Dedupe key evita spam.
 - Quiet hours, deferred delivery e invalid token devem ser auditaveis.
+- Push e canal de interrupcao, nao fonte de verdade. Se `atlas_mobile_devices`
+  ou `mobile_push_deliveries` estiver indisponivel, a criacao do Inbox deve
+  sobreviver, o push falha fechado e um audit event `push.unavailable` registra
+  as tabelas ausentes.
 - Watchdog externo e recomendado para detectar scheduler/Laravel totalmente
   indisponivel.
 

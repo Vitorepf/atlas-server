@@ -8,6 +8,7 @@ use App\Models\AtlasToolRun;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use App\Support\AtlasSecurity;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
 
@@ -25,7 +26,7 @@ class AtlasToolEvidenceStore
      */
     public function recordExternalToolResult(string $toolSlug, string $workspace, array $payload, array $context = []): ?AtlasToolRun
     {
-        if (! Schema::hasTable('atlas_tool_runs')) {
+        if (! $this->evidenceTablesAvailable()) {
             return null;
         }
 
@@ -33,48 +34,61 @@ class AtlasToolEvidenceStore
         $definition = $this->registry->definition($toolSlug);
         $normalized = $this->normalizer->normalize($toolSlug, $payload);
 
-        $run = AtlasToolRun::query()->create([
-            'tool_definition_id' => $definition?->id,
-            'tool_slug' => $toolSlug,
-            'surface' => (string) ($context['surface'] ?? 'engineering'),
-            'workspace_hash' => hash('sha256', $workspace),
-            'workspace' => $workspace,
-            'run_context_type' => $context['run_context_type'] ?? null,
-            'run_context_id' => $context['run_context_id'] ?? null,
-            'status' => (string) ($payload['status'] ?? 'unknown'),
-            'required' => (bool) ($payload['required'] ?? false),
-            'failure_policy' => (string) ($payload['failure_policy'] ?? $definition?->default_failure_policy ?? 'advisory'),
-            'policy_decision' => (string) ($payload['policy_decision'] ?? 'allowed'),
-            'command_hash' => isset($payload['command']) ? hash('sha256', json_encode($payload['command'], JSON_UNESCAPED_SLASHES) ?: '') : null,
-            'exit_code' => isset($payload['exit_code']) && is_numeric($payload['exit_code']) ? (int) $payload['exit_code'] : null,
-            'started_at' => $context['started_at'] ?? now(),
-            'finished_at' => $context['finished_at'] ?? now(),
-            'duration_ms' => (int) ($payload['duration_ms'] ?? 0),
-            'summary_json' => $normalized['summary'],
-            'normalized_result_json' => $normalized,
-            'policy_decision_json' => (array) ($payload['policy_decision_json'] ?? []),
-            'metadata_json' => [
-                'source' => $context['source'] ?? 'external_result',
-                'category' => $payload['category'] ?? null,
-                'reason' => $payload['reason'] ?? null,
-                'command' => isset($payload['command']) ? AtlasSecurity::redactCommand((array) $payload['command']) : null,
-                ...((array) ($context['metadata'] ?? [])),
-            ],
-        ]);
+        $run = DB::transaction(function () use ($context, $definition, $normalized, $payload, $toolSlug, $workspace): AtlasToolRun {
+            $run = AtlasToolRun::query()->create([
+                'tool_definition_id' => $definition?->id,
+                'tool_slug' => $toolSlug,
+                'surface' => (string) ($context['surface'] ?? 'engineering'),
+                'workspace_hash' => hash('sha256', $workspace),
+                'workspace' => $workspace,
+                'run_context_type' => $context['run_context_type'] ?? null,
+                'run_context_id' => $context['run_context_id'] ?? null,
+                'status' => (string) ($payload['status'] ?? 'unknown'),
+                'required' => (bool) ($payload['required'] ?? false),
+                'failure_policy' => (string) ($payload['failure_policy'] ?? $definition?->default_failure_policy ?? 'advisory'),
+                'policy_decision' => (string) ($payload['policy_decision'] ?? 'allowed'),
+                'command_hash' => isset($payload['command']) ? hash('sha256', json_encode($payload['command'], JSON_UNESCAPED_SLASHES) ?: '') : null,
+                'exit_code' => isset($payload['exit_code']) && is_numeric($payload['exit_code']) ? (int) $payload['exit_code'] : null,
+                'started_at' => $context['started_at'] ?? now(),
+                'finished_at' => $context['finished_at'] ?? now(),
+                'duration_ms' => (int) ($payload['duration_ms'] ?? 0),
+                'summary_json' => $normalized['summary'],
+                'normalized_result_json' => $normalized,
+                'policy_decision_json' => (array) ($payload['policy_decision_json'] ?? []),
+                'metadata_json' => [
+                    'source' => $context['source'] ?? 'external_result',
+                    ...$this->definitionMetadata($definition),
+                    'category' => $payload['category'] ?? null,
+                    'reason' => $payload['reason'] ?? null,
+                    'command' => isset($payload['command']) ? AtlasSecurity::redactCommand((array) $payload['command']) : null,
+                    ...((array) ($context['metadata'] ?? [])),
+                ],
+            ]);
 
-        foreach ((array) ($payload['artifact_paths'] ?? []) as $type => $path) {
-            if (is_string($path)) {
-                $this->attachPath($run, (string) $type, $path);
+            foreach ((array) ($payload['artifact_paths'] ?? []) as $type => $path) {
+                if (is_string($path)) {
+                    $this->attachPath($run, (string) $type, $path);
+                }
             }
-        }
 
-        foreach ($normalized['findings'] as $finding) {
-            $this->recordFinding($run, $finding);
-        }
+            foreach ($normalized['findings'] as $finding) {
+                $this->recordFinding($run, $finding);
+            }
+
+            return $run->refresh();
+        });
 
         $this->recordLedgerToolEvidence($run->refresh(), $normalized, $context);
 
         return $run->refresh();
+    }
+
+    private function evidenceTablesAvailable(): bool
+    {
+        return Schema::hasTable('atlas_tool_definitions')
+            && Schema::hasTable('atlas_tool_runs')
+            && Schema::hasTable('atlas_tool_artifacts')
+            && Schema::hasTable('atlas_tool_findings');
     }
 
     /**
@@ -106,6 +120,8 @@ class AtlasToolEvidenceStore
                 'required' => $run->required,
                 'failure_policy' => $run->failure_policy,
                 'policy_decision' => $run->policy_decision,
+                'authority_group' => data_get($run->metadata_json, 'authority_group'),
+                'authority_role' => data_get($run->metadata_json, 'authority_role'),
                 'command_hash' => $run->command_hash,
                 'exit_code' => $run->exit_code,
                 'duration_ms' => $run->duration_ms,
@@ -126,6 +142,26 @@ class AtlasToolEvidenceStore
         } catch (\Throwable $exception) {
             report($exception);
         }
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function definitionMetadata(?\App\Models\AtlasToolDefinition $definition): array
+    {
+        if (! $definition) {
+            return [];
+        }
+
+        return [
+            'tool_category' => $definition->category,
+            'tool_type' => $definition->type,
+            'execution_tier' => $definition->execution_tier ?? data_get($definition->metadata, 'execution_tier'),
+            'expected_cost' => $definition->expected_cost ?? data_get($definition->metadata, 'expected_cost'),
+            'default_trigger' => $definition->default_trigger ?? data_get($definition->metadata, 'default_trigger'),
+            'authority_group' => $definition->authority_group ?? data_get($definition->metadata, 'authority_group'),
+            'authority_role' => $definition->authority_role ?? data_get($definition->metadata, 'authority_role'),
+        ];
     }
 
     public function attachText(AtlasToolRun $run, string $type, string $filename, string $content): AtlasToolArtifact

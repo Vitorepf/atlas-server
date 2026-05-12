@@ -100,6 +100,55 @@ class AtlasAiSelfConstructionCommand extends Command
         {--agent-dispatch-executor-release-authorization-persistence-status : Inspect persisted executor release authorizations without releasing providers}
         {--agent-dispatch-executor-receipt-use-writer-contract-template : Generate the read-only atomic dispatch receipt-use writer contract template}
         {--agent-dispatch-executor-receipt-use-writer-preflight : Verify atomic dispatch receipt-use writer prerequisites without marking receipts used}
+        {--agent-dispatch-executor-receipt-use-writer-implementation-packet : Generate the scoped atomic dispatch receipt-use writer implementation packet without creating writer files}
+        {--agent-dispatch-executor-sandbox-binding-contract-template : Generate the read-only provider sandbox/worktree binding contract template}
+        {--agent-dispatch-executor-sandbox-binding-preflight : Verify provider sandbox/worktree binding prerequisites without binding workspaces}
+        {--agent-dispatch-executor-sandbox-binding-implementation-packet : Generate the scoped provider sandbox/worktree binding implementation packet without creating writer files}
+        {--agent-dispatch-executor-provider-start-driver-contract-template : Generate the read-only provider start driver contract template}
+        {--agent-dispatch-executor-provider-start-driver-preflight : Verify provider start driver prerequisites without starting providers}
+        {--agent-dispatch-executor-provider-start-driver-implementation-packet : Generate the scoped provider start driver implementation packet without creating driver files}
+        {--agent-dispatch-executor-adapter-invocation-boundary-contract-template : Generate the read-only adapter invocation boundary contract template}
+        {--agent-dispatch-executor-adapter-invocation-boundary-preflight : Verify adapter invocation boundary prerequisites without calling providers}
+        {--agent-dispatch-executor-adapter-invocation-boundary-implementation-packet : Generate the scoped adapter invocation boundary implementation packet without creating boundary files}
+        {--agent-provider-adapter-registry-contract-template : Generate the read-only provider adapter registry contract template}
+        {--agent-provider-adapter-registry-preflight : Verify provider adapter registry prerequisites without calling providers}
+        {--agent-provider-adapter-registry-implementation-packet : Generate the scoped provider adapter registry implementation packet without creating registry files}
+        {--agent-provider-adapter-execution-guard-contract-template : Generate the read-only provider adapter execution guard contract template}
+        {--agent-provider-adapter-execution-guard-preflight : Verify provider adapter execution guard prerequisites without calling providers}
+        {--agent-provider-adapter-execution-guard-implementation-packet : Generate the scoped provider adapter execution guard implementation packet without creating guard files}
+        {--agent-codex-provider-execution-contract-template : Generate the read-only Codex provider-specific execution contract template}
+        {--agent-codex-provider-execution-preflight : Verify Codex provider-specific execution prerequisites without starting Codex}
+        {--agent-codex-provider-execution-implementation-packet : Generate the scoped Codex provider execution implementation packet without creating execution files}
+        {--agent-codex-process-start-release-contract-template : Generate the read-only Codex process start release contract template}
+        {--agent-codex-process-start-release-preflight : Verify Codex process start release prerequisites without starting Codex}
+        {--agent-codex-process-start-release-implementation-packet : Generate the scoped Codex process start release implementation packet without creating start files}
+        {--agent-codex-supervised-start-executor-contract-template : Generate the read-only supervised Codex start executor contract template}
+        {--agent-codex-supervised-start-executor-preflight : Verify supervised Codex start executor prerequisites without starting Codex}
+        {--agent-codex-supervised-start-executor-implementation-packet : Generate the scoped supervised Codex start executor implementation packet without creating executor files}
+        {--agent-codex-process-spawn-enablement-contract-template : Generate the read-only Codex process spawn enablement contract template}
+        {--agent-codex-process-spawn-enablement-preflight : Verify Codex process spawn enablement prerequisites without starting Codex}
+        {--agent-codex-process-spawn-enablement-implementation-packet : Generate the scoped Codex process spawn enablement implementation packet without creating spawn files}
+        {--agent-codex-process-spawn-executor-contract-template : Generate the read-only Codex process spawn executor contract template}
+        {--agent-codex-process-spawn-executor-preflight : Verify Codex process spawn executor prerequisites without starting Codex}
+        {--agent-codex-process-spawn-executor-implementation-packet : Generate the scoped Codex process spawn executor implementation packet without creating spawn files}
+        {--agent-codex-external-process-runtime-driver-contract-template : Generate the read-only Codex external process runtime driver contract template}
+        {--agent-codex-external-process-runtime-driver-preflight : Verify Codex external process runtime driver prerequisites without starting Codex}
+        {--agent-codex-external-process-runtime-driver-implementation-packet : Generate the scoped Codex external process runtime driver implementation packet without creating runtime files}
+        {--agent-codex-external-process-invocation-authorization-contract-template : Generate the read-only Codex external process invocation authorization contract template}
+        {--agent-codex-external-process-invocation-authorization-preflight : Verify Codex external process invocation authorization prerequisites without starting Codex}
+        {--agent-codex-external-process-invocation-authorization-implementation-packet : Generate the scoped Codex external process invocation authorization implementation packet without creating invocation files}
+        {--agent-codex-external-process-invoker-dry-run-contract-template : Generate the read-only Codex external process invoker dry-run contract template}
+        {--agent-codex-external-process-invoker-dry-run-preflight : Verify Codex external process invoker dry-run prerequisites without starting Codex}
+        {--agent-codex-external-process-invoker-dry-run-implementation-packet : Generate the scoped Codex external process invoker dry-run implementation packet without creating invoker files}
+        {--agent-codex-real-invoker-release-preflight-contract-template : Generate the read-only Codex real invoker release preflight contract template}
+        {--agent-codex-real-invoker-release-preflight-preflight : Verify Codex real invoker release preflight prerequisites without starting Codex}
+        {--agent-codex-real-invoker-release-preflight-implementation-packet : Generate the scoped Codex real invoker release preflight implementation packet without creating release files}
+        {--agent-codex-signed-real-invoker-release-gate-contract-template : Generate the read-only Codex signed real invoker release gate contract template}
+        {--agent-codex-signed-real-invoker-release-gate-preflight : Verify Codex signed real invoker release gate prerequisites without starting Codex}
+        {--agent-codex-signed-real-invoker-release-gate-implementation-packet : Generate the scoped Codex signed real invoker release gate implementation packet without creating release files}
+        {--agent-codex-real-invoker-implementation-boundary-contract-template : Generate the read-only Codex real invoker implementation boundary contract template}
+        {--agent-codex-real-invoker-implementation-boundary-preflight : Verify Codex real invoker implementation boundary prerequisites without starting Codex}
+        {--agent-codex-real-invoker-implementation-boundary-implementation-packet : Generate the scoped Codex real invoker implementation boundary implementation packet without creating boundary files}
         {--single-session-instruction-packet : Generate the canonical read-only instruction packet for one AI session}
         {--codex-launch-plan : Generate a read-only launch plan with up to five Codex start commands}
         {--codex-execution-status : Generate a read-only execution status monitor for parallel Codex sessions}
@@ -564,6 +613,55 @@ class AtlasAiSelfConstructionCommand extends Command
             (bool) $this->option('reservation-status') => $readiness->reservationStatus($options),
             (bool) $this->option('scope-validator') => $readiness->scopeValidator($options),
             (bool) $this->option('single-session-instruction-packet') => $readiness->singleSessionInstructionPacket($options),
+            (bool) $this->option('agent-codex-real-invoker-implementation-boundary-implementation-packet') => $readiness->agentCodexRealInvokerImplementationBoundaryImplementationPacket($options),
+            (bool) $this->option('agent-codex-real-invoker-implementation-boundary-preflight') => $readiness->agentCodexRealInvokerImplementationBoundaryPreflight($options),
+            (bool) $this->option('agent-codex-real-invoker-implementation-boundary-contract-template') => $readiness->agentCodexRealInvokerImplementationBoundaryContractTemplate($options),
+            (bool) $this->option('agent-codex-signed-real-invoker-release-gate-implementation-packet') => $readiness->agentCodexSignedRealInvokerReleaseGateImplementationPacket($options),
+            (bool) $this->option('agent-codex-signed-real-invoker-release-gate-preflight') => $readiness->agentCodexSignedRealInvokerReleaseGatePreflight($options),
+            (bool) $this->option('agent-codex-signed-real-invoker-release-gate-contract-template') => $readiness->agentCodexSignedRealInvokerReleaseGateContractTemplate($options),
+            (bool) $this->option('agent-codex-real-invoker-release-preflight-implementation-packet') => $readiness->agentCodexRealInvokerReleasePreflightImplementationPacket($options),
+            (bool) $this->option('agent-codex-real-invoker-release-preflight-preflight') => $readiness->agentCodexRealInvokerReleasePreflightPreflight($options),
+            (bool) $this->option('agent-codex-real-invoker-release-preflight-contract-template') => $readiness->agentCodexRealInvokerReleasePreflightContractTemplate($options),
+            (bool) $this->option('agent-codex-external-process-invoker-dry-run-implementation-packet') => $readiness->agentCodexExternalProcessInvokerDryRunImplementationPacket($options),
+            (bool) $this->option('agent-codex-external-process-invoker-dry-run-preflight') => $readiness->agentCodexExternalProcessInvokerDryRunPreflight($options),
+            (bool) $this->option('agent-codex-external-process-invoker-dry-run-contract-template') => $readiness->agentCodexExternalProcessInvokerDryRunContractTemplate($options),
+            (bool) $this->option('agent-codex-external-process-invocation-authorization-implementation-packet') => $readiness->agentCodexExternalProcessInvocationAuthorizationImplementationPacket($options),
+            (bool) $this->option('agent-codex-external-process-invocation-authorization-preflight') => $readiness->agentCodexExternalProcessInvocationAuthorizationPreflight($options),
+            (bool) $this->option('agent-codex-external-process-invocation-authorization-contract-template') => $readiness->agentCodexExternalProcessInvocationAuthorizationContractTemplate($options),
+            (bool) $this->option('agent-codex-external-process-runtime-driver-implementation-packet') => $readiness->agentCodexExternalProcessRuntimeDriverImplementationPacket($options),
+            (bool) $this->option('agent-codex-external-process-runtime-driver-preflight') => $readiness->agentCodexExternalProcessRuntimeDriverPreflight($options),
+            (bool) $this->option('agent-codex-external-process-runtime-driver-contract-template') => $readiness->agentCodexExternalProcessRuntimeDriverContractTemplate($options),
+            (bool) $this->option('agent-codex-process-spawn-executor-implementation-packet') => $readiness->agentCodexProcessSpawnExecutorImplementationPacket($options),
+            (bool) $this->option('agent-codex-process-spawn-executor-preflight') => $readiness->agentCodexProcessSpawnExecutorPreflight($options),
+            (bool) $this->option('agent-codex-process-spawn-executor-contract-template') => $readiness->agentCodexProcessSpawnExecutorContractTemplate($options),
+            (bool) $this->option('agent-codex-process-spawn-enablement-implementation-packet') => $readiness->agentCodexProcessSpawnEnablementImplementationPacket($options),
+            (bool) $this->option('agent-codex-process-spawn-enablement-preflight') => $readiness->agentCodexProcessSpawnEnablementPreflight($options),
+            (bool) $this->option('agent-codex-process-spawn-enablement-contract-template') => $readiness->agentCodexProcessSpawnEnablementContractTemplate($options),
+            (bool) $this->option('agent-codex-supervised-start-executor-implementation-packet') => $readiness->agentCodexSupervisedStartExecutorImplementationPacket($options),
+            (bool) $this->option('agent-codex-supervised-start-executor-preflight') => $readiness->agentCodexSupervisedStartExecutorPreflight($options),
+            (bool) $this->option('agent-codex-supervised-start-executor-contract-template') => $readiness->agentCodexSupervisedStartExecutorContractTemplate($options),
+            (bool) $this->option('agent-codex-process-start-release-implementation-packet') => $readiness->agentCodexProcessStartReleaseImplementationPacket($options),
+            (bool) $this->option('agent-codex-process-start-release-preflight') => $readiness->agentCodexProcessStartReleasePreflight($options),
+            (bool) $this->option('agent-codex-process-start-release-contract-template') => $readiness->agentCodexProcessStartReleaseContractTemplate($options),
+            (bool) $this->option('agent-codex-provider-execution-implementation-packet') => $readiness->agentCodexProviderExecutionImplementationPacket($options),
+            (bool) $this->option('agent-codex-provider-execution-preflight') => $readiness->agentCodexProviderExecutionPreflight($options),
+            (bool) $this->option('agent-codex-provider-execution-contract-template') => $readiness->agentCodexProviderExecutionContractTemplate($options),
+            (bool) $this->option('agent-provider-adapter-execution-guard-implementation-packet') => $readiness->agentProviderAdapterExecutionGuardImplementationPacket($options),
+            (bool) $this->option('agent-provider-adapter-execution-guard-preflight') => $readiness->agentProviderAdapterExecutionGuardPreflight($options),
+            (bool) $this->option('agent-provider-adapter-execution-guard-contract-template') => $readiness->agentProviderAdapterExecutionGuardContractTemplate($options),
+            (bool) $this->option('agent-provider-adapter-registry-implementation-packet') => $readiness->agentProviderAdapterRegistryImplementationPacket($options),
+            (bool) $this->option('agent-provider-adapter-registry-preflight') => $readiness->agentProviderAdapterRegistryPreflight($options),
+            (bool) $this->option('agent-provider-adapter-registry-contract-template') => $readiness->agentProviderAdapterRegistryContractTemplate($options),
+            (bool) $this->option('agent-dispatch-executor-adapter-invocation-boundary-implementation-packet') => $readiness->agentDispatchExecutorAdapterInvocationBoundaryImplementationPacket($options),
+            (bool) $this->option('agent-dispatch-executor-adapter-invocation-boundary-preflight') => $readiness->agentDispatchExecutorAdapterInvocationBoundaryPreflight($options),
+            (bool) $this->option('agent-dispatch-executor-adapter-invocation-boundary-contract-template') => $readiness->agentDispatchExecutorAdapterInvocationBoundaryContractTemplate($options),
+            (bool) $this->option('agent-dispatch-executor-provider-start-driver-implementation-packet') => $readiness->agentDispatchExecutorProviderStartDriverImplementationPacket($options),
+            (bool) $this->option('agent-dispatch-executor-provider-start-driver-preflight') => $readiness->agentDispatchExecutorProviderStartDriverPreflight($options),
+            (bool) $this->option('agent-dispatch-executor-provider-start-driver-contract-template') => $readiness->agentDispatchExecutorProviderStartDriverContractTemplate($options),
+            (bool) $this->option('agent-dispatch-executor-sandbox-binding-implementation-packet') => $readiness->agentDispatchExecutorSandboxBindingImplementationPacket($options),
+            (bool) $this->option('agent-dispatch-executor-sandbox-binding-preflight') => $readiness->agentDispatchExecutorSandboxBindingPreflight($options),
+            (bool) $this->option('agent-dispatch-executor-sandbox-binding-contract-template') => $readiness->agentDispatchExecutorSandboxBindingContractTemplate($options),
+            (bool) $this->option('agent-dispatch-executor-receipt-use-writer-implementation-packet') => $readiness->agentDispatchExecutorReceiptUseWriterImplementationPacket($options),
             (bool) $this->option('agent-dispatch-executor-receipt-use-writer-preflight') => $readiness->agentDispatchExecutorReceiptUseWriterPreflight($options),
             (bool) $this->option('agent-dispatch-executor-receipt-use-writer-contract-template') => $readiness->agentDispatchExecutorReceiptUseWriterContractTemplate($options),
             (bool) $this->option('agent-dispatch-executor-release-authorization-persistence-status') => $readiness->agentDispatchExecutorReleaseAuthorizationPersistenceStatus($options),
@@ -5081,6 +5179,643 @@ class AtlasAiSelfConstructionCommand extends Command
             return self::SUCCESS;
         }
 
+        if ((bool) $this->option('agent-dispatch-executor-receipt-use-writer-implementation-packet')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Packet status', (string) data_get($payload, 'dispatch_executor_receipt_use_writer_implementation_packet.status'));
+            $this->components->twoColumnDetail('Task count', (string) data_get($payload, 'dispatch_executor_receipt_use_writer_implementation_packet.task_count'));
+            $this->components->twoColumnDetail('Packet hash', (string) data_get($payload, 'dispatch_executor_receipt_use_writer_implementation_packet_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-dispatch-executor-sandbox-binding-contract-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Contract status', (string) data_get($payload, 'dispatch_executor_sandbox_binding_contract_template.status'));
+            $this->components->twoColumnDetail('Method', (string) data_get($payload, 'dispatch_executor_sandbox_binding_contract_template.contract.method'));
+            $this->components->twoColumnDetail('Contract hash', (string) data_get($payload, 'dispatch_executor_sandbox_binding_contract_template_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-dispatch-executor-sandbox-binding-preflight')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Preflight status', (string) data_get($payload, 'dispatch_executor_sandbox_binding_preflight.status'));
+            $this->components->twoColumnDetail('Blocking count', (string) data_get($payload, 'dispatch_executor_sandbox_binding_preflight.blocking_count'));
+            $this->components->twoColumnDetail('Preflight hash', (string) data_get($payload, 'dispatch_executor_sandbox_binding_preflight_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-dispatch-executor-sandbox-binding-implementation-packet')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Packet status', (string) data_get($payload, 'dispatch_executor_sandbox_binding_implementation_packet.status'));
+            $this->components->twoColumnDetail('Task count', (string) data_get($payload, 'dispatch_executor_sandbox_binding_implementation_packet.task_count'));
+            $this->components->twoColumnDetail('Packet hash', (string) data_get($payload, 'dispatch_executor_sandbox_binding_implementation_packet_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-dispatch-executor-provider-start-driver-contract-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Contract status', (string) data_get($payload, 'dispatch_executor_provider_start_driver_contract_template.status'));
+            $this->components->twoColumnDetail('Method', (string) data_get($payload, 'dispatch_executor_provider_start_driver_contract_template.contract.method'));
+            $this->components->twoColumnDetail('Contract hash', (string) data_get($payload, 'dispatch_executor_provider_start_driver_contract_template_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-dispatch-executor-provider-start-driver-preflight')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Preflight status', (string) data_get($payload, 'dispatch_executor_provider_start_driver_preflight.status'));
+            $this->components->twoColumnDetail('Blocking count', (string) data_get($payload, 'dispatch_executor_provider_start_driver_preflight.blocking_count'));
+            $this->components->twoColumnDetail('Preflight hash', (string) data_get($payload, 'dispatch_executor_provider_start_driver_preflight_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-dispatch-executor-provider-start-driver-implementation-packet')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Packet status', (string) data_get($payload, 'dispatch_executor_provider_start_driver_implementation_packet.status'));
+            $this->components->twoColumnDetail('Task count', (string) data_get($payload, 'dispatch_executor_provider_start_driver_implementation_packet.task_count'));
+            $this->components->twoColumnDetail('Packet hash', (string) data_get($payload, 'dispatch_executor_provider_start_driver_implementation_packet_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-dispatch-executor-adapter-invocation-boundary-contract-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Contract status', (string) data_get($payload, 'dispatch_executor_adapter_invocation_boundary_contract_template.status'));
+            $this->components->twoColumnDetail('Method', (string) data_get($payload, 'dispatch_executor_adapter_invocation_boundary_contract_template.contract.method'));
+            $this->components->twoColumnDetail('Contract hash', (string) data_get($payload, 'dispatch_executor_adapter_invocation_boundary_contract_template_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-dispatch-executor-adapter-invocation-boundary-preflight')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Preflight status', (string) data_get($payload, 'dispatch_executor_adapter_invocation_boundary_preflight.status'));
+            $this->components->twoColumnDetail('Blocking count', (string) data_get($payload, 'dispatch_executor_adapter_invocation_boundary_preflight.blocking_count'));
+            $this->components->twoColumnDetail('Preflight hash', (string) data_get($payload, 'dispatch_executor_adapter_invocation_boundary_preflight_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-dispatch-executor-adapter-invocation-boundary-implementation-packet')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Packet status', (string) data_get($payload, 'dispatch_executor_adapter_invocation_boundary_implementation_packet.status'));
+            $this->components->twoColumnDetail('Task count', (string) data_get($payload, 'dispatch_executor_adapter_invocation_boundary_implementation_packet.task_count'));
+            $this->components->twoColumnDetail('Packet hash', (string) data_get($payload, 'dispatch_executor_adapter_invocation_boundary_implementation_packet_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-provider-adapter-registry-contract-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Contract status', (string) data_get($payload, 'provider_adapter_registry_contract_template.status'));
+            $this->components->twoColumnDetail('Provider count', (string) data_get($payload, 'provider_adapter_registry_contract_template.provider_count'));
+            $this->components->twoColumnDetail('Contract hash', (string) data_get($payload, 'provider_adapter_registry_contract_template_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-provider-adapter-registry-preflight')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Preflight status', (string) data_get($payload, 'provider_adapter_registry_preflight.status'));
+            $this->components->twoColumnDetail('Blocking count', (string) data_get($payload, 'provider_adapter_registry_preflight.blocking_count'));
+            $this->components->twoColumnDetail('Preflight hash', (string) data_get($payload, 'provider_adapter_registry_preflight_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-provider-adapter-registry-implementation-packet')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Packet status', (string) data_get($payload, 'provider_adapter_registry_implementation_packet.status'));
+            $this->components->twoColumnDetail('Task count', (string) data_get($payload, 'provider_adapter_registry_implementation_packet.task_count'));
+            $this->components->twoColumnDetail('Packet hash', (string) data_get($payload, 'provider_adapter_registry_implementation_packet_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-provider-adapter-execution-guard-contract-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Contract status', (string) data_get($payload, 'provider_adapter_execution_guard_contract_template.status'));
+            $this->components->twoColumnDetail('Method', (string) data_get($payload, 'provider_adapter_execution_guard_contract_template.contract.method'));
+            $this->components->twoColumnDetail('Contract hash', (string) data_get($payload, 'provider_adapter_execution_guard_contract_template_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-provider-adapter-execution-guard-preflight')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Preflight status', (string) data_get($payload, 'provider_adapter_execution_guard_preflight.status'));
+            $this->components->twoColumnDetail('Blocking count', (string) data_get($payload, 'provider_adapter_execution_guard_preflight.blocking_count'));
+            $this->components->twoColumnDetail('Preflight hash', (string) data_get($payload, 'provider_adapter_execution_guard_preflight_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-provider-adapter-execution-guard-implementation-packet')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Packet status', (string) data_get($payload, 'provider_adapter_execution_guard_implementation_packet.status'));
+            $this->components->twoColumnDetail('Task count', (string) data_get($payload, 'provider_adapter_execution_guard_implementation_packet.task_count'));
+            $this->components->twoColumnDetail('Packet hash', (string) data_get($payload, 'provider_adapter_execution_guard_implementation_packet_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-codex-provider-execution-contract-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Contract status', (string) data_get($payload, 'codex_provider_execution_contract_template.status'));
+            $this->components->twoColumnDetail('Method', (string) data_get($payload, 'codex_provider_execution_contract_template.contract.method'));
+            $this->components->twoColumnDetail('Contract hash', (string) data_get($payload, 'codex_provider_execution_contract_template_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-codex-provider-execution-preflight')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Preflight status', (string) data_get($payload, 'codex_provider_execution_preflight.status'));
+            $this->components->twoColumnDetail('Blocking count', (string) data_get($payload, 'codex_provider_execution_preflight.blocking_count'));
+            $this->components->twoColumnDetail('Preflight hash', (string) data_get($payload, 'codex_provider_execution_preflight_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-codex-provider-execution-implementation-packet')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Packet status', (string) data_get($payload, 'codex_provider_execution_implementation_packet.status'));
+            $this->components->twoColumnDetail('Task count', (string) data_get($payload, 'codex_provider_execution_implementation_packet.task_count'));
+            $this->components->twoColumnDetail('Packet hash', (string) data_get($payload, 'codex_provider_execution_implementation_packet_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-codex-process-start-release-contract-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Contract status', (string) data_get($payload, 'codex_process_start_release_contract_template.status'));
+            $this->components->twoColumnDetail('Method', (string) data_get($payload, 'codex_process_start_release_contract_template.contract.method'));
+            $this->components->twoColumnDetail('Contract hash', (string) data_get($payload, 'codex_process_start_release_contract_template_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-codex-process-start-release-preflight')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Preflight status', (string) data_get($payload, 'codex_process_start_release_preflight.status'));
+            $this->components->twoColumnDetail('Blocking count', (string) data_get($payload, 'codex_process_start_release_preflight.blocking_count'));
+            $this->components->twoColumnDetail('Preflight hash', (string) data_get($payload, 'codex_process_start_release_preflight_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-codex-process-start-release-implementation-packet')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Packet status', (string) data_get($payload, 'codex_process_start_release_implementation_packet.status'));
+            $this->components->twoColumnDetail('Task count', (string) data_get($payload, 'codex_process_start_release_implementation_packet.task_count'));
+            $this->components->twoColumnDetail('Packet hash', (string) data_get($payload, 'codex_process_start_release_implementation_packet_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-codex-supervised-start-executor-contract-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Contract status', (string) data_get($payload, 'codex_supervised_start_executor_contract_template.status'));
+            $this->components->twoColumnDetail('Method', (string) data_get($payload, 'codex_supervised_start_executor_contract_template.contract.method'));
+            $this->components->twoColumnDetail('Contract hash', (string) data_get($payload, 'codex_supervised_start_executor_contract_template_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-codex-supervised-start-executor-preflight')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Preflight status', (string) data_get($payload, 'codex_supervised_start_executor_preflight.status'));
+            $this->components->twoColumnDetail('Blocking count', (string) data_get($payload, 'codex_supervised_start_executor_preflight.blocking_count'));
+            $this->components->twoColumnDetail('Preflight hash', (string) data_get($payload, 'codex_supervised_start_executor_preflight_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-codex-supervised-start-executor-implementation-packet')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Packet status', (string) data_get($payload, 'codex_supervised_start_executor_implementation_packet.status'));
+            $this->components->twoColumnDetail('Task count', (string) data_get($payload, 'codex_supervised_start_executor_implementation_packet.task_count'));
+            $this->components->twoColumnDetail('Packet hash', (string) data_get($payload, 'codex_supervised_start_executor_implementation_packet_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-codex-process-spawn-enablement-contract-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Contract status', (string) data_get($payload, 'codex_process_spawn_enablement_contract_template.status'));
+            $this->components->twoColumnDetail('Method', (string) data_get($payload, 'codex_process_spawn_enablement_contract_template.contract.method'));
+            $this->components->twoColumnDetail('Contract hash', (string) data_get($payload, 'codex_process_spawn_enablement_contract_template_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-codex-process-spawn-enablement-preflight')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Preflight status', (string) data_get($payload, 'codex_process_spawn_enablement_preflight.status'));
+            $this->components->twoColumnDetail('Blocking count', (string) data_get($payload, 'codex_process_spawn_enablement_preflight.blocking_count'));
+            $this->components->twoColumnDetail('Preflight hash', (string) data_get($payload, 'codex_process_spawn_enablement_preflight_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-codex-process-spawn-enablement-implementation-packet')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Packet status', (string) data_get($payload, 'codex_process_spawn_enablement_implementation_packet.status'));
+            $this->components->twoColumnDetail('Task count', (string) data_get($payload, 'codex_process_spawn_enablement_implementation_packet.task_count'));
+            $this->components->twoColumnDetail('Packet hash', (string) data_get($payload, 'codex_process_spawn_enablement_implementation_packet_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-codex-process-spawn-executor-contract-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Contract status', (string) data_get($payload, 'codex_process_spawn_executor_contract_template.status'));
+            $this->components->twoColumnDetail('Method', (string) data_get($payload, 'codex_process_spawn_executor_contract_template.contract.method'));
+            $this->components->twoColumnDetail('Contract hash', (string) data_get($payload, 'codex_process_spawn_executor_contract_template_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-codex-process-spawn-executor-preflight')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Preflight status', (string) data_get($payload, 'codex_process_spawn_executor_preflight.status'));
+            $this->components->twoColumnDetail('Blocking count', (string) data_get($payload, 'codex_process_spawn_executor_preflight.blocking_count'));
+            $this->components->twoColumnDetail('Preflight hash', (string) data_get($payload, 'codex_process_spawn_executor_preflight_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-codex-process-spawn-executor-implementation-packet')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Packet status', (string) data_get($payload, 'codex_process_spawn_executor_implementation_packet.status'));
+            $this->components->twoColumnDetail('Task count', (string) data_get($payload, 'codex_process_spawn_executor_implementation_packet.task_count'));
+            $this->components->twoColumnDetail('Packet hash', (string) data_get($payload, 'codex_process_spawn_executor_implementation_packet_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-codex-external-process-runtime-driver-contract-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Contract status', (string) data_get($payload, 'codex_external_process_runtime_driver_contract_template.status'));
+            $this->components->twoColumnDetail('Method', (string) data_get($payload, 'codex_external_process_runtime_driver_contract_template.contract.method'));
+            $this->components->twoColumnDetail('Contract hash', (string) data_get($payload, 'codex_external_process_runtime_driver_contract_template_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-codex-external-process-runtime-driver-preflight')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Preflight status', (string) data_get($payload, 'codex_external_process_runtime_driver_preflight.status'));
+            $this->components->twoColumnDetail('Blocking count', (string) data_get($payload, 'codex_external_process_runtime_driver_preflight.blocking_count'));
+            $this->components->twoColumnDetail('Preflight hash', (string) data_get($payload, 'codex_external_process_runtime_driver_preflight_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-codex-external-process-runtime-driver-implementation-packet')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Packet status', (string) data_get($payload, 'codex_external_process_runtime_driver_implementation_packet.status'));
+            $this->components->twoColumnDetail('Task count', (string) data_get($payload, 'codex_external_process_runtime_driver_implementation_packet.task_count'));
+            $this->components->twoColumnDetail('Packet hash', (string) data_get($payload, 'codex_external_process_runtime_driver_implementation_packet_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-codex-external-process-invocation-authorization-contract-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Contract status', (string) data_get($payload, 'codex_external_process_invocation_authorization_contract_template.status'));
+            $this->components->twoColumnDetail('Method', (string) data_get($payload, 'codex_external_process_invocation_authorization_contract_template.contract.method'));
+            $this->components->twoColumnDetail('Contract hash', (string) data_get($payload, 'codex_external_process_invocation_authorization_contract_template_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-codex-external-process-invocation-authorization-preflight')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Preflight status', (string) data_get($payload, 'codex_external_process_invocation_authorization_preflight.status'));
+            $this->components->twoColumnDetail('Blocking count', (string) data_get($payload, 'codex_external_process_invocation_authorization_preflight.blocking_count'));
+            $this->components->twoColumnDetail('Preflight hash', (string) data_get($payload, 'codex_external_process_invocation_authorization_preflight_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-codex-external-process-invocation-authorization-implementation-packet')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Packet status', (string) data_get($payload, 'codex_external_process_invocation_authorization_implementation_packet.status'));
+            $this->components->twoColumnDetail('Task count', (string) data_get($payload, 'codex_external_process_invocation_authorization_implementation_packet.task_count'));
+            $this->components->twoColumnDetail('Packet hash', (string) data_get($payload, 'codex_external_process_invocation_authorization_implementation_packet_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-codex-external-process-invoker-dry-run-contract-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Contract status', (string) data_get($payload, 'codex_external_process_invoker_dry_run_contract_template.status'));
+            $this->components->twoColumnDetail('Method', (string) data_get($payload, 'codex_external_process_invoker_dry_run_contract_template.contract.method'));
+            $this->components->twoColumnDetail('Contract hash', (string) data_get($payload, 'codex_external_process_invoker_dry_run_contract_template_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-codex-external-process-invoker-dry-run-preflight')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Preflight status', (string) data_get($payload, 'codex_external_process_invoker_dry_run_preflight.status'));
+            $this->components->twoColumnDetail('Blocking count', (string) data_get($payload, 'codex_external_process_invoker_dry_run_preflight.blocking_count'));
+            $this->components->twoColumnDetail('Preflight hash', (string) data_get($payload, 'codex_external_process_invoker_dry_run_preflight_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-codex-external-process-invoker-dry-run-implementation-packet')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Packet status', (string) data_get($payload, 'codex_external_process_invoker_dry_run_implementation_packet.status'));
+            $this->components->twoColumnDetail('Task count', (string) data_get($payload, 'codex_external_process_invoker_dry_run_implementation_packet.task_count'));
+            $this->components->twoColumnDetail('Packet hash', (string) data_get($payload, 'codex_external_process_invoker_dry_run_implementation_packet_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-codex-real-invoker-release-preflight-contract-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Contract status', (string) data_get($payload, 'codex_real_invoker_release_preflight_contract_template.status'));
+            $this->components->twoColumnDetail('Method', (string) data_get($payload, 'codex_real_invoker_release_preflight_contract_template.contract.method'));
+            $this->components->twoColumnDetail('Contract hash', (string) data_get($payload, 'codex_real_invoker_release_preflight_contract_template_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-codex-real-invoker-release-preflight-preflight')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Preflight status', (string) data_get($payload, 'codex_real_invoker_release_preflight_preflight.status'));
+            $this->components->twoColumnDetail('Blocking count', (string) data_get($payload, 'codex_real_invoker_release_preflight_preflight.blocking_count'));
+            $this->components->twoColumnDetail('Preflight hash', (string) data_get($payload, 'codex_real_invoker_release_preflight_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-codex-real-invoker-release-preflight-implementation-packet')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Packet status', (string) data_get($payload, 'codex_real_invoker_release_preflight_implementation_packet.status'));
+            $this->components->twoColumnDetail('Task count', (string) data_get($payload, 'codex_real_invoker_release_preflight_implementation_packet.task_count'));
+            $this->components->twoColumnDetail('Packet hash', (string) data_get($payload, 'codex_real_invoker_release_preflight_implementation_packet_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-codex-signed-real-invoker-release-gate-contract-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Contract status', (string) data_get($payload, 'codex_signed_real_invoker_release_gate_contract_template.status'));
+            $this->components->twoColumnDetail('Method', (string) data_get($payload, 'codex_signed_real_invoker_release_gate_contract_template.contract.method'));
+            $this->components->twoColumnDetail('Contract hash', (string) data_get($payload, 'codex_signed_real_invoker_release_gate_contract_template_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-codex-signed-real-invoker-release-gate-preflight')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Preflight status', (string) data_get($payload, 'codex_signed_real_invoker_release_gate_preflight.status'));
+            $this->components->twoColumnDetail('Blocking count', (string) data_get($payload, 'codex_signed_real_invoker_release_gate_preflight.blocking_count'));
+            $this->components->twoColumnDetail('Preflight hash', (string) data_get($payload, 'codex_signed_real_invoker_release_gate_preflight_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-codex-signed-real-invoker-release-gate-implementation-packet')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Packet status', (string) data_get($payload, 'codex_signed_real_invoker_release_gate_implementation_packet.status'));
+            $this->components->twoColumnDetail('Task count', (string) data_get($payload, 'codex_signed_real_invoker_release_gate_implementation_packet.task_count'));
+            $this->components->twoColumnDetail('Packet hash', (string) data_get($payload, 'codex_signed_real_invoker_release_gate_implementation_packet_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-codex-real-invoker-implementation-boundary-contract-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Contract status', (string) data_get($payload, 'codex_real_invoker_implementation_boundary_contract_template.status'));
+            $this->components->twoColumnDetail('Method', (string) data_get($payload, 'codex_real_invoker_implementation_boundary_contract_template.contract.method'));
+            $this->components->twoColumnDetail('Contract hash', (string) data_get($payload, 'codex_real_invoker_implementation_boundary_contract_template_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-codex-real-invoker-implementation-boundary-preflight')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Preflight status', (string) data_get($payload, 'codex_real_invoker_implementation_boundary_preflight.status'));
+            $this->components->twoColumnDetail('Blocking count', (string) data_get($payload, 'codex_real_invoker_implementation_boundary_preflight.blocking_count'));
+            $this->components->twoColumnDetail('Preflight hash', (string) data_get($payload, 'codex_real_invoker_implementation_boundary_preflight_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-codex-real-invoker-implementation-boundary-implementation-packet')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Packet status', (string) data_get($payload, 'codex_real_invoker_implementation_boundary_implementation_packet.status'));
+            $this->components->twoColumnDetail('Task count', (string) data_get($payload, 'codex_real_invoker_implementation_boundary_implementation_packet.task_count'));
+            $this->components->twoColumnDetail('Packet hash', (string) data_get($payload, 'codex_real_invoker_implementation_boundary_implementation_packet_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
         if ((bool) $this->option('single-session-instruction-packet')) {
             $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
             $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
@@ -5205,6 +5940,7 @@ class AtlasAiSelfConstructionCommand extends Command
             $this->components->twoColumnDetail('Current phase', (string) data_get($payload, 'digest.current_phase'));
             $this->components->twoColumnDetail('Next action', (string) data_get($payload, 'digest.next_action_id'));
             $this->components->twoColumnDetail('Digest hash', (string) data_get($payload, 'digest_hash'));
+            $this->components->twoColumnDetail('Checkpoint hash', (string) data_get($payload, 'checkpoint_receipt_hash'));
             $this->newLine();
             $this->line((string) $payload['human_summary']);
 

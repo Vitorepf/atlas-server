@@ -1206,6 +1206,43 @@ class MobileGatewayTest extends TestCase
             ->assertAccepted();
     }
 
+    public function test_atlas_sheet_returns_validation_error_when_gateway_rejects_interaction(): void
+    {
+        $clientId = (string) Str::uuid();
+
+        $this->mock(AiGatewayService::class, function (MockInterface $mock) use ($clientId): void {
+            $mock
+                ->shouldReceive('enqueueInteraction')
+                ->once()
+                ->with('Me fala sobre esses', \Mockery::on(fn (array $options): bool => ($options['client_id'] ?? null) === $clientId))
+                ->andThrow(new RuntimeException('Provider sem suporte a imagem.'));
+        });
+
+        $this
+            ->withHeader('X-Atlas-Token', 'testing-atlas-token-with-enough-length')
+            ->postJson('/ai/interactions', [
+                'input_text' => 'Me fala sobre esses',
+                'client_id' => $clientId,
+                'new_thread' => true,
+                'agent_slug' => 'orquestrador',
+                'provider' => 'claude_cli',
+                'kind' => 'interaction',
+                'source_type' => 'app',
+                'payload' => [
+                    'app_surface' => 'atlas_ai_sheet',
+                    'visual_input' => ['image_count' => 1],
+                    'attachments' => [
+                        'images' => [
+                            ['path' => '/tmp/screen.png', 'mime_type' => 'image/png'],
+                        ],
+                    ],
+                ],
+            ])
+            ->assertUnprocessable()
+            ->assertJsonPath('code', 'ai_interaction_rejected')
+            ->assertJsonPath('message', 'Provider sem suporte a imagem.');
+    }
+
     public function test_atlas_sheet_respects_requested_mode_on_operational_thread(): void
     {
         $token = $this->pairedDeviceToken();
@@ -1968,6 +2005,32 @@ class MobileGatewayTest extends TestCase
         $this->assertArrayNotHasKey('summary', $payload['data']);
         $this->assertArrayNotHasKey('body', $payload['data']);
         $this->assertArrayNotHasKey('title', $payload['data']);
+    }
+
+    public function test_push_dispatch_fails_closed_when_delivery_table_is_missing(): void
+    {
+        config()->set('atlas.mobile.enabled', true);
+        config()->set('atlas.mobile.batching.enabled', false);
+        config()->set('atlas.mobile.quiet_hours.enabled', false);
+        Http::fake(['*' => Http::response(['data' => ['status' => 'ok', 'id' => 'ticket-missing-table']], 200)]);
+        $this->pairedDeviceToken('ExponentPushToken[test]');
+        Schema::dropIfExists('mobile_push_deliveries');
+
+        $item = app(AtlasInboxService::class)->create([
+            'type' => 'alert',
+            'severity' => 'warning',
+            'title' => 'Alerta preservado sem push',
+            'summary' => 'Inbox deve sobreviver a infraestrutura push incompleta.',
+            'push_policy' => ['send' => 'immediate'],
+        ]);
+
+        $this->assertInstanceOf(AiInboxItem::class, $item);
+        $this->assertDatabaseHas('ai_inbox_items', ['id' => $item->id]);
+        $this->assertSame(1, AuditEvent::query()->where('event_type', 'push.unavailable')->count());
+        $audit = AuditEvent::query()->where('event_type', 'push.unavailable')->firstOrFail();
+        $this->assertSame('push_infrastructure_unavailable', data_get($audit->evidence, 'reason'));
+        $this->assertSame(['mobile_push_deliveries'], data_get($audit->evidence, 'missing_tables'));
+        Http::assertSentCount(0);
     }
 
     public function test_telemetry_health_push_uses_specific_operational_copy(): void

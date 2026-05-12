@@ -128,7 +128,7 @@ class AiObservabilityKernelSloTest extends TestCase
         $this->assertContains('php artisan atlas:ai:place-feature "<feature>" --json', $commands);
         $this->assertContains('php artisan atlas:ai:docs-split-plan --json', $commands);
         $this->assertContains('atlas engineering knowledge sync --prune --json', $commands);
-        $this->assertContains('atlas engineering knowledge index-code --prune --json', $commands);
+        $this->assertContains('atlas engineering knowledge index-code --prune --summary-only --json', $commands);
         $this->assertContains('php artisan atlas:ai:provider-performance --hours=24 --json', $commands);
         $this->assertContains('php artisan atlas:ai:provider-release-review --provider=<provider> --title="<release>" --json', $commands);
         $this->assertContains('php artisan atlas:ai:agent-behavior-report --hours=24 --json', $commands);
@@ -566,6 +566,83 @@ class AiObservabilityKernelSloTest extends TestCase
             ->assertJsonPath('inbox_actions.recent_events.0.provider_cost_rate_output_microusd', 1500);
 
         $this->assertContains('provider_cost_rates_configured', $response->json('inbox_actions.review_signal.reasons'));
+    }
+
+    public function test_observability_payload_exposes_retrieval_regression_review_inbox_actions(): void
+    {
+        AtlasLedgerEvent::query()->create([
+            'event_id' => '01HOBSERVABILITYRETRIEVAL001',
+            'schema_version' => 'atlas.ledger_event.v1',
+            'tenant_id' => 'tenant_observability',
+            'operator_id' => 'operator_cli',
+            'envelope_id' => 'inbox_item:observability-retrieval-regression',
+            'receipt_id' => null,
+            'trace_id' => null,
+            'correlation_id' => 'observability-retrieval-regression',
+            'causation_id' => null,
+            'event_type' => LedgerEventType::InboxActionRecorded->value,
+            'emitter_stage' => 'atlas.inbox',
+            'emitter_version' => 'atlas.inbox_action.v1',
+            'payload' => [
+                'schema_version' => 'atlas.inbox_action.v1',
+                'action' => 'review_retrieval_regression',
+                'inbox_item' => [
+                    'id' => 'observability-retrieval-regression',
+                    'type' => 'proposal',
+                    'category' => 'memory',
+                    'severity' => 'medium',
+                    'status' => 'read',
+                    'source_type' => 'atlas_memory_retrieval',
+                    'source_id' => 'retrieval-rivals-report-observability',
+                    'dedupe_key' => 'dedupe-retrieval-regression',
+                ],
+                'actor' => [
+                    'type' => 'operator_cli',
+                    'id' => null,
+                ],
+                'result' => [
+                    'payload' => [
+                        'action' => 'review_retrieval_regression',
+                        'diff_refs' => [],
+                    ],
+                    'retrieval_regression_review_action' => [
+                        'schema_version' => 'atlas.inbox_action.memory_retrieval_regression_review.v1',
+                        'decision' => 'needs_more_evidence',
+                        'reviewed' => true,
+                        'report_hash' => hash('sha256', 'retrieval-report-observability'),
+                        'latest_snapshot_hash' => hash('sha256', 'retrieval-latest-observability'),
+                        'previous_snapshot_hash' => hash('sha256', 'retrieval-previous-observability'),
+                        'no_external_action' => true,
+                        'no_runtime_execution' => true,
+                        'no_policy_patch' => true,
+                    ],
+                ],
+                'review_signal' => [
+                    'status' => 'ok',
+                    'severity' => 'none',
+                    'recommended_action' => 'open_memory_retrieval_regression_review',
+                ],
+                'recommended_action' => 'open_memory_retrieval_regression_review',
+            ],
+            'payload_hash' => hash('sha256', 'observability-retrieval-regression'),
+            'occurred_at' => now(),
+        ]);
+
+        $response = $this->getJson('/ai/observability?hours=24', $this->headers)
+            ->assertOk()
+            ->assertJsonPath('inbox_actions.available', true)
+            ->assertJsonPath('inbox_actions.retrieval_regression_review_count', 1)
+            ->assertJsonPath('inbox_actions.retrieval_regression_reviewed_count', 1)
+            ->assertJsonPath('inbox_actions.review_signal.status', 'ok')
+            ->assertJsonPath('inbox_actions.review_signal.recommended_action', 'none')
+            ->assertJsonPath('inbox_actions.recent_events.0.action', 'review_retrieval_regression')
+            ->assertJsonPath('inbox_actions.recent_events.0.retrieval_regression_decision', 'needs_more_evidence')
+            ->assertJsonPath('inbox_actions.recent_events.0.retrieval_regression_no_external_action', true)
+            ->assertJsonPath('inbox_actions.recent_events.0.retrieval_regression_no_runtime_execution', true)
+            ->assertJsonPath('inbox_actions.recent_events.0.retrieval_regression_no_policy_patch', true);
+
+        $this->assertSame(['needs_more_evidence' => 1], $response->json('inbox_actions.retrieval_regression_decision_counts'));
+        $this->assertContains('memory_retrieval_regression_review_recorded', $response->json('inbox_actions.review_signal.reasons'));
     }
 
     public function test_observability_payload_includes_self_improvement_schedule(): void

@@ -39,6 +39,9 @@ managed notes, markdown import/export or vault conflict handling.
 |---|---|
 | `contracts.md` | Authority, frontmatter, links, note types, privacy and conflict rules |
 | `runbook.md` | CLI/API operations, smoke commands, phase validation and safety gates |
+| `atlas-vault-cartography-schema.md` | Index for the cartography schema split specs |
+| `atlas-vault-cartography-schema-contracts.md` | Source authority, `graph_*` fields, compatibility and anti-canon rules |
+| `atlas-vault-cartography-schema-runbook.md` | Reader/watcher model, migration phases and validation workflow |
 | `../atlas-system-graph.md` | Contract for the Obsidian graph of Atlas systems, programs, modules and dependencies |
 
 ## Rules

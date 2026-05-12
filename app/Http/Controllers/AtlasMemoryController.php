@@ -13,6 +13,7 @@ use App\Http\Requests\FeedbackAtlasMemoryUsageRequest;
 use App\Http\Requests\IndexAtlasMemoryQualitySnapshotRequest;
 use App\Http\Requests\PromoteAtlasMemoryDeltaRequest;
 use App\Http\Requests\PurgeAtlasMemoryProviderProjectionAuditRequest;
+use App\Http\Requests\ReviewAtlasMemoryDeltaRequest;
 use App\Http\Requests\ReviewAtlasVerbatimMemoryRequest;
 use App\Http\Requests\ReviewAtlasMemoryRelationRequest;
 use App\Http\Requests\ReviewAtlasMemoryPrivacyRequest;
@@ -45,6 +46,7 @@ use App\Services\Ai\AtlasProviderProjectionAuditPurgePolicy;
 use App\Services\Ai\AtlasProviderProjectionAuditService;
 use App\Services\Ai\AtlasProviderProjectionService;
 use App\Services\Ai\AtlasVerbatimMemoryService;
+use App\Services\AuditLogService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -166,6 +168,105 @@ class AtlasMemoryController extends Controller
         ]);
     }
 
+    public function indexDeltas(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'status' => ['nullable', 'string', 'max:32'],
+            'type' => ['nullable', 'string', 'max:40'],
+            'scope' => ['nullable', 'string', 'max:255'],
+            'limit' => ['nullable', 'integer', 'min:1', 'max:100'],
+        ]);
+
+        $query = AiMemoryDelta::query()->latest('created_at');
+
+        foreach (['status', 'type', 'scope'] as $field) {
+            if (is_string($data[$field] ?? null) && trim((string) $data[$field]) !== '') {
+                $query->where($field, trim((string) $data[$field]));
+            }
+        }
+
+        if (! isset($data['status'])) {
+            $query->where('status', 'pending');
+        }
+
+        return response()->json([
+            'memory_deltas' => $query
+                ->limit((int) ($data['limit'] ?? 50))
+                ->get()
+                ->map(fn (AiMemoryDelta $delta): array => $this->memoryDeltaPayload($delta))
+                ->values()
+                ->all(),
+        ]);
+    }
+
+    public function showDelta(AiMemoryDelta $delta): JsonResponse
+    {
+        return response()->json([
+            'memory_delta' => $this->memoryDeltaPayload($delta, full: true),
+        ]);
+    }
+
+    public function reviewDelta(
+        ReviewAtlasMemoryDeltaRequest $request,
+        AiMemoryDelta $delta,
+        AuditLogService $audit,
+    ): JsonResponse {
+        if ($delta->status === 'promoted') {
+            return response()->json([
+                'message' => 'Memory delta ja promovido nao pode ser revisado como pending.',
+            ], 422);
+        }
+
+        $data = $request->validated();
+        $previousStatus = $delta->status;
+        $targetStatus = $data['action'] === 'accept' ? 'accepted' : 'rejected';
+        $reviewedBy = is_string($data['reviewed_by'] ?? null) && trim((string) $data['reviewed_by']) !== ''
+            ? trim((string) $data['reviewed_by'])
+            : 'api';
+        $reason = is_string($data['reason'] ?? null) && trim((string) $data['reason']) !== ''
+            ? trim((string) $data['reason'])
+            : null;
+
+        $delta->forceFill(['status' => $targetStatus])->save();
+
+        $receipt = [
+            'schema_version' => 'atlas.memory_delta.review_receipt.v1',
+            'memory_delta_id' => $delta->id,
+            'action' => $data['action'],
+            'previous_status' => $previousStatus,
+            'status' => $targetStatus,
+            'reviewed_by' => $reviewedBy,
+            'reason_hash' => $reason ? hash('sha256', $reason) : null,
+            'reviewed_at' => now()->toJSON(),
+        ];
+
+        $audit->record('memory_delta_reviewed', [
+            'subject_type' => 'ai_memory_delta',
+            'subject_id' => $delta->id,
+            'actor_type' => 'operator',
+            'actor_id' => $reviewedBy,
+            'summary' => "Memory delta {$targetStatus}.",
+            'evidence' => [
+                ...$receipt,
+                'type' => $delta->type,
+                'scope' => $delta->scope,
+                'confidence' => $delta->confidence,
+                'claim_hash' => hash('sha256', $delta->claim),
+                'evidence_count' => count($delta->evidence ?? []),
+            ],
+            'privacy' => ['sensitivity' => 'normal'],
+            'refs' => [
+                'memory_delta_id' => $delta->id,
+                'promoted_memory_entry_id' => $delta->promoted_memory_entry_id,
+            ],
+        ]);
+
+        return response()->json([
+            'memory_delta' => $this->memoryDeltaPayload($delta->refresh(), full: true),
+            'review_receipt' => $receipt,
+        ]);
+    }
+
     public function promoteDelta(
         PromoteAtlasMemoryDeltaRequest $request,
         AiMemoryDelta $delta,
@@ -190,6 +291,35 @@ class AtlasMemoryController extends Controller
                 'promoted_at' => $delta->promoted_at?->toJSON(),
             ],
         ]);
+    }
+
+    private function memoryDeltaPayload(AiMemoryDelta $delta, bool $full = false): array
+    {
+        $payload = [
+            'id' => $delta->id,
+            'status' => $delta->status,
+            'type' => $delta->type,
+            'claim' => $delta->claim,
+            'scope' => $delta->scope,
+            'confidence' => $delta->confidence,
+            'valid_from' => $delta->valid_from?->toJSON(),
+            'valid_until' => $delta->valid_until?->toJSON(),
+            'requires_confirmation' => $delta->requires_confirmation,
+            'promoted_memory_entry_id' => $delta->promoted_memory_entry_id,
+            'promoted_at' => $delta->promoted_at?->toJSON(),
+            'created_at' => $delta->created_at?->toJSON(),
+            'updated_at' => $delta->updated_at?->toJSON(),
+        ];
+
+        return $full ? $payload + [
+            'source_trace_id' => $delta->source_trace_id,
+            'source_session_id' => $delta->source_session_id,
+            'source_workspace' => $delta->source_workspace,
+            'evidence' => $delta->evidence,
+            'use_when' => $delta->use_when,
+            'do_not_use_when' => $delta->do_not_use_when,
+            'superseded_by' => $delta->superseded_by,
+        ] : $payload;
     }
 
     public function scanGovernance(

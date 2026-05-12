@@ -1,0 +1,2363 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Atlas · Truth Cartography</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500;1,600&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --cream: #f3ecda;
+      --cream-deep: #ebe2cb;
+      --cream-paper: #f7f1e3;
+      --ink: #1a1714;
+      --ink2: #4a4138;
+      --ink3: #8a7f70;
+      --ink4: #b6ac9c;
+      --bronze: #8a6a35;
+      --bronze-deep: #5e4520;
+      --bronze-soft: rgba(138,106,53,.28);
+      --bronze-veil: rgba(138,106,53,.07);
+      --bronze-glow: rgba(138,106,53,.18);
+      --prussian: #2b3e54;
+      --moss: #4a5f3a;
+      --moss-soft: rgba(74,95,58,.20);
+      --moss-veil: rgba(74,95,58,.08);
+      --rec-red: #8a3025;
+      --hair: rgba(26,23,20,.16);
+      --hair-soft: rgba(26,23,20,.07);
+      --serif: 'Cormorant Garamond', 'IM Fell English', Georgia, serif;
+      --mono: 'JetBrains Mono', ui-monospace, 'Menlo', monospace;
+      --sans: 'Inter', system-ui, -apple-system, sans-serif;
+      --ease-i: cubic-bezier(0.32, 0.72, 0.24, 1);
+      --ease-c: cubic-bezier(0.4, 1, 0.2, 1);
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; overflow: hidden; }
+    body {
+      background: var(--cream);
+      color: var(--ink);
+      font-family: var(--serif);
+      font-size: 16px;
+      -webkit-font-smoothing: antialiased;
+    }
+    button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+    input { font: inherit; color: inherit; }
+    details > summary { list-style: none; cursor: pointer; }
+    details > summary::-webkit-details-marker { display: none; }
+
+    /* ─── APP ───────────────────────────────────── */
+    .app { display: grid; grid-template-rows: 56px 1fr; height: 100vh; }
+
+    /* ─── TOPBAR ────────────────────────────────── */
+    .topbar {
+      display: grid;
+      grid-template-columns: auto 1fr auto auto;
+      align-items: center;
+      gap: 22px;
+      padding: 0 24px;
+      border-bottom: 1px solid var(--bronze-soft);
+      background: var(--cream-paper);
+      z-index: 30;
+    }
+    .brand { display: flex; align-items: baseline; gap: 14px; }
+    .brand-name { font-weight: 500; font-size: 17px; letter-spacing: 3.5px; color: var(--ink); text-transform: uppercase; }
+    .brand-sub { font-style: italic; font-size: 12.5px; color: var(--ink2); }
+
+    .search-wrap {
+      position: relative;
+      max-width: 380px;
+      width: 100%;
+      display: flex; align-items: center; gap: 8px;
+      padding: 6px 12px;
+      border: 1px solid var(--hair);
+      border-radius: 2px;
+      background: var(--cream);
+      transition: border-color 180ms var(--ease-i);
+      justify-self: end;
+    }
+    .search-wrap:focus-within { border-color: var(--bronze); }
+    .search-wrap .glyph { font-family: var(--mono); font-size: 11px; letter-spacing: 1.2px; color: var(--bronze); }
+    .search-wrap input { flex: 1; border: 0; outline: none; background: transparent; font-style: italic; font-size: 13.5px; color: var(--ink); }
+    .search-wrap input::placeholder { color: var(--ink3); font-style: italic; }
+
+    .topbar .folio { font-family: var(--mono); font-size: 10px; letter-spacing: 1.6px; color: var(--prussian); text-transform: uppercase; }
+    .topbar .folio .div { color: var(--bronze); margin: 0 5px; }
+    .topbar .folio .live-dot {
+      display: inline-block;
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--moss);
+      margin-right: 6px;
+      animation: live-pulse 2.4s ease-in-out infinite;
+    }
+    @keyframes live-pulse {
+      0%, 100% { opacity: 0.5; }
+      50% { opacity: 1; }
+    }
+
+    /* ─── WORK ─────────────────────────────────── */
+    .work {
+      display: grid;
+      grid-template-columns: 1fr 360px;
+      min-height: 0;
+    }
+    .inspector {
+      border-left: 1px solid var(--bronze-soft);
+      background: var(--cream-paper);
+      overflow-y: auto;
+      padding: 0;
+    }
+
+    .viewport {
+      position: relative;
+      overflow: hidden;
+      background:
+        radial-gradient(rgba(138,106,53,.05) 1px, transparent 1px) 0 0 / 32px 32px,
+        var(--cream);
+      cursor: grab;
+    }
+    .viewport.is-panning { cursor: grabbing; }
+
+    .world {
+      position: absolute;
+      left: 0; top: 0;
+      width: 1800px;
+      height: 1380px;
+      transform-origin: 0 0;
+      will-change: transform;
+      transition: transform 420ms var(--ease-c);
+    }
+    .world.no-transition { transition: none; }
+    .world-svg {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      overflow: visible;
+    }
+    .trail {
+      fill: none;
+      stroke: rgba(138,106,53,.45);
+      stroke-width: 1.2;
+      transition: stroke 220ms var(--ease-c), stroke-width 220ms var(--ease-c), opacity 220ms var(--ease-c);
+    }
+    .trail.dashed { stroke-dasharray: 5 3; }
+    .trail.path-active {
+      stroke: var(--bronze-deep);
+      stroke-width: 2.2;
+      opacity: 1;
+    }
+    .world.dim-others .trail:not(.path-active) { opacity: 0.10; }
+
+    /* ISOLATE MODE — single click numa peça: o resto do fluxo some, só ela e suas conexões diretas ficam */
+    .world.isolate-mode .atom:not(.active):not(.kin) {
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 320ms var(--ease-c);
+    }
+    .world.isolate-mode .region:not(.kin-host) {
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 320ms var(--ease-c);
+    }
+    .world.isolate-mode .ribbon { opacity: 0.18; transition: opacity 320ms var(--ease-c); }
+    .world.isolate-mode .trail:not(.path-active) {
+      opacity: 0;
+      transition: opacity 320ms var(--ease-c);
+    }
+    .world.isolate-mode .atom.active {
+      border: 2px solid var(--bronze);
+      background: var(--cream);
+      box-shadow: 0 22px 44px rgba(138,106,53,.22), 0 0 0 6px var(--bronze-glow);
+      transform: scale(1.035);
+      z-index: 10;
+      transition: transform 320ms var(--ease-c), box-shadow 320ms var(--ease-c), border-color 320ms var(--ease-c);
+    }
+    .world.isolate-mode .atom.kin {
+      opacity: 1;
+      border-color: var(--bronze-soft);
+      transition: opacity 320ms var(--ease-c) 80ms, border-color 320ms var(--ease-c);
+    }
+    .world.isolate-mode .region.kin-host {
+      opacity: 1;
+      transition: opacity 320ms var(--ease-c);
+    }
+    .world.isolate-mode .region.kin-host .region-head {
+      opacity: 0.55;
+    }
+    .world.isolate-mode .trail.path-active {
+      stroke: var(--bronze-deep);
+      stroke-width: 2.4;
+      opacity: 1;
+    }
+
+    /* ─── REGIONS ─────────────────────────────── */
+    .region { position: absolute; }
+    .region-head {
+      font-family: var(--mono);
+      font-size: 10.5px;
+      letter-spacing: 2px;
+      color: var(--bronze);
+      text-transform: uppercase;
+      padding-bottom: 6px;
+      border-bottom: 1px solid var(--bronze-soft);
+      margin-bottom: 14px;
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+    }
+    .region-head .deck {
+      font-family: var(--serif);
+      font-style: italic;
+      font-size: 11.5px;
+      color: var(--ink3);
+      letter-spacing: 0;
+      text-transform: none;
+      font-weight: 400;
+    }
+    .region-atoms { display: grid; gap: 8px; }
+
+    /* ─── ATOMS ───────────────────────────────── */
+    .atom {
+      position: relative;
+      background: var(--cream-paper);
+      border: 1px solid var(--hair);
+      border-radius: 3px;
+      padding: 10px 12px 8px;
+      cursor: pointer;
+      transition: background 180ms var(--ease-i), border-color 180ms var(--ease-i), transform 280ms var(--ease-c);
+      display: grid;
+      gap: 3px;
+      min-height: 34px;
+    }
+    .atom:hover { background: var(--cream-deep); border-color: var(--bronze-soft); }
+    .atom .a-name {
+      font-weight: 500;
+      font-size: 13px;
+      letter-spacing: 0.3px;
+      color: var(--ink);
+      line-height: 1.2;
+    }
+    .atom .a-deck {
+      font-style: italic;
+      font-size: 11px;
+      color: var(--ink2);
+      line-height: 1.4;
+    }
+    .atom .a-source {
+      margin-top: 5px;
+      padding-top: 5px;
+      border-top: 1px solid var(--hair-soft);
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      font-family: var(--mono);
+      font-size: 8.5px;
+      letter-spacing: 1.1px;
+      color: var(--ink3);
+      text-transform: uppercase;
+    }
+    .atom .a-source-badge {
+      display: inline-block;
+      padding: 1px 5px;
+      border-radius: 2px;
+      font-size: 8px;
+      letter-spacing: 1.3px;
+      font-weight: 500;
+    }
+    .atom .a-source-badge.repo {
+      background: var(--bronze-veil);
+      color: var(--bronze-deep);
+      border: 1px solid var(--bronze-soft);
+    }
+    .atom .a-source-badge.vault {
+      background: var(--moss-veil);
+      color: var(--moss);
+      border: 1px solid var(--moss-soft);
+    }
+    .atom .a-source-path {
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      color: var(--ink3);
+      font-size: 8.5px;
+    }
+    .atom .a-subs {
+      margin-top: 6px;
+      padding-top: 6px;
+      border-top: 1px solid var(--hair-soft);
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 4px 10px;
+    }
+    .atom .a-sub {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 6px;
+      align-items: baseline;
+      font-size: 10.5px;
+      line-height: 1.3;
+    }
+    .atom .a-sub .s-name { color: var(--ink); font-weight: 500; }
+    .atom .a-sub .s-meta {
+      font-family: var(--mono);
+      font-size: 8.5px;
+      letter-spacing: 1px;
+      color: var(--bronze);
+      text-transform: uppercase;
+    }
+
+    /* live-doc badge */
+    .atom .a-live-badge {
+      position: absolute;
+      top: -8px;
+      right: 8px;
+      padding: 2px 6px;
+      background: var(--bronze);
+      color: var(--cream);
+      font-family: var(--mono);
+      font-size: 8px;
+      letter-spacing: 1.3px;
+      text-transform: uppercase;
+      border-radius: 2px;
+      animation: live-pulse 3.5s ease-in-out infinite;
+      pointer-events: none;
+      z-index: 4;
+    }
+    .atom.just-edited {
+      box-shadow: 0 0 0 2px var(--bronze-soft), 0 14px 28px rgba(138,106,53,.18);
+      animation: just-edited-ring 3.5s ease-in-out infinite;
+    }
+    @keyframes just-edited-ring {
+      0%, 100% { box-shadow: 0 0 0 2px var(--bronze-soft), 0 14px 28px rgba(138,106,53,.10); }
+      50%      { box-shadow: 0 0 0 3px var(--bronze), 0 18px 36px rgba(138,106,53,.22); }
+    }
+
+    /* missing source */
+    .atom.missing-source {
+      border-left: 2px solid var(--rec-red);
+      background: rgba(138,48,37,.03);
+    }
+    .atom.missing-source .a-name { color: var(--rec-red); }
+    .atom.missing-source::before {
+      content: 'FONTE AUSENTE';
+      position: absolute;
+      top: -8px;
+      left: 8px;
+      padding: 2px 5px;
+      background: var(--rec-red);
+      color: var(--cream);
+      font-family: var(--mono);
+      font-size: 7.5px;
+      letter-spacing: 1.3px;
+      text-transform: uppercase;
+      border-radius: 2px;
+    }
+
+    /* ─── PIPELINE ATOMS ───────────────────────── */
+    .atom-pipe {
+      display: grid;
+      grid-template-columns: 26px 1fr;
+      gap: 10px;
+      align-items: start;
+      padding: 11px 12px 9px 8px;
+    }
+    .atom-pipe .a-num {
+      font-family: var(--mono);
+      font-size: 9.5px;
+      letter-spacing: 1px;
+      color: var(--bronze);
+      text-transform: uppercase;
+      padding-top: 3px;
+      text-align: right;
+    }
+    .atom-pipe .a-body { display: grid; gap: 3px; min-width: 0; }
+    .atom-pipe .a-body .a-name { font-size: 14px; }
+    .atom-pipe .a-body .a-deck { font-size: 11.5px; }
+    .atom-pipe .a-body .a-source { grid-column: 1; }
+
+    /* ─── RIBBON ─────────────────────────────── */
+    .ribbon {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 8px 22px;
+      background: var(--ink);
+      color: var(--cream);
+      font-weight: 500;
+      font-size: 12px;
+      letter-spacing: 2.6px;
+      text-transform: uppercase;
+      border-radius: 2px;
+      z-index: 2;
+    }
+
+    /* ─── LOD ──────────────────────────────────── */
+    .world.zoom-far .atom .a-deck,
+    .world.zoom-far .atom .a-subs,
+    .world.zoom-far .atom .a-source { display: none; }
+    .world.zoom-far .region-head .deck { display: none; }
+    .world.zoom-far .atom { padding: 8px 10px; min-height: 32px; }
+    .world.zoom-far .atom .a-name { font-size: 12.5px; }
+    .world.zoom-mid .atom .a-subs { display: none; }
+    .world.zoom-mid .atom .a-source { font-size: 8px; }
+    .world.zoom-close .atom .a-subs { display: grid; }
+    .world.zoom-close .atom .a-deck { display: block; }
+    .world.zoom-close .atom .a-source { display: flex; }
+
+    /* ─── MINIMAP FLOATER ────────────────────── */
+    .minimap-floater {
+      position: absolute;
+      top: 22px;
+      left: 22px;
+      width: 240px;
+      background: var(--cream-paper);
+      border: 1px solid var(--bronze-soft);
+      border-radius: 2px;
+      padding: 13px 14px;
+      z-index: 20;
+    }
+    .mf-head {
+      font-family: var(--mono);
+      font-size: 9.5px;
+      letter-spacing: 1.8px;
+      color: var(--bronze);
+      text-transform: uppercase;
+      margin-bottom: 8px;
+      padding-bottom: 5px;
+      border-bottom: 1px solid var(--hair);
+    }
+    .mf-list { display: grid; gap: 0; }
+    .mf-row {
+      display: grid;
+      grid-template-columns: 10px 1fr auto;
+      gap: 8px;
+      align-items: baseline;
+      padding: 6px 0;
+      border-bottom: 1px solid var(--hair-soft);
+      cursor: pointer;
+      transition: padding-left 180ms var(--ease-i);
+      text-align: left;
+    }
+    .mf-row:last-child { border-bottom: 0; }
+    .mf-row:hover, .mf-row.active { padding-left: 4px; }
+    .mf-row.active .mf-name { color: var(--bronze); font-weight: 500; }
+    .mf-row .mf-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ink3); align-self: center; }
+    .mf-row[data-id="atlas"] .mf-dot { background: var(--bronze); }
+    .mf-row[data-id="memory"] .mf-dot { background: var(--moss); }
+    .mf-row[data-id="works"] .mf-dot { background: var(--prussian); }
+    .mf-row[data-id="forge"] .mf-dot { background: #6e3a2f; }
+    .mf-row[data-id="philosophy"] .mf-dot { background: var(--ink2); }
+    .mf-row[data-id="risks"] .mf-dot { background: var(--rec-red); }
+    .mf-row .mf-name { font-size: 12.5px; color: var(--ink); letter-spacing: 0.2px; }
+    .mf-row .mf-count { font-family: var(--mono); font-size: 9.5px; letter-spacing: 1px; color: var(--ink3); text-transform: uppercase; }
+    .mf-row .mf-source {
+      grid-column: 2 / -1;
+      grid-row: 2;
+      font-family: var(--mono);
+      font-size: 8px;
+      letter-spacing: 1px;
+      color: var(--ink3);
+      text-transform: uppercase;
+    }
+    .mf-divider { border-bottom: 1px solid var(--hair); margin: 10px -14px 8px; }
+    .mf-here {
+      display: grid;
+      gap: 2px;
+      padding: 0 0 0 0;
+    }
+    .mf-here-label {
+      font-family: var(--mono);
+      font-size: 9px;
+      letter-spacing: 1.5px;
+      color: var(--bronze);
+      text-transform: uppercase;
+    }
+    .mf-here-val {
+      font-style: italic;
+      font-size: 13px;
+      color: var(--ink);
+      line-height: 1.3;
+    }
+
+    /* ─── BREADCRUMB ────────────────────────── */
+    .breadcrumb-floater {
+      position: absolute;
+      top: 22px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 8px 16px;
+      background: var(--cream-paper);
+      border: 1px solid var(--hair);
+      border-radius: 2px;
+      font-style: italic;
+      font-size: 13px;
+      color: var(--ink2);
+      z-index: 20;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      max-width: calc(100% - 600px);
+    }
+    .breadcrumb-floater .sep { color: var(--ink3); }
+    .breadcrumb-floater .crumb {
+      font-style: italic;
+      cursor: pointer;
+      padding-bottom: 1px;
+      border-bottom: 1px solid transparent;
+      transition: color 180ms var(--ease-i), border-color 180ms var(--ease-i);
+    }
+    .breadcrumb-floater .crumb:hover { color: var(--ink); border-bottom-color: var(--bronze-soft); }
+    .breadcrumb-floater .crumb.current { color: var(--bronze); font-style: normal; font-weight: 500; }
+
+    /* ─── BACK TO MAP ─────────────────────── */
+    .back-to-map {
+      position: absolute;
+      top: 22px;
+      right: 22px;
+      padding: 8px 14px;
+      background: var(--cream-paper);
+      border: 1px solid var(--bronze);
+      border-radius: 2px;
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 1.5px;
+      color: var(--bronze-deep);
+      text-transform: uppercase;
+      z-index: 20;
+      display: none;
+      transition: background 180ms var(--ease-i);
+    }
+    .back-to-map.show { display: block; }
+    .back-to-map:hover { background: var(--bronze-veil); }
+
+    /* ─── TIMELINE FLOATER ──────────────────── */
+    .timeline-floater {
+      position: absolute;
+      bottom: 22px;
+      left: 22px;
+      width: 280px;
+      background: var(--cream-paper);
+      border: 1px solid var(--bronze-soft);
+      border-radius: 2px;
+      padding: 12px 14px;
+      z-index: 20;
+    }
+    .tl-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      padding-bottom: 6px;
+      border-bottom: 1px solid var(--hair);
+      margin-bottom: 8px;
+    }
+    .tl-title {
+      font-family: var(--mono);
+      font-size: 9.5px;
+      letter-spacing: 1.8px;
+      color: var(--bronze);
+      text-transform: uppercase;
+    }
+    .tl-live {
+      font-family: var(--mono);
+      font-size: 8.5px;
+      letter-spacing: 1.2px;
+      color: var(--moss);
+      text-transform: uppercase;
+    }
+    .tl-live::before {
+      content: '';
+      display: inline-block;
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--moss);
+      margin-right: 5px;
+      animation: live-pulse 2.4s ease-in-out infinite;
+      vertical-align: 1px;
+    }
+    .tl-list { display: grid; gap: 0; }
+    .tl-row {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 10px;
+      align-items: baseline;
+      padding: 7px 0;
+      border-bottom: 1px solid var(--hair-soft);
+      cursor: pointer;
+      transition: padding-left 180ms var(--ease-i);
+    }
+    .tl-row:last-child { border-bottom: 0; }
+    .tl-row:hover { padding-left: 4px; }
+    .tl-row .tl-time {
+      font-family: var(--mono);
+      font-size: 9.5px;
+      letter-spacing: 1px;
+      color: var(--bronze);
+      text-transform: uppercase;
+      padding-top: 1px;
+    }
+    .tl-row .tl-info { display: grid; gap: 2px; min-width: 0; }
+    .tl-row .tl-name {
+      font-size: 12.5px;
+      color: var(--ink);
+      letter-spacing: 0.2px;
+      line-height: 1.25;
+    }
+    .tl-row .tl-meta {
+      font-family: var(--mono);
+      font-size: 8px;
+      letter-spacing: 0.9px;
+      color: var(--ink3);
+      text-transform: uppercase;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .tl-row.fresh .tl-name { font-weight: 500; }
+    .tl-row.fresh .tl-time { color: var(--moss); }
+
+    /* ─── CONTROLS ──────────────────────────── */
+    .canvas-controls {
+      position: absolute;
+      bottom: 22px;
+      right: 22px;
+      display: flex;
+      gap: 5px;
+      background: var(--cream-paper);
+      border: 1px solid var(--hair);
+      border-radius: 2px;
+      padding: 4px;
+      z-index: 20;
+    }
+    .canvas-controls button {
+      width: 34px; height: 34px;
+      display: grid; place-items: center;
+      font-family: var(--mono);
+      font-size: 15px;
+      color: var(--ink2);
+      border-radius: 2px;
+      transition: background 180ms var(--ease-i), color 180ms var(--ease-i);
+    }
+    .canvas-controls button:hover { background: var(--bronze-veil); color: var(--bronze); }
+    .canvas-controls button.alt { font-size: 11px; letter-spacing: 1.2px; padding: 0 8px; width: auto; text-transform: uppercase; font-family: var(--mono); }
+    .zoom-indicator {
+      position: absolute;
+      bottom: 22px;
+      right: 230px;
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 1.5px;
+      color: var(--ink3);
+      background: var(--cream-paper);
+      border: 1px solid var(--hair);
+      padding: 7px 11px;
+      border-radius: 2px;
+      text-transform: uppercase;
+      z-index: 20;
+    }
+
+    /* ─── GEAR FOCUS STAGE (substitui o canvas) ───────── */
+    .gear-focus-stage {
+      position: absolute;
+      left: 50%;
+      top: 0;
+      transform: translateX(-50%);
+      width: 1400px;
+      display: grid;
+      grid-template-columns: minmax(240px, 1fr) minmax(460px, 1.6fr) minmax(240px, 1fr);
+      grid-template-rows: auto 1fr auto;
+      gap: 36px 64px;
+      padding: 60px 60px 60px;
+      align-content: start;
+      animation: focus-in 320ms var(--ease-c) both;
+    }
+    @keyframes focus-in {
+      from { opacity: 0; transform: translateX(-50%) scale(0.992); }
+      to   { opacity: 1; transform: translateX(-50%) scale(1); }
+    }
+    .focus-header { grid-column: 1 / -1; grid-row: 1; text-align: center; }
+    .focus-eyebrow {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 2.4px;
+      color: var(--bronze);
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+    .focus-title {
+      margin: 0;
+      font-weight: 500;
+      font-size: 42px;
+      letter-spacing: 1.4px;
+      color: var(--ink);
+      text-transform: uppercase;
+      line-height: 1.05;
+    }
+    .focus-lede {
+      max-width: 780px;
+      margin: 14px auto 0;
+      font-style: italic;
+      font-size: 17px;
+      color: var(--ink2);
+      line-height: 1.5;
+    }
+    .focus-side-meta {
+      display: flex;
+      justify-content: center;
+      gap: 18px;
+      margin-top: 14px;
+      font-family: var(--mono);
+      font-size: 9.5px;
+      letter-spacing: 1.5px;
+      color: var(--ink3);
+      text-transform: uppercase;
+    }
+    .focus-side-meta .meta-source-badge {
+      padding: 2px 6px;
+      border-radius: 2px;
+      font-weight: 500;
+    }
+    .focus-side-meta .meta-source-badge.repo {
+      background: var(--bronze-veil);
+      color: var(--bronze-deep);
+      border: 1px solid var(--bronze-soft);
+    }
+    .focus-side-meta .meta-source-badge.vault {
+      background: var(--moss-veil);
+      color: var(--moss);
+      border: 1px solid var(--moss-soft);
+    }
+
+    .focus-side { display: grid; gap: 12px; align-content: start; padding-top: 22px; }
+    .focus-side.left { grid-column: 1; grid-row: 2; }
+    .focus-side.right { grid-column: 3; grid-row: 2; }
+    .focus-side .side-label {
+      font-family: var(--mono);
+      font-size: 10.5px;
+      letter-spacing: 2px;
+      color: var(--bronze);
+      text-transform: uppercase;
+      padding-bottom: 6px;
+      border-bottom: 1px solid var(--bronze-soft);
+      margin-bottom: 6px;
+      display: flex; align-items: baseline; gap: 8px;
+    }
+    .focus-side .side-glyph { font-size: 15px; color: var(--bronze-deep); }
+    .focus-side .empty-state { font-style: italic; font-size: 13px; color: var(--ink3); padding: 8px 0; }
+    .satellite {
+      padding: 13px 16px;
+      background: var(--cream-paper);
+      border: 1px solid var(--hair);
+      border-radius: 3px;
+      cursor: pointer;
+      transition: background 180ms var(--ease-i), border-color 180ms var(--ease-i), transform 320ms var(--ease-c);
+      text-align: left;
+    }
+    .satellite:hover { background: var(--cream); border-color: var(--bronze); }
+    .focus-side.right .satellite:hover { transform: translateX(3px); }
+    .focus-side.left .satellite:hover { transform: translateX(-3px); }
+    .satellite .s-name { display: block; font-weight: 500; font-size: 14.5px; color: var(--ink); line-height: 1.25; }
+    .satellite .s-sub { display: block; margin-top: 4px; font-style: italic; font-size: 12.5px; color: var(--ink2); line-height: 1.4; }
+    .satellite .s-source {
+      display: block;
+      margin-top: 6px;
+      padding-top: 5px;
+      border-top: 1px solid var(--hair-soft);
+      font-family: var(--mono);
+      font-size: 8.5px;
+      letter-spacing: 1.1px;
+      color: var(--ink3);
+      text-transform: uppercase;
+    }
+
+    .focus-center-card {
+      grid-column: 2; grid-row: 2;
+      padding: 28px 32px 30px;
+      background: var(--cream);
+      border: 2px solid var(--bronze);
+      border-radius: 3px;
+      box-shadow: 0 28px 56px rgba(26,23,20,.08);
+      align-self: start;
+      margin-top: 14px;
+    }
+    .focus-center-card .center-fields { display: grid; gap: 0; }
+    .focus-center-card .field-row {
+      display: grid;
+      grid-template-columns: 130px 1fr;
+      gap: 18px;
+      padding: 13px 0;
+      border-bottom: 1px solid var(--hair-soft);
+      align-items: start;
+    }
+    .focus-center-card .field-row:first-child { padding-top: 0; }
+    .focus-center-card .field-row:last-child { border-bottom: 0; }
+    .focus-center-card .field-label {
+      font-family: var(--mono);
+      font-size: 9.5px;
+      letter-spacing: 1.8px;
+      color: var(--bronze);
+      text-transform: uppercase;
+      padding-top: 3px;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .focus-center-card .field-label .fglyph { font-size: 12px; color: var(--bronze-deep); }
+    .focus-center-card .field-value { font-style: italic; font-size: 14.5px; color: var(--ink); line-height: 1.5; }
+    .focus-center-card .field-row.risk .field-value { color: var(--rec-red); }
+    .focus-center-card .field-row.next {
+      background: var(--bronze-veil);
+      margin: 4px -14px 0;
+      padding: 13px 14px;
+      border-radius: 2px;
+      border-bottom: 0;
+    }
+    .focus-center-card .field-row.next .field-value { font-weight: 500; font-style: normal; color: var(--ink); }
+
+    .focus-footer {
+      grid-column: 1 / -1; grid-row: 3;
+      display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;
+      padding-top: 14px;
+    }
+    .focus-action {
+      padding: 9px 16px;
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 1.6px;
+      color: var(--bronze);
+      text-transform: uppercase;
+      border: 1px solid var(--bronze-soft);
+      border-radius: 2px;
+      transition: all 180ms var(--ease-i);
+      cursor: pointer;
+    }
+    .focus-action:hover { background: var(--bronze-veil); border-color: var(--bronze); }
+    .focus-action.primary { background: var(--ink); color: var(--cream); border-color: var(--ink); }
+    .focus-action.primary:hover { background: var(--bronze-deep); border-color: var(--bronze-deep); }
+
+    .focus-trail { fill: none; stroke: var(--bronze); stroke-width: 1.5; opacity: 0.6; }
+
+    /* ─── SUBFLOW STAGE ────────────────────── */
+    .subflow-stage {
+      position: absolute;
+      left: 50%;
+      top: 0;
+      transform: translateX(-50%);
+      width: 1400px;
+      padding: 60px 80px;
+      display: grid;
+      gap: 28px;
+      animation: focus-in 320ms var(--ease-c) both;
+    }
+    .subflow-head {
+      padding: 18px 22px;
+      background: var(--cream-paper);
+      border: 1px solid var(--bronze-soft);
+      border-radius: 3px;
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 16px;
+      align-items: center;
+    }
+    .subflow-head .sh-roman {
+      font-family: var(--mono);
+      font-size: 13px;
+      letter-spacing: 2.2px;
+      color: var(--bronze);
+      text-transform: uppercase;
+    }
+    .subflow-head .sh-title {
+      font-weight: 500;
+      font-size: 18px;
+      letter-spacing: 1.2px;
+      color: var(--ink);
+      text-transform: uppercase;
+    }
+    .subflow-head .sh-sub {
+      grid-column: 2; grid-row: 2;
+      font-style: italic;
+      font-size: 13px;
+      color: var(--ink2);
+      line-height: 1.5;
+    }
+    .subflow-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+    }
+    .subcomp {
+      padding: 16px 18px;
+      background: var(--cream-paper);
+      border: 1px solid var(--hair);
+      border-radius: 3px;
+      transition: all 200ms var(--ease-c);
+    }
+    .subcomp:hover { background: var(--cream-deep); border-color: var(--bronze-soft); transform: translateY(-2px); }
+    .subcomp .sc-name { display: block; font-weight: 500; font-size: 14.5px; color: var(--ink); line-height: 1.25; }
+    .subcomp .sc-meta { display: inline-block; margin-top: 8px; font-family: var(--mono); font-size: 9px; letter-spacing: 1.4px; color: var(--bronze); text-transform: uppercase; padding: 2px 6px; border: 1px solid var(--bronze-soft); border-radius: 2px; }
+
+    /* ─── INSPECTOR ──────────────────────────── */
+    .inspector .ins-header { padding: 22px 24px 14px; border-bottom: 1px solid var(--hair); }
+    .inspector .ins-source {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      gap: 10px;
+      align-items: center;
+      padding: 8px 0 12px;
+      border-bottom: 1px solid var(--hair-soft);
+      margin-bottom: 12px;
+      font-family: var(--mono);
+      font-size: 9px;
+      letter-spacing: 1.3px;
+      text-transform: uppercase;
+    }
+    .ins-source-badge {
+      padding: 2px 7px;
+      border-radius: 2px;
+      font-size: 8.5px;
+      letter-spacing: 1.4px;
+      font-weight: 500;
+    }
+    .ins-source-badge.repo { background: var(--bronze-veil); color: var(--bronze-deep); border: 1px solid var(--bronze-soft); }
+    .ins-source-badge.vault { background: var(--moss-veil); color: var(--moss); border: 1px solid var(--moss-soft); }
+    .ins-source-path {
+      font-size: 9.5px;
+      color: var(--ink2);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .ins-source-status {
+      color: var(--moss);
+      font-size: 8.5px;
+    }
+    .ins-source-status::before {
+      content: '';
+      display: inline-block;
+      width: 5px; height: 5px;
+      border-radius: 50%;
+      background: var(--moss);
+      margin-right: 4px;
+      animation: live-pulse 3s ease-in-out infinite;
+      vertical-align: 1px;
+    }
+    .ins-source-status.stale { color: var(--rec-red); }
+    .ins-source-status.stale::before { background: var(--rec-red); animation: none; }
+
+    .ins-kind {
+      font-family: var(--mono);
+      font-size: 9.5px;
+      letter-spacing: 1.8px;
+      color: var(--bronze);
+      text-transform: uppercase;
+    }
+    .ins-title {
+      margin: 6px 0 0;
+      font-weight: 500;
+      font-size: 24px;
+      letter-spacing: 0.4px;
+      color: var(--ink);
+      line-height: 1.15;
+    }
+    .ins-lede {
+      margin: 10px 0 0;
+      font-style: italic;
+      font-size: 14.5px;
+      line-height: 1.5;
+      color: var(--ink2);
+    }
+    .ins-body { padding: 16px 24px 32px; }
+
+    .ficha-7 {
+      display: grid; gap: 0;
+      margin: 0 0 18px;
+      border-top: 1px solid var(--hair);
+    }
+    .ficha-7 .row {
+      padding: 10px 0 11px;
+      border-bottom: 1px solid var(--hair-soft);
+      display: grid; gap: 4px;
+    }
+    .ficha-7 .row:last-child { border-bottom: 1px solid var(--hair); }
+    .ficha-7 .label {
+      font-family: var(--mono);
+      font-size: 9px;
+      letter-spacing: 1.6px;
+      color: var(--bronze);
+      text-transform: uppercase;
+      display: flex; gap: 6px; align-items: center;
+    }
+    .ficha-7 .label .glyph { font-family: var(--mono); font-size: 11px; color: var(--bronze-deep); }
+    .ficha-7 .value { font-style: italic; font-size: 13.5px; color: var(--ink); line-height: 1.45; }
+    .ficha-7 .value.empty { color: var(--ink3); }
+    .ficha-7 .row.risk .value { color: var(--rec-red); }
+    .ficha-7 .row.next {
+      background: var(--bronze-veil);
+      margin: 0 -8px;
+      padding: 10px 10px 11px;
+      border-radius: 2px;
+    }
+
+    /* markdown preview */
+    .ins-md {
+      margin: 22px 0 0;
+      padding: 0 0 0 0;
+    }
+    .ins-md summary {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      align-items: baseline;
+      padding: 5px 0 8px;
+      border-bottom: 1px solid var(--hair);
+    }
+    .ins-md-title {
+      font-family: var(--mono);
+      font-size: 9.5px;
+      letter-spacing: 1.8px;
+      color: var(--bronze);
+      text-transform: uppercase;
+    }
+    .ins-md-meta {
+      font-family: var(--mono);
+      font-size: 8.5px;
+      letter-spacing: 1.1px;
+      color: var(--moss);
+      text-transform: uppercase;
+    }
+    .ins-md-meta.stale { color: var(--ink3); }
+    .ins-md-body {
+      padding: 14px 14px 16px;
+      background: var(--cream);
+      border: 1px solid var(--hair-soft);
+      border-radius: 2px;
+      margin-top: 10px;
+      max-height: 320px;
+      overflow-y: auto;
+    }
+    .ins-md-body h1 {
+      margin: 0 0 8px;
+      font-weight: 500;
+      font-size: 18px;
+      letter-spacing: 0.4px;
+      color: var(--ink);
+    }
+    .ins-md-body h2 {
+      margin: 14px 0 6px;
+      font-family: var(--mono);
+      font-weight: 400;
+      font-size: 10px;
+      letter-spacing: 1.8px;
+      color: var(--bronze);
+      text-transform: uppercase;
+      padding-bottom: 4px;
+      border-bottom: 1px solid var(--hair-soft);
+    }
+    .ins-md-body h3 {
+      margin: 10px 0 4px;
+      font-weight: 500;
+      font-size: 13px;
+      color: var(--ink);
+    }
+    .ins-md-body p {
+      margin: 0 0 8px;
+      font-style: italic;
+      font-size: 13px;
+      line-height: 1.55;
+      color: var(--ink);
+    }
+    .ins-md-body code {
+      font-family: var(--mono);
+      font-size: 11.5px;
+      background: var(--cream-deep);
+      padding: 1px 5px;
+      border-radius: 2px;
+      color: var(--bronze-deep);
+      font-style: normal;
+    }
+    .ins-md-body ul {
+      margin: 4px 0 8px 0;
+      padding: 0 0 0 18px;
+    }
+    .ins-md-body li {
+      font-style: italic;
+      font-size: 13px;
+      line-height: 1.5;
+      color: var(--ink);
+      margin: 2px 0;
+    }
+    .ins-md-body blockquote {
+      margin: 8px 0;
+      padding: 6px 0 6px 12px;
+      border-left: 2px solid var(--bronze-soft);
+      font-style: italic;
+      color: var(--ink2);
+      font-size: 13px;
+    }
+    .ins-md-body a { color: var(--bronze-deep); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 2px; }
+    .ins-md-body .wiki { color: var(--bronze); font-style: normal; font-family: var(--serif); font-weight: 500; }
+
+    .ins-section { margin: 22px 0 0; }
+    .ins-section h3 {
+      margin: 0 0 8px;
+      padding-bottom: 5px;
+      border-bottom: 1px solid var(--hair);
+      font-family: var(--mono);
+      font-size: 9.5px;
+      letter-spacing: 1.8px;
+      color: var(--bronze);
+      text-transform: uppercase;
+      font-weight: 400;
+    }
+    .ins-actions { display: grid; gap: 0; }
+    .ins-action {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 9px 0;
+      border-bottom: 1px solid var(--hair-soft);
+      cursor: pointer;
+      transition: padding-left 180ms var(--ease-i);
+    }
+    .ins-action:hover { padding-left: 3px; }
+    .ins-action:last-child { border-bottom: 0; }
+    .ins-action .a-label { font-size: 13.5px; color: var(--ink); }
+    .ins-action .a-glyph { font-family: var(--mono); font-size: 11px; color: var(--bronze); }
+    .ins-tags { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 6px; }
+    .ins-tag {
+      font-family: var(--mono);
+      font-size: 9px;
+      letter-spacing: 1.2px;
+      color: var(--ink2);
+      text-transform: uppercase;
+      padding-bottom: 2px;
+      border-bottom: 1px solid var(--hair);
+    }
+
+    /* ─── RESPONSIVE ────────────────────── */
+    @media (max-width: 1100px) {
+      .work { grid-template-columns: 1fr; }
+      .inspector { border-left: 0; border-top: 1px solid var(--bronze-soft); max-height: 45vh; }
+      .breadcrumb-floater { max-width: calc(100% - 300px); }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-name">Atlas · Truth Cartography</span>
+        <span class="brand-sub">leitura · navegação · auditoria da verdade canônica</span>
+      </div>
+      <div class="search-wrap">
+        <span class="glyph">∴</span>
+        <input id="searchInput" type="search" placeholder="buscar engrenagem, lane, sistema, arquivo…" autocomplete="off">
+      </div>
+      <div class="folio">
+        <span class="live-dot"></span>
+        <span>vol I</span><span class="div">·</span>
+        <span>no 005</span><span class="div">·</span>
+        <span>12 mai 2026</span>
+      </div>
+    </header>
+
+    <div class="work">
+      <div class="viewport" id="viewport">
+
+        <aside class="minimap-floater">
+          <div class="mf-head">Continentes do Vault</div>
+          <div class="mf-list" id="mfList"></div>
+          <div class="mf-divider"></div>
+          <div class="mf-here">
+            <span class="mf-here-label">Você está aqui</span>
+            <span class="mf-here-val" id="mfHere">Atlas · AI Kernel · Pipeline</span>
+          </div>
+        </aside>
+
+        <div class="breadcrumb-floater" id="breadcrumb"></div>
+
+        <button class="back-to-map" id="backToMap">← Voltar ao mapa</button>
+
+        <aside class="timeline-floater">
+          <div class="tl-head">
+            <span class="tl-title">Mudanças recentes</span>
+            <span class="tl-live">ao vivo</span>
+          </div>
+          <div class="tl-list" id="tlList"></div>
+        </aside>
+
+        <div class="world" id="world">
+          <svg class="world-svg" id="worldSvg" viewBox="0 0 1800 1380" preserveAspectRatio="none">
+            <defs>
+              <marker id="tip" viewBox="0 0 8 8" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+                <path d="M 0 0 L 8 4 L 0 8 Z" fill="currentColor"/>
+              </marker>
+            </defs>
+          </svg>
+        </div>
+
+        <div class="zoom-indicator" id="zoomIndicator">100%</div>
+        <div class="canvas-controls">
+          <button data-zoom="out" title="Diminuir">−</button>
+          <button data-zoom="in" title="Aumentar">+</button>
+          <button data-zoom="fit" title="Ajustar tudo">⊟</button>
+          <button data-zoom="universe" class="alt" title="Vista do universo">universo</button>
+        </div>
+      </div>
+
+      <aside class="inspector" id="inspector">
+        <div class="ins-header">
+          <div class="ins-source" id="insSource"></div>
+          <div class="ins-kind" id="insKind">Fluxo operacional</div>
+          <h2 class="ins-title" id="insTitle">Atlas AI Kernel Pipeline</h2>
+          <p class="ins-lede" id="insLede">Pipeline canônico do Atlas — apenas leitura. Passe o mouse sobre uma peça pra ver conexões; clique pra entrar em Foco e ler a ficha + o arquivo real. A IA edita os <code style="font-family:var(--mono);font-size:11.5px;color:var(--bronze-deep);">.md</code>; você audita aqui.</p>
+        </div>
+
+        <div class="ins-body">
+          <div class="ficha-7" id="insFicha"></div>
+
+          <details class="ins-md" id="insMd" open>
+            <summary>
+              <span class="ins-md-title">Conteúdo do arquivo</span>
+              <span class="ins-md-meta" id="insMdMeta">— vault carregando</span>
+            </summary>
+            <div class="ins-md-body" id="insMdBody"></div>
+          </details>
+
+          <div class="ins-section">
+            <h3>Ações</h3>
+            <div class="ins-actions" id="insActions"></div>
+          </div>
+
+          <div class="ins-section">
+            <h3>Tags</h3>
+            <div class="ins-tags" id="insTags"></div>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <script>
+  // ═══════════════════════════════════════════════════════════════════════
+  //  HELPERS
+  // ═══════════════════════════════════════════════════════════════════════
+  const ROMAN = ['','i','ii','iii','iv','v','vi','vii','viii','ix','x','xi','xii','xiii','xiv','xv','xvi','xvii'];
+  const toRoman = n => ROMAN[n] || String(n);
+  const $ = s => document.querySelector(s);
+  const $$ = s => document.querySelectorAll(s);
+  const el = (tag, cls, html) => { const n = document.createElement(tag); if (cls) n.className = cls; if (html != null) n.innerHTML = html; return n; };
+  const slug = s => s.toLowerCase().replace(/[\/\s]+/g,'-').replace(/[^a-z0-9-]+/g,'').replace(/(^-|-$)/g,'');
+
+  // simple markdown parser (covers h1/h2/h3, paragraphs, bold/italic, inline code, lists, blockquotes, wiki links)
+  function parseMarkdown(md) {
+    const lines = md.split('\n');
+    let html = [];
+    let inList = false;
+    let inQuote = false;
+    const flushList = () => { if (inList) { html.push('</ul>'); inList = false; } };
+    const flushQuote = () => { if (inQuote) { html.push('</blockquote>'); inQuote = false; } };
+    for (let raw of lines) {
+      const line = raw.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      if (line.match(/^# /)) { flushList(); flushQuote(); html.push('<h1>' + inline(line.slice(2)) + '</h1>'); }
+      else if (line.match(/^## /)) { flushList(); flushQuote(); html.push('<h2>' + inline(line.slice(3)) + '</h2>'); }
+      else if (line.match(/^### /)) { flushList(); flushQuote(); html.push('<h3>' + inline(line.slice(4)) + '</h3>'); }
+      else if (line.match(/^- /)) { flushQuote(); if (!inList) { html.push('<ul>'); inList = true; } html.push('<li>' + inline(line.slice(2)) + '</li>'); }
+      else if (line.match(/^&gt; /)) { flushList(); if (!inQuote) { html.push('<blockquote>'); inQuote = true; } html.push(inline(line.slice(4)) + '<br>'); }
+      else if (line.trim() === '') { flushList(); flushQuote(); }
+      else { flushList(); flushQuote(); html.push('<p>' + inline(line) + '</p>'); }
+    }
+    flushList(); flushQuote();
+    return html.join('\n');
+  }
+  function inline(s) {
+    return s
+      .replace(/`([^`]+)`/g, '<code>$1</code>')
+      .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*([^*]+)\*/g, '<em>$1</em>')
+      .replace(/\[\[([^\]]+)\]\]/g, '<span class="wiki">$1</span>');
+  }
+
+  function formatTimeAgo(seconds) {
+    if (seconds < 5) return `há ${seconds}s · agora`;
+    if (seconds < 60) return `há ${seconds}s`;
+    if (seconds < 3600) return `há ${Math.floor(seconds/60)}min`;
+    return `há ${Math.floor(seconds/3600)}h`;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  //  DATA · LIVE GRAPH (fetched from /atlas-cartography/api)
+  //  These variables are populated by loadGraph() at boot and refreshed
+  //  every POLL_INTERVAL_MS. The cartography never writes — only reads.
+  // ═══════════════════════════════════════════════════════════════════════
+  const API_BASE = '/atlas-cartography';
+  const POLL_INTERVAL_MS = 5000;
+
+  let universe = [];
+  let pipeline = [];
+  let regions = {};
+  let connections = [];
+  let atomIndex = {};
+  let RECENT_CHANGES = [];
+  let graphAudit = { found: 0, missing: 0, generated_at: null, repo_indexed: 0, vault_indexed: 0 };
+  // markdown body cache: { graph_id → { body, source, source_path, modified_at } }
+  const mdCache = {};
+
+  async function fetchJson(path) {
+    try {
+      const r = await fetch(API_BASE + path, { headers: { 'Accept': 'application/json' } });
+      if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
+      return await r.json();
+    } catch (err) {
+      console.error('[atlas-cartography] fetch failed:', path, err);
+      return null;
+    }
+  }
+
+  async function loadGraph() {
+    const data = await fetchJson('/graph');
+    if (!data) return false;
+    graphAudit = {
+      found: data.audit?.pieces_found ?? 0,
+      missing: data.audit?.pieces_missing ?? 0,
+      generated_at: data.generated_at,
+      repo_indexed: data.sources?.repo_indexed_count ?? 0,
+      vault_indexed: data.sources?.vault_indexed_count ?? 0,
+    };
+    universe = (data.universe || []).map(adaptUniverse);
+    const view = data.views?.['atlas-ai-kernel'] || {};
+    pipeline = (view.pipeline || []).map(adaptStep);
+    connections = view.connections || [];
+    regions = {};
+    (view.lanes || []).forEach(l => {
+      const adapted = adaptLane(l);
+      regions[adapted.graph_id] = adapted;
+    });
+    rebuildAtomIndex();
+    return true;
+  }
+
+  async function loadRecentChanges() {
+    const data = await fetchJson('/recent-changes');
+    if (!data) return false;
+    RECENT_CHANGES = (data.changes || []).map(c => ({
+      graph_id: c.graph_id,
+      name: c.name,
+      time: c.time,
+      secondsAgo: c.seconds_ago,
+      action: c.action,
+      author: c.author,
+      source: c.source,
+      path: c.path,
+    }));
+    return true;
+  }
+
+  async function loadNote(graphId) {
+    if (mdCache[graphId]) return mdCache[graphId];
+    const data = await fetchJson('/note/' + encodeURIComponent(graphId));
+    if (!data) return null;
+    mdCache[graphId] = data;
+    return data;
+  }
+
+  // Adapters: shape do backend → shape que o frontend usa
+  function adaptUniverse(c) {
+    return {
+      graph_id: c.graph_id,
+      name: c.name,
+      graph_source: c.missing_source ? 'missing' : c.graph_source,
+      source_path: c.source_path || c.expected_path,
+      missing_source: !!c.missing_source,
+      count: c.count || 0,
+      role: c.role || c.summary || null,
+    };
+  }
+  function adaptStep(s) {
+    return {
+      graph_id: s.graph_id,
+      graph_order: s.graph_order,
+      name: s.name,
+      deck: s.deck,
+      graph_source: s.missing_source ? 'missing' : (s.graph_source || 'repo'),
+      source_path: s.source_path || s.expected_path,
+      missing_source: !!s.missing_source,
+      role: s.role || s.summary || null,
+      input: s.input || null,
+      output: s.output || null,
+      depends: normList(s.depends_on),
+      unblocks: normList(s.unlocks),
+      evidence: norm(s.evidence),
+      risk: norm(s.risks),
+      next: norm(s.next_actions),
+      subs: s.subs || [],
+      title: s.title || null,
+    };
+  }
+  function adaptLane(l) {
+    return {
+      graph_id: l.graph_id,
+      side: l.side,
+      head: l.name || l.head,
+      deck: l.deck,
+      graph_source: l.missing_source ? 'missing' : (l.graph_source || 'repo'),
+      source_path: l.source_path || l.expected_path,
+      missing_source: !!l.missing_source,
+      role: l.role || l.summary || null,
+      nodes: l.nodes || [],
+    };
+  }
+  function norm(v) {
+    if (v == null) return null;
+    if (Array.isArray(v)) return v.length === 0 ? null : v.join(' · ');
+    return String(v);
+  }
+  function normList(v) {
+    if (!v) return [];
+    return Array.isArray(v) ? v : [v];
+  }
+  function rebuildAtomIndex() {
+    atomIndex = {};
+    pipeline.forEach(p => { atomIndex[p.graph_id] = { ...p, kind: 'pipeline' }; });
+    Object.values(regions).forEach(r => {
+      atomIndex[r.graph_id] = { ...r, kind: 'lane', name: r.head };
+      (r.nodes || []).forEach(n => { atomIndex[n.graph_id] = { ...n, kind: 'lateral', regionHead: r.head, regionId: r.graph_id }; });
+    });
+    universe.forEach(u => {
+      if (!atomIndex[u.graph_id]) atomIndex[u.graph_id] = { ...u, kind: 'continent' };
+    });
+  }
+
+
+  // ═══════════════════════════════════════════════════════════════════════
+  //  LAYOUT COORDS
+  // ═══════════════════════════════════════════════════════════════════════
+  const LAYOUT = {
+    pipeline:    { x: 660, y: 80,  w: 480 },
+    pipelineStep: 84,
+    runtimeHeight: 260,
+    'domain-plane': { x: 40,  y: 100, w: 240 },
+    'capabilities': { x: 40,  y: 760, w: 240 },
+    'business-context-side': { x: 340, y: 380, w: 260 },
+    'hks':         { x: 1200, y: 100, w: 280 },
+    'evidence-loop': { x: 1200, y: 480, w: 280 },
+    'doc-os':       { x: 1200, y: 1100, w: 280 }
+  };
+
+  // pipeline Y coords (step 12 runtime tem altura especial) — recalculado após cada loadGraph
+  let stepY = [];
+  function recomputeStepY() {
+    stepY = [];
+    let curY = LAYOUT.pipeline.y + 40;
+    pipeline.forEach((p, idx) => {
+      stepY[idx] = curY;
+      curY += (p.graph_order === 12 ? LAYOUT.runtimeHeight : LAYOUT.pipelineStep);
+    });
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  //  STATE
+  // ═══════════════════════════════════════════════════════════════════════
+  const state = {
+    view: 'flow',            // universe | system | flow | gear | subflow
+    continent: 'atlas',
+    focusedId: null,
+    focusedMeta: null,
+    isolatedId: null,        // single click: peça isolada no canvas, sem trocar de cena
+    hoverId: null            // peça atualmente sob hover (pra re-render assíncrono do md)
+  };
+
+  // detecção de single vs double click (gesto canônico da cartografia)
+  const CLICK = { lastId: null, lastTime: 0, threshold: 320, timer: null };
+
+  // ═══════════════════════════════════════════════════════════════════════
+  //  RENDER · WORLD (delega por view)
+  // ═══════════════════════════════════════════════════════════════════════
+  function renderWorld() {
+    const world = $('#world');
+    Array.from(world.children).forEach(c => { if (c.tagName !== 'svg') c.remove(); });
+    $('#worldSvg').innerHTML = `<defs>
+      <marker id="tip" viewBox="0 0 8 8" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+        <path d="M 0 0 L 8 4 L 0 8 Z" fill="currentColor"/>
+      </marker>
+    </defs>`;
+
+    if (state.view === 'gear')      { renderGearScene(world); return; }
+    if (state.view === 'subflow')   { renderSubflowScene(world); return; }
+    if (state.view === 'universe')  { renderUniverseScene(world); return; }
+    if (state.view === 'system')    { renderSystemScene(world); return; }
+    renderFlowScene(world);  // default
+    requestAnimationFrame(() => requestAnimationFrame(() => drawAllTrails()));
+  }
+
+  // ─── FLOW ─────────────────────────────────────────
+  function renderFlowScene(world) {
+    const ribbon = el('div', 'ribbon', 'Atlas Kernel Pipeline');
+    ribbon.style.left = (LAYOUT.pipeline.x + LAYOUT.pipeline.w/2) + 'px';
+    ribbon.style.top = LAYOUT.pipeline.y + 'px';
+    ribbon.style.transform = 'translateX(-50%)';
+    world.appendChild(ribbon);
+
+    pipeline.forEach((p, idx) => {
+      const atom = el('div', 'atom atom-pipe');
+      atom.id = `atom-${p.graph_id}`;
+      atom.style.position = 'absolute';
+      atom.style.left = LAYOUT.pipeline.x + 'px';
+      atom.style.top = stepY[idx] + 'px';
+      atom.style.width = LAYOUT.pipeline.w + 'px';
+      const recent = RECENT_CHANGES.find(c => c.graph_id === p.graph_id && c.secondsAgo < 60);
+      if (recent) atom.classList.add('just-edited');
+      const liveBadge = recent ? `<span class="a-live-badge">atualizado ${formatTimeAgo(recent.secondsAgo)}</span>` : '';
+      const subsHtml = p.subs?.length ? `<div class="a-subs">${p.subs.map(s => `<div class="a-sub"><span class="s-name">${s[0]}</span><span class="s-meta">${s[1]}</span></div>`).join('')}</div>` : '';
+      atom.innerHTML = `
+        ${liveBadge}
+        <span class="a-num">${toRoman(p.graph_order)}.</span>
+        <div class="a-body">
+          <span class="a-name">${p.name}</span>
+          <span class="a-deck">${p.deck}</span>
+          <span class="a-source">
+            <span class="a-source-badge ${p.graph_source}">${p.graph_source}</span>
+            <span class="a-source-path">${p.source_path}</span>
+          </span>
+          ${subsHtml}
+        </div>
+      `;
+      attachAtomHandlers(atom, { kind:'pipeline', graph_id: p.graph_id });
+      world.appendChild(atom);
+    });
+
+    Object.entries(regions).forEach(([key, r]) => {
+      const lay = LAYOUT[key];
+      if (!lay) return;
+      const wrap = el('div', 'region');
+      wrap.id = `atom-${r.graph_id}`;
+      wrap.style.left = lay.x + 'px';
+      wrap.style.top = lay.y + 'px';
+      wrap.style.width = lay.w + 'px';
+      wrap.innerHTML = `<div class="region-head">${r.head}<span class="deck">${r.deck}</span></div>`;
+      const atomsWrap = el('div', 'region-atoms');
+      r.nodes.forEach(n => {
+        const a = el('div', 'atom');
+        a.id = `atom-${n.graph_id}`;
+        const recent = RECENT_CHANGES.find(c => c.graph_id === n.graph_id && c.secondsAgo < 60);
+        const liveBadge = recent ? `<span class="a-live-badge">atualizado ${formatTimeAgo(recent.secondsAgo)}</span>` : '';
+        a.innerHTML = `
+          ${liveBadge}
+          <span class="a-name">${n.name}</span>
+          <span class="a-deck">${n.deck}</span>
+          <span class="a-source">
+            <span class="a-source-badge ${n.graph_source}">${n.graph_source}</span>
+            <span class="a-source-path">${n.source_path}</span>
+          </span>
+        `;
+        attachAtomHandlers(a, { kind:'lateral', graph_id: n.graph_id });
+        atomsWrap.appendChild(a);
+      });
+      wrap.appendChild(atomsWrap);
+      world.appendChild(wrap);
+    });
+  }
+
+  // ─── UNIVERSE ─────────────────────────────────────
+  function renderUniverseScene(world) {
+    const wrap = el('div', '');
+    wrap.style.position = 'absolute';
+    wrap.style.left = '50%';
+    wrap.style.top = '50%';
+    wrap.style.transform = 'translate(-50%, -50%)';
+    wrap.style.width = '1200px';
+    wrap.innerHTML = `
+      <div style="text-align:center; margin-bottom: 36px;">
+        <div style="font-family:var(--mono);font-size:11px;letter-spacing:2.4px;color:var(--bronze);text-transform:uppercase;margin-bottom:6px;">Universo do Vault</div>
+        <h2 style="margin:0;font-weight:500;font-size:40px;letter-spacing:1.4px;color:var(--ink);text-transform:uppercase;line-height:1.05;">AtlasVault</h2>
+        <p style="margin:10px auto 0;font-style:italic;font-size:15.5px;color:var(--ink2);max-width:720px;line-height:1.5;">Seis continentes. Atlas é o sistema operacional técnico — vive no repo. Memória, Obras, Filosofia, Gargalos vivem em diferentes fontes canônicas.</p>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:24px;">
+        ${universe.map(c => `
+          <button class="atom" data-continent="${c.graph_id}" style="text-align:left;padding:20px 22px;cursor:pointer;">
+            <span class="a-name" style="font-size:18px;letter-spacing:0.6px;">${c.name}</span>
+            <span class="a-deck" style="font-size:13px;">${c.count} peças catalogadas</span>
+            <span class="a-source" style="margin-top:10px;">
+              <span class="a-source-badge ${c.graph_source === 'mixed' ? 'repo' : c.graph_source}">${c.graph_source === 'mixed' ? 'misto' : c.graph_source}</span>
+              <span class="a-source-path">${c.source_path}</span>
+            </span>
+          </button>
+        `).join('')}
+      </div>
+    `;
+    wrap.querySelectorAll('[data-continent]').forEach(b => {
+      b.addEventListener('click', e => { e.stopPropagation(); selectContinent(b.dataset.continent); });
+    });
+    world.appendChild(wrap);
+  }
+
+  // ─── SYSTEM ─────────────────────────────────────
+  function renderSystemScene(world) {
+    const wrap = el('div', '');
+    wrap.style.position = 'absolute';
+    wrap.style.left = '50%';
+    wrap.style.top = '50%';
+    wrap.style.transform = 'translate(-50%, -50%)';
+    wrap.style.width = '1200px';
+    const systems = [
+      { id:'atlas-ai-kernel', name:'Atlas AI Kernel', deck:'17 etapas + 4 lanes + loop de evidência', path:'docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md', has_flow:true },
+      { id:'self-construction', name:'Self-Construction OS', deck:'Atlas constrói Atlas via propostas', path:'docs/engineering-knowledge-base/atlas-ai-self-construction-os.md' },
+      { id:'governance', name:'Governance / Policy', deck:'Policy, profile, autonomia, custo', path:'docs/engineering-knowledge-base/atlas-ai-governance-policy-system.md' },
+      { id:'evidence-system', name:'Evidence System', deck:'Ledger append-only + telemetria', path:'docs/engineering-knowledge-base/atlas-ai-telemetry-evidence-performance.md' },
+      { id:'runtime-capability', name:'Runtime Capability', deck:'Executors, drivers, harnesses, sandboxes', path:'docs/engineering-knowledge-base/atlas-ai-runtime-capability-system.md' },
+      { id:'product-surface', name:'Product Surface', deck:'App, mobile, CLI, API, MCP', path:'docs/engineering-knowledge-base/atlas-ai-mobile-surface-gateway.md' },
+      { id:'memory-vault', name:'Memory Vault', deck:'AtlasVault/Obsidian curado', path:'docs/engineering-knowledge-base/obsidian-atlas-vault.md' }
+    ];
+    wrap.innerHTML = `
+      <div style="text-align:center; margin-bottom: 36px;">
+        <div style="font-family:var(--mono);font-size:11px;letter-spacing:2.4px;color:var(--bronze);text-transform:uppercase;margin-bottom:6px;">Continente · ${universe.find(c=>c.graph_id===state.continent)?.name || 'Atlas'}</div>
+        <h2 style="margin:0;font-weight:500;font-size:40px;letter-spacing:1.4px;color:var(--ink);text-transform:uppercase;line-height:1.05;">Sistemas do Atlas</h2>
+        <p style="margin:10px auto 0;font-style:italic;font-size:15.5px;color:var(--ink2);max-width:720px;line-height:1.5;">7 sistemas canônicos. O AI Kernel é o pipeline operacional — clique para descer.</p>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:18px;">
+        ${systems.map(s => `
+          <button class="atom" data-system="${s.id}" style="text-align:left;padding:18px 20px;cursor:pointer;${s.has_flow ? 'border-color:var(--bronze);' : ''}">
+            <span class="a-name" style="font-size:15px;letter-spacing:0.6px;">${s.name}</span>
+            <span class="a-deck" style="font-size:12.5px;">${s.deck}</span>
+            <span class="a-source">
+              <span class="a-source-badge repo">repo</span>
+              <span class="a-source-path">${s.path}</span>
+            </span>
+            ${s.has_flow ? '<span style="display:inline-block;margin-top:8px;font-family:var(--mono);font-size:8.5px;letter-spacing:1.5px;color:var(--bronze);text-transform:uppercase;">▸ tem fluxo navegável</span>' : ''}
+          </button>
+        `).join('')}
+      </div>
+    `;
+    wrap.querySelector('[data-system="atlas-ai-kernel"]').addEventListener('click', e => { e.stopPropagation(); state.view = 'flow'; renderAll(); });
+    world.appendChild(wrap);
+  }
+
+  // ─── GEAR (substitui cena) ─────────────────────
+  function renderGearScene(world) {
+    const meta = state.focusedMeta;
+    if (!meta) return;
+    const d = meta.data;
+    const isPipe = meta.kind === 'pipeline';
+
+    const stage = el('div', 'gear-focus-stage');
+    stage.id = 'focusStage';
+
+    const header = el('div', 'focus-header');
+    const eyebrow = isPipe ? `Atlas · AI Kernel · ${toRoman(d.graph_order)}` : `Atlas · ${d.regionHead || 'Lateral'}`;
+    header.innerHTML = `
+      <div class="focus-eyebrow">${eyebrow}</div>
+      <h2 class="focus-title">${d.name}</h2>
+      <p class="focus-lede">${d.role || d.deck || ''}</p>
+      <div class="focus-side-meta">
+        <span class="meta-source-badge ${d.graph_source}">${d.graph_source}</span>
+        <span>${d.source_path}</span>
+        <span>● sincronizado</span>
+      </div>
+    `;
+    stage.appendChild(header);
+
+    const left = el('div', 'focus-side left');
+    left.innerHTML = `<div class="side-label"><span class="side-glyph">←</span>Depende de</div>`;
+    const depends = d.depends || [];
+    if (depends.length === 0) left.appendChild(el('div', 'empty-state', '—'));
+    else depends.forEach(id => {
+      const a = atomIndex[id];
+      if (!a) return;
+      const sat = el('button', 'satellite');
+      sat.innerHTML = `<span class="s-name">${a.name}</span>${a.deck ? `<span class="s-sub">${a.deck}</span>` : ''}<span class="s-source">${a.graph_source} · ${a.source_path || ''}</span>`;
+      sat.addEventListener('click', e => { e.stopPropagation(); openGearFor(id); });
+      left.appendChild(sat);
+    });
+    stage.appendChild(left);
+
+    const right = el('div', 'focus-side right');
+    right.innerHTML = `<div class="side-label"><span class="side-glyph">→</span>Alimenta</div>`;
+    const unblocks = d.unblocks || [];
+    if (unblocks.length === 0) right.appendChild(el('div', 'empty-state', '—'));
+    else unblocks.forEach(id => {
+      const a = atomIndex[id];
+      if (!a) return;
+      const sat = el('button', 'satellite');
+      sat.innerHTML = `<span class="s-name">${a.name}</span>${a.deck ? `<span class="s-sub">${a.deck}</span>` : ''}<span class="s-source">${a.graph_source} · ${a.source_path || ''}</span>`;
+      sat.addEventListener('click', e => { e.stopPropagation(); openGearFor(id); });
+      right.appendChild(sat);
+    });
+    stage.appendChild(right);
+
+    const center = el('div', 'focus-center-card');
+    const fields = [
+      { label:'Entrada',       glyph:'↑', val: d.input },
+      { label:'Saída',         glyph:'↓', val: d.output },
+      { label:'Evidência',     glyph:'☷', val: d.evidence },
+      { label:'Gargalo',       glyph:'△', val: d.risk, riskClass: true },
+      { label:'Próxima ação',  glyph:'✦', val: d.next, nextClass: true }
+    ];
+    center.innerHTML = `<div class="center-fields">${fields.map(f => {
+      const v = f.val || '—';
+      const cls = (f.riskClass && v !== '—' ? 'risk' : '') + (f.nextClass ? ' next' : '');
+      return `<div class="field-row ${cls}"><span class="field-label"><span class="fglyph">${f.glyph}</span>${f.label}</span><span class="field-value">${v}</span></div>`;
+    }).join('')}</div>`;
+    stage.appendChild(center);
+
+    const footer = el('div', 'focus-footer');
+    footer.innerHTML = `
+      <button class="focus-action primary" data-act="open">↗ Abrir arquivo no editor</button>
+      ${(d.subs?.length) ? '<button class="focus-action" data-act="dive">↓ Ver subcomponentes</button>' : ''}
+      <button class="focus-action" data-act="loop">↻ Ver loop de evidência</button>
+      <button class="focus-action" data-act="back">← Voltar ao mapa</button>
+    `;
+    footer.querySelector('[data-act="dive"]')?.addEventListener('click', e => { e.stopPropagation(); state.view = 'subflow'; renderAll(); });
+    footer.querySelector('[data-act="back"]').addEventListener('click', e => { e.stopPropagation(); exitFocus(); });
+    footer.querySelector('[data-act="open"]').addEventListener('click', e => { e.stopPropagation(); alert(`Abrir no editor (read-only):\n${d.source_path}\n\n(mockup — backend abriria via cursor:// ou obsidian://)`); });
+    footer.querySelector('[data-act="loop"]').addEventListener('click', e => { e.stopPropagation(); openGearFor('evidence-ledger'); });
+    stage.appendChild(footer);
+
+    world.appendChild(stage);
+  }
+
+  // ─── SUBFLOW ─────────────────────────────────
+  function renderSubflowScene(world) {
+    const meta = state.focusedMeta;
+    if (!meta) return;
+    const d = meta.data;
+    const stage = el('div', 'subflow-stage');
+    stage.id = 'subflowStage';
+
+    const head = el('div', 'subflow-head');
+    head.innerHTML = `
+      <span class="sh-roman">${toRoman(d.graph_order)} · subfluxo</span>
+      <div>
+        <div class="sh-title">${d.name} · Subcomponentes</div>
+      </div>
+      <div class="sh-sub">${d.role || d.deck || ''} · ${d.subs?.length || 0} subcomponentes catalogados.</div>
+    `;
+    stage.appendChild(head);
+
+    const grid = el('div', 'subflow-grid');
+    (d.subs || []).forEach(([name, meta]) => {
+      const sc = el('div', 'subcomp');
+      sc.innerHTML = `<span class="sc-name">${name}</span><span class="sc-meta">${meta}</span>`;
+      grid.appendChild(sc);
+    });
+    stage.appendChild(grid);
+
+    const back = el('div', '');
+    back.style.textAlign = 'center';
+    back.style.marginTop = '24px';
+    back.innerHTML = `<button class="focus-action" id="subBack">← Voltar à engrenagem</button>`;
+    back.querySelector('#subBack').addEventListener('click', e => { e.stopPropagation(); state.view = 'gear'; renderAll(); });
+    stage.appendChild(back);
+
+    world.appendChild(stage);
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  //  ATOM HANDLERS
+  // ═══════════════════════════════════════════════════════════════════════
+  function attachAtomHandlers(node, meta) {
+    // hover: só ativa em map mode SEM isolate ativo. Em isolate, o usuário já fez sua escolha — não bagunçar com hover.
+    node.addEventListener('mouseenter', () => {
+      if (state.view !== 'flow' || state.isolatedId) return;
+      hoverAtom(meta);
+    });
+    node.addEventListener('mouseleave', () => {
+      if (state.view !== 'flow' || state.isolatedId) return;
+      clearActivePaths();
+      renderInspectorDefault();
+    });
+    // click canônico:
+    //   single click → enterIsolate (peça fica no canvas, resto some)
+    //   double click → openGearFor (substituição completa de cena)
+    node.addEventListener('click', e => {
+      e.stopPropagation();
+      const now = Date.now();
+      const isDouble = CLICK.lastId === meta.graph_id && (now - CLICK.lastTime) < CLICK.threshold;
+      if (isDouble) {
+        // segundo click — abre cena de Foco
+        if (CLICK.timer) { clearTimeout(CLICK.timer); CLICK.timer = null; }
+        CLICK.lastId = null; CLICK.lastTime = 0;
+        openGearFor(meta.graph_id);
+        return;
+      }
+      // primeiro click — agenda single (isolate) que só dispara se não vier segundo click
+      CLICK.lastId = meta.graph_id;
+      CLICK.lastTime = now;
+      if (CLICK.timer) clearTimeout(CLICK.timer);
+      CLICK.timer = setTimeout(() => {
+        enterIsolate(meta.graph_id);
+        CLICK.timer = null;
+      }, CLICK.threshold);
+    });
+  }
+
+  function hoverAtom(meta) {
+    activatePathsFor(meta.graph_id);
+    renderInspectorFor(meta);
+  }
+
+  function openGearFor(graph_id) {
+    const a = atomIndex[graph_id];
+    if (!a) return;
+    state.view = 'gear';
+    state.focusedId = graph_id;
+    state.focusedMeta = { kind: a.kind, graph_id, data: a };
+    renderAll();
+  }
+
+  function exitFocus() {
+    state.view = 'flow';
+    state.focusedId = null;
+    state.focusedMeta = null;
+    renderAll();
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  //  MINIMAP + TIMELINE + BREADCRUMB
+  // ═══════════════════════════════════════════════════════════════════════
+  function renderMinimap() {
+    const list = $('#mfList');
+    list.innerHTML = '';
+    universe.forEach(c => {
+      const row = el('button', 'mf-row' + (c.graph_id === state.continent ? ' active' : ''));
+      row.dataset.id = c.graph_id;
+      const sourceLabel = c.graph_source === 'mixed' ? 'misto' : c.graph_source;
+      row.innerHTML = `<span class="mf-dot"></span><span class="mf-name">${c.name}</span><span class="mf-count">${c.count}</span><span class="mf-source">${sourceLabel} · ${c.source_path}</span>`;
+      row.addEventListener('click', () => selectContinent(c.graph_id));
+      list.appendChild(row);
+    });
+  }
+
+  function renderTimeline() {
+    const list = $('#tlList');
+    list.innerHTML = '';
+    RECENT_CHANGES.slice(0, 5).forEach(c => {
+      const a = atomIndex[c.graph_id];
+      if (!a) return;
+      const row = el('button', 'tl-row' + (c.secondsAgo < 60 ? ' fresh' : ''));
+      row.innerHTML = `
+        <span class="tl-time">${formatTimeAgo(c.secondsAgo)}</span>
+        <div class="tl-info">
+          <span class="tl-name">${a.name}</span>
+          <span class="tl-meta">${c.action} · ${c.author} · ${a.source_path}</span>
+        </div>
+      `;
+      row.addEventListener('click', () => openGearFor(c.graph_id));
+      list.appendChild(row);
+    });
+  }
+
+  function renderBreadcrumb() {
+    const bc = $('#breadcrumb');
+    bc.innerHTML = '';
+    const crumbs = [];
+    crumbs.push({ label:'AtlasVault', view:'universe' });
+    crumbs.push({ label: universe.find(c => c.graph_id === state.continent)?.name || 'Atlas', view:'system' });
+    if (state.view === 'flow' || state.view === 'gear' || state.view === 'subflow') {
+      crumbs.push({ label:'AI Kernel · Pipeline', view:'flow' });
+    }
+    if (state.view === 'gear' || state.view === 'subflow') {
+      crumbs.push({ label: state.focusedMeta?.data?.name || '—', view:'gear', current: state.view === 'gear' });
+    }
+    if (state.view === 'subflow') {
+      crumbs.push({ label:'Subcomponentes', current: true });
+    }
+    crumbs.forEach((c, i) => {
+      if (i > 0) bc.appendChild(el('span', 'sep', '›'));
+      const btn = el('button', 'crumb' + (c.current ? ' current' : ''), c.label);
+      btn.addEventListener('click', () => {
+        if (c.current) return;
+        if (c.view === 'universe') { state.view = 'universe'; state.focusedMeta = null; }
+        else if (c.view === 'system') { state.view = 'system'; state.focusedMeta = null; }
+        else if (c.view === 'flow') { state.view = 'flow'; state.focusedMeta = null; }
+        else if (c.view === 'gear') { state.view = 'gear'; }
+        renderAll();
+      });
+      bc.appendChild(btn);
+    });
+    $('#backToMap').classList.toggle('show', state.view === 'gear' || state.view === 'subflow' || !!state.isolatedId);
+    $('#mfHere').textContent = currentLocationLabel();
+  }
+
+  function currentLocationLabel() {
+    if (state.view === 'universe') return 'Universo';
+    if (state.view === 'system') return universe.find(c=>c.graph_id===state.continent)?.name || 'Atlas';
+    if (state.view === 'flow') {
+      if (state.isolatedId) {
+        const a = atomIndex[state.isolatedId];
+        return `Atlas · isolando · ${a?.name || ''}`;
+      }
+      return 'Atlas · AI Kernel · Pipeline';
+    }
+    if (state.view === 'gear') return `Atlas · ${state.focusedMeta?.data?.name || ''}`;
+    if (state.view === 'subflow') return `Atlas · ${state.focusedMeta?.data?.name || ''} · Subfluxo`;
+    return '—';
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  //  TRAILS · SVG
+  // ═══════════════════════════════════════════════════════════════════════
+  function rectCenter(node) {
+    if (!node) return null;
+    return { x: node.offsetLeft + node.offsetWidth/2, y: node.offsetTop + node.offsetHeight/2,
+             l: node.offsetLeft, r: node.offsetLeft + node.offsetWidth,
+             t: node.offsetTop, b: node.offsetTop + node.offsetHeight };
+  }
+
+  function buildConnections() {
+    if (state.view !== 'flow') return [];
+    const out = [];
+    for (let i = 0; i < pipeline.length - 1; i++) {
+      out.push({ from: `atom-${pipeline[i].graph_id}`, to: `atom-${pipeline[i+1].graph_id}`, kind:'sequence' });
+    }
+    out.push({ from:'atom-domain-plane', to:'atom-domain-profile-flow', kind:'feed' });
+    out.push({ from:'atom-biz-ctx-side', to:'atom-business-context', kind:'feed' });
+    out.push({ from:'atom-capabilities', to:'atom-runtime-executor', kind:'feed' });
+    out.push({ from:'atom-hks', to:'atom-context-builder', kind:'feed' });
+    out.push({ from:'atom-evidence-loop', to:'atom-atlas-decide', kind:'feedback' });
+    out.push({ from:'atom-evidence-ledger', to:'atom-evidence-loop', kind:'feed' });
+    out.push({ from:'atom-learning-proposals', to:'atom-evidence-loop', kind:'feed' });
+    out.push({ from:'atom-doc-os', to:'atom-context-builder', kind:'feed' });
+    return out;
+  }
+
+  function drawAllTrails() {
+    const svg = $('#worldSvg');
+    Array.from(svg.querySelectorAll('path')).forEach(p => p.remove());
+    const conns = buildConnections();
+    conns.forEach(c => {
+      const fromEl = document.getElementById(c.from);
+      const toEl = document.getElementById(c.to);
+      if (!fromEl || !toEl) return;
+      const fr = rectCenter(fromEl);
+      const tr = rectCenter(toEl);
+      if (!fr || !tr) return;
+      let d;
+      if (c.kind === 'sequence') {
+        d = `M ${fr.x} ${fr.b} L ${tr.x} ${tr.t}`;
+      } else if (c.kind === 'feedback') {
+        const sx = fr.r, sy = fr.y, ex = tr.r, ey = tr.y;
+        d = `M ${sx} ${sy} C ${sx+100} ${sy+30}, ${ex+220} ${ey-30}, ${ex} ${ey}`;
+      } else {
+        const fromLeft = fr.x < tr.x;
+        const sx = fromLeft ? fr.r : fr.l;
+        const sy = fr.y;
+        const ex = fromLeft ? tr.l : tr.r;
+        const ey = tr.y;
+        const dx = Math.abs(ex - sx);
+        const cp1x = sx + (fromLeft ? dx*0.5 : -dx*0.5);
+        const cp2x = ex + (fromLeft ? -dx*0.5 : dx*0.5);
+        d = `M ${sx} ${sy} C ${cp1x} ${sy}, ${cp2x} ${ey}, ${ex} ${ey}`;
+      }
+      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      path.setAttribute('d', d);
+      path.setAttribute('class', 'trail' + (c.kind === 'feedback' ? ' dashed' : ''));
+      path.dataset.from = c.from;
+      path.dataset.to = c.to;
+      if (c.kind !== 'feedback') path.setAttribute('marker-end', 'url(#tip)');
+      svg.appendChild(path);
+    });
+  }
+
+  function activatePathsFor(graph_id) {
+    const id = `atom-${graph_id}`;
+    const svg = $('#worldSvg');
+    const world = $('#world');
+    const kinIds = new Set();
+    svg.querySelectorAll('path.trail').forEach(p => {
+      const involved = p.dataset.from === id || p.dataset.to === id;
+      p.classList.toggle('path-active', involved);
+      if (involved) {
+        if (p.dataset.from !== id) kinIds.add(p.dataset.from);
+        if (p.dataset.to !== id) kinIds.add(p.dataset.to);
+      }
+    });
+    // marca kin nas peças relacionadas e kin-host nas regions que CONTÊM peças relacionadas
+    world.querySelectorAll('.atom, .region').forEach(a => { a.classList.remove('kin'); a.classList.remove('kin-host'); });
+    kinIds.forEach(kid => {
+      const node = document.getElementById(kid);
+      if (!node) return;
+      node.classList.add('kin');
+      // se for um atom dentro de uma region, marca o pai como kin-host pra ficar visível
+      const parentRegion = node.closest('.region');
+      if (parentRegion) parentRegion.classList.add('kin-host');
+    });
+    // a region da própria peça active também precisa ser kin-host
+    const activeNode = document.getElementById(id);
+    if (activeNode) {
+      activeNode.classList.add('active');
+      const parentRegion = activeNode.closest('.region');
+      if (parentRegion) parentRegion.classList.add('kin-host');
+    }
+    world.classList.add('dim-others');
+  }
+
+  function clearActivePaths() {
+    const svg = $('#worldSvg');
+    const world = $('#world');
+    svg.querySelectorAll('path.trail').forEach(p => p.classList.remove('path-active'));
+    world.querySelectorAll('.atom.active, .atom.kin, .region.kin-host').forEach(a => { a.classList.remove('active'); a.classList.remove('kin'); a.classList.remove('kin-host'); });
+    world.classList.remove('dim-others');
+  }
+
+  // ─── ISOLATE MODE (single click) ──────────────────────────
+  function enterIsolate(graph_id) {
+    state.isolatedId = graph_id;
+    activatePathsFor(graph_id);
+    $('#world').classList.add('isolate-mode');
+    const a = atomIndex[graph_id];
+    if (a) renderInspectorFor({ kind: a.kind, graph_id });
+  }
+  function exitIsolate() {
+    state.isolatedId = null;
+    $('#world').classList.remove('isolate-mode');
+    clearActivePaths();
+    renderInspectorDefault();
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  //  INSPECTOR
+  // ═══════════════════════════════════════════════════════════════════════
+  function renderInspectorDefault() {
+    paintInspector({
+      source: { source:'repo', path:'docs/engineering-knowledge-base/atlas-ai-pipeline.md', status:'sincronizado', editedAgo: null },
+      kind:'Fluxo operacional',
+      title:'Atlas AI Kernel Pipeline',
+      lede:'17 etapas em sequência. Lateral alimenta; loop de evidência volta ao Decide. Passe o mouse sobre uma peça pra ver conexões; clique pra entrar em Foco.',
+      fields: [],
+      md: null,
+      mdMeta: '— passe o mouse sobre uma peça',
+      actions: [['Abrir doc canônico','↗'],['Ver loop de evidência','↻'],['Filtrar por gargalos','∴'],['Filtrar por evidência L2','☷']],
+      tags: ['kernel','pipeline','atlas-system-graph']
+    });
+  }
+
+  function renderInspectorFor(meta) {
+    const a = atomIndex[meta.graph_id];
+    if (!a) return;
+    const isPipe = a.kind === 'pipeline';
+    const isLateral = a.kind === 'lateral';
+    const recent = RECENT_CHANGES.find(c => c.graph_id === a.graph_id);
+    // lazy fetch do .md real — re-renderiza quando chega
+    if (!a.missing_source && !mdCache[a.graph_id]) {
+      loadNote(a.graph_id).then(data => {
+        if (data && state.isolatedId === a.graph_id || state.focusedId === a.graph_id || state.hoverId === a.graph_id) {
+          renderInspectorFor(meta);
+        } else if (data) {
+          // cache populated; if user hovers again, will be instant
+        }
+      });
+    }
+    paintInspector({
+      source: {
+        source: a.graph_source,
+        path: a.source_path,
+        status: 'sincronizado',
+        editedAgo: recent ? recent.secondsAgo : null
+      },
+      kind: isPipe ? `Engrenagem · ${toRoman(a.graph_order)}. Atlas AI Kernel` : isLateral ? `Lateral · ${a.regionHead}` : `Lane · ${a.head || a.name}`,
+      title: a.name,
+      lede: a.role || a.deck || '',
+      fields: [
+        { label:'Entrada', glyph:'↑', val: a.input },
+        { label:'Saída', glyph:'↓', val: a.output },
+        { label:'Depende de', glyph:'←', val: (a.depends || []).map(id => atomIndex[id]?.name || id).join(' · ') },
+        { label:'Alimenta', glyph:'→', val: (a.unblocks || []).map(id => atomIndex[id]?.name || id).join(' · ') },
+        { label:'Evidência', glyph:'☷', val: a.evidence },
+        { label:'Gargalo', glyph:'△', val: a.risk, risk: true },
+        { label:'Próxima ação', glyph:'✦', val: a.next, next: true }
+      ],
+      md: mdCache[a.graph_id]?.body || null,
+      mdMeta: recent ? `${recent.time} · ${formatTimeAgo(recent.secondsAgo)}` : (mdCache[a.graph_id]?.body ? `${mdCache[a.graph_id].source_path}` : '— carregando arquivo real…'),
+      mdFresh: recent && recent.secondsAgo < 60,
+      actions: [['Abrir arquivo no editor','↗'],['Ver loop de evidência','↻'],['Filtrar peças conectadas','∴'],['Copiar caminho do arquivo','⎘']],
+      tags: isPipe ? ['engrenagem', 'atlas-ai-kernel', a.graph_id] : ['lateral', a.regionId || '', a.graph_id]
+    });
+  }
+
+  function paintInspector(d) {
+    const insSource = $('#insSource');
+    const editedBadge = d.source.editedAgo != null && d.source.editedAgo < 60
+      ? `<span class="ins-source-status">atualizado ${formatTimeAgo(d.source.editedAgo)}</span>`
+      : `<span class="ins-source-status">${d.source.status}</span>`;
+    insSource.innerHTML = `
+      <span class="ins-source-badge ${d.source.source}">${d.source.source}</span>
+      <span class="ins-source-path">${d.source.path}</span>
+      ${editedBadge}
+    `;
+
+    $('#insKind').textContent = d.kind;
+    $('#insTitle').textContent = d.title;
+    $('#insLede').textContent = d.lede;
+
+    const ficha = $('#insFicha');
+    ficha.innerHTML = '';
+    if (d.fields.length === 0) {
+      ficha.style.display = 'none';
+    } else {
+      ficha.style.display = '';
+      d.fields.forEach(f => {
+        const val = f.val || '—';
+        const cls = (f.risk && val !== '—' ? 'risk' : '') + (f.next ? ' next' : '');
+        const row = el('div', `row ${cls}`);
+        row.innerHTML = `<span class="label"><span class="glyph">${f.glyph}</span>${f.label}</span><span class="value${val === '—' ? ' empty' : ''}">${val}</span>`;
+        ficha.appendChild(row);
+      });
+    }
+
+    const mdMeta = $('#insMdMeta');
+    mdMeta.textContent = d.mdMeta;
+    mdMeta.classList.toggle('stale', !d.mdFresh);
+    const mdBody = $('#insMdBody');
+    if (d.md) {
+      mdBody.innerHTML = parseMarkdown(d.md);
+      $('#insMd').style.display = '';
+    } else {
+      mdBody.innerHTML = `<p style="color:var(--ink3);font-style:italic;">Sem conteúdo de arquivo carregado. Quando o backend conectar, este painel vai exibir o conteúdo real do <code>.md</code> em <code>${d.source.path}</code>.</p>`;
+    }
+
+    const actions = $('#insActions');
+    actions.innerHTML = '';
+    d.actions.forEach(([lbl, gl]) => {
+      const row = el('div', 'ins-action');
+      row.innerHTML = `<span class="a-label">${lbl}</span><span class="a-glyph">${gl}</span>`;
+      actions.appendChild(row);
+    });
+
+    const tags = $('#insTags');
+    tags.innerHTML = '';
+    d.tags.forEach(t => tags.appendChild(el('span','ins-tag',t)));
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  //  PAN + ZOOM
+  // ═══════════════════════════════════════════════════════════════════════
+  const view = { scale: 0.65, x: 0, y: 0, min: 0.30, max: 2.4 };
+  function applyTransform(animate) {
+    const world = $('#world');
+    if (!animate) world.classList.add('no-transition');
+    world.style.transform = `translate(${view.x}px, ${view.y}px) scale(${view.scale})`;
+    if (!animate) requestAnimationFrame(() => world.classList.remove('no-transition'));
+    world.classList.remove('zoom-far','zoom-mid','zoom-close');
+    if (view.scale < 0.65) world.classList.add('zoom-far');
+    else if (view.scale < 1.15) world.classList.add('zoom-mid');
+    else world.classList.add('zoom-close');
+    $('#zoomIndicator').textContent = Math.round(view.scale * 100) + '%';
+  }
+  function fit() {
+    const vp = $('#viewport');
+    const vw = vp.clientWidth - 60;
+    const vh = vp.clientHeight - 60;
+    if (state.view === 'gear') {
+      const stage = $('#focusStage');
+      if (stage) {
+        const sw = stage.offsetWidth || 1400;
+        const sh = stage.offsetHeight || 800;
+        const s = Math.min(vw/sw, vh/sh, 1.05);
+        view.scale = Math.max(view.min, Math.min(view.max, s));
+        view.x = vp.clientWidth/2 - 900 * view.scale;
+        view.y = vp.clientHeight/2 - (sh/2) * view.scale;
+        applyTransform(true);
+        return;
+      }
+    }
+    if (state.view === 'subflow') {
+      const stage = $('#subflowStage');
+      if (stage) {
+        const sw = stage.offsetWidth || 1400;
+        const sh = stage.offsetHeight || 600;
+        const s = Math.min(vw/sw, vh/sh, 1.05);
+        view.scale = Math.max(view.min, Math.min(view.max, s));
+        view.x = vp.clientWidth/2 - 900 * view.scale;
+        view.y = vp.clientHeight/2 - (sh/2) * view.scale;
+        applyTransform(true);
+        return;
+      }
+    }
+    const sw = 1800, sh = 1380;
+    const s = Math.min(vw/sw, vh/sh);
+    view.scale = Math.max(view.min, Math.min(view.max, s));
+    view.x = (vp.clientWidth - sw * view.scale) / 2;
+    view.y = (vp.clientHeight - sh * view.scale) / 2;
+    applyTransform(true);
+  }
+  function zoomBy(factor, cx, cy) {
+    const vp = $('#viewport');
+    if (cx == null) cx = vp.clientWidth / 2;
+    if (cy == null) cy = vp.clientHeight / 2;
+    const newScale = Math.max(view.min, Math.min(view.max, view.scale * factor));
+    const ratio = newScale / view.scale;
+    view.x = cx - (cx - view.x) * ratio;
+    view.y = cy - (cy - view.y) * ratio;
+    view.scale = newScale;
+    applyTransform(true);
+  }
+
+  const vp = $('#viewport');
+  let panning = false, lastX = 0, lastY = 0, didDrag = false;
+  vp.addEventListener('mousedown', e => {
+    if (e.target.closest('.atom') || e.target.closest('.minimap-floater') || e.target.closest('.canvas-controls') || e.target.closest('.breadcrumb-floater') || e.target.closest('.timeline-floater') || e.target.closest('.back-to-map') || e.target.closest('.focus-action') || e.target.closest('.satellite')) return;
+    panning = true; didDrag = false;
+    lastX = e.clientX; lastY = e.clientY;
+    vp.classList.add('is-panning');
+  });
+  window.addEventListener('mousemove', e => {
+    if (!panning) return;
+    const dx = e.clientX - lastX, dy = e.clientY - lastY;
+    if (Math.abs(dx) + Math.abs(dy) > 2) didDrag = true;
+    view.x += dx; view.y += dy;
+    lastX = e.clientX; lastY = e.clientY;
+    applyTransform(false);
+  });
+  window.addEventListener('mouseup', e => {
+    if (!panning) return;
+    panning = false; vp.classList.remove('is-panning');
+    // click no fundo (sem drag) sai de gear ou isolate
+    if (didDrag) return;
+    const clickedSomething = e.target.closest('.atom') || e.target.closest('.satellite') || e.target.closest('.focus-action') || e.target.closest('.inspector') || e.target.closest('.minimap-floater') || e.target.closest('.timeline-floater') || e.target.closest('.breadcrumb-floater') || e.target.closest('.canvas-controls') || e.target.closest('.back-to-map');
+    if (clickedSomething) return;
+    if (state.view === 'gear') exitFocus();
+    else if (state.isolatedId) exitIsolate();
+  });
+  vp.addEventListener('wheel', e => {
+    e.preventDefault();
+    const rect = vp.getBoundingClientRect();
+    const cx = e.clientX - rect.left;
+    const cy = e.clientY - rect.top;
+    const factor = e.deltaY > 0 ? 0.92 : 1.08;
+    zoomBy(factor, cx, cy);
+  }, { passive: false });
+  $$('.canvas-controls button').forEach(b => {
+    b.addEventListener('click', () => {
+      const k = b.dataset.zoom;
+      if (k === 'in') zoomBy(1.2);
+      else if (k === 'out') zoomBy(0.83);
+      else if (k === 'fit') fit();
+      else if (k === 'universe') { state.view = 'universe'; renderAll(); }
+    });
+  });
+
+  $('#backToMap').addEventListener('click', () => {
+    if (state.view === 'gear' || state.view === 'subflow') exitFocus();
+    else if (state.isolatedId) exitIsolate();
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+      if (state.view === 'subflow') { state.view = 'gear'; renderAll(); }
+      else if (state.view === 'gear') exitFocus();
+      else if (state.isolatedId) exitIsolate();
+      else if (state.view === 'universe' || state.view === 'system') { state.view = 'flow'; renderAll(); }
+    }
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════
+  //  SEARCH
+  // ═══════════════════════════════════════════════════════════════════════
+  $('#searchInput').addEventListener('input', e => {
+    const q = e.target.value.trim().toLowerCase();
+    if (q.length < 2) return;
+    const hit = Object.values(atomIndex).find(a => a.name?.toLowerCase().includes(q) || a.graph_id?.toLowerCase().includes(q));
+    if (hit) openGearFor(hit.graph_id);
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════
+  //  NAV
+  // ═══════════════════════════════════════════════════════════════════════
+  function selectContinent(id) {
+    state.continent = id;
+    state.focusedMeta = null;
+    state.view = id === 'atlas' ? 'flow' : 'system';
+    renderAll();
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  //  LIVE-DOC · polling real ao filesystem (sem watcher complexo no v1)
+  // ═══════════════════════════════════════════════════════════════════════
+  // A cada 1s atualiza badge "há Xs". A cada POLL_INTERVAL_MS (5s) consulta backend.
+  setInterval(() => {
+    RECENT_CHANGES.forEach(c => c.secondsAgo += 1);
+    renderTimeline();
+    // atualiza badges das peças "frescas" sem re-render do canvas inteiro
+    document.querySelectorAll('.atom .a-live-badge').forEach(badge => {
+      const atomEl = badge.closest('.atom');
+      if (!atomEl) return;
+      const id = atomEl.id.replace('atom-', '');
+      const recent = RECENT_CHANGES.find(c => c.graph_id === id);
+      if (recent && recent.secondsAgo < 60) {
+        badge.textContent = `atualizado ${formatTimeAgo(recent.secondsAgo)}`;
+      } else {
+        badge.remove();
+        atomEl.classList.remove('just-edited');
+      }
+    });
+  }, 1000);
+
+  setInterval(async () => {
+    const [g, r] = await Promise.all([loadGraph(), loadRecentChanges()]);
+    if (g) {
+      recomputeStepY();
+      // re-render apenas se estiver em vista que mostra dados live
+      if (state.view !== 'gear' && state.view !== 'subflow') {
+        renderWorld();
+      }
+    }
+    if (r) {
+      renderTimeline();
+      applyLiveBadgesFromChanges();
+    }
+  }, POLL_INTERVAL_MS);
+
+  // marca peças recentes como just-edited com badge
+  function applyLiveBadgesFromChanges() {
+    document.querySelectorAll('.atom.just-edited').forEach(a => a.classList.remove('just-edited'));
+    document.querySelectorAll('.atom .a-live-badge').forEach(b => b.remove());
+    RECENT_CHANGES.filter(c => c.secondsAgo < 60).forEach(c => {
+      const atomEl = document.getElementById(`atom-${c.graph_id}`);
+      if (!atomEl) return;
+      atomEl.classList.add('just-edited');
+      if (!atomEl.querySelector('.a-live-badge')) {
+        const badge = el('span', 'a-live-badge', `atualizado ${formatTimeAgo(c.secondsAgo)}`);
+        atomEl.insertBefore(badge, atomEl.firstChild);
+      }
+    });
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  //  RENDER ALL
+  // ═══════════════════════════════════════════════════════════════════════
+  function renderAll() {
+    renderWorld();
+    renderMinimap();
+    renderTimeline();
+    renderBreadcrumb();
+    if (state.view === 'gear' || state.view === 'subflow') {
+      const a = state.focusedMeta?.data;
+      if (a) {
+        renderInspectorFor({ kind: state.focusedMeta.kind, graph_id: a.graph_id });
+      }
+    } else {
+      renderInspectorDefault();
+    }
+    applyLiveBadgesFromChanges();
+    requestAnimationFrame(() => requestAnimationFrame(() => fit()));
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  //  BOOT — async: carrega graph real antes do primeiro render
+  // ═══════════════════════════════════════════════════════════════════════
+  (async () => {
+    // mostra estado de carregamento mínimo
+    $('#insLede').textContent = 'Carregando filesystem canônico (repo + AtlasVault)…';
+    await Promise.all([loadGraph(), loadRecentChanges()]);
+    recomputeStepY();
+    renderAll();
+    // log do audit no console pra Vitor ver o que foi indexado
+    console.log('[atlas-cartography] live · audit:', graphAudit);
+    console.log('[atlas-cartography] sources: repo=' + graphAudit.repo_indexed + ' vault=' + graphAudit.vault_indexed);
+    console.log('[atlas-cartography] canon found=' + graphAudit.found + ' missing=' + graphAudit.missing);
+  })();
+  </script>
+</body>
+</html>

@@ -1329,6 +1329,27 @@ class AtlasLedgerReplayService
             'rivals_alignment_score' => data_get($result, 'rivals_review_action.scores.alignment'),
             'rivals_agency_score' => data_get($result, 'rivals_review_action.scores.agency'),
             'rivals_remaining_due_review_count' => data_get($result, 'rivals_review_action.remaining_due_review_count'),
+            'retrieval_regression_review_schema_version' => data_get($result, 'retrieval_regression_review_action.schema_version'),
+            'retrieval_regression_decision' => data_get($result, 'retrieval_regression_review_action.decision'),
+            'retrieval_regression_reviewed' => data_get($result, 'retrieval_regression_review_action.reviewed'),
+            'retrieval_regression_report_hash' => data_get($result, 'retrieval_regression_review_action.report_hash'),
+            'retrieval_regression_latest_snapshot_hash' => data_get($result, 'retrieval_regression_review_action.latest_snapshot_hash'),
+            'retrieval_regression_previous_snapshot_hash' => data_get($result, 'retrieval_regression_review_action.previous_snapshot_hash'),
+            'retrieval_regression_no_external_action' => data_get($result, 'retrieval_regression_review_action.no_external_action'),
+            'retrieval_regression_no_runtime_execution' => data_get($result, 'retrieval_regression_review_action.no_runtime_execution'),
+            'retrieval_regression_no_policy_patch' => data_get($result, 'retrieval_regression_review_action.no_policy_patch'),
+            'retrieval_shadow_scope_review_schema_version' => data_get($result, 'retrieval_shadow_scope_review_action.schema_version'),
+            'retrieval_shadow_scope_decision' => data_get($result, 'retrieval_shadow_scope_review_action.decision'),
+            'retrieval_shadow_scope_reviewed' => data_get($result, 'retrieval_shadow_scope_review_action.reviewed'),
+            'retrieval_shadow_scope_plan_hash' => data_get($result, 'retrieval_shadow_scope_review_action.plan_hash'),
+            'retrieval_shadow_scope_review_ap' => data_get($result, 'retrieval_shadow_scope_review_action.review_ap'),
+            'retrieval_shadow_scope_decision_receipt_hash' => data_get($result, 'retrieval_shadow_scope_review_action.decision_receipt_hash'),
+            'retrieval_shadow_scope_receipt_schema_version' => data_get($result, 'retrieval_shadow_scope_review_action.decision_receipt.schema_version'),
+            'retrieval_shadow_scope_shadow_execution_allowed_now' => data_get($result, 'retrieval_shadow_scope_review_action.decision_receipt.shadow_execution_allowed_now'),
+            'retrieval_shadow_scope_no_external_action' => data_get($result, 'retrieval_shadow_scope_review_action.no_external_action'),
+            'retrieval_shadow_scope_no_runtime_execution' => data_get($result, 'retrieval_shadow_scope_review_action.no_runtime_execution'),
+            'retrieval_shadow_scope_no_policy_patch' => data_get($result, 'retrieval_shadow_scope_review_action.no_policy_patch'),
+            'retrieval_shadow_scope_no_provider_call' => data_get($result, 'retrieval_shadow_scope_review_action.no_provider_call'),
             'provider_cost_rate_schema_version' => data_get($result, 'provider_cost_rate_action.schema_version'),
             'provider_cost_rate_provider' => data_get($result, 'provider_cost_rate_action.provider'),
             'provider_cost_rate_model' => data_get($result, 'provider_cost_rate_action.model'),
@@ -1370,6 +1391,28 @@ class AtlasLedgerReplayService
             ->filter(fn (array $event): bool => ($event['action'] ?? null) === 'configure_provider_cost_rates')
             ->filter(fn (array $event): bool => (bool) ($event['provider_cost_rate_applied'] ?? false))
             ->count();
+        $retrievalRegressionReviewCount = $events
+            ->filter(fn (array $event): bool => ($event['action'] ?? null) === 'review_retrieval_regression')
+            ->count();
+        $retrievalRegressionReviewedCount = $events
+            ->filter(fn (array $event): bool => ($event['action'] ?? null) === 'review_retrieval_regression')
+            ->filter(fn (array $event): bool => (bool) ($event['retrieval_regression_reviewed'] ?? false))
+            ->count();
+        $retrievalShadowScopeReviewCount = $events
+            ->filter(fn (array $event): bool => ($event['action'] ?? null) === 'review_retrieval_shadow_scope')
+            ->count();
+        $retrievalShadowScopeReviewedCount = $events
+            ->filter(fn (array $event): bool => ($event['action'] ?? null) === 'review_retrieval_shadow_scope')
+            ->filter(fn (array $event): bool => (bool) ($event['retrieval_shadow_scope_reviewed'] ?? false))
+            ->count();
+        $retrievalShadowScopeReceiptCount = $events
+            ->filter(fn (array $event): bool => ($event['action'] ?? null) === 'review_retrieval_shadow_scope')
+            ->filter(fn (array $event): bool => filled($event['retrieval_shadow_scope_decision_receipt_hash'] ?? null))
+            ->count();
+        $retrievalShadowScopeRuntimeAllowedCount = $events
+            ->filter(fn (array $event): bool => ($event['action'] ?? null) === 'review_retrieval_shadow_scope')
+            ->filter(fn (array $event): bool => (bool) ($event['retrieval_shadow_scope_shadow_execution_allowed_now'] ?? false))
+            ->count();
         $reviewSignal = $this->inboxActionReviewSignal(
             $events,
             $reviewedPatchCount,
@@ -1378,6 +1421,12 @@ class AtlasLedgerReplayService
             $rivalsReviewWithScoresCount,
             $providerCostRateActionCount,
             $providerCostRateAppliedCount,
+            $retrievalRegressionReviewCount,
+            $retrievalRegressionReviewedCount,
+            $retrievalShadowScopeReviewCount,
+            $retrievalShadowScopeReviewedCount,
+            $retrievalShadowScopeReceiptCount,
+            $retrievalShadowScopeRuntimeAllowedCount,
         );
 
         return [
@@ -1391,6 +1440,24 @@ class AtlasLedgerReplayService
             'with_diff_refs_count' => $withDiffRefsCount,
             'rivals_review_recorded_count' => $rivalsReviewRecordedCount,
             'rivals_review_with_scores_count' => $rivalsReviewWithScoresCount,
+            'retrieval_regression_review_count' => $retrievalRegressionReviewCount,
+            'retrieval_regression_reviewed_count' => $retrievalRegressionReviewedCount,
+            'retrieval_regression_decision_counts' => $events
+                ->filter(fn (array $event): bool => ($event['action'] ?? null) === 'review_retrieval_regression')
+                ->pluck('retrieval_regression_decision')
+                ->filter()
+                ->countBy()
+                ->all(),
+            'retrieval_shadow_scope_review_count' => $retrievalShadowScopeReviewCount,
+            'retrieval_shadow_scope_reviewed_count' => $retrievalShadowScopeReviewedCount,
+            'retrieval_shadow_scope_decision_receipt_count' => $retrievalShadowScopeReceiptCount,
+            'retrieval_shadow_scope_runtime_allowed_count' => $retrievalShadowScopeRuntimeAllowedCount,
+            'retrieval_shadow_scope_decision_counts' => $events
+                ->filter(fn (array $event): bool => ($event['action'] ?? null) === 'review_retrieval_shadow_scope')
+                ->pluck('retrieval_shadow_scope_decision')
+                ->filter()
+                ->countBy()
+                ->all(),
             'provider_cost_rate_action_count' => $providerCostRateActionCount,
             'provider_cost_rate_applied_count' => $providerCostRateAppliedCount,
             'provider_cost_rate_provider_counts' => $events->pluck('provider_cost_rate_provider')->filter()->countBy()->all(),
@@ -1418,6 +1485,12 @@ class AtlasLedgerReplayService
         int $rivalsReviewWithScoresCount,
         int $providerCostRateActionCount,
         int $providerCostRateAppliedCount,
+        int $retrievalRegressionReviewCount,
+        int $retrievalRegressionReviewedCount,
+        int $retrievalShadowScopeReviewCount,
+        int $retrievalShadowScopeReviewedCount,
+        int $retrievalShadowScopeReceiptCount,
+        int $retrievalShadowScopeRuntimeAllowedCount,
     ): array {
         if ($events->isEmpty()) {
             return [
@@ -1426,6 +1499,46 @@ class AtlasLedgerReplayService
                 'review_required' => false,
                 'reasons' => ['no_inbox_action_events_in_window'],
                 'recommended_action' => 'wait_for_inbox_action_evidence',
+            ];
+        }
+
+        if ($retrievalRegressionReviewCount > 0 && $retrievalRegressionReviewedCount < $retrievalRegressionReviewCount) {
+            return [
+                'status' => 'warning',
+                'severity' => 'medium',
+                'review_required' => true,
+                'reasons' => ['review_retrieval_regression_action_without_review_marker'],
+                'recommended_action' => 'open_memory_retrieval_regression_review',
+            ];
+        }
+
+        if ($retrievalShadowScopeRuntimeAllowedCount > 0) {
+            return [
+                'status' => 'warning',
+                'severity' => 'high',
+                'review_required' => true,
+                'reasons' => ['retrieval_shadow_scope_review_allowed_runtime_execution'],
+                'recommended_action' => 'review_retrieval_shadow_scope',
+            ];
+        }
+
+        if ($retrievalShadowScopeReviewCount > 0 && $retrievalShadowScopeReviewedCount < $retrievalShadowScopeReviewCount) {
+            return [
+                'status' => 'warning',
+                'severity' => 'medium',
+                'review_required' => true,
+                'reasons' => ['review_retrieval_shadow_scope_action_without_review_marker'],
+                'recommended_action' => 'review_retrieval_shadow_scope',
+            ];
+        }
+
+        if ($retrievalShadowScopeReviewCount > 0 && $retrievalShadowScopeReceiptCount < $retrievalShadowScopeReviewCount) {
+            return [
+                'status' => 'warning',
+                'severity' => 'medium',
+                'review_required' => true,
+                'reasons' => ['review_retrieval_shadow_scope_action_without_decision_receipt'],
+                'recommended_action' => 'review_retrieval_shadow_scope',
             ];
         }
 
@@ -1456,6 +1569,29 @@ class AtlasLedgerReplayService
                 'review_required' => true,
                 'reasons' => ['review_patch_action_without_diff_refs'],
                 'recommended_action' => 'open_reviewable_inbox_action_evidence_proposal',
+            ];
+        }
+
+        if ($retrievalShadowScopeReviewCount > 0
+            && $retrievalShadowScopeReviewedCount === $retrievalShadowScopeReviewCount
+            && $retrievalShadowScopeReceiptCount === $retrievalShadowScopeReviewCount
+        ) {
+            return [
+                'status' => 'ok',
+                'severity' => 'none',
+                'review_required' => false,
+                'reasons' => ['memory_retrieval_shadow_scope_review_recorded'],
+                'recommended_action' => 'none',
+            ];
+        }
+
+        if ($retrievalRegressionReviewCount > 0 && $retrievalRegressionReviewedCount === $retrievalRegressionReviewCount) {
+            return [
+                'status' => 'ok',
+                'severity' => 'none',
+                'review_required' => false,
+                'reasons' => ['memory_retrieval_regression_review_recorded'],
+                'recommended_action' => 'none',
             ];
         }
 

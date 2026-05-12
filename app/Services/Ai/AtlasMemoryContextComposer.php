@@ -65,6 +65,10 @@ class AtlasMemoryContextComposer
                 'score' => round((float) $candidate['score'], 3),
                 'reason' => $candidate['reason'],
                 'estimated_chars' => Str::length($excerpt),
+                'lineage' => $candidate['lineage'],
+                'freshness' => $candidate['freshness'],
+                'audit' => $candidate['audit'],
+                'audit_trail' => $candidate['audit'],
             ];
 
             $budget -= Str::length($excerpt);
@@ -105,6 +109,7 @@ class AtlasMemoryContextComposer
                 $text,
                 $score,
                 (string) ($item['reason'] ?? 'memoria canonica do registry'),
+                $item,
             );
         }, $items)));
     }
@@ -140,6 +145,7 @@ class AtlasMemoryContextComposer
                 $text,
                 $score,
                 (string) ($item['reason'] ?? 'recall verbatim aprovado'),
+                $item,
             );
         }, $items)));
     }
@@ -174,6 +180,7 @@ class AtlasMemoryContextComposer
                 $text,
                 $score,
                 'nota semantica provider-safe recuperada por busca local',
+                $item,
             );
         }, $items)));
     }
@@ -192,6 +199,7 @@ class AtlasMemoryContextComposer
         string $text,
         float $score,
         string $reason,
+        array $raw = [],
     ): array {
         return [
             'source' => $source,
@@ -204,7 +212,74 @@ class AtlasMemoryContextComposer
             'text' => $text,
             'score' => $score,
             'reason' => $reason,
+            'lineage' => $this->lineage($source, $sourceRefType, $sourceRefId, $raw),
+            'freshness' => $this->freshness($raw),
+            'audit' => $this->audit($raw),
         ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $raw
+     * @return array<string,mixed>
+     */
+    private function lineage(string $source, string $sourceRefType, mixed $sourceRefId, array $raw): array
+    {
+        return [
+            'source' => $source,
+            'source_ref_type' => $sourceRefType,
+            'source_ref_id' => is_scalar($sourceRefId) ? (string) $sourceRefId : null,
+            'origin_type' => $this->scalarOrNull($raw['source_type'] ?? null) ?? $sourceRefType,
+            'origin_id' => $this->scalarOrNull($raw['source_id'] ?? null),
+            'origin_label' => $this->scalarOrNull($raw['source_label'] ?? null),
+            'content_hash' => $this->scalarOrNull($raw['content_hash'] ?? null),
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $raw
+     * @return array<string,mixed>
+     */
+    private function freshness(array $raw): array
+    {
+        $recordedAt = $this->scalarOrNull($raw['recorded_at'] ?? null);
+        $ageDays = null;
+        if ($recordedAt !== null) {
+            try {
+                $ageDays = max(0, now()->diffInDays(\Carbon\CarbonImmutable::parse($recordedAt), true));
+            } catch (\Throwable) {
+                $ageDays = null;
+            }
+        }
+
+        return [
+            'recorded_at' => $recordedAt,
+            'last_used_at' => $this->scalarOrNull($raw['last_used_at'] ?? null),
+            'age_days' => $ageDays,
+            'status' => $recordedAt === null ? 'unknown' : ($ageDays !== null && $ageDays > 180 ? 'stale_review_recommended' : 'fresh'),
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $raw
+     * @return array<string,mixed>
+     */
+    private function audit(array $raw): array
+    {
+        return [
+            'schema_version' => 'atlas.memory.recall_audit.v1',
+            'provider_safe' => true,
+            'privacy_class' => $this->scalarOrNull($raw['privacy_class'] ?? null),
+            'redaction_status' => $this->scalarOrNull($raw['redaction_status'] ?? null),
+            'governance_checked_at' => $this->scalarOrNull($raw['governance_checked_at'] ?? null),
+            'privacy_reviewed_at' => $this->scalarOrNull($raw['privacy_reviewed_at'] ?? null),
+            'reviewed_at' => $this->scalarOrNull($raw['reviewed_at'] ?? null),
+            'content_hash' => $this->scalarOrNull($raw['content_hash'] ?? null),
+        ];
+    }
+
+    private function scalarOrNull(mixed $value): ?string
+    {
+        return is_scalar($value) && trim((string) $value) !== '' ? trim((string) $value) : null;
     }
 
     private function text(mixed ...$values): string

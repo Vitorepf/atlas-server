@@ -394,6 +394,9 @@ Route::middleware('atlas.token')->group(function () use ($registerAtlasVoiceRout
     Route::get('/ai/open-brain/audits', [AtlasOpenBrainController::class, 'audits']);
     Route::match(['GET', 'POST'], '/ai/open-brain/mcp', AtlasOpenBrainMcpController::class);
     Route::get('/ai/memory/audit/traces/{trace}', [AtlasMemoryController::class, 'auditTrace']);
+    Route::get('/ai/memory/deltas', [AtlasMemoryController::class, 'indexDeltas']);
+    Route::get('/ai/memory/deltas/{delta}', [AtlasMemoryController::class, 'showDelta']);
+    Route::post('/ai/memory/deltas/{delta}/review', [AtlasMemoryController::class, 'reviewDelta']);
     Route::post('/ai/memory/deltas/{delta}/promote', [AtlasMemoryController::class, 'promoteDelta']);
     Route::post('/ai/memory/governance/scan', [AtlasMemoryController::class, 'scanGovernance']);
     Route::post('/ai/memory/privacy/scan', [AtlasMemoryController::class, 'scanPrivacy']);
@@ -474,4 +477,14 @@ Route::middleware('atlas.token')->group(function () use ($registerAtlasVoiceRout
     Route::get('/audit/events', [AuditEventController::class, 'index']);
 
     Route::post('/sync', SyncController::class);
+});
+
+/*
+ * Atlas Truth Cartography — read-only HTTP surface for the live cartography UI.
+ * The cartography never writes; these endpoints are GET-only by design.
+ */
+Route::prefix('atlas-cartography')->group(function () {
+    Route::get('/graph', [\App\Http\Controllers\AtlasCartographyController::class, 'graph']);
+    Route::get('/note/{graph_id}', [\App\Http\Controllers\AtlasCartographyController::class, 'note']);
+    Route::get('/recent-changes', [\App\Http\Controllers\AtlasCartographyController::class, 'recentChanges']);
 });

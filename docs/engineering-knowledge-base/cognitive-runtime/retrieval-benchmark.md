@@ -62,6 +62,154 @@ continuidade e pesquisa sem despejar ruido nem depender de chat bruto.
 | `provider_safe_violation_count` | 0 |
 | `budget_truncation_count` | explained and non-critical |
 
+## Implemented Slice
+
+`atlas:ai:local-rag-benchmark --json` owns the first deterministic memory
+slice: `memory_recall_corpus`.
+
+It evaluates promoted provider-safe memory already inside the canonical stores:
+
+- Memory Registry entries with `source_type=ai_memory_delta`;
+- Verbatim Store entries with `source_type=capture` or
+  `source_type=semantic_curation_proposal`;
+- semantic notes disabled for the slice so Registry/Verbatim recall is measured
+  directly.
+
+The slice reports hashes instead of raw queries/context and checks
+`precision_at_3`, `precision_at_5`, missed critical refs, contamination,
+provider-safe violations, stale context use, budget truncation and reason
+coverage. It also emits `golden_set` (`atlas.memory_recall_golden_set.v1`) with
+hashed objectives, `must_include` source ref hashes, `must_exclude` safety
+classes and critical invariants. When it passes, the local benchmark marks
+`real_corpus_retrieval_answer_quality` complete, while Graph RAG/Python runtime
+promotion remains blocked until human review, AP scope and decision receipts.
+
+For longitudinal tracking, run:
+
+```bash
+php artisan atlas:ai:local-rag-benchmark --record-memory-quality --json
+```
+
+This persists an `atlas_memory_quality_snapshots` row with
+`source_type=local_rag_benchmark`. Snapshot metadata stores benchmark status,
+quality-corpus metrics, memory-recall metrics, golden-set counts and evidence
+ledger payload hashes only. It must not store raw query text, raw context,
+unredacted capture text or provider secrets. The command response includes
+`retrieval_benchmark_history`, filtered to the same source type, for latest
+score, score delta and recent snapshots.
+
+Recurring execution is opt-in and inspectable:
+
+```bash
+php artisan atlas:ai:local-rag-benchmark --schedule-plan --json
+```
+
+Config:
+
+- `ATLAS_AI_LOCAL_RAG_BENCHMARK_SCHEDULE_ENABLED=false` by default;
+- `ATLAS_AI_LOCAL_RAG_BENCHMARK_SCHEDULE_TIME=02:30` by default;
+- `ATLAS_AI_LOCAL_RAG_BENCHMARK_WORKSPACE` optionally scopes the Memory Quality
+  snapshot.
+
+When `schedulable=true`, `bootstrap/app.php` registers the schedule plan command
+with Laravel Scheduler, daily, `withoutOverlapping`. Disabled or invalid schedule
+config produces `scheduler_registration.status=skipped` and does not execute the
+benchmark.
+
+## Retrieval Rivals Packet
+
+The benchmark emits `retrieval_rivals_packet`
+(`atlas.retrieval_rivals.packet.v1`) as the first Rivals-style comparison
+surface for retrieval. It is not an execution harness. It records the measured
+current strategy, `current_governed_hybrid_memory_recall`, and lists alternatives
+as blocked proposals until there is human review, AP scope, decision receipt,
+runtime invocation contract and rollback plan.
+
+The packet must report hashes/metrics only, set raw query/context persistence to
+false, and forbid provider calls, Python runtime execution, Graph RAG auto-enable
+and policy auto-apply. Its comparison winner is meaningful only for the current
+measured path; `delta_measured=false` until an approved rival strategy is allowed
+to run.
+
+Before any rival strategy can run in shadow mode, inspect the blocked shadow
+plan:
+
+```bash
+php artisan atlas:ai:local-rag-benchmark --rivals-shadow-plan --json
+```
+
+The plan emits `atlas.local_rag_benchmark.rivals_shadow_plan.v1`, review packet
+`atlas.memory_retrieval_rivals_shadow_plan_review_packet.v1` and references
+`docs/ap/AP-693-retrieval-rivals-shadow-comparison-contract.md`. It lists the
+current governed hybrid recall baseline plus lexical and future Graph RAG/Python
+candidates, but keeps every candidate blocked. It requires human review, a
+shadow case contract, decision receipt hash, evidence ledger event contract,
+privacy/provider safety review and rollback plan before any shadow execution. It
+must keep `provider_call_allowed=false`, `runtime_execution_allowed=false`,
+`policy_auto_apply_allowed=false`, `raw_query_persisted=false` and
+`raw_context_persisted=false`.
+
+Add `--emit-rivals-shadow-inbox` only when an operator wants the AP-693 scope
+projected into Inbox for human review:
+
+```bash
+php artisan atlas:ai:local-rag-benchmark --rivals-shadow-plan --emit-rivals-shadow-inbox --json
+```
+
+The Inbox item uses `atlas.memory_retrieval_rivals_shadow_inbox.v1` and action
+`review_retrieval_shadow_scope`. The action records
+`atlas.inbox_action.memory_retrieval_shadow_scope_review.v1` and an
+`INBOX_ACTION_RECORDED` ledger event while keeping provider calls, runtime
+execution and policy patching disabled. The review action also emits dry-run
+decision receipt `atlas.memory_retrieval_shadow_scope_decision_receipt.v1`;
+even an `approved_scope` decision keeps `shadow_execution_allowed_now=false`
+until the remaining AP-693 evidence contracts exist. The receipt hash is
+deterministic for the semantic scope decision and excludes audit timestamps.
+Inbox Action replay surfaces project this scope review through
+`atlas:ai:inbox-action-report`, `/ai/inbox-actions/report` and Open Brain MCP:
+decision counts, reviewed count, receipt count, plan/review AP hashes and the
+fail-closed `shadow_execution_allowed_now` marker. A missing decision receipt or
+runtime-allowed marker becomes a review signal instead of hidden payload trivia.
+
+Use the longitudinal Rivals report to compare latest and previous retrieval
+snapshots without running the benchmark:
+
+```bash
+php artisan atlas:ai:local-rag-benchmark --rivals-report --json
+```
+
+The report emits `atlas.local_rag_benchmark.rivals_report.v1`, summarizes only
+snapshot ids, source hashes, scores and Memory Recall metrics, and never returns
+raw query/context/capture text. It marks `stable`, `improved` or `regressed` and
+produces proposal-only review packet
+`atlas.memory_retrieval_rivals_review_packet.v1`; regressions require human
+review and still forbid Graph RAG/Python runtime promotion. When snapshots are
+recorded, metadata stores only the safe summary of `retrieval_rivals_packet`
+schema/status/mode/comparison/strategy statuses/checks so longitudinal reports
+can prove rival alternatives remained non-executed.
+
+Add `--emit-rivals-inbox` only when an operator wants a regressed report
+projected into Inbox:
+
+```bash
+php artisan atlas:ai:local-rag-benchmark --rivals-report --emit-rivals-inbox --json
+```
+
+Emission is skipped for non-regressed reports, uses
+`atlas.memory_retrieval_rivals_inbox.v1`, keeps the same hash-only payload, and
+creates a proposal item with action `review_retrieval_regression`; it still
+cannot apply policy, promote runtime or write memory.
+
+The Inbox action runtime handles `review_retrieval_regression` as an audit-only
+review. It writes `atlas.inbox_action.memory_retrieval_regression_review.v1` to
+the item payload and emits `INBOX_ACTION_RECORDED`; it marks the item read but
+does not resolve it, execute runtime, apply policy or mutate memory.
+`atlas:ai:inbox-action-report`, `/ai/inbox-actions/report` and the Open Brain
+MCP `atlas_inbox_action_report` read model project the safe review fields:
+decision, reviewed marker, report/snapshot hashes and no-external-action /
+no-runtime / no-policy flags. They do not project raw retrieval context or query
+text.
+
 ## Golden Set Shape
 
 Each benchmark fixture should declare:

@@ -312,6 +312,14 @@ return Application::configure(basePath: dirname(__DIR__))
             }
         }
 
+        $localRagBenchmarkSchedule = AtlasAiLocalRagBenchmarkCommand::schedulePlan();
+        if (($localRagBenchmarkSchedule['schedulable'] ?? false) === true) {
+            $schedule->command((string) $localRagBenchmarkSchedule['command'])
+                ->dailyAt((string) $localRagBenchmarkSchedule['time'])
+                ->timezone((string) $localRagBenchmarkSchedule['timezone'])
+                ->withoutOverlapping();
+        }
+
         $schedule->command('atlas:worked-example extract scheduled --json')
             ->weeklyOn(1, '04:10')
             ->timezone((string) config('app.timezone', 'UTC'))

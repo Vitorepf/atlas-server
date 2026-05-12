@@ -93,7 +93,7 @@ Depois do completion, a revisao enterprise segue em cadeia separada:
 Schema: `atlas.ap_agent_workflow_registry.v1`; modo: `read_only_workflow_registry`; autoridade: `ap_agent_workflow_registry_only_no_execution`
 
 ## Campos Principais
-- `workflow_id`, `steps`, `terminal_statuses`, `required_validation_commands`, `handoff_summary`, `guardrails`
+- `workflow_id`, `steps`, `summary`, `terminal_statuses`, `required_validation_commands`, `handoff_summary`, `guardrails`
 
 ## Comandos Declarados
 focused tests; docs-health; architecture-validate; architecture-readiness; knowledge sync; code intelligence index; diff check.
@@ -115,6 +115,6 @@ Um Codex novo carrega a ordem correta antes de tocar no codigo, reduzindo duplic
 
 ## Criterios de Aceite
 - registry lista AP-200, AP-201, AP-202, AP-205 e AP-203 na ordem correta
-- registry lista AP-206 ate AP-682 como cadeia pos-completion separada
+- registry lista AP-206 ate AP-682 como cadeia pos-completion separada e expõe `summary` compacto para humanos/IAs
 - cada step declara componente, schema, proposito e bloqueios
 - comandos declarativos e guardrails impedem execucao ou escrita

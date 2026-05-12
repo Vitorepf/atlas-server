@@ -46,6 +46,12 @@ related_paths:
 | `provider_projection_refs` | Projection Audit | target, checksum, drift status, operation |
 | `open_brain_audit_refs` | Open Brain Audit | requester, export hash, policy and counts |
 
+Every returned recall item must also expose provider-safe provenance:
+
+- `lineage`: local source, source ref type/id, origin type/id/label and content hash when available;
+- `freshness`: recorded timestamp, last-used timestamp, age in days and review status;
+- `audit`: provider-safe flag, privacy class, redaction status and governance/privacy review timestamps.
+
 ## Immune Retrieval Contract
 
 Retrieval receives candidates, not authority. It must filter before ranking:
@@ -76,6 +82,103 @@ authority ranking or contradiction checks.
 - Verbatim snippets use redacted text and injection scanning.
 - Code Intelligence refs point to paths/symbols/tests instead of dumping files.
 - If budget is exceeded, drop lowest priority refs and report truncation.
+
+## Lineage, Freshness And Audit
+
+Ranked recall items must be auditable objects, not anonymous snippets. The
+composer attaches `lineage`, `freshness` and `audit_trail` to each included item.
+Provider prompts may use title/summary/excerpt, while Kernel, CLI, MCP and app
+surfaces can inspect metadata for drift, stale review, source explanation and
+privacy proof.
+
+Required behavior:
+
+- preserve `content_hash` from Memory Registry, Verbatim Store and semantic notes;
+- mark missing dates as `freshness.status=unknown` instead of inventing dates;
+- mark old dated memory as `stale_review_recommended`;
+- keep audit metadata provider-safe and free of raw secrets;
+- preserve old `audit` shape during transition, with `audit_trail` as the
+  canonical field for new consumers.
+- write standalone Registry recall usage rows with `source_type=memory_recall`
+  when the usage table is available, updating `last_used_at` without logging raw
+  private content.
+- feed Memory Quality `counts.retrieval_eval` with recall usage count, recalled
+  entry coverage, active entries never recalled and recall-specific
+  wrong-context/stale feedback.
+
+## Benchmark Slice
+
+`php artisan atlas:ai:local-rag-benchmark --json` includes
+`memory_recall_corpus` for promoted memory. The slice runs hybrid recall against
+provider-safe Registry entries promoted from `ai_memory_delta` and provider-safe
+Verbatim memories promoted from capture/curation, then reports:
+
+- `precision_at_3` and `precision_at_5`;
+- missed critical promoted refs;
+- context contamination count;
+- provider-safe violation count;
+- stale context use count;
+- budget truncation count;
+- reason coverage.
+
+The benchmark never persists raw queries or raw context in the report/ledger; it
+uses hashes, source ref types and source ref hashes. The slice also emits a
+`golden_set` packet (`atlas.memory_recall_golden_set.v1`) with hashed
+objectives, `must_include` ref hashes, `must_exclude` safety classes and
+critical invariants, so repeated runs can compare misses and contamination
+without leaking capture text. Passing this slice can satisfy
+`real_corpus_retrieval_answer_quality`, but it does not authorize Graph RAG,
+Python runtime promotion or provider bypass.
+
+Use `--record-memory-quality` to persist the benchmark as a Memory Quality
+snapshot:
+
+```bash
+php artisan atlas:ai:local-rag-benchmark --record-memory-quality --json
+```
+
+The snapshot uses `source_type=local_rag_benchmark` and stores metrics, checks,
+golden-set counts and evidence payload hashes. It is opt-in and must remain free
+of raw query text, raw context and unredacted capture evidence. Snapshot metadata
+also stores the provider-safe `retrieval_rivals_packet` summary
+schema/status/mode/comparison/strategy statuses/checks, so history can verify
+that rival alternatives remained proposal-only and non-executed.
+
+When recording is enabled, the command also returns
+`retrieval_benchmark_history`, filtered to `source_type=local_rag_benchmark`,
+so operators can see latest score, score delta and recent snapshots without
+mixing generic Memory Quality snapshots with retrieval benchmark evidence.
+
+The benchmark also returns `retrieval_rivals_packet`
+(`atlas.retrieval_rivals.packet.v1`). This packet is proposal-only: it measures
+the current governed hybrid memory recall strategy and describes candidate
+alternatives such as lexical fallback or future Graph RAG/Python without
+executing them. It must keep `raw_query_persisted=false`,
+`raw_context_persisted=false`, forbid provider calls/runtime execution/policy
+auto-apply and require human review plus AP/runtime contracts before any rival
+strategy can run.
+
+Recurring snapshots are disabled by default. Use
+`php artisan atlas:ai:local-rag-benchmark --schedule-plan --json` to inspect the
+plan. `ATLAS_AI_LOCAL_RAG_BENCHMARK_SCHEDULE_ENABLED=true` makes
+`bootstrap/app.php` register the daily Laravel Scheduler entry; invalid time or
+timezone keeps `scheduler_registration.status=skipped`.
+
+Use `php artisan atlas:ai:local-rag-benchmark --rivals-report --json` to compare
+the latest hash-only retrieval snapshot against the previous one. The report is
+proposal-only: it exposes snapshot ids, source hashes, scores, metric deltas and
+a human review packet when retrieval regresses; it must not run benchmark cases,
+promote Graph RAG/Python runtime or emit raw capture text.
+
+`--emit-rivals-inbox` may be combined with `--rivals-report` to create a
+proposal Inbox item only for regressed reports. The Inbox payload carries the
+review packet, safe snapshot refs and `review_retrieval_regression`; it remains
+operator-review-only and does not authorize automatic memory or runtime changes.
+Once reviewed, the Inbox Action replay surfaces project only safe audit fields
+for `review_retrieval_regression`: decision, reviewed marker, report/snapshot
+hashes and explicit no-external-action / no-runtime / no-policy flags. This
+closes the retrieval regression loop through Open Brain reporting without
+persisting raw query/context text in the replay layer.
 
 ## Forbidden Paths
 

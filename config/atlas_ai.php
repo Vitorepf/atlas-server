@@ -533,6 +533,12 @@ return [
         'emit' => (bool) env('ATLAS_AI_SELF_IMPROVEMENT_EMIT', false),
     ],
 
+    'local_rag_benchmark' => [
+        'schedule_enabled' => (bool) env('ATLAS_AI_LOCAL_RAG_BENCHMARK_SCHEDULE_ENABLED', false),
+        'schedule_time' => env('ATLAS_AI_LOCAL_RAG_BENCHMARK_SCHEDULE_TIME', '02:30'),
+        'schedule_workspace' => env('ATLAS_AI_LOCAL_RAG_BENCHMARK_WORKSPACE'),
+    ],
+
     'ledger_projection' => [
         'enabled' => (bool) env('ATLAS_AI_LEDGER_PROJECTION_ENABLED', true),
         'hours' => (int) env('ATLAS_AI_LEDGER_PROJECTION_HOURS', 24),

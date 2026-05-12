@@ -274,7 +274,11 @@ class AiContextPackBuilder
             'source_type' => $entry->source_type,
             'source_id' => $entry->source_id,
             'source_label' => $entry->source_label,
+            'content_hash' => $entry->content_hash,
             'recorded_at' => $entry->recorded_at?->toJSON(),
+            'last_used_at' => $entry->last_used_at?->toJSON(),
+            'governance_checked_at' => $entry->governance_checked_at?->toJSON(),
+            'privacy_reviewed_at' => $entry->privacy_reviewed_at?->toJSON(),
             'reason' => $this->memoryReason($entry),
         ])->values()->all();
     }
@@ -330,6 +334,8 @@ class AiContextPackBuilder
                 'source_type' => $memory->source_type,
                 'source_id' => $memory->source_id,
                 'source_label' => $memory->source_label,
+                'content_hash' => $memory->content_hash,
+                'redacted_hash' => $memory->redacted_hash,
                 'recorded_at' => $memory->recorded_at?->toJSON(),
                 'reason' => $this->verbatimReason($memory),
                 'blocked' => $blocked,
@@ -414,6 +420,16 @@ class AiContextPackBuilder
             'external_ai_allowed' => $privacy['external_ai_allowed'],
             'redaction_status' => $privacy['redaction_status'],
             'privacy_reason' => $privacy['reason'],
+            'source_type' => 'semantic_note',
+            'source_id' => $note->id,
+            'source_label' => $note->path,
+            'content_hash' => is_scalar(data_get($note->metadata, 'content_hash')) ? (string) data_get($note->metadata, 'content_hash') : hash('sha256', implode('|', [
+                (string) $note->path,
+                (string) $note->title,
+                (string) $note->summary,
+                (string) $note->body_excerpt,
+            ])),
+            'recorded_at' => $note->updated_at?->toJSON() ?? $note->created_at?->toJSON(),
         ];
 
         if (! $privacy['provider_safe']) {

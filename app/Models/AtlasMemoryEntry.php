@@ -24,6 +24,8 @@ class AtlasMemoryEntry extends Model
         'resolution',
         'benchmark_observation',
         'harness_learning',
+        'anti_memory',
+        'strategic_insight',
     ];
 
     public const SCOPES = [

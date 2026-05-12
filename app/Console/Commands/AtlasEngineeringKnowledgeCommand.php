@@ -30,6 +30,7 @@ class AtlasEngineeringKnowledgeCommand extends Command
         {--run-context-id= : Optional Atlas Tool Runtime context id for code intelligence evidence}
         {--dry-run : Preview sync without writing}
         {--prune : Archive canonical records whose markdown no longer exists}
+        {--summary-only : For JSON index-code output, omit large module and symbol previews while preserving persisted indexing}
         {--json : Print machine-readable JSON}';
 
     protected $description = 'Sync and inspect the Atlas Engineering Knowledge Base.';
@@ -230,7 +231,7 @@ class AtlasEngineeringKnowledgeCommand extends Command
         ]);
 
         if ($this->json()) {
-            $this->line($this->encode($payload));
+            $this->line($this->encode($this->summaryOnly() ? $this->compactCodeIndexPayload($payload) : $payload));
 
             return $payload['ok'] ? self::SUCCESS : self::FAILURE;
         }
@@ -440,6 +441,23 @@ class AtlasEngineeringKnowledgeCommand extends Command
     private function json(): bool
     {
         return (bool) $this->option('json');
+    }
+
+    private function summaryOnly(): bool
+    {
+        return (bool) $this->option('summary-only');
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     * @return array<string,mixed>
+     */
+    private function compactCodeIndexPayload(array $payload): array
+    {
+        unset($payload['modules'], $payload['symbols_preview']);
+        $payload['summary_only'] = true;
+
+        return $payload;
     }
 
     private function contextInput(): EngineeringContextIntelligenceInput

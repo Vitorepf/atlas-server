@@ -8,6 +8,7 @@ use App\Models\AtlasMemoryEntry;
 use App\Models\AtlasMemoryEntryUsage;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 
 class AtlasMemoryUsageService
 {
@@ -70,6 +71,81 @@ class AtlasMemoryUsageService
                 'used_at' => $snapshot->created_at ?: now(),
             ]);
         });
+    }
+
+    /**
+     * @param  array<string,mixed>  $context
+     * @param  array<int,array<string,mixed>>  $recall
+     * @param  array<string,mixed>  $metadata
+     * @return array{audit_id:string|null,recorded_count:int}
+     */
+    public function recordRecallUsages(string $query, array $context, array $recall, array $metadata = []): array
+    {
+        if (! Schema::hasTable('atlas_memory_entry_usages') || ! Schema::hasTable('atlas_memory_entries')) {
+            return ['audit_id' => null, 'recorded_count' => 0];
+        }
+
+        $registryItems = collect($recall)
+            ->filter(fn (mixed $item): bool => is_array($item)
+                && ($item['source_ref_type'] ?? null) === 'atlas_memory_entry'
+                && is_string($item['source_ref_id'] ?? null))
+            ->values();
+
+        if ($registryItems->isEmpty()) {
+            return ['audit_id' => null, 'recorded_count' => 0];
+        }
+
+        $usedAt = now();
+        $auditId = 'recall:'.hash('sha256', json_encode([
+            'query' => $query,
+            'context' => $context,
+            'source' => $metadata['source'] ?? 'atlas_memory_recall',
+            'used_at' => $usedAt->toJSON(),
+            'nonce' => (string) Str::uuid(),
+        ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '');
+        $recorded = 0;
+
+        foreach ($registryItems as $index => $item) {
+            $memoryId = (string) $item['source_ref_id'];
+            $entry = AtlasMemoryEntry::query()->find($memoryId);
+            if (! $entry) {
+                continue;
+            }
+
+            AtlasMemoryEntryUsage::query()->create([
+                'memory_entry_id' => $entry->id,
+                'trace_id' => $this->uuidOrNull($context['trace_id'] ?? null),
+                'thread_id' => $this->uuidOrNull($context['thread_id'] ?? null),
+                'session_id' => $this->uuidOrNull($context['session_id'] ?? null),
+                'memory_type' => $entry->memory_type,
+                'scope_type' => $entry->scope_type,
+                'scope_id' => $entry->scope_id,
+                'source_type' => 'memory_recall',
+                'source_id' => $auditId,
+                'position' => (int) ($item['rank'] ?? ($index + 1)),
+                'included_reason' => is_string($item['reason'] ?? null) ? $item['reason'] : null,
+                'source_ref_json' => [
+                    'type' => 'atlas_memory_entry',
+                    'id' => $entry->id,
+                    'lineage' => is_array($item['lineage'] ?? null) ? $item['lineage'] : [],
+                    'freshness' => is_array($item['freshness'] ?? null) ? $item['freshness'] : [],
+                    'audit_trail' => is_array($item['audit_trail'] ?? null) ? $item['audit_trail'] : [],
+                ],
+                'context_payload_json' => $this->recallPayloadForAudit($item),
+                'metadata' => [
+                    'query_hash' => hash('sha256', $query),
+                    'context_hash' => hash('sha256', json_encode($context, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: ''),
+                    'source' => $metadata['source'] ?? 'atlas_memory_recall',
+                    'created_by' => 'atlas_hybrid_memory_retrieval',
+                ],
+                'used_at' => $usedAt,
+            ]);
+
+            $entry->forceFill(['last_used_at' => $usedAt])->save();
+            $recorded++;
+        }
+
+        return ['audit_id' => $auditId, 'recorded_count' => $recorded];
     }
 
     /**
@@ -176,5 +252,34 @@ class AtlasMemoryUsageService
                 'status' => $entry->status,
             ] : null,
         ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $item
+     * @return array<string,mixed>
+     */
+    private function recallPayloadForAudit(array $item): array
+    {
+        return [
+            'rank' => $item['rank'] ?? null,
+            'source' => $item['source'] ?? null,
+            'source_ref_type' => $item['source_ref_type'] ?? null,
+            'source_ref_id' => $item['source_ref_id'] ?? null,
+            'type' => $item['type'] ?? null,
+            'scope' => $item['scope'] ?? null,
+            'title' => $item['title'] ?? null,
+            'summary' => $item['summary'] ?? null,
+            'score' => $item['score'] ?? null,
+            'reason' => $item['reason'] ?? null,
+            'estimated_chars' => $item['estimated_chars'] ?? null,
+            'lineage' => is_array($item['lineage'] ?? null) ? $item['lineage'] : [],
+            'freshness' => is_array($item['freshness'] ?? null) ? $item['freshness'] : [],
+            'audit_trail' => is_array($item['audit_trail'] ?? null) ? $item['audit_trail'] : [],
+        ];
+    }
+
+    private function uuidOrNull(mixed $value): ?string
+    {
+        return is_string($value) && Str::isUuid($value) ? $value : null;
     }
 }

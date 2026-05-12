@@ -91,7 +91,15 @@ class AiInteractionController extends Controller
         $data = $this->applyThreadRuntimePolicy($data);
         $data = $this->applySurfaceDomainCatalogSelection($data, $domainSelection);
 
-        $trace = $gateway->enqueueInteraction((string) $data['input_text'], $data);
+        try {
+            $trace = $gateway->enqueueInteraction((string) $data['input_text'], $data);
+        } catch (RuntimeException $exception) {
+            return response()->json([
+                'message' => $exception->getMessage(),
+                'code' => 'ai_interaction_rejected',
+            ], 422);
+        }
+
         if ((bool) config('atlas.attachments.pdf.background_processing_enabled', true)
             && is_array(data_get($data, 'payload.attachments'))
         ) {

@@ -9,6 +9,7 @@ use App\Models\AiThread;
 use App\Models\AtlasMobileDevice;
 use App\Services\Ai\Kernel\Architecture\AtlasRivalsStrategyReadModel;
 use App\Services\Ai\Kernel\Architecture\AtlasRivalsStrategyReviewRecorder;
+use App\Services\Ai\Kernel\Decision\DecisionReceiptHash;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use App\Services\Ai\Kernel\Evidence\LedgerProjectionWorker;
@@ -103,6 +104,8 @@ class InboxActionRegistry
                 'view_trace', 'review_patch' => $this->readOnlyResult($locked, $actionId),
                 'create_proposal' => $this->createProposal($locked),
                 'run_ledger_projection' => $this->runLedgerProjection($locked, $input),
+                'review_retrieval_regression' => $this->reviewRetrievalRegression($locked, $input),
+                'review_retrieval_shadow_scope' => $this->reviewRetrievalShadowScope($locked, $input),
                 'record_rivals_review' => $this->recordRivalsReview($locked, $input),
                 'configure_provider_cost_rates' => $this->configureProviderCostRates($locked, $input),
                 'ignore_30d' => $this->ignoreThirtyDays($locked),
@@ -615,6 +618,185 @@ class InboxActionRegistry
             'command' => 'atlas:ai:ledger-project --hours='.$hours.' --limit='.$limit.($dryRun ? ' --dry-run' : '').' --json',
             'source_health_status' => $this->string($sourceHealth['status'] ?? null),
         ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $input
+     * @return array{item:AiInboxItem,retrieval_regression_review_action:array<string,mixed>,reviewed:bool,no_external_action:bool}
+     */
+    private function reviewRetrievalRegression(AiInboxItem $item, array $input): array
+    {
+        $payload = $item->payload ?? [];
+        $retrievalRivals = $this->array(data_get($payload, 'retrieval_rivals'));
+        if ($retrievalRivals === []) {
+            throw ValidationException::withMessages(['action' => 'Item nao contem retrieval_rivals para revisao.']);
+        }
+
+        $decision = $this->string($input['decision'] ?? null) ?? 'reviewed';
+        if (! in_array($decision, ['reviewed', 'accepted_regression', 'false_positive', 'needs_more_evidence'], true)) {
+            throw ValidationException::withMessages(['decision' => 'Decision invalida para review_retrieval_regression.']);
+        }
+
+        $reviewAction = [
+            'schema_version' => 'atlas.inbox_action.memory_retrieval_regression_review.v1',
+            'decision' => $decision,
+            'reviewed' => true,
+            'no_external_action' => true,
+            'no_runtime_execution' => true,
+            'no_policy_patch' => true,
+            'report_hash' => $this->string(data_get($retrievalRivals, 'report_hash')),
+            'latest_snapshot_id' => $this->string(data_get($retrievalRivals, 'comparison.latest.id')),
+            'previous_snapshot_id' => $this->string(data_get($retrievalRivals, 'comparison.previous.id')),
+            'review_signal' => $this->array(data_get($payload, 'proposal_contract.review_signal')),
+            'operator_note' => Str::limit($this->string($input['note'] ?? $input['operator_note'] ?? null) ?? '', 500, ''),
+            'completed_at' => now()->toJSON(),
+        ];
+
+        $payload['retrieval_regression_review_action'] = $reviewAction;
+        $item->update([
+            'payload' => $payload,
+            'status' => $item->status === 'unread' ? 'read' : $item->status,
+            'read_at' => $item->read_at ?? now(),
+        ]);
+
+        return [
+            'item' => $item->refresh(),
+            'retrieval_regression_review_action' => $reviewAction,
+            'reviewed' => true,
+            'no_external_action' => true,
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $input
+     * @return array{item:AiInboxItem,retrieval_shadow_scope_review_action:array<string,mixed>,reviewed:bool,no_external_action:bool}
+     */
+    private function reviewRetrievalShadowScope(AiInboxItem $item, array $input): array
+    {
+        $payload = $item->payload ?? [];
+        $shadowPlan = $this->array(data_get($payload, 'retrieval_rivals_shadow_plan'));
+        if ($shadowPlan === []) {
+            throw ValidationException::withMessages(['action' => 'Item nao contem retrieval_rivals_shadow_plan para revisao.']);
+        }
+
+        $decision = $this->string($input['decision'] ?? null) ?? 'needs_more_evidence';
+        if (! in_array($decision, ['approved_scope', 'rejected_scope', 'needs_more_evidence', 'reviewed'], true)) {
+            throw ValidationException::withMessages(['decision' => 'Decision invalida para review_retrieval_shadow_scope.']);
+        }
+
+        $decisionReceipt = $this->retrievalShadowScopeDecisionReceipt($shadowPlan, $decision, $input);
+        $reviewAction = [
+            'schema_version' => 'atlas.inbox_action.memory_retrieval_shadow_scope_review.v1',
+            'decision' => $decision,
+            'reviewed' => true,
+            'no_external_action' => true,
+            'no_runtime_execution' => true,
+            'no_policy_patch' => true,
+            'no_provider_call' => true,
+            'plan_hash' => $this->string(data_get($shadowPlan, 'plan_hash')),
+            'review_ap' => $this->string(data_get($shadowPlan, 'review_ap')),
+            'decision_receipt' => $decisionReceipt,
+            'decision_receipt_hash' => $decisionReceipt['receipt_hash'],
+            'review_signal' => $this->array(data_get($payload, 'proposal_contract.review_signal')),
+            'operator_note' => Str::limit($this->string($input['note'] ?? $input['operator_note'] ?? null) ?? '', 500, ''),
+            'completed_at' => now()->toJSON(),
+        ];
+
+        $payload['retrieval_shadow_scope_review_action'] = $reviewAction;
+        $item->update([
+            'payload' => $payload,
+            'status' => $item->status === 'unread' ? 'read' : $item->status,
+            'read_at' => $item->read_at ?? now(),
+        ]);
+
+        return [
+            'item' => $item->refresh(),
+            'retrieval_shadow_scope_review_action' => $reviewAction,
+            'reviewed' => true,
+            'no_external_action' => true,
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $shadowPlan
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    private function retrievalShadowScopeDecisionReceipt(array $shadowPlan, string $decision, array $input): array
+    {
+        $planHash = $this->string(data_get($shadowPlan, 'plan_hash')) ?? 'unknown_plan_hash';
+        $reviewAp = $this->string(data_get($shadowPlan, 'review_ap')) ?? 'docs/ap/AP-693-retrieval-rivals-shadow-comparison-contract.md';
+        $inputsHash = DecisionReceiptHash::hash([
+            'decision' => $decision,
+            'plan_hash' => $planHash,
+            'review_ap' => $reviewAp,
+            'required_human_decision' => data_get($shadowPlan, 'review_packet.required_human_decision'),
+        ]);
+        $receipt = [
+            'schema_version' => 'atlas.memory_retrieval_shadow_scope_decision_receipt.v1',
+            'receipt_id' => 'retrieval_shadow_scope:'.substr($inputsHash, 0, 32),
+            'issued_at' => now()->toJSON(),
+            'dry_run' => true,
+            'signed_by' => 'atlas.inbox.review_retrieval_shadow_scope',
+            'decision' => $decision,
+            'plan_hash' => $planHash,
+            'review_ap' => $reviewAp,
+            'inputs_hash' => $inputsHash,
+            'receipt_hash_fields' => [
+                'schema_version',
+                'receipt_id',
+                'dry_run',
+                'signed_by',
+                'decision',
+                'plan_hash',
+                'review_ap',
+                'inputs_hash',
+                'shadow_execution_allowed_now',
+                'no_runtime_execution',
+                'no_policy_patch',
+                'no_provider_call',
+            ],
+            'scope_approved' => $decision === 'approved_scope',
+            'shadow_execution_allowed_now' => false,
+            'no_runtime_execution' => true,
+            'no_policy_patch' => true,
+            'no_provider_call' => true,
+            'future_shadow_run_requires' => [
+                'shadow_case_contract',
+                'evidence_ledger_event_contract',
+                'privacy_provider_safety_review',
+                'rollback_plan',
+                'runtime_invocation_contract',
+            ],
+            'forbidden_actions' => [
+                'execute_python_graph_rag',
+                'run_unreviewed_lexical_rival',
+                'persist_raw_query',
+                'persist_raw_context',
+                'send_raw_capture_to_provider',
+                'auto_apply_policy_patch',
+                'promote_rival_strategy',
+            ],
+            'operator_note_hash' => ($note = $this->string($input['note'] ?? $input['operator_note'] ?? null))
+                ? hash('sha256', $note)
+                : null,
+        ];
+        $receipt['receipt_hash'] = DecisionReceiptHash::hash([
+            'schema_version' => $receipt['schema_version'],
+            'receipt_id' => $receipt['receipt_id'],
+            'dry_run' => $receipt['dry_run'],
+            'signed_by' => $receipt['signed_by'],
+            'decision' => $receipt['decision'],
+            'plan_hash' => $receipt['plan_hash'],
+            'review_ap' => $receipt['review_ap'],
+            'inputs_hash' => $receipt['inputs_hash'],
+            'shadow_execution_allowed_now' => $receipt['shadow_execution_allowed_now'],
+            'no_runtime_execution' => $receipt['no_runtime_execution'],
+            'no_policy_patch' => $receipt['no_policy_patch'],
+            'no_provider_call' => $receipt['no_provider_call'],
+        ]);
+
+        return $receipt;
     }
 
     /**

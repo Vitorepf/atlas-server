@@ -2,12 +2,18 @@
 
 namespace App\Services\Semantic;
 
+use App\Models\AiMemoryDelta;
 use App\Models\Capture;
+use App\Models\AtlasMemoryEntry;
 use App\Models\SemanticCurationProposal;
 use App\Models\SemanticNote;
+use App\Services\Ai\AiMemoryDeltaProposer;
+use App\Services\Ai\AtlasMemoryDeltaPromotionService;
+use App\Services\Ai\AtlasVerbatimMemoryService;
 use App\Services\AuditLogService;
 use App\Services\CaptureDestinationService;
 use App\Support\Metadata;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class CurationProposalService
@@ -20,6 +26,9 @@ class CurationProposalService
         private readonly SemanticLinkService $links,
         private readonly AuditLogService $audit,
         private readonly CaptureDestinationService $destinations,
+        private readonly AiMemoryDeltaProposer $memoryDeltas,
+        private readonly AtlasMemoryDeltaPromotionService $memoryPromoter,
+        private readonly AtlasVerbatimMemoryService $verbatim,
     ) {}
 
     public function scanRecentCaptures(?string $since = null): array
@@ -92,6 +101,7 @@ class CurationProposalService
                 'domain' => $capture->domain,
                 'sensitivity' => data_get($capture->metadata, 'sensitivity', 'normal'),
             ];
+        $cognitiveQuarantine = $this->proposalCognitiveQuarantine($capture);
 
         $title = $overrides['title']
             ?? ($destination['title'] ?? null)
@@ -126,6 +136,7 @@ class CurationProposalService
             'source_type' => 'capture',
             'source_refs' => ['capture_id' => $capture->id, 'capture_client_id' => $capture->client_id],
             'postgres_refs' => ['captures' => [$capture->id]],
+            'cognitive_quarantine' => $cognitiveQuarantine,
             'ratification' => [
                 'required' => true,
                 'proposed_by' => 'atlas_aclarador',
@@ -161,6 +172,7 @@ class CurationProposalService
                 'ratified_by_operator' => false,
                 'semantic_clarification' => $clarification,
                 'privacy' => $privacy,
+                'cognitive_quarantine' => $cognitiveQuarantine,
                 ...($overrides['metadata'] ?? []),
             ]),
         ]);
@@ -175,7 +187,8 @@ class CurationProposalService
                 'suggested_type' => $type,
                 'density' => $density,
                 'reason' => $proposal->reason,
-                'raw_source' => $text,
+                'raw_source' => $this->redactedSourceEvidence($text),
+                'cognitive_quarantine' => $cognitiveQuarantine,
             ],
             'privacy' => $privacy,
             'refs' => [
@@ -212,6 +225,8 @@ class CurationProposalService
         $result = $this->indexer->indexFile($actualPath);
         $linkStats = $this->links->suggestFor($result['note']);
 
+        $memoryPromotion = null;
+        $verbatimPromotion = null;
         $proposal->update([
             'status' => isset($edits['frontmatter_edits']) || isset($edits['body_edits']) ? 'edited' : 'accepted',
             'resolved_at' => now(),
@@ -226,6 +241,13 @@ class CurationProposalService
             ]),
         ]);
 
+        if ((bool) ($edits['promote_to_memory'] ?? false)) {
+            $memoryPromotion = $this->promoteRatifiedProposalMemory($proposal->refresh(), $result['note'], $edits);
+        }
+        if ((bool) ($edits['promote_to_verbatim'] ?? false)) {
+            $verbatimPromotion = $this->promoteRatifiedProposalVerbatim($proposal->refresh(), $result['note'], $edits);
+        }
+
         $this->audit->record('curation_proposal_ratified', [
             'subject_type' => 'semantic_curation_proposal',
             'subject_id' => $proposal->id,
@@ -236,11 +258,15 @@ class CurationProposalService
                 'note_id' => $result['note']->id,
                 'path' => $actualPath,
                 'link_suggestions' => $linkStats,
+                'memory_promotion' => $memoryPromotion,
+                'verbatim_promotion' => $verbatimPromotion,
             ],
             'privacy' => $this->privacyFromProposal($proposal),
             'refs' => [
                 'proposal_id' => $proposal->id,
                 'semantic_note_id' => $result['note']->id,
+                'memory_entry_id' => $memoryPromotion['memory_entry_id'] ?? null,
+                'verbatim_memory_id' => $verbatimPromotion['verbatim_memory_id'] ?? null,
             ],
         ]);
 
@@ -251,6 +277,264 @@ class CurationProposalService
         }
 
         return $result['note'];
+    }
+
+    /**
+     * @param  array<string,mixed>  $edits
+     * @return array<string,mixed>
+     */
+    private function promoteRatifiedProposalVerbatim(SemanticCurationProposal $proposal, SemanticNote $note, array $edits): array
+    {
+        $capture = $this->captureForProposal($proposal);
+        $text = is_string($edits['verbatim_text'] ?? null) && trim((string) $edits['verbatim_text']) !== ''
+            ? trim((string) $edits['verbatim_text'])
+            : trim((string) ($capture?->content_text ?: $proposal->proposed_body ?: ''));
+        if ($text === '') {
+            throw new \RuntimeException('Nao ha texto exato para promover ao Verbatim Store.');
+        }
+
+        $receipt = $this->verbatimPromotionReceipt($proposal, $note, $capture, $edits, $text);
+        $memory = $this->verbatim->record([
+            'verbatim_type' => $edits['verbatim_type'] ?? 'evidence',
+            'scope_type' => $edits['verbatim_scope_type'] ?? ($edits['scope_type'] ?? 'global'),
+            'scope_id' => $edits['verbatim_scope_id'] ?? ($edits['scope_id'] ?? null),
+            'title' => $edits['verbatim_title'] ?? 'Evidencia ratificada: '.$proposal->proposed_title,
+            'verbatim_text' => $text,
+            'summary' => $edits['verbatim_summary'] ?? $proposal->proposed_summary,
+            'privacy_class' => $edits['verbatim_privacy_class'] ?? $this->verbatimPrivacyClass($proposal),
+            'external_ai_allowed' => $edits['verbatim_external_ai_allowed'] ?? false,
+            'source_type' => $capture ? 'capture' : 'semantic_curation_proposal',
+            'source_id' => $capture?->id ?? $proposal->id,
+            'source_label' => 'Semantic curation proposal',
+            'tags' => ['semantic_curation_proposal', 'ratified_capture', 'semantic_note:'.$note->type],
+            'metadata' => [
+                'promotion_receipt' => $receipt,
+                'semantic_note_id' => $note->id,
+                'semantic_note_path' => $note->path,
+                'capture_id' => $capture?->id,
+            ],
+        ]);
+
+        $payload = [
+            ...$receipt,
+            'verbatim_memory_id' => $memory->id,
+            'memory_entry_id' => $memory->memory_entry_id,
+            'verbatim_type' => $memory->verbatim_type,
+            'privacy_class' => $memory->privacy_class,
+            'external_ai_allowed' => $memory->external_ai_allowed,
+            'redaction_status' => $memory->redaction_status,
+            'status' => 'promoted',
+        ];
+
+        $proposal->update([
+            'metadata' => Metadata::forStorage([
+                ...($proposal->metadata ?? []),
+                'verbatim_promotion' => $payload,
+            ]),
+        ]);
+
+        if ($capture) {
+            $metadata = is_array($capture->metadata) ? $capture->metadata : [];
+            $metadata['verbatim_promotion'] = $payload;
+            $capture->forceFill(['metadata' => Metadata::forStorage($metadata)])->save();
+        }
+
+        return $payload;
+    }
+
+    /**
+     * @param  array<string,mixed>  $edits
+     * @return array<string,mixed>
+     */
+    private function promoteRatifiedProposalMemory(SemanticCurationProposal $proposal, SemanticNote $note, array $edits): array
+    {
+        $capture = $this->captureForProposal($proposal);
+        $delta = $this->deltaForProposal($proposal, $capture);
+        if (! $delta && $capture) {
+            $delta = $this->memoryDeltas->proposeForCapture($capture, [
+                'proposal_id' => $proposal->id,
+                'memory_type' => $edits['memory_type'] ?? $this->memoryTypeForProposal($proposal),
+            ]);
+        }
+
+        if (! $delta) {
+            throw new \RuntimeException('Nao ha memory delta para promover esta proposta ratificada.');
+        }
+
+        if ($delta->status === 'pending') {
+            $delta->forceFill(['status' => 'accepted'])->save();
+        }
+
+        $receipt = $this->promotionReceipt($proposal, $note, $delta, $capture, $edits);
+        $entry = $this->memoryPromoter->promote($delta->refresh(), [
+            'memory_type' => $edits['memory_type'] ?? $this->memoryTypeForProposal($proposal),
+            'scope_type' => $edits['scope_type'] ?? 'global',
+            'scope_id' => $edits['scope_id'] ?? null,
+            'title' => 'Memoria ratificada: '.$proposal->proposed_title,
+            'summary' => $proposal->proposed_summary,
+            'promoted_by' => $edits['promoted_by'] ?? 'vitor',
+            'metadata' => [
+                'promotion_receipt' => $receipt,
+                'semantic_note_id' => $note->id,
+                'semantic_note_path' => $note->path,
+                'curation_proposal_id' => $proposal->id,
+                'capture_id' => $capture?->id,
+            ],
+            'tags' => [
+                'semantic_curation_proposal',
+                'ratified_capture',
+                'semantic_note:'.$note->type,
+            ],
+        ]);
+
+        $payload = [
+            ...$receipt,
+            'memory_entry_id' => $entry->id,
+            'memory_delta_id' => $delta->id,
+            'memory_type' => $entry->memory_type,
+            'scope_type' => $entry->scope_type,
+            'scope_id' => $entry->scope_id,
+            'status' => 'promoted',
+        ];
+
+        $proposal->update([
+            'metadata' => Metadata::forStorage([
+                ...($proposal->metadata ?? []),
+                'memory_promotion' => $payload,
+            ]),
+        ]);
+
+        if ($capture) {
+            $this->markCaptureMemoryPromoted($capture, $payload);
+        }
+
+        return $payload;
+    }
+
+    private function captureForProposal(SemanticCurationProposal $proposal): ?Capture
+    {
+        $captureId = data_get($proposal->source_refs, 'capture_id');
+
+        return is_string($captureId) ? Capture::query()->find($captureId) : null;
+    }
+
+    private function deltaForProposal(SemanticCurationProposal $proposal, ?Capture $capture): ?AiMemoryDelta
+    {
+        if (! Schema::hasTable('ai_memory_deltas')) {
+            return null;
+        }
+
+        if ($capture) {
+            $delta = AiMemoryDelta::query()
+                ->where('scope', 'capture:'.$capture->id)
+                ->whereIn('status', ['pending', 'accepted', 'promoted'])
+                ->latest('updated_at')
+                ->first();
+
+            if ($delta) {
+                return $delta;
+            }
+        }
+
+        return AiMemoryDelta::query()
+            ->whereIn('status', ['pending', 'accepted', 'promoted'])
+            ->latest('updated_at')
+            ->get()
+            ->first(function (AiMemoryDelta $delta) use ($proposal): bool {
+                return collect($delta->evidence ?? [])
+                    ->contains(fn (mixed $item): bool => is_array($item) && ($item['proposal_id'] ?? null) === $proposal->id);
+            });
+    }
+
+    /**
+     * @param  array<string,mixed>  $edits
+     * @return array<string,mixed>
+     */
+    private function promotionReceipt(SemanticCurationProposal $proposal, SemanticNote $note, AiMemoryDelta $delta, ?Capture $capture, array $edits): array
+    {
+        $quarantine = is_array(data_get($proposal->metadata, 'cognitive_quarantine'))
+            ? data_get($proposal->metadata, 'cognitive_quarantine')
+            : [];
+
+        return [
+            'schema_version' => 'atlas.memory.promotion_receipt.v1',
+            'source' => 'semantic_curation_proposal',
+            'human_gate' => 'semantic_curation_proposal_accept',
+            'ratified_by_operator' => true,
+            'promoted_by' => is_scalar($edits['promoted_by'] ?? null) ? (string) $edits['promoted_by'] : 'vitor',
+            'proposal_id' => $proposal->id,
+            'semantic_note_id' => $note->id,
+            'semantic_note_path' => $note->path,
+            'capture_id' => $capture?->id,
+            'capture_client_id' => $capture?->client_id,
+            'memory_delta_id' => $delta->id,
+            'content_hash' => is_scalar($quarantine['content_hash'] ?? null) ? (string) $quarantine['content_hash'] : $note->content_hash,
+            'privacy' => $this->privacyFromProposal($proposal),
+            'quarantine_schema_version' => is_scalar($quarantine['schema_version'] ?? null) ? (string) $quarantine['schema_version'] : null,
+            'promoted_at' => now()->toJSON(),
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $edits
+     * @return array<string,mixed>
+     */
+    private function verbatimPromotionReceipt(SemanticCurationProposal $proposal, SemanticNote $note, ?Capture $capture, array $edits, string $text): array
+    {
+        $quarantine = is_array(data_get($proposal->metadata, 'cognitive_quarantine'))
+            ? data_get($proposal->metadata, 'cognitive_quarantine')
+            : [];
+
+        return [
+            'schema_version' => 'atlas.verbatim_memory.promotion_receipt.v1',
+            'source' => 'semantic_curation_proposal',
+            'human_gate' => 'semantic_curation_proposal_accept',
+            'ratified_by_operator' => true,
+            'promoted_by' => is_scalar($edits['promoted_by'] ?? null) ? (string) $edits['promoted_by'] : 'vitor',
+            'proposal_id' => $proposal->id,
+            'semantic_note_id' => $note->id,
+            'semantic_note_path' => $note->path,
+            'capture_id' => $capture?->id,
+            'capture_client_id' => $capture?->client_id,
+            'content_hash' => hash('sha256', $text),
+            'privacy' => $this->privacyFromProposal($proposal),
+            'quarantine_schema_version' => is_scalar($quarantine['schema_version'] ?? null) ? (string) $quarantine['schema_version'] : null,
+            'promoted_at' => now()->toJSON(),
+        ];
+    }
+
+    private function memoryTypeForProposal(SemanticCurationProposal $proposal): string
+    {
+        return match ($proposal->proposed_note_type) {
+            'hypothesis', 'synthesis', 'principle', 'mental_model', 'source_note' => 'technical_context',
+            'decision_identity' => 'decision',
+            default => 'technical_context',
+        };
+    }
+
+    private function verbatimPrivacyClass(SemanticCurationProposal $proposal): string
+    {
+        $class = data_get($this->privacyFromProposal($proposal), 'class')
+            ?? data_get($this->privacyFromProposal($proposal), 'privacy_class')
+            ?? data_get($this->privacyFromProposal($proposal), 'sensitivity')
+            ?? 'normal';
+
+        return in_array($class, ['normal', 'private', 'sensitive', 'secret'], true) ? (string) $class : 'normal';
+    }
+
+    /**
+     * @param  array<string,mixed>  $promotion
+     */
+    private function markCaptureMemoryPromoted(Capture $capture, array $promotion): void
+    {
+        $metadata = is_array($capture->metadata) ? $capture->metadata : [];
+        $metadata['memory_promotion'] = $promotion;
+        if (is_array($metadata['triage'] ?? null)) {
+            $metadata['triage']['memory_delta_status'] = 'promoted';
+            $metadata['triage']['promoted_memory_entry_id'] = $promotion['memory_entry_id'] ?? null;
+        }
+
+        $capture->forceFill(['metadata' => Metadata::forStorage($metadata)])->save();
     }
 
     public function dismiss(SemanticCurationProposal $proposal): void
@@ -292,6 +576,55 @@ class CurationProposalService
         $firstLine = preg_replace('/^(eu acho que|acho que|percebi que|ideia:)\s+/iu', '', $firstLine) ?? $firstLine;
 
         return Str::headline(Str::limit($firstLine, 72, ''));
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function proposalCognitiveQuarantine(Capture $capture): array
+    {
+        $source = is_array(data_get($capture->metadata, 'cognitive_quarantine'))
+            ? data_get($capture->metadata, 'cognitive_quarantine')
+            : [];
+
+        return [
+            ...$source,
+            'schema_version' => 'atlas.capture.curation_proposal_quarantine.v1',
+            'raw_capture' => false,
+            'memory_eligible' => false,
+            'context_eligible' => false,
+            'constellation_eligible' => false,
+            'embedding_allowed' => false,
+            'promotion_status' => 'proposal_pending',
+            'promotion_target' => 'semantic_curation_proposal',
+            'review' => [
+                ...(is_array($source['review'] ?? null) ? $source['review'] : []),
+                'required' => true,
+                'status' => 'pending',
+                'reason' => 'semantic_curation_proposal_requires_operator_ratification_before_memory_or_context',
+            ],
+            'proposal' => [
+                'source_type' => 'capture',
+                'capture_id' => $capture->id,
+                'capture_client_id' => $capture->client_id,
+                'created_by' => 'curation-proposal-v2',
+            ],
+            'updated_at' => now()->toJSON(),
+        ];
+    }
+
+    /**
+     * @return array{redacted:bool,sha256:string|null,present:bool}
+     */
+    private function redactedSourceEvidence(string $text): array
+    {
+        $trimmed = trim($text);
+
+        return [
+            'redacted' => true,
+            'sha256' => $trimmed !== '' ? hash('sha256', $trimmed) : null,
+            'present' => $trimmed !== '',
+        ];
     }
 
     private function inferType(string $text): string

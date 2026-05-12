@@ -138,6 +138,97 @@ class AtlasAiInboxActionReportApiTest extends TestCase
         $this->assertSame(['claude_cli:opus' => 1], $response->json('inbox_actions.provider_cost_rate_model_counts'));
     }
 
+    public function test_inbox_action_report_api_exposes_retrieval_regression_reviews(): void
+    {
+        $this->recordInboxAction(
+            '01HINBOXACTIONAPIRETRIEVAL1',
+            'api-inbox-retrieval-regression',
+            'review_retrieval_regression',
+            'operator_cli',
+            'open_memory_retrieval_regression_review',
+            [],
+            [],
+            [],
+            [
+                'schema_version' => 'atlas.inbox_action.memory_retrieval_regression_review.v1',
+                'decision' => 'false_positive',
+                'reviewed' => true,
+                'report_hash' => hash('sha256', 'retrieval-report-api'),
+                'latest_snapshot_hash' => hash('sha256', 'retrieval-latest-api'),
+                'previous_snapshot_hash' => hash('sha256', 'retrieval-previous-api'),
+                'no_external_action' => true,
+                'no_runtime_execution' => true,
+                'no_policy_patch' => true,
+            ],
+        );
+
+        $response = $this->getJson('/ai/inbox-actions/report?hours=24&action=review_retrieval_regression', $this->headers)
+            ->assertOk()
+            ->assertJsonPath('status', 'ok')
+            ->assertJsonPath('filters.action', 'review_retrieval_regression')
+            ->assertJsonPath('inbox_actions.retrieval_regression_review_count', 1)
+            ->assertJsonPath('inbox_actions.retrieval_regression_reviewed_count', 1)
+            ->assertJsonPath('inbox_actions.review_signal.status', 'ok')
+            ->assertJsonPath('inbox_actions.review_signal.recommended_action', 'none')
+            ->assertJsonPath('inbox_actions.recent_events.0.retrieval_regression_decision', 'false_positive')
+            ->assertJsonPath('inbox_actions.recent_events.0.retrieval_regression_no_external_action', true)
+            ->assertJsonPath('inbox_actions.recent_events.0.retrieval_regression_no_runtime_execution', true)
+            ->assertJsonPath('inbox_actions.recent_events.0.retrieval_regression_no_policy_patch', true);
+
+        $this->assertSame(['false_positive' => 1], $response->json('inbox_actions.retrieval_regression_decision_counts'));
+    }
+
+    public function test_inbox_action_report_api_exposes_retrieval_shadow_scope_receipts(): void
+    {
+        $receiptHash = hash('sha256', 'retrieval-shadow-scope-api-receipt');
+
+        $this->recordInboxAction(
+            '01HINBOXACTIONAPISHADOW01',
+            'api-inbox-retrieval-shadow-scope',
+            'review_retrieval_shadow_scope',
+            'operator_cli',
+            'review_retrieval_shadow_scope',
+            [],
+            [],
+            [],
+            [],
+            [
+                'schema_version' => 'atlas.inbox_action.memory_retrieval_shadow_scope_review.v1',
+                'decision' => 'needs_more_evidence',
+                'reviewed' => true,
+                'plan_hash' => hash('sha256', 'retrieval-shadow-scope-api-plan'),
+                'review_ap' => 'docs/ap/AP-693-retrieval-rivals-shadow-comparison-contract.md',
+                'decision_receipt_hash' => $receiptHash,
+                'decision_receipt' => [
+                    'schema_version' => 'atlas.memory_retrieval_shadow_scope_decision_receipt.v1',
+                    'receipt_hash' => $receiptHash,
+                    'shadow_execution_allowed_now' => false,
+                ],
+                'no_external_action' => true,
+                'no_runtime_execution' => true,
+                'no_policy_patch' => true,
+                'no_provider_call' => true,
+            ],
+        );
+
+        $response = $this->getJson('/ai/inbox-actions/report?hours=24&action=review_retrieval_shadow_scope', $this->headers)
+            ->assertOk()
+            ->assertJsonPath('status', 'ok')
+            ->assertJsonPath('filters.action', 'review_retrieval_shadow_scope')
+            ->assertJsonPath('inbox_actions.retrieval_shadow_scope_review_count', 1)
+            ->assertJsonPath('inbox_actions.retrieval_shadow_scope_reviewed_count', 1)
+            ->assertJsonPath('inbox_actions.retrieval_shadow_scope_decision_receipt_count', 1)
+            ->assertJsonPath('inbox_actions.retrieval_shadow_scope_runtime_allowed_count', 0)
+            ->assertJsonPath('inbox_actions.review_signal.status', 'ok')
+            ->assertJsonPath('inbox_actions.review_signal.recommended_action', 'none')
+            ->assertJsonPath('inbox_actions.recent_events.0.retrieval_shadow_scope_decision', 'needs_more_evidence')
+            ->assertJsonPath('inbox_actions.recent_events.0.retrieval_shadow_scope_decision_receipt_hash', $receiptHash)
+            ->assertJsonPath('inbox_actions.recent_events.0.retrieval_shadow_scope_shadow_execution_allowed_now', false)
+            ->assertJsonPath('inbox_actions.recent_events.0.retrieval_shadow_scope_no_provider_call', true);
+
+        $this->assertSame(['needs_more_evidence' => 1], $response->json('inbox_actions.retrieval_shadow_scope_decision_counts'));
+    }
+
     public function test_inbox_action_report_api_requires_atlas_token(): void
     {
         $this->getJson('/ai/inbox-actions/report')
@@ -168,6 +259,8 @@ class AtlasAiInboxActionReportApiTest extends TestCase
         array $diffRefs,
         array $rivalsReviewAction = [],
         array $providerCostRateAction = [],
+        array $retrievalRegressionReviewAction = [],
+        array $retrievalShadowScopeReviewAction = [],
     ): void {
         AtlasLedgerEvent::query()->create([
             'event_id' => $eventId,
@@ -203,6 +296,8 @@ class AtlasAiInboxActionReportApiTest extends TestCase
                     ],
                     'rivals_review_action' => $rivalsReviewAction,
                     'provider_cost_rate_action' => $providerCostRateAction,
+                    'retrieval_regression_review_action' => $retrievalRegressionReviewAction,
+                    'retrieval_shadow_scope_review_action' => $retrievalShadowScopeReviewAction,
                 ],
                 'recommended_action' => $recommendedAction,
                 'review_signal' => [

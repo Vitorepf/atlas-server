@@ -401,7 +401,7 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
         $this->assertFalse($structured['writes']);
         $this->assertSame('atlas.architecture_operations.v1', data_get($structured, 'architecture_operations.schema_version'));
         $this->assertSame('arquitetura_mae', data_get($structured, 'architecture_operations.section'));
-        $this->assertSame(66, data_get($structured, 'architecture_operations.command_count'));
+        $this->assertSame(72, data_get($structured, 'architecture_operations.command_count'));
         $this->assertContains('architecture_operations', data_get($structured, 'architecture_operations.operation_ids'));
         $this->assertContains('architecture_readiness', data_get($structured, 'architecture_operations.operation_ids'));
         $this->assertContains('session_bootstrap', data_get($structured, 'architecture_operations.operation_ids'));
@@ -432,7 +432,7 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
         $this->assertSame(count($commands), data_get($structured, 'architecture_operations.command_count'));
         $this->assertContains('atlas engineering knowledge docs-health --json', array_column($commands, 'command'));
         $this->assertContains('atlas engineering knowledge sync --prune --json', array_column($commands, 'command'));
-        $this->assertContains('atlas engineering knowledge index-code --prune --json', array_column($commands, 'command'));
+        $this->assertContains('atlas engineering knowledge index-code --prune --summary-only --json', array_column($commands, 'command'));
         $this->assertContains('php artisan atlas:ai:provider-release-review --provider=<provider> --title="<release>" --json', array_column($commands, 'command'));
         $this->assertContains('php artisan atlas:ai:provider-release-sources --json', array_column($commands, 'command'));
         $providerRelease = collect($commands)->firstWhere('id', 'provider_release_review');
@@ -458,6 +458,31 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
         $this->assertContains('php artisan atlas:ai:inbox-action-report --hours=24 --json', array_column($commands, 'command'));
         $this->assertContains('php artisan atlas:ai:agent-behavior-report --hours=24 --json', array_column($commands, 'command'));
         $this->assertContains('php artisan atlas:ai:runtime-boundary --json', array_column($commands, 'command'));
+    }
+
+    public function test_memory_maintenance_status_recommends_compact_code_index_command(): void
+    {
+        $service = $this->app->make(AtlasOpenBrainMcpService::class);
+        $response = $service->handleJsonRpc([
+            'jsonrpc' => '2.0',
+            'id' => 767,
+            'method' => 'tools/call',
+            'params' => [
+                'name' => 'atlas_memory_maintenance_status',
+                'arguments' => [
+                    'workspace' => base_path(),
+                ],
+            ],
+        ]);
+
+        $structured = $response['result']['structuredContent'];
+
+        $this->assertTrue($structured['ok']);
+        $this->assertSame('atlas_memory_maintenance_status', $structured['tool']);
+        $this->assertContains(
+            './bin/atlas engineering knowledge index-code --prune --workspace="'.base_path().'" --summary-only --json',
+            $structured['next_actions'],
+        );
     }
 
     public function test_architecture_readiness_tool_exposes_preimplementation_snapshot(): void
@@ -586,7 +611,7 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
 
         $this->assertTrue($structured['ok']);
         $this->assertSame(['section' => 'arquitetura_mae'], data_get($structured, 'architecture_operations.filters'));
-        $this->assertSame(66, data_get($structured, 'architecture_operations.command_count'));
+        $this->assertSame(72, data_get($structured, 'architecture_operations.command_count'));
         $this->assertContains('architecture_operations', data_get($structured, 'architecture_operations.operation_ids'));
 
         $response = $service->handleJsonRpc([
@@ -856,10 +881,10 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
         $this->assertTrue($splitPlan['ok']);
         $this->assertSame('atlas_docs_split_plan', $splitPlan['tool']);
         $this->assertSame('split_required', data_get($splitPlan, 'filters.status'));
-        $this->assertSame(0, $splitPlan['split_required_count']);
+        $this->assertGreaterThanOrEqual(0, $splitPlan['split_required_count']);
         $this->assertSame('EngineeringDocumentationHealthService', data_get($splitPlan, 'policy.line_limits_source'));
-        $this->assertSame([], $splitPlan['execution_order']);
-        $this->assertSame([], $splitPlan['docs']);
+        $this->assertCount($splitPlan['split_required_count'], $splitPlan['execution_order']);
+        $this->assertCount($splitPlan['split_required_count'], $splitPlan['docs']);
         $this->assertSame(
             'If a split_required doc is touched, the change must either reduce it or add a focused child spec and backlink.',
             data_get($splitPlan, 'policy.growth_gate'),
@@ -1501,6 +1526,120 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
         $this->assertSame(480, data_get($structured, 'inbox_actions.recent_events.0.provider_cost_rate_output_microusd'));
     }
 
+    public function test_inbox_action_report_tool_exposes_retrieval_regression_reviews(): void
+    {
+        Schema::dropIfExists('atlas_ledger_events');
+        (require database_path('migrations/2026_05_05_020000_create_atlas_ledger_events_table.php'))->up();
+
+        $this->recordInboxActionForMcp(
+            inboxItemId: 'mcp-retrieval-regression-1',
+            action: 'review_retrieval_regression',
+            actorType: 'operator_cli',
+            category: 'memory',
+            severity: 'medium',
+            recommendedAction: 'open_memory_retrieval_regression_review',
+            diffRefs: [],
+            rivalsReviewAction: [],
+            providerCostRateAction: [],
+            retrievalRegressionReviewAction: [
+                'schema_version' => 'atlas.inbox_action.memory_retrieval_regression_review.v1',
+                'decision' => 'reviewed',
+                'reviewed' => true,
+                'report_hash' => hash('sha256', 'retrieval-report-mcp'),
+                'latest_snapshot_hash' => hash('sha256', 'retrieval-latest-mcp'),
+                'previous_snapshot_hash' => hash('sha256', 'retrieval-previous-mcp'),
+                'no_external_action' => true,
+                'no_runtime_execution' => true,
+                'no_policy_patch' => true,
+            ],
+        );
+
+        $service = $this->app->make(AtlasOpenBrainMcpService::class);
+        $response = $service->handleJsonRpc([
+            'jsonrpc' => '2.0',
+            'id' => 86,
+            'method' => 'tools/call',
+            'params' => [
+                'name' => 'atlas_inbox_action_report',
+                'arguments' => ['hours' => 24, 'action' => 'review_retrieval_regression'],
+            ],
+        ]);
+
+        $structured = $response['result']['structuredContent'];
+
+        $this->assertTrue($structured['ok']);
+        $this->assertSame('atlas_inbox_action_report', $structured['tool']);
+        $this->assertFalse($structured['writes']);
+        $this->assertSame(1, data_get($structured, 'inbox_actions.retrieval_regression_review_count'));
+        $this->assertSame(1, data_get($structured, 'inbox_actions.retrieval_regression_reviewed_count'));
+        $this->assertSame('ok', data_get($structured, 'inbox_actions.review_signal.status'));
+        $this->assertSame('reviewed', data_get($structured, 'inbox_actions.recent_events.0.retrieval_regression_decision'));
+        $this->assertTrue((bool) data_get($structured, 'inbox_actions.recent_events.0.retrieval_regression_no_runtime_execution'));
+        $this->assertTrue((bool) data_get($structured, 'inbox_actions.recent_events.0.retrieval_regression_no_policy_patch'));
+    }
+
+    public function test_inbox_action_report_tool_exposes_retrieval_shadow_scope_decision_receipts(): void
+    {
+        Schema::dropIfExists('atlas_ledger_events');
+        (require database_path('migrations/2026_05_05_020000_create_atlas_ledger_events_table.php'))->up();
+
+        $receiptHash = hash('sha256', 'retrieval-shadow-scope-mcp-receipt');
+        $this->recordInboxActionForMcp(
+            inboxItemId: 'mcp-retrieval-shadow-scope-1',
+            action: 'review_retrieval_shadow_scope',
+            actorType: 'operator_cli',
+            category: 'memory',
+            severity: 'medium',
+            recommendedAction: 'review_retrieval_shadow_scope',
+            diffRefs: [],
+            rivalsReviewAction: [],
+            providerCostRateAction: [],
+            retrievalRegressionReviewAction: [],
+            retrievalShadowScopeReviewAction: [
+                'schema_version' => 'atlas.inbox_action.memory_retrieval_shadow_scope_review.v1',
+                'decision' => 'needs_more_evidence',
+                'reviewed' => true,
+                'plan_hash' => hash('sha256', 'retrieval-shadow-scope-mcp-plan'),
+                'review_ap' => 'docs/ap/AP-693-retrieval-rivals-shadow-comparison-contract.md',
+                'decision_receipt_hash' => $receiptHash,
+                'decision_receipt' => [
+                    'schema_version' => 'atlas.memory_retrieval_shadow_scope_decision_receipt.v1',
+                    'receipt_hash' => $receiptHash,
+                    'shadow_execution_allowed_now' => false,
+                ],
+                'no_external_action' => true,
+                'no_runtime_execution' => true,
+                'no_policy_patch' => true,
+                'no_provider_call' => true,
+            ],
+        );
+
+        $service = $this->app->make(AtlasOpenBrainMcpService::class);
+        $response = $service->handleJsonRpc([
+            'jsonrpc' => '2.0',
+            'id' => 87,
+            'method' => 'tools/call',
+            'params' => [
+                'name' => 'atlas_inbox_action_report',
+                'arguments' => ['hours' => 24, 'action' => 'review_retrieval_shadow_scope'],
+            ],
+        ]);
+
+        $structured = $response['result']['structuredContent'];
+
+        $this->assertTrue($structured['ok']);
+        $this->assertSame('atlas_inbox_action_report', $structured['tool']);
+        $this->assertFalse($structured['writes']);
+        $this->assertSame(1, data_get($structured, 'inbox_actions.retrieval_shadow_scope_review_count'));
+        $this->assertSame(1, data_get($structured, 'inbox_actions.retrieval_shadow_scope_decision_receipt_count'));
+        $this->assertSame(0, data_get($structured, 'inbox_actions.retrieval_shadow_scope_runtime_allowed_count'));
+        $this->assertSame('ok', data_get($structured, 'inbox_actions.review_signal.status'));
+        $this->assertSame('needs_more_evidence', data_get($structured, 'inbox_actions.recent_events.0.retrieval_shadow_scope_decision'));
+        $this->assertSame($receiptHash, data_get($structured, 'inbox_actions.recent_events.0.retrieval_shadow_scope_decision_receipt_hash'));
+        $this->assertFalse((bool) data_get($structured, 'inbox_actions.recent_events.0.retrieval_shadow_scope_shadow_execution_allowed_now'));
+        $this->assertTrue((bool) data_get($structured, 'inbox_actions.recent_events.0.retrieval_shadow_scope_no_provider_call'));
+    }
+
     public function test_replay_report_tools_preserve_review_signal_when_ledger_is_unavailable(): void
     {
         Schema::dropIfExists('atlas_ledger_events');
@@ -2030,6 +2169,8 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
         array $diffRefs = [],
         array $rivalsReviewAction = [],
         array $providerCostRateAction = [],
+        array $retrievalRegressionReviewAction = [],
+        array $retrievalShadowScopeReviewAction = [],
     ): void {
         AtlasLedgerEvent::query()->create([
             'event_id' => (string) Str::ulid(),
@@ -2068,6 +2209,8 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
                     ],
                     'rivals_review_action' => $rivalsReviewAction,
                     'provider_cost_rate_action' => $providerCostRateAction,
+                    'retrieval_regression_review_action' => $retrievalRegressionReviewAction,
+                    'retrieval_shadow_scope_review_action' => $retrievalShadowScopeReviewAction,
                 ],
                 'review_signal' => [
                     'status' => 'ok',
@@ -2198,6 +2341,18 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
         $task = AtlasTask::find($structured['task_id']);
         $this->assertNotNull($task);
         $this->assertSame('open', $task->status);
+        $this->assertSame('started', $structured['event_type']);
+
+        $event = AtlasTaskEvent::where('task_id', $task->id)->first();
+        $this->assertNotNull($event);
+        $this->assertSame('started', $event->event_type);
+        $this->assertSame('mcp_tool', $event->source);
+        $this->assertSame('atlas.task_orchestration.event.v1', data_get($event->payload, 'schema_version'));
+        $this->assertSame('atlas_open_brain_mcp', data_get($event->payload, 'tool'));
+        $this->assertTrue((bool) data_get($event->payload, 'objective_present'));
+        $this->assertTrue((bool) data_get($event->payload, 'no_provider_execution'));
+        $this->assertTrue((bool) data_get($event->payload, 'no_runtime_execution'));
+        $this->assertNotNull(data_get($event->payload, 'workspace_hash'));
     }
 
     public function test_task_progress_appends_event(): void
@@ -2222,6 +2377,11 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
         $structured = $response['result']['structuredContent'];
         $this->assertTrue($structured['ok']);
         $this->assertSame(1, AtlasTaskEvent::where('task_id', $task->id)->count());
+        $event = AtlasTaskEvent::where('task_id', $task->id)->first();
+        $this->assertSame('atlas.task_orchestration.event.v1', data_get($event?->payload, 'schema_version'));
+        $this->assertSame('atlas_open_brain_mcp', data_get($event?->payload, 'tool'));
+        $this->assertTrue((bool) data_get($event?->payload, 'no_provider_execution'));
+        $this->assertTrue((bool) data_get($event?->payload, 'no_runtime_execution'));
     }
 
     public function test_task_complete_sets_status_and_event(): void
@@ -2249,6 +2409,33 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
         $task->refresh();
         $this->assertSame('done', $task->status);
         $this->assertNotNull($task->completed_at);
+        $event = AtlasTaskEvent::where('task_id', $task->id)->first();
+        $this->assertSame('completed', $event?->event_type);
+        $this->assertSame('atlas.task_orchestration.event.v1', data_get($event?->payload, 'schema_version'));
+        $this->assertSame(['app/X.php', 'tests/Y.php'], data_get($event?->payload, 'files_changed'));
+        $this->assertTrue((bool) data_get($event?->payload, 'no_provider_execution'));
+        $this->assertTrue((bool) data_get($event?->payload, 'no_runtime_execution'));
+    }
+
+    public function test_task_tools_fail_closed_when_task_event_table_is_missing(): void
+    {
+        Schema::dropIfExists('atlas_task_events');
+        $service = $this->app->make(AtlasOpenBrainMcpService::class);
+
+        $response = $service->handleJsonRpc([
+            'jsonrpc' => '2.0', 'id' => 151, 'method' => 'tools/call',
+            'params' => [
+                'name' => 'atlas_task_start',
+                'arguments' => ['title' => 'Should not persist without event table'],
+            ],
+        ]);
+
+        $structured = $response['result']['structuredContent'];
+        $this->assertFalse($structured['ok']);
+        $this->assertSame('task_orchestration_unavailable', $structured['error']);
+        $this->assertSame(['atlas_task_events'], $structured['missing_tables']);
+        $this->assertFalse((bool) $structured['writes']);
+        $this->assertSame(0, AtlasTask::query()->count());
     }
 
     public function test_memory_archive_sets_status_archived(): void

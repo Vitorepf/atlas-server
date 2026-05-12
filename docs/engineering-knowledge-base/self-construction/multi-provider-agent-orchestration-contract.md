@@ -138,6 +138,15 @@ Every provider final response must be normalized to:
 
 Atlas should reject completion if the response cannot be normalized.
 
+## Task Lifecycle Surface
+
+Open Brain MCP task tools are lifecycle surfaces, not provider dispatchers. They
+may create a task and append `atlas.task_orchestration.event.v1` events for
+`started`, `milestone` and `completed`; they must fail closed when the task event
+table is unavailable. These events are audit breadcrumbs for orchestration state.
+They do not authorize provider execution, runtime execution, merge, approval,
+dispatch, policy mutation or memory mutation.
+
 ## Splitter Behavior
 
 Work Splitter must prefer:

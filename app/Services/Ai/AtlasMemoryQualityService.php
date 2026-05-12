@@ -53,16 +53,18 @@ class AtlasMemoryQualityService
         $counts = $this->counts($entries, $active, $providerSafe);
         $relations = $this->relationCounts($activeEntryIds);
         $feedback = $this->feedbackCounts($activeEntryIds);
+        $retrievalEval = $this->retrievalEvalCounts($activeEntryIds);
         $deltas = $this->deltaCounts($filters);
         $sourceIntegrity = $this->sourceIntegrity($active);
-        $ratios = $this->ratios($counts, $relations, $feedback, $sourceIntegrity);
-        $components = $this->components($counts, $relations, $feedback, $sourceIntegrity, $ratios);
+        $ratios = $this->ratios($counts, $relations, $feedback, $sourceIntegrity, $retrievalEval);
+        $components = $this->components($counts, $relations, $feedback, $sourceIntegrity, $retrievalEval, $ratios);
         $score = $this->weightedScore($components);
-        $issues = $this->issues($counts, $relations, $feedback, $deltas, $sourceIntegrity, $score);
+        $issues = $this->issues($counts, $relations, $feedback, $deltas, $sourceIntegrity, $retrievalEval, $score);
         $status = $this->status($counts, $score, $issues);
         $aggregateCounts = $counts + [
             'relations' => $relations,
             'feedback' => $feedback,
+            'retrieval_eval' => $retrievalEval,
             'deltas' => $deltas,
             'source_integrity' => $sourceIntegrity,
         ];
@@ -77,7 +79,7 @@ class AtlasMemoryQualityService
             'ratios' => $ratios,
             'issues' => $issues,
             'trend' => $trend,
-            'recommendations' => $this->recommendations($filters, $counts, $relations, $deltas, $sourceIntegrity, $status, $trend),
+            'recommendations' => $this->recommendations($filters, $counts, $relations, $deltas, $sourceIntegrity, $retrievalEval, $status, $trend),
             'latest_snapshot' => $this->latestSnapshotPayload($filters),
             'generated_at' => now()->toJSON(),
         ];
@@ -362,6 +364,61 @@ class AtlasMemoryQualityService
     }
 
     /**
+     * @param  array<int,string>  $activeEntryIds
+     * @return array<string,int>
+     */
+    private function retrievalEvalCounts(array $activeEntryIds): array
+    {
+        if (! Schema::hasTable('atlas_memory_entry_usages')) {
+            return [
+                'table_present' => 0,
+                'recall_usage_total' => 0,
+                'entries_recalled' => 0,
+                'active_entries_never_recalled' => count($activeEntryIds),
+                'recall_feedback_total' => 0,
+                'recall_negative_feedback' => 0,
+                'recall_stale_feedback' => 0,
+                'recall_wrong_context_feedback' => 0,
+            ];
+        }
+
+        if ($activeEntryIds === []) {
+            return [
+                'table_present' => 1,
+                'recall_usage_total' => 0,
+                'entries_recalled' => 0,
+                'active_entries_never_recalled' => 0,
+                'recall_feedback_total' => 0,
+                'recall_negative_feedback' => 0,
+                'recall_stale_feedback' => 0,
+                'recall_wrong_context_feedback' => 0,
+            ];
+        }
+
+        $query = AtlasMemoryEntryUsage::query()
+            ->whereIn('memory_entry_id', $activeEntryIds)
+            ->where('source_type', 'memory_recall');
+        $recalledIds = (clone $query)
+            ->distinct()
+            ->pluck('memory_entry_id')
+            ->filter(fn (mixed $id): bool => is_string($id) && $id !== '')
+            ->values();
+        $feedback = (clone $query)->whereNotNull('feedback_action');
+        $negative = ['not_useful', 'wrong_context', 'stale', 'too_much', 'corrected'];
+
+        return [
+            'table_present' => 1,
+            'recall_usage_total' => (clone $query)->count(),
+            'entries_recalled' => $recalledIds->count(),
+            'active_entries_never_recalled' => max(0, count($activeEntryIds) - $recalledIds->count()),
+            'recall_feedback_total' => (clone $feedback)->count(),
+            'recall_negative_feedback' => (clone $feedback)->whereIn('feedback_action', $negative)->count(),
+            'recall_stale_feedback' => (clone $feedback)->where('feedback_action', 'stale')->count(),
+            'recall_wrong_context_feedback' => (clone $feedback)->where('feedback_action', 'wrong_context')->count(),
+        ];
+    }
+
+    /**
      * @param  array<string,mixed>  $filters
      * @return array<string,int>
      */
@@ -443,10 +500,11 @@ class AtlasMemoryQualityService
      * @param  array<string,int>  $sourceIntegrity
      * @return array<string,float>
      */
-    private function ratios(array $counts, array $relations, array $feedback, array $sourceIntegrity): array
+    private function ratios(array $counts, array $relations, array $feedback, array $sourceIntegrity, array $retrievalEval): array
     {
         $active = max(1, (int) $counts['active']);
         $feedbackTotal = max(1, (int) $feedback['feedback_total']);
+        $recallFeedbackTotal = max(1, (int) $retrievalEval['recall_feedback_total']);
         $checked = max(1, (int) $sourceIntegrity['checked']);
 
         return [
@@ -455,6 +513,8 @@ class AtlasMemoryQualityService
             'stale_unused_ratio' => $this->ratio((int) $counts['stale_unused_active'], $active),
             'privacy_review_needed_ratio' => $this->ratio((int) $counts['privacy_review_needed'], $active),
             'negative_feedback_ratio' => $this->ratio((int) $feedback['negative'], $feedbackTotal),
+            'retrieval_recall_coverage_ratio' => $this->ratio((int) $retrievalEval['entries_recalled'], $active),
+            'retrieval_negative_feedback_ratio' => $this->ratio((int) $retrievalEval['recall_negative_feedback'], $recallFeedbackTotal),
             'open_relation_ratio' => $this->ratio((int) $relations['open'], $active),
             'source_orphan_ratio' => $this->ratio((int) $sourceIntegrity['orphaned'], $checked),
         ];
@@ -468,7 +528,7 @@ class AtlasMemoryQualityService
      * @param  array<string,float>  $ratios
      * @return array<string,int>
      */
-    private function components(array $counts, array $relations, array $feedback, array $sourceIntegrity, array $ratios): array
+    private function components(array $counts, array $relations, array $feedback, array $sourceIntegrity, array $retrievalEval, array $ratios): array
     {
         $active = (int) $counts['active'];
         $completenessPenalty = min(70, ((int) $counts['missing_title_active'] * 8)
@@ -486,6 +546,9 @@ class AtlasMemoryQualityService
             'feedback' => (int) ($feedback['feedback_total'] > 0
                 ? max(0, 100 - round(($ratios['negative_feedback_ratio'] ?? 0.0) * 100))
                 : 72),
+            'retrieval_eval' => (int) ($retrievalEval['recall_usage_total'] > 0
+                ? max(0, round(($ratios['retrieval_recall_coverage_ratio'] ?? 0.0) * 100) - round(($ratios['retrieval_negative_feedback_ratio'] ?? 0.0) * 40))
+                : 60),
             'completeness' => max(0, 100 - $completenessPenalty),
         ];
     }
@@ -501,7 +564,8 @@ class AtlasMemoryQualityService
             'governance' => 0.2,
             'freshness' => 0.14,
             'feedback' => 0.1,
-            'completeness' => 0.1,
+            'retrieval_eval' => 0.08,
+            'completeness' => 0.02,
         ];
 
         return (int) round(collect($weights)->sum(
@@ -517,7 +581,7 @@ class AtlasMemoryQualityService
      * @param  array<string,int>  $sourceIntegrity
      * @return array<int,array<string,mixed>>
      */
-    private function issues(array $counts, array $relations, array $feedback, array $deltas, array $sourceIntegrity, int $score): array
+    private function issues(array $counts, array $relations, array $feedback, array $deltas, array $sourceIntegrity, array $retrievalEval, int $score): array
     {
         $issues = [];
         if ($counts['active'] < 1) {
@@ -543,6 +607,12 @@ class AtlasMemoryQualityService
         }
         if ($feedback['wrong_context'] > 0 || $feedback['stale'] > 0) {
             $issues[] = ['code' => 'negative_memory_feedback', 'severity' => 'warning', 'count' => $feedback['negative']];
+        }
+        if ($counts['active'] > 0 && $retrievalEval['recall_usage_total'] < 1) {
+            $issues[] = ['code' => 'retrieval_eval_missing_usage', 'severity' => 'info'];
+        }
+        if ($retrievalEval['recall_wrong_context_feedback'] > 0 || $retrievalEval['recall_stale_feedback'] > 0) {
+            $issues[] = ['code' => 'retrieval_eval_negative_feedback', 'severity' => 'warning', 'count' => $retrievalEval['recall_negative_feedback']];
         }
         if ($score < 70 && $counts['active'] > 0) {
             $issues[] = ['code' => 'memory_quality_score_low', 'severity' => $score < 50 ? 'critical' : 'warning', 'score' => $score];
@@ -583,7 +653,7 @@ class AtlasMemoryQualityService
      * @param  array<string,int>  $sourceIntegrity
      * @return array<int,string>
      */
-    private function recommendations(array $filters, array $counts, array $relations, array $deltas, array $sourceIntegrity, string $status, array $trend = []): array
+    private function recommendations(array $filters, array $counts, array $relations, array $deltas, array $sourceIntegrity, array $retrievalEval, string $status, array $trend = []): array
     {
         $workspaceArg = is_string($filters['workspace'] ?? null) && trim((string) $filters['workspace']) !== ''
             ? ' --workspace="'.str_replace('"', '\"', trim((string) $filters['workspace'])).'"'
@@ -601,6 +671,9 @@ class AtlasMemoryQualityService
         }
         if ($relations['open'] > 0) {
             $actions[] = './bin/atlas memory relations --status=open --json';
+        }
+        if ((int) ($retrievalEval['recall_usage_total'] ?? 0) < 1) {
+            $actions[] = './bin/atlas memory recall "contexto critico" --json';
         }
         if ($counts['privacy_review_needed'] > 0 || $counts['provider_blocked_active'] > 0) {
             $actions[] = './bin/atlas memory review-queue --json';

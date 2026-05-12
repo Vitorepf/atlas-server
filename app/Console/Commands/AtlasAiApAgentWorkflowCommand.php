@@ -31,12 +31,19 @@ class AtlasAiApAgentWorkflowCommand extends Command
         $this->components->twoColumnDetail('Workflow', (string) $workflow['workflow_id']);
         $this->components->twoColumnDetail('Primary steps', (string) $workflow['step_count']);
         $this->components->twoColumnDetail('Post-completion steps', (string) count((array) $workflow['post_completion_review_chain']));
+        $this->components->twoColumnDetail('Default post-completion table', 'AP-206..'.(string) data_get($workflow, 'summary.post_completion_review_chain.human_display_until_ap'));
+        $this->components->twoColumnDetail('Extended steps hidden', (string) data_get($workflow, 'summary.post_completion_review_chain.hidden_in_default_human_output_count'));
         $this->components->twoColumnDetail('Next action', (string) $workflow['next_action']);
+
+        $displayUntil = (string) data_get($workflow, 'summary.post_completion_review_chain.human_display_until_ap', 'AP-228');
+        $displayUntilNumber = (int) preg_replace('/\D+/', '', $displayUntil);
+        $visiblePostCompletionSteps = collect($workflow['post_completion_review_chain'])
+            ->filter(fn (array $step): bool => (int) preg_replace('/\D+/', '', (string) $step['ap']) <= $displayUntilNumber);
 
         $this->table(
             ['ap', 'component', 'purpose'],
             collect($workflow['steps'])
-                ->merge((array) $workflow['post_completion_review_chain'])
+                ->merge($visiblePostCompletionSteps)
                 ->map(fn (array $step): array => [
                     $step['ap'],
                     $step['component'],

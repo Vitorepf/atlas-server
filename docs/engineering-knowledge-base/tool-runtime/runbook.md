@@ -58,6 +58,11 @@ Use `--tool-env=KEY=VALUE`; sensitive env keys are rejected. Use
 ./bin/atlas tools release-gate --workspace=<repo> --json
 ```
 
+Evidence store writes fail closed when required tool runtime tables are missing.
+Treat a missing run as unavailable infrastructure, not a skipped tool result.
+Do not reconstruct artifacts or findings manually; restore the schema and rerun
+the sensor or command.
+
 ## Approvals And Waivers
 
 ```bash

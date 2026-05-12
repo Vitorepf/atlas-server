@@ -118,6 +118,14 @@ persistir nada. Como os links docs->codigo dependem do estado persistido, o
 com o indice persistido sem escrever, use `atlas engineering knowledge
 audit-code --json`.
 
+`index-code` e `audit-code` retornam `duration_ms` e gravam a mesma duracao na
+evidencia `atlas_code_intelligence`. Em workspaces grandes ou muito sujos, a
+fase de persistencia/prune pode levar minutos sem emitir linhas intermediarias;
+use `--dry-run --json` para separar custo de scan/parsing de custo de escrita.
+Para gates automatizados ou sessoes longas, prefira `index-code --prune
+--summary-only --json`: a indexacao persistida e a evidencia sao iguais, mas o
+payload omite previews grandes de modulos/simbolos.
+
 Estados de auditoria:
 
 - `fresh`: modulos, simbolos e hashes de doc links persistidos acompanham o

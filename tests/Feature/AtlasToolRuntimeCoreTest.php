@@ -112,6 +112,11 @@ class AtlasToolRuntimeCoreTest extends TestCase
         ]);
 
         $this->assertInstanceOf(AtlasToolRun::class, $run);
+        $this->assertSame('semantic_sast', data_get($run->metadata_json, 'authority_group'));
+        $this->assertSame('complementary', data_get($run->metadata_json, 'authority_role'));
+        $this->assertSame('security', data_get($run->metadata_json, 'tool_category'));
+        $this->assertSame('scanner', data_get($run->metadata_json, 'tool_type'));
+        $this->assertSame('T2', data_get($run->metadata_json, 'execution_tier'));
         $gate = app(\App\Services\Tools\AtlasToolGateService::class)->evaluate([
             'workspace' => $this->workspace,
             'run_context_type' => 'engineering_run',
@@ -138,9 +143,40 @@ class AtlasToolRuntimeCoreTest extends TestCase
         ], $events->pluck('event_type')->all());
         $this->assertSame('tenant_tools', $events->first()?->tenant_id);
         $this->assertSame($run->id, data_get($events->first()?->payload, 'tool_run_id'));
+        $this->assertSame('semantic_sast', data_get($events->first()?->payload, 'authority_group'));
+        $this->assertSame('complementary', data_get($events->first()?->payload, 'authority_role'));
         $this->assertSame([$run->id], data_get($events[1]?->payload, 'run_ids'));
         $this->assertSame('gate.evaluate', data_get($events->last()?->payload, 'stage'));
         $this->assertNull(data_get($events->first()?->payload, 'workspace'));
+    }
+
+    public function test_tool_evidence_store_fails_closed_when_auxiliary_tables_are_missing(): void
+    {
+        Schema::dropIfExists('atlas_tool_artifacts');
+
+        $run = app(AtlasToolEvidenceStore::class)->recordExternalToolResult('semgrep', $this->workspace, [
+            'status' => 'failed',
+            'required' => true,
+            'duration_ms' => 42,
+            'summary' => ['ok' => false],
+            'findings' => [
+                [
+                    'rule_id' => 'semgrep.test',
+                    'title' => 'Should not persist without artifact table',
+                    'severity' => 'high',
+                    'blocks_resolved' => true,
+                ],
+            ],
+        ], [
+            'run_context_type' => 'engineering_run',
+            'run_context_id' => 'run-missing-artifacts',
+            'envelope_id' => 'engineering_run:run-missing-artifacts',
+        ]);
+
+        $this->assertNull($run);
+        $this->assertSame(0, AtlasToolRun::query()->count());
+        $this->assertSame(0, AtlasToolFinding::query()->count());
+        $this->assertSame(0, AtlasLedgerEvent::query()->count());
     }
 
     public function test_tool_command_catalog_is_exposed_by_cli_and_api(): void

@@ -24,6 +24,7 @@ maintenance:
 related_paths:
   - docs/engineering-knowledge-base/atlas-ai-memory-context-core-open-brain.md
   - docs/engineering-knowledge-base/memory/cognitive-immune-learning-kernel.md
+  - docs/engineering-knowledge-base/memory/foundation-map.md
   - docs/engineering-knowledge-base/memory/contracts.md
   - docs/engineering-knowledge-base/memory/retrieval-and-context.md
   - docs/engineering-knowledge-base/memory/open-brain-mcp.md
@@ -39,6 +40,7 @@ projection, Open Brain or MCP context exposure.
 | File | Purpose |
 |---|---|
 | `cognitive-immune-learning-kernel.md` | Core law for raw capture quarantine, noise filtering, learning signals, memory promotion, forgetting and evals |
+| `foundation-map.md` | Current implemented/partial/missing map for Memory/Open Brain foundation |
 | `contracts.md` | Memory Registry, Verbatim Store, Engineering KB, Code Intelligence and provider projection contracts |
 | `retrieval-and-context.md` | Deterministic recall, context budgets, context refs and prompt-safe composition |
 | `open-brain-mcp.md` | Open Brain API/CLI/MCP/HTTP boundary, audit and no-provider-decision rules |

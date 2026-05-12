@@ -6,6 +6,7 @@ use App\Models\AiMemoryDelta;
 use App\Models\AiQualityEvaluation;
 use App\Models\AiSessionState;
 use App\Models\AiTrace;
+use App\Models\Capture;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
@@ -74,6 +75,69 @@ class AiMemoryDeltaProposer
     }
 
     /**
+     * @param  array<string,mixed>  $context
+     */
+    public function proposeForCapture(Capture $capture, array $context = []): ?AiMemoryDelta
+    {
+        if (! Schema::hasTable('ai_memory_deltas')) {
+            return null;
+        }
+
+        $text = trim((string) $capture->content_text);
+        if ($text === '') {
+            return null;
+        }
+
+        $quarantine = is_array(data_get($capture->metadata, 'cognitive_quarantine'))
+            ? data_get($capture->metadata, 'cognitive_quarantine')
+            : [];
+        $privacy = is_array(data_get($capture->metadata, 'privacy'))
+            ? data_get($capture->metadata, 'privacy')
+            : [];
+        $externalAllowed = data_get($privacy, 'external_ai_allowed');
+        $providerSafe = is_bool($externalAllowed) ? $externalAllowed : true;
+        $claim = $providerSafe
+            ? 'Capture candidate: '.Str::limit($text, 420, '')
+            : 'Private capture candidate requires manual review before memory promotion.';
+        $contentHash = is_string($quarantine['content_hash'] ?? null)
+            ? $quarantine['content_hash']
+            : hash('sha256', $text);
+        $proposalId = is_scalar($context['proposal_id'] ?? null) ? (string) $context['proposal_id'] : null;
+
+        return AiMemoryDelta::query()->firstOrCreate([
+            'scope' => 'capture:'.$capture->id,
+            'status' => 'pending',
+        ], [
+            'source_workspace' => null,
+            'type' => $this->captureDeltaType($capture, $context),
+            'claim' => $claim,
+            'evidence' => [[
+                'kind' => 'capture_quarantine',
+                'ref' => $capture->id,
+                'capture_client_id' => $capture->client_id,
+                'proposal_id' => $proposalId,
+                'content_hash' => $contentHash,
+                'privacy_class' => $privacy['sensitivity'] ?? data_get($capture->metadata, 'sensitivity', 'normal'),
+                'provider_safe' => $providerSafe,
+                'promotion_status' => $quarantine['promotion_status'] ?? 'unclassified',
+            ]],
+            'confidence' => $providerSafe ? 0.64 : 0.4,
+            'valid_from' => now(),
+            'valid_until' => now()->addDays(90),
+            'use_when' => [
+                'operator accepts the capture as reusable memory',
+                'capture quarantine review passes privacy and utility gates',
+            ],
+            'do_not_use_when' => [
+                'capture remains unreviewed',
+                'privacy review blocks provider-safe or memory use',
+                'operator rejects the curation proposal',
+            ],
+            'requires_confirmation' => true,
+        ]);
+    }
+
+    /**
      * @param  array<int,array<string,string>>  $evidence
      */
     private function firstOrCreate(string $workspace, string $type, string $claim, ?string $traceId, ?string $sessionId, array $evidence): AiMemoryDelta
@@ -95,5 +159,19 @@ class AiMemoryDeltaProposer
             'do_not_use_when' => ['o operador corrigir ou rejeitar esta memoria'],
             'requires_confirmation' => true,
         ]);
+    }
+
+    /**
+     * @param  array<string,mixed>  $context
+     */
+    private function captureDeltaType(Capture $capture, array $context): string
+    {
+        $suggested = (string) ($context['memory_type'] ?? data_get($capture->metadata, 'semantic_clarification.result.suggested_type', 'technical_context'));
+
+        return match ($suggested) {
+            'decision', 'preference', 'feedback', 'issue', 'resolution', 'strategic_insight' => $suggested,
+            'hypothesis', 'synthesis', 'note', 'technical_context' => 'technical_context',
+            default => 'technical_context',
+        };
     }
 }

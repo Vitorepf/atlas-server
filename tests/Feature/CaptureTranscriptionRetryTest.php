@@ -48,13 +48,47 @@ class CaptureTranscriptionRetryTest extends TestCase
             ->assertJsonPath('metadata.semantic_events.0.status', 'completed')
             ->assertJsonPath('metadata.semantic_clarification.result.suggested_type', 'synthesis')
             ->assertJsonPath('metadata.semantic_clarification.result.density.label', 'alta')
-            ->assertJsonPath('metadata.semantic_clarification.result.possible_destination.note_type', 'synthesis');
+            ->assertJsonPath('metadata.semantic_clarification.result.possible_destination.note_type', 'synthesis')
+            ->assertJsonPath('metadata.cognitive_quarantine.schema_version', 'atlas.capture.cognitive_quarantine.v1')
+            ->assertJsonPath('metadata.cognitive_quarantine.memory_eligible', false)
+            ->assertJsonPath('metadata.cognitive_quarantine.context_eligible', false)
+            ->assertJsonPath('metadata.cognitive_quarantine.embedding_allowed', false)
+            ->assertJsonPath('metadata.cognitive_quarantine.promotion_status', 'proposal_pending')
+            ->assertJsonPath('metadata.cognitive_quarantine.review.status', 'pending')
+            ->assertJsonPath('metadata.semantic_curation.schema_version', 'atlas.capture.semantic_curation_review.v1')
+            ->assertJsonPath('metadata.semantic_curation.status', 'proposal_pending')
+            ->assertJsonPath('review_workflow.schema_version', 'atlas.capture.review_workflow.v1')
+            ->assertJsonPath('review_workflow.status', 'proposal_pending')
+            ->assertJsonPath('review_workflow.human_gate', 'ratify_or_dismiss')
+            ->assertJsonPath('review_workflow.actions.0.id', 'ratify_semantic_note')
+            ->assertJsonPath('review_workflow.actions.1.id', 'promote_to_memory_registry')
+            ->assertJsonPath('review_workflow.actions.2.id', 'promote_to_verbatim_store');
 
         $this->assertDatabaseHas('semantic_curation_proposals', [
             'source_type' => 'capture',
             'proposed_note_type' => 'synthesis',
             'status' => 'pending',
         ]);
+
+        $capture = \DB::table('captures')->first();
+        $metadata = json_decode($capture->metadata, true, flags: JSON_THROW_ON_ERROR);
+        $this->assertSame(hash('sha256', 'Preciso de ideias de cruz para a Black Ink. Ideias que possam transformar a Black Ink em uma ferramenta unica.'), $metadata['cognitive_quarantine']['content_hash']);
+
+        $proposal = \DB::table('semantic_curation_proposals')->first();
+        $this->assertSame($proposal->id, $metadata['semantic_curation']['proposal_id']);
+        $this->assertSame($proposal->id, $metadata['cognitive_quarantine']['proposal']['proposal_id']);
+        $proposalMetadata = json_decode($proposal->metadata, true, flags: JSON_THROW_ON_ERROR);
+        $proposalFrontmatter = json_decode($proposal->proposed_frontmatter, true, flags: JSON_THROW_ON_ERROR);
+        $this->assertSame('atlas.capture.curation_proposal_quarantine.v1', $proposalMetadata['cognitive_quarantine']['schema_version']);
+        $this->assertSame('proposal_pending', $proposalMetadata['cognitive_quarantine']['promotion_status']);
+        $this->assertFalse($proposalMetadata['cognitive_quarantine']['memory_eligible']);
+        $this->assertFalse($proposalMetadata['cognitive_quarantine']['context_eligible']);
+        $this->assertFalse($proposalMetadata['cognitive_quarantine']['embedding_allowed']);
+        $this->assertSame('pending', $proposalMetadata['cognitive_quarantine']['review']['status']);
+        $this->assertSame($metadata['cognitive_quarantine']['content_hash'], $proposalMetadata['cognitive_quarantine']['content_hash']);
+        $this->assertSame($capture->id, $proposalMetadata['cognitive_quarantine']['proposal']['capture_id']);
+        $this->assertSame('atlas.capture.curation_proposal_quarantine.v1', $proposalFrontmatter['cognitive_quarantine']['schema_version']);
+        $this->assertSame('proposal_pending', $proposalFrontmatter['cognitive_quarantine']['promotion_status']);
     }
 
     public function test_sensitive_capture_blocks_external_ai_and_records_redacted_audit(): void
@@ -99,6 +133,22 @@ class CaptureTranscriptionRetryTest extends TestCase
 
         $this->assertTrue($evidence['content_text']['redacted']);
         $this->assertArrayHasKey('sha256', $evidence['content_text']);
+
+        $captureCreated = \DB::table('audit_events')
+            ->where('event_type', 'capture_created')
+            ->first();
+        $createdEvidence = json_decode($captureCreated->evidence, true, flags: JSON_THROW_ON_ERROR);
+        $this->assertTrue($createdEvidence['content_text']['redacted']);
+        $this->assertArrayHasKey('cognitive_quarantine', $createdEvidence);
+
+        $proposalCreated = \DB::table('audit_events')
+            ->where('event_type', 'curation_proposal_created')
+            ->first();
+        $proposalEvidence = json_decode($proposalCreated->evidence, true, flags: JSON_THROW_ON_ERROR);
+        $this->assertTrue($proposalEvidence['raw_source']['redacted']);
+        $this->assertArrayHasKey('sha256', $proposalEvidence['raw_source']);
+        $this->assertSame('atlas.capture.curation_proposal_quarantine.v1', $proposalEvidence['cognitive_quarantine']['schema_version']);
+        $this->assertFalse($proposalEvidence['cognitive_quarantine']['memory_eligible']);
     }
 
     public function test_ai_gateway_blocks_sensitive_capture_source_before_queueing_job(): void
@@ -266,6 +316,7 @@ class CaptureTranscriptionRetryTest extends TestCase
     {
         $this->createCaptureTables();
         $this->createSemanticCurationProposalTable();
+        $this->createMemoryDeltaTable();
         $this->createDomainAndInboxTables();
 
         config()->set('atlas.token', 'test-token-with-enough-length-123');
@@ -309,6 +360,11 @@ class CaptureTranscriptionRetryTest extends TestCase
             ->assertJsonPath('capture.metadata.triage.knowledge_state', 'proposal_pending')
             ->assertJsonPath('capture.metadata.triage.human_gate', 'ratify_or_dismiss')
             ->assertJsonPath('capture.metadata.triage.next_action', 'ratify_proposal')
+            ->assertJsonPath('capture.review_workflow.schema_version', 'atlas.capture.review_workflow.v1')
+            ->assertJsonPath('capture.review_workflow.status', 'proposal_pending')
+            ->assertJsonPath('capture.review_workflow.actions.0.id', 'ratify_semantic_note')
+            ->assertJsonPath('capture.review_workflow.actions.1.id', 'promote_to_memory_registry')
+            ->assertJsonPath('capture.review_workflow.actions.2.id', 'promote_to_verbatim_store')
             ->assertJsonPath('proposal.proposed_title', 'Black Ink como sistema único de execução');
 
         $proposalId = $response->json('proposal.id');
@@ -320,6 +376,26 @@ class CaptureTranscriptionRetryTest extends TestCase
             'target_id' => $proposalId,
             'relation_type' => 'triage_destination',
         ]);
+        $this->assertDatabaseHas('ai_memory_deltas', [
+            'scope' => 'capture:'.$captureId,
+            'status' => 'pending',
+            'type' => 'technical_context',
+        ]);
+
+        $delta = \DB::table('ai_memory_deltas')->where('scope', 'capture:'.$captureId)->first();
+        $this->assertNotNull($delta);
+        $this->assertStringContainsString('Capture candidate:', $delta->claim);
+        $this->assertStringContainsString('Ideia estratégica', $delta->claim);
+        $evidence = json_decode($delta->evidence, true, flags: JSON_THROW_ON_ERROR);
+        $this->assertSame('capture_quarantine', $evidence[0]['kind']);
+        $this->assertSame($captureId, $evidence[0]['ref']);
+        $this->assertSame($proposalId, $evidence[0]['proposal_id']);
+        $this->assertArrayHasKey('content_hash', $evidence[0]);
+
+        $capture = \DB::table('captures')->where('id', $captureId)->first();
+        $metadata = json_decode($capture->metadata, true, flags: JSON_THROW_ON_ERROR);
+        $this->assertSame($delta->id, $metadata['triage']['memory_delta_id']);
+        $this->assertSame('pending', $metadata['triage']['memory_delta_status']);
 
         $this->getJson('/inbox?status=open', $headers)
             ->assertOk()
@@ -328,7 +404,130 @@ class CaptureTranscriptionRetryTest extends TestCase
         $this->getJson('/inbox?status=routed', $headers)
             ->assertOk()
             ->assertJsonCount(1, 'captures')
-            ->assertJsonPath('captures.0.id', $captureId);
+            ->assertJsonPath('captures.0.id', $captureId)
+            ->assertJsonPath('captures.0.review_workflow.proposal_id', $proposalId)
+            ->assertJsonPath('captures.0.review_workflow.memory_delta_id', $delta->id)
+            ->assertJsonPath('captures.0.review_workflow.actions.5.id', 'accept_memory_delta')
+            ->assertJsonPath('captures.0.review_workflow.actions.6.id', 'reject_memory_delta');
+    }
+
+    public function test_accepting_curation_proposal_can_promote_ratified_memory_with_receipt(): void
+    {
+        $this->createCaptureTables();
+        $this->createSemanticCurationProposalTable();
+        $this->createMemoryDeltaTable();
+        $this->migrateMemoryTable();
+        $this->migrateVerbatimMemoryTable();
+        $this->createSemanticNoteTables();
+        $this->createAuditEventsTable();
+
+        config()->set('atlas.token', 'test-token-with-enough-length-123');
+        config()->set('atlas.semantic_memory.vault_path', storage_path('framework/testing/atlas-vault-'.Str::uuid()));
+        $headers = ['X-Atlas-Token' => 'test-token-with-enough-length-123'];
+
+        $captureId = (string) Str::uuid();
+        \DB::table('captures')->insert([
+            'id' => $captureId,
+            'client_id' => (string) Str::uuid(),
+            'kind' => 'text',
+            'domain' => 'blackink',
+            'content_text' => 'A Black Ink precisa tratar ideias de cruz como memoria estrategica reutilizavel.',
+            'content_file_path' => null,
+            'content_duration_ms' => null,
+            'content_size_bytes' => null,
+            'content_sha256' => null,
+            'content_mime_type' => null,
+            'transcription_status' => 'na',
+            'transcription_engine' => null,
+            'transcription_error' => null,
+            'captured_at' => now(),
+            'captured_timezone' => 'America/Sao_Paulo',
+            'captured_lat' => null,
+            'captured_lng' => null,
+            'metadata' => json_encode([
+                'cognitive_quarantine' => [
+                    'schema_version' => 'atlas.capture.cognitive_quarantine.v1',
+                    'memory_eligible' => false,
+                    'context_eligible' => false,
+                    'embedding_allowed' => false,
+                    'promotion_status' => 'unclassified',
+                    'content_hash' => hash('sha256', 'A Black Ink precisa tratar ideias de cruz como memoria estrategica reutilizavel.'),
+                ],
+            ], JSON_THROW_ON_ERROR),
+            'pre_capture_digital_context' => '{}',
+            'created_at' => now(),
+            'updated_at' => now(),
+            'deleted_at' => null,
+        ]);
+
+        $triage = $this->postJson("/captures/{$captureId}/triage", [
+            'action' => 'promote',
+            'title' => 'Ideias de cruz como memoria estrategica',
+            'reason' => 'Deve virar conhecimento reutilizavel.',
+        ], $headers)
+            ->assertOk()
+            ->assertJsonPath('capture.metadata.triage.knowledge_state', 'proposal_pending');
+
+        $proposalId = $triage->json('proposal.id');
+        $deltaId = $triage->json('capture.metadata.triage.memory_delta_id');
+        $this->assertNotEmpty($proposalId);
+        $this->assertNotEmpty($deltaId);
+
+        $this->postJson("/semantic/curation-proposals/{$proposalId}/accept", [
+            'promote_to_memory' => true,
+            'promote_to_verbatim' => true,
+            'memory_type' => 'strategic_insight',
+            'verbatim_type' => 'evidence',
+            'promoted_by' => 'feature-test',
+        ], $headers)
+            ->assertOk()
+            ->assertJsonPath('proposal.metadata.memory_promotion.schema_version', 'atlas.memory.promotion_receipt.v1')
+            ->assertJsonPath('proposal.metadata.memory_promotion.source', 'semantic_curation_proposal')
+            ->assertJsonPath('proposal.metadata.memory_promotion.status', 'promoted')
+            ->assertJsonPath('proposal.metadata.memory_promotion.memory_delta_id', $deltaId)
+            ->assertJsonPath('proposal.metadata.verbatim_promotion.schema_version', 'atlas.verbatim_memory.promotion_receipt.v1')
+            ->assertJsonPath('proposal.metadata.verbatim_promotion.status', 'promoted')
+            ->assertJsonPath('note.title', 'Ideias de cruz como memoria estrategica');
+
+        $delta = \DB::table('ai_memory_deltas')->where('id', $deltaId)->first();
+        $this->assertSame('promoted', $delta->status);
+        $this->assertNotEmpty($delta->promoted_memory_entry_id);
+
+        $memory = \DB::table('atlas_memory_entries')->where('id', $delta->promoted_memory_entry_id)->first();
+        $this->assertNotNull($memory);
+        $this->assertSame('strategic_insight', $memory->memory_type);
+        $this->assertSame('ai_memory_delta', $memory->source_type);
+        $this->assertSame($deltaId, $memory->source_id);
+        $memoryMetadata = json_decode($memory->metadata, true, flags: JSON_THROW_ON_ERROR);
+        $this->assertSame('atlas.memory.promotion_receipt.v1', $memoryMetadata['promotion_receipt']['schema_version']);
+        $this->assertSame($proposalId, $memoryMetadata['promotion_receipt']['proposal_id']);
+        $this->assertSame('feature-test', $memoryMetadata['promotion_receipt']['promoted_by']);
+
+        $verbatim = \DB::table('atlas_verbatim_memories')
+            ->where('source_type', 'capture')
+            ->where('source_id', $captureId)
+            ->first();
+        $this->assertNotNull($verbatim);
+        $this->assertSame('evidence', $verbatim->verbatim_type);
+        $this->assertFalse((bool) $verbatim->external_ai_allowed);
+        $this->assertSame('A Black Ink precisa tratar ideias de cruz como memoria estrategica reutilizavel.', $verbatim->verbatim_text);
+        $verbatimMetadata = json_decode($verbatim->metadata, true, flags: JSON_THROW_ON_ERROR);
+        $this->assertSame('atlas.verbatim_memory.promotion_receipt.v1', $verbatimMetadata['promotion_receipt']['schema_version']);
+        $this->assertSame('feature-test', $verbatimMetadata['promotion_receipt']['promoted_by']);
+
+        $capture = \DB::table('captures')->where('id', $captureId)->first();
+        $captureMetadata = json_decode($capture->metadata, true, flags: JSON_THROW_ON_ERROR);
+        $this->assertSame($memory->id, $captureMetadata['memory_promotion']['memory_entry_id']);
+        $this->assertSame($verbatim->id, $captureMetadata['verbatim_promotion']['verbatim_memory_id']);
+        $this->assertSame('promoted', $captureMetadata['triage']['memory_delta_status']);
+
+        $audit = \DB::table('audit_events')
+            ->where('event_type', 'curation_proposal_ratified')
+            ->first();
+        $auditEvidence = json_decode($audit->evidence, true, flags: JSON_THROW_ON_ERROR);
+        $this->assertSame($memory->id, $auditEvidence['memory_promotion']['memory_entry_id']);
+        $this->assertSame($verbatim->id, $auditEvidence['verbatim_promotion']['verbatim_memory_id']);
+        $this->assertArrayNotHasKey('raw_source', $auditEvidence);
     }
 
     public function test_capture_can_be_archived_through_triage_without_deleting_it(): void
@@ -2122,6 +2321,7 @@ class CaptureTranscriptionRetryTest extends TestCase
     private function createCaptureTables(): void
     {
         Schema::dropIfExists('capture_links');
+        Schema::dropIfExists('ai_memory_deltas');
         Schema::dropIfExists('atlas_calendar_blocks');
         Schema::dropIfExists('atlas_project_blockers');
         Schema::dropIfExists('atlas_task_events');
@@ -2421,6 +2621,97 @@ class CaptureTranscriptionRetryTest extends TestCase
             $table->string('status')->default('pending');
             $table->timestamp('shown_at')->nullable();
             $table->timestamp('resolved_at')->nullable();
+            $table->json('metadata')->default('{}');
+            $table->timestamps();
+        });
+    }
+
+    private function createMemoryDeltaTable(): void
+    {
+        Schema::create('ai_memory_deltas', function (Blueprint $table): void {
+            $table->uuid('id')->primary();
+            $table->uuid('source_trace_id')->nullable()->index();
+            $table->uuid('source_session_id')->nullable()->index();
+            $table->string('source_workspace')->nullable();
+            $table->string('type', 32)->default('process');
+            $table->text('claim');
+            $table->json('evidence');
+            $table->string('scope', 255)->default('global');
+            $table->float('confidence')->default(0.5);
+            $table->timestamp('valid_from')->nullable();
+            $table->timestamp('valid_until')->nullable();
+            $table->json('use_when')->nullable();
+            $table->json('do_not_use_when')->nullable();
+            $table->boolean('requires_confirmation')->default(true);
+            $table->string('status', 16)->default('pending');
+            $table->uuid('superseded_by')->nullable();
+            $table->uuid('promoted_memory_entry_id')->nullable()->index();
+            $table->timestamp('promoted_at')->nullable()->index();
+            $table->timestamps();
+        });
+    }
+
+    private function migrateMemoryTable(): void
+    {
+        Schema::dropIfExists('atlas_memory_entry_relations');
+        Schema::dropIfExists('atlas_memory_entries');
+
+        (require database_path('migrations/2026_05_02_000000_create_atlas_memory_entries_table.php'))->up();
+        (require database_path('migrations/2026_05_02_003000_create_atlas_memory_entry_relations_table.php'))->up();
+        (require database_path('migrations/2026_05_02_005000_add_privacy_columns_to_atlas_memory_entries.php'))->up();
+    }
+
+    private function migrateVerbatimMemoryTable(): void
+    {
+        Schema::dropIfExists('atlas_verbatim_memories');
+
+        (require database_path('migrations/2026_05_02_004000_create_atlas_verbatim_memories_table.php'))->up();
+    }
+
+    private function createSemanticNoteTables(): void
+    {
+        Schema::dropIfExists('semantic_note_links');
+        Schema::dropIfExists('semantic_notes');
+
+        Schema::create('semantic_notes', function (Blueprint $table): void {
+            $table->uuid('id')->primary();
+            $table->string('note_key')->unique();
+            $table->string('path')->unique();
+            $table->string('title');
+            $table->string('type');
+            $table->string('status');
+            $table->string('confidence')->default('low');
+            $table->string('maturity')->default('draft');
+            $table->json('domains')->default('[]');
+            $table->text('summary')->nullable();
+            $table->text('body_excerpt')->nullable();
+            $table->json('frontmatter')->default('{}');
+            $table->json('when_to_use')->default('[]');
+            $table->json('trigger_signals')->default('[]');
+            $table->json('do_not_use_when')->default('[]');
+            $table->json('postgres_refs')->default('[]');
+            $table->string('content_hash', 64);
+            $table->timestamp('indexed_at')->nullable();
+            $table->timestamp('last_seen_at')->nullable();
+            $table->timestamp('last_activated_at')->nullable();
+            $table->timestamp('last_practiced_at')->nullable();
+            $table->unsignedInteger('activation_count')->default(0);
+            $table->float('usefulness_avg')->nullable();
+            $table->json('validation_errors')->default('[]');
+            $table->json('metadata')->default('{}');
+            $table->softDeletes();
+            $table->timestamps();
+        });
+
+        Schema::create('semantic_note_links', function (Blueprint $table): void {
+            $table->uuid('id')->primary();
+            $table->uuid('source_note_id');
+            $table->uuid('target_note_id');
+            $table->string('link_type');
+            $table->text('explanation');
+            $table->string('created_by')->default('atlas_suggestion');
+            $table->float('confidence')->nullable();
+            $table->boolean('confirmed_by_operator')->default(false);
             $table->json('metadata')->default('{}');
             $table->timestamps();
         });

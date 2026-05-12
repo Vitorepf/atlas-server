@@ -5,6 +5,7 @@ namespace App\Services\Ai\Kernel\Architecture;
 final class AtlasApAgentWorkflowRegistry
 {
     private const SCHEMA_VERSION = 'atlas.ap_agent_workflow_registry.v1';
+    private const HUMAN_POST_COMPLETION_DISPLAY_UNTIL_AP = 'AP-228';
 
     /**
      * @return array<string,mixed>
@@ -12,6 +13,7 @@ final class AtlasApAgentWorkflowRegistry
     public function workflow(): array
     {
         $steps = $this->steps();
+        $postCompletionReviewChain = $this->postCompletionReviewChain();
 
         return [
             'schema_version' => self::SCHEMA_VERSION,
@@ -21,6 +23,7 @@ final class AtlasApAgentWorkflowRegistry
             'workflow_id' => 'ap_agent_documented_work_session',
             'step_count' => count($steps),
             'steps' => $steps,
+            'summary' => $this->summary($steps, $postCompletionReviewChain),
             'terminal_statuses' => [
                 'ready' => [
                     'ready_for_new_ap_work',
@@ -1047,6 +1050,53 @@ final class AtlasApAgentWorkflowRegistry
                 'replaces_completion_report' => false,
             ],
         ];
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $steps
+     * @param  array<int,array<string,mixed>>  $postCompletionReviewChain
+     * @return array<string,mixed>
+     */
+    private function summary(array $steps, array $postCompletionReviewChain): array
+    {
+        $primaryAps = array_column($steps, 'ap');
+        $postCompletionAps = array_column($postCompletionReviewChain, 'ap');
+        $humanDisplayUntil = $this->apNumber(self::HUMAN_POST_COMPLETION_DISPLAY_UNTIL_AP);
+        $humanDisplayCount = count(array_filter(
+            $postCompletionReviewChain,
+            fn (array $step): bool => $this->apNumber((string) ($step['ap'] ?? '')) <= $humanDisplayUntil,
+        ));
+
+        return [
+            'schema_version' => 'atlas.ap_agent_workflow_summary.v1',
+            'primary_trace' => [
+                'step_count' => count($steps),
+                'first_ap' => $primaryAps[0] ?? null,
+                'last_ap' => $primaryAps[count($primaryAps) - 1] ?? null,
+                'aps' => $primaryAps,
+            ],
+            'post_completion_review_chain' => [
+                'step_count' => count($postCompletionReviewChain),
+                'first_ap' => $postCompletionAps[0] ?? null,
+                'last_ap' => $postCompletionAps[count($postCompletionAps) - 1] ?? null,
+                'human_display_until_ap' => self::HUMAN_POST_COMPLETION_DISPLAY_UNTIL_AP,
+                'human_display_count' => $humanDisplayCount,
+                'hidden_in_default_human_output_count' => max(0, count($postCompletionReviewChain) - $humanDisplayCount),
+            ],
+            'machine_output' => [
+                'full_chain_included' => true,
+                'compact_summary_available' => true,
+            ],
+        ];
+    }
+
+    private function apNumber(string $ap): int
+    {
+        if (preg_match('/AP-(\d+)/', $ap, $matches) !== 1) {
+            return 0;
+        }
+
+        return (int) $matches[1];
     }
 
     /**

@@ -198,6 +198,113 @@ class InboxLedgerProjectionActionTest extends TestCase
         $this->assertSame('record_due_rivals_strategy_reviews', data_get($ledgerEvent->payload, 'recommended_action'));
     }
 
+    public function test_inbox_action_reviews_memory_retrieval_regression_without_runtime_or_raw_context(): void
+    {
+        $item = $this->retrievalRegressionInboxItem();
+
+        $result = app(InboxActionRegistry::class)->handle(
+            $item,
+            'review_retrieval_regression',
+            [
+                'decision' => 'accepted_regression',
+                'operator_note' => 'Abrir follow-up para revisar ranking e corpus.',
+            ],
+            'test-review-retrieval-regression-'.$item->id,
+        );
+
+        $this->assertTrue($result['ok']);
+        $this->assertTrue((bool) data_get($result, 'result.reviewed'));
+        $this->assertTrue((bool) data_get($result, 'result.no_external_action'));
+        $this->assertSame('atlas.inbox_action.memory_retrieval_regression_review.v1', data_get($result, 'result.retrieval_regression_review_action.schema_version'));
+        $this->assertSame('accepted_regression', data_get($result, 'result.retrieval_regression_review_action.decision'));
+        $this->assertTrue((bool) data_get($result, 'result.retrieval_regression_review_action.no_runtime_execution'));
+        $this->assertSame('retrieval-report-hash', data_get($result, 'result.retrieval_regression_review_action.report_hash'));
+
+        $item->refresh();
+        $this->assertSame('read', $item->status);
+        $this->assertNull($item->resolved_at);
+        $this->assertSame('review_retrieval_regression', data_get($item->response, 'action'));
+        $this->assertSame('atlas.inbox_action.memory_retrieval_regression_review.v1', data_get($item->payload, 'retrieval_regression_review_action.schema_version'));
+        $this->assertSame('accepted_regression', data_get($item->payload, 'retrieval_regression_review_action.decision'));
+        $this->assertTrue((bool) data_get($item->payload, 'retrieval_regression_review_action.no_external_action'));
+        $this->assertStringNotContainsString('Exact local capture evidence', json_encode($item->payload, JSON_THROW_ON_ERROR));
+
+        $ledgerEvent = AtlasLedgerEvent::query()
+            ->where('event_type', LedgerEventType::InboxActionRecorded->value)
+            ->where('envelope_id', 'inbox_item:'.$item->id)
+            ->firstOrFail();
+        $this->assertSame('review_retrieval_regression', data_get($ledgerEvent->payload, 'action'));
+        $this->assertSame('atlas.inbox_action.memory_retrieval_regression_review.v1', data_get($ledgerEvent->payload, 'result.retrieval_regression_review_action.schema_version'));
+        $this->assertSame('open_memory_retrieval_regression_review', data_get($ledgerEvent->payload, 'recommended_action'));
+        $this->assertStringNotContainsString('Exact local capture evidence', $ledgerEvent->toJson());
+    }
+
+    public function test_inbox_action_reviews_memory_retrieval_shadow_scope_without_runtime_or_policy_patch(): void
+    {
+        $item = $this->retrievalShadowScopeInboxItem();
+
+        $result = app(InboxActionRegistry::class)->handle(
+            $item,
+            'review_retrieval_shadow_scope',
+            [
+                'decision' => 'needs_more_evidence',
+                'operator_note' => 'Exigir contrato de casos antes de qualquer shadow run.',
+            ],
+            'test-review-retrieval-shadow-'.$item->id,
+        );
+
+        $this->assertTrue($result['ok']);
+        $this->assertTrue((bool) data_get($result, 'result.reviewed'));
+        $this->assertTrue((bool) data_get($result, 'result.no_external_action'));
+        $this->assertSame('atlas.inbox_action.memory_retrieval_shadow_scope_review.v1', data_get($result, 'result.retrieval_shadow_scope_review_action.schema_version'));
+        $this->assertSame('needs_more_evidence', data_get($result, 'result.retrieval_shadow_scope_review_action.decision'));
+        $this->assertTrue((bool) data_get($result, 'result.retrieval_shadow_scope_review_action.no_runtime_execution'));
+        $this->assertTrue((bool) data_get($result, 'result.retrieval_shadow_scope_review_action.no_policy_patch'));
+        $this->assertTrue((bool) data_get($result, 'result.retrieval_shadow_scope_review_action.no_provider_call'));
+        $this->assertSame('shadow-plan-hash', data_get($result, 'result.retrieval_shadow_scope_review_action.plan_hash'));
+        $this->assertSame('docs/ap/AP-693-retrieval-rivals-shadow-comparison-contract.md', data_get($result, 'result.retrieval_shadow_scope_review_action.review_ap'));
+        $this->assertSame('atlas.memory_retrieval_shadow_scope_decision_receipt.v1', data_get($result, 'result.retrieval_shadow_scope_review_action.decision_receipt.schema_version'));
+        $this->assertTrue((bool) data_get($result, 'result.retrieval_shadow_scope_review_action.decision_receipt.dry_run'));
+        $this->assertFalse((bool) data_get($result, 'result.retrieval_shadow_scope_review_action.decision_receipt.shadow_execution_allowed_now'));
+        $this->assertFalse((bool) data_get($result, 'result.retrieval_shadow_scope_review_action.decision_receipt.scope_approved'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($result, 'result.retrieval_shadow_scope_review_action.decision_receipt_hash'));
+        $this->assertContains('shadow_execution_allowed_now', data_get($result, 'result.retrieval_shadow_scope_review_action.decision_receipt.receipt_hash_fields'));
+        $this->assertNotContains('issued_at', data_get($result, 'result.retrieval_shadow_scope_review_action.decision_receipt.receipt_hash_fields'));
+
+        $sameDecisionItem = $this->retrievalShadowScopeInboxItem('same-decision');
+        $sameDecisionResult = app(InboxActionRegistry::class)->handle(
+            $sameDecisionItem,
+            'review_retrieval_shadow_scope',
+            [
+                'decision' => 'needs_more_evidence',
+                'operator_note' => 'Exigir contrato de casos antes de qualquer shadow run.',
+            ],
+            'test-review-retrieval-shadow-same-decision-'.$sameDecisionItem->id,
+        );
+        $this->assertSame(
+            data_get($result, 'result.retrieval_shadow_scope_review_action.decision_receipt_hash'),
+            data_get($sameDecisionResult, 'result.retrieval_shadow_scope_review_action.decision_receipt_hash'),
+        );
+
+        $item->refresh();
+        $this->assertSame('read', $item->status);
+        $this->assertNull($item->resolved_at);
+        $this->assertSame('review_retrieval_shadow_scope', data_get($item->response, 'action'));
+        $this->assertSame('atlas.inbox_action.memory_retrieval_shadow_scope_review.v1', data_get($item->payload, 'retrieval_shadow_scope_review_action.schema_version'));
+        $this->assertStringNotContainsString('Exact local capture evidence', json_encode($item->payload, JSON_THROW_ON_ERROR));
+
+        $ledgerEvent = AtlasLedgerEvent::query()
+            ->where('event_type', LedgerEventType::InboxActionRecorded->value)
+            ->where('envelope_id', 'inbox_item:'.$item->id)
+            ->firstOrFail();
+        $this->assertSame('review_retrieval_shadow_scope', data_get($ledgerEvent->payload, 'action'));
+        $this->assertSame('atlas.inbox_action.memory_retrieval_shadow_scope_review.v1', data_get($ledgerEvent->payload, 'result.retrieval_shadow_scope_review_action.schema_version'));
+        $this->assertSame('atlas.memory_retrieval_shadow_scope_decision_receipt.v1', data_get($ledgerEvent->payload, 'result.retrieval_shadow_scope_review_action.decision_receipt.schema_version'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($ledgerEvent->payload, 'result.retrieval_shadow_scope_review_action.decision_receipt.receipt_hash'));
+        $this->assertSame('review_retrieval_shadow_scope', data_get($ledgerEvent->payload, 'recommended_action'));
+        $this->assertStringNotContainsString('Exact local capture evidence', $ledgerEvent->toJson());
+    }
+
     public function test_inbox_action_configures_provider_cost_rates_with_human_supplied_rates_and_ledger_evidence(): void
     {
         $item = $this->providerCostRateInboxItem();
@@ -468,6 +575,144 @@ class InboxLedgerProjectionActionTest extends TestCase
             'push_policy' => [],
             'priority_score' => 78,
             'confidence_score' => 0.82,
+        ]);
+    }
+
+    private function retrievalRegressionInboxItem(): AiInboxItem
+    {
+        return AiInboxItem::query()->create([
+            'id' => (string) Str::uuid(),
+            'user_id' => 'vitor',
+            'type' => 'proposal',
+            'category' => 'memory_quality',
+            'severity' => 'warning',
+            'status' => 'unread',
+            'title' => 'Revisar regressao de retrieval Memory/Open Brain',
+            'summary' => 'Rivals detectou regressao no benchmark longitudinal de retrieval.',
+            'body' => 'Revise snapshots e metricas antes de alterar ranking, memoria ou runtime.',
+            'source_type' => 'local_rag_benchmark',
+            'source_id' => 'latest-snapshot-id',
+            'initiator' => 'system',
+            'dedupe_key' => 'memory-retrieval-rivals:latest-snapshot-id',
+            'available_actions' => [
+                ['id' => 'review_retrieval_regression', 'label' => 'Revisar regressao', 'style' => 'primary'],
+                ['id' => 'discuss', 'label' => 'Discutir', 'style' => 'secondary'],
+            ],
+            'payload' => [
+                'retrieval_rivals' => [
+                    'schema_version' => 'atlas.local_rag_benchmark.rivals_report.v1',
+                    'status' => 'attention',
+                    'report_hash' => 'retrieval-report-hash',
+                    'raw_query_persisted' => false,
+                    'raw_context_persisted' => false,
+                    'comparison' => [
+                        'outcome' => 'regressed',
+                        'score_delta' => -35,
+                        'latest' => [
+                            'id' => 'latest-snapshot-id',
+                            'source_id_hash' => hash('sha256', 'latest-source-id'),
+                            'score' => 60,
+                            'metrics' => [
+                                'precision_at_3' => 0.4,
+                                'provider_safe_violation_count' => 1,
+                            ],
+                        ],
+                        'previous' => [
+                            'id' => 'previous-snapshot-id',
+                            'source_id_hash' => hash('sha256', 'previous-source-id'),
+                            'score' => 95,
+                        ],
+                    ],
+                    'review_packet' => [
+                        'schema_version' => 'atlas.memory_retrieval_rivals_review_packet.v1',
+                        'status' => 'proposal_only',
+                        'forbidden_actions' => [
+                            'enable_python_runtime',
+                            'persist_raw_query',
+                            'persist_raw_context',
+                        ],
+                    ],
+                ],
+                'proposal_contract' => [
+                    'schema_version' => 'atlas.memory_retrieval_rivals_inbox.v1',
+                    'review_signal' => [
+                        'status' => 'review_required',
+                        'severity' => 'high',
+                        'recommended_action' => 'open_memory_retrieval_regression_review',
+                        'reasons' => [
+                            'memory_quality_score_regressed',
+                            'provider_safe_violation_count',
+                        ],
+                    ],
+                    'source_refs' => [
+                        ['type' => 'memory_quality_snapshot', 'id' => 'latest-snapshot-id'],
+                        ['type' => 'memory_quality_snapshot', 'id' => 'previous-snapshot-id'],
+                    ],
+                ],
+            ],
+            'push_policy' => [],
+            'priority_score' => 90,
+            'confidence_score' => 0.86,
+        ]);
+    }
+
+    private function retrievalShadowScopeInboxItem(?string $dedupeSuffix = null): AiInboxItem
+    {
+        return AiInboxItem::query()->create([
+            'id' => (string) Str::uuid(),
+            'user_id' => 'vitor',
+            'type' => 'proposal',
+            'category' => 'memory_quality',
+            'severity' => 'warning',
+            'status' => 'unread',
+            'title' => 'Revisar escopo shadow de retrieval Memory/Open Brain',
+            'summary' => 'AP-693 precisa de revisao humana antes de qualquer shadow run.',
+            'body' => 'Revise candidatos, gates e evidencias sem executar runtime, provider ou policy patch.',
+            'source_type' => 'local_rag_benchmark',
+            'source_id' => null,
+            'initiator' => 'system',
+            'dedupe_key' => 'memory-retrieval-rivals-shadow:shadow-plan-hash'.($dedupeSuffix ? ':'.$dedupeSuffix : ''),
+            'available_actions' => [
+                ['id' => 'review_retrieval_shadow_scope', 'label' => 'Revisar escopo', 'style' => 'primary'],
+                ['id' => 'discuss', 'label' => 'Discutir', 'style' => 'secondary'],
+            ],
+            'payload' => [
+                'retrieval_rivals_shadow_plan' => [
+                    'schema_version' => 'atlas.local_rag_benchmark.rivals_shadow_plan.v1',
+                    'status' => 'blocked',
+                    'mode' => 'proposal_only_no_runtime_execution',
+                    'review_ap' => 'docs/ap/AP-693-retrieval-rivals-shadow-comparison-contract.md',
+                    'plan_hash' => 'shadow-plan-hash',
+                    'raw_query_persisted' => false,
+                    'raw_context_persisted' => false,
+                    'review_packet' => [
+                        'schema_version' => 'atlas.memory_retrieval_rivals_shadow_plan_review_packet.v1',
+                        'forbidden_actions' => [
+                            'execute_python_graph_rag',
+                            'persist_raw_query',
+                            'persist_raw_context',
+                        ],
+                    ],
+                ],
+                'proposal_contract' => [
+                    'schema_version' => 'atlas.memory_retrieval_rivals_shadow_inbox.v1',
+                    'review_signal' => [
+                        'status' => 'review_required',
+                        'severity' => 'medium',
+                        'recommended_action' => 'review_retrieval_shadow_scope',
+                        'reasons' => [
+                            'shadow_case_contract_missing',
+                            'human_review_required',
+                        ],
+                    ],
+                    'source_refs' => [
+                        ['type' => 'ap', 'id' => 'docs/ap/AP-693-retrieval-rivals-shadow-comparison-contract.md'],
+                    ],
+                ],
+            ],
+            'push_policy' => [],
+            'priority_score' => 82,
+            'confidence_score' => 0.84,
         ]);
     }
 
