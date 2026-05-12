@@ -31,6 +31,9 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-ai-thesis-multiplier-channel.md
   - docs/engineering-knowledge-base/atlas-ai-session-bootstrap.md
   - docs/engineering-knowledge-base/atlas-ai-documentation-operating-system.md
+  - docs/engineering-knowledge-base/atlas-system-graph.md
+  - docs/engineering-knowledge-base/system-graph/node-catalog-and-build-contract.md
+  - docs/engineering-knowledge-base/system-graph/living-architecture-graph-contract.md
   - docs/engineering-knowledge-base/atlas-ai-knowledge-governance-system.md
   - docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md
   - docs/engineering-knowledge-base/kernel/
@@ -80,6 +83,8 @@ Layer -1 wins every conflict. Kernel wins executable contracts. Master Architect
 | Layer implementation status | `canonical-index/layer-status.md` |
 | New AI session bootstrap | `atlas-ai-session-bootstrap.md` |
 | Documentation governance | `atlas-ai-documentation-operating-system.md` |
+| Atlas System Graph / visual architecture map | `atlas-system-graph.md` |
+| Atlas Living Architecture Graph / Obsidian graph maturity | `system-graph/living-architecture-graph-contract.md` |
 | Knowledge surfaces and source truth | `atlas-ai-knowledge-governance-system.md` |
 | Runtime contracts | `atlas-ai-kernel-architecture.md` |
 | Product architecture | `atlas-ai-master-architecture.md` |
@@ -90,6 +95,8 @@ Layer -1 wins every conflict. Kernel wins executable contracts. Master Architect
 | SDD agents and MCP | `spec-operating-system/agents-and-mcp-contract.md` |
 | SDD context packages and projections | `spec-operating-system/context-packages-and-projections.md` |
 | Self-Construction OS / governed self-programming | `atlas-ai-self-construction-os.md` |
+| Paperclip control-plane benchmark | `self-construction/paperclip-control-plane-benchmark.md` |
+| Agent Control Plane | `self-construction/agent-control-plane-contract.md` |
 | Obras Operating System / production primitive | `atlas-ai-obras-operating-system.md` |
 | Obras Shared Workspace / Forge Workspace | `obras/shared-workspace-and-forge.md` |
 | Universal pipeline | `atlas-ai-pipeline.md` |

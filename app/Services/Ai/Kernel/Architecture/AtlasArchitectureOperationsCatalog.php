@@ -400,6 +400,17 @@ final class AtlasArchitectureOperationsCatalog
                 'doc' => 'docs/ap/AP-687-voice-realtime-production-promotion-gate.md',
             ],
             [
+                'id' => 'voice_realtime_livekit_server_probe',
+                'command' => 'php artisan atlas:ai:voice livekit-server-probe --json',
+                'api_endpoint' => '/ai/voice/runtime/livekit-server-probe',
+                'mobile_endpoint' => '/v1/mobile/ai/voice/runtime/livekit-server-probe',
+                'description' => 'Prova alcance TCP do LiveKit Server configurado sem ler API key/secret, emitir token, importar SDK, iniciar daemon, chamar provider/tool ou tocar audio.',
+                'surface' => 'cli',
+                'kind' => 'runtime_readiness',
+                'output' => 'json',
+                'doc' => 'docs/engineering-knowledge-base/atlas-ai-voice-realtime-surface.md',
+            ],
+            [
                 'id' => 'voice_realtime_worker_plan',
                 'command' => 'php artisan atlas:ai:voice worker-plan --json',
                 'description' => 'Mostra o plano fail-closed para ativar o worker LiveKit Agents SDK real, incluindo adapters, env, guardrails e proximo gate.',

@@ -8,6 +8,16 @@ use Tests\TestCase;
 
 final class AtlasAiVoiceRealtimeCommandTest extends TestCase
 {
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        config()->set('atlas.voice.livekit.token_issuer_enabled', false);
+        config()->set('atlas.voice.livekit.url', '');
+        config()->set('atlas.voice.livekit.api_key', '');
+        config()->set('atlas.voice.livekit.api_secret', '');
+    }
+
     public function test_command_exposes_voice_runtime_contract_as_json(): void
     {
         $exit = Artisan::call('atlas:ai:voice', [
@@ -249,6 +259,31 @@ final class AtlasAiVoiceRealtimeCommandTest extends TestCase
         }
     }
 
+    public function test_command_exposes_livekit_server_probe_without_leaking_secrets_or_starting_daemon(): void
+    {
+        config()->set('atlas.voice.livekit.url', 'http://livekit.test:7880');
+        config()->set('atlas.voice.livekit.api_key', 'command-key-not-read');
+        config()->set('atlas.voice.livekit.api_secret', 'command-secret-not-read');
+
+        $exit = Artisan::call('atlas:ai:voice', [
+            'action' => 'livekit-server-probe',
+            '--runtime' => 'livekit_agents_sdk',
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.voice_realtime.livekit_server_probe.v1', $payload['schema_version']);
+        $this->assertSame('blocked', $payload['status']);
+        $this->assertTrue($payload['configured']);
+        $this->assertSame('<livekit-host>:7880', substr((string) $payload['livekit_url_redacted'], strlen('http://')));
+        $this->assertFalse(data_get($payload, 'security_contract.api_key_read'));
+        $this->assertFalse(data_get($payload, 'security_contract.api_secret_read'));
+        $this->assertFalse(data_get($payload, 'security_contract.daemon_started'));
+        $this->assertStringNotContainsString('command-key-not-read', Artisan::output());
+        $this->assertStringNotContainsString('command-secret-not-read', Artisan::output());
+    }
+
     public function test_command_human_output_lists_bootstrap_entrypoint(): void
     {
         $exit = Artisan::call('atlas:ai:voice', [
@@ -279,7 +314,7 @@ final class AtlasAiVoiceRealtimeCommandTest extends TestCase
         $this->assertSame('runtimes/python/voice_realtime/requirements-livekit.txt', $payload['requirements_file']);
         $this->assertSame('${ATLAS_VOICE_PYTHON_BIN:-python3} -m pip install -r runtimes/python/voice_realtime/requirements-livekit.txt', $payload['install_command']);
         $this->assertSame('atlas.voice_realtime.python_runtime_plan.v1', data_get($payload, 'python_runtime.schema_version'));
-        $this->assertSame('python3', data_get($payload, 'python_runtime.configured_binary'));
+        $this->assertSame(config('atlas_ai.voice_realtime.python_binary', 'python3'), data_get($payload, 'python_runtime.configured_binary'));
         $this->assertSame('3.10', data_get($payload, 'python_runtime.minimum_version'));
         $this->assertFalse(data_get($payload, 'python_runtime.auto_install_allowed'));
         $this->assertTrue(data_get($payload, 'python_runtime.operator_managed'));
@@ -1885,6 +1920,7 @@ final class AtlasAiVoiceRealtimeCommandTest extends TestCase
         $this->assertContains(data_get($payload, 'artifacts.product_loop_check.next_action'), [
             'upgrade_python_runtime_for_livekit_agents_sdk',
             'install_livekit_agents_sdk',
+            'fix_voice_product_loop_gates',
             'submit_voice_production_promotion_for_human_review',
         ], true);
         $this->assertFalse(data_get($payload, 'artifacts.product_loop_check.daemon_started'));
@@ -2284,6 +2320,6 @@ final class AtlasAiVoiceRealtimeCommandTest extends TestCase
 
         $this->assertSame(1, $exit);
         $this->assertSame('invalid_action', $payload['status']);
-        $this->assertSame(['contract', 'bootstrap', 'dependencies', 'dependency-install-plan', 'preflight', 'activation-contract', 'scripted-example', 'scripted-smoke', 'callback-smoke', 'callback-sequence-smoke', 'callback-loop-check', 'sdk-check', 'token-issuer-plan', 'token-issuer-smoke', 'worker-plan', 'production-loop-plan', 'product-loop-check', 'daemon-supervisor-check', 'pre-start-health-checks-smoke', 'production-loop-smoke', 'worker-start-check', 'normalize-event', 'normalize-sequence', 'runtime-certify', 'promotion-review-packet', 'health', 'readiness', 'rivals'], $payload['allowed_actions']);
+        $this->assertSame(['contract', 'bootstrap', 'dependencies', 'dependency-install-plan', 'preflight', 'activation-contract', 'scripted-example', 'scripted-smoke', 'callback-smoke', 'callback-sequence-smoke', 'callback-loop-check', 'sdk-check', 'token-issuer-plan', 'token-issuer-smoke', 'livekit-server-probe', 'worker-plan', 'production-loop-plan', 'product-loop-check', 'daemon-supervisor-check', 'pre-start-health-checks-smoke', 'production-loop-smoke', 'worker-start-check', 'normalize-event', 'normalize-sequence', 'runtime-certify', 'promotion-review-packet', 'health', 'readiness', 'rivals'], $payload['allowed_actions']);
     }
 }

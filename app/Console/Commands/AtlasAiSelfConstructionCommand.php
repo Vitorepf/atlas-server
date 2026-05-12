@@ -68,6 +68,38 @@ class AtlasAiSelfConstructionCommand extends Command
         {--dependency-unlock-plan : Preview which completed packets would unlock blocked work}
         {--multi-session-readiness-gate : Decide whether multiple AI sessions may safely proceed}
         {--forge-workspace-status : Project the canonical read-only Forge Workspace for Atlas Self-Construction OS}
+        {--agent-control-plane : Project the canonical read-only Agent Control Plane for provider sessions, runs, liveness and packet locks}
+        {--agent-run-sync : Materialize reservation ledger state into Agent Control Plane runtime runs when schema is available}
+        {--agent-heartbeat : Record a heartbeat for a synced Agent Control Plane run}
+        {--agent-run-liveness : Inspect synced Agent Control Plane runs for active, stale, expired and terminal liveness}
+        {--agent-cost-event : Record a provider/model token and cost event for a synced Agent Control Plane run}
+        {--agent-work-product : Record an implementation artifact for a synced Agent Control Plane run}
+        {--agent-adapter-contract : Generate the read-only provider adapter invocation contract for future Codex/Claude/Gemini/local dispatch}
+        {--agent-wakeup-queue : Inspect the read-only wakeup queue projection for stale, expired, terminal and ready agent runs}
+        {--agent-wakeup-write : Materialize projected wakeup items into the Agent Control Plane wakeup queue when schema is available}
+        {--agent-wakeup-scheduler : Select ready wakeup items for future provider resume without claiming or dispatching them}
+        {--agent-wakeup-claim : Claim one ready wakeup item for governed manual/provider resume without dispatching providers}
+        {--agent-dispatch-preflight : Build the read-only dispatch preflight for a claimed wakeup item without starting providers}
+        {--agent-dispatch-receipt-template : Generate the read-only signed dispatch receipt template without signing or starting providers}
+        {--agent-dispatch-receipt-validation-preflight : Validate readiness to persist a future signed dispatch receipt without writing or starting providers}
+        {--agent-dispatch-receipt-write : Persist a validated signed dispatch receipt without starting providers or dispatching work}
+        {--agent-dispatch-executor-preflight : Verify a signed dispatch receipt is ready for a future provider executor without starting providers}
+        {--agent-dispatch-executor-contract-template : Generate the read-only provider dispatch executor contract template without starting providers}
+        {--agent-dispatch-executor-release-preflight : Verify what is still required before any provider dispatch executor can be released}
+        {--agent-dispatch-executor-release-authorization-template : Generate the read-only executor release authorization template without approving dispatch}
+        {--agent-dispatch-executor-release-authorization-receipt-draft : Generate the read-only unsigned executor release authorization receipt draft}
+        {--agent-dispatch-executor-release-authorization-signature-request : Generate the read-only executor release authorization signature request without accepting signatures}
+        {--agent-dispatch-executor-release-authorization-post-signature-runbook : Generate the read-only executor release authorization post-signature runbook without validating signatures}
+        {--agent-dispatch-executor-release-authorization-signed-receipt-template : Generate the read-only executor release authorization signed receipt template without accepting signatures}
+        {--agent-dispatch-executor-release-authorization-signed-receipt-preflight : Verify signed executor release authorization receipt prerequisites without persisting authorization}
+        {--agent-dispatch-executor-release-authorization-persistence-template : Generate the read-only executor release authorization persistence template without writing authorization}
+        {--agent-dispatch-executor-release-authorization-persistence-preflight : Verify executor release authorization persistence prerequisites without writing authorization}
+        {--agent-dispatch-executor-release-authorization-persistence-writer-contract-template : Generate the read-only executor release authorization persistence writer contract template}
+        {--agent-dispatch-executor-release-authorization-persistence-writer-implementation-preflight : Verify persistence writer implementation prerequisites without creating writer files}
+        {--agent-dispatch-executor-release-authorization-persistence-writer-implementation-packet : Generate the scoped persistence writer implementation packet without creating writer files}
+        {--agent-dispatch-executor-release-authorization-persistence-status : Inspect persisted executor release authorizations without releasing providers}
+        {--agent-dispatch-executor-receipt-use-writer-contract-template : Generate the read-only atomic dispatch receipt-use writer contract template}
+        {--agent-dispatch-executor-receipt-use-writer-preflight : Verify atomic dispatch receipt-use writer prerequisites without marking receipts used}
         {--single-session-instruction-packet : Generate the canonical read-only instruction packet for one AI session}
         {--codex-launch-plan : Generate a read-only launch plan with up to five Codex start commands}
         {--codex-execution-status : Generate a read-only execution status monitor for parallel Codex sessions}
@@ -343,6 +375,8 @@ class AtlasAiSelfConstructionCommand extends Command
         {--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-repaired-evidence-packet-template : Generate a read-only provider-neutral later-cycle authorization repaired evidence packet template for a future Forge Workspace writer re-enable fresh authorization new cycle}
         {--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-repair-review-template : Generate a read-only provider-neutral later-cycle authorization repair review template for a future Forge Workspace writer re-enable fresh authorization new cycle}
         {--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-persistence-rejection-template : Generate a read-only provider-neutral later-cycle authorization persistence rejection template for a future Forge Workspace writer re-enable fresh authorization new cycle}
+        {--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-human-escalation-template : Generate a read-only provider-neutral later-cycle authorization human escalation template for a future Forge Workspace writer re-enable fresh authorization new cycle}
+        {--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-manual-decision-request-template : Generate a read-only provider-neutral later-cycle authorization manual decision request template for a future Forge Workspace writer re-enable fresh authorization new cycle}
         {--agent-start-packet : Durably claim the next packet and emit the canonical provider-neutral agent start contract}
         {--codex-start-packet : Durably claim the next packet and emit the canonical Codex session start contract}
         {--reservation-status : Read durable local packet reservation ledger status}
@@ -357,6 +391,20 @@ class AtlasAiSelfConstructionCommand extends Command
         {--lease-minutes=120 : Reservation lease duration in minutes}
         {--reason= : Release reason}
         {--evidence-hash= : Optional evidence hash for packet completion}
+        {--model= : Provider model name for Agent Control Plane cost events}
+        {--input-tokens=0 : Input tokens for Agent Control Plane cost events}
+        {--output-tokens=0 : Output tokens for Agent Control Plane cost events}
+        {--cost-usd=0 : USD cost for Agent Control Plane cost events}
+        {--artifact-type= : Artifact type for Agent Control Plane work products}
+        {--artifact-path= : Artifact path for Agent Control Plane work products}
+        {--artifact-hash= : Artifact hash for Agent Control Plane work products}
+        {--summary= : Summary for Agent Control Plane work products}
+        {--decision= : Signed dispatch receipt decision}
+        {--signed-by= : Signed dispatch receipt signer identity}
+        {--receipt-hash= : Signed dispatch receipt hash}
+        {--dispatch-envelope-hash= : Signed dispatch receipt dispatch envelope hash}
+        {--adapter-contract-hash= : Signed dispatch receipt adapter contract hash}
+        {--expires-at= : Signed dispatch receipt expiry timestamp}
         {--json : Print machine-readable JSON}';
 
     protected $description = 'Show Atlas Self-Construction OS readiness and next safe governed construction blocks.';
@@ -372,11 +420,27 @@ class AtlasAiSelfConstructionCommand extends Command
             'lease_minutes' => $this->option('lease-minutes'),
             'reason' => $this->option('reason'),
             'evidence_hash' => $this->option('evidence-hash'),
+            'model' => $this->option('model'),
+            'input_tokens' => $this->option('input-tokens'),
+            'output_tokens' => $this->option('output-tokens'),
+            'cost_usd' => $this->option('cost-usd'),
+            'artifact_type' => $this->option('artifact-type'),
+            'artifact_path' => $this->option('artifact-path'),
+            'artifact_hash' => $this->option('artifact-hash'),
+            'summary' => $this->option('summary'),
+            'decision' => $this->option('decision'),
+            'signed_by' => $this->option('signed-by'),
+            'receipt_hash' => $this->option('receipt-hash'),
+            'dispatch_envelope_hash' => $this->option('dispatch-envelope-hash'),
+            'adapter_contract_hash' => $this->option('adapter-contract-hash'),
+            'expires_at' => $this->option('expires-at'),
         ];
 
         $payload = match (true) {
             (bool) $this->option('release-packet') => $readiness->releasePacket($options),
             (bool) $this->option('complete-packet') => $readiness->completePacket($options),
+            (bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-manual-decision-request-template') => $readiness->agentReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationManualDecisionRequestTemplate($options),
+            (bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-human-escalation-template') => $readiness->agentReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationHumanEscalationTemplate($options),
             (bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-persistence-rejection-template') => $readiness->agentReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationPersistenceRejectionTemplate($options),
             (bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-repair-review-template') => $readiness->agentReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationRepairReviewTemplate($options),
             (bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-repaired-evidence-packet-template') => $readiness->agentReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationRepairedEvidencePacketTemplate($options),
@@ -500,6 +564,38 @@ class AtlasAiSelfConstructionCommand extends Command
             (bool) $this->option('reservation-status') => $readiness->reservationStatus($options),
             (bool) $this->option('scope-validator') => $readiness->scopeValidator($options),
             (bool) $this->option('single-session-instruction-packet') => $readiness->singleSessionInstructionPacket($options),
+            (bool) $this->option('agent-dispatch-executor-receipt-use-writer-preflight') => $readiness->agentDispatchExecutorReceiptUseWriterPreflight($options),
+            (bool) $this->option('agent-dispatch-executor-receipt-use-writer-contract-template') => $readiness->agentDispatchExecutorReceiptUseWriterContractTemplate($options),
+            (bool) $this->option('agent-dispatch-executor-release-authorization-persistence-status') => $readiness->agentDispatchExecutorReleaseAuthorizationPersistenceStatus($options),
+            (bool) $this->option('agent-dispatch-executor-release-authorization-persistence-writer-implementation-packet') => $readiness->agentDispatchExecutorReleaseAuthorizationPersistenceWriterImplementationPacket($options),
+            (bool) $this->option('agent-dispatch-executor-release-authorization-persistence-writer-implementation-preflight') => $readiness->agentDispatchExecutorReleaseAuthorizationPersistenceWriterImplementationPreflight($options),
+            (bool) $this->option('agent-dispatch-executor-release-authorization-persistence-writer-contract-template') => $readiness->agentDispatchExecutorReleaseAuthorizationPersistenceWriterContractTemplate($options),
+            (bool) $this->option('agent-dispatch-executor-release-authorization-persistence-preflight') => $readiness->agentDispatchExecutorReleaseAuthorizationPersistencePreflight($options),
+            (bool) $this->option('agent-dispatch-executor-release-authorization-persistence-template') => $readiness->agentDispatchExecutorReleaseAuthorizationPersistenceTemplate($options),
+            (bool) $this->option('agent-dispatch-executor-release-authorization-signed-receipt-preflight') => $readiness->agentDispatchExecutorReleaseAuthorizationSignedReceiptPreflight($options),
+            (bool) $this->option('agent-dispatch-executor-release-authorization-signed-receipt-template') => $readiness->agentDispatchExecutorReleaseAuthorizationSignedReceiptTemplate($options),
+            (bool) $this->option('agent-dispatch-executor-release-authorization-post-signature-runbook') => $readiness->agentDispatchExecutorReleaseAuthorizationPostSignatureRunbook($options),
+            (bool) $this->option('agent-dispatch-executor-release-authorization-signature-request') => $readiness->agentDispatchExecutorReleaseAuthorizationSignatureRequest($options),
+            (bool) $this->option('agent-dispatch-executor-release-authorization-receipt-draft') => $readiness->agentDispatchExecutorReleaseAuthorizationReceiptDraft($options),
+            (bool) $this->option('agent-dispatch-executor-release-authorization-template') => $readiness->agentDispatchExecutorReleaseAuthorizationTemplate($options),
+            (bool) $this->option('agent-dispatch-executor-release-preflight') => $readiness->agentDispatchExecutorReleasePreflight($options),
+            (bool) $this->option('agent-dispatch-executor-contract-template') => $readiness->agentDispatchExecutorContractTemplate($options),
+            (bool) $this->option('agent-dispatch-executor-preflight') => $readiness->agentDispatchExecutorPreflight($options),
+            (bool) $this->option('agent-dispatch-receipt-write') => $readiness->agentDispatchReceiptWrite($options),
+            (bool) $this->option('agent-dispatch-receipt-validation-preflight') => $readiness->agentDispatchReceiptValidationPreflight($options),
+            (bool) $this->option('agent-dispatch-receipt-template') => $readiness->agentDispatchReceiptTemplate($options),
+            (bool) $this->option('agent-dispatch-preflight') => $readiness->agentDispatchPreflight($options),
+            (bool) $this->option('agent-wakeup-claim') => $readiness->agentWakeupClaim($options),
+            (bool) $this->option('agent-wakeup-scheduler') => $readiness->agentWakeupScheduler($options),
+            (bool) $this->option('agent-wakeup-write') => $readiness->agentWakeupWrite($options),
+            (bool) $this->option('agent-wakeup-queue') => $readiness->agentWakeupQueue($options),
+            (bool) $this->option('agent-adapter-contract') => $readiness->agentAdapterContract($options),
+            (bool) $this->option('agent-work-product') => $readiness->agentWorkProduct($options),
+            (bool) $this->option('agent-cost-event') => $readiness->agentCostEvent($options),
+            (bool) $this->option('agent-run-liveness') => $readiness->agentRunLiveness($options),
+            (bool) $this->option('agent-heartbeat') => $readiness->agentHeartbeat($options),
+            (bool) $this->option('agent-run-sync') => $readiness->agentRunSync($options),
+            (bool) $this->option('agent-control-plane') => $readiness->agentControlPlane($options),
             (bool) $this->option('forge-workspace-status') => $readiness->forgeWorkspaceStatus($options),
             (bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-activation-session-session-ready-check-preview-template') => $readiness->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationDecisionRecordActivationSessionSessionReadyCheckPreviewTemplate($options),
             (bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-activation-session-session-operator-prompt-preview-template') => $readiness->codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationDecisionRecordActivationSessionSessionOperatorPromptPreviewTemplate($options),
@@ -3663,6 +3759,32 @@ class AtlasAiSelfConstructionCommand extends Command
             return self::SUCCESS;
         }
 
+        if ((bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-human-escalation-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'disable_execution_later_cycle_authorization_human_escalation.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Later cycle authorization human escalation status', (string) data_get($payload, 'disable_execution_later_cycle_authorization_human_escalation.status'));
+            $this->components->twoColumnDetail('Escalation field count', (string) data_get($payload, 'disable_execution_later_cycle_authorization_human_escalation.required_escalation_field_count'));
+            $this->components->twoColumnDetail('Human notified', data_get($payload, 'human_notified') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Later cycle authorization human escalation hash', (string) data_get($payload, 'disable_execution_later_cycle_authorization_human_escalation_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-manual-decision-request-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Workspace', (string) data_get($payload, 'disable_execution_later_cycle_authorization_manual_decision_request.workspace.canonical_name'));
+            $this->components->twoColumnDetail('Later cycle authorization manual decision request status', (string) data_get($payload, 'disable_execution_later_cycle_authorization_manual_decision_request.status'));
+            $this->components->twoColumnDetail('Decision field count', (string) data_get($payload, 'disable_execution_later_cycle_authorization_manual_decision_request.required_decision_request_field_count'));
+            $this->components->twoColumnDetail('Decision requested', data_get($payload, 'manual_decision_requested') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Later cycle authorization manual decision request hash', (string) data_get($payload, 'disable_execution_later_cycle_authorization_manual_decision_request_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
         if ((bool) $this->option('codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-persistence-rejection-template')) {
             $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
             $this->components->twoColumnDetail('Later cycle authorization persistence rejection status', (string) data_get($payload, 'disable_execution_later_cycle_authorization_persistence_rejection.status'));
@@ -4532,6 +4654,427 @@ class AtlasAiSelfConstructionCommand extends Command
             $this->components->twoColumnDetail('Specialization', (string) data_get($payload, 'workspace.specialization'));
             $this->components->twoColumnDetail('Recommended packet', (string) data_get($payload, 'workspace.state.recommended_packet_id'));
             $this->components->twoColumnDetail('Workspace hash', (string) data_get($payload, 'workspace_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-control-plane')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Control plane', (string) data_get($payload, 'control_plane.canonical_name'));
+            $this->components->twoColumnDetail('Provider sessions', (string) data_get($payload, 'control_plane.counts.provider_sessions'));
+            $this->components->twoColumnDetail('Available packets', (string) data_get($payload, 'control_plane.counts.available_packets'));
+            $this->components->twoColumnDetail('Control hash', (string) data_get($payload, 'control_plane_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-run-sync')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Runtime write allowed', data_get($payload, 'runtime_write_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Sync status', (string) data_get($payload, 'sync.status'));
+            $this->components->twoColumnDetail('Synced runs', (string) data_get($payload, 'sync.synced_run_count', 0));
+            $this->components->twoColumnDetail('Sync hash', (string) data_get($payload, 'sync_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-heartbeat')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Runtime write allowed', data_get($payload, 'runtime_write_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Heartbeat status', (string) data_get($payload, 'heartbeat.status'));
+            $this->components->twoColumnDetail('Packet', (string) data_get($payload, 'heartbeat.packet_id'));
+            $this->components->twoColumnDetail('Heartbeat hash', (string) data_get($payload, 'heartbeat_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-run-liveness')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Runtime write allowed', data_get($payload, 'runtime_write_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Liveness status', (string) data_get($payload, 'liveness.status'));
+            $this->components->twoColumnDetail('Active runs', (string) data_get($payload, 'liveness.counts.active', 0));
+            $this->components->twoColumnDetail('Attention needed', (string) data_get($payload, 'liveness.counts.attention_needed', 0));
+            $this->components->twoColumnDetail('Liveness hash', (string) data_get($payload, 'liveness_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-cost-event')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Runtime write allowed', data_get($payload, 'runtime_write_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Cost status', (string) data_get($payload, 'cost_event.status'));
+            $this->components->twoColumnDetail('Provider', (string) data_get($payload, 'cost_event.provider'));
+            $this->components->twoColumnDetail('Cost hash', (string) data_get($payload, 'cost_event_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-work-product')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Runtime write allowed', data_get($payload, 'runtime_write_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Work product status', (string) data_get($payload, 'work_product.status'));
+            $this->components->twoColumnDetail('Artifact type', (string) data_get($payload, 'work_product.artifact_type'));
+            $this->components->twoColumnDetail('Work product hash', (string) data_get($payload, 'work_product_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-adapter-contract')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Adapter contract', (string) data_get($payload, 'adapter_contract.contract_id'));
+            $this->components->twoColumnDetail('Provider count', (string) data_get($payload, 'adapter_contract.provider_count'));
+            $this->components->twoColumnDetail('Adapter hash', (string) data_get($payload, 'adapter_contract_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-wakeup-queue')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Queue status', (string) data_get($payload, 'wakeup_queue.status'));
+            $this->components->twoColumnDetail('Projected items', (string) data_get($payload, 'wakeup_queue.counts.projected_items', 0));
+            $this->components->twoColumnDetail('Wakeup hash', (string) data_get($payload, 'wakeup_queue_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-wakeup-write')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Runtime write allowed', data_get($payload, 'runtime_write_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Write status', (string) data_get($payload, 'wakeup_write.status'));
+            $this->components->twoColumnDetail('Written items', (string) data_get($payload, 'wakeup_write.written_count', 0));
+            $this->components->twoColumnDetail('Wakeup write hash', (string) data_get($payload, 'wakeup_write_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-wakeup-scheduler')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Scheduler status', (string) data_get($payload, 'wakeup_scheduler.status'));
+            $this->components->twoColumnDetail('Ready items', (string) data_get($payload, 'wakeup_scheduler.counts.ready_items', 0));
+            $this->components->twoColumnDetail('Scheduler hash', (string) data_get($payload, 'wakeup_scheduler_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-wakeup-claim')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Runtime write allowed', data_get($payload, 'runtime_write_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Claim status', (string) data_get($payload, 'wakeup_claim.status'));
+            $this->components->twoColumnDetail('Wakeup key', (string) data_get($payload, 'wakeup_claim.item.wakeup_key', 'n/a'));
+            $this->components->twoColumnDetail('Claim hash', (string) data_get($payload, 'wakeup_claim_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-dispatch-preflight')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Preflight status', (string) data_get($payload, 'dispatch_preflight.status'));
+            $this->components->twoColumnDetail('Provider', (string) data_get($payload, 'dispatch_preflight.provider', 'n/a'));
+            $this->components->twoColumnDetail('Preflight hash', (string) data_get($payload, 'dispatch_preflight_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-dispatch-receipt-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Receipt status', (string) data_get($payload, 'dispatch_receipt_template.status'));
+            $this->components->twoColumnDetail('Receipt id', (string) data_get($payload, 'dispatch_receipt_template.receipt_template_id', 'n/a'));
+            $this->components->twoColumnDetail('Receipt hash', (string) data_get($payload, 'dispatch_receipt_template_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-dispatch-receipt-validation-preflight')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Validation status', (string) data_get($payload, 'dispatch_receipt_validation_preflight.status'));
+            $this->components->twoColumnDetail('Missing requirements', (string) data_get($payload, 'dispatch_receipt_validation_preflight.counts.missing_requirements', 0));
+            $this->components->twoColumnDetail('Validation hash', (string) data_get($payload, 'dispatch_receipt_validation_preflight_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-dispatch-receipt-write')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Runtime write allowed', data_get($payload, 'runtime_write_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Write status', (string) data_get($payload, 'dispatch_receipt_write.status'));
+            $this->components->twoColumnDetail('Receipt key', (string) data_get($payload, 'dispatch_receipt_write.receipt_key', 'n/a'));
+            $this->components->twoColumnDetail('Write hash', (string) data_get($payload, 'dispatch_receipt_write_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-dispatch-executor-preflight')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Executor status', (string) data_get($payload, 'dispatch_executor_preflight.status'));
+            $this->components->twoColumnDetail('Provider', (string) data_get($payload, 'dispatch_executor_preflight.provider', 'n/a'));
+            $this->components->twoColumnDetail('Executor hash', (string) data_get($payload, 'dispatch_executor_preflight_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-dispatch-executor-contract-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Contract status', (string) data_get($payload, 'dispatch_executor_contract_template.status'));
+            $this->components->twoColumnDetail('Provider', (string) data_get($payload, 'dispatch_executor_contract_template.provider', 'n/a'));
+            $this->components->twoColumnDetail('Contract hash', (string) data_get($payload, 'dispatch_executor_contract_template_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-dispatch-executor-release-preflight')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Release status', (string) data_get($payload, 'dispatch_executor_release_preflight.status'));
+            $this->components->twoColumnDetail('Provider', (string) data_get($payload, 'dispatch_executor_release_preflight.provider', 'n/a'));
+            $this->components->twoColumnDetail('Release hash', (string) data_get($payload, 'dispatch_executor_release_preflight_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-dispatch-executor-release-authorization-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Authorization status', (string) data_get($payload, 'dispatch_executor_release_authorization_template.status'));
+            $this->components->twoColumnDetail('Provider', (string) data_get($payload, 'dispatch_executor_release_authorization_template.provider', 'n/a'));
+            $this->components->twoColumnDetail('Authorization hash', (string) data_get($payload, 'dispatch_executor_release_authorization_template_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-dispatch-executor-release-authorization-receipt-draft')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Draft status', (string) data_get($payload, 'dispatch_executor_release_authorization_receipt_draft.status'));
+            $this->components->twoColumnDetail('Receipt key', (string) data_get($payload, 'dispatch_executor_release_authorization_receipt_draft.receipt_key', 'n/a'));
+            $this->components->twoColumnDetail('Draft hash', (string) data_get($payload, 'dispatch_executor_release_authorization_receipt_draft_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-dispatch-executor-release-authorization-signature-request')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Signature status', (string) data_get($payload, 'dispatch_executor_release_authorization_signature_request.status'));
+            $this->components->twoColumnDetail('Receipt key', (string) data_get($payload, 'dispatch_executor_release_authorization_signature_request.receipt_key', 'n/a'));
+            $this->components->twoColumnDetail('Signature hash', (string) data_get($payload, 'dispatch_executor_release_authorization_signature_request_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-dispatch-executor-release-authorization-post-signature-runbook')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Runbook status', (string) data_get($payload, 'dispatch_executor_release_authorization_post_signature_runbook.status'));
+            $this->components->twoColumnDetail('Step count', (string) data_get($payload, 'dispatch_executor_release_authorization_post_signature_runbook.step_count'));
+            $this->components->twoColumnDetail('Runbook hash', (string) data_get($payload, 'dispatch_executor_release_authorization_post_signature_runbook_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-dispatch-executor-release-authorization-signed-receipt-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Template status', (string) data_get($payload, 'dispatch_executor_release_authorization_signed_receipt_template.status'));
+            $this->components->twoColumnDetail('Receipt key', (string) data_get($payload, 'dispatch_executor_release_authorization_signed_receipt_template.receipt_key', 'n/a'));
+            $this->components->twoColumnDetail('Template hash', (string) data_get($payload, 'dispatch_executor_release_authorization_signed_receipt_template_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-dispatch-executor-release-authorization-signed-receipt-preflight')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Preflight status', (string) data_get($payload, 'dispatch_executor_release_authorization_signed_receipt_preflight.status'));
+            $this->components->twoColumnDetail('Blocking count', (string) data_get($payload, 'dispatch_executor_release_authorization_signed_receipt_preflight.blocking_count'));
+            $this->components->twoColumnDetail('Preflight hash', (string) data_get($payload, 'dispatch_executor_release_authorization_signed_receipt_preflight_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-dispatch-executor-release-authorization-persistence-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Template status', (string) data_get($payload, 'dispatch_executor_release_authorization_persistence_template.status'));
+            $this->components->twoColumnDetail('Target table', (string) data_get($payload, 'dispatch_executor_release_authorization_persistence_template.persistence_target.table'));
+            $this->components->twoColumnDetail('Template hash', (string) data_get($payload, 'dispatch_executor_release_authorization_persistence_template_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-dispatch-executor-release-authorization-persistence-preflight')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Preflight status', (string) data_get($payload, 'dispatch_executor_release_authorization_persistence_preflight.status'));
+            $this->components->twoColumnDetail('Blocking count', (string) data_get($payload, 'dispatch_executor_release_authorization_persistence_preflight.blocking_count'));
+            $this->components->twoColumnDetail('Preflight hash', (string) data_get($payload, 'dispatch_executor_release_authorization_persistence_preflight_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-dispatch-executor-release-authorization-persistence-writer-contract-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Contract status', (string) data_get($payload, 'dispatch_executor_release_authorization_persistence_writer_contract_template.status'));
+            $this->components->twoColumnDetail('Method', (string) data_get($payload, 'dispatch_executor_release_authorization_persistence_writer_contract_template.contract.method'));
+            $this->components->twoColumnDetail('Contract hash', (string) data_get($payload, 'dispatch_executor_release_authorization_persistence_writer_contract_template_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-dispatch-executor-release-authorization-persistence-writer-implementation-preflight')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Preflight status', (string) data_get($payload, 'dispatch_executor_release_authorization_persistence_writer_implementation_preflight.status'));
+            $this->components->twoColumnDetail('Allowed file count', (string) data_get($payload, 'dispatch_executor_release_authorization_persistence_writer_implementation_preflight.allowed_file_count'));
+            $this->components->twoColumnDetail('Preflight hash', (string) data_get($payload, 'dispatch_executor_release_authorization_persistence_writer_implementation_preflight_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-dispatch-executor-release-authorization-persistence-writer-implementation-packet')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Packet status', (string) data_get($payload, 'dispatch_executor_release_authorization_persistence_writer_implementation_packet.status'));
+            $this->components->twoColumnDetail('Task count', (string) data_get($payload, 'dispatch_executor_release_authorization_persistence_writer_implementation_packet.task_count'));
+            $this->components->twoColumnDetail('Packet hash', (string) data_get($payload, 'dispatch_executor_release_authorization_persistence_writer_implementation_packet_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-dispatch-executor-release-authorization-persistence-status')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Storage status', (string) data_get($payload, 'dispatch_executor_release_authorization_persistence_status.status'));
+            $this->components->twoColumnDetail('Persisted count', (string) data_get($payload, 'dispatch_executor_release_authorization_persistence_status.persisted_authorization_count'));
+            $this->components->twoColumnDetail('Status hash', (string) data_get($payload, 'dispatch_executor_release_authorization_persistence_status_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-dispatch-executor-receipt-use-writer-contract-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Contract status', (string) data_get($payload, 'dispatch_executor_receipt_use_writer_contract_template.status'));
+            $this->components->twoColumnDetail('Method', (string) data_get($payload, 'dispatch_executor_receipt_use_writer_contract_template.contract.method'));
+            $this->components->twoColumnDetail('Contract hash', (string) data_get($payload, 'dispatch_executor_receipt_use_writer_contract_template_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-dispatch-executor-receipt-use-writer-preflight')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Preflight status', (string) data_get($payload, 'dispatch_executor_receipt_use_writer_preflight.status'));
+            $this->components->twoColumnDetail('Blocking count', (string) data_get($payload, 'dispatch_executor_receipt_use_writer_preflight.blocking_count'));
+            $this->components->twoColumnDetail('Preflight hash', (string) data_get($payload, 'dispatch_executor_receipt_use_writer_preflight_hash'));
             $this->newLine();
             $this->line((string) $payload['human_summary']);
 

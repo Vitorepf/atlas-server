@@ -106,6 +106,7 @@ $registerAtlasVoiceRoutes = static function (): void {
     Route::get('/ai/voice/runtime/dependency-install-plan', [AtlasAiVoiceRealtimeController::class, 'dependencyInstallPlan']);
     Route::get('/ai/voice/runtime/token-issuer-plan', [AtlasAiVoiceRealtimeController::class, 'tokenIssuerPlan']);
     Route::get('/ai/voice/runtime/token-issuer-smoke', [AtlasAiVoiceRealtimeController::class, 'tokenIssuerSmoke']);
+    Route::get('/ai/voice/runtime/livekit-server-probe', [AtlasAiVoiceRealtimeController::class, 'liveKitServerProbe']);
     Route::get('/ai/voice/runtime/pre-start-health-checks-smoke', [AtlasAiVoiceRealtimeController::class, 'preStartHealthChecksSmoke']);
     Route::get('/ai/voice/runtime/certification', [AtlasAiVoiceRealtimeController::class, 'runtimeCertification']);
     Route::get('/ai/voice/runtime/product-loop-check', [AtlasAiVoiceRealtimeController::class, 'productLoopCheck']);

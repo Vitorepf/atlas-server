@@ -62,6 +62,9 @@ class SupervisedProcessAdapterTest(unittest.TestCase):
         self.assertIn("inspect_guarded_start_process_spawn_contract", payload["implemented_methods"])
         self.assertIn("inspect_guarded_start_spawn_review_contract", payload["implemented_methods"])
         self.assertIn("inspect_guarded_start_process_runner_promotion_packet", payload["implemented_methods"])
+        self.assertIn("inspect_guarded_start_process_runner_operator_release_review", payload["implemented_methods"])
+        self.assertIn("inspect_guarded_start_process_runner_release_finalization", payload["implemented_methods"])
+        self.assertIn("inspect_guarded_start_process_runner_release_authorization", payload["implemented_methods"])
         self.assertTrue(payload["gates"]["supervisor_execution_ready"])
         self.assertTrue(payload["gates"]["launch_disabled"])
         self.assertTrue(payload["gates"]["secrets_redacted"])
@@ -738,6 +741,42 @@ class SupervisedProcessAdapterTest(unittest.TestCase):
         self.assertFalse(payload["guarded_start_process_runner_promotion_packet"]["subprocess_module_imported"])
         self.assertFalse(payload["guarded_start_process_runner_promotion_packet"]["process_launch_attempted"])
         self.assertFalse(payload["guarded_start_process_runner_promotion_packet"]["daemon_started"])
+        self.assertTrue(payload["gates"]["guarded_start_process_runner_operator_release_review_available"])
+        self.assertEqual(
+            "atlas.voice_realtime.guarded_start_process_runner_operator_release_review.v1",
+            payload["guarded_start_process_runner_operator_release_review"]["schema_version"],
+        )
+        self.assertEqual("blocked", payload["guarded_start_process_runner_operator_release_review"]["status"])
+        self.assertTrue(payload["guarded_start_process_runner_operator_release_review"]["guarded_start_process_runner_operator_release_review_implemented"])
+        self.assertTrue(payload["guarded_start_process_runner_operator_release_review"]["process_runner_operator_release_review_only"])
+        self.assertFalse(payload["guarded_start_process_runner_operator_release_review"]["runtime_policy_start_enabled"])
+        self.assertFalse(payload["guarded_start_process_runner_operator_release_review"]["subprocess_module_imported"])
+        self.assertFalse(payload["guarded_start_process_runner_operator_release_review"]["process_launch_attempted"])
+        self.assertFalse(payload["guarded_start_process_runner_operator_release_review"]["daemon_started"])
+        self.assertTrue(payload["gates"]["guarded_start_process_runner_release_finalization_available"])
+        self.assertEqual(
+            "atlas.voice_realtime.guarded_start_process_runner_release_finalization.v1",
+            payload["guarded_start_process_runner_release_finalization"]["schema_version"],
+        )
+        self.assertEqual("blocked", payload["guarded_start_process_runner_release_finalization"]["status"])
+        self.assertTrue(payload["guarded_start_process_runner_release_finalization"]["guarded_start_process_runner_release_finalization_implemented"])
+        self.assertTrue(payload["guarded_start_process_runner_release_finalization"]["process_runner_release_finalization_only"])
+        self.assertFalse(payload["guarded_start_process_runner_release_finalization"]["runtime_policy_start_enabled"])
+        self.assertFalse(payload["guarded_start_process_runner_release_finalization"]["subprocess_module_imported"])
+        self.assertFalse(payload["guarded_start_process_runner_release_finalization"]["process_launch_attempted"])
+        self.assertFalse(payload["guarded_start_process_runner_release_finalization"]["daemon_started"])
+        self.assertTrue(payload["gates"]["guarded_start_process_runner_release_authorization_available"])
+        self.assertEqual(
+            "atlas.voice_realtime.guarded_start_process_runner_release_authorization_contract.v1",
+            payload["guarded_start_process_runner_release_authorization"]["schema_version"],
+        )
+        self.assertEqual("blocked", payload["guarded_start_process_runner_release_authorization"]["status"])
+        self.assertTrue(payload["guarded_start_process_runner_release_authorization"]["guarded_start_process_runner_release_authorization_implemented"])
+        self.assertTrue(payload["guarded_start_process_runner_release_authorization"]["process_runner_release_authorization_only"])
+        self.assertFalse(payload["guarded_start_process_runner_release_authorization"]["runtime_policy_start_enabled"])
+        self.assertFalse(payload["guarded_start_process_runner_release_authorization"]["subprocess_module_imported"])
+        self.assertFalse(payload["guarded_start_process_runner_release_authorization"]["process_launch_attempted"])
+        self.assertFalse(payload["guarded_start_process_runner_release_authorization"]["daemon_started"])
         self.assertEqual("blocked_launch_not_implemented", payload["start_attempt"]["status"])
         self.assertFalse(payload["start_attempt"]["process_launch_attempted"])
         self.assertFalse(payload["start_attempt"]["daemon_started"])
@@ -779,6 +818,7 @@ class SupervisedProcessAdapterTest(unittest.TestCase):
         self.assertIn("VOICE_DAEMON_GUARDED_START_PROCESS_EXECUTOR_REVIEWED", payload["evidence_events"])
         self.assertIn("VOICE_DAEMON_GUARDED_START_PROCESS_EXECUTOR_CONTRACT_EVALUATED", payload["evidence_events"])
         self.assertIn("VOICE_DAEMON_GUARDED_START_PROCESS_RUNNER_PROMOTION_PACKET_ATTACHED", payload["evidence_events"])
+        self.assertIn("VOICE_DAEMON_GUARDED_START_PROCESS_RUNNER_OPERATOR_RELEASE_REVIEWED", payload["evidence_events"])
 
     def test_blocks_when_supervisor_execution_is_not_ready(self) -> None:
         worker_start = ready_worker_start()
@@ -835,6 +875,9 @@ class SupervisedProcessAdapterTest(unittest.TestCase):
         self.assertTrue(payload["gates"]["guarded_start_process_runner_start_gate_available"])
         self.assertTrue(payload["gates"]["guarded_start_process_runner_final_review_available"])
         self.assertTrue(payload["gates"]["guarded_start_process_runner_promotion_packet_available"])
+        self.assertTrue(payload["gates"]["guarded_start_process_runner_operator_release_review_available"])
+        self.assertTrue(payload["gates"]["guarded_start_process_runner_release_finalization_available"])
+        self.assertTrue(payload["gates"]["guarded_start_process_runner_release_authorization_available"])
         self.assertEqual("blocked", payload["launch_authorization_contract"]["status"])
         self.assertEqual("fix_supervised_process_adapter_prerequisites", payload["next_action"])
 

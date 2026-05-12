@@ -27989,6 +27989,355 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertStringContainsString('Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle disable execution later-cycle authorization repair review template is blocked', $output);
     }
 
+    public function test_command_returns_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_rejection_template_blocked_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-persistence-rejection-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_rejection_template.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_rejection_template_blocked', data_get($payload, 'status'));
+        $this->assertSame('read_only_provider_neutral_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_rejection_template', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'writer_file_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'signature_valid'));
+        $this->assertFalse(data_get($payload, 'signature_accepted'));
+        $this->assertFalse(data_get($payload, 'signature_authority'));
+        $this->assertFalse(data_get($payload, 'receipt_signed'));
+        $this->assertFalse(data_get($payload, 'receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'decision_recorded'));
+        $this->assertFalse(data_get($payload, 'approval_granted'));
+        $this->assertFalse(data_get($payload, 'later_cycle_authorized'));
+        $this->assertSame('blocked_before_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repair_review_template', data_get($payload, 'disable_execution_later_cycle_authorization_persistence_rejection.status'));
+        $this->assertSame(15, data_get($payload, 'disable_execution_later_cycle_authorization_persistence_rejection.required_rejection_field_count'));
+        $this->assertSame(10, data_get($payload, 'disable_execution_later_cycle_authorization_persistence_rejection.required_rejection_evidence_count'));
+        $this->assertContains('repaired_evidence_not_sufficient_for_receipt_persistence', data_get($payload, 'disable_execution_later_cycle_authorization_persistence_rejection.allowed_rejection_reasons'));
+        $this->assertContains('replacement_provider_identity_receipt_draft_hash', data_get($payload, 'disable_execution_later_cycle_authorization_persistence_rejection.required_rejection_fields'));
+        $this->assertContains('replacement_workspace_obra_receipt_draft_hash', data_get($payload, 'disable_execution_later_cycle_authorization_persistence_rejection.required_rejection_evidence'));
+        $this->assertContains('non_signature_authority_statement', data_get($payload, 'disable_execution_later_cycle_authorization_persistence_rejection.required_rejection_evidence'));
+        $this->assertContains('persistence_rejection_requires_non_signature_authority_statement', data_get($payload, 'disable_execution_later_cycle_authorization_persistence_rejection.rejection_policy'));
+        $this->assertContains('persistence_rejection_does_not_become_signature_authority', data_get($payload, 'disable_execution_later_cycle_authorization_persistence_rejection.rejection_policy'));
+        $this->assertContains('signature_authority_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_rejection_template', data_get($payload, 'disable_execution_later_cycle_authorization_persistence_rejection.still_forbidden_by_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_rejection_template'));
+        $this->assertContains('agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_rejection_template_does_not_dispatch_work', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'disable_execution_later_cycle_authorization_persistence_rejection_hash'));
+    }
+
+    public function test_command_returns_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_rejection_template_ready_after_all_packets_completed(): void
+    {
+        $packets = [
+            'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001',
+            'AIP-SPLIT-SELF-CONSTRUCTION-PACKET-CONTRACTS-0002',
+            'AIP-SPLIT-SELF-CONSTRUCTION-COMMAND-0003',
+            'AIP-SPLIT-SELF-CONSTRUCTION-SERVICE-0004',
+            'AIP-SPLIT-SELF-CONSTRUCTION-EVIDENCE-0005',
+        ];
+
+        foreach ($packets as $index => $packetId) {
+            $actor = $index % 2 === 0 ? 'claude-'.($index + 1) : 'gemini-'.($index + 1);
+            $session = 'provider-session-'.($index + 1);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--claim-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--json' => true,
+            ]);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--complete-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--reason' => 'packet_scope_finished',
+                '--evidence-hash' => hash('sha256', $packetId),
+                '--json' => true,
+            ]);
+        }
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-persistence-rejection-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_rejection_template_ready', data_get($payload, 'status'));
+        $this->assertSame('ready_as_future_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_rejection_template', data_get($payload, 'disable_execution_later_cycle_authorization_persistence_rejection.status'));
+        $this->assertSame('FORGE-WORKSPACE-ATLAS-SELF-CONSTRUCTION-0001', data_get($payload, 'disable_execution_later_cycle_authorization_persistence_rejection.workspace.workspace_id'));
+        $this->assertSame(15, data_get($payload, 'disable_execution_later_cycle_authorization_persistence_rejection.required_rejection_field_count'));
+        $this->assertSame(10, data_get($payload, 'disable_execution_later_cycle_authorization_persistence_rejection.required_rejection_evidence_count'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_persistence_rejection.prior_authorization_reuse_allowed'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_persistence_rejection.receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_persistence_rejection.ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_persistence_rejection.signature_authority'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_persistence_rejection.decision_recorded'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_persistence_rejection.approval_granted'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_persistence_rejection.later_cycle_authorized'));
+        $this->assertContains('writer_release_fresh_authorization_later_cycle_authorization_human_escalation_hash', data_get($payload, 'disable_execution_later_cycle_authorization_persistence_rejection.future_rejection_outputs'));
+        $this->assertContains('persistence_rejection_requires_replacement_provider_identity_receipt_draft_hash', data_get($payload, 'disable_execution_later_cycle_authorization_persistence_rejection.rejection_policy'));
+        $this->assertContains('human_reviewer_identity', data_get($payload, 'disable_execution_later_cycle_authorization_persistence_rejection.required_rejection_evidence'));
+    }
+
+    public function test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_rejection_template(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-persistence-rejection-template' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Workspace', $output);
+        $this->assertStringContainsString('Later cycle authorization persistence rejection status', $output);
+        $this->assertStringContainsString('Rejection field count', $output);
+        $this->assertStringContainsString('Signature authority', $output);
+        $this->assertStringContainsString('Later cycle authorization persistence rejection hash', $output);
+        $this->assertStringContainsString('Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle disable execution later-cycle authorization persistence rejection template is blocked', $output);
+    }
+
+    public function test_command_returns_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template_blocked_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-human-escalation-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template_blocked', data_get($payload, 'status'));
+        $this->assertSame('read_only_provider_neutral_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'writer_file_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'signature_valid'));
+        $this->assertFalse(data_get($payload, 'signature_accepted'));
+        $this->assertFalse(data_get($payload, 'signature_authority'));
+        $this->assertFalse(data_get($payload, 'receipt_signed'));
+        $this->assertFalse(data_get($payload, 'receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'decision_recorded'));
+        $this->assertFalse(data_get($payload, 'approval_granted'));
+        $this->assertFalse(data_get($payload, 'later_cycle_authorized'));
+        $this->assertFalse(data_get($payload, 'human_notified'));
+        $this->assertFalse(data_get($payload, 'human_task_created'));
+        $this->assertSame('blocked_before_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_rejection_template', data_get($payload, 'disable_execution_later_cycle_authorization_human_escalation.status'));
+        $this->assertSame(14, data_get($payload, 'disable_execution_later_cycle_authorization_human_escalation.required_escalation_field_count'));
+        $this->assertSame(9, data_get($payload, 'disable_execution_later_cycle_authorization_human_escalation.required_escalation_evidence_count'));
+        $this->assertContains('governance_reviewer', data_get($payload, 'disable_execution_later_cycle_authorization_human_escalation.allowed_human_roles'));
+        $this->assertContains('provider_identity_receipt_draft_hash', data_get($payload, 'disable_execution_later_cycle_authorization_human_escalation.required_escalation_fields'));
+        $this->assertContains('workspace_obra_receipt_draft_hash', data_get($payload, 'disable_execution_later_cycle_authorization_human_escalation.required_escalation_evidence'));
+        $this->assertContains('non_signature_authority_statement', data_get($payload, 'disable_execution_later_cycle_authorization_human_escalation.required_escalation_evidence'));
+        $this->assertContains('human_escalation_requires_non_signature_authority_statement', data_get($payload, 'disable_execution_later_cycle_authorization_human_escalation.escalation_policy'));
+        $this->assertContains('human_escalation_does_not_become_signature_authority', data_get($payload, 'disable_execution_later_cycle_authorization_human_escalation.escalation_policy'));
+        $this->assertContains('signature_authority_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template', data_get($payload, 'disable_execution_later_cycle_authorization_human_escalation.still_forbidden_by_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template'));
+        $this->assertContains('agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template_does_not_dispatch_work', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'disable_execution_later_cycle_authorization_human_escalation_hash'));
+    }
+
+    public function test_command_returns_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template_ready_after_all_packets_completed(): void
+    {
+        $packets = [
+            'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001',
+            'AIP-SPLIT-SELF-CONSTRUCTION-PACKET-CONTRACTS-0002',
+            'AIP-SPLIT-SELF-CONSTRUCTION-COMMAND-0003',
+            'AIP-SPLIT-SELF-CONSTRUCTION-SERVICE-0004',
+            'AIP-SPLIT-SELF-CONSTRUCTION-EVIDENCE-0005',
+        ];
+
+        foreach ($packets as $index => $packetId) {
+            $actor = $index % 2 === 0 ? 'claude-'.($index + 1) : 'gemini-'.($index + 1);
+            $session = 'provider-session-'.($index + 1);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--claim-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--json' => true,
+            ]);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--complete-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--reason' => 'packet_scope_finished',
+                '--evidence-hash' => hash('sha256', $packetId),
+                '--json' => true,
+            ]);
+        }
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-human-escalation-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template_ready', data_get($payload, 'status'));
+        $this->assertSame('ready_as_future_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template', data_get($payload, 'disable_execution_later_cycle_authorization_human_escalation.status'));
+        $this->assertSame('FORGE-WORKSPACE-ATLAS-SELF-CONSTRUCTION-0001', data_get($payload, 'disable_execution_later_cycle_authorization_human_escalation.workspace.workspace_id'));
+        $this->assertSame(14, data_get($payload, 'disable_execution_later_cycle_authorization_human_escalation.required_escalation_field_count'));
+        $this->assertSame(9, data_get($payload, 'disable_execution_later_cycle_authorization_human_escalation.required_escalation_evidence_count'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_human_escalation.prior_authorization_reuse_allowed'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_human_escalation.receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_human_escalation.ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_human_escalation.signature_authority'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_human_escalation.decision_recorded'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_human_escalation.approval_granted'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_human_escalation.later_cycle_authorized'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_human_escalation.human_notified'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_human_escalation.human_task_created'));
+        $this->assertContains('writer_release_fresh_authorization_later_cycle_authorization_manual_decision_request_hash', data_get($payload, 'disable_execution_later_cycle_authorization_human_escalation.future_escalation_outputs'));
+        $this->assertContains('human_escalation_requires_provider_identity_receipt_draft_hash', data_get($payload, 'disable_execution_later_cycle_authorization_human_escalation.escalation_policy'));
+        $this->assertContains('human_reviewer_identity', data_get($payload, 'disable_execution_later_cycle_authorization_human_escalation.required_escalation_evidence'));
+    }
+
+    public function test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-human-escalation-template' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Workspace', $output);
+        $this->assertStringContainsString('Later cycle authorization human escalation status', $output);
+        $this->assertStringContainsString('Escalation field count', $output);
+        $this->assertStringContainsString('Human notified', $output);
+        $this->assertStringContainsString('Later cycle authorization human escalation hash', $output);
+        $this->assertStringContainsString('Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle disable execution later-cycle authorization human escalation template is blocked', $output);
+    }
+
+    public function test_command_returns_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template_blocked_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-manual-decision-request-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template_blocked', data_get($payload, 'status'));
+        $this->assertSame('read_only_provider_neutral_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'writer_file_creation_allowed'));
+        $this->assertFalse(data_get($payload, 'signature_valid'));
+        $this->assertFalse(data_get($payload, 'signature_accepted'));
+        $this->assertFalse(data_get($payload, 'signature_authority'));
+        $this->assertFalse(data_get($payload, 'receipt_signed'));
+        $this->assertFalse(data_get($payload, 'receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'decision_recorded'));
+        $this->assertFalse(data_get($payload, 'approval_granted'));
+        $this->assertFalse(data_get($payload, 'later_cycle_authorized'));
+        $this->assertFalse(data_get($payload, 'human_notified'));
+        $this->assertFalse(data_get($payload, 'human_task_created'));
+        $this->assertFalse(data_get($payload, 'manual_decision_requested'));
+        $this->assertSame('blocked_before_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template', data_get($payload, 'disable_execution_later_cycle_authorization_manual_decision_request.status'));
+        $this->assertSame(15, data_get($payload, 'disable_execution_later_cycle_authorization_manual_decision_request.required_decision_request_field_count'));
+        $this->assertSame(10, data_get($payload, 'disable_execution_later_cycle_authorization_manual_decision_request.required_decision_request_evidence_count'));
+        $this->assertContains('reject_later_cycle_authorization', data_get($payload, 'disable_execution_later_cycle_authorization_manual_decision_request.allowed_decision_options'));
+        $this->assertContains('provider_identity_receipt_draft_hash', data_get($payload, 'disable_execution_later_cycle_authorization_manual_decision_request.required_decision_request_fields'));
+        $this->assertContains('workspace_obra_receipt_draft_hash', data_get($payload, 'disable_execution_later_cycle_authorization_manual_decision_request.required_decision_request_evidence'));
+        $this->assertContains('non_signature_authority_statement', data_get($payload, 'disable_execution_later_cycle_authorization_manual_decision_request.required_decision_request_evidence'));
+        $this->assertContains('manual_decision_request_does_not_request_real_decision', data_get($payload, 'disable_execution_later_cycle_authorization_manual_decision_request.decision_request_policy'));
+        $this->assertContains('manual_decision_request_does_not_become_signature_authority', data_get($payload, 'disable_execution_later_cycle_authorization_manual_decision_request.decision_request_policy'));
+        $this->assertContains('signature_authority_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template', data_get($payload, 'disable_execution_later_cycle_authorization_manual_decision_request.still_forbidden_by_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template'));
+        $this->assertContains('agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template_does_not_dispatch_work', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'disable_execution_later_cycle_authorization_manual_decision_request_hash'));
+    }
+
+    public function test_command_returns_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template_ready_after_all_packets_completed(): void
+    {
+        $packets = [
+            'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001',
+            'AIP-SPLIT-SELF-CONSTRUCTION-PACKET-CONTRACTS-0002',
+            'AIP-SPLIT-SELF-CONSTRUCTION-COMMAND-0003',
+            'AIP-SPLIT-SELF-CONSTRUCTION-SERVICE-0004',
+            'AIP-SPLIT-SELF-CONSTRUCTION-EVIDENCE-0005',
+        ];
+
+        foreach ($packets as $index => $packetId) {
+            $actor = $index % 2 === 0 ? 'claude-'.($index + 1) : 'gemini-'.($index + 1);
+            $session = 'provider-session-'.($index + 1);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--claim-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--json' => true,
+            ]);
+
+            Artisan::call('atlas:ai:self-construction', [
+                '--complete-packet' => true,
+                '--packet' => $packetId,
+                '--actor' => $actor,
+                '--session' => $session,
+                '--reason' => 'packet_scope_finished',
+                '--evidence-hash' => hash('sha256', $packetId),
+                '--json' => true,
+            ]);
+        }
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-manual-decision-request-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template_ready', data_get($payload, 'status'));
+        $this->assertSame('ready_as_future_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template', data_get($payload, 'disable_execution_later_cycle_authorization_manual_decision_request.status'));
+        $this->assertSame('FORGE-WORKSPACE-ATLAS-SELF-CONSTRUCTION-0001', data_get($payload, 'disable_execution_later_cycle_authorization_manual_decision_request.workspace.workspace_id'));
+        $this->assertSame(15, data_get($payload, 'disable_execution_later_cycle_authorization_manual_decision_request.required_decision_request_field_count'));
+        $this->assertSame(10, data_get($payload, 'disable_execution_later_cycle_authorization_manual_decision_request.required_decision_request_evidence_count'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_manual_decision_request.prior_authorization_reuse_allowed'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_manual_decision_request.receipt_persisted'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_manual_decision_request.ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_manual_decision_request.signature_authority'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_manual_decision_request.decision_recorded'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_manual_decision_request.approval_granted'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_manual_decision_request.later_cycle_authorized'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_manual_decision_request.human_notified'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_manual_decision_request.human_task_created'));
+        $this->assertFalse(data_get($payload, 'disable_execution_later_cycle_authorization_manual_decision_request.manual_decision_requested'));
+        $this->assertContains('writer_release_fresh_authorization_later_cycle_authorization_manual_decision_response_hash', data_get($payload, 'disable_execution_later_cycle_authorization_manual_decision_request.future_decision_request_outputs'));
+        $this->assertContains('manual_decision_request_requires_provider_identity_receipt_draft_hash', data_get($payload, 'disable_execution_later_cycle_authorization_manual_decision_request.decision_request_policy'));
+        $this->assertContains('human_reviewer_identity', data_get($payload, 'disable_execution_later_cycle_authorization_manual_decision_request.required_decision_request_evidence'));
+    }
+
+    public function test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-manual-decision-request-template' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Workspace', $output);
+        $this->assertStringContainsString('Later cycle authorization manual decision request status', $output);
+        $this->assertStringContainsString('Decision field count', $output);
+        $this->assertStringContainsString('Decision requested', $output);
+        $this->assertStringContainsString('Later cycle authorization manual decision request hash', $output);
+        $this->assertStringContainsString('Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle disable execution later-cycle authorization manual decision request template is blocked', $output);
+    }
+
     public function test_command_blocks_codex_start_packet_when_no_packets_remain(): void
     {
         for ($index = 1; $index <= 5; $index++) {
@@ -28600,6 +28949,796 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertStringContainsString('Obras Shared Workspace', $output);
         $this->assertStringContainsString('Specialization', $output);
         $this->assertStringContainsString('Forge Workspace projection is ready', $output);
+    }
+
+    public function test_command_returns_agent_control_plane_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-control-plane' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_control_plane.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('agent_control_plane_ready', data_get($payload, 'status'));
+        $this->assertSame('read_only_agent_control_plane_projection', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertSame('Atlas Agent Control Plane', data_get($payload, 'control_plane.canonical_name'));
+        $this->assertSame('Atlas Self-Construction OS', data_get($payload, 'control_plane.parent_program'));
+        $this->assertSame('Obras Shared Workspace', data_get($payload, 'control_plane.workspace_name'));
+        $this->assertContains('durable_packet_checkout_lock', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('heartbeat_runs', data_get($payload, 'control_plane.not_yet_runtime_capable'));
+        $this->assertContains('checkout_lock', data_get($payload, 'control_plane.paperclip_patterns_absorbed'));
+        $this->assertContains(data_get($payload, 'control_plane.persistent_runtime.status'), ['schema_ready', 'schema_missing']);
+        $this->assertFalse(data_get($payload, 'control_plane.persistent_runtime.write_runtime_enabled'));
+        $this->assertFalse(data_get($payload, 'control_plane.persistent_runtime.sync_from_reservation_ledger_enabled'));
+        $this->assertSame(5, data_get($payload, 'control_plane.counts.available_packets'));
+        $this->assertSame(0, data_get($payload, 'control_plane.counts.provider_sessions'));
+        $this->assertTrue(data_get($payload, 'control_plane.readiness.two_codex_possible_now'));
+        $this->assertContains('no_provider_session_without_packet_claim', data_get($payload, 'control_plane.invariants'));
+        $this->assertContains('agent_control_plane_does_not_start_providers', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'control_plane_hash'));
+    }
+
+    public function test_command_agent_control_plane_reports_claimed_provider_session(): void
+    {
+        Artisan::call('atlas:ai:self-construction', [
+            '--claim-packet' => true,
+            '--packet' => 'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001',
+            '--actor' => 'codex-a',
+            '--session' => 'session-a',
+            '--json' => true,
+        ]);
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-control-plane' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame(1, data_get($payload, 'control_plane.counts.provider_sessions'));
+        $this->assertSame(1, data_get($payload, 'control_plane.counts.claimed_packets'));
+        $this->assertSame('codex-a', data_get($payload, 'control_plane.provider_sessions.0.actor'));
+        $this->assertSame('codex', data_get($payload, 'control_plane.provider_sessions.0.provider'));
+        $this->assertSame('AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001', data_get($payload, 'control_plane.provider_sessions.0.current_packet_id'));
+        $this->assertSame('active_lease', data_get($payload, 'control_plane.provider_sessions.0.liveness'));
+    }
+
+    public function test_command_human_output_lists_agent_control_plane(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-control-plane' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Control plane', $output);
+        $this->assertStringContainsString('Atlas Agent Control Plane', $output);
+        $this->assertStringContainsString('Provider sessions', $output);
+        $this->assertStringContainsString('Agent Control Plane projection is ready', $output);
+    }
+
+    public function test_command_returns_agent_run_sync_blocked_without_runtime_schema(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-run-sync' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_run_sync.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('controlled_agent_run_sync', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertContains(data_get($payload, 'status'), ['blocked', 'agent_run_sync_ready']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'sync_hash'));
+    }
+
+    public function test_command_returns_agent_heartbeat_blocked_without_synced_run_or_schema(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-heartbeat' => true,
+            '--actor' => 'codex-a',
+            '--session' => 'session-a',
+            '--packet' => 'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001',
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_heartbeat.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('controlled_agent_heartbeat', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertContains(data_get($payload, 'status'), ['blocked', 'agent_heartbeat_recorded']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'heartbeat_hash'));
+    }
+
+    public function test_command_returns_agent_run_liveness_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-run-liveness' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_run_liveness.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('read_only_agent_run_liveness_detector', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'runtime_write_allowed'));
+        $this->assertContains(data_get($payload, 'status'), ['blocked', 'agent_run_liveness_ready']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'liveness_hash'));
+    }
+
+    public function test_command_returns_agent_cost_event_blocked_without_synced_run_or_schema(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-cost-event' => true,
+            '--actor' => 'codex-a',
+            '--session' => 'session-a',
+            '--packet' => 'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001',
+            '--model' => 'gpt-5.5',
+            '--input-tokens' => '100',
+            '--output-tokens' => '50',
+            '--cost-usd' => '0.01',
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_cost_event.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('controlled_agent_cost_event_writer', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertContains(data_get($payload, 'status'), ['blocked', 'agent_cost_event_recorded']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'cost_event_hash'));
+    }
+
+    public function test_command_returns_agent_work_product_blocked_without_synced_run_or_schema(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-work-product' => true,
+            '--actor' => 'codex-a',
+            '--session' => 'session-a',
+            '--packet' => 'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001',
+            '--artifact-type' => 'patch',
+            '--artifact-path' => 'docs/engineering-knowledge-base/self-construction/agent-control-plane-contract.md',
+            '--artifact-hash' => hash('sha256', 'artifact'),
+            '--summary' => 'Recorded test artifact.',
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_work_product.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('controlled_agent_work_product_registry', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertContains(data_get($payload, 'status'), ['blocked', 'agent_work_product_recorded']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'work_product_hash'));
+    }
+
+    public function test_command_returns_agent_adapter_contract_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-adapter-contract' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_adapter_contract.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('agent_adapter_contract_ready', data_get($payload, 'status'));
+        $this->assertSame('read_only_agent_adapter_invocation_contract', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'runtime_write_allowed'));
+        $this->assertSame('AGENT-ADAPTER-CONTRACT-SELF-CONSTRUCTION-0001', data_get($payload, 'adapter_contract.contract_id'));
+        $this->assertSame(4, data_get($payload, 'adapter_contract.provider_count'));
+        $this->assertContains('operation_id', data_get($payload, 'adapter_contract.shared_invocation_envelope'));
+        $this->assertContains('work_products', data_get($payload, 'adapter_contract.shared_return_envelope'));
+        $this->assertFalse(data_get($payload, 'adapter_contract.dispatch_policy.dispatch_allowed_now'));
+        $this->assertTrue(data_get($payload, 'adapter_contract.dispatch_policy.manual_sessions_allowed_now'));
+        $this->assertContains('agent_adapter_contract_does_not_start_providers', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'adapter_contract_hash'));
+    }
+
+    public function test_command_returns_agent_wakeup_queue_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-wakeup-queue' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_wakeup_queue.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('read_only_agent_wakeup_queue_projection', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'runtime_write_allowed'));
+        $this->assertContains(data_get($payload, 'status'), ['blocked', 'agent_wakeup_queue_ready']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'wakeup_queue_hash'));
+    }
+
+    public function test_command_returns_agent_wakeup_write_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-wakeup-write' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_wakeup_write.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('controlled_agent_wakeup_writer', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertContains(data_get($payload, 'status'), ['blocked', 'agent_wakeup_write_ready']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'wakeup_write_hash'));
+    }
+
+    public function test_command_returns_agent_wakeup_scheduler_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-wakeup-scheduler' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_wakeup_scheduler.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('read_only_agent_wakeup_scheduler', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'runtime_write_allowed'));
+        $this->assertContains(data_get($payload, 'status'), ['blocked', 'agent_wakeup_scheduler_ready']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'wakeup_scheduler_hash'));
+    }
+
+    public function test_command_returns_agent_wakeup_claim_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-wakeup-claim' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_wakeup_claim.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('controlled_agent_wakeup_claim', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertContains(data_get($payload, 'status'), ['blocked', 'agent_wakeup_claimed']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'wakeup_claim_hash'));
+    }
+
+    public function test_command_returns_agent_dispatch_preflight_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-dispatch-preflight' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_dispatch_preflight.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('read_only_agent_dispatch_preflight', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'runtime_write_allowed'));
+        $this->assertContains(data_get($payload, 'status'), ['blocked', 'agent_dispatch_preflight_ready']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'dispatch_preflight_hash'));
+    }
+
+    public function test_command_returns_agent_dispatch_receipt_template_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-dispatch-receipt-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_dispatch_receipt_template.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('read_only_agent_dispatch_receipt_template', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'runtime_write_allowed'));
+        $this->assertContains(data_get($payload, 'status'), ['blocked', 'agent_dispatch_receipt_template_ready']);
+        $this->assertFalse(data_get($payload, 'dispatch_receipt_template.dispatch_allowed_by_template'));
+        $this->assertTrue(data_get($payload, 'dispatch_receipt_template.signature_required'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'dispatch_receipt_template_hash'));
+    }
+
+    public function test_command_returns_agent_dispatch_receipt_validation_preflight_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-dispatch-receipt-validation-preflight' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_dispatch_receipt_validation_preflight.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('read_only_agent_dispatch_receipt_validation_preflight', data_get($payload, 'mode'));
+        $this->assertSame('blocked', data_get($payload, 'status'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'runtime_write_allowed'));
+        $this->assertGreaterThan(0, data_get($payload, 'dispatch_receipt_validation_preflight.counts.missing_requirements'));
+        $this->assertContains('agent_dispatch_receipt_validation_preflight_does_not_persist_receipt', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'dispatch_receipt_validation_preflight_hash'));
+    }
+
+    public function test_command_returns_agent_dispatch_receipt_write_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-dispatch-receipt-write' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_dispatch_receipt_write.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('controlled_agent_dispatch_receipt_writer', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertContains(data_get($payload, 'status'), ['blocked', 'agent_dispatch_receipt_write_ready']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'dispatch_receipt_write_hash'));
+    }
+
+    public function test_command_returns_agent_dispatch_executor_preflight_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-dispatch-executor-preflight' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_dispatch_executor_preflight.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('read_only_agent_dispatch_executor_preflight', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'runtime_write_allowed'));
+        $this->assertContains(data_get($payload, 'status'), ['blocked', 'agent_dispatch_executor_preflight_ready']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'dispatch_executor_preflight_hash'));
+    }
+
+    public function test_command_returns_agent_dispatch_executor_contract_template_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-dispatch-executor-contract-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_dispatch_executor_contract_template.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('read_only_agent_dispatch_executor_contract_template', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'runtime_write_allowed'));
+        $this->assertContains(data_get($payload, 'status'), ['blocked', 'agent_dispatch_executor_contract_template_ready']);
+        $this->assertFalse(data_get($payload, 'dispatch_executor_contract_template.dispatch_allowed_by_template'));
+        $this->assertContains('agent_dispatch_executor_contract_template_does_not_start_providers', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'dispatch_executor_contract_template_hash'));
+    }
+
+    public function test_command_returns_agent_dispatch_executor_release_preflight_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-dispatch-executor-release-preflight' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_dispatch_executor_release_preflight.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('read_only_agent_dispatch_executor_release_preflight', data_get($payload, 'mode'));
+        $this->assertSame('blocked', data_get($payload, 'status'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'runtime_write_allowed'));
+        $this->assertContains('executor_release_authorization_receipt_missing', data_get($payload, 'dispatch_executor_release_preflight.blocking_reasons'));
+        $this->assertContains('executor_release_authorization_persistence_status_not_ready', data_get($payload, 'dispatch_executor_release_preflight.blocking_reasons'));
+        $this->assertSame('blocked', data_get($payload, 'dispatch_executor_release_preflight.persistence_status'));
+        $this->assertSame('blocked', data_get($payload, 'dispatch_executor_release_preflight.receipt_use_writer_status'));
+        $this->assertFalse(data_get($payload, 'dispatch_executor_release_preflight.release_requirements.signed_executor_release_authorization'));
+        $this->assertFalse(data_get($payload, 'dispatch_executor_release_preflight.release_requirements.atomic_receipt_used_writer'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'dispatch_executor_release_preflight.persistence_status_hash'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'dispatch_executor_release_preflight.receipt_use_writer_preflight_hash'));
+        $this->assertContains('agent_dispatch_executor_release_preflight_does_not_start_providers', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'dispatch_executor_release_preflight_hash'));
+    }
+
+    public function test_command_returns_agent_dispatch_executor_release_authorization_template_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-dispatch-executor-release-authorization-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_dispatch_executor_release_authorization_template.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('read_only_agent_dispatch_executor_release_authorization_template', data_get($payload, 'mode'));
+        $this->assertSame('agent_dispatch_executor_release_authorization_template_ready', data_get($payload, 'status'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'runtime_write_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_executor_release_authorization_template.release_allowed_by_template'));
+        $this->assertContains('agent_dispatch_executor_release_authorization_template_does_not_accept_signatures', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'dispatch_executor_release_authorization_template_hash'));
+    }
+
+    public function test_command_returns_agent_dispatch_executor_release_authorization_receipt_draft_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-dispatch-executor-release-authorization-receipt-draft' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_dispatch_executor_release_authorization_receipt_draft.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('read_only_agent_dispatch_executor_release_authorization_receipt_draft', data_get($payload, 'mode'));
+        $this->assertSame('agent_dispatch_executor_release_authorization_receipt_draft_ready', data_get($payload, 'status'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'runtime_write_allowed'));
+        $this->assertTrue(data_get($payload, 'dispatch_executor_release_authorization_receipt_draft.draft_policy.is_unsigned'));
+        $this->assertFalse(data_get($payload, 'dispatch_executor_release_authorization_receipt_draft.draft_policy.release_allowed_by_draft'));
+        $this->assertContains('agent_dispatch_executor_release_authorization_receipt_draft_does_not_accept_signatures', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'dispatch_executor_release_authorization_receipt_draft_hash'));
+    }
+
+    public function test_command_returns_agent_dispatch_executor_release_authorization_signature_request_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-dispatch-executor-release-authorization-signature-request' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_dispatch_executor_release_authorization_signature_request.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('read_only_agent_dispatch_executor_release_authorization_signature_request', data_get($payload, 'mode'));
+        $this->assertSame('agent_dispatch_executor_release_authorization_signature_request_ready', data_get($payload, 'status'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'runtime_write_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_executor_release_authorization_signature_request.signature_policy.signature_acceptance_allowed_here'));
+        $this->assertFalse(data_get($payload, 'dispatch_executor_release_authorization_signature_request.signature_policy.release_allowed_by_request'));
+        $this->assertContains('agent_dispatch_executor_release_authorization_signature_request_does_not_accept_signatures', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'dispatch_executor_release_authorization_signature_request_hash'));
+    }
+
+    public function test_command_returns_agent_dispatch_executor_release_authorization_post_signature_runbook_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-dispatch-executor-release-authorization-post-signature-runbook' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_dispatch_executor_release_authorization_post_signature_runbook.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('read_only_agent_dispatch_executor_release_authorization_post_signature_runbook', data_get($payload, 'mode'));
+        $this->assertSame('agent_dispatch_executor_release_authorization_post_signature_runbook_ready', data_get($payload, 'status'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'runtime_write_allowed'));
+        $this->assertGreaterThan(0, data_get($payload, 'dispatch_executor_release_authorization_post_signature_runbook.step_count'));
+        $this->assertFalse(data_get($payload, 'dispatch_executor_release_authorization_post_signature_runbook.post_signature_policy.signature_validation_allowed_here'));
+        $this->assertContains('agent_dispatch_executor_release_authorization_post_signature_runbook_does_not_validate_signatures', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'dispatch_executor_release_authorization_post_signature_runbook_hash'));
+    }
+
+    public function test_command_returns_agent_dispatch_executor_release_authorization_signed_receipt_template_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-dispatch-executor-release-authorization-signed-receipt-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_dispatch_executor_release_authorization_signed_receipt_template.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('read_only_agent_dispatch_executor_release_authorization_signed_receipt_template', data_get($payload, 'mode'));
+        $this->assertSame('agent_dispatch_executor_release_authorization_signed_receipt_template_ready', data_get($payload, 'status'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'runtime_write_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_executor_release_authorization_signed_receipt_template.template_policy.signature_acceptance_allowed_here'));
+        $this->assertFalse(data_get($payload, 'dispatch_executor_release_authorization_signed_receipt_template.template_policy.release_allowed_by_template'));
+        $this->assertContains('agent_dispatch_executor_release_authorization_signed_receipt_template_does_not_validate_signatures', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'dispatch_executor_release_authorization_signed_receipt_template_hash'));
+    }
+
+    public function test_command_returns_agent_dispatch_executor_release_authorization_signed_receipt_preflight_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-dispatch-executor-release-authorization-signed-receipt-preflight' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_dispatch_executor_release_authorization_signed_receipt_preflight.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('read_only_agent_dispatch_executor_release_authorization_signed_receipt_preflight', data_get($payload, 'mode'));
+        $this->assertSame('blocked', data_get($payload, 'status'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'runtime_write_allowed'));
+        $this->assertGreaterThan(0, data_get($payload, 'dispatch_executor_release_authorization_signed_receipt_preflight.blocking_count'));
+        $this->assertContains('external_signature_validation_evidence_missing', data_get($payload, 'dispatch_executor_release_authorization_signed_receipt_preflight.blocking_reasons'));
+        $this->assertFalse(data_get($payload, 'dispatch_executor_release_authorization_signed_receipt_preflight.preflight_policy.authorization_persistence_allowed_here'));
+        $this->assertContains('agent_dispatch_executor_release_authorization_signed_receipt_preflight_does_not_persist_authorization', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'dispatch_executor_release_authorization_signed_receipt_preflight_hash'));
+    }
+
+    public function test_command_returns_agent_dispatch_executor_release_authorization_persistence_template_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-dispatch-executor-release-authorization-persistence-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_dispatch_executor_release_authorization_persistence_template.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('read_only_agent_dispatch_executor_release_authorization_persistence_template', data_get($payload, 'mode'));
+        $this->assertSame('blocked', data_get($payload, 'status'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'runtime_write_allowed'));
+        $this->assertSame('atlas_self_construction_agent_dispatch_executor_release_authorizations', data_get($payload, 'dispatch_executor_release_authorization_persistence_template.persistence_target.table'));
+        $this->assertContains('unique_signed_receipt_hash', data_get($payload, 'dispatch_executor_release_authorization_persistence_template.required_atomic_guards'));
+        $this->assertFalse(data_get($payload, 'dispatch_executor_release_authorization_persistence_template.persistence_policy.authorization_persistence_allowed_here'));
+        $this->assertContains('agent_dispatch_executor_release_authorization_persistence_template_does_not_write_ledger', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'dispatch_executor_release_authorization_persistence_template_hash'));
+    }
+
+    public function test_command_returns_agent_dispatch_executor_release_authorization_persistence_preflight_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-dispatch-executor-release-authorization-persistence-preflight' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_dispatch_executor_release_authorization_persistence_preflight.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('read_only_agent_dispatch_executor_release_authorization_persistence_preflight', data_get($payload, 'mode'));
+        $this->assertSame('blocked', data_get($payload, 'status'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'runtime_write_allowed'));
+        $this->assertGreaterThan(0, data_get($payload, 'dispatch_executor_release_authorization_persistence_preflight.blocking_count'));
+        $this->assertContains('authorization_repository_missing', data_get($payload, 'dispatch_executor_release_authorization_persistence_preflight.blocking_reasons'));
+        $this->assertContains('unique_signed_receipt_hash', data_get($payload, 'dispatch_executor_release_authorization_persistence_preflight.required_atomic_guards'));
+        $this->assertFalse(data_get($payload, 'dispatch_executor_release_authorization_persistence_preflight.preflight_policy.ledger_write_allowed_here'));
+        $this->assertContains('agent_dispatch_executor_release_authorization_persistence_preflight_does_not_persist_authorization', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'dispatch_executor_release_authorization_persistence_preflight_hash'));
+    }
+
+    public function test_command_returns_agent_dispatch_executor_release_authorization_persistence_writer_contract_template_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-dispatch-executor-release-authorization-persistence-writer-contract-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_dispatch_executor_release_authorization_persistence_writer_contract_template.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('read_only_agent_dispatch_executor_release_authorization_persistence_writer_contract_template', data_get($payload, 'mode'));
+        $this->assertSame('agent_dispatch_executor_release_authorization_persistence_writer_contract_template_ready', data_get($payload, 'status'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'runtime_write_allowed'));
+        $this->assertSame('persistSignedReleaseAuthorization', data_get($payload, 'dispatch_executor_release_authorization_persistence_writer_contract_template.contract.method'));
+        $this->assertContains('bypassing_idempotency', data_get($payload, 'dispatch_executor_release_authorization_persistence_writer_contract_template.forbidden_writer_behaviors'));
+        $this->assertContains('writes_ledger_event_in_same_transaction', data_get($payload, 'dispatch_executor_release_authorization_persistence_writer_contract_template.required_tests'));
+        $this->assertFalse(data_get($payload, 'dispatch_executor_release_authorization_persistence_writer_contract_template.contract_policy.writer_implementation_allowed_here'));
+        $this->assertContains('agent_dispatch_executor_release_authorization_persistence_writer_contract_template_does_not_create_writer_files', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'dispatch_executor_release_authorization_persistence_writer_contract_template_hash'));
+    }
+
+    public function test_command_returns_agent_dispatch_executor_release_authorization_persistence_writer_implementation_preflight_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-dispatch-executor-release-authorization-persistence-writer-implementation-preflight' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_dispatch_executor_release_authorization_persistence_writer_implementation_preflight.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('read_only_agent_dispatch_executor_release_authorization_persistence_writer_implementation_preflight', data_get($payload, 'mode'));
+        $this->assertSame('ready_for_scoped_writer_implementation_packet', data_get($payload, 'status'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'runtime_write_allowed'));
+        $this->assertGreaterThan(0, data_get($payload, 'dispatch_executor_release_authorization_persistence_writer_implementation_preflight.allowed_file_count'));
+        $this->assertContains('create_persistence_writer_service', data_get($payload, 'dispatch_executor_release_authorization_persistence_writer_implementation_preflight.required_first_changes'));
+        $this->assertContains('do_not_start_providers', data_get($payload, 'dispatch_executor_release_authorization_persistence_writer_implementation_preflight.implementation_constraints'));
+        $this->assertFalse(data_get($payload, 'dispatch_executor_release_authorization_persistence_writer_implementation_preflight.preflight_policy.writer_file_creation_allowed_by_preflight'));
+        $this->assertContains('agent_dispatch_executor_release_authorization_persistence_writer_implementation_preflight_does_not_create_writer_files', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'dispatch_executor_release_authorization_persistence_writer_implementation_preflight_hash'));
+    }
+
+    public function test_command_returns_agent_dispatch_executor_release_authorization_persistence_writer_implementation_packet_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-dispatch-executor-release-authorization-persistence-writer-implementation-packet' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_dispatch_executor_release_authorization_persistence_writer_implementation_packet.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('read_only_agent_dispatch_executor_release_authorization_persistence_writer_implementation_packet', data_get($payload, 'mode'));
+        $this->assertSame('ready_for_scoped_writer_implementation', data_get($payload, 'status'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'runtime_write_allowed'));
+        $this->assertSame(4, data_get($payload, 'dispatch_executor_release_authorization_persistence_writer_implementation_packet.task_count'));
+        $this->assertContains('do_not_start_providers', data_get($payload, 'dispatch_executor_release_authorization_persistence_writer_implementation_packet.non_goals'));
+        $this->assertContains('signed_authorization_can_be_persisted_once_with_external_signature_validation_report_hash', data_get($payload, 'dispatch_executor_release_authorization_persistence_writer_implementation_packet.acceptance_criteria'));
+        $this->assertFalse(data_get($payload, 'dispatch_executor_release_authorization_persistence_writer_implementation_packet.implementation_policy.provider_start_allowed_by_packet'));
+        $this->assertContains('agent_dispatch_executor_release_authorization_persistence_writer_implementation_packet_does_not_create_writer_files', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'dispatch_executor_release_authorization_persistence_writer_implementation_packet_hash'));
+    }
+
+    public function test_command_returns_agent_dispatch_executor_release_authorization_persistence_status_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-dispatch-executor-release-authorization-persistence-status' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_dispatch_executor_release_authorization_persistence_status.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('read_only_agent_dispatch_executor_release_authorization_persistence_status', data_get($payload, 'mode'));
+        $this->assertContains(data_get($payload, 'status'), [
+            'agent_dispatch_executor_release_authorization_persistence_status_ready',
+            'blocked',
+        ]);
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'runtime_write_allowed'));
+        $this->assertTrue(data_get($payload, 'dispatch_executor_release_authorization_persistence_status.storage.authorization_model_ready'));
+        $this->assertTrue(data_get($payload, 'dispatch_executor_release_authorization_persistence_status.storage.persistence_writer_ready'));
+        $this->assertIsInt(data_get($payload, 'dispatch_executor_release_authorization_persistence_status.persisted_authorization_count'));
+        $this->assertFalse(data_get($payload, 'dispatch_executor_release_authorization_persistence_status.status_policy.provider_start_allowed_here'));
+        $this->assertFalse(data_get($payload, 'dispatch_executor_release_authorization_persistence_status.status_policy.receipt_use_mark_allowed_here'));
+        $this->assertContains('agent_dispatch_executor_release_authorization_persistence_status_does_not_start_providers', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('agent_dispatch_executor_release_authorization_persistence_status_does_not_write_ledger', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'dispatch_executor_release_authorization_persistence_status_hash'));
+    }
+
+    public function test_command_returns_agent_dispatch_executor_receipt_use_writer_contract_template_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-dispatch-executor-receipt-use-writer-contract-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_dispatch_executor_receipt_use_writer_contract_template.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('read_only_agent_dispatch_executor_receipt_use_writer_contract_template', data_get($payload, 'mode'));
+        $this->assertSame('agent_dispatch_executor_receipt_use_writer_contract_template_ready', data_get($payload, 'status'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'runtime_write_allowed'));
+        $this->assertSame('markReceiptUsedAtomically', data_get($payload, 'dispatch_executor_receipt_use_writer_contract_template.contract.method'));
+        $this->assertContains('require_used_at_null', data_get($payload, 'dispatch_executor_receipt_use_writer_contract_template.atomic_guards'));
+        $this->assertContains('overwriting_existing_used_at', data_get($payload, 'dispatch_executor_receipt_use_writer_contract_template.forbidden_writer_behaviors'));
+        $this->assertFalse(data_get($payload, 'dispatch_executor_receipt_use_writer_contract_template.contract_policy.receipt_use_mark_allowed_here'));
+        $this->assertContains('agent_dispatch_executor_receipt_use_writer_contract_template_does_not_mark_receipt_used', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'dispatch_executor_receipt_use_writer_contract_template_hash'));
+    }
+
+    public function test_command_returns_agent_dispatch_executor_receipt_use_writer_preflight_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-dispatch-executor-receipt-use-writer-preflight' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_dispatch_executor_receipt_use_writer_preflight.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('read_only_agent_dispatch_executor_receipt_use_writer_preflight', data_get($payload, 'mode'));
+        $this->assertContains(data_get($payload, 'status'), [
+            'agent_dispatch_executor_receipt_use_writer_ready',
+            'blocked',
+        ]);
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'runtime_write_allowed'));
+        $this->assertTrue(data_get($payload, 'dispatch_executor_receipt_use_writer_preflight.storage.dispatch_receipt_model_ready'));
+        $this->assertFalse(data_get($payload, 'dispatch_executor_receipt_use_writer_preflight.preflight_policy.receipt_use_mark_allowed_here'));
+        $this->assertFalse(data_get($payload, 'dispatch_executor_receipt_use_writer_preflight.preflight_policy.provider_start_allowed_here'));
+        $this->assertContains('agent_dispatch_executor_receipt_use_writer_preflight_does_not_mark_receipt_used', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('agent_dispatch_executor_receipt_use_writer_preflight_does_not_start_providers', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'dispatch_executor_receipt_use_writer_preflight_hash'));
     }
 
     public function test_command_returns_single_session_instruction_packet_as_json(): void

@@ -1607,6 +1607,154 @@ def validate_supervised_process_adapter_packet(payload: Mapping[str, Any]) -> Ma
     _expect("guarded_start_process_runner_promotion_packet.tool_calls_made", process_runner_promotion_packet.get("tool_calls_made"), False)
     _expect("guarded_start_process_runner_promotion_packet.raw_audio_touched", process_runner_promotion_packet.get("raw_audio_touched"), False)
 
+    process_runner_operator_release_review = _expect_mapping(
+        "guarded_start_process_runner_operator_release_review",
+        payload.get("guarded_start_process_runner_operator_release_review"),
+    )
+    _expect(
+        "guarded_start_process_runner_operator_release_review.schema_version",
+        process_runner_operator_release_review.get("schema_version"),
+        "atlas.voice_realtime.guarded_start_process_runner_operator_release_review.v1",
+    )
+    _expect(
+        "guarded_start_process_runner_operator_release_review.guarded_start_process_runner_operator_release_review_implemented",
+        process_runner_operator_release_review.get("guarded_start_process_runner_operator_release_review_implemented"),
+        True,
+    )
+    _expect(
+        "guarded_start_process_runner_operator_release_review.process_runner_operator_release_review_only",
+        process_runner_operator_release_review.get("process_runner_operator_release_review_only"),
+        True,
+    )
+    _expect("guarded_start_process_runner_operator_release_review.guarded_start_executor_enabled", process_runner_operator_release_review.get("guarded_start_executor_enabled"), False)
+    _expect("guarded_start_process_runner_operator_release_review.guarded_start_executor_implemented", process_runner_operator_release_review.get("guarded_start_executor_implemented"), False)
+    _expect("guarded_start_process_runner_operator_release_review.final_start_executor_enabled", process_runner_operator_release_review.get("final_start_executor_enabled"), False)
+    _expect(
+        "guarded_start_process_runner_operator_release_review.runtime_policy_start_enabled",
+        process_runner_operator_release_review.get("runtime_policy_start_enabled"),
+        process_runner_operator_release_review.get("status") == "ready_for_guarded_start_process_runner_release_finalization",
+    )
+    _expect("guarded_start_process_runner_operator_release_review.real_start_adapter_enabled", process_runner_operator_release_review.get("real_start_adapter_enabled"), False)
+    _expect("guarded_start_process_runner_operator_release_review.start_execution_allowed", process_runner_operator_release_review.get("start_execution_allowed"), False)
+    _expect("guarded_start_process_runner_operator_release_review.real_subprocess_start_implemented", process_runner_operator_release_review.get("real_subprocess_start_implemented"), False)
+    _expect("guarded_start_process_runner_operator_release_review.process_launch_attempted", process_runner_operator_release_review.get("process_launch_attempted"), False)
+    _expect("guarded_start_process_runner_operator_release_review.daemon_started", process_runner_operator_release_review.get("daemon_started"), False)
+    _expect("guarded_start_process_runner_operator_release_review.process_launch_allowed", process_runner_operator_release_review.get("process_launch_allowed"), False)
+    _expect("guarded_start_process_runner_operator_release_review.subprocess_module_imported", process_runner_operator_release_review.get("subprocess_module_imported"), False)
+    _expect("guarded_start_process_runner_operator_release_review.livekit_sdk_imported", process_runner_operator_release_review.get("livekit_sdk_imported"), False)
+    _expect("guarded_start_process_runner_operator_release_review.provider_calls_made", process_runner_operator_release_review.get("provider_calls_made"), False)
+    _expect("guarded_start_process_runner_operator_release_review.tool_calls_made", process_runner_operator_release_review.get("tool_calls_made"), False)
+    _expect("guarded_start_process_runner_operator_release_review.raw_audio_touched", process_runner_operator_release_review.get("raw_audio_touched"), False)
+
+    process_runner_release_finalization = _expect_mapping(
+        "guarded_start_process_runner_release_finalization",
+        payload.get("guarded_start_process_runner_release_finalization"),
+    )
+    _expect(
+        "guarded_start_process_runner_release_finalization.schema_version",
+        process_runner_release_finalization.get("schema_version"),
+        "atlas.voice_realtime.guarded_start_process_runner_release_finalization.v1",
+    )
+    _expect(
+        "guarded_start_process_runner_release_finalization.guarded_start_process_runner_release_finalization_implemented",
+        process_runner_release_finalization.get("guarded_start_process_runner_release_finalization_implemented"),
+        True,
+    )
+    _expect(
+        "guarded_start_process_runner_release_finalization.process_runner_release_finalization_only",
+        process_runner_release_finalization.get("process_runner_release_finalization_only"),
+        True,
+    )
+    _expect("guarded_start_process_runner_release_finalization.guarded_start_executor_enabled", process_runner_release_finalization.get("guarded_start_executor_enabled"), False)
+    _expect("guarded_start_process_runner_release_finalization.guarded_start_executor_implemented", process_runner_release_finalization.get("guarded_start_executor_implemented"), False)
+    _expect("guarded_start_process_runner_release_finalization.final_start_executor_enabled", process_runner_release_finalization.get("final_start_executor_enabled"), False)
+    _expect(
+        "guarded_start_process_runner_release_finalization.runtime_policy_start_enabled",
+        process_runner_release_finalization.get("runtime_policy_start_enabled"),
+        process_runner_release_finalization.get("status") == "ready_for_guarded_start_process_runner_release_authorization",
+    )
+    _expect("guarded_start_process_runner_release_finalization.real_start_adapter_enabled", process_runner_release_finalization.get("real_start_adapter_enabled"), False)
+    _expect("guarded_start_process_runner_release_finalization.start_execution_allowed", process_runner_release_finalization.get("start_execution_allowed"), False)
+    _expect("guarded_start_process_runner_release_finalization.real_subprocess_start_implemented", process_runner_release_finalization.get("real_subprocess_start_implemented"), False)
+    _expect("guarded_start_process_runner_release_finalization.process_launch_attempted", process_runner_release_finalization.get("process_launch_attempted"), False)
+    _expect("guarded_start_process_runner_release_finalization.daemon_started", process_runner_release_finalization.get("daemon_started"), False)
+    _expect("guarded_start_process_runner_release_finalization.process_launch_allowed", process_runner_release_finalization.get("process_launch_allowed"), False)
+    _expect("guarded_start_process_runner_release_finalization.subprocess_module_imported", process_runner_release_finalization.get("subprocess_module_imported"), False)
+    _expect("guarded_start_process_runner_release_finalization.livekit_sdk_imported", process_runner_release_finalization.get("livekit_sdk_imported"), False)
+    _expect("guarded_start_process_runner_release_finalization.provider_calls_made", process_runner_release_finalization.get("provider_calls_made"), False)
+    _expect("guarded_start_process_runner_release_finalization.tool_calls_made", process_runner_release_finalization.get("tool_calls_made"), False)
+    _expect("guarded_start_process_runner_release_finalization.raw_audio_touched", process_runner_release_finalization.get("raw_audio_touched"), False)
+
+    process_runner_release_authorization = _expect_mapping(
+        "guarded_start_process_runner_release_authorization",
+        payload.get("guarded_start_process_runner_release_authorization"),
+    )
+    _expect(
+        "guarded_start_process_runner_release_authorization.schema_version",
+        process_runner_release_authorization.get("schema_version"),
+        "atlas.voice_realtime.guarded_start_process_runner_release_authorization_contract.v1",
+    )
+    _expect(
+        "guarded_start_process_runner_release_authorization.guarded_start_process_runner_release_authorization_implemented",
+        process_runner_release_authorization.get("guarded_start_process_runner_release_authorization_implemented"),
+        True,
+    )
+    _expect(
+        "guarded_start_process_runner_release_authorization.process_runner_release_authorization_only",
+        process_runner_release_authorization.get("process_runner_release_authorization_only"),
+        True,
+    )
+    _expect("guarded_start_process_runner_release_authorization.guard_start_executor_enabled", process_runner_release_authorization.get("guarded_start_executor_enabled"), False)
+    _expect("guarded_start_process_runner_release_authorization.guard_start_executor_implemented", process_runner_release_authorization.get("guarded_start_executor_implemented"), False)
+    _expect(
+        "guarded_start_process_runner_release_authorization.runtime_policy_start_enabled",
+        process_runner_release_authorization.get("runtime_policy_start_enabled"),
+        process_runner_release_authorization.get("status") == "ready_for_controlled_livekit_server_supervised_smoke",
+    )
+    _expect("guarded_start_process_runner_release_authorization.start_execution_allowed", process_runner_release_authorization.get("start_execution_allowed"), False)
+    _expect("guarded_start_process_runner_release_authorization.real_subprocess_start_implemented", process_runner_release_authorization.get("real_subprocess_start_implemented"), False)
+    _expect("guarded_start_process_runner_release_authorization.process_launch_attempted", process_runner_release_authorization.get("process_launch_attempted"), False)
+    _expect("guarded_start_process_runner_release_authorization.daemon_started", process_runner_release_authorization.get("daemon_started"), False)
+    _expect("guarded_start_process_runner_release_authorization.process_launch_allowed", process_runner_release_authorization.get("process_launch_allowed"), False)
+    _expect("guarded_start_process_runner_release_authorization.subprocess_module_imported", process_runner_release_authorization.get("subprocess_module_imported"), False)
+    _expect("guarded_start_process_runner_release_authorization.livekit_sdk_imported", process_runner_release_authorization.get("livekit_sdk_imported"), False)
+    _expect("guarded_start_process_runner_release_authorization.provider_calls_made", process_runner_release_authorization.get("provider_calls_made"), False)
+    _expect("guarded_start_process_runner_release_authorization.tool_calls_made", process_runner_release_authorization.get("tool_calls_made"), False)
+    _expect("guarded_start_process_runner_release_authorization.raw_audio_touched", process_runner_release_authorization.get("raw_audio_touched"), False)
+
+    controlled_smoke_contract = _expect_mapping(
+        "controlled_livekit_server_supervised_smoke_contract",
+        payload.get("controlled_livekit_server_supervised_smoke_contract"),
+    )
+    _expect(
+        "controlled_livekit_server_supervised_smoke_contract.schema_version",
+        controlled_smoke_contract.get("schema_version"),
+        "atlas.voice_realtime.controlled_livekit_server_supervised_smoke_contract.v1",
+    )
+    _expect(
+        "controlled_livekit_server_supervised_smoke_contract.controlled_livekit_server_supervised_smoke_contract_implemented",
+        controlled_smoke_contract.get("controlled_livekit_server_supervised_smoke_contract_implemented"),
+        True,
+    )
+    _expect("controlled_livekit_server_supervised_smoke_contract.controlled_smoke_only", controlled_smoke_contract.get("controlled_smoke_only"), True)
+    _expect("controlled_livekit_server_supervised_smoke_contract.guarded_start_executor_enabled", controlled_smoke_contract.get("guarded_start_executor_enabled"), False)
+    _expect("controlled_livekit_server_supervised_smoke_contract.guarded_start_executor_implemented", controlled_smoke_contract.get("guarded_start_executor_implemented"), False)
+    _expect(
+        "controlled_livekit_server_supervised_smoke_contract.runtime_policy_start_enabled",
+        controlled_smoke_contract.get("runtime_policy_start_enabled"),
+        controlled_smoke_contract.get("status") == "ready_for_supervised_voice_worker_handshake_smoke",
+    )
+    _expect("controlled_livekit_server_supervised_smoke_contract.start_execution_allowed", controlled_smoke_contract.get("start_execution_allowed"), False)
+    _expect("controlled_livekit_server_supervised_smoke_contract.real_subprocess_start_implemented", controlled_smoke_contract.get("real_subprocess_start_implemented"), False)
+    _expect("controlled_livekit_server_supervised_smoke_contract.process_launch_attempted", controlled_smoke_contract.get("process_launch_attempted"), False)
+    _expect("controlled_livekit_server_supervised_smoke_contract.daemon_started", controlled_smoke_contract.get("daemon_started"), False)
+    _expect("controlled_livekit_server_supervised_smoke_contract.process_launch_allowed", controlled_smoke_contract.get("process_launch_allowed"), False)
+    _expect("controlled_livekit_server_supervised_smoke_contract.subprocess_module_imported", controlled_smoke_contract.get("subprocess_module_imported"), False)
+    _expect("controlled_livekit_server_supervised_smoke_contract.livekit_sdk_imported", controlled_smoke_contract.get("livekit_sdk_imported"), False)
+    _expect("controlled_livekit_server_supervised_smoke_contract.provider_calls_made", controlled_smoke_contract.get("provider_calls_made"), False)
+    _expect("controlled_livekit_server_supervised_smoke_contract.tool_calls_made", controlled_smoke_contract.get("tool_calls_made"), False)
+    _expect("controlled_livekit_server_supervised_smoke_contract.raw_audio_touched", controlled_smoke_contract.get("raw_audio_touched"), False)
+
     start_attempt = _expect_mapping("start_attempt", payload.get("start_attempt"))
     _expect("start_attempt.process_launch_attempted", start_attempt.get("process_launch_attempted"), False)
     _expect("start_attempt.daemon_started", start_attempt.get("daemon_started"), False)

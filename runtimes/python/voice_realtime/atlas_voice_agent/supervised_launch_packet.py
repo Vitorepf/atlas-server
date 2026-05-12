@@ -2650,6 +2650,275 @@ def validate_guarded_start_process_runner_promotion_packet_packet(payload: Mappi
     return payload
 
 
+def validate_guarded_start_process_runner_operator_release_review_packet(payload: Mapping[str, Any]) -> Mapping[str, Any]:
+    _reject_forbidden(payload)
+    _expect(
+        "schema_version",
+        payload.get("schema_version"),
+        "atlas.voice_realtime.guarded_start_process_runner_operator_release_review.v1",
+    )
+    _expect(
+        "guarded_start_process_runner_operator_release_review_implemented",
+        payload.get("guarded_start_process_runner_operator_release_review_implemented"),
+        True,
+    )
+    _expect(
+        "process_runner_operator_release_review_only",
+        payload.get("process_runner_operator_release_review_only"),
+        True,
+    )
+    _expect("guarded_start_executor_enabled", payload.get("guarded_start_executor_enabled"), False)
+    _expect("guarded_start_executor_implemented", payload.get("guarded_start_executor_implemented"), False)
+    _expect("final_start_executor_enabled", payload.get("final_start_executor_enabled"), False)
+    operator_release_ready = (
+        payload.get("status") == "ready_for_guarded_start_process_runner_release_finalization"
+    )
+    _expect("runtime_policy_start_enabled", payload.get("runtime_policy_start_enabled"), operator_release_ready)
+    _expect("real_start_adapter_enabled", payload.get("real_start_adapter_enabled"), False)
+    _expect("start_execution_allowed", payload.get("start_execution_allowed"), False)
+    _expect("real_subprocess_start_implemented", payload.get("real_subprocess_start_implemented"), False)
+    _expect("process_launch_attempted", payload.get("process_launch_attempted"), False)
+    _expect("daemon_started", payload.get("daemon_started"), False)
+    _expect("launch_allowed", payload.get("launch_allowed"), False)
+    _expect("process_launch_allowed", payload.get("process_launch_allowed"), False)
+    _expect("subprocess_module_imported", payload.get("subprocess_module_imported"), False)
+    _expect("livekit_sdk_imported", payload.get("livekit_sdk_imported"), False)
+    _expect("provider_calls_made", payload.get("provider_calls_made"), False)
+    _expect("tool_calls_made", payload.get("tool_calls_made"), False)
+    _expect("raw_audio_touched", payload.get("raw_audio_touched"), False)
+
+    gates = _expect_mapping("gates", payload.get("gates"))
+    for key in [
+        "process_runner_operator_release_review_only",
+        "process_runner_promotion_packet_attached",
+        "operator_release_review_only",
+        "operator_review_completed",
+        "release_candidate_owner_attached",
+        "promotion_packet_receipt_attached",
+        "bundle_hash_confirmed",
+        "evidence_manifest_reviewed",
+        "rollback_plan_reviewed",
+        "final_operator_release_required",
+        "start_execution_disabled",
+        "process_launch_disabled",
+        "subprocess_import_disabled",
+        "provider_calls_forbidden",
+        "tool_calls_forbidden",
+        "raw_audio_forbidden",
+    ]:
+        _expect(f"gates.{key}", gates.get(key), True)
+
+    if operator_release_ready:
+        _expect(
+            "gates.guarded_start_process_runner_promotion_packet_ready",
+            gates.get("guarded_start_process_runner_promotion_packet_ready"),
+            True,
+        )
+    _expect("gates.runtime_policy_start_enabled", gates.get("runtime_policy_start_enabled"), operator_release_ready)
+
+    return payload
+
+
+def validate_guarded_start_process_runner_release_finalization_packet(payload: Mapping[str, Any]) -> Mapping[str, Any]:
+    _reject_forbidden(payload)
+    _expect(
+        "schema_version",
+        payload.get("schema_version"),
+        "atlas.voice_realtime.guarded_start_process_runner_release_finalization.v1",
+    )
+    _expect(
+        "guarded_start_process_runner_release_finalization_implemented",
+        payload.get("guarded_start_process_runner_release_finalization_implemented"),
+        True,
+    )
+    _expect(
+        "process_runner_release_finalization_only",
+        payload.get("process_runner_release_finalization_only"),
+        True,
+    )
+    _expect("guarded_start_executor_enabled", payload.get("guarded_start_executor_enabled"), False)
+    _expect("guarded_start_executor_implemented", payload.get("guarded_start_executor_implemented"), False)
+    _expect("final_start_executor_enabled", payload.get("final_start_executor_enabled"), False)
+    release_finalization_ready = (
+        payload.get("status") == "ready_for_guarded_start_process_runner_release_authorization"
+    )
+    _expect("runtime_policy_start_enabled", payload.get("runtime_policy_start_enabled"), release_finalization_ready)
+    _expect("real_start_adapter_enabled", payload.get("real_start_adapter_enabled"), False)
+    _expect("start_execution_allowed", payload.get("start_execution_allowed"), False)
+    _expect("real_subprocess_start_implemented", payload.get("real_subprocess_start_implemented"), False)
+    _expect("process_launch_attempted", payload.get("process_launch_attempted"), False)
+    _expect("daemon_started", payload.get("daemon_started"), False)
+    _expect("launch_allowed", payload.get("launch_allowed"), False)
+    _expect("process_launch_allowed", payload.get("process_launch_allowed"), False)
+    _expect("subprocess_module_imported", payload.get("subprocess_module_imported"), False)
+    _expect("livekit_sdk_imported", payload.get("livekit_sdk_imported"), False)
+    _expect("provider_calls_made", payload.get("provider_calls_made"), False)
+    _expect("tool_calls_made", payload.get("tool_calls_made"), False)
+    _expect("raw_audio_touched", payload.get("raw_audio_touched"), False)
+
+    gates = _expect_mapping("gates", payload.get("gates"))
+    for key in [
+        "process_runner_release_finalization_only",
+        "operator_release_review_attached",
+        "release_finalization_only",
+        "final_operator_release_receipt_attached",
+        "single_start_bound",
+        "release_window_attached",
+        "revoke_plan_attached",
+        "post_release_review_required",
+        "start_execution_disabled",
+        "process_launch_disabled",
+        "subprocess_import_disabled",
+        "provider_calls_forbidden",
+        "tool_calls_forbidden",
+        "raw_audio_forbidden",
+    ]:
+        _expect(f"gates.{key}", gates.get(key), True)
+
+    if release_finalization_ready:
+        _expect(
+            "gates.guarded_start_process_runner_operator_release_review_ready",
+            gates.get("guarded_start_process_runner_operator_release_review_ready"),
+            True,
+        )
+    _expect("gates.runtime_policy_start_enabled", gates.get("runtime_policy_start_enabled"), release_finalization_ready)
+
+    return payload
+
+
+def validate_guarded_start_process_runner_release_authorization_packet(payload: Mapping[str, Any]) -> Mapping[str, Any]:
+    _reject_forbidden(payload)
+    _expect(
+        "schema_version",
+        payload.get("schema_version"),
+        "atlas.voice_realtime.guarded_start_process_runner_release_authorization_contract.v1",
+    )
+    _expect(
+        "guarded_start_process_runner_release_authorization_implemented",
+        payload.get("guarded_start_process_runner_release_authorization_implemented"),
+        True,
+    )
+    _expect(
+        "process_runner_release_authorization_only",
+        payload.get("process_runner_release_authorization_only"),
+        True,
+    )
+    _expect("guarded_start_executor_enabled", payload.get("guarded_start_executor_enabled"), False)
+    _expect("guarded_start_executor_implemented", payload.get("guarded_start_executor_implemented"), False)
+    _expect("final_start_executor_enabled", payload.get("final_start_executor_enabled"), False)
+    release_authorization_ready = (
+        payload.get("status") == "ready_for_controlled_livekit_server_supervised_smoke"
+    )
+    _expect("runtime_policy_start_enabled", payload.get("runtime_policy_start_enabled"), release_authorization_ready)
+    _expect("real_start_adapter_enabled", payload.get("real_start_adapter_enabled"), False)
+    _expect("start_execution_allowed", payload.get("start_execution_allowed"), False)
+    _expect("real_subprocess_start_implemented", payload.get("real_subprocess_start_implemented"), False)
+    _expect("process_launch_attempted", payload.get("process_launch_attempted"), False)
+    _expect("daemon_started", payload.get("daemon_started"), False)
+    _expect("launch_allowed", payload.get("launch_allowed"), False)
+    _expect("process_launch_allowed", payload.get("process_launch_allowed"), False)
+    _expect("subprocess_module_imported", payload.get("subprocess_module_imported"), False)
+    _expect("livekit_sdk_imported", payload.get("livekit_sdk_imported"), False)
+    _expect("provider_calls_made", payload.get("provider_calls_made"), False)
+    _expect("tool_calls_made", payload.get("tool_calls_made"), False)
+    _expect("raw_audio_touched", payload.get("raw_audio_touched"), False)
+
+    gates = _expect_mapping("gates", payload.get("gates"))
+    for key in [
+        "process_runner_release_authorization_only",
+        "release_finalization_attached",
+        "operator_final_release_attached",
+        "single_start_bound",
+        "release_window_validated",
+        "revoke_plan_validated",
+        "controlled_livekit_server_smoke_required",
+        "worker_supervision_required",
+        "post_release_review_required",
+        "start_execution_disabled",
+        "process_launch_disabled",
+        "subprocess_import_disabled",
+        "provider_calls_forbidden",
+        "tool_calls_forbidden",
+        "raw_audio_forbidden",
+    ]:
+        _expect(f"gates.{key}", gates.get(key), True)
+
+    if release_authorization_ready:
+        _expect(
+            "gates.guarded_start_process_runner_release_finalization_ready",
+            gates.get("guarded_start_process_runner_release_finalization_ready"),
+            True,
+        )
+    _expect("gates.runtime_policy_start_enabled", gates.get("runtime_policy_start_enabled"), release_authorization_ready)
+
+    return payload
+
+
+def validate_controlled_livekit_server_supervised_smoke_contract_packet(payload: Mapping[str, Any]) -> Mapping[str, Any]:
+    _reject_forbidden(payload)
+    _expect(
+        "schema_version",
+        payload.get("schema_version"),
+        "atlas.voice_realtime.controlled_livekit_server_supervised_smoke_contract.v1",
+    )
+    _expect(
+        "controlled_livekit_server_supervised_smoke_contract_implemented",
+        payload.get("controlled_livekit_server_supervised_smoke_contract_implemented"),
+        True,
+    )
+    _expect("controlled_smoke_only", payload.get("controlled_smoke_only"), True)
+    _expect("guarded_start_executor_enabled", payload.get("guarded_start_executor_enabled"), False)
+    _expect("guarded_start_executor_implemented", payload.get("guarded_start_executor_implemented"), False)
+    _expect("final_start_executor_enabled", payload.get("final_start_executor_enabled"), False)
+    controlled_smoke_ready = (
+        payload.get("status") == "ready_for_supervised_voice_worker_handshake_smoke"
+    )
+    _expect("runtime_policy_start_enabled", payload.get("runtime_policy_start_enabled"), controlled_smoke_ready)
+    _expect("real_start_adapter_enabled", payload.get("real_start_adapter_enabled"), False)
+    _expect("start_execution_allowed", payload.get("start_execution_allowed"), False)
+    _expect("real_subprocess_start_implemented", payload.get("real_subprocess_start_implemented"), False)
+    _expect("process_launch_attempted", payload.get("process_launch_attempted"), False)
+    _expect("daemon_started", payload.get("daemon_started"), False)
+    _expect("launch_allowed", payload.get("launch_allowed"), False)
+    _expect("process_launch_allowed", payload.get("process_launch_allowed"), False)
+    _expect("subprocess_module_imported", payload.get("subprocess_module_imported"), False)
+    _expect("livekit_sdk_imported", payload.get("livekit_sdk_imported"), False)
+    _expect("provider_calls_made", payload.get("provider_calls_made"), False)
+    _expect("tool_calls_made", payload.get("tool_calls_made"), False)
+    _expect("raw_audio_touched", payload.get("raw_audio_touched"), False)
+
+    gates = _expect_mapping("gates", payload.get("gates"))
+    for key in [
+        "controlled_smoke_only",
+        "local_livekit_server_configured",
+        "livekit_health_probe_defined",
+        "ephemeral_room_required",
+        "token_issuer_smoke_passed",
+        "worker_supervision_attached",
+        "stdout_stderr_sanitizers_required",
+        "post_smoke_cleanup_required",
+        "secrets_redacted",
+        "start_execution_disabled",
+        "process_launch_disabled",
+        "subprocess_import_disabled",
+        "provider_calls_forbidden",
+        "tool_calls_forbidden",
+        "raw_audio_forbidden",
+    ]:
+        _expect(f"gates.{key}", gates.get(key), True)
+
+    if controlled_smoke_ready:
+        _expect(
+            "gates.guarded_start_process_runner_release_authorization_ready",
+            gates.get("guarded_start_process_runner_release_authorization_ready"),
+            True,
+        )
+        _expect("gates.controlled_smoke_plan_ready", gates.get("controlled_smoke_plan_ready"), True)
+    _expect("gates.runtime_policy_start_enabled", gates.get("runtime_policy_start_enabled"), controlled_smoke_ready)
+
+    return payload
+
+
 def _reject_forbidden(payload: Mapping[str, Any]) -> None:
     try:
         reject_forbidden_keys_recursive(

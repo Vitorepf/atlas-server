@@ -31,6 +31,7 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-ai-flow-visual-map.md
   - docs/engineering-knowledge-base/domains/programming.md
   - docs/engineering-knowledge-base/atlas-ai-self-construction-os.md
+  - docs/engineering-knowledge-base/self-construction/paperclip-control-plane-benchmark.md
   - docs/engineering-knowledge-base/self-construction/multi-provider-agent-orchestration-contract.md
 owner: atlas-ai
 layer: 2.2-obras-shared-workspace
@@ -82,6 +83,11 @@ multi-agent work keeps common state:
 
 It is not a domain, runtime, provider, memory system or ledger. It is the
 workspace that binds those systems for a concrete Obra.
+
+Paperclip-style control-plane primitives are absorbed under this workspace only
+as operational substrate: runtime state, heartbeat runs, wakeup queue, checkout
+locks, execution workspaces, approvals, cost events and work products. They do
+not replace Obras, SDD, Decision Receipts or Evidence Ledger.
 
 ## Relationship To Kernel, Forge And Providers
 
@@ -258,6 +264,12 @@ The new-cycle disable execution later-cycle authorization evidence repair reques
 The new-cycle disable execution later-cycle authorization repaired evidence packet projection is `--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-repaired-evidence-packet-template`; it gives the shared office the future provider-neutral repaired evidence packet shape after a repair request, including failed observation signal, missing evidence key, original expected evidence hash, replacement evidence/source hashes, replacement provider identity receipt draft hash, replacement Workspace/Obra receipt draft hash, replacement validated signer provider scope, repair actor provider, non-authorization statement, non-signature-authority statement and integrity evidence, while still forbidding signature acceptance, signature authority, receipt signature, receipt persistence, approval grant, later-cycle authorization, authorization reuse, ledger writes, decision recording, disable execution, writer-state mutation, writer creation, merge and dispatch.
 
 The new-cycle disable execution later-cycle authorization repair review projection is `--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-repair-review-template`; it gives the shared office the future provider-neutral review shape after a repaired evidence packet, including repaired packet hash, repair request hash, follow-up observability hash, replacement provider identity receipt draft hash, replacement Workspace/Obra receipt draft hash, replacement validated signer provider scope, non-signature-authority statement, reviewer identity and accept/reject/escalate/observe outcomes, while still forbidding signature acceptance, signature authority, receipt signature, receipt persistence, approval grant, later-cycle authorization, authorization reuse, ledger writes, decision recording, disable execution, writer-state mutation, writer creation, merge and dispatch.
+
+The new-cycle disable execution later-cycle authorization persistence rejection projection is `--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-persistence-rejection-template`; it gives the shared office the future provider-neutral rejection shape after repair review when repaired evidence cannot become persistence, including repair review hash, selected review outcome, rejection rationale, repaired evidence integrity, replacement provider identity receipt draft hash, replacement Workspace/Obra receipt draft hash, replacement validated signer provider scope, non-persistence and non-signature-authority statements, rejection actor provider and human reviewer identity, while still forbidding signature acceptance, signature authority, receipt signature, receipt persistence, approval grant, later-cycle authorization, authorization reuse, ledger writes, decision recording, disable execution, writer-state mutation, writer creation, merge and dispatch.
+
+The new-cycle disable execution later-cycle authorization human escalation projection is `--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-human-escalation-template`; it gives the shared office the future provider-neutral escalation shape after persistence rejection, including persistence rejection hash, selected review outcome, escalation reason, required human role, review packet hash, provider identity receipt draft hash, Workspace/Obra receipt draft hash, non-dispatch, non-authorization, non-persistence and non-signature-authority statements, escalation actor provider and human reviewer identity, while still forbidding human notification, task creation, signature acceptance, signature authority, receipt signature, receipt persistence, approval grant, later-cycle authorization, authorization reuse, ledger writes, decision recording, disable execution, writer-state mutation, writer creation, merge and dispatch.
+
+The new-cycle disable execution later-cycle authorization manual decision request projection is `--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-manual-decision-request-template`; it gives the shared office the future provider-neutral decision request shape after human escalation, including human escalation hash, required human role, decision question, decision context hash, allowed decision options, risk summary, provider identity receipt draft hash, Workspace/Obra receipt draft hash, validated signer provider scope, non-dispatch, non-authorization, non-persistence and non-signature-authority statements and request actor provider, while still forbidding real decision requests, human notification, task creation, signature acceptance, signature authority, receipt signature, receipt persistence, approval grant, later-cycle authorization, authorization reuse, ledger writes, decision recording, disable execution, writer-state mutation, writer creation, merge and dispatch.
 
 ## Non-Negotiable Rule
 

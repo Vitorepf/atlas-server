@@ -1,0 +1,43 @@
+services:
+  livekit:
+    image: ${LIVEKIT_DOCKER_IMAGE:-livekit/livekit-server:latest}
+    container_name: atlas-livekit
+    restart: unless-stopped
+    command: ["--dev", "--bind", "0.0.0.0"]
+    ports:
+      - "${LIVEKIT_HTTP_PORT:-7880}:7880"
+      - "${LIVEKIT_RTC_TCP_PORT:-7881}:7881"
+      - "${LIVEKIT_RTC_UDP_PORT:-7882}:7882/udp"
+
+  backend:
+    environment:
+      ATLAS_VOICE_LIVEKIT_TOKEN_ISSUER_ENABLED: ${ATLAS_VOICE_LIVEKIT_TOKEN_ISSUER_ENABLED:-true}
+      LIVEKIT_URL: ${ATLAS_DOCKER_LIVEKIT_URL:-http://livekit:7880}
+      LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:-devkey}
+      LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:-secret}
+      ATLAS_VOICE_LIVEKIT_TOKEN_TTL_SECONDS: ${ATLAS_VOICE_LIVEKIT_TOKEN_TTL_SECONDS:-300}
+    depends_on:
+      livekit:
+        condition: service_started
+
+  queue:
+    environment:
+      ATLAS_VOICE_LIVEKIT_TOKEN_ISSUER_ENABLED: ${ATLAS_VOICE_LIVEKIT_TOKEN_ISSUER_ENABLED:-true}
+      LIVEKIT_URL: ${ATLAS_DOCKER_LIVEKIT_URL:-http://livekit:7880}
+      LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:-devkey}
+      LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:-secret}
+      ATLAS_VOICE_LIVEKIT_TOKEN_TTL_SECONDS: ${ATLAS_VOICE_LIVEKIT_TOKEN_TTL_SECONDS:-300}
+    depends_on:
+      livekit:
+        condition: service_started
+
+  scheduler:
+    environment:
+      ATLAS_VOICE_LIVEKIT_TOKEN_ISSUER_ENABLED: ${ATLAS_VOICE_LIVEKIT_TOKEN_ISSUER_ENABLED:-true}
+      LIVEKIT_URL: ${ATLAS_DOCKER_LIVEKIT_URL:-http://livekit:7880}
+      LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:-devkey}
+      LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:-secret}
+      ATLAS_VOICE_LIVEKIT_TOKEN_TTL_SECONDS: ${ATLAS_VOICE_LIVEKIT_TOKEN_TTL_SECONDS:-300}
+    depends_on:
+      livekit:
+        condition: service_started

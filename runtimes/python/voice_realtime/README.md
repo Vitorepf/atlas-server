@@ -79,11 +79,15 @@ php artisan atlas:ai:voice worker-start-check --callback-loop-wired --production
 php artisan atlas:ai:voice token-issuer-plan --json
 php artisan atlas:ai:voice token-issuer-smoke --json
 php artisan atlas:ai:voice token-issuer-smoke --ephemeral-test-config --json
+php artisan atlas:ai:voice livekit-server-probe --json
 php artisan atlas:ai:voice pre-start-health-checks-smoke --json
 php artisan atlas:ai:voice runtime-certify --json
 php artisan atlas:ai:voice runtime-certify --require-sdk --callback-loop-wired --production-sdk-loop-wired --json
 php artisan atlas:ai:voice promotion-review-packet --json
 php artisan atlas:ai:voice promotion-review-packet --callback-loop-wired --production-sdk-loop-wired --json
+docker compose -f docker-compose.yml -f docker-compose.livekit.yml config --quiet
+docker compose -f docker-compose.yml -f docker-compose.livekit.yml up -d livekit
+docker compose -f docker-compose.yml -f docker-compose.livekit.yml stop livekit
 curl -H "X-Atlas-Token: $ATLAS_TOKEN" "http://localhost/ai/voice/runtime/certification?runtime=livekit_agents_sdk"
 ```
 
@@ -97,6 +101,11 @@ LiveKit SDK modules just to decide readiness.
 `--kernel-dependency-install-plan` fetches the Kernel-published install contract
 through `AtlasKernelClient` for smoke validation; it still never installs,
 imports SDK modules or starts a daemon.
+
+LiveKit Server local is operator-managed through `docker-compose.livekit.yml`.
+The Kernel probe only checks configured TCP reachability and redacts host output;
+it does not read API key/secret, issue a token, import SDK modules, start the
+Python worker, call providers/tools or touch raw audio.
 
 `promotion-review-packet` is the operator handoff bundle. It runs the governed
 certification path with `--require-sdk`, folds in `product-loop-check` and

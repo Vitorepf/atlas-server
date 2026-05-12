@@ -20,6 +20,10 @@ final class AtlasAiVoiceRealtimeApiTest extends TestCase
         parent::setUp();
 
         config()->set('atlas.token', 'test-token-with-enough-length-123');
+        config()->set('atlas.voice.livekit.token_issuer_enabled', false);
+        config()->set('atlas.voice.livekit.url', '');
+        config()->set('atlas.voice.livekit.api_key', '');
+        config()->set('atlas.voice.livekit.api_secret', '');
         Schema::dropIfExists('mobile_pairing_codes');
         Schema::dropIfExists('atlas_mobile_devices');
         Schema::dropIfExists('atlas_ledger_events');
@@ -104,6 +108,27 @@ final class AtlasAiVoiceRealtimeApiTest extends TestCase
         $this->assertSame('atlas-voice-voice-session-api', data_get($event->payload, 'voice.session_lease.room_name'));
         $this->assertSame('not_issued_scaffold', data_get($event->payload, 'voice.session_lease.token_status'));
         $this->assertArrayNotHasKey('token', data_get($event->payload, 'voice.session_lease'));
+    }
+
+    public function test_voice_livekit_server_probe_endpoint_is_redacted_and_fail_closed(): void
+    {
+        config()->set('atlas.voice.livekit.url', 'http://livekit.test:7880');
+        config()->set('atlas.voice.livekit.api_key', 'api-key-not-read');
+        config()->set('atlas.voice.livekit.api_secret', 'api-secret-not-read');
+
+        $response = $this->getJson('/ai/voice/runtime/livekit-server-probe', $this->headers)
+            ->assertOk()
+            ->assertJsonPath('schema_version', 'atlas.voice_realtime.livekit_server_probe.v1')
+            ->assertJsonPath('status', 'blocked')
+            ->assertJsonPath('configured', true)
+            ->assertJsonPath('security_contract.api_key_read', false)
+            ->assertJsonPath('security_contract.api_secret_read', false)
+            ->assertJsonPath('security_contract.daemon_started', false)
+            ->assertJsonPath('security_contract.livekit_sdk_imported', false);
+
+        $encoded = $response->getContent();
+        $this->assertStringNotContainsString('api-key-not-read', $encoded);
+        $this->assertStringNotContainsString('api-secret-not-read', $encoded);
     }
 
     public function test_voice_session_start_can_issue_livekit_token_without_persisting_it_to_ledger(): void
@@ -888,6 +913,7 @@ final class AtlasAiVoiceRealtimeApiTest extends TestCase
         $this->assertContains($response->json('artifacts.product_loop_check.next_action'), [
             'upgrade_python_runtime_for_livekit_agents_sdk',
             'install_livekit_agents_sdk',
+            'fix_voice_product_loop_gates',
             'submit_voice_production_promotion_for_human_review',
         ]);
     }

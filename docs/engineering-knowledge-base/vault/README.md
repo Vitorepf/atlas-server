@@ -23,6 +23,7 @@ maintenance:
   - Add new Vault child specs here before linking from global indexes.
 related_paths:
   - docs/engineering-knowledge-base/obsidian-atlas-vault.md
+  - docs/engineering-knowledge-base/atlas-system-graph.md
   - docs/engineering-knowledge-base/vault/contracts.md
   - docs/engineering-knowledge-base/vault/runbook.md
 ---
@@ -38,10 +39,12 @@ managed notes, markdown import/export or vault conflict handling.
 |---|---|
 | `contracts.md` | Authority, frontmatter, links, note types, privacy and conflict rules |
 | `runbook.md` | CLI/API operations, smoke commands, phase validation and safety gates |
+| `../atlas-system-graph.md` | Contract for the Obsidian graph of Atlas systems, programs, modules and dependencies |
 
 ## Rules
 
 - AtlasVault is Human Knowledge Surface, not operational primary source.
+- Atlas System Graph notes are human navigation projections; repo docs remain canonical.
 - Raw notes never enter providers without index, privacy, redaction and review.
 - Atlas-generated notes are managed human projections.
 - Conflicts are recorded; human edits are not overwritten silently.

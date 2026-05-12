@@ -229,6 +229,9 @@ class ProductLoopCheckTest(unittest.TestCase):
         self.assertTrue(payload["gates"]["guarded_start_process_runner_start_gate_available"])
         self.assertTrue(payload["gates"]["guarded_start_process_runner_final_review_available"])
         self.assertTrue(payload["gates"]["guarded_start_process_runner_promotion_packet_available"])
+        self.assertTrue(payload["gates"]["guarded_start_process_runner_operator_release_review_available"])
+        self.assertTrue(payload["gates"]["guarded_start_process_runner_release_finalization_available"])
+        self.assertTrue(payload["gates"]["guarded_start_process_runner_release_authorization_available"])
         self.assertFalse(payload["gates"]["production_review_receipt_valid"])
         self.assertFalse(payload["gates"]["daemon_implementation_review_valid"])
         self.assertFalse(payload["gates"]["boolean_approval_is_sufficient"])
@@ -495,6 +498,7 @@ class ProductLoopCheckTest(unittest.TestCase):
             "wire_production_sdk_loop",
             "fix_sdk_handler_blueprint_contract",
             "install_livekit_agents_sdk",
+            "fix_voice_product_loop_gates",
         ])
 
     def test_product_loop_check_never_treats_mock_kernel_as_product_ready(self) -> None:
@@ -805,6 +809,9 @@ class ProductLoopCheckTest(unittest.TestCase):
             self.assertTrue(payload["gates"]["guarded_start_process_runner_start_gate_available"])
             self.assertTrue(payload["gates"]["guarded_start_process_runner_final_review_available"])
             self.assertTrue(payload["gates"]["guarded_start_process_runner_promotion_packet_available"])
+            self.assertTrue(payload["gates"]["guarded_start_process_runner_operator_release_review_available"])
+            self.assertTrue(payload["gates"]["guarded_start_process_runner_release_finalization_available"])
+            self.assertTrue(payload["gates"]["guarded_start_process_runner_release_authorization_available"])
             self.assertEqual(
                 "ready_for_supervisor_execution_implementation",
                 payload["supervised_start_plan"]["supervisor_preflight"]["status"],

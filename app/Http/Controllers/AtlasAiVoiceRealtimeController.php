@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Services\Ai\Voice\AtlasVoiceLiveKitTokenIssuer;
+use App\Services\Ai\Voice\AtlasVoiceLiveKitServerProbe;
 use App\Services\Ai\Voice\AtlasVoiceProductionPromotionReviewBundleService;
 use App\Services\Ai\Voice\AtlasVoiceRealtimeService;
 use App\Services\Ai\Voice\AtlasVoiceRivalsRunner;
@@ -16,6 +17,7 @@ final class AtlasAiVoiceRealtimeController extends Controller
     public function __construct(
         private readonly AtlasVoiceRealtimeService $voice,
         private readonly AtlasVoiceLiveKitTokenIssuer $liveKitTokens,
+        private readonly AtlasVoiceLiveKitServerProbe $liveKitServerProbe,
         private readonly AtlasVoiceRivalsRunner $rivals,
         private readonly AtlasVoiceRuntimeCertificationService $certification,
         private readonly AtlasVoiceRuntimeEventNormalizer $runtimeEvents,
@@ -109,6 +111,15 @@ final class AtlasAiVoiceRealtimeController extends Controller
         ]);
 
         return response()->json($this->liveKitTokens->smoke((bool) ($data['ephemeral_test_config'] ?? false)));
+    }
+
+    public function liveKitServerProbe(Request $request): JsonResponse
+    {
+        $request->validate([
+            'runtime' => ['nullable', 'in:livekit_agents_sdk'],
+        ]);
+
+        return response()->json($this->liveKitServerProbe->probe());
     }
 
     public function preStartHealthChecksSmoke(Request $request): JsonResponse

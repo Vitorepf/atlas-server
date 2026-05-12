@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Services\Ai\Voice\AtlasVoiceLiveKitTokenIssuer;
+use App\Services\Ai\Voice\AtlasVoiceLiveKitServerProbe;
 use App\Services\Ai\Voice\AtlasVoiceProductionPromotionReviewBundleService;
 use App\Services\Ai\Voice\AtlasVoiceRealtimeService;
 use App\Services\Ai\Voice\AtlasVoiceRivalsRunner;
@@ -17,7 +18,7 @@ class AtlasAiVoiceRealtimeCommand extends Command
     private const PYTHON_COMMAND_TIMEOUT_SECONDS = 30;
 
     protected $signature = 'atlas:ai:voice
-        {action=contract : Action to inspect: contract, bootstrap, dependencies, dependency-install-plan, preflight, activation-contract, scripted-example, scripted-smoke, callback-smoke, callback-sequence-smoke, callback-loop-check, sdk-check, token-issuer-plan, token-issuer-smoke, worker-plan, production-loop-plan, product-loop-check, daemon-supervisor-check, pre-start-health-checks-smoke, production-loop-smoke, worker-start-check, normalize-event, normalize-sequence, runtime-certify, promotion-review-packet, health, readiness or rivals}
+        {action=contract : Action to inspect: contract, bootstrap, dependencies, dependency-install-plan, preflight, activation-contract, scripted-example, scripted-smoke, callback-smoke, callback-sequence-smoke, callback-loop-check, sdk-check, token-issuer-plan, token-issuer-smoke, livekit-server-probe, worker-plan, production-loop-plan, product-loop-check, daemon-supervisor-check, pre-start-health-checks-smoke, production-loop-smoke, worker-start-check, normalize-event, normalize-sequence, runtime-certify, promotion-review-packet, health, readiness or rivals}
         {--runtime=livekit_agents_sdk : Runtime id for contract inspection}
         {--base-url= : Kernel base URL for bootstrap manifests}
         {--hours=24 : Readiness/evidence window in hours}
@@ -38,6 +39,7 @@ class AtlasAiVoiceRealtimeCommand extends Command
     public function handle(
         AtlasVoiceRealtimeService $voice,
         AtlasVoiceLiveKitTokenIssuer $liveKitTokens,
+        AtlasVoiceLiveKitServerProbe $liveKitServerProbe,
         AtlasVoiceRivalsRunner $rivals,
         AtlasVoiceRuntimeCertificationService $certification,
         AtlasVoiceRuntimeEventNormalizer $runtimeEvents,
@@ -86,6 +88,7 @@ class AtlasAiVoiceRealtimeCommand extends Command
             'sdk-check' => $this->runSdkCheck($voice),
             'token-issuer-plan' => $liveKitTokens->configurationPlan(),
             'token-issuer-smoke' => $liveKitTokens->smoke((bool) $this->option('ephemeral-test-config')),
+            'livekit-server-probe' => $liveKitServerProbe->probe(),
             'worker-plan' => $this->runWorkerPlan($voice),
             'production-loop-plan' => $this->runProductionLoopPlan($voice),
             'product-loop-check' => $this->runProductLoopCheck($voice),
@@ -234,6 +237,15 @@ class AtlasAiVoiceRealtimeCommand extends Command
             $this->components->twoColumnDetail('Token issued', data_get($payload, 'token_issued', false) ? 'yes' : 'no');
             $this->components->twoColumnDetail('Access token exposed', data_get($payload, 'access_token_exposed', true) ? 'yes' : 'no');
             $this->components->twoColumnDetail('Starts daemon', data_get($payload, 'security_contract.starts_daemon', true) ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Next action', (string) data_get($payload, 'next_action'));
+        }
+        if (($payload['schema_version'] ?? null) === 'atlas.voice_realtime.livekit_server_probe.v1') {
+            $this->components->twoColumnDetail('LiveKit server probe', (string) data_get($payload, 'status'));
+            $this->components->twoColumnDetail('Configured', data_get($payload, 'configured', false) ? 'yes' : 'no');
+            $this->components->twoColumnDetail('URL', (string) data_get($payload, 'livekit_url_redacted', 'missing'));
+            $this->components->twoColumnDetail('Reachable', data_get($payload, 'probe.reachable', false) ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Secrets exposed', data_get($payload, 'security_contract.secrets_exposed', true) ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Daemon started', data_get($payload, 'security_contract.daemon_started', true) ? 'yes' : 'no');
             $this->components->twoColumnDetail('Next action', (string) data_get($payload, 'next_action'));
         }
         if (($payload['schema_version'] ?? null) === 'atlas.voice_realtime.worker_plan.v1') {
@@ -1205,6 +1217,6 @@ class AtlasAiVoiceRealtimeCommand extends Command
      */
     private function allowedActions(): array
     {
-        return ['contract', 'bootstrap', 'dependencies', 'dependency-install-plan', 'preflight', 'activation-contract', 'scripted-example', 'scripted-smoke', 'callback-smoke', 'callback-sequence-smoke', 'callback-loop-check', 'sdk-check', 'token-issuer-plan', 'token-issuer-smoke', 'worker-plan', 'production-loop-plan', 'product-loop-check', 'daemon-supervisor-check', 'pre-start-health-checks-smoke', 'production-loop-smoke', 'worker-start-check', 'normalize-event', 'normalize-sequence', 'runtime-certify', 'promotion-review-packet', 'health', 'readiness', 'rivals'];
+        return ['contract', 'bootstrap', 'dependencies', 'dependency-install-plan', 'preflight', 'activation-contract', 'scripted-example', 'scripted-smoke', 'callback-smoke', 'callback-sequence-smoke', 'callback-loop-check', 'sdk-check', 'token-issuer-plan', 'token-issuer-smoke', 'livekit-server-probe', 'worker-plan', 'production-loop-plan', 'product-loop-check', 'daemon-supervisor-check', 'pre-start-health-checks-smoke', 'production-loop-smoke', 'worker-start-check', 'normalize-event', 'normalize-sequence', 'runtime-certify', 'promotion-review-packet', 'health', 'readiness', 'rivals'];
     }
 }

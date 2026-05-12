@@ -43,6 +43,10 @@ from .supervised_launch_execution import (
     GUARDED_START_PROCESS_RUNNER_START_GATE_AUTHORIZATION_SCHEMA_VERSION,
     GUARDED_START_PROCESS_RUNNER_FINAL_REVIEW_AUTHORIZATION_SCHEMA_VERSION,
     GUARDED_START_PROCESS_RUNNER_PROMOTION_PACKET_AUTHORIZATION_SCHEMA_VERSION,
+    GUARDED_START_PROCESS_RUNNER_OPERATOR_RELEASE_REVIEW_AUTHORIZATION_SCHEMA_VERSION,
+    GUARDED_START_PROCESS_RUNNER_RELEASE_AUTHORIZATION_SCHEMA_VERSION,
+    GUARDED_START_PROCESS_RUNNER_RELEASE_FINALIZATION_AUTHORIZATION_SCHEMA_VERSION,
+    CONTROLLED_LIVEKIT_SERVER_SUPERVISED_SMOKE_PLAN_SCHEMA_VERSION,
     GUARDED_START_FINAL_ENABLEMENT_AUTHORIZATION_SCHEMA_VERSION,
     GUARDED_START_HUMAN_REVIEW_AUTHORIZATION_SCHEMA_VERSION,
     GUARDED_START_POLICY_PATCH_REVIEW_AUTHORIZATION_SCHEMA_VERSION,
@@ -99,6 +103,10 @@ from .supervised_launch_execution import (
     inspect_guarded_start_process_runner_start_gate,
     inspect_guarded_start_process_runner_final_review,
     inspect_guarded_start_process_runner_promotion_packet,
+    inspect_guarded_start_process_runner_operator_release_review,
+    inspect_guarded_start_process_runner_release_authorization,
+    inspect_guarded_start_process_runner_release_finalization,
+    inspect_controlled_livekit_server_supervised_smoke_contract,
     inspect_guarded_start_final_enablement_gate_contract,
     inspect_guarded_start_human_review_contract,
     inspect_guarded_start_policy_enablement_contract,
@@ -1222,6 +1230,105 @@ def build_pre_start_health_checks_smoke() -> Mapping[str, Any]:
                 "reviewed_bundle_hash": "n"*64,
             },
         )
+        guarded_start_process_runner_operator_release_review = (
+            inspect_guarded_start_process_runner_operator_release_review(
+                guarded_start_process_runner_promotion_packet=guarded_start_process_runner_promotion_packet,
+                operator_release_review_authorization={
+                    "schema_version": GUARDED_START_PROCESS_RUNNER_OPERATOR_RELEASE_REVIEW_AUTHORIZATION_SCHEMA_VERSION,
+                    "status": "approved_for_guarded_start_process_runner_operator_release_review",
+                    "operator_release_review_allowed": True,
+                    "process_runner_promotion_packet_attached": True,
+                    "operator_release_review_only": True,
+                    "operator_review_completed": True,
+                    "release_candidate_owner_attached": True,
+                    "promotion_packet_receipt_attached": True,
+                    "bundle_hash_confirmed": True,
+                    "evidence_manifest_reviewed": True,
+                    "rollback_plan_reviewed": True,
+                    "final_operator_release_required": True,
+                    "process_launch_allowed": False,
+                    "start_execution_allowed": False,
+                    "subprocess_module_import_allowed": False,
+                    "decision_receipt_id": "decision_receipt_pre_start_smoke_guarded_start_process_runner_operator_release_review",
+                    "operator_release_review_receipt_id": "operator_release_review_receipt_pre_start_smoke_guarded_start_process_runner",
+                    "reviewed_bundle_hash": "o"*64,
+                },
+            )
+        )
+        guarded_start_process_runner_release_finalization = (
+            inspect_guarded_start_process_runner_release_finalization(
+                guarded_start_process_runner_operator_release_review=guarded_start_process_runner_operator_release_review,
+                release_finalization_authorization={
+                    "schema_version": GUARDED_START_PROCESS_RUNNER_RELEASE_FINALIZATION_AUTHORIZATION_SCHEMA_VERSION,
+                    "status": "approved_for_guarded_start_process_runner_release_finalization",
+                    "release_finalization_allowed": True,
+                    "operator_release_review_attached": True,
+                    "release_finalization_only": True,
+                    "final_operator_release_receipt_attached": True,
+                    "single_start_bound": True,
+                    "release_window_attached": True,
+                    "revoke_plan_attached": True,
+                    "post_release_review_required": True,
+                    "process_launch_allowed": False,
+                    "start_execution_allowed": False,
+                    "subprocess_module_import_allowed": False,
+                    "decision_receipt_id": "decision_receipt_pre_start_smoke_guarded_start_process_runner_release_finalization",
+                    "final_operator_release_receipt_id": "final_operator_release_receipt_pre_start_smoke_guarded_start_process_runner",
+                    "release_bundle_hash": "p"*64,
+                },
+            )
+        )
+        guarded_start_process_runner_release_authorization = (
+            inspect_guarded_start_process_runner_release_authorization(
+                guarded_start_process_runner_release_finalization=guarded_start_process_runner_release_finalization,
+                release_authorization={
+                    "schema_version": GUARDED_START_PROCESS_RUNNER_RELEASE_AUTHORIZATION_SCHEMA_VERSION,
+                    "status": "approved_for_guarded_start_process_runner_release_authorization",
+                    "release_authorization_allowed": True,
+                    "release_finalization_attached": True,
+                    "release_authorization_only": True,
+                    "operator_final_release_attached": True,
+                    "single_start_bound": True,
+                    "release_window_validated": True,
+                    "revoke_plan_validated": True,
+                    "controlled_livekit_server_smoke_required": True,
+                    "worker_supervision_required": True,
+                    "post_release_review_required": True,
+                    "process_launch_allowed": False,
+                    "start_execution_allowed": False,
+                    "subprocess_module_import_allowed": False,
+                    "decision_receipt_id": "decision_receipt_pre_start_smoke_guarded_start_process_runner_release_authorization",
+                    "release_authorization_receipt_id": "release_authorization_receipt_pre_start_smoke_guarded_start_process_runner",
+                    "release_bundle_hash": "q"*64,
+                },
+            )
+        )
+        controlled_livekit_server_supervised_smoke_contract = (
+            inspect_controlled_livekit_server_supervised_smoke_contract(
+                guarded_start_process_runner_release_authorization=guarded_start_process_runner_release_authorization,
+                controlled_smoke_plan={
+                    "schema_version": CONTROLLED_LIVEKIT_SERVER_SUPERVISED_SMOKE_PLAN_SCHEMA_VERSION,
+                    "status": "approved_for_controlled_livekit_server_supervised_smoke_contract",
+                    "controlled_smoke_contract_allowed": True,
+                    "release_authorization_attached": True,
+                    "controlled_smoke_only": True,
+                    "local_livekit_server_configured": True,
+                    "livekit_health_probe_defined": True,
+                    "ephemeral_room_required": True,
+                    "token_issuer_smoke_passed": True,
+                    "worker_supervision_attached": True,
+                    "stdout_stderr_sanitizers_required": True,
+                    "post_smoke_cleanup_required": True,
+                    "secrets_redacted": True,
+                    "process_launch_allowed": False,
+                    "start_execution_allowed": False,
+                    "subprocess_module_import_allowed": False,
+                    "decision_receipt_id": "decision_receipt_pre_start_smoke_controlled_livekit_server_smoke",
+                    "controlled_smoke_receipt_id": "controlled_smoke_receipt_pre_start_smoke_livekit_server",
+                    "release_bundle_hash": "r"*64,
+                },
+            )
+        )
 
         payload = {
             "schema_version": SCHEMA_VERSION,
@@ -1279,6 +1386,10 @@ def build_pre_start_health_checks_smoke() -> Mapping[str, Any]:
                 guarded_start_process_runner_start_gate,
                 guarded_start_process_runner_final_review,
                 guarded_start_process_runner_promotion_packet,
+                guarded_start_process_runner_operator_release_review,
+                guarded_start_process_runner_release_finalization,
+                guarded_start_process_runner_release_authorization,
+                controlled_livekit_server_supervised_smoke_contract,
             ),
             "surface_id": "voice_realtime",
             "runtime_id": "livekit_agents_sdk",
@@ -1348,6 +1459,10 @@ def build_pre_start_health_checks_smoke() -> Mapping[str, Any]:
             "guarded_start_process_runner_start_gate": guarded_start_process_runner_start_gate,
             "guarded_start_process_runner_final_review": guarded_start_process_runner_final_review,
             "guarded_start_process_runner_promotion_packet": guarded_start_process_runner_promotion_packet,
+            "guarded_start_process_runner_operator_release_review": guarded_start_process_runner_operator_release_review,
+            "guarded_start_process_runner_release_finalization": guarded_start_process_runner_release_finalization,
+            "guarded_start_process_runner_release_authorization": guarded_start_process_runner_release_authorization,
+            "controlled_livekit_server_supervised_smoke_contract": controlled_livekit_server_supervised_smoke_contract,
             "gates": {
                 "managed_env_placeholder_written": env_write.get("env_file_written") is True,
                 "managed_env_target_redacted": True,
@@ -1405,6 +1520,10 @@ def build_pre_start_health_checks_smoke() -> Mapping[str, Any]:
                 "guarded_start_process_runner_start_gate_ready": guarded_start_process_runner_start_gate.get("status") == "ready_for_guarded_start_process_runner_final_review",
                 "guarded_start_process_runner_final_review_ready": guarded_start_process_runner_final_review.get("status") == "ready_for_guarded_start_process_runner_promotion_packet",
                 "guarded_start_process_runner_promotion_packet_ready": guarded_start_process_runner_promotion_packet.get("status") == "ready_for_guarded_start_process_runner_operator_release",
+                "guarded_start_process_runner_operator_release_review_ready": guarded_start_process_runner_operator_release_review.get("status") == "ready_for_guarded_start_process_runner_release_finalization",
+                "guarded_start_process_runner_release_finalization_ready": guarded_start_process_runner_release_finalization.get("status") == "ready_for_guarded_start_process_runner_release_authorization",
+                "guarded_start_process_runner_release_authorization_ready": guarded_start_process_runner_release_authorization.get("status") == "ready_for_controlled_livekit_server_supervised_smoke",
+                "controlled_livekit_server_supervised_smoke_contract_ready": controlled_livekit_server_supervised_smoke_contract.get("status") == "ready_for_supervised_voice_worker_handshake_smoke",
                 "process_launch_disabled": True,
                 "provider_calls_forbidden": True,
                 "tool_calls_forbidden": True,
@@ -1466,13 +1585,18 @@ def build_pre_start_health_checks_smoke() -> Mapping[str, Any]:
                 "VOICE_DAEMON_GUARDED_START_PROCESS_RUNNER_START_GATE_EVALUATED",
                 "VOICE_DAEMON_GUARDED_START_PROCESS_RUNNER_FINAL_REVIEWED",
                 "VOICE_DAEMON_GUARDED_START_PROCESS_RUNNER_PROMOTION_PACKET_ATTACHED",
+                "VOICE_DAEMON_GUARDED_START_PROCESS_RUNNER_OPERATOR_RELEASE_REVIEWED",
+                "VOICE_DAEMON_GUARDED_START_PROCESS_RUNNER_RELEASE_FINALIZED",
+                "VOICE_DAEMON_GUARDED_START_PROCESS_RUNNER_RELEASE_AUTHORIZED",
+                "VOICE_DAEMON_CONTROLLED_LIVEKIT_SERVER_SMOKE_REQUIRED",
+                "VOICE_DAEMON_CONTROLLED_LIVEKIT_SERVER_SMOKE_CONTRACT_EVALUATED",
                 "VOICE_DAEMON_SUBPROCESS_START_BLOCKED",
             ],
         }
 
     payload["temporary_env_file_removed_after_smoke"] = env_target_path is not None and not env_target_path.exists()
     payload["next_action"] = (
-        "submit_production_livekit_env_and_human_review_before_real_start"
+        "prepare_supervised_voice_worker_handshake_smoke_contract"
         if payload["status"] == "passed_no_process_start"
         else "fix_pre_start_health_checks_smoke"
     )
@@ -1593,6 +1717,10 @@ def _status(
     guarded_start_process_runner_start_gate: Mapping[str, Any] | None = None,
     guarded_start_process_runner_final_review: Mapping[str, Any] | None = None,
     guarded_start_process_runner_promotion_packet: Mapping[str, Any] | None = None,
+    guarded_start_process_runner_operator_release_review: Mapping[str, Any] | None = None,
+    guarded_start_process_runner_release_finalization: Mapping[str, Any] | None = None,
+    guarded_start_process_runner_release_authorization: Mapping[str, Any] | None = None,
+    controlled_livekit_server_supervised_smoke_contract: Mapping[str, Any] | None = None,
 ) -> str:
     if (
         pre_start_health_checks.get("status") == "passed_no_process_start"
@@ -1830,6 +1958,26 @@ def _status(
             guarded_start_process_runner_promotion_packet is None
             or guarded_start_process_runner_promotion_packet.get("status")
             == "ready_for_guarded_start_process_runner_operator_release"
+        )
+        and (
+            guarded_start_process_runner_operator_release_review is None
+            or guarded_start_process_runner_operator_release_review.get("status")
+            == "ready_for_guarded_start_process_runner_release_finalization"
+        )
+        and (
+            guarded_start_process_runner_release_finalization is None
+            or guarded_start_process_runner_release_finalization.get("status")
+            == "ready_for_guarded_start_process_runner_release_authorization"
+        )
+        and (
+            guarded_start_process_runner_release_authorization is None
+            or guarded_start_process_runner_release_authorization.get("status")
+            == "ready_for_controlled_livekit_server_supervised_smoke"
+        )
+        and (
+            controlled_livekit_server_supervised_smoke_contract is None
+            or controlled_livekit_server_supervised_smoke_contract.get("status")
+            == "ready_for_supervised_voice_worker_handshake_smoke"
         )
     ):
         return "passed_no_process_start"

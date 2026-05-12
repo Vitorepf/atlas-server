@@ -13,6 +13,8 @@ tags:
 capabilities:
   - session_bootstrap
   - documentation_operating_system
+  - atlas_system_graph
+  - atlas_living_architecture_graph
   - knowledge_governance_system
   - provider_evolution_intelligence
   - runtime_language_boundaries
@@ -22,6 +24,7 @@ capabilities:
   - research_intelligence_runtime
   - spec_operating_system
   - self_construction_os
+  - paperclip_control_plane_benchmark
   - qualitative_levels_roadmap
   - canonical_architecture_index
   - atlas_ai_master_architecture
@@ -67,6 +70,8 @@ decisions:
   - Atlas AI Session Bootstrap e o primeiro pacote curto para novas sessoes responderem o que e Atlas, o que existe, o que falta e como evoluir.
   - Atlas AI Provider Evolution Intelligence define como absorver lancamentos de Claude, ChatGPT, Gemini, Codex e labs sem virar wrapper fragil.
   - Atlas AI Documentation Operating System define limites de tamanho, ownership, anti-hallucination, promocao e sync/index para documentacao de alta performance.
+  - Atlas System Graph define o mapa visual/navegavel do Atlas para humanos e IAs: sistemas, programas, modulos, artefatos, dependencias, status, riscos, unlocks e projecao gerenciada para AtlasVault/Obsidian.
+  - Atlas Living Architecture Graph define o proximo patamar do System Graph: notes reais no Obsidian com links, status, dependencias, evidence e next actions para consciencia arquitetural viva.
   - Atlas AI Knowledge Governance System define a fonte de verdade entre repo docs, Postgres KB, Code Intelligence, Evidence Ledger, Obsidian, AGENTS/CLAUDE e chat source material.
   - Atlas AI Runtime Language Boundaries separa Laravel Kernel, Python AI/Data Runtime, Go Edge/Concurrency Runtime e Swift Native Mac Runtime.
   - Atlas AI Voice Realtime Surface define Voice como surface canonica mobile-first com Surface Adapter `voice_realtime`, LiveKit Agents SDK (Python), LiveKit/WebRTC, Swift Mac edge futuro, eclipse modes class-3 e Rivals-Voice.
@@ -76,6 +81,7 @@ decisions:
   - Atlas AI Research Intelligence And Self-Improvement Runtime define pesquisa de maximo nivel, source quality, promocao para docs, planejamento, implementacao validada e autoaprimoramento governado como frente P0 de evolucao do Atlas.
   - Atlas AI Spec Operating System define SDD como capacidade interna: intencao simples vira spec operacional, plano, tasks, Decision Receipt, execucao governada, evidencia, drift detection, learning proposal, data model, agentes internos, MCP governado e context packages versionados.
   - Atlas AI Self-Construction OS define como Atlas constroi Atlas: pesquisa, documentacao, Meta-SDD, prioridade, execucao governada, evidencia, drift, learning e maturidade sem criar arquitetura paralela; sua camada multi-provider permite Codex, Claude, Gemini, agentes locais e futuros providers consumirem o mesmo contrato de implementacao.
+  - Paperclip Control Plane Benchmark define as primitivas externas que Atlas deve absorver para multiagente persistente: runtime state, heartbeat runs, wakeup queue, checkout lock, execution workspace, liveness, approvals, cost events, adapters e work products, sempre subordinadas a Obras, Forge, SDD e Self-Programming OS.
   - Obras Shared Workspace e o nome canonico do escritorio compartilhado de producao: contratos, packets, artifact bus, status, evidence e integration queue para trabalho longo ou multi-provider; Forge Workspace e sua especializacao em Programming/Atlas Forge.
   - Atlas AI Cognitive Runtime define memoria, busca de contexto, sessoes longas de 72h, compactacao automatica e auditoria cognitiva como frente P0 do sistema nervoso central do Atlas.
   - Atlas AI Qualitative Levels Roadmap formaliza os patamares P1-P7 e a fila governada para co-estrategista, Rivals Strategy e Curator evolutivo.
@@ -104,12 +110,16 @@ maintenance:
   - Leia atlas-ai-provider-evolution-intelligence.md antes de reagir a lancamento de provider, vertical agents, connectors, realtime, model release ou skill pack externo.
   - Rode `php artisan atlas:ai:session-bootstrap --task="<task>" --json` e `php artisan atlas:ai:place-feature "<feature>" --json` antes de implementacao estrutural.
   - Leia atlas-ai-documentation-operating-system.md antes de criar, dividir, promover, arquivar ou expandir docs canonicos.
+  - Leia atlas-system-graph.md antes de criar mapa visual, node Obsidian, modulo novo, programa de evolucao, relacao de dependencia/unlock ou grafo de tomada de decisao do Atlas.
+  - Leia system-graph/living-architecture-graph-contract.md antes de construir ou atualizar os nodes reais do Atlas no Obsidian.
   - Rode `php artisan atlas:ai:docs-split-plan --owner=<owner_area> --json` antes de expandir qualquer doc `split_required`; use `severity` e `status` para reduzir contexto quando a sessao tiver escopo estreito.
   - Leia atlas-ai-knowledge-governance-system.md antes de iniciar feature com owner incerto, alterar bootstrap, provider projection, KB sync, Obsidian/vault flow ou contexto para agentes.
   - Leia atlas-ai-runtime-language-boundaries.md, atlas-native-mac-agent.md, atlas-ai-local-performance-memory-strategy.md, atlas-ai-content-intelligence-curation.md e atlas-ai-scenario-simulation-harness.md antes de propor Python, Go, Swift, microservico, worker externo, daemon, RAG local, cache, modelos locais, uso dos 48GB RAM, YouTube ingestion, feeds, scraping, curadoria de fontes, swarm ou simulacao multiagente.
   - Leia atlas-ai-research-self-improvement-runtime.md antes de pesquisa longa, source quality, promocao de pesquisa para docs, planejamento automatico, autoaprimoramento ou qualquer tentativa de acelerar evolucao do Atlas por automacao.
   - Leia atlas-ai-spec-operating-system.md antes de alterar SDD, Programming harness, spec compiler, task compiler, Decision Receipt de execucao, drift detector, code-agent prompts ou fluxo de one-shot implementation.
   - Leia atlas-ai-self-construction-os.md antes de alterar self-programming, Meta-SDD, prioridade de construcao, maturity ladder, build graph, loop autonomo, safety contract ou qualquer tentativa do Atlas construir Atlas.
+  - Leia self-construction/agent-control-plane-contract.md antes de alterar estado de sessao de provider, agent runs, locks, liveness, continuation summary ou ponte entre Self-Construction OS e Self-Programming OS.
+  - Leia self-construction/paperclip-control-plane-benchmark.md antes de implementar runtime state de agente, heartbeat runs, wakeup queue, checkout lock, execution workspace, liveness, approvals, cost events, adapters ou work products.
   - Leia self-construction/multi-provider-agent-orchestration-contract.md antes de criar work splitter, start packet, evidence normalizer, provider adapter ou fluxo com varias IAs implementando em paralelo.
   - Leia obras/shared-workspace-and-forge.md antes de alterar Atlas Forge, colaboracao multi-provider, artifact bus, provider context packs, integration queue, scope map ou qualquer tentativa de transformar providers em time.
   - Leia atlas-ai-cognitive-runtime.md antes de alterar memoria governada, busca de contexto, long sessions, compactacao automatica, handoff cognitivo, Open Brain quality metrics ou auditoria cognitiva.
@@ -142,6 +152,9 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-ai-session-bootstrap.md
   - docs/engineering-knowledge-base/atlas-ai-provider-evolution-intelligence.md
   - docs/engineering-knowledge-base/atlas-ai-documentation-operating-system.md
+  - docs/engineering-knowledge-base/atlas-system-graph.md
+  - docs/engineering-knowledge-base/system-graph/node-catalog-and-build-contract.md
+  - docs/engineering-knowledge-base/system-graph/living-architecture-graph-contract.md
   - docs/engineering-knowledge-base/atlas-ai-knowledge-governance-system.md
   - docs/engineering-knowledge-base/atlas-ai-runtime-language-boundaries.md
   - docs/engineering-knowledge-base/atlas-native-mac-agent.md
@@ -191,6 +204,7 @@ related_paths:
   - docs/engineering-knowledge-base/self-construction/failure-modes.md
   - docs/engineering-knowledge-base/self-construction/builder-persona-and-handoff.md
   - docs/engineering-knowledge-base/self-construction/runtime-implementation-roadmap.md
+  - docs/engineering-knowledge-base/self-construction/paperclip-control-plane-benchmark.md
   - docs/ap/AP-691-atlas-self-construction-os-contract.md
   - docs/engineering-knowledge-base/atlas-ai-cognitive-runtime.md
   - docs/engineering-knowledge-base/cognitive-runtime/schemas-and-packets.md
@@ -330,6 +344,9 @@ detalhe de modulo com docs/testes.
 |---|---|
 | `atlas-ai-session-bootstrap.md` | Pacote curto para uma nova sessao entender o que e Atlas, o que existe, o que falta e como evoluir sem ler conversa antiga |
 | `atlas-ai-documentation-operating-system.md` | Contrato de documentacao de alta performance: limites de tamanho, status, ownership, anti-hallucination, promocao e sync/index |
+| `atlas-system-graph.md` | Mapa visual/navegavel do Atlas para Obsidian e IAs: sistemas, programas, modulos, dependencias, status, riscos, unlocks e template de nodes |
+| `system-graph/node-catalog-and-build-contract.md` | Catalogo inicial e contrato de construcao dos nodes do Atlas System Graph no AtlasVault/Obsidian |
+| `system-graph/living-architecture-graph-contract.md` | Contrato do Atlas Living Architecture Graph: grafo Obsidian vivo com nodes reais, status, dependencias, evidencias e proximas acoes |
 | `atlas-ai-knowledge-governance-system.md` | Contrato enterprise de fonte de verdade entre repo docs, Postgres KB, Code Intelligence, Evidence Ledger, Obsidian, AGENTS/CLAUDE e chat source material |
 | `atlas-ai-runtime-language-boundaries.md` | Contrato de fronteira entre Laravel Kernel, Python AI/Data Runtime, Go Edge/Concurrency Runtime e Swift Native Mac Runtime |
 | `atlas-native-mac-agent.md` | Contrato canonico para Swift/macOS: Keychain, Touch ID, notificacoes, FSEvents, Menu Bar, Accessibility e ScreenCaptureKit opt-in |
@@ -349,6 +366,8 @@ detalhe de modulo com docs/testes.
 | `atlas-ai-agent-behavior-contract.md` | Contrato governado para transformar principios tipo Karpathy em comportamento verificavel de agentes, providers, Programming e Quality Gates |
 | `atlas-ai-model-selection-strategy.md` | Contrato canonico de Atlas Decide para escolher provider/modelo por tarefa, flow, specialist profile, AP-99, custo, latencia e policy |
 | `domains/programming-frontend-superpower.md` | Contrato alvo para frontend/design harness, asset protocol, visual gates, Huashu evaluation e AP-99 frontend |
+| `self-construction/paperclip-control-plane-benchmark.md` | Benchmark canonico do Paperclip: primitivas de control plane multiagente que Atlas absorve e supera com Obras, Forge, SDD e Self-Programming |
+| `self-construction/agent-control-plane-contract.md` | Contrato canonico do Atlas Agent Control Plane: provider sessions, agent runs, packet locks, liveness, continuation summary e gaps para runtime automatico |
 | `obras/shared-workspace-and-forge.md` | Contrato canonico do Obras Shared Workspace e do Forge Workspace: escritorio compartilhado para providers colaborarem por packets, artifacts, evidence e integration queue |
 | `atlas-ai-qualitative-levels-roadmap.md` | Roadmap canonico curto dos patamares P1-P7, co-estrategista, Rivals Strategy e fila QL governada |
 | `START_HERE.md` | Ponto de entrada para humanos e IAs |

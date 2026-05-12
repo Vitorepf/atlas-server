@@ -13,6 +13,7 @@ final class AtlasVoiceRuntimeCertificationService
         private readonly AtlasVoiceRealtimeService $voice,
         private readonly AtlasVoiceRealtimeFoundationRegistry $foundation,
         private readonly AtlasVoiceLiveKitTokenIssuer $tokens,
+        private readonly AtlasVoiceLiveKitServerProbe $liveKitServerProbe,
     ) {}
 
     /**
@@ -56,6 +57,7 @@ final class AtlasVoiceRuntimeCertificationService
         $foundation = $this->foundation->readiness();
         $tokenIssuer = $this->tokens->readiness();
         $tokenIssuerSmoke = $this->tokens->smoke();
+        $liveKitServerProbe = $this->liveKitServerProbe->probe();
 
         $artifacts = [
             'foundation_registry' => $this->certificationArtifact($foundation, ['summary', 'gates']),
@@ -67,6 +69,7 @@ final class AtlasVoiceRuntimeCertificationService
             'pre_start_health_checks_smoke' => $this->certificationArtifact($preStartHealthChecksSmoke, ['bootstrap', 'pre_start_health_checks']),
             'livekit_token_issuer' => $this->certificationArtifact($tokenIssuer, []),
             'livekit_token_issuer_smoke' => $this->certificationArtifact($tokenIssuerSmoke, []),
+            'livekit_server_probe' => $this->certificationArtifact($liveKitServerProbe, []),
         ];
         $forbiddenArtifactKeys = $this->forbiddenArtifactKeys($artifacts);
         $workerStatus = (string) ($workerStart['status'] ?? 'unknown');
@@ -150,6 +153,10 @@ final class AtlasVoiceRuntimeCertificationService
                     && data_get($productLoopCheck, 'gates.guarded_start_process_runner_start_gate_available') === true
                     && data_get($productLoopCheck, 'gates.guarded_start_process_runner_final_review_available') === true
                     && data_get($productLoopCheck, 'gates.guarded_start_process_runner_promotion_packet_available') === true
+                    && data_get($productLoopCheck, 'gates.guarded_start_process_runner_operator_release_review_available') === true
+                    && data_get($productLoopCheck, 'gates.guarded_start_process_runner_release_finalization_available') === true
+                    && data_get($productLoopCheck, 'gates.guarded_start_process_runner_release_authorization_available') === true
+                    && data_get($productLoopCheck, 'gates.controlled_livekit_server_supervised_smoke_contract_available') === true
                     && data_get($productLoopCheck, 'gates.production_promotion_blocked') === true,
                 'schema_version' => $productLoopCheck['schema_version'] ?? null,
                 'status' => $productLoopCheck['status'] ?? 'unknown',
@@ -187,6 +194,10 @@ final class AtlasVoiceRuntimeCertificationService
                 'guarded_start_process_runner_start_gate_available' => data_get($productLoopCheck, 'gates.guarded_start_process_runner_start_gate_available'),
                 'guarded_start_process_runner_final_review_available' => data_get($productLoopCheck, 'gates.guarded_start_process_runner_final_review_available'),
                 'guarded_start_process_runner_promotion_packet_available' => data_get($productLoopCheck, 'gates.guarded_start_process_runner_promotion_packet_available'),
+                'guarded_start_process_runner_operator_release_review_available' => data_get($productLoopCheck, 'gates.guarded_start_process_runner_operator_release_review_available'),
+                'guarded_start_process_runner_release_finalization_available' => data_get($productLoopCheck, 'gates.guarded_start_process_runner_release_finalization_available'),
+                'guarded_start_process_runner_release_authorization_available' => data_get($productLoopCheck, 'gates.guarded_start_process_runner_release_authorization_available'),
+                'controlled_livekit_server_supervised_smoke_contract_available' => data_get($productLoopCheck, 'gates.controlled_livekit_server_supervised_smoke_contract_available'),
                 'supervisor_health_snapshot_schema_version' => data_get($productLoopCheck, 'supervised_start_plan.supervisor_health_snapshot.schema_version'),
                 'supervisor_health_snapshot_daemon_started' => data_get($productLoopCheck, 'supervised_start_plan.supervisor_health_snapshot.daemon_started'),
                 'supervisor_preflight_schema_version' => data_get($productLoopCheck, 'supervised_start_plan.supervisor_preflight.schema_version'),
@@ -279,6 +290,7 @@ final class AtlasVoiceRuntimeCertificationService
             preStartHealthChecksSmoke: $preStartHealthChecksSmoke,
             tokenIssuer: $tokenIssuer,
             tokenIssuerSmoke: $tokenIssuerSmoke,
+            liveKitServerProbe: $liveKitServerProbe,
         );
 
         $nextAction = $certified
@@ -316,6 +328,7 @@ final class AtlasVoiceRuntimeCertificationService
      * @param  array<string,mixed>  $preStartHealthChecksSmoke
      * @param  array<string,mixed>  $tokenIssuer
      * @param  array<string,mixed>  $tokenIssuerSmoke
+     * @param  array<string,mixed>  $liveKitServerProbe
      * @return array<string,mixed>
      */
     private function productionPromotionGate(
@@ -329,6 +342,7 @@ final class AtlasVoiceRuntimeCertificationService
         array $preStartHealthChecksSmoke,
         array $tokenIssuer,
         array $tokenIssuerSmoke,
+        array $liveKitServerProbe,
     ): array {
         $machineGates = [
             'scaffold_certified' => [
@@ -363,6 +377,25 @@ final class AtlasVoiceRuntimeCertificationService
                 'ephemeral_test_config' => $tokenIssuerSmoke['ephemeral_test_config'] ?? null,
                 'production_readiness' => $tokenIssuerSmoke['production_readiness'] ?? null,
                 'reason' => ($tokenIssuerSmoke['status'] ?? null) === 'passed' ? null : 'run_token_issuer_smoke_after_configuring_livekit',
+            ],
+            'livekit_server_reachable' => [
+                'passed' => ($liveKitServerProbe['schema_version'] ?? null) === 'atlas.voice_realtime.livekit_server_probe.v1'
+                    && ($liveKitServerProbe['status'] ?? null) === 'reachable'
+                    && data_get($liveKitServerProbe, 'probe.reachable') === true
+                    && data_get($liveKitServerProbe, 'security_contract.secrets_exposed') === false
+                    && data_get($liveKitServerProbe, 'security_contract.api_key_read') === false
+                    && data_get($liveKitServerProbe, 'security_contract.api_secret_read') === false
+                    && data_get($liveKitServerProbe, 'security_contract.daemon_started') === false
+                    && data_get($liveKitServerProbe, 'security_contract.process_launch_attempted') === false
+                    && data_get($liveKitServerProbe, 'security_contract.livekit_sdk_imported') === false,
+                'status' => $liveKitServerProbe['status'] ?? 'unknown',
+                'livekit_url_configured' => $liveKitServerProbe['livekit_url_configured'] ?? null,
+                'livekit_url_redacted' => $liveKitServerProbe['livekit_url_redacted'] ?? null,
+                'reachable' => data_get($liveKitServerProbe, 'probe.reachable'),
+                'daemon_started' => data_get($liveKitServerProbe, 'security_contract.daemon_started'),
+                'reason' => ($liveKitServerProbe['status'] ?? null) === 'reachable'
+                    ? null
+                    : (string) ($liveKitServerProbe['next_action'] ?? 'start_or_fix_livekit_server_local_then_rerun_probe'),
             ],
             'callback_sequence_passed' => [
                 'passed' => ($callbackSequence['status'] ?? null) === 'passed'
@@ -424,6 +457,10 @@ final class AtlasVoiceRuntimeCertificationService
                     && data_get($productLoopCheck, 'gates.guarded_start_process_runner_start_gate_available') === true
                     && data_get($productLoopCheck, 'gates.guarded_start_process_runner_final_review_available') === true
                     && data_get($productLoopCheck, 'gates.guarded_start_process_runner_promotion_packet_available') === true
+                    && data_get($productLoopCheck, 'gates.guarded_start_process_runner_operator_release_review_available') === true
+                    && data_get($productLoopCheck, 'gates.guarded_start_process_runner_release_finalization_available') === true
+                    && data_get($productLoopCheck, 'gates.guarded_start_process_runner_release_authorization_available') === true
+                    && data_get($productLoopCheck, 'gates.controlled_livekit_server_supervised_smoke_contract_available') === true
                     && data_get($productLoopCheck, 'gates.production_promotion_blocked') === true,
                 'schema_version' => $productLoopCheck['schema_version'] ?? null,
                 'status' => $productLoopCheck['status'] ?? 'unknown',
@@ -461,6 +498,10 @@ final class AtlasVoiceRuntimeCertificationService
                 'guarded_start_process_runner_start_gate_available' => data_get($productLoopCheck, 'gates.guarded_start_process_runner_start_gate_available'),
                 'guarded_start_process_runner_final_review_available' => data_get($productLoopCheck, 'gates.guarded_start_process_runner_final_review_available'),
                 'guarded_start_process_runner_promotion_packet_available' => data_get($productLoopCheck, 'gates.guarded_start_process_runner_promotion_packet_available'),
+                'guarded_start_process_runner_operator_release_review_available' => data_get($productLoopCheck, 'gates.guarded_start_process_runner_operator_release_review_available'),
+                'guarded_start_process_runner_release_finalization_available' => data_get($productLoopCheck, 'gates.guarded_start_process_runner_release_finalization_available'),
+                'guarded_start_process_runner_release_authorization_available' => data_get($productLoopCheck, 'gates.guarded_start_process_runner_release_authorization_available'),
+                'controlled_livekit_server_supervised_smoke_contract_available' => data_get($productLoopCheck, 'gates.controlled_livekit_server_supervised_smoke_contract_available'),
                 'supervisor_health_snapshot_schema_version' => data_get($productLoopCheck, 'supervised_start_plan.supervisor_health_snapshot.schema_version'),
                 'supervisor_health_snapshot_daemon_started' => data_get($productLoopCheck, 'supervised_start_plan.supervisor_health_snapshot.daemon_started'),
                 'supervisor_preflight_schema_version' => data_get($productLoopCheck, 'supervised_start_plan.supervisor_preflight.schema_version'),
@@ -625,6 +666,9 @@ final class AtlasVoiceRuntimeCertificationService
         }
         if (in_array('livekit_token_issuer_smoke_passed', $failed, true)) {
             return 'run_voice_token_issuer_smoke';
+        }
+        if (in_array('livekit_server_reachable', $failed, true)) {
+            return (string) data_get($machineGates, 'livekit_server_reachable.reason', 'start_or_fix_livekit_server_local_then_rerun_probe');
         }
         if (in_array('product_loop_check_available', $failed, true)) {
             return 'run_voice_product_loop_check';

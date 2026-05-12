@@ -17728,6 +17728,352 @@ final class AtlasSelfConstructionReadinessService
      * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null}  $options
      * @return array<string, mixed>
      */
+    public function agentReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationHumanEscalationTemplate(array $options = []): array
+    {
+        $rejectionPayload = $this->agentReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationPersistenceRejectionTemplate($options);
+        $persistenceRejection = (array) data_get($rejectionPayload, 'disable_execution_later_cycle_authorization_persistence_rejection', []);
+        $rejectionReady = data_get($rejectionPayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_rejection_template_ready';
+
+        $requiredEscalationFields = [
+            'later_cycle_authorization_persistence_rejection_hash',
+            'persistence_rejection_rationale',
+            'selected_repair_review_outcome',
+            'human_escalation_reason',
+            'required_human_role',
+            'review_packet_hash',
+            'provider_identity_receipt_draft_hash',
+            'workspace_obra_receipt_draft_hash',
+            'non_dispatch_statement',
+            'non_authorization_statement',
+            'non_persistence_statement',
+            'non_signature_authority_statement',
+            'escalation_actor_identity',
+            'escalation_actor_provider',
+        ];
+
+        $humanEscalation = [
+            'disable_execution_later_cycle_authorization_human_escalation_id' => 'AGENT-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-FRESH-AUTHORIZATION-NEW-CYCLE-DISABLE-EXECUTION-LATER-CYCLE-AUTHORIZATION-HUMAN-ESCALATION-TEMPLATE-SELF-CONSTRUCTION-0001',
+            'workspace' => data_get($persistenceRejection, 'workspace'),
+            'status' => $rejectionReady ? 'ready_as_future_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template' : 'blocked_before_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_rejection_template',
+            'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_rejection_hash' => data_get($rejectionPayload, 'disable_execution_later_cycle_authorization_persistence_rejection_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repair_review_hash' => data_get($persistenceRejection, 'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repair_review_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repaired_evidence_packet_hash' => data_get($persistenceRejection, 'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repaired_evidence_packet_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_evidence_repair_request_hash' => data_get($persistenceRejection, 'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_evidence_repair_request_hash'),
+            'required_escalation_fields' => $requiredEscalationFields,
+            'required_escalation_field_count' => count($requiredEscalationFields),
+            'allowed_human_roles' => [
+                'owner',
+                'security_reviewer',
+                'architecture_reviewer',
+                'governance_reviewer',
+                'audit_reviewer',
+            ],
+            'required_escalation_evidence' => [
+                'later_cycle_authorization_persistence_rejection_hash',
+                'persistence_rejection_rationale',
+                'selected_repair_review_outcome',
+                'human_escalation_reason',
+                'required_human_role',
+                'provider_identity_receipt_draft_hash',
+                'workspace_obra_receipt_draft_hash',
+                'non_signature_authority_statement',
+                'human_reviewer_identity',
+            ],
+            'required_escalation_evidence_count' => 9,
+            'escalation_policy' => [
+                'human_escalation_requires_persistence_rejection_hash',
+                'human_escalation_requires_human_role',
+                'human_escalation_requires_provider_identity_receipt_draft_hash',
+                'human_escalation_requires_workspace_obra_receipt_draft_hash',
+                'human_escalation_requires_non_dispatch_statement',
+                'human_escalation_requires_non_authorization_statement',
+                'human_escalation_requires_non_signature_authority_statement',
+                'human_escalation_requires_later_cycle_authorized_flag_false',
+                'human_escalation_requires_prior_authorization_reuse_allowed_flag_false',
+                'human_escalation_requires_signature_authority_flag_false',
+                'human_escalation_does_not_notify_human',
+                'human_escalation_does_not_create_task',
+                'human_escalation_does_not_accept_signature',
+                'human_escalation_does_not_become_signature_authority',
+                'human_escalation_does_not_sign_receipt',
+                'human_escalation_does_not_write_ledger',
+                'human_escalation_does_not_persist_receipt',
+                'human_escalation_does_not_record_decision',
+                'human_escalation_does_not_authorize_later_cycle',
+                'human_escalation_does_not_execute_disable',
+                'human_escalation_does_not_mutate_writer_state',
+            ],
+            'future_escalation_outputs' => [
+                'writer_release_fresh_authorization_later_cycle_authorization_human_escalation_hash',
+                'writer_release_fresh_authorization_later_cycle_authorization_human_review_packet_hash',
+                'writer_release_fresh_authorization_later_cycle_authorization_follow_up_observability_hash',
+                'writer_release_fresh_authorization_later_cycle_authorization_manual_decision_request_hash',
+            ],
+            'still_forbidden_by_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template' => [
+                'human_notification_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template',
+                'task_creation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template',
+                'signature_acceptance_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template',
+                'signature_authority_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template',
+                'receipt_signature_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template',
+                'receipt_persistence_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template',
+                'approval_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template',
+                'later_cycle_authorization_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template',
+                'authorization_reuse_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template',
+                'disable_execution_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template',
+                'writer_state_mutation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template',
+                'writer_file_creation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template',
+                'ledger_write_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template',
+                'decision_recording_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template',
+                'merge_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template',
+                'dispatch_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template',
+            ],
+            'execution_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'ledger_write_allowed' => false,
+            'signature_valid' => false,
+            'signature_accepted' => false,
+            'signature_authority' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'dispatch_allowed' => false,
+            'prior_authorization_reuse_allowed' => false,
+            'later_cycle_authorized' => false,
+            'human_notified' => false,
+            'human_task_created' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template.v1',
+            'status' => $rejectionReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template_blocked',
+            'mode' => 'read_only_provider_neutral_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template',
+            'execution_allowed' => false,
+            'ledger_write_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'signature_accepted' => false,
+            'signature_authority' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'prior_authorization_reuse_allowed' => false,
+            'later_cycle_authorized' => false,
+            'human_notified' => false,
+            'human_task_created' => false,
+            'disable_execution_later_cycle_authorization_human_escalation' => $humanEscalation,
+            'disable_execution_later_cycle_authorization_human_escalation_hash' => $this->stableHash($humanEscalation),
+            'non_execution_guarantees' => [
+                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template_does_not_claim_packets',
+                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template_does_not_complete_packets',
+                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template_does_not_notify_human',
+                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template_does_not_create_task',
+                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template_does_not_accept_signature',
+                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template_does_not_become_signature_authority',
+                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template_does_not_sign_receipt',
+                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template_does_not_persist_receipt',
+                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template_does_not_grant_approval',
+                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template_does_not_authorize_later_cycle',
+                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template_does_not_reuse_prior_authorization',
+                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template_does_not_execute_disable',
+                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template_does_not_mutate_writer_state',
+                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template_does_not_create_writer_file',
+                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template_does_not_write_ledger',
+                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template_does_not_record_decision',
+                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template_does_not_merge',
+                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template_does_not_dispatch_work',
+            ],
+            'human_summary' => $rejectionReady
+                ? 'Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle disable execution later-cycle authorization human escalation template is ready as a provider-neutral non-dispatching escalation template. It still does not notify humans, create tasks, accept signatures, become signature authority, sign receipts, persist receipts, grant approval, authorize a later cycle, reuse prior authorization, write ledger, record decisions, execute disable, mutate writer state, create a writer, merge or dispatch.'
+                : 'Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle disable execution later-cycle authorization human escalation template is blocked until fresh authorization new-cycle disable execution later-cycle authorization persistence rejection template is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationManualDecisionRequestTemplate(array $options = []): array
+    {
+        $escalationPayload = $this->agentReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationHumanEscalationTemplate($options);
+        $humanEscalation = (array) data_get($escalationPayload, 'disable_execution_later_cycle_authorization_human_escalation', []);
+        $escalationReady = data_get($escalationPayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template_ready';
+
+        $requiredDecisionRequestFields = [
+            'later_cycle_authorization_human_escalation_hash',
+            'required_human_role',
+            'decision_question',
+            'decision_context_hash',
+            'available_decision_options',
+            'risk_summary',
+            'provider_identity_receipt_draft_hash',
+            'workspace_obra_receipt_draft_hash',
+            'validated_signer_provider_scope',
+            'non_dispatch_statement',
+            'non_authorization_statement',
+            'non_persistence_statement',
+            'non_signature_authority_statement',
+            'request_actor_identity',
+            'request_actor_provider',
+        ];
+
+        $manualDecisionRequest = [
+            'disable_execution_later_cycle_authorization_manual_decision_request_id' => 'AGENT-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-FRESH-AUTHORIZATION-NEW-CYCLE-DISABLE-EXECUTION-LATER-CYCLE-AUTHORIZATION-MANUAL-DECISION-REQUEST-TEMPLATE-SELF-CONSTRUCTION-0001',
+            'workspace' => data_get($humanEscalation, 'workspace'),
+            'status' => $escalationReady ? 'ready_as_future_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template' : 'blocked_before_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template',
+            'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_hash' => data_get($escalationPayload, 'disable_execution_later_cycle_authorization_human_escalation_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_rejection_hash' => data_get($humanEscalation, 'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_rejection_hash'),
+            'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repair_review_hash' => data_get($humanEscalation, 'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repair_review_hash'),
+            'required_decision_request_fields' => $requiredDecisionRequestFields,
+            'required_decision_request_field_count' => count($requiredDecisionRequestFields),
+            'allowed_decision_options' => [
+                'reject_later_cycle_authorization',
+                'request_more_evidence',
+                'extend_observation_window',
+                'escalate_to_security_reviewer',
+                'escalate_to_owner',
+            ],
+            'required_decision_request_evidence' => [
+                'later_cycle_authorization_human_escalation_hash',
+                'required_human_role',
+                'decision_question',
+                'decision_context_hash',
+                'risk_summary',
+                'provider_identity_receipt_draft_hash',
+                'workspace_obra_receipt_draft_hash',
+                'validated_signer_provider_scope',
+                'non_signature_authority_statement',
+                'human_reviewer_identity',
+            ],
+            'required_decision_request_evidence_count' => 10,
+            'decision_request_policy' => [
+                'manual_decision_request_requires_human_escalation_hash',
+                'manual_decision_request_requires_decision_question',
+                'manual_decision_request_requires_allowed_decision_options',
+                'manual_decision_request_requires_provider_identity_receipt_draft_hash',
+                'manual_decision_request_requires_workspace_obra_receipt_draft_hash',
+                'manual_decision_request_requires_validated_signer_provider_scope',
+                'manual_decision_request_requires_non_dispatch_statement',
+                'manual_decision_request_requires_non_authorization_statement',
+                'manual_decision_request_requires_non_signature_authority_statement',
+                'manual_decision_request_requires_later_cycle_authorized_flag_false',
+                'manual_decision_request_requires_prior_authorization_reuse_allowed_flag_false',
+                'manual_decision_request_requires_signature_authority_flag_false',
+                'manual_decision_request_does_not_request_real_decision',
+                'manual_decision_request_does_not_notify_human',
+                'manual_decision_request_does_not_create_task',
+                'manual_decision_request_does_not_accept_signature',
+                'manual_decision_request_does_not_become_signature_authority',
+                'manual_decision_request_does_not_sign_receipt',
+                'manual_decision_request_does_not_write_ledger',
+                'manual_decision_request_does_not_persist_receipt',
+                'manual_decision_request_does_not_record_decision',
+                'manual_decision_request_does_not_authorize_later_cycle',
+                'manual_decision_request_does_not_execute_disable',
+                'manual_decision_request_does_not_mutate_writer_state',
+            ],
+            'future_decision_request_outputs' => [
+                'writer_release_fresh_authorization_later_cycle_authorization_manual_decision_request_hash',
+                'writer_release_fresh_authorization_later_cycle_authorization_manual_decision_context_hash',
+                'writer_release_fresh_authorization_later_cycle_authorization_manual_decision_response_hash',
+                'writer_release_fresh_authorization_later_cycle_authorization_follow_up_observability_hash',
+            ],
+            'still_forbidden_by_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template' => [
+                'real_decision_request_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template',
+                'human_notification_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template',
+                'task_creation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template',
+                'signature_acceptance_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template',
+                'signature_authority_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template',
+                'receipt_signature_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template',
+                'receipt_persistence_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template',
+                'approval_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template',
+                'later_cycle_authorization_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template',
+                'authorization_reuse_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template',
+                'disable_execution_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template',
+                'writer_state_mutation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template',
+                'writer_file_creation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template',
+                'ledger_write_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template',
+                'decision_recording_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template',
+                'merge_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template',
+                'dispatch_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template',
+            ],
+            'execution_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'ledger_write_allowed' => false,
+            'signature_valid' => false,
+            'signature_accepted' => false,
+            'signature_authority' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'dispatch_allowed' => false,
+            'prior_authorization_reuse_allowed' => false,
+            'later_cycle_authorized' => false,
+            'human_notified' => false,
+            'human_task_created' => false,
+            'manual_decision_requested' => false,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template.v1',
+            'status' => $escalationReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template_blocked',
+            'mode' => 'read_only_provider_neutral_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template',
+            'execution_allowed' => false,
+            'ledger_write_allowed' => false,
+            'writer_file_creation_allowed' => false,
+            'dispatch_allowed' => false,
+            'approval_granted' => false,
+            'merge_allowed' => false,
+            'signature_valid' => false,
+            'signature_accepted' => false,
+            'signature_authority' => false,
+            'receipt_signed' => false,
+            'receipt_persisted' => false,
+            'decision_recorded' => false,
+            'prior_authorization_reuse_allowed' => false,
+            'later_cycle_authorized' => false,
+            'human_notified' => false,
+            'human_task_created' => false,
+            'manual_decision_requested' => false,
+            'disable_execution_later_cycle_authorization_manual_decision_request' => $manualDecisionRequest,
+            'disable_execution_later_cycle_authorization_manual_decision_request_hash' => $this->stableHash($manualDecisionRequest),
+            'non_execution_guarantees' => [
+                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template_does_not_claim_packets',
+                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template_does_not_complete_packets',
+                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template_does_not_request_real_decision',
+                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template_does_not_notify_human',
+                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template_does_not_create_task',
+                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template_does_not_accept_signature',
+                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template_does_not_become_signature_authority',
+                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template_does_not_sign_receipt',
+                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template_does_not_persist_receipt',
+                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template_does_not_grant_approval',
+                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template_does_not_authorize_later_cycle',
+                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template_does_not_reuse_prior_authorization',
+                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template_does_not_execute_disable',
+                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template_does_not_mutate_writer_state',
+                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template_does_not_create_writer_file',
+                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template_does_not_write_ledger',
+                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template_does_not_record_decision',
+                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template_does_not_merge',
+                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template_does_not_dispatch_work',
+            ],
+            'human_summary' => $escalationReady
+                ? 'Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle disable execution later-cycle authorization manual decision request template is ready as a provider-neutral non-dispatching manual decision request template. It still does not request a real decision, notify humans, create tasks, accept signatures, become signature authority, sign receipts, persist receipts, grant approval, authorize a later cycle, reuse prior authorization, write ledger, record decisions, execute disable, mutate writer state, create a writer, merge or dispatch.'
+                : 'Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle disable execution later-cycle authorization manual decision request template is blocked until fresh authorization new-cycle disable execution later-cycle authorization human escalation template is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null}  $options
+     * @return array<string, mixed>
+     */
     public function codexLaunchPlan(array $options = []): array
     {
         $queuePayload = $this->packetQueue($options);
@@ -40727,6 +41073,8 @@ final class AtlasSelfConstructionReadinessService
                 'php artisan atlas:ai:self-construction --agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-repaired-evidence-packet-template --json',
                 'php artisan atlas:ai:self-construction --agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-repair-review-template --json',
                 'php artisan atlas:ai:self-construction --agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-persistence-rejection-template --json',
+                'php artisan atlas:ai:self-construction --agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-human-escalation-template --json',
+                'php artisan atlas:ai:self-construction --agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-manual-decision-request-template --json',
                 'php artisan atlas:ai:self-construction --codex-start-packet --actor=<actor> --session=<session> --json',
             ],
         ];
@@ -40747,6 +41095,3736 @@ final class AtlasSelfConstructionReadinessService
                 'forge_workspace_status_does_not_enable_self_programming',
             ],
             'human_summary' => 'Forge Workspace projection is ready: Atlas Self-Construction OS has a canonical shared workspace view for packets, artifacts, reservations, evidence and integration without dispatching agents.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlane(array $options = []): array
+    {
+        $queuePayload = $this->packetQueue($options);
+        $parallelPlan = $this->parallelSessionPlan($options);
+        $readinessGate = $this->multiSessionReadinessGate($options);
+        $forgeWorkspace = $this->forgeWorkspaceStatus($options);
+        $reservationStatus = $this->reservationStatus($options);
+
+        $activeReservations = (array) data_get($reservationStatus, 'ledger.active_reservations', []);
+        $completedReservations = (array) data_get($reservationStatus, 'ledger.completed_reservations', []);
+
+        $providerSessions = array_values(array_map(function (array $reservation): array {
+            $leaseExpiresAt = (string) data_get($reservation, 'lease_expires_at');
+            $expiresAt = strtotime($leaseExpiresAt);
+            $secondsRemaining = $expiresAt === false ? null : max(0, $expiresAt - time());
+            $providerRole = $this->providerRoleForActor((string) data_get($reservation, 'actor'));
+
+            return [
+                'session_id' => data_get($reservation, 'session'),
+                'actor' => data_get($reservation, 'actor'),
+                'provider' => data_get($providerRole, 'provider', 'unknown'),
+                'role' => data_get($providerRole, 'role', 'implementation_worker'),
+                'state' => data_get($reservation, 'state'),
+                'current_packet_id' => data_get($reservation, 'packet_id'),
+                'reservation_id' => data_get($reservation, 'reservation_id'),
+                'claimed_at' => data_get($reservation, 'claimed_at'),
+                'lease_expires_at' => $leaseExpiresAt,
+                'seconds_until_lease_expiry' => $secondsRemaining,
+                'liveness' => $secondsRemaining === null
+                    ? 'unknown'
+                    : ($secondsRemaining > 0 ? 'active_lease' : 'expired_lease'),
+                'allowed_files_hash' => data_get($reservation, 'allowed_files_hash'),
+                'next_required_action' => 'continue_packet_scope_or_release_reservation',
+            ];
+        }, $activeReservations));
+
+        $completedRuns = array_values(array_map(function (array $reservation): array {
+            $providerRole = $this->providerRoleForActor((string) data_get($reservation, 'actor'));
+
+            return [
+                'session_id' => data_get($reservation, 'session'),
+                'actor' => data_get($reservation, 'actor'),
+                'provider' => data_get($providerRole, 'provider', 'unknown'),
+                'packet_id' => data_get($reservation, 'packet_id'),
+                'reservation_id' => data_get($reservation, 'reservation_id'),
+                'completed_at' => data_get($reservation, 'completed_at'),
+                'completion_reason' => data_get($reservation, 'completion_reason'),
+                'completion_evidence_hash' => data_get($reservation, 'completion_evidence_hash'),
+                'review_state' => data_get($reservation, 'completion_evidence_hash') ? 'ready_for_integration_review' : 'missing_evidence_hash',
+            ];
+        }, $completedReservations));
+        $agentRunsTableReady = \Illuminate\Support\Facades\Schema::hasTable('atlas_self_construction_agent_runs');
+        $heartbeatsTableReady = \Illuminate\Support\Facades\Schema::hasTable('atlas_self_construction_agent_heartbeats');
+        $costEventsTableReady = \Illuminate\Support\Facades\Schema::hasTable('atlas_self_construction_agent_cost_events');
+        $workProductsTableReady = \Illuminate\Support\Facades\Schema::hasTable('atlas_self_construction_agent_work_products');
+        $wakeupItemsTableReady = \Illuminate\Support\Facades\Schema::hasTable('atlas_self_construction_agent_wakeup_items');
+        $dispatchReceiptsTableReady = \Illuminate\Support\Facades\Schema::hasTable('atlas_self_construction_agent_dispatch_receipts');
+        $persistentAgentRunCount = $agentRunsTableReady
+            ? \App\Models\AtlasSelfConstructionAgentRun::query()->count()
+            : null;
+        $persistentHeartbeatCount = $heartbeatsTableReady
+            ? \App\Models\AtlasSelfConstructionAgentHeartbeat::query()->count()
+            : null;
+        $persistentCostEventCount = $costEventsTableReady
+            ? \App\Models\AtlasSelfConstructionAgentCostEvent::query()->count()
+            : null;
+        $persistentWorkProductCount = $workProductsTableReady
+            ? \App\Models\AtlasSelfConstructionAgentWorkProduct::query()->count()
+            : null;
+        $persistentWakeupItemCount = $wakeupItemsTableReady
+            ? \App\Models\AtlasSelfConstructionAgentWakeupItem::query()->count()
+            : null;
+        $persistentDispatchReceiptCount = $dispatchReceiptsTableReady
+            ? \App\Models\AtlasSelfConstructionAgentDispatchReceipt::query()->count()
+            : null;
+
+        $controlPlane = [
+            'control_plane_id' => 'AGENT-CONTROL-PLANE-SELF-CONSTRUCTION-0001',
+            'canonical_name' => 'Atlas Agent Control Plane',
+            'parent_program' => 'Atlas Self-Construction OS',
+            'workspace_id' => data_get($forgeWorkspace, 'workspace.workspace_id'),
+            'workspace_name' => data_get($forgeWorkspace, 'workspace.canonical_name'),
+            'maturity' => 'durable_packet_claims_with_read_only_control_projection',
+            'current_capability' => [
+                'durable_packet_checkout_lock',
+                'provider_session_state_projection',
+                'agent_run_projection_from_reservations',
+                'persistent_run_liveness_detector',
+                'dispatch_receipt_schema_contract',
+                'forge_workspace_projection',
+                'packet_queue_projection',
+                'multi_session_readiness_projection',
+                'continuation_summary_projection',
+            ],
+            'not_yet_runtime_capable' => [
+                'database_backed_agent_runs',
+                'heartbeat_runs',
+                'wakeup_queue',
+                'liveness_state_writer',
+                'cost_events',
+                'adapter_invocation_runtime',
+                'signed_dispatch_receipt_writer',
+                'automatic_work_product_collection',
+            ],
+            'paperclip_patterns_absorbed' => [
+                'agent_runtime_state',
+                'heartbeat_run_shape',
+                'checkout_lock',
+                'execution_workspace',
+                'activity_log',
+                'approvals_as_objects',
+                'adapter_abstraction',
+                'run_liveness_projection',
+                'continuation_summary',
+            ],
+            'source_of_truth' => [
+                'reservation_ledger' => data_get($reservationStatus, 'ledger.storage'),
+                'packet_queue_hash' => data_get($queuePayload, 'queue_hash'),
+                'parallel_plan_hash' => data_get($parallelPlan, 'plan_hash'),
+                'multi_session_gate_hash' => data_get($readinessGate, 'gate_hash'),
+                'forge_workspace_hash' => data_get($forgeWorkspace, 'workspace_hash'),
+            ],
+            'counts' => [
+                'queue_entries' => data_get($queuePayload, 'queue.entry_count'),
+                'available_packets' => data_get($queuePayload, 'queue.available_count'),
+                'claimed_packets' => data_get($queuePayload, 'queue.claimed_count'),
+                'completed_packets' => data_get($queuePayload, 'queue.completed_count'),
+                'withheld_packets' => data_get($queuePayload, 'queue.withheld_count'),
+                'provider_sessions' => count($providerSessions),
+                'completed_runs' => count($completedRuns),
+                'ledger_events' => data_get($reservationStatus, 'ledger.event_count'),
+                'persistent_agent_runs' => $persistentAgentRunCount,
+                'persistent_heartbeats' => $persistentHeartbeatCount,
+                'persistent_cost_events' => $persistentCostEventCount,
+                'persistent_work_products' => $persistentWorkProductCount,
+                'persistent_wakeup_items' => $persistentWakeupItemCount,
+                'persistent_dispatch_receipts' => $persistentDispatchReceiptCount,
+            ],
+            'persistent_runtime' => [
+                'status' => $agentRunsTableReady && $heartbeatsTableReady && $costEventsTableReady && $workProductsTableReady && $wakeupItemsTableReady && $dispatchReceiptsTableReady ? 'schema_ready' : 'schema_missing',
+                'agent_runs_table_ready' => $agentRunsTableReady,
+                'heartbeats_table_ready' => $heartbeatsTableReady,
+                'cost_events_table_ready' => $costEventsTableReady,
+                'work_products_table_ready' => $workProductsTableReady,
+                'wakeup_items_table_ready' => $wakeupItemsTableReady,
+                'dispatch_receipts_table_ready' => $dispatchReceiptsTableReady,
+                'agent_run_count' => $persistentAgentRunCount,
+                'heartbeat_count' => $persistentHeartbeatCount,
+                'cost_event_count' => $persistentCostEventCount,
+                'work_product_count' => $persistentWorkProductCount,
+                'wakeup_item_count' => $persistentWakeupItemCount,
+                'dispatch_receipt_count' => $persistentDispatchReceiptCount,
+                'write_runtime_enabled' => $agentRunsTableReady && $heartbeatsTableReady,
+                'sync_from_reservation_ledger_enabled' => $agentRunsTableReady && $heartbeatsTableReady,
+                'heartbeat_writer_enabled' => $agentRunsTableReady && $heartbeatsTableReady,
+                'cost_event_writer_enabled' => $agentRunsTableReady && $costEventsTableReady,
+                'work_product_registry_enabled' => $agentRunsTableReady && $workProductsTableReady,
+                'wakeup_queue_enabled' => $wakeupItemsTableReady,
+                'wakeup_writer_enabled' => $agentRunsTableReady && $heartbeatsTableReady && $wakeupItemsTableReady,
+                'wakeup_scheduler_enabled' => $wakeupItemsTableReady,
+                'dispatch_receipt_registry_enabled' => $agentRunsTableReady && $wakeupItemsTableReady && $dispatchReceiptsTableReady,
+                'liveness_detector_enabled' => $agentRunsTableReady && $heartbeatsTableReady,
+                'adapter_invocation_contract_enabled' => true,
+                'next_required_slice' => 'implement_signed_dispatch_receipt_writer_and_adapter_runtime',
+            ],
+            'readiness' => [
+                'decision' => data_get($readinessGate, 'gate.decision'),
+                'safe_next_instruction' => data_get($readinessGate, 'gate.safe_next_instruction'),
+                'two_codex_possible_now' => (int) data_get($parallelPlan, 'plan.preview_assignable_count', 0) >= 2
+                    && (bool) data_get($reservationStatus, 'ledger.ledger_available', false),
+                'dispatch_allowed' => false,
+                'execution_allowed' => false,
+                'reason' => 'Control Plane can coordinate claimed packets, but it does not launch providers yet.',
+            ],
+            'provider_sessions' => $providerSessions,
+            'agent_runs' => [
+                'active' => $providerSessions,
+                'completed' => $completedRuns,
+            ],
+            'execution_workspaces' => [
+                [
+                    'workspace_id' => data_get($forgeWorkspace, 'workspace.workspace_id'),
+                    'canonical_name' => data_get($forgeWorkspace, 'workspace.canonical_name'),
+                    'specialization' => data_get($forgeWorkspace, 'workspace.specialization'),
+                    'obra_id' => data_get($forgeWorkspace, 'workspace.obra_id'),
+                    'status' => 'read_only_projection_ready',
+                    'branch_strategy' => 'one_worktree_or_branch_per_claimed_packet',
+                    'artifact_exchange_rule' => data_get($forgeWorkspace, 'workspace.artifact_bus.artifact_exchange_rule'),
+                ],
+            ],
+            'liveness' => [
+                'active_session_count' => count($providerSessions),
+                'expired_session_count' => count(array_filter($providerSessions, fn (array $session): bool => $session['liveness'] === 'expired_lease')),
+                'silent_session_detection' => $agentRunsTableReady && $heartbeatsTableReady
+                    ? 'persistent_heartbeat_backed_detector_available'
+                    : 'not_yet_persistent_heartbeat_backed',
+                'required_next_runtime' => 'mark stale sessions automatically after liveness detector review and signed policy',
+            ],
+            'continuation_summary' => [
+                'one_line_prompt' => 'Continue Atlas Self-Construction from the Agent Control Plane: inspect status, claim one available packet, work only inside scope, return evidence, then complete or release.',
+                'first_commands' => [
+                    'php artisan atlas:ai:self-construction --agent-control-plane --json',
+                    'php artisan atlas:ai:self-construction --packet-queue --json',
+                    'php artisan atlas:ai:self-construction --agent-start-packet --actor=<actor> --session=<session> --json',
+                ],
+                'handoff_rule' => 'Do not pass raw chat history between providers; pass packet id, reservation id, hashes, allowed files, gates and evidence summary.',
+            ],
+            'next_build_slices' => [
+                'persist_agent_runs_table',
+                'persist_heartbeat_runs_table',
+                'add_liveness_state_writer',
+                'add_cost_events_table',
+                'add_dispatch_receipts_table',
+                'add_signed_dispatch_receipt_writer',
+                'add_provider_adapter_invocation_runtime',
+            ],
+            'invariants' => [
+                'no_provider_session_without_packet_claim',
+                'one_active_reservation_per_packet',
+                'one_active_writer_per_allowed_file_scope',
+                'all_completed_packets_need_evidence_hash_before_integration',
+                'loose_provider_chat_is_not_source_of_truth',
+                'control_plane_projection_does_not_dispatch_agents',
+            ],
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_control_plane.v1',
+            'status' => 'agent_control_plane_ready',
+            'mode' => 'read_only_agent_control_plane_projection',
+            'execution_allowed' => false,
+            'completion_allowed' => false,
+            'dispatch_allowed' => false,
+            'claim_persisted' => false,
+            'ledger_write_allowed' => false,
+            'control_plane' => $controlPlane,
+            'control_plane_hash' => $this->stableHash($controlPlane),
+            'non_execution_guarantees' => [
+                'agent_control_plane_does_not_start_providers',
+                'agent_control_plane_does_not_persist_claim',
+                'agent_control_plane_does_not_write_ledger',
+                'agent_control_plane_does_not_enable_self_programming',
+            ],
+            'human_summary' => 'Agent Control Plane projection is ready: Atlas can inspect queue, reservations, sessions, workspace, liveness and next runtime slices without dispatching providers.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentRunSync(array $options = []): array
+    {
+        if (! $this->agentControlPlaneRuntimeSchemaReady()) {
+            $sync = [
+                'status' => 'blocked',
+                'blocking_reasons' => ['agent_control_plane_runtime_schema_missing'],
+                'required_migration' => 'database/migrations/2026_05_12_010000_create_atlas_self_construction_agent_control_plane_tables.php',
+                'agent_runs_table_ready' => \Illuminate\Support\Facades\Schema::hasTable('atlas_self_construction_agent_runs'),
+                'heartbeats_table_ready' => \Illuminate\Support\Facades\Schema::hasTable('atlas_self_construction_agent_heartbeats'),
+            ];
+
+            return [
+                'schema_version' => 'atlas.self_construction_agent_run_sync.v1',
+                'status' => 'blocked',
+                'mode' => 'controlled_agent_run_sync',
+                'execution_allowed' => false,
+                'dispatch_allowed' => false,
+                'ledger_write_allowed' => false,
+                'runtime_write_allowed' => false,
+                'sync' => $sync,
+                'sync_hash' => $this->stableHash($sync),
+                'human_summary' => 'Agent run sync is blocked until the Agent Control Plane runtime tables exist.',
+            ];
+        }
+
+        $reservationStatus = $this->reservationStatus($options);
+        $reservations = array_merge(
+            (array) data_get($reservationStatus, 'ledger.active_reservations', []),
+            (array) data_get($reservationStatus, 'ledger.completed_reservations', []),
+        );
+
+        $synced = array_map(fn (array $reservation): array => $this->syncAgentRunFromReservation($reservation), $reservations);
+        $sync = [
+            'status' => 'synced',
+            'source_ledger_hash' => data_get($reservationStatus, 'ledger_hash'),
+            'source_reservation_count' => count($reservations),
+            'synced_run_count' => count($synced),
+            'created_count' => count(array_filter($synced, fn (array $run): bool => (bool) ($run['created'] ?? false))),
+            'updated_count' => count(array_filter($synced, fn (array $run): bool => ! (bool) ($run['created'] ?? false))),
+            'runs' => $synced,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_run_sync.v1',
+            'status' => 'agent_run_sync_ready',
+            'mode' => 'controlled_agent_run_sync',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => true,
+            'sync' => $sync,
+            'sync_hash' => $this->stableHash($sync),
+            'non_execution_guarantees' => [
+                'agent_run_sync_does_not_start_providers',
+                'agent_run_sync_does_not_claim_packets',
+                'agent_run_sync_does_not_dispatch_work',
+                'agent_run_sync_does_not_enable_self_programming',
+            ],
+            'human_summary' => 'Agent run sync completed: reservation state was materialized into Agent Control Plane runtime runs without dispatching providers.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, reason?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentHeartbeat(array $options = []): array
+    {
+        if (! $this->agentControlPlaneRuntimeSchemaReady()) {
+            $heartbeat = [
+                'status' => 'blocked',
+                'blocking_reasons' => ['agent_control_plane_runtime_schema_missing'],
+                'required_migration' => 'database/migrations/2026_05_12_010000_create_atlas_self_construction_agent_control_plane_tables.php',
+            ];
+
+            return [
+                'schema_version' => 'atlas.self_construction_agent_heartbeat.v1',
+                'status' => 'blocked',
+                'mode' => 'controlled_agent_heartbeat',
+                'execution_allowed' => false,
+                'dispatch_allowed' => false,
+                'ledger_write_allowed' => false,
+                'runtime_write_allowed' => false,
+                'heartbeat' => $heartbeat,
+                'heartbeat_hash' => $this->stableHash($heartbeat),
+                'human_summary' => 'Agent heartbeat is blocked until the Agent Control Plane runtime tables exist.',
+            ];
+        }
+
+        $this->agentRunSync($options);
+
+        $actor = $this->reservationActor($options);
+        $session = $this->reservationSession($options);
+        $packetId = trim((string) ($options['packet'] ?? ''));
+        $query = \App\Models\AtlasSelfConstructionAgentRun::query()
+            ->where('actor', $actor)
+            ->where('session_id', $session);
+
+        if ($packetId !== '') {
+            $query->where('packet_id', $packetId);
+        }
+
+        $run = $query->latest('updated_at')->first();
+        if (! $run instanceof \App\Models\AtlasSelfConstructionAgentRun) {
+            $heartbeat = [
+                'status' => 'blocked',
+                'blocking_reasons' => ['agent_run_not_found_for_actor_session'],
+                'actor' => $actor,
+                'session' => $session,
+                'packet_id' => $packetId ?: null,
+            ];
+
+            return [
+                'schema_version' => 'atlas.self_construction_agent_heartbeat.v1',
+                'status' => 'blocked',
+                'mode' => 'controlled_agent_heartbeat',
+                'execution_allowed' => false,
+                'dispatch_allowed' => false,
+                'ledger_write_allowed' => false,
+                'runtime_write_allowed' => false,
+                'heartbeat' => $heartbeat,
+                'heartbeat_hash' => $this->stableHash($heartbeat),
+                'human_summary' => 'Agent heartbeat is blocked because no synced run exists for this actor/session.',
+            ];
+        }
+
+        $sequence = ((int) $run->heartbeats()->max('sequence')) + 1;
+        $occurredAt = now();
+        $heartbeatModel = $run->heartbeats()->create([
+            'heartbeat_key' => 'HB-'.strtoupper(substr(hash('sha256', $run->id.'|'.$sequence.'|'.$occurredAt->toIso8601String()), 0, 24)),
+            'sequence' => $sequence,
+            'status' => 'alive',
+            'signal' => (string) ($options['reason'] ?? 'heartbeat'),
+            'occurred_at' => $occurredAt,
+            'metadata' => [
+                'packet_id' => $run->packet_id,
+                'actor' => $run->actor,
+                'session' => $run->session_id,
+                'provider' => $run->provider,
+            ],
+        ]);
+        $run->forceFill([
+            'last_heartbeat_at' => $occurredAt,
+            'liveness' => 'active_heartbeat',
+            'status' => $run->status === 'queued' ? 'running' : $run->status,
+        ])->save();
+
+        $heartbeat = [
+            'status' => 'recorded',
+            'run_id' => $run->id,
+            'run_key' => $run->run_key,
+            'packet_id' => $run->packet_id,
+            'actor' => $run->actor,
+            'provider' => $run->provider,
+            'session' => $run->session_id,
+            'heartbeat_id' => $heartbeatModel->id,
+            'heartbeat_key' => $heartbeatModel->heartbeat_key,
+            'sequence' => $heartbeatModel->sequence,
+            'occurred_at' => $heartbeatModel->occurred_at?->toIso8601String(),
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_heartbeat.v1',
+            'status' => 'agent_heartbeat_recorded',
+            'mode' => 'controlled_agent_heartbeat',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => true,
+            'heartbeat' => $heartbeat,
+            'heartbeat_hash' => $this->stableHash($heartbeat),
+            'non_execution_guarantees' => [
+                'agent_heartbeat_does_not_start_providers',
+                'agent_heartbeat_does_not_claim_packets',
+                'agent_heartbeat_does_not_dispatch_work',
+            ],
+            'human_summary' => 'Agent heartbeat was recorded for an existing synced run without dispatching or executing provider work.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentRunLiveness(array $options = []): array
+    {
+        if (! $this->agentControlPlaneRuntimeSchemaReady()) {
+            $liveness = [
+                'status' => 'blocked',
+                'blocking_reasons' => ['agent_control_plane_runtime_schema_missing'],
+                'required_migration' => 'database/migrations/2026_05_12_010000_create_atlas_self_construction_agent_control_plane_tables.php',
+                'agent_runs_table_ready' => \Illuminate\Support\Facades\Schema::hasTable('atlas_self_construction_agent_runs'),
+                'heartbeats_table_ready' => \Illuminate\Support\Facades\Schema::hasTable('atlas_self_construction_agent_heartbeats'),
+            ];
+
+            return [
+                'schema_version' => 'atlas.self_construction_agent_run_liveness.v1',
+                'status' => 'blocked',
+                'mode' => 'read_only_agent_run_liveness_detector',
+                'execution_allowed' => false,
+                'dispatch_allowed' => false,
+                'ledger_write_allowed' => false,
+                'runtime_write_allowed' => false,
+                'liveness' => $liveness,
+                'liveness_hash' => $this->stableHash($liveness),
+                'human_summary' => 'Agent run liveness is blocked until the Agent Control Plane runtime tables exist.',
+            ];
+        }
+
+        $now = now();
+        $nowTimestamp = $now->getTimestamp();
+        $staleAfterSeconds = 900;
+        $runs = \App\Models\AtlasSelfConstructionAgentRun::query()
+            ->orderByDesc('updated_at')
+            ->get()
+            ->map(function (\App\Models\AtlasSelfConstructionAgentRun $run) use ($nowTimestamp, $staleAfterSeconds): array {
+                $lastHeartbeatAt = $run->last_heartbeat_at;
+                $leaseExpiresAt = $run->lease_expires_at;
+                $heartbeatAgeSeconds = $lastHeartbeatAt ? max(0, $nowTimestamp - $lastHeartbeatAt->getTimestamp()) : null;
+                $leaseSecondsRemaining = $leaseExpiresAt ? $leaseExpiresAt->getTimestamp() - $nowTimestamp : null;
+                $terminal = in_array($run->status, ['succeeded', 'failed', 'cancelled', 'timed_out'], true);
+                $derivedLiveness = match (true) {
+                    $terminal => 'terminal',
+                    $heartbeatAgeSeconds !== null && $heartbeatAgeSeconds <= $staleAfterSeconds => 'active_heartbeat',
+                    $heartbeatAgeSeconds !== null => 'stale_heartbeat',
+                    $leaseSecondsRemaining !== null && $leaseSecondsRemaining > 0 => 'active_lease_no_heartbeat',
+                    $leaseSecondsRemaining !== null => 'expired_lease_no_heartbeat',
+                    default => 'unknown_no_heartbeat',
+                };
+                $attentionNeeded = in_array($derivedLiveness, [
+                    'stale_heartbeat',
+                    'expired_lease_no_heartbeat',
+                    'unknown_no_heartbeat',
+                ], true);
+
+                return [
+                    'run_id' => $run->id,
+                    'run_key' => $run->run_key,
+                    'packet_id' => $run->packet_id,
+                    'reservation_id' => $run->reservation_id,
+                    'actor' => $run->actor,
+                    'provider' => $run->provider,
+                    'session' => $run->session_id,
+                    'status' => $run->status,
+                    'stored_liveness' => $run->liveness,
+                    'derived_liveness' => $derivedLiveness,
+                    'attention_needed' => $attentionNeeded,
+                    'last_heartbeat_at' => $lastHeartbeatAt?->toIso8601String(),
+                    'heartbeat_age_seconds' => $heartbeatAgeSeconds,
+                    'lease_expires_at' => $leaseExpiresAt?->toIso8601String(),
+                    'lease_seconds_remaining' => $leaseSecondsRemaining,
+                    'next_required_action' => match ($derivedLiveness) {
+                        'active_heartbeat', 'active_lease_no_heartbeat' => 'continue_monitoring',
+                        'terminal' => 'ready_for_integration_or_archive',
+                        'stale_heartbeat' => 'request_agent_status_or_release_packet',
+                        'expired_lease_no_heartbeat' => 'release_or_reclaim_packet_after_review',
+                        default => 'investigate_missing_runtime_signal',
+                    },
+                ];
+            })
+            ->values()
+            ->all();
+
+        $liveness = [
+            'status' => 'inspected',
+            'stale_after_seconds' => $staleAfterSeconds,
+            'counts' => [
+                'total' => count($runs),
+                'active' => count(array_filter($runs, fn (array $run): bool => in_array($run['derived_liveness'], ['active_heartbeat', 'active_lease_no_heartbeat'], true))),
+                'terminal' => count(array_filter($runs, fn (array $run): bool => $run['derived_liveness'] === 'terminal')),
+                'attention_needed' => count(array_filter($runs, fn (array $run): bool => (bool) $run['attention_needed'])),
+            ],
+            'runs' => $runs,
+            'policy' => [
+                'detector_is_read_only' => true,
+                'does_not_release_or_reclaim_packets' => true,
+                'does_not_start_providers' => true,
+                'state_writes_require_future_signed_policy' => true,
+            ],
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_run_liveness.v1',
+            'status' => 'agent_run_liveness_ready',
+            'mode' => 'read_only_agent_run_liveness_detector',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'liveness' => $liveness,
+            'liveness_hash' => $this->stableHash($liveness),
+            'non_execution_guarantees' => [
+                'agent_run_liveness_does_not_start_providers',
+                'agent_run_liveness_does_not_claim_packets',
+                'agent_run_liveness_does_not_release_packets',
+                'agent_run_liveness_does_not_mutate_runtime_state',
+            ],
+            'human_summary' => 'Agent run liveness was inspected without dispatching providers or mutating packet/runtime state.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, model?: string|null, input_tokens?: int|string|null, output_tokens?: int|string|null, cost_usd?: float|string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentCostEvent(array $options = []): array
+    {
+        if (! $this->agentControlPlaneRuntimeSchemaReady()
+            || ! \Illuminate\Support\Facades\Schema::hasTable('atlas_self_construction_agent_cost_events')) {
+            $costEvent = [
+                'status' => 'blocked',
+                'blocking_reasons' => ['agent_control_plane_cost_event_schema_missing'],
+                'required_migration' => 'database/migrations/2026_05_12_010000_create_atlas_self_construction_agent_control_plane_tables.php',
+                'agent_runs_table_ready' => \Illuminate\Support\Facades\Schema::hasTable('atlas_self_construction_agent_runs'),
+                'heartbeats_table_ready' => \Illuminate\Support\Facades\Schema::hasTable('atlas_self_construction_agent_heartbeats'),
+                'cost_events_table_ready' => \Illuminate\Support\Facades\Schema::hasTable('atlas_self_construction_agent_cost_events'),
+            ];
+
+            return [
+                'schema_version' => 'atlas.self_construction_agent_cost_event.v1',
+                'status' => 'blocked',
+                'mode' => 'controlled_agent_cost_event_writer',
+                'execution_allowed' => false,
+                'dispatch_allowed' => false,
+                'ledger_write_allowed' => false,
+                'runtime_write_allowed' => false,
+                'cost_event' => $costEvent,
+                'cost_event_hash' => $this->stableHash($costEvent),
+                'human_summary' => 'Agent cost event is blocked until the Agent Control Plane cost event runtime table exists.',
+            ];
+        }
+
+        $this->agentRunSync($options);
+
+        $actor = $this->reservationActor($options);
+        $session = $this->reservationSession($options);
+        $packetId = trim((string) ($options['packet'] ?? ''));
+        $query = \App\Models\AtlasSelfConstructionAgentRun::query()
+            ->where('actor', $actor)
+            ->where('session_id', $session);
+
+        if ($packetId !== '') {
+            $query->where('packet_id', $packetId);
+        }
+
+        $run = $query->latest('updated_at')->first();
+        if (! $run instanceof \App\Models\AtlasSelfConstructionAgentRun) {
+            $costEvent = [
+                'status' => 'blocked',
+                'blocking_reasons' => ['agent_run_not_found_for_actor_session'],
+                'actor' => $actor,
+                'session' => $session,
+                'packet_id' => $packetId ?: null,
+            ];
+
+            return [
+                'schema_version' => 'atlas.self_construction_agent_cost_event.v1',
+                'status' => 'blocked',
+                'mode' => 'controlled_agent_cost_event_writer',
+                'execution_allowed' => false,
+                'dispatch_allowed' => false,
+                'ledger_write_allowed' => false,
+                'runtime_write_allowed' => false,
+                'cost_event' => $costEvent,
+                'cost_event_hash' => $this->stableHash($costEvent),
+                'human_summary' => 'Agent cost event is blocked because no synced run exists for this actor/session.',
+            ];
+        }
+
+        $inputTokens = max(0, (int) ($options['input_tokens'] ?? 0));
+        $outputTokens = max(0, (int) ($options['output_tokens'] ?? 0));
+        $costUsd = max(0.0, (float) ($options['cost_usd'] ?? 0));
+        $occurredAt = now();
+        $costModel = $run->costEvents()->create([
+            'cost_event_key' => 'COST-'.strtoupper(substr(hash('sha256', $run->id.'|'.$occurredAt->toIso8601String().'|'.$inputTokens.'|'.$outputTokens.'|'.$costUsd), 0, 24)),
+            'provider' => (string) $run->provider,
+            'model' => trim((string) ($options['model'] ?? '')) ?: null,
+            'input_tokens' => $inputTokens,
+            'output_tokens' => $outputTokens,
+            'cost_usd' => $costUsd,
+            'occurred_at' => $occurredAt,
+            'metadata' => [
+                'packet_id' => $run->packet_id,
+                'actor' => $run->actor,
+                'session' => $run->session_id,
+                'source' => 'agent_control_plane_cost_event_writer',
+            ],
+        ]);
+        $run->forceFill([
+            'input_tokens' => ((int) ($run->input_tokens ?? 0)) + $inputTokens,
+            'output_tokens' => ((int) ($run->output_tokens ?? 0)) + $outputTokens,
+            'cost_usd' => ((float) ($run->cost_usd ?? 0)) + $costUsd,
+        ])->save();
+
+        $costEvent = [
+            'status' => 'recorded',
+            'run_id' => $run->id,
+            'run_key' => $run->run_key,
+            'packet_id' => $run->packet_id,
+            'actor' => $run->actor,
+            'provider' => $run->provider,
+            'model' => $costModel->model,
+            'session' => $run->session_id,
+            'cost_event_id' => $costModel->id,
+            'cost_event_key' => $costModel->cost_event_key,
+            'input_tokens' => $costModel->input_tokens,
+            'output_tokens' => $costModel->output_tokens,
+            'cost_usd' => $costModel->cost_usd,
+            'run_input_tokens_total' => $run->input_tokens,
+            'run_output_tokens_total' => $run->output_tokens,
+            'run_cost_usd_total' => $run->cost_usd,
+            'occurred_at' => $costModel->occurred_at?->toIso8601String(),
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_cost_event.v1',
+            'status' => 'agent_cost_event_recorded',
+            'mode' => 'controlled_agent_cost_event_writer',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => true,
+            'cost_event' => $costEvent,
+            'cost_event_hash' => $this->stableHash($costEvent),
+            'non_execution_guarantees' => [
+                'agent_cost_event_does_not_start_providers',
+                'agent_cost_event_does_not_claim_packets',
+                'agent_cost_event_does_not_dispatch_work',
+            ],
+            'human_summary' => 'Agent cost event was recorded for an existing synced run without dispatching or executing provider work.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, artifact_type?: string|null, artifact_path?: string|null, artifact_hash?: string|null, summary?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentWorkProduct(array $options = []): array
+    {
+        if (! $this->agentControlPlaneRuntimeSchemaReady()
+            || ! \Illuminate\Support\Facades\Schema::hasTable('atlas_self_construction_agent_work_products')) {
+            $workProduct = [
+                'status' => 'blocked',
+                'blocking_reasons' => ['agent_control_plane_work_product_schema_missing'],
+                'required_migration' => 'database/migrations/2026_05_12_010000_create_atlas_self_construction_agent_control_plane_tables.php',
+                'agent_runs_table_ready' => \Illuminate\Support\Facades\Schema::hasTable('atlas_self_construction_agent_runs'),
+                'heartbeats_table_ready' => \Illuminate\Support\Facades\Schema::hasTable('atlas_self_construction_agent_heartbeats'),
+                'work_products_table_ready' => \Illuminate\Support\Facades\Schema::hasTable('atlas_self_construction_agent_work_products'),
+            ];
+
+            return [
+                'schema_version' => 'atlas.self_construction_agent_work_product.v1',
+                'status' => 'blocked',
+                'mode' => 'controlled_agent_work_product_registry',
+                'execution_allowed' => false,
+                'dispatch_allowed' => false,
+                'ledger_write_allowed' => false,
+                'runtime_write_allowed' => false,
+                'work_product' => $workProduct,
+                'work_product_hash' => $this->stableHash($workProduct),
+                'human_summary' => 'Agent work product is blocked until the Agent Control Plane work product runtime table exists.',
+            ];
+        }
+
+        $this->agentRunSync($options);
+
+        $actor = $this->reservationActor($options);
+        $session = $this->reservationSession($options);
+        $packetId = trim((string) ($options['packet'] ?? ''));
+        $query = \App\Models\AtlasSelfConstructionAgentRun::query()
+            ->where('actor', $actor)
+            ->where('session_id', $session);
+
+        if ($packetId !== '') {
+            $query->where('packet_id', $packetId);
+        }
+
+        $run = $query->latest('updated_at')->first();
+        if (! $run instanceof \App\Models\AtlasSelfConstructionAgentRun) {
+            $workProduct = [
+                'status' => 'blocked',
+                'blocking_reasons' => ['agent_run_not_found_for_actor_session'],
+                'actor' => $actor,
+                'session' => $session,
+                'packet_id' => $packetId ?: null,
+            ];
+
+            return [
+                'schema_version' => 'atlas.self_construction_agent_work_product.v1',
+                'status' => 'blocked',
+                'mode' => 'controlled_agent_work_product_registry',
+                'execution_allowed' => false,
+                'dispatch_allowed' => false,
+                'ledger_write_allowed' => false,
+                'runtime_write_allowed' => false,
+                'work_product' => $workProduct,
+                'work_product_hash' => $this->stableHash($workProduct),
+                'human_summary' => 'Agent work product is blocked because no synced run exists for this actor/session.',
+            ];
+        }
+
+        $artifactType = trim((string) ($options['artifact_type'] ?? ''));
+        $artifactPath = trim((string) ($options['artifact_path'] ?? ''));
+        $artifactHash = strtolower(trim((string) ($options['artifact_hash'] ?? '')));
+        if ($artifactType === '') {
+            $artifactType = 'implementation_artifact';
+        }
+
+        $workProductModel = $run->workProducts()->create([
+            'work_product_key' => 'WORK-'.strtoupper(substr(hash('sha256', $run->id.'|'.$artifactType.'|'.$artifactPath.'|'.now()->toIso8601String()), 0, 24)),
+            'packet_id' => $run->packet_id,
+            'actor' => $run->actor,
+            'provider' => $run->provider,
+            'artifact_type' => $artifactType,
+            'artifact_path' => $artifactPath ?: null,
+            'artifact_hash' => preg_match('/^[a-f0-9]{64}$/', $artifactHash) === 1 ? $artifactHash : null,
+            'status' => 'recorded',
+            'summary' => trim((string) ($options['summary'] ?? '')) ?: null,
+            'metadata' => [
+                'session' => $run->session_id,
+                'source' => 'agent_control_plane_work_product_registry',
+                'hash_was_valid_sha256' => preg_match('/^[a-f0-9]{64}$/', $artifactHash) === 1,
+            ],
+        ]);
+
+        $workProduct = [
+            'status' => 'recorded',
+            'run_id' => $run->id,
+            'run_key' => $run->run_key,
+            'packet_id' => $run->packet_id,
+            'actor' => $run->actor,
+            'provider' => $run->provider,
+            'session' => $run->session_id,
+            'work_product_id' => $workProductModel->id,
+            'work_product_key' => $workProductModel->work_product_key,
+            'artifact_type' => $workProductModel->artifact_type,
+            'artifact_path' => $workProductModel->artifact_path,
+            'artifact_hash' => $workProductModel->artifact_hash,
+            'summary' => $workProductModel->summary,
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_work_product.v1',
+            'status' => 'agent_work_product_recorded',
+            'mode' => 'controlled_agent_work_product_registry',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => true,
+            'work_product' => $workProduct,
+            'work_product_hash' => $this->stableHash($workProduct),
+            'non_execution_guarantees' => [
+                'agent_work_product_does_not_start_providers',
+                'agent_work_product_does_not_claim_packets',
+                'agent_work_product_does_not_dispatch_work',
+                'agent_work_product_does_not_merge_artifacts',
+            ],
+            'human_summary' => 'Agent work product was recorded for an existing synced run without dispatching, merging or executing provider work.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentAdapterContract(array $options = []): array
+    {
+        $controlPlane = $this->agentControlPlane($options);
+        $providers = [
+            [
+                'provider' => 'codex',
+                'adapter_id' => 'ADAPTER-CODEX-SELF-CONSTRUCTION-0001',
+                'role' => 'implementation_worker',
+                'receives' => 'packet_scope_bootstrap',
+                'allowed_invocation_modes' => ['manual_codex_app_session', 'future_codex_cli_or_api_runtime'],
+                'required_inputs' => [
+                    'packet_id',
+                    'reservation_id',
+                    'actor',
+                    'session_id',
+                    'allowed_files',
+                    'forbidden_files',
+                    'required_gates',
+                    'required_evidence',
+                    'continuation_summary',
+                ],
+                'required_outputs' => [
+                    'heartbeat_events',
+                    'work_products',
+                    'cost_events_when_available',
+                    'test_output',
+                    'completion_or_release_receipt',
+                ],
+                'forbidden_actions' => [
+                    'start_without_packet_claim',
+                    'touch_forbidden_files',
+                    'merge_without_review_receipt',
+                    'reuse_raw_chat_history_as_context',
+                ],
+            ],
+            [
+                'provider' => 'claude',
+                'adapter_id' => 'ADAPTER-CLAUDE-SELF-CONSTRUCTION-0001',
+                'role' => 'planner_or_reviewer',
+                'receives' => 'architecture_and_acceptance_packet',
+                'allowed_invocation_modes' => ['manual_claude_session', 'future_claude_cli_or_api_runtime'],
+                'required_inputs' => [
+                    'objective',
+                    'architecture_context',
+                    'acceptance_criteria',
+                    'diff_or_work_product_summary',
+                    'review_questions',
+                ],
+                'required_outputs' => [
+                    'review_findings',
+                    'risk_assessment',
+                    'approval_recommendation',
+                    'work_product_or_feedback_artifact',
+                ],
+                'forbidden_actions' => [
+                    'edit_without_assigned_write_scope',
+                    'approve_sensitive_action_without_human_receipt',
+                    'bypass_quality_gates',
+                ],
+            ],
+            [
+                'provider' => 'gemini',
+                'adapter_id' => 'ADAPTER-GEMINI-SELF-CONSTRUCTION-0001',
+                'role' => 'scout_or_long_context_mapper',
+                'receives' => 'source_map_and_research_packet',
+                'allowed_invocation_modes' => ['manual_gemini_session', 'future_gemini_cli_or_api_runtime'],
+                'required_inputs' => [
+                    'repo_map',
+                    'docs_map',
+                    'search_questions',
+                    'known_hot_scopes',
+                    'output_schema',
+                ],
+                'required_outputs' => [
+                    'source_inventory',
+                    'context_map',
+                    'implementation_risks',
+                    'candidate_files',
+                ],
+                'forbidden_actions' => [
+                    'write_code_without_explicit_packet',
+                    'invent_source_paths',
+                    'replace_primary_codebase_inspection_with_summary_only',
+                ],
+            ],
+            [
+                'provider' => 'local_runtime',
+                'adapter_id' => 'ADAPTER-LOCAL-RUNTIME-SELF-CONSTRUCTION-0001',
+                'role' => 'deterministic_gate_runner',
+                'receives' => 'commands_and_expected_outputs',
+                'allowed_invocation_modes' => ['local_shell', 'future_worker_runtime'],
+                'required_inputs' => [
+                    'command',
+                    'cwd',
+                    'timeout_seconds',
+                    'expected_exit_policy',
+                    'evidence_capture_policy',
+                ],
+                'required_outputs' => [
+                    'exit_code',
+                    'stdout_summary',
+                    'stderr_summary',
+                    'evidence_hash',
+                    'gate_result',
+                ],
+                'forbidden_actions' => [
+                    'destructive_command_without_signed_receipt',
+                    'network_or_secret_access_without_policy',
+                    'background_process_without_liveness_tracking',
+                ],
+            ],
+        ];
+
+        $contract = [
+            'contract_id' => 'AGENT-ADAPTER-CONTRACT-SELF-CONSTRUCTION-0001',
+            'parent_control_plane' => data_get($controlPlane, 'control_plane.control_plane_id'),
+            'status' => 'read_only_contract_ready',
+            'provider_count' => count($providers),
+            'providers' => $providers,
+            'shared_invocation_envelope' => [
+                'operation_id',
+                'packet_id',
+                'reservation_id',
+                'workspace_id',
+                'obra_id',
+                'actor',
+                'session_id',
+                'provider',
+                'provider_role',
+                'allowed_files_hash',
+                'decision_receipt_hash',
+                'context_pack_hash',
+                'required_gates',
+                'required_evidence',
+            ],
+            'shared_return_envelope' => [
+                'run_id',
+                'status',
+                'heartbeat_events',
+                'cost_events',
+                'work_products',
+                'gate_results',
+                'evidence_hash',
+                'completion_or_release_reason',
+            ],
+            'dispatch_policy' => [
+                'dispatch_allowed_now' => false,
+                'manual_sessions_allowed_now' => true,
+                'runtime_invocation_requires_future_signed_receipt' => true,
+                'provider_output_is_not_source_of_truth_until_recorded_as_work_product' => true,
+                'cost_is_not_source_of_truth_until_recorded_as_cost_event' => true,
+            ],
+            'promotion_requirements' => [
+                'wakeup_queue',
+                'adapter_invocation_runtime',
+                'provider_process_supervision',
+                'automatic_work_product_collection',
+                'automatic_cost_import',
+                'signed_dispatch_receipt',
+            ],
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_adapter_contract.v1',
+            'status' => 'agent_adapter_contract_ready',
+            'mode' => 'read_only_agent_adapter_invocation_contract',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'adapter_contract' => $contract,
+            'adapter_contract_hash' => $this->stableHash($contract),
+            'non_execution_guarantees' => [
+                'agent_adapter_contract_does_not_start_providers',
+                'agent_adapter_contract_does_not_claim_packets',
+                'agent_adapter_contract_does_not_dispatch_work',
+                'agent_adapter_contract_does_not_enable_self_programming',
+            ],
+            'human_summary' => 'Agent adapter contract is ready: Atlas now has a provider-neutral invocation contract for future Codex, Claude, Gemini and local runtime dispatch without starting providers.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentWakeupQueue(array $options = []): array
+    {
+        if (! \Illuminate\Support\Facades\Schema::hasTable('atlas_self_construction_agent_wakeup_items')) {
+            $queue = [
+                'status' => 'blocked',
+                'blocking_reasons' => ['agent_control_plane_wakeup_queue_schema_missing'],
+                'required_migration' => 'database/migrations/2026_05_12_010000_create_atlas_self_construction_agent_control_plane_tables.php',
+                'wakeup_items_table_ready' => false,
+            ];
+
+            return [
+                'schema_version' => 'atlas.self_construction_agent_wakeup_queue.v1',
+                'status' => 'blocked',
+                'mode' => 'read_only_agent_wakeup_queue_projection',
+                'execution_allowed' => false,
+                'dispatch_allowed' => false,
+                'ledger_write_allowed' => false,
+                'runtime_write_allowed' => false,
+                'wakeup_queue' => $queue,
+                'wakeup_queue_hash' => $this->stableHash($queue),
+                'human_summary' => 'Agent wakeup queue is blocked until the Agent Control Plane wakeup queue table exists.',
+            ];
+        }
+
+        $livenessPayload = $this->agentRunLiveness($options);
+        $runtimeItems = \App\Models\AtlasSelfConstructionAgentWakeupItem::query()
+            ->orderBy('scheduled_for')
+            ->limit(50)
+            ->get()
+            ->map(fn (\App\Models\AtlasSelfConstructionAgentWakeupItem $item): array => [
+                'wakeup_item_id' => $item->id,
+                'wakeup_key' => $item->wakeup_key,
+                'run_id' => $item->agent_run_id,
+                'packet_id' => $item->packet_id,
+                'actor' => $item->actor,
+                'provider' => $item->provider,
+                'reason' => $item->reason,
+                'priority' => $item->priority,
+                'status' => $item->status,
+                'scheduled_for' => $item->scheduled_for?->toIso8601String(),
+            ])
+            ->values()
+            ->all();
+
+        $projectedItems = collect((array) data_get($livenessPayload, 'liveness.runs', []))
+            ->filter(fn (array $run): bool => (bool) data_get($run, 'attention_needed')
+                || data_get($run, 'derived_liveness') === 'terminal')
+            ->map(function (array $run): array {
+                $derived = (string) data_get($run, 'derived_liveness', 'unknown');
+                $priority = match ($derived) {
+                    'expired_lease_no_heartbeat' => 'high',
+                    'stale_heartbeat' => 'medium',
+                    'terminal' => 'normal',
+                    default => 'low',
+                };
+
+                return [
+                    'projected_wakeup_key' => 'WAKEUP-PROJECTED-'.strtoupper(substr(hash('sha256', (string) data_get($run, 'run_key').'|'.$derived), 0, 24)),
+                    'run_id' => data_get($run, 'run_id'),
+                    'run_key' => data_get($run, 'run_key'),
+                    'packet_id' => data_get($run, 'packet_id'),
+                    'actor' => data_get($run, 'actor'),
+                    'provider' => data_get($run, 'provider'),
+                    'reason' => match ($derived) {
+                        'terminal' => 'integration_or_archive_review',
+                        'stale_heartbeat' => 'agent_status_check',
+                        'expired_lease_no_heartbeat' => 'release_or_reclaim_review',
+                        default => 'runtime_signal_investigation',
+                    },
+                    'priority' => $priority,
+                    'source_liveness' => $derived,
+                    'next_required_action' => data_get($run, 'next_required_action'),
+                    'dispatch_allowed' => false,
+                    'runtime_write_allowed' => false,
+                ];
+            })
+            ->values()
+            ->all();
+
+        $queue = [
+            'status' => 'projected',
+            'counts' => [
+                'runtime_items' => count($runtimeItems),
+                'projected_items' => count($projectedItems),
+                'attention_needed' => data_get($livenessPayload, 'liveness.counts.attention_needed', 0),
+            ],
+            'runtime_items' => $runtimeItems,
+            'projected_items' => $projectedItems,
+            'policy' => [
+                'projection_is_read_only' => true,
+                'does_not_schedule_jobs' => true,
+                'does_not_start_providers' => true,
+                'does_not_claim_or_release_packets' => true,
+                'wakeup_writer_requires_future_signed_policy' => true,
+            ],
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_wakeup_queue.v1',
+            'status' => 'agent_wakeup_queue_ready',
+            'mode' => 'read_only_agent_wakeup_queue_projection',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'wakeup_queue' => $queue,
+            'wakeup_queue_hash' => $this->stableHash($queue),
+            'non_execution_guarantees' => [
+                'agent_wakeup_queue_does_not_start_providers',
+                'agent_wakeup_queue_does_not_claim_packets',
+                'agent_wakeup_queue_does_not_release_packets',
+                'agent_wakeup_queue_does_not_schedule_jobs',
+            ],
+            'human_summary' => 'Agent wakeup queue projection is ready: Atlas can see which runs need resume, status check, reclaim review or integration review without dispatching providers.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentWakeupWrite(array $options = []): array
+    {
+        if (! $this->agentControlPlaneRuntimeSchemaReady()
+            || ! \Illuminate\Support\Facades\Schema::hasTable('atlas_self_construction_agent_wakeup_items')) {
+            $write = [
+                'status' => 'blocked',
+                'blocking_reasons' => ['agent_control_plane_wakeup_runtime_schema_missing'],
+                'required_migration' => 'database/migrations/2026_05_12_010000_create_atlas_self_construction_agent_control_plane_tables.php',
+                'agent_runs_table_ready' => \Illuminate\Support\Facades\Schema::hasTable('atlas_self_construction_agent_runs'),
+                'heartbeats_table_ready' => \Illuminate\Support\Facades\Schema::hasTable('atlas_self_construction_agent_heartbeats'),
+                'wakeup_items_table_ready' => \Illuminate\Support\Facades\Schema::hasTable('atlas_self_construction_agent_wakeup_items'),
+            ];
+
+            return [
+                'schema_version' => 'atlas.self_construction_agent_wakeup_write.v1',
+                'status' => 'blocked',
+                'mode' => 'controlled_agent_wakeup_writer',
+                'execution_allowed' => false,
+                'dispatch_allowed' => false,
+                'ledger_write_allowed' => false,
+                'runtime_write_allowed' => false,
+                'wakeup_write' => $write,
+                'wakeup_write_hash' => $this->stableHash($write),
+                'human_summary' => 'Agent wakeup writer is blocked until Agent Control Plane runtime and wakeup tables exist.',
+            ];
+        }
+
+        $queuePayload = $this->agentWakeupQueue($options);
+        $projectedItems = (array) data_get($queuePayload, 'wakeup_queue.projected_items', []);
+        $written = collect($projectedItems)
+            ->map(function (array $item): array {
+                $runId = (string) data_get($item, 'run_id');
+                $reason = (string) data_get($item, 'reason', 'runtime_signal_investigation');
+                $wakeupKey = 'WAKEUP-'.strtoupper(substr(hash('sha256', $runId.'|'.$reason), 0, 24));
+                $model = \App\Models\AtlasSelfConstructionAgentWakeupItem::query()->updateOrCreate(
+                    ['wakeup_key' => $wakeupKey],
+                    [
+                        'agent_run_id' => $runId ?: null,
+                        'packet_id' => data_get($item, 'packet_id'),
+                        'actor' => data_get($item, 'actor'),
+                        'provider' => data_get($item, 'provider'),
+                        'reason' => $reason,
+                        'priority' => (string) data_get($item, 'priority', 'normal'),
+                        'status' => 'queued',
+                        'scheduled_for' => now(),
+                        'payload' => [
+                            'source' => 'agent_wakeup_queue_projection',
+                            'source_liveness' => data_get($item, 'source_liveness'),
+                            'next_required_action' => data_get($item, 'next_required_action'),
+                            'dispatch_allowed' => false,
+                        ],
+                    ],
+                );
+
+                return [
+                    'wakeup_item_id' => $model->id,
+                    'wakeup_key' => $model->wakeup_key,
+                    'run_id' => $model->agent_run_id,
+                    'packet_id' => $model->packet_id,
+                    'actor' => $model->actor,
+                    'provider' => $model->provider,
+                    'reason' => $model->reason,
+                    'priority' => $model->priority,
+                    'status' => $model->status,
+                    'created' => $model->wasRecentlyCreated,
+                ];
+            })
+            ->values()
+            ->all();
+
+        $write = [
+            'status' => 'written',
+            'projected_count' => count($projectedItems),
+            'written_count' => count($written),
+            'created_count' => count(array_filter($written, fn (array $item): bool => (bool) ($item['created'] ?? false))),
+            'updated_count' => count(array_filter($written, fn (array $item): bool => ! (bool) ($item['created'] ?? false))),
+            'items' => $written,
+            'policy' => [
+                'writer_does_not_schedule_jobs' => true,
+                'writer_does_not_start_providers' => true,
+                'writer_does_not_claim_or_release_packets' => true,
+                'scheduler_requires_future_signed_policy' => true,
+            ],
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_wakeup_write.v1',
+            'status' => 'agent_wakeup_write_ready',
+            'mode' => 'controlled_agent_wakeup_writer',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => true,
+            'wakeup_write' => $write,
+            'wakeup_write_hash' => $this->stableHash($write),
+            'non_execution_guarantees' => [
+                'agent_wakeup_write_does_not_start_providers',
+                'agent_wakeup_write_does_not_claim_packets',
+                'agent_wakeup_write_does_not_release_packets',
+                'agent_wakeup_write_does_not_schedule_jobs',
+            ],
+            'human_summary' => 'Agent wakeup writer materialized wakeup items from liveness projection without dispatching providers or scheduling jobs.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentWakeupScheduler(array $options = []): array
+    {
+        if (! \Illuminate\Support\Facades\Schema::hasTable('atlas_self_construction_agent_wakeup_items')) {
+            $scheduler = [
+                'status' => 'blocked',
+                'blocking_reasons' => ['agent_control_plane_wakeup_queue_schema_missing'],
+                'required_migration' => 'database/migrations/2026_05_12_010000_create_atlas_self_construction_agent_control_plane_tables.php',
+                'wakeup_items_table_ready' => false,
+            ];
+
+            return [
+                'schema_version' => 'atlas.self_construction_agent_wakeup_scheduler.v1',
+                'status' => 'blocked',
+                'mode' => 'read_only_agent_wakeup_scheduler',
+                'execution_allowed' => false,
+                'dispatch_allowed' => false,
+                'ledger_write_allowed' => false,
+                'runtime_write_allowed' => false,
+                'wakeup_scheduler' => $scheduler,
+                'wakeup_scheduler_hash' => $this->stableHash($scheduler),
+                'human_summary' => 'Agent wakeup scheduler is blocked until the Agent Control Plane wakeup queue table exists.',
+            ];
+        }
+
+        $now = now();
+        $readyItems = \App\Models\AtlasSelfConstructionAgentWakeupItem::query()
+            ->where('status', 'queued')
+            ->where(function ($query) use ($now): void {
+                $query->whereNull('scheduled_for')
+                    ->orWhere('scheduled_for', '<=', $now);
+            })
+            ->orderByRaw("case priority when 'high' then 0 when 'medium' then 1 when 'normal' then 2 else 3 end")
+            ->orderBy('scheduled_for')
+            ->limit(10)
+            ->get()
+            ->map(fn (\App\Models\AtlasSelfConstructionAgentWakeupItem $item): array => [
+                'wakeup_item_id' => $item->id,
+                'wakeup_key' => $item->wakeup_key,
+                'run_id' => $item->agent_run_id,
+                'packet_id' => $item->packet_id,
+                'actor' => $item->actor,
+                'provider' => $item->provider,
+                'reason' => $item->reason,
+                'priority' => $item->priority,
+                'scheduled_for' => $item->scheduled_for?->toIso8601String(),
+                'resume_envelope' => [
+                    'wakeup_key' => $item->wakeup_key,
+                    'run_id' => $item->agent_run_id,
+                    'packet_id' => $item->packet_id,
+                    'actor' => $item->actor,
+                    'provider' => $item->provider,
+                    'reason' => $item->reason,
+                    'required_first_command' => 'php artisan atlas:ai:self-construction --agent-control-plane --json',
+                    'required_follow_up_command' => $item->packet_id
+                        ? 'php artisan atlas:ai:self-construction --agent-start-packet --actor='.($item->actor ?: '<actor>').' --session=<session> --packet='.$item->packet_id.' --json'
+                        : 'php artisan atlas:ai:self-construction --packet-queue --json',
+                ],
+            ])
+            ->values()
+            ->all();
+
+        $scheduler = [
+            'status' => 'selected',
+            'counts' => [
+                'ready_items' => count($readyItems),
+            ],
+            'ready_items' => $readyItems,
+            'policy' => [
+                'scheduler_is_read_only' => true,
+                'does_not_claim_wakeup_items' => true,
+                'does_not_start_providers' => true,
+                'does_not_claim_or_release_packets' => true,
+                'scheduler_claims_require_future_signed_policy' => true,
+            ],
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_wakeup_scheduler.v1',
+            'status' => 'agent_wakeup_scheduler_ready',
+            'mode' => 'read_only_agent_wakeup_scheduler',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'wakeup_scheduler' => $scheduler,
+            'wakeup_scheduler_hash' => $this->stableHash($scheduler),
+            'non_execution_guarantees' => [
+                'agent_wakeup_scheduler_does_not_start_providers',
+                'agent_wakeup_scheduler_does_not_claim_wakeup_items',
+                'agent_wakeup_scheduler_does_not_claim_packets',
+                'agent_wakeup_scheduler_does_not_release_packets',
+            ],
+            'human_summary' => 'Agent wakeup scheduler selected ready wakeup items without claiming them, dispatching providers or mutating packet state.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentWakeupClaim(array $options = []): array
+    {
+        if (! \Illuminate\Support\Facades\Schema::hasTable('atlas_self_construction_agent_wakeup_items')) {
+            $claim = [
+                'status' => 'blocked',
+                'blocking_reasons' => ['agent_control_plane_wakeup_queue_schema_missing'],
+                'required_migration' => 'database/migrations/2026_05_12_010000_create_atlas_self_construction_agent_control_plane_tables.php',
+                'wakeup_items_table_ready' => false,
+            ];
+
+            return [
+                'schema_version' => 'atlas.self_construction_agent_wakeup_claim.v1',
+                'status' => 'blocked',
+                'mode' => 'controlled_agent_wakeup_claim',
+                'execution_allowed' => false,
+                'dispatch_allowed' => false,
+                'ledger_write_allowed' => false,
+                'runtime_write_allowed' => false,
+                'wakeup_claim' => $claim,
+                'wakeup_claim_hash' => $this->stableHash($claim),
+                'human_summary' => 'Agent wakeup claim is blocked until the Agent Control Plane wakeup queue table exists.',
+            ];
+        }
+
+        $actor = $this->reservationActor($options);
+        $session = $this->reservationSession($options);
+        $packetId = trim((string) ($options['packet'] ?? ''));
+        $now = now();
+
+        $query = \App\Models\AtlasSelfConstructionAgentWakeupItem::query()
+            ->where('status', 'queued')
+            ->where(function ($query) use ($now): void {
+                $query->whereNull('scheduled_for')
+                    ->orWhere('scheduled_for', '<=', $now);
+            });
+
+        if ($packetId !== '') {
+            $query->where('packet_id', $packetId);
+        }
+
+        $candidate = $query
+            ->orderByRaw("case priority when 'high' then 0 when 'medium' then 1 when 'normal' then 2 else 3 end")
+            ->orderBy('scheduled_for')
+            ->first();
+
+        if (! $candidate instanceof \App\Models\AtlasSelfConstructionAgentWakeupItem) {
+            $claim = [
+                'status' => 'blocked',
+                'blocking_reasons' => ['no_ready_wakeup_item'],
+                'requested_packet_id' => $packetId === '' ? null : $packetId,
+                'claimed_by_actor' => $actor,
+                'claimed_by_session' => $session,
+            ];
+
+            return [
+                'schema_version' => 'atlas.self_construction_agent_wakeup_claim.v1',
+                'status' => 'blocked',
+                'mode' => 'controlled_agent_wakeup_claim',
+                'execution_allowed' => false,
+                'dispatch_allowed' => false,
+                'ledger_write_allowed' => false,
+                'runtime_write_allowed' => false,
+                'wakeup_claim' => $claim,
+                'wakeup_claim_hash' => $this->stableHash($claim),
+                'non_execution_guarantees' => [
+                    'agent_wakeup_claim_does_not_start_providers',
+                    'agent_wakeup_claim_does_not_claim_packets',
+                    'agent_wakeup_claim_does_not_release_packets',
+                    'agent_wakeup_claim_does_not_dispatch_work',
+                ],
+                'human_summary' => 'Agent wakeup claim found no ready wakeup item to claim.',
+            ];
+        }
+
+        $payload = is_array($candidate->payload) ? $candidate->payload : [];
+        $updated = \App\Models\AtlasSelfConstructionAgentWakeupItem::query()
+            ->whereKey($candidate->id)
+            ->where('status', 'queued')
+            ->update([
+                'status' => 'claimed',
+                'claimed_at' => $now,
+                'payload' => array_merge($payload, [
+                    'claim_source' => 'agent_wakeup_claim',
+                    'claimed_by_actor' => $actor,
+                    'claimed_by_session' => $session,
+                    'claimed_at' => $now->toIso8601String(),
+                    'dispatch_allowed' => false,
+                ]),
+            ]);
+
+        if ($updated !== 1) {
+            $claim = [
+                'status' => 'blocked',
+                'blocking_reasons' => ['wakeup_item_already_claimed'],
+                'wakeup_item_id' => $candidate->id,
+                'wakeup_key' => $candidate->wakeup_key,
+                'claimed_by_actor' => $actor,
+                'claimed_by_session' => $session,
+            ];
+
+            return [
+                'schema_version' => 'atlas.self_construction_agent_wakeup_claim.v1',
+                'status' => 'blocked',
+                'mode' => 'controlled_agent_wakeup_claim',
+                'execution_allowed' => false,
+                'dispatch_allowed' => false,
+                'ledger_write_allowed' => false,
+                'runtime_write_allowed' => false,
+                'wakeup_claim' => $claim,
+                'wakeup_claim_hash' => $this->stableHash($claim),
+                'human_summary' => 'Agent wakeup claim lost the race because the wakeup item was already claimed.',
+            ];
+        }
+
+        $candidate->refresh();
+
+        $claim = [
+            'status' => 'claimed',
+            'claimed_by_actor' => $actor,
+            'claimed_by_session' => $session,
+            'item' => [
+                'wakeup_item_id' => $candidate->id,
+                'wakeup_key' => $candidate->wakeup_key,
+                'run_id' => $candidate->agent_run_id,
+                'packet_id' => $candidate->packet_id,
+                'actor' => $candidate->actor,
+                'provider' => $candidate->provider,
+                'reason' => $candidate->reason,
+                'priority' => $candidate->priority,
+                'status' => $candidate->status,
+                'scheduled_for' => $candidate->scheduled_for?->toIso8601String(),
+                'claimed_at' => $candidate->claimed_at?->toIso8601String(),
+            ],
+            'resume_envelope' => [
+                'wakeup_key' => $candidate->wakeup_key,
+                'run_id' => $candidate->agent_run_id,
+                'packet_id' => $candidate->packet_id,
+                'actor' => $candidate->actor,
+                'provider' => $candidate->provider,
+                'reason' => $candidate->reason,
+                'claimed_by_actor' => $actor,
+                'claimed_by_session' => $session,
+                'required_first_command' => 'php artisan atlas:ai:self-construction --agent-control-plane --json',
+                'required_follow_up_command' => $candidate->packet_id
+                    ? 'php artisan atlas:ai:self-construction --agent-start-packet --actor='.($candidate->actor ?: '<actor>').' --session=<session> --packet='.$candidate->packet_id.' --json'
+                    : 'php artisan atlas:ai:self-construction --packet-queue --json',
+            ],
+            'policy' => [
+                'claim_is_runtime_write_only' => true,
+                'does_not_start_providers' => true,
+                'does_not_claim_or_release_packets' => true,
+                'provider_dispatch_requires_future_signed_receipt' => true,
+            ],
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_wakeup_claim.v1',
+            'status' => 'agent_wakeup_claimed',
+            'mode' => 'controlled_agent_wakeup_claim',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => true,
+            'wakeup_claim' => $claim,
+            'wakeup_claim_hash' => $this->stableHash($claim),
+            'non_execution_guarantees' => [
+                'agent_wakeup_claim_does_not_start_providers',
+                'agent_wakeup_claim_does_not_claim_packets',
+                'agent_wakeup_claim_does_not_release_packets',
+                'agent_wakeup_claim_does_not_dispatch_work',
+            ],
+            'human_summary' => 'Agent wakeup claim reserved one ready wakeup item for governed resume without dispatching providers or mutating packet state.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentDispatchPreflight(array $options = []): array
+    {
+        $adapterPayload = $this->agentAdapterContract($options);
+        $adapterContract = (array) data_get($adapterPayload, 'adapter_contract', []);
+
+        if (! \Illuminate\Support\Facades\Schema::hasTable('atlas_self_construction_agent_wakeup_items')) {
+            $preflight = [
+                'status' => 'blocked',
+                'blocking_reasons' => ['agent_control_plane_wakeup_queue_schema_missing'],
+                'required_migration' => 'database/migrations/2026_05_12_010000_create_atlas_self_construction_agent_control_plane_tables.php',
+                'adapter_contract_hash' => data_get($adapterPayload, 'adapter_contract_hash'),
+                'wakeup_items_table_ready' => false,
+            ];
+
+            return [
+                'schema_version' => 'atlas.self_construction_agent_dispatch_preflight.v1',
+                'status' => 'blocked',
+                'mode' => 'read_only_agent_dispatch_preflight',
+                'execution_allowed' => false,
+                'dispatch_allowed' => false,
+                'ledger_write_allowed' => false,
+                'runtime_write_allowed' => false,
+                'dispatch_preflight' => $preflight,
+                'dispatch_preflight_hash' => $this->stableHash($preflight),
+                'human_summary' => 'Agent dispatch preflight is blocked until the Agent Control Plane wakeup queue table exists.',
+            ];
+        }
+
+        $actor = $this->reservationActor($options);
+        $session = $this->reservationSession($options);
+        $packetId = trim((string) ($options['packet'] ?? ''));
+
+        $query = \App\Models\AtlasSelfConstructionAgentWakeupItem::query()
+            ->where('status', 'claimed');
+
+        if ($packetId !== '') {
+            $query->where('packet_id', $packetId);
+        }
+
+        $claimed = $query
+            ->orderByDesc('claimed_at')
+            ->orderByDesc('updated_at')
+            ->first();
+
+        if (! $claimed instanceof \App\Models\AtlasSelfConstructionAgentWakeupItem) {
+            $preflight = [
+                'status' => 'blocked',
+                'blocking_reasons' => ['no_claimed_wakeup_item'],
+                'requested_packet_id' => $packetId === '' ? null : $packetId,
+                'requested_by_actor' => $actor,
+                'requested_by_session' => $session,
+                'adapter_contract_hash' => data_get($adapterPayload, 'adapter_contract_hash'),
+                'required_previous_command' => 'php artisan atlas:ai:self-construction --agent-wakeup-claim --actor='.$actor.' --session='.$session.' --json',
+            ];
+
+            return [
+                'schema_version' => 'atlas.self_construction_agent_dispatch_preflight.v1',
+                'status' => 'blocked',
+                'mode' => 'read_only_agent_dispatch_preflight',
+                'execution_allowed' => false,
+                'dispatch_allowed' => false,
+                'ledger_write_allowed' => false,
+                'runtime_write_allowed' => false,
+                'dispatch_preflight' => $preflight,
+                'dispatch_preflight_hash' => $this->stableHash($preflight),
+                'non_execution_guarantees' => [
+                    'agent_dispatch_preflight_does_not_start_providers',
+                    'agent_dispatch_preflight_does_not_claim_packets',
+                    'agent_dispatch_preflight_does_not_release_packets',
+                    'agent_dispatch_preflight_does_not_dispatch_work',
+                ],
+                'human_summary' => 'Agent dispatch preflight found no claimed wakeup item. Claim a wakeup item before dispatch can be prepared.',
+            ];
+        }
+
+        $provider = (string) ($claimed->provider ?: $claimed->actor ?: $actor);
+        $providerSpec = collect((array) data_get($adapterContract, 'providers', []))
+            ->first(fn (array $providerContract): bool => (string) ($providerContract['provider'] ?? '') === $provider);
+
+        if (! is_array($providerSpec)) {
+            $providerSpec = $this->providerRoleForActor($provider);
+        }
+
+        $preflight = [
+            'status' => 'ready_for_signed_dispatch_receipt',
+            'dispatch_allowed_now' => false,
+            'provider' => $provider,
+            'adapter_id' => data_get($providerSpec, 'adapter_id', 'ADAPTER-UNKNOWN-SELF-CONSTRUCTION'),
+            'provider_role' => data_get($providerSpec, 'role', 'implementation_worker'),
+            'claimed_wakeup_item' => [
+                'wakeup_item_id' => $claimed->id,
+                'wakeup_key' => $claimed->wakeup_key,
+                'run_id' => $claimed->agent_run_id,
+                'packet_id' => $claimed->packet_id,
+                'actor' => $claimed->actor,
+                'provider' => $claimed->provider,
+                'reason' => $claimed->reason,
+                'priority' => $claimed->priority,
+                'claimed_at' => $claimed->claimed_at?->toIso8601String(),
+            ],
+            'dispatch_envelope_draft' => [
+                'operation_id' => 'OP-SELF-CONSTRUCTION-DISPATCH-'.strtoupper(substr(hash('sha256', (string) $claimed->wakeup_key), 0, 16)),
+                'wakeup_key' => $claimed->wakeup_key,
+                'run_id' => $claimed->agent_run_id,
+                'packet_id' => $claimed->packet_id,
+                'actor' => $claimed->actor ?: $actor,
+                'session_id' => $session,
+                'provider' => $provider,
+                'provider_role' => data_get($providerSpec, 'role', 'implementation_worker'),
+                'adapter_contract_hash' => data_get($adapterPayload, 'adapter_contract_hash'),
+                'required_inputs' => data_get($providerSpec, 'required_inputs', []),
+                'required_outputs' => data_get($providerSpec, 'required_outputs', []),
+            ],
+            'required_before_dispatch' => [
+                'signed_dispatch_receipt',
+                'provider_runtime_adapter',
+                'budget_policy_check',
+                'scope_validator_passed',
+                'context_pack_hash',
+                'evidence_capture_policy',
+            ],
+            'forbidden_actions' => array_values(array_unique(array_merge(
+                (array) data_get($providerSpec, 'forbidden_actions', []),
+                [
+                    'start_provider_from_preflight',
+                    'dispatch_without_signed_receipt',
+                    'mutate_packet_ledger_from_preflight',
+                ],
+            ))),
+            'policy' => [
+                'preflight_is_read_only' => true,
+                'provider_dispatch_requires_signed_receipt' => true,
+                'does_not_start_providers' => true,
+                'does_not_claim_or_release_packets' => true,
+                'does_not_mutate_wakeup_item' => true,
+            ],
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_dispatch_preflight.v1',
+            'status' => 'agent_dispatch_preflight_ready',
+            'mode' => 'read_only_agent_dispatch_preflight',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'dispatch_preflight' => $preflight,
+            'dispatch_preflight_hash' => $this->stableHash($preflight),
+            'non_execution_guarantees' => [
+                'agent_dispatch_preflight_does_not_start_providers',
+                'agent_dispatch_preflight_does_not_claim_packets',
+                'agent_dispatch_preflight_does_not_release_packets',
+                'agent_dispatch_preflight_does_not_dispatch_work',
+            ],
+            'human_summary' => 'Agent dispatch preflight is ready: Atlas drafted the provider dispatch envelope but still requires a signed dispatch receipt before any provider can start.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentDispatchReceiptTemplate(array $options = []): array
+    {
+        $preflightPayload = $this->agentDispatchPreflight($options);
+        $preflight = (array) data_get($preflightPayload, 'dispatch_preflight', []);
+        $actor = $this->reservationActor($options);
+        $session = $this->reservationSession($options);
+
+        $template = [
+            'receipt_template_id' => 'DISPATCH-RECEIPT-TEMPLATE-SELF-CONSTRUCTION-0001',
+            'status' => data_get($preflightPayload, 'status') === 'agent_dispatch_preflight_ready'
+                ? 'ready_for_human_signature'
+                : 'blocked_until_preflight_ready',
+            'parent_schema_version' => data_get($preflightPayload, 'schema_version'),
+            'preflight_hash' => data_get($preflightPayload, 'dispatch_preflight_hash'),
+            'requested_by_actor' => $actor,
+            'requested_by_session' => $session,
+            'dispatch_allowed_by_template' => false,
+            'signature_required' => true,
+            'signature_status' => 'unsigned_template_only',
+            'receipt_fields_to_sign' => [
+                'receipt_id',
+                'signed_by',
+                'signed_at',
+                'decision',
+                'dispatch_envelope_hash',
+                'adapter_contract_hash',
+                'provider',
+                'provider_role',
+                'packet_id',
+                'wakeup_key',
+                'budget_policy_result',
+                'scope_validator_result',
+                'context_pack_hash',
+                'evidence_capture_policy_hash',
+                'rollback_policy',
+                'expiry_at',
+            ],
+            'allowed_decisions' => [
+                'approve_dispatch_once',
+                'reject_dispatch',
+                'request_more_evidence',
+            ],
+            'minimum_evidence_before_signature' => [
+                'dispatch_preflight_hash',
+                'claimed_wakeup_item',
+                'adapter_contract_hash',
+                'scope_validator_passed',
+                'budget_policy_passed',
+                'provider_runtime_adapter_ready',
+                'evidence_capture_policy_ready',
+            ],
+            'draft_receipt' => [
+                'receipt_id' => 'DISPATCH-RECEIPT-'.strtoupper(substr(hash('sha256', (string) data_get($preflight, 'dispatch_envelope_draft.operation_id', 'blocked')), 0, 16)),
+                'decision' => 'unsigned',
+                'dispatch_envelope_hash' => $this->stableHash((array) data_get($preflight, 'dispatch_envelope_draft', [])),
+                'adapter_contract_hash' => data_get($preflight, 'dispatch_envelope_draft.adapter_contract_hash'),
+                'provider' => data_get($preflight, 'provider'),
+                'provider_role' => data_get($preflight, 'provider_role'),
+                'packet_id' => data_get($preflight, 'claimed_wakeup_item.packet_id'),
+                'wakeup_key' => data_get($preflight, 'claimed_wakeup_item.wakeup_key'),
+                'expiry_policy' => 'single_use_short_lived_receipt_required',
+                'rollback_policy' => 'stop_provider_and_mark_wakeup_claim_for_review_on_failure',
+            ],
+            'blocked_preflight' => data_get($preflightPayload, 'status') === 'agent_dispatch_preflight_ready' ? null : $preflight,
+            'policy' => [
+                'template_is_read_only' => true,
+                'template_does_not_sign_receipt' => true,
+                'template_does_not_start_providers' => true,
+                'template_does_not_dispatch_work' => true,
+                'signed_receipt_persistence_requires_future_writer' => true,
+            ],
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_dispatch_receipt_template.v1',
+            'status' => data_get($preflightPayload, 'status') === 'agent_dispatch_preflight_ready'
+                ? 'agent_dispatch_receipt_template_ready'
+                : 'blocked',
+            'mode' => 'read_only_agent_dispatch_receipt_template',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'dispatch_receipt_template' => $template,
+            'dispatch_receipt_template_hash' => $this->stableHash($template),
+            'non_execution_guarantees' => [
+                'agent_dispatch_receipt_template_does_not_start_providers',
+                'agent_dispatch_receipt_template_does_not_claim_packets',
+                'agent_dispatch_receipt_template_does_not_release_packets',
+                'agent_dispatch_receipt_template_does_not_dispatch_work',
+                'agent_dispatch_receipt_template_does_not_sign_receipt',
+            ],
+            'human_summary' => data_get($preflightPayload, 'status') === 'agent_dispatch_preflight_ready'
+                ? 'Agent dispatch receipt template is ready for human signature, but it does not sign or dispatch provider work.'
+                : 'Agent dispatch receipt template is blocked until dispatch preflight is ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentDispatchReceiptValidationPreflight(array $options = []): array
+    {
+        $templatePayload = $this->agentDispatchReceiptTemplate($options);
+        $template = (array) data_get($templatePayload, 'dispatch_receipt_template', []);
+        $dispatchReceiptTableReady = \Illuminate\Support\Facades\Schema::hasTable('atlas_self_construction_agent_dispatch_receipts');
+        $requiredChecks = [
+            'dispatch_receipt_storage_schema',
+            'signed_receipt_payload',
+            'signature_identity_policy',
+            'receipt_hash_matches_template',
+            'dispatch_envelope_hash_matches_preflight',
+            'budget_policy_passed',
+            'scope_validator_passed',
+            'provider_runtime_adapter_ready',
+            'evidence_capture_policy_ready',
+            'single_use_expiry_policy',
+            'rollback_policy_ready',
+        ];
+        $availableChecks = [
+            'dispatch_receipt_storage_schema' => $dispatchReceiptTableReady,
+            'dispatch_receipt_template_hash' => data_get($templatePayload, 'dispatch_receipt_template_hash') !== null,
+            'template_requires_signature' => (bool) data_get($template, 'signature_required'),
+            'template_does_not_dispatch' => data_get($template, 'dispatch_allowed_by_template') === false,
+            'receipt_field_contract_present' => count((array) data_get($template, 'receipt_fields_to_sign', [])) > 0,
+        ];
+        $missingRequirements = array_values(array_filter(
+            $requiredChecks,
+            fn (string $check): bool => ! (bool) ($availableChecks[$check] ?? false),
+        ));
+
+        $preflight = [
+            'status' => 'blocked',
+            'blocking_reasons' => array_values(array_filter([
+                $dispatchReceiptTableReady ? null : 'signed_dispatch_receipt_persistence_schema_missing',
+                'signed_dispatch_receipt_payload_not_supplied',
+                'provider_dispatch_still_requires_future_signed_policy',
+            ])),
+            'parent_schema_version' => data_get($templatePayload, 'schema_version'),
+            'dispatch_receipt_template_hash' => data_get($templatePayload, 'dispatch_receipt_template_hash'),
+            'counts' => [
+                'required_checks' => count($requiredChecks),
+                'available_checks' => count(array_filter($availableChecks)),
+                'missing_requirements' => count($missingRequirements),
+            ],
+            'available_checks' => $availableChecks,
+            'missing_requirements' => $missingRequirements,
+            'validation_contract' => [
+                'must_verify_signature_identity' => true,
+                'must_verify_receipt_hash_against_template' => true,
+                'must_verify_dispatch_envelope_hash_against_preflight' => true,
+                'must_verify_budget_policy_result' => true,
+                'must_verify_scope_validator_result' => true,
+                'must_verify_receipt_not_expired' => true,
+                'must_verify_single_use_receipt' => true,
+                'must_persist_append_only_event_before_dispatch' => true,
+            ],
+            'future_persistence_record' => [
+                'table' => 'atlas_self_construction_agent_dispatch_receipts',
+                'table_ready' => $dispatchReceiptTableReady,
+                'required_columns' => [
+                    'id',
+                    'receipt_key',
+                    'wakeup_item_id',
+                    'agent_run_id',
+                    'packet_id',
+                    'provider',
+                    'decision',
+                    'signed_by',
+                    'signed_at',
+                    'expires_at',
+                    'dispatch_envelope_hash',
+                    'receipt_hash',
+                    'status',
+                    'payload',
+                ],
+            ],
+            'policy' => [
+                'preflight_is_read_only' => true,
+                'preflight_does_not_validate_external_signatures_yet' => true,
+                'preflight_does_not_persist_receipt' => true,
+                'preflight_does_not_start_providers' => true,
+                'preflight_does_not_dispatch_work' => true,
+            ],
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_dispatch_receipt_validation_preflight.v1',
+            'status' => 'blocked',
+            'mode' => 'read_only_agent_dispatch_receipt_validation_preflight',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'dispatch_receipt_validation_preflight' => $preflight,
+            'dispatch_receipt_validation_preflight_hash' => $this->stableHash($preflight),
+            'non_execution_guarantees' => [
+                'agent_dispatch_receipt_validation_preflight_does_not_start_providers',
+                'agent_dispatch_receipt_validation_preflight_does_not_claim_packets',
+                'agent_dispatch_receipt_validation_preflight_does_not_release_packets',
+                'agent_dispatch_receipt_validation_preflight_does_not_dispatch_work',
+                'agent_dispatch_receipt_validation_preflight_does_not_persist_receipt',
+            ],
+            'human_summary' => 'Agent dispatch receipt validation preflight is blocked by design until signed receipt persistence schema and signed receipt payload validation exist.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, decision?: string|null, signed_by?: string|null, receipt_hash?: string|null, dispatch_envelope_hash?: string|null, adapter_contract_hash?: string|null, expires_at?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentDispatchReceiptWrite(array $options = []): array
+    {
+        $preflightPayload = $this->agentDispatchPreflight($options);
+        $preflight = (array) data_get($preflightPayload, 'dispatch_preflight', []);
+
+        if (! \Illuminate\Support\Facades\Schema::hasTable('atlas_self_construction_agent_dispatch_receipts')) {
+            $write = [
+                'status' => 'blocked',
+                'blocking_reasons' => ['signed_dispatch_receipt_persistence_schema_missing'],
+                'required_migration' => 'database/migrations/2026_05_12_010000_create_atlas_self_construction_agent_control_plane_tables.php',
+                'dispatch_receipts_table_ready' => false,
+                'preflight_status' => data_get($preflightPayload, 'status'),
+            ];
+
+            return [
+                'schema_version' => 'atlas.self_construction_agent_dispatch_receipt_write.v1',
+                'status' => 'blocked',
+                'mode' => 'controlled_agent_dispatch_receipt_writer',
+                'execution_allowed' => false,
+                'dispatch_allowed' => false,
+                'ledger_write_allowed' => false,
+                'runtime_write_allowed' => false,
+                'dispatch_receipt_write' => $write,
+                'dispatch_receipt_write_hash' => $this->stableHash($write),
+                'human_summary' => 'Agent dispatch receipt writer is blocked until the signed dispatch receipt table exists.',
+            ];
+        }
+
+        $decision = trim((string) ($options['decision'] ?? ''));
+        $signedBy = trim((string) ($options['signed_by'] ?? ''));
+        $receiptHash = strtolower(trim((string) ($options['receipt_hash'] ?? '')));
+        $dispatchEnvelopeHash = strtolower(trim((string) ($options['dispatch_envelope_hash'] ?? '')));
+        $adapterContractHash = strtolower(trim((string) ($options['adapter_contract_hash'] ?? '')));
+        $expiresAt = trim((string) ($options['expires_at'] ?? ''));
+        $allowedDecisions = ['approve_dispatch_once', 'reject_dispatch', 'request_more_evidence'];
+        $missing = array_values(array_filter([
+            data_get($preflightPayload, 'status') === 'agent_dispatch_preflight_ready' ? null : 'dispatch_preflight_ready',
+            in_array($decision, $allowedDecisions, true) ? null : 'valid_decision',
+            $signedBy !== '' ? null : 'signed_by',
+            preg_match('/^[a-f0-9]{64}$/', $receiptHash) === 1 ? null : 'receipt_hash',
+            preg_match('/^[a-f0-9]{64}$/', $dispatchEnvelopeHash) === 1 ? null : 'dispatch_envelope_hash',
+            $expiresAt !== '' ? null : 'expires_at',
+        ]));
+
+        if ($missing !== []) {
+            $write = [
+                'status' => 'blocked',
+                'blocking_reasons' => ['signed_dispatch_receipt_payload_incomplete'],
+                'missing_requirements' => $missing,
+                'allowed_decisions' => $allowedDecisions,
+                'preflight_status' => data_get($preflightPayload, 'status'),
+                'dispatch_receipts_table_ready' => true,
+            ];
+
+            return [
+                'schema_version' => 'atlas.self_construction_agent_dispatch_receipt_write.v1',
+                'status' => 'blocked',
+                'mode' => 'controlled_agent_dispatch_receipt_writer',
+                'execution_allowed' => false,
+                'dispatch_allowed' => false,
+                'ledger_write_allowed' => false,
+                'runtime_write_allowed' => false,
+                'dispatch_receipt_write' => $write,
+                'dispatch_receipt_write_hash' => $this->stableHash($write),
+                'non_execution_guarantees' => [
+                    'agent_dispatch_receipt_write_does_not_start_providers',
+                    'agent_dispatch_receipt_write_does_not_claim_packets',
+                    'agent_dispatch_receipt_write_does_not_release_packets',
+                    'agent_dispatch_receipt_write_does_not_dispatch_work',
+                ],
+                'human_summary' => 'Agent dispatch receipt writer is blocked until a complete signed dispatch receipt payload is supplied.',
+            ];
+        }
+
+        $claimedWakeup = (array) data_get($preflight, 'claimed_wakeup_item', []);
+        $receiptKey = 'DISPATCH-RECEIPT-'.strtoupper(substr($receiptHash, 0, 24));
+        $model = \App\Models\AtlasSelfConstructionAgentDispatchReceipt::query()->updateOrCreate(
+            ['receipt_key' => $receiptKey],
+            [
+                'agent_run_id' => data_get($claimedWakeup, 'run_id'),
+                'wakeup_item_id' => data_get($claimedWakeup, 'wakeup_item_id'),
+                'packet_id' => data_get($claimedWakeup, 'packet_id'),
+                'provider' => (string) data_get($preflight, 'provider', 'unknown'),
+                'provider_role' => data_get($preflight, 'provider_role'),
+                'decision' => $decision,
+                'status' => $decision === 'approve_dispatch_once' ? 'signed_pending_dispatch' : 'signed_no_dispatch',
+                'signed_by' => $signedBy,
+                'signed_at' => now(),
+                'expires_at' => $expiresAt,
+                'dispatch_envelope_hash' => $dispatchEnvelopeHash,
+                'adapter_contract_hash' => $adapterContractHash === '' ? null : $adapterContractHash,
+                'receipt_hash' => $receiptHash,
+                'payload' => [
+                    'source' => 'agent_dispatch_receipt_write',
+                    'dispatch_preflight_hash' => data_get($preflightPayload, 'dispatch_preflight_hash'),
+                    'dispatch_allowed_by_writer' => false,
+                    'provider_dispatch_requires_separate_executor' => true,
+                ],
+            ],
+        );
+
+        $write = [
+            'status' => 'written',
+            'receipt_id' => $model->id,
+            'receipt_key' => $model->receipt_key,
+            'decision' => $model->decision,
+            'receipt_status' => $model->status,
+            'packet_id' => $model->packet_id,
+            'provider' => $model->provider,
+            'signed_by' => $model->signed_by,
+            'signed_at' => $model->signed_at?->toIso8601String(),
+            'expires_at' => $model->expires_at?->toIso8601String(),
+            'created' => $model->wasRecentlyCreated,
+            'dispatch_allowed_after_write' => false,
+            'next_required_command' => 'php artisan atlas:ai:self-construction --agent-dispatch-executor-preflight --json',
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_dispatch_receipt_write.v1',
+            'status' => 'agent_dispatch_receipt_write_ready',
+            'mode' => 'controlled_agent_dispatch_receipt_writer',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => true,
+            'dispatch_receipt_write' => $write,
+            'dispatch_receipt_write_hash' => $this->stableHash($write),
+            'non_execution_guarantees' => [
+                'agent_dispatch_receipt_write_does_not_start_providers',
+                'agent_dispatch_receipt_write_does_not_claim_packets',
+                'agent_dispatch_receipt_write_does_not_release_packets',
+                'agent_dispatch_receipt_write_does_not_dispatch_work',
+            ],
+            'human_summary' => 'Agent dispatch receipt writer persisted a signed receipt without starting providers or dispatching work.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentDispatchExecutorPreflight(array $options = []): array
+    {
+        if (! \Illuminate\Support\Facades\Schema::hasTable('atlas_self_construction_agent_dispatch_receipts')) {
+            $preflight = [
+                'status' => 'blocked',
+                'blocking_reasons' => ['signed_dispatch_receipt_persistence_schema_missing'],
+                'required_migration' => 'database/migrations/2026_05_12_010000_create_atlas_self_construction_agent_control_plane_tables.php',
+                'dispatch_receipts_table_ready' => false,
+            ];
+
+            return [
+                'schema_version' => 'atlas.self_construction_agent_dispatch_executor_preflight.v1',
+                'status' => 'blocked',
+                'mode' => 'read_only_agent_dispatch_executor_preflight',
+                'execution_allowed' => false,
+                'dispatch_allowed' => false,
+                'ledger_write_allowed' => false,
+                'runtime_write_allowed' => false,
+                'dispatch_executor_preflight' => $preflight,
+                'dispatch_executor_preflight_hash' => $this->stableHash($preflight),
+                'human_summary' => 'Agent dispatch executor preflight is blocked until the signed dispatch receipt table exists.',
+            ];
+        }
+
+        $receiptHash = strtolower(trim((string) ($options['receipt_hash'] ?? '')));
+        $packetId = trim((string) ($options['packet'] ?? ''));
+        $query = \App\Models\AtlasSelfConstructionAgentDispatchReceipt::query()
+            ->where('decision', 'approve_dispatch_once')
+            ->where('status', 'signed_pending_dispatch')
+            ->whereNull('used_at')
+            ->where(function ($query): void {
+                $query->whereNull('expires_at')
+                    ->orWhere('expires_at', '>', now());
+            });
+
+        if ($receiptHash !== '') {
+            $query->where('receipt_hash', $receiptHash);
+        }
+
+        if ($packetId !== '') {
+            $query->where('packet_id', $packetId);
+        }
+
+        $receipt = $query
+            ->orderBy('expires_at')
+            ->orderByDesc('signed_at')
+            ->first();
+
+        if (! $receipt instanceof \App\Models\AtlasSelfConstructionAgentDispatchReceipt) {
+            $preflight = [
+                'status' => 'blocked',
+                'blocking_reasons' => ['no_valid_signed_dispatch_receipt'],
+                'requested_packet_id' => $packetId === '' ? null : $packetId,
+                'requested_receipt_hash' => $receiptHash === '' ? null : $receiptHash,
+                'required_previous_command' => 'php artisan atlas:ai:self-construction --agent-dispatch-receipt-write --json',
+                'dispatch_receipts_table_ready' => true,
+            ];
+
+            return [
+                'schema_version' => 'atlas.self_construction_agent_dispatch_executor_preflight.v1',
+                'status' => 'blocked',
+                'mode' => 'read_only_agent_dispatch_executor_preflight',
+                'execution_allowed' => false,
+                'dispatch_allowed' => false,
+                'ledger_write_allowed' => false,
+                'runtime_write_allowed' => false,
+                'dispatch_executor_preflight' => $preflight,
+                'dispatch_executor_preflight_hash' => $this->stableHash($preflight),
+                'non_execution_guarantees' => [
+                    'agent_dispatch_executor_preflight_does_not_start_providers',
+                    'agent_dispatch_executor_preflight_does_not_claim_packets',
+                    'agent_dispatch_executor_preflight_does_not_release_packets',
+                    'agent_dispatch_executor_preflight_does_not_dispatch_work',
+                    'agent_dispatch_executor_preflight_does_not_mark_receipt_used',
+                ],
+                'human_summary' => 'Agent dispatch executor preflight found no valid signed pending dispatch receipt.',
+            ];
+        }
+
+        $preflight = [
+            'status' => 'ready_for_future_executor_contract',
+            'dispatch_allowed_now' => false,
+            'receipt' => [
+                'receipt_id' => $receipt->id,
+                'receipt_key' => $receipt->receipt_key,
+                'packet_id' => $receipt->packet_id,
+                'provider' => $receipt->provider,
+                'provider_role' => $receipt->provider_role,
+                'decision' => $receipt->decision,
+                'receipt_status' => $receipt->status,
+                'signed_by' => $receipt->signed_by,
+                'signed_at' => $receipt->signed_at?->toIso8601String(),
+                'expires_at' => $receipt->expires_at?->toIso8601String(),
+                'dispatch_envelope_hash' => $receipt->dispatch_envelope_hash,
+                'adapter_contract_hash' => $receipt->adapter_contract_hash,
+                'receipt_hash' => $receipt->receipt_hash,
+            ],
+            'executor_contract_draft' => [
+                'must_start_provider_once' => true,
+                'must_mark_receipt_used_before_or_atomically_with_start' => true,
+                'must_record_agent_run_heartbeat' => true,
+                'must_capture_cost_events' => true,
+                'must_capture_work_products' => true,
+                'must_stop_on_scope_violation' => true,
+                'must_append_evidence_before_completion' => true,
+            ],
+            'policy' => [
+                'preflight_is_read_only' => true,
+                'provider_start_requires_future_executor' => true,
+                'does_not_start_providers' => true,
+                'does_not_mark_receipt_used' => true,
+                'does_not_dispatch_work' => true,
+            ],
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_dispatch_executor_preflight.v1',
+            'status' => 'agent_dispatch_executor_preflight_ready',
+            'mode' => 'read_only_agent_dispatch_executor_preflight',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'dispatch_executor_preflight' => $preflight,
+            'dispatch_executor_preflight_hash' => $this->stableHash($preflight),
+            'non_execution_guarantees' => [
+                'agent_dispatch_executor_preflight_does_not_start_providers',
+                'agent_dispatch_executor_preflight_does_not_claim_packets',
+                'agent_dispatch_executor_preflight_does_not_release_packets',
+                'agent_dispatch_executor_preflight_does_not_dispatch_work',
+                'agent_dispatch_executor_preflight_does_not_mark_receipt_used',
+            ],
+            'human_summary' => 'Agent dispatch executor preflight found a valid signed receipt and drafted the future executor contract without starting providers.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentDispatchExecutorContractTemplate(array $options = []): array
+    {
+        $preflightPayload = $this->agentDispatchExecutorPreflight($options);
+        $preflight = (array) data_get($preflightPayload, 'dispatch_executor_preflight', []);
+        $receipt = (array) data_get($preflight, 'receipt', []);
+
+        if (data_get($preflightPayload, 'status') !== 'agent_dispatch_executor_preflight_ready') {
+            $template = [
+                'status' => 'blocked',
+                'blocking_reasons' => array_values(array_filter(array_merge(
+                    (array) data_get($preflight, 'blocking_reasons', []),
+                    ['agent_dispatch_executor_preflight_not_ready'],
+                ))),
+                'preflight_status' => data_get($preflightPayload, 'status'),
+                'preflight_hash' => data_get($preflightPayload, 'dispatch_executor_preflight_hash'),
+                'provider_start_allowed_by_template' => false,
+                'dispatch_allowed_by_template' => false,
+            ];
+
+            return [
+                'schema_version' => 'atlas.self_construction_agent_dispatch_executor_contract_template.v1',
+                'status' => 'blocked',
+                'mode' => 'read_only_agent_dispatch_executor_contract_template',
+                'execution_allowed' => false,
+                'dispatch_allowed' => false,
+                'ledger_write_allowed' => false,
+                'runtime_write_allowed' => false,
+                'dispatch_executor_contract_template' => $template,
+                'dispatch_executor_contract_template_hash' => $this->stableHash($template),
+                'non_execution_guarantees' => [
+                    'agent_dispatch_executor_contract_template_does_not_start_providers',
+                    'agent_dispatch_executor_contract_template_does_not_mark_receipt_used',
+                    'agent_dispatch_executor_contract_template_does_not_dispatch_work',
+                    'agent_dispatch_executor_contract_template_does_not_write_runtime_state',
+                ],
+                'human_summary' => 'Agent dispatch executor contract template is blocked until executor preflight finds a valid signed receipt.',
+            ];
+        }
+
+        $provider = (string) data_get($receipt, 'provider', 'unknown');
+        $adapterCommand = match ($provider) {
+            'codex' => 'codex',
+            'claude' => 'claude',
+            'gemini' => 'gemini',
+            'local' => 'bash',
+            default => $provider,
+        };
+
+        $template = [
+            'status' => 'ready_for_human_or_policy_review',
+            'contract_id' => 'DISPATCH-EXECUTOR-CONTRACT-'.strtoupper(substr((string) data_get($receipt, 'receipt_hash'), 0, 24)),
+            'provider' => $provider,
+            'provider_role' => data_get($receipt, 'provider_role'),
+            'packet_id' => data_get($receipt, 'packet_id'),
+            'receipt_key' => data_get($receipt, 'receipt_key'),
+            'receipt_hash' => data_get($receipt, 'receipt_hash'),
+            'dispatch_envelope_hash' => data_get($receipt, 'dispatch_envelope_hash'),
+            'adapter_contract_hash' => data_get($receipt, 'adapter_contract_hash'),
+            'executor_must' => [
+                'verify_receipt_status_is_signed_pending_dispatch',
+                'verify_receipt_is_unused_and_unexpired',
+                'verify_packet_scope_before_provider_start',
+                'mark_receipt_used_atomically_with_provider_start_or_before_start',
+                'create_or_update_agent_run_runtime_state',
+                'write_heartbeat_before_and_after_provider_invocation',
+                'capture_provider_cost_events',
+                'capture_work_products',
+                'stop_on_scope_or_hot_file_violation',
+                'append_evidence_before_marking_terminal',
+            ],
+            'executor_must_not' => [
+                'start_provider_without_signed_receipt',
+                'reuse_receipt_after_used_at_is_set',
+                'change_packet_scope',
+                'write_outside_allowed_files',
+                'skip_liveness_or_cost_tracking',
+                'self_merge_or_publish_without_review_chain',
+            ],
+            'adapter_invocation_draft' => [
+                'adapter' => $adapterCommand,
+                'provider' => $provider,
+                'input_source' => 'agent_start_packet_or_wakeup_context_pack',
+                'required_context' => [
+                    'packet_id',
+                    'allowed_files',
+                    'forbidden_scopes',
+                    'required_gates',
+                    'stop_conditions',
+                    'continuation_summary',
+                ],
+                'token_policy' => [
+                    'use_continuation_summary_not_full_history' => true,
+                    'include_only_packet_relevant_docs' => true,
+                    'avoid_duplicate_context_across_parallel_agents' => true,
+                ],
+            ],
+            'atomicity_contract' => [
+                'receipt_used_at_must_be_set_once' => true,
+                'provider_start_and_receipt_use_must_be_idempotent' => true,
+                'failed_start_keeps_terminal_evidence' => true,
+                'no_silent_retry_without_new_heartbeat' => true,
+            ],
+            'observability_contract' => [
+                'heartbeat_required' => true,
+                'cost_event_required_when_provider_reports_usage' => true,
+                'work_product_required_for_file_or_doc_changes' => true,
+                'terminal_status_required' => true,
+            ],
+            'human_signature_fields' => [
+                'approved_by',
+                'approved_at',
+                'max_provider_starts',
+                'max_runtime_minutes',
+                'max_cost_usd',
+                'notes',
+            ],
+            'provider_start_allowed_by_template' => false,
+            'dispatch_allowed_by_template' => false,
+            'next_required_command' => 'php artisan atlas:ai:self-construction --agent-dispatch-executor-release-preflight --json',
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_dispatch_executor_contract_template.v1',
+            'status' => 'agent_dispatch_executor_contract_template_ready',
+            'mode' => 'read_only_agent_dispatch_executor_contract_template',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'dispatch_executor_contract_template' => $template,
+            'dispatch_executor_contract_template_hash' => $this->stableHash($template),
+            'non_execution_guarantees' => [
+                'agent_dispatch_executor_contract_template_does_not_start_providers',
+                'agent_dispatch_executor_contract_template_does_not_mark_receipt_used',
+                'agent_dispatch_executor_contract_template_does_not_dispatch_work',
+                'agent_dispatch_executor_contract_template_does_not_write_runtime_state',
+            ],
+            'human_summary' => 'Agent dispatch executor contract template is ready for review, but it does not start providers or mark dispatch receipts used.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentDispatchExecutorReleasePreflight(array $options = []): array
+    {
+        $contractPayload = $this->agentDispatchExecutorContractTemplate($options);
+        $contract = (array) data_get($contractPayload, 'dispatch_executor_contract_template', []);
+        $persistenceStatusPayload = $this->agentDispatchExecutorReleaseAuthorizationPersistenceStatus($options);
+        $persistenceStatus = (array) data_get($persistenceStatusPayload, 'dispatch_executor_release_authorization_persistence_status', []);
+        $persistedAuthorizationUsable = (bool) data_get($persistenceStatus, 'selected_usable_for_future_release_preflight', false);
+        $receiptUseWriterPayload = $this->agentDispatchExecutorReceiptUseWriterPreflight($options);
+        $receiptUseWriter = (array) data_get($receiptUseWriterPayload, 'dispatch_executor_receipt_use_writer_preflight', []);
+        $receiptUseWriterReady = data_get($receiptUseWriterPayload, 'status') === 'blocked'
+            ? false
+            : (bool) data_get($receiptUseWriter, 'writer_ready_for_future_release', false);
+
+        $blockingReasons = [];
+        if (data_get($contractPayload, 'status') !== 'agent_dispatch_executor_contract_template_ready') {
+            $blockingReasons[] = 'agent_dispatch_executor_contract_template_not_ready';
+        }
+
+        if (! $persistedAuthorizationUsable) {
+            $blockingReasons[] = 'executor_release_authorization_receipt_missing';
+        }
+
+        if (data_get($persistenceStatusPayload, 'status') !== 'agent_dispatch_executor_release_authorization_persistence_status_ready') {
+            $blockingReasons[] = 'executor_release_authorization_persistence_status_not_ready';
+        }
+
+        if (! $receiptUseWriterReady) {
+            $blockingReasons[] = 'receipt_use_atomic_writer_missing';
+        }
+
+        $blockingReasons = array_values(array_unique(array_merge($blockingReasons, [
+            'provider_sandbox_binding_missing',
+            'provider_start_driver_disabled',
+        ])));
+
+        $preflight = [
+            'status' => 'blocked',
+            'blocking_reasons' => $blockingReasons,
+            'contract_status' => data_get($contractPayload, 'status'),
+            'contract_hash' => data_get($contractPayload, 'dispatch_executor_contract_template_hash'),
+            'provider' => data_get($contract, 'provider'),
+            'provider_role' => data_get($contract, 'provider_role'),
+            'packet_id' => data_get($contract, 'packet_id'),
+            'receipt_key' => data_get($contract, 'receipt_key'),
+            'persistence_status' => data_get($persistenceStatus, 'status'),
+            'persistence_status_hash' => data_get($persistenceStatusPayload, 'dispatch_executor_release_authorization_persistence_status_hash'),
+            'selected_authorization' => data_get($persistenceStatus, 'selected_authorization'),
+            'receipt_use_writer_status' => data_get($receiptUseWriter, 'status'),
+            'receipt_use_writer_preflight_hash' => data_get($receiptUseWriterPayload, 'dispatch_executor_receipt_use_writer_preflight_hash'),
+            'release_requirements' => [
+                'signed_executor_release_authorization' => $persistedAuthorizationUsable,
+                'provider_sandbox_or_worktree_binding' => false,
+                'atomic_receipt_used_writer' => $receiptUseWriterReady,
+                'provider_start_adapter_enabled' => false,
+                'pre_start_heartbeat_writer' => false,
+                'post_start_observability_watch' => false,
+            ],
+            'future_release_sequence' => [
+                'validate_contract_hash',
+                'validate_signed_executor_release_authorization',
+                'bind_provider_to_workspace_and_packet_scope',
+                'atomically_mark_receipt_used',
+                'create_or_update_agent_run',
+                'write_pre_start_heartbeat',
+                'start_provider_once',
+                'capture_cost_work_and_terminal_evidence',
+            ],
+            'policy' => [
+                'preflight_is_read_only' => true,
+                'dispatch_release_allowed_now' => false,
+                'provider_start_allowed_now' => false,
+                'manual_override_requires_new_signed_receipt' => true,
+            ],
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_dispatch_executor_release_preflight.v1',
+            'status' => 'blocked',
+            'mode' => 'read_only_agent_dispatch_executor_release_preflight',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'dispatch_executor_release_preflight' => $preflight,
+            'dispatch_executor_release_preflight_hash' => $this->stableHash($preflight),
+            'non_execution_guarantees' => [
+                'agent_dispatch_executor_release_preflight_does_not_start_providers',
+                'agent_dispatch_executor_release_preflight_does_not_mark_receipt_used',
+                'agent_dispatch_executor_release_preflight_does_not_dispatch_work',
+                'agent_dispatch_executor_release_preflight_does_not_write_runtime_state',
+            ],
+            'human_summary' => 'Agent dispatch executor release preflight is blocked by design until a signed executor release authorization, sandbox binding and atomic receipt-use writer exist.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentDispatchExecutorReceiptUseWriterContractTemplate(array $options = []): array
+    {
+        $executorPayload = $this->agentDispatchExecutorPreflight($options);
+        $executor = (array) data_get($executorPayload, 'dispatch_executor_preflight', []);
+        $receipt = (array) data_get($executor, 'receipt', []);
+        $receiptHash = (string) data_get($receipt, 'receipt_hash', (string) ($options['receipt_hash'] ?? ''));
+
+        $contract = [
+            'status' => 'agent_dispatch_executor_receipt_use_writer_contract_template_ready',
+            'contract_id' => 'DISPATCH-EXECUTOR-RECEIPT-USE-WRITER-'.strtoupper(substr($this->stableHash([
+                'receipt_hash' => $receiptHash,
+                'executor_preflight_hash' => data_get($executorPayload, 'dispatch_executor_preflight_hash'),
+            ]), 0, 24)),
+            'source_executor_preflight_status' => data_get($executorPayload, 'status'),
+            'source_executor_preflight_hash' => data_get($executorPayload, 'dispatch_executor_preflight_hash'),
+            'target' => [
+                'table' => 'atlas_self_construction_agent_dispatch_receipts',
+                'model' => 'App\\Models\\AtlasSelfConstructionAgentDispatchReceipt',
+                'identity_fields' => ['receipt_hash', 'receipt_key'],
+                'mutable_fields' => ['used_at', 'status', 'payload.receipt_use'],
+            ],
+            'receipt' => [
+                'receipt_key' => data_get($receipt, 'receipt_key'),
+                'receipt_hash' => $receiptHash === '' ? null : $receiptHash,
+                'packet_id' => data_get($receipt, 'packet_id'),
+                'provider' => data_get($receipt, 'provider'),
+                'provider_role' => data_get($receipt, 'provider_role'),
+                'receipt_status' => data_get($receipt, 'receipt_status'),
+            ],
+            'contract' => [
+                'service' => 'App\\Services\\Ai\\SelfConstruction\\AgentDispatchExecutorReceiptUseWriter',
+                'method' => 'markReceiptUsedAtomically',
+                'input_contract' => [
+                    'receipt_hash',
+                    'executor_contract_hash',
+                    'executor_release_authorization_hash',
+                    'provider_start_attempt_id',
+                    'actor',
+                    'session',
+                    'packet_id',
+                    'provider',
+                    'reason',
+                ],
+                'result_contract' => [
+                    'receipt_id',
+                    'receipt_key',
+                    'receipt_hash',
+                    'previous_status',
+                    'new_status',
+                    'used_at',
+                    'idempotent',
+                    'provider_start_allowed_after_mark',
+                ],
+            ],
+            'atomic_guards' => [
+                'row_lock_by_receipt_hash',
+                'require_decision_approve_dispatch_once',
+                'require_status_signed_pending_dispatch',
+                'require_used_at_null',
+                'require_receipt_not_expired',
+                'require_packet_matches_executor_contract',
+                'require_provider_matches_executor_contract',
+                'require_executor_release_authorization_hash',
+                'write_receipt_use_metadata_before_provider_start',
+            ],
+            'forbidden_writer_behaviors' => [
+                'starting_provider',
+                'dispatching_work',
+                'claiming_packets',
+                'releasing_packets',
+                'persisting_release_authorization',
+                'accepting_or_validating_raw_signatures',
+                'marking_multiple_receipts',
+                'overwriting_existing_used_at',
+                'bypassing_row_lock',
+            ],
+            'required_tests' => [
+                'marks_one_pending_receipt_used_once',
+                'is_idempotent_for_same_provider_start_attempt',
+                'rejects_already_used_receipt_for_different_attempt',
+                'rejects_expired_receipt',
+                'rejects_wrong_packet_or_provider',
+                'does_not_start_provider_or_dispatch_work',
+            ],
+            'implementation_files_allowed_future' => [
+                'app/Services/Ai/SelfConstruction/AgentDispatchExecutorReceiptUseWriter.php',
+                'tests/Feature/Ai/AtlasAiSelfConstructionAgentDispatchExecutorReceiptUseWriterTest.php',
+            ],
+            'contract_policy' => [
+                'template_is_read_only' => true,
+                'writer_implementation_allowed_here' => false,
+                'receipt_use_mark_allowed_here' => false,
+                'provider_start_allowed_here' => false,
+                'requires_separate_implementation_packet' => true,
+            ],
+            'next_required_command' => 'php artisan atlas:ai:self-construction --agent-dispatch-executor-receipt-use-writer-preflight --json',
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_dispatch_executor_receipt_use_writer_contract_template.v1',
+            'status' => 'agent_dispatch_executor_receipt_use_writer_contract_template_ready',
+            'mode' => 'read_only_agent_dispatch_executor_receipt_use_writer_contract_template',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'dispatch_executor_receipt_use_writer_contract_template' => $contract,
+            'dispatch_executor_receipt_use_writer_contract_template_hash' => $this->stableHash($contract),
+            'non_execution_guarantees' => [
+                'agent_dispatch_executor_receipt_use_writer_contract_template_does_not_start_providers',
+                'agent_dispatch_executor_receipt_use_writer_contract_template_does_not_mark_receipt_used',
+                'agent_dispatch_executor_receipt_use_writer_contract_template_does_not_dispatch_work',
+                'agent_dispatch_executor_receipt_use_writer_contract_template_does_not_write_ledger',
+                'agent_dispatch_executor_receipt_use_writer_contract_template_does_not_create_writer_files',
+            ],
+            'human_summary' => 'Agent dispatch executor receipt-use writer contract template defines the future atomic mark-used writer, but does not mark receipts used or start providers.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentDispatchExecutorReceiptUseWriterPreflight(array $options = []): array
+    {
+        $contractPayload = $this->agentDispatchExecutorReceiptUseWriterContractTemplate($options);
+        $contract = (array) data_get($contractPayload, 'dispatch_executor_receipt_use_writer_contract_template', []);
+        $writerClass = \App\Services\Ai\SelfConstruction\AgentDispatchExecutorReceiptUseWriter::class;
+        $receiptTableReady = \Illuminate\Support\Facades\Schema::hasTable('atlas_self_construction_agent_dispatch_receipts');
+        $receiptModelReady = class_exists(\App\Models\AtlasSelfConstructionAgentDispatchReceipt::class);
+        $writerReady = class_exists($writerClass);
+        $ledgerReady = \Illuminate\Support\Facades\Schema::hasTable('atlas_ledger_events');
+
+        $blockingReasons = array_values(array_filter([
+            $receiptTableReady ? null : 'dispatch_receipts_table_missing',
+            $receiptModelReady ? null : 'dispatch_receipt_model_missing',
+            $writerReady ? null : 'receipt_use_writer_missing',
+            $ledgerReady ? null : 'ledger_table_missing',
+        ]));
+
+        $preflight = [
+            'status' => $blockingReasons === [] ? 'agent_dispatch_executor_receipt_use_writer_ready' : 'blocked',
+            'contract_template_hash' => data_get($contractPayload, 'dispatch_executor_receipt_use_writer_contract_template_hash'),
+            'source_executor_preflight_status' => data_get($contract, 'source_executor_preflight_status'),
+            'receipt' => data_get($contract, 'receipt'),
+            'storage' => [
+                'dispatch_receipts_table_ready' => $receiptTableReady,
+                'dispatch_receipt_model_ready' => $receiptModelReady,
+                'receipt_use_writer_ready' => $writerReady,
+                'ledger_table_ready' => $ledgerReady,
+            ],
+            'blocking_count' => count($blockingReasons),
+            'blocking_reasons' => $blockingReasons,
+            'writer_ready_for_future_release' => $blockingReasons === [],
+            'allowed_future_files' => data_get($contract, 'implementation_files_allowed_future', []),
+            'required_first_changes' => [
+                'create_receipt_use_writer_service',
+                'add_row_lock_and_idempotency_logic',
+                'add_expiry_packet_provider_guards',
+                'add_no_provider_start_side_effect_tests',
+            ],
+            'required_gates' => [
+                'php -l app/Services/Ai/SelfConstruction/AgentDispatchExecutorReceiptUseWriter.php',
+                'php artisan test tests/Feature/Ai/AtlasAiSelfConstructionAgentDispatchExecutorReceiptUseWriterTest.php',
+                'php artisan test tests/Feature/Ai/AtlasAiSelfConstructionCommandTest.php --filter=agent_dispatch_executor_receipt_use_writer',
+                'php artisan atlas:engineering:knowledge docs-health --json',
+                'php artisan atlas:ai:architecture-validate --json',
+                'git diff --check',
+            ],
+            'preflight_policy' => [
+                'preflight_is_read_only' => true,
+                'receipt_use_mark_allowed_here' => false,
+                'provider_start_allowed_here' => false,
+                'dispatch_allowed_here' => false,
+                'writer_file_creation_allowed_here' => false,
+                'requires_separate_implementation_packet' => true,
+            ],
+            'next_required_command' => 'php artisan atlas:ai:self-construction --agent-dispatch-executor-receipt-use-writer-implementation-packet --json',
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_dispatch_executor_receipt_use_writer_preflight.v1',
+            'status' => (string) $preflight['status'],
+            'mode' => 'read_only_agent_dispatch_executor_receipt_use_writer_preflight',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'dispatch_executor_receipt_use_writer_preflight' => $preflight,
+            'dispatch_executor_receipt_use_writer_preflight_hash' => $this->stableHash($preflight),
+            'non_execution_guarantees' => [
+                'agent_dispatch_executor_receipt_use_writer_preflight_does_not_start_providers',
+                'agent_dispatch_executor_receipt_use_writer_preflight_does_not_mark_receipt_used',
+                'agent_dispatch_executor_receipt_use_writer_preflight_does_not_dispatch_work',
+                'agent_dispatch_executor_receipt_use_writer_preflight_does_not_write_ledger',
+                'agent_dispatch_executor_receipt_use_writer_preflight_does_not_create_writer_files',
+            ],
+            'human_summary' => $blockingReasons === []
+                ? 'Agent dispatch executor receipt-use writer preflight is ready for future release checks, but still does not mark receipts used or start providers.'
+                : 'Agent dispatch executor receipt-use writer preflight is blocked until the atomic writer and required storage exist.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentDispatchExecutorReleaseAuthorizationTemplate(array $options = []): array
+    {
+        $releasePreflightPayload = $this->agentDispatchExecutorReleasePreflight($options);
+        $releasePreflight = (array) data_get($releasePreflightPayload, 'dispatch_executor_release_preflight', []);
+
+        $template = [
+            'status' => 'ready_for_signature_collection',
+            'authorization_id' => 'DISPATCH-EXECUTOR-RELEASE-AUTH-'.strtoupper(substr((string) data_get($releasePreflight, 'contract_hash', $this->stableHash($releasePreflight)), 0, 24)),
+            'preflight_status' => data_get($releasePreflightPayload, 'status'),
+            'preflight_hash' => data_get($releasePreflightPayload, 'dispatch_executor_release_preflight_hash'),
+            'contract_hash' => data_get($releasePreflight, 'contract_hash'),
+            'provider' => data_get($releasePreflight, 'provider'),
+            'provider_role' => data_get($releasePreflight, 'provider_role'),
+            'packet_id' => data_get($releasePreflight, 'packet_id'),
+            'receipt_key' => data_get($releasePreflight, 'receipt_key'),
+            'authorization_scope' => [
+                'single_provider_start_only' => true,
+                'single_receipt_only' => true,
+                'single_packet_only' => true,
+                'workspace_bound' => true,
+                'expires_before_execution_required' => true,
+            ],
+            'required_signatures' => [
+                [
+                    'role' => 'operator',
+                    'purpose' => 'approve provider executor release for one bounded dispatch',
+                    'required' => true,
+                ],
+                [
+                    'role' => 'atlas_policy',
+                    'purpose' => 'confirm governance, scope, budget and observability are satisfied',
+                    'required' => true,
+                ],
+            ],
+            'required_evidence' => [
+                'dispatch_executor_contract_template_hash',
+                'dispatch_executor_release_preflight_hash',
+                'signed_dispatch_receipt_hash',
+                'provider_sandbox_or_worktree_binding',
+                'atomic_receipt_used_writer_plan',
+                'pre_start_heartbeat_plan',
+                'cost_and_work_product_capture_plan',
+                'stop_conditions_and_scope_validator_output',
+            ],
+            'authorization_fields' => [
+                'decision' => ['approve_release_once', 'reject_release', 'request_more_evidence'],
+                'signed_payload_fields' => [
+                    'signed_by',
+                    'signed_at',
+                    'expires_at',
+                    'max_provider_starts',
+                    'max_runtime_minutes',
+                    'max_cost_usd',
+                    'notes',
+                    'authorization_hash',
+                ],
+            ],
+            'hard_denial_conditions' => [
+                'missing_signed_dispatch_receipt',
+                'missing_atomic_receipt_use_writer',
+                'missing_workspace_or_worktree_binding',
+                'provider_identity_mismatch',
+                'packet_scope_mismatch',
+                'hot_scope_overlap',
+                'missing_liveness_or_cost_capture',
+            ],
+            'release_allowed_by_template' => false,
+            'provider_start_allowed_by_template' => false,
+            'next_required_command' => 'php artisan atlas:ai:self-construction --agent-dispatch-executor-release-authorization-receipt-draft --json',
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_dispatch_executor_release_authorization_template.v1',
+            'status' => 'agent_dispatch_executor_release_authorization_template_ready',
+            'mode' => 'read_only_agent_dispatch_executor_release_authorization_template',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'dispatch_executor_release_authorization_template' => $template,
+            'dispatch_executor_release_authorization_template_hash' => $this->stableHash($template),
+            'non_execution_guarantees' => [
+                'agent_dispatch_executor_release_authorization_template_does_not_start_providers',
+                'agent_dispatch_executor_release_authorization_template_does_not_mark_receipt_used',
+                'agent_dispatch_executor_release_authorization_template_does_not_dispatch_work',
+                'agent_dispatch_executor_release_authorization_template_does_not_accept_signatures',
+                'agent_dispatch_executor_release_authorization_template_does_not_persist_authorization',
+            ],
+            'human_summary' => 'Agent dispatch executor release authorization template defines the future signatures and evidence required to release one provider executor, but grants no dispatch authority.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentDispatchExecutorReleaseAuthorizationReceiptDraft(array $options = []): array
+    {
+        $templatePayload = $this->agentDispatchExecutorReleaseAuthorizationTemplate($options);
+        $template = (array) data_get($templatePayload, 'dispatch_executor_release_authorization_template', []);
+        $templateHash = (string) data_get($templatePayload, 'dispatch_executor_release_authorization_template_hash');
+        $receiptKey = 'EXECUTOR-RELEASE-AUTH-DRAFT-'.strtoupper(substr($templateHash, 0, 24));
+
+        $draft = [
+            'status' => 'unsigned_draft_ready',
+            'receipt_key' => $receiptKey,
+            'authorization_id' => data_get($template, 'authorization_id'),
+            'authorization_template_hash' => $templateHash,
+            'preflight_hash' => data_get($template, 'preflight_hash'),
+            'contract_hash' => data_get($template, 'contract_hash'),
+            'provider' => data_get($template, 'provider'),
+            'provider_role' => data_get($template, 'provider_role'),
+            'packet_id' => data_get($template, 'packet_id'),
+            'source_template_status' => data_get($templatePayload, 'status'),
+            'allowed_decisions' => data_get($template, 'authorization_fields.decision', []),
+            'default_decision' => 'request_more_evidence',
+            'required_signatures' => data_get($template, 'required_signatures', []),
+            'required_evidence' => data_get($template, 'required_evidence', []),
+            'hard_denial_conditions' => data_get($template, 'hard_denial_conditions', []),
+            'unsigned_payload' => [
+                'decision' => null,
+                'signed_by' => null,
+                'signed_at' => null,
+                'expires_at' => null,
+                'max_provider_starts' => 1,
+                'max_runtime_minutes' => null,
+                'max_cost_usd' => null,
+                'notes' => null,
+                'authorization_hash' => null,
+            ],
+            'draft_policy' => [
+                'is_unsigned' => true,
+                'is_not_persisted' => true,
+                'signature_acceptance_allowed' => false,
+                'release_allowed_by_draft' => false,
+                'provider_start_allowed_by_draft' => false,
+                'requires_separate_signature_request' => true,
+            ],
+            'next_required_command' => 'php artisan atlas:ai:self-construction --agent-dispatch-executor-release-authorization-signature-request --json',
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_dispatch_executor_release_authorization_receipt_draft.v1',
+            'status' => 'agent_dispatch_executor_release_authorization_receipt_draft_ready',
+            'mode' => 'read_only_agent_dispatch_executor_release_authorization_receipt_draft',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'dispatch_executor_release_authorization_receipt_draft' => $draft,
+            'dispatch_executor_release_authorization_receipt_draft_hash' => $this->stableHash($draft),
+            'non_execution_guarantees' => [
+                'agent_dispatch_executor_release_authorization_receipt_draft_does_not_start_providers',
+                'agent_dispatch_executor_release_authorization_receipt_draft_does_not_mark_receipt_used',
+                'agent_dispatch_executor_release_authorization_receipt_draft_does_not_dispatch_work',
+                'agent_dispatch_executor_release_authorization_receipt_draft_does_not_accept_signatures',
+                'agent_dispatch_executor_release_authorization_receipt_draft_does_not_persist_authorization',
+            ],
+            'human_summary' => 'Agent dispatch executor release authorization receipt draft is unsigned, non-persisted and cannot release or start providers.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentDispatchExecutorReleaseAuthorizationSignatureRequest(array $options = []): array
+    {
+        $draftPayload = $this->agentDispatchExecutorReleaseAuthorizationReceiptDraft($options);
+        $draft = (array) data_get($draftPayload, 'dispatch_executor_release_authorization_receipt_draft', []);
+        $draftHash = (string) data_get($draftPayload, 'dispatch_executor_release_authorization_receipt_draft_hash');
+
+        $request = [
+            'status' => 'signature_request_ready',
+            'signature_request_id' => 'EXECUTOR-RELEASE-SIGNATURE-'.strtoupper(substr($draftHash, 0, 24)),
+            'receipt_key' => data_get($draft, 'receipt_key'),
+            'authorization_id' => data_get($draft, 'authorization_id'),
+            'receipt_draft_hash' => $draftHash,
+            'authorization_template_hash' => data_get($draft, 'authorization_template_hash'),
+            'contract_hash' => data_get($draft, 'contract_hash'),
+            'preflight_hash' => data_get($draft, 'preflight_hash'),
+            'provider' => data_get($draft, 'provider'),
+            'provider_role' => data_get($draft, 'provider_role'),
+            'packet_id' => data_get($draft, 'packet_id'),
+            'allowed_decisions' => data_get($draft, 'allowed_decisions', []),
+            'requested_signatures' => array_map(
+                static fn (array $signature): array => [
+                    'role' => $signature['role'] ?? 'unknown',
+                    'purpose' => $signature['purpose'] ?? 'approve executor release',
+                    'required' => (bool) ($signature['required'] ?? true),
+                    'status' => 'missing',
+                ],
+                (array) data_get($draft, 'required_signatures', []),
+            ),
+            'payload_to_sign' => [
+                'receipt_key' => data_get($draft, 'receipt_key'),
+                'receipt_draft_hash' => $draftHash,
+                'decision' => null,
+                'signed_by' => null,
+                'expires_at' => null,
+                'max_provider_starts' => data_get($draft, 'unsigned_payload.max_provider_starts', 1),
+                'max_runtime_minutes' => null,
+                'max_cost_usd' => null,
+                'evidence_hashes' => [
+                    'authorization_template_hash' => data_get($draft, 'authorization_template_hash'),
+                    'contract_hash' => data_get($draft, 'contract_hash'),
+                    'preflight_hash' => data_get($draft, 'preflight_hash'),
+                ],
+            ],
+            'required_evidence' => data_get($draft, 'required_evidence', []),
+            'hard_denial_conditions' => data_get($draft, 'hard_denial_conditions', []),
+            'signature_policy' => [
+                'signature_acceptance_allowed_here' => false,
+                'signature_validation_allowed_here' => false,
+                'authorization_persistence_allowed_here' => false,
+                'release_allowed_by_request' => false,
+                'provider_start_allowed_by_request' => false,
+                'requires_separate_signed_receipt_template' => true,
+            ],
+            'next_required_command' => 'php artisan atlas:ai:self-construction --agent-dispatch-executor-release-authorization-post-signature-runbook --json',
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_dispatch_executor_release_authorization_signature_request.v1',
+            'status' => 'agent_dispatch_executor_release_authorization_signature_request_ready',
+            'mode' => 'read_only_agent_dispatch_executor_release_authorization_signature_request',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'dispatch_executor_release_authorization_signature_request' => $request,
+            'dispatch_executor_release_authorization_signature_request_hash' => $this->stableHash($request),
+            'non_execution_guarantees' => [
+                'agent_dispatch_executor_release_authorization_signature_request_does_not_start_providers',
+                'agent_dispatch_executor_release_authorization_signature_request_does_not_mark_receipt_used',
+                'agent_dispatch_executor_release_authorization_signature_request_does_not_dispatch_work',
+                'agent_dispatch_executor_release_authorization_signature_request_does_not_accept_signatures',
+                'agent_dispatch_executor_release_authorization_signature_request_does_not_persist_authorization',
+            ],
+            'human_summary' => 'Agent dispatch executor release authorization signature request is ready, but it does not accept signatures, persist authorization or start providers.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentDispatchExecutorReleaseAuthorizationPostSignatureRunbook(array $options = []): array
+    {
+        $signaturePayload = $this->agentDispatchExecutorReleaseAuthorizationSignatureRequest($options);
+        $signatureRequest = (array) data_get($signaturePayload, 'dispatch_executor_release_authorization_signature_request', []);
+        $signatureRequestHash = (string) data_get($signaturePayload, 'dispatch_executor_release_authorization_signature_request_hash');
+
+        $steps = [
+            [
+                'id' => 'verify_signature_payload_hashes',
+                'description' => 'Recompute receipt draft, authorization template, executor contract and release preflight hashes before any signed receipt template is produced.',
+                'blocking' => true,
+            ],
+            [
+                'id' => 'validate_external_signatures_outside_this_surface',
+                'description' => 'Collect and validate operator and atlas_policy signatures using a future signature-validation surface, not this runbook.',
+                'blocking' => true,
+            ],
+            [
+                'id' => 'verify_required_evidence',
+                'description' => 'Confirm sandbox/worktree binding, signed dispatch receipt, atomic receipt-use plan, heartbeat plan, cost/work-product capture and scope validator evidence.',
+                'blocking' => true,
+            ],
+            [
+                'id' => 'stop_on_denial_conditions',
+                'description' => 'Reject the release if any hard denial condition appears: missing receipt, missing atomic writer, workspace mismatch, provider mismatch, packet mismatch or hot-scope overlap.',
+                'blocking' => true,
+            ],
+            [
+                'id' => 'prepare_signed_receipt_template',
+                'description' => 'Only after the above checks, generate the next signed receipt template; do not persist it or start providers here.',
+                'blocking' => false,
+            ],
+        ];
+
+        $runbook = [
+            'status' => 'post_signature_runbook_ready',
+            'signature_request_hash' => $signatureRequestHash,
+            'signature_request_id' => data_get($signatureRequest, 'signature_request_id'),
+            'receipt_key' => data_get($signatureRequest, 'receipt_key'),
+            'authorization_id' => data_get($signatureRequest, 'authorization_id'),
+            'provider' => data_get($signatureRequest, 'provider'),
+            'provider_role' => data_get($signatureRequest, 'provider_role'),
+            'packet_id' => data_get($signatureRequest, 'packet_id'),
+            'required_signatures' => data_get($signatureRequest, 'requested_signatures', []),
+            'required_evidence' => data_get($signatureRequest, 'required_evidence', []),
+            'hard_denial_conditions' => data_get($signatureRequest, 'hard_denial_conditions', []),
+            'steps' => $steps,
+            'step_count' => count($steps),
+            'post_signature_policy' => [
+                'signature_acceptance_allowed_here' => false,
+                'signature_validation_allowed_here' => false,
+                'authorization_persistence_allowed_here' => false,
+                'release_allowed_by_runbook' => false,
+                'provider_start_allowed_by_runbook' => false,
+                'requires_separate_signed_receipt_template' => true,
+            ],
+            'next_required_command' => 'php artisan atlas:ai:self-construction --agent-dispatch-executor-release-authorization-signed-receipt-template --json',
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_dispatch_executor_release_authorization_post_signature_runbook.v1',
+            'status' => 'agent_dispatch_executor_release_authorization_post_signature_runbook_ready',
+            'mode' => 'read_only_agent_dispatch_executor_release_authorization_post_signature_runbook',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'dispatch_executor_release_authorization_post_signature_runbook' => $runbook,
+            'dispatch_executor_release_authorization_post_signature_runbook_hash' => $this->stableHash($runbook),
+            'non_execution_guarantees' => [
+                'agent_dispatch_executor_release_authorization_post_signature_runbook_does_not_start_providers',
+                'agent_dispatch_executor_release_authorization_post_signature_runbook_does_not_mark_receipt_used',
+                'agent_dispatch_executor_release_authorization_post_signature_runbook_does_not_dispatch_work',
+                'agent_dispatch_executor_release_authorization_post_signature_runbook_does_not_accept_signatures',
+                'agent_dispatch_executor_release_authorization_post_signature_runbook_does_not_validate_signatures',
+                'agent_dispatch_executor_release_authorization_post_signature_runbook_does_not_persist_authorization',
+            ],
+            'human_summary' => 'Agent dispatch executor release authorization post-signature runbook is ready, but it does not accept or validate signatures, persist authorization or start providers.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentDispatchExecutorReleaseAuthorizationSignedReceiptTemplate(array $options = []): array
+    {
+        $runbookPayload = $this->agentDispatchExecutorReleaseAuthorizationPostSignatureRunbook($options);
+        $runbook = (array) data_get($runbookPayload, 'dispatch_executor_release_authorization_post_signature_runbook', []);
+        $runbookHash = (string) data_get($runbookPayload, 'dispatch_executor_release_authorization_post_signature_runbook_hash');
+
+        $template = [
+            'status' => 'signed_receipt_template_ready',
+            'receipt_key' => data_get($runbook, 'receipt_key'),
+            'authorization_id' => data_get($runbook, 'authorization_id'),
+            'signature_request_id' => data_get($runbook, 'signature_request_id'),
+            'post_signature_runbook_hash' => $runbookHash,
+            'signature_request_hash' => data_get($runbook, 'signature_request_hash'),
+            'provider' => data_get($runbook, 'provider'),
+            'provider_role' => data_get($runbook, 'provider_role'),
+            'packet_id' => data_get($runbook, 'packet_id'),
+            'required_signatures' => data_get($runbook, 'required_signatures', []),
+            'required_evidence' => data_get($runbook, 'required_evidence', []),
+            'hard_denial_conditions' => data_get($runbook, 'hard_denial_conditions', []),
+            'allowed_decisions' => ['approve_release_once', 'reject_release', 'request_more_evidence'],
+            'signed_payload_template' => [
+                'decision' => null,
+                'signed_by' => null,
+                'signed_at' => null,
+                'expires_at' => null,
+                'validated_signature_refs' => [],
+                'evidence_hashes' => [
+                    'post_signature_runbook_hash' => $runbookHash,
+                    'signature_request_hash' => data_get($runbook, 'signature_request_hash'),
+                ],
+                'limits' => [
+                    'max_provider_starts' => 1,
+                    'max_runtime_minutes' => null,
+                    'max_cost_usd' => null,
+                ],
+                'notes' => null,
+                'signed_receipt_hash' => null,
+            ],
+            'template_policy' => [
+                'signature_acceptance_allowed_here' => false,
+                'signature_validation_allowed_here' => false,
+                'receipt_persistence_allowed_here' => false,
+                'release_allowed_by_template' => false,
+                'provider_start_allowed_by_template' => false,
+                'requires_separate_signed_receipt_preflight' => true,
+            ],
+            'next_required_command' => 'php artisan atlas:ai:self-construction --agent-dispatch-executor-release-authorization-signed-receipt-preflight --json',
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_dispatch_executor_release_authorization_signed_receipt_template.v1',
+            'status' => 'agent_dispatch_executor_release_authorization_signed_receipt_template_ready',
+            'mode' => 'read_only_agent_dispatch_executor_release_authorization_signed_receipt_template',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'dispatch_executor_release_authorization_signed_receipt_template' => $template,
+            'dispatch_executor_release_authorization_signed_receipt_template_hash' => $this->stableHash($template),
+            'non_execution_guarantees' => [
+                'agent_dispatch_executor_release_authorization_signed_receipt_template_does_not_start_providers',
+                'agent_dispatch_executor_release_authorization_signed_receipt_template_does_not_mark_receipt_used',
+                'agent_dispatch_executor_release_authorization_signed_receipt_template_does_not_dispatch_work',
+                'agent_dispatch_executor_release_authorization_signed_receipt_template_does_not_accept_signatures',
+                'agent_dispatch_executor_release_authorization_signed_receipt_template_does_not_validate_signatures',
+                'agent_dispatch_executor_release_authorization_signed_receipt_template_does_not_persist_authorization',
+            ],
+            'human_summary' => 'Agent dispatch executor release authorization signed receipt template is ready, but it does not accept signatures, persist authorization or start providers.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentDispatchExecutorReleaseAuthorizationSignedReceiptPreflight(array $options = []): array
+    {
+        $templatePayload = $this->agentDispatchExecutorReleaseAuthorizationSignedReceiptTemplate($options);
+        $template = (array) data_get($templatePayload, 'dispatch_executor_release_authorization_signed_receipt_template', []);
+        $templateHash = (string) data_get($templatePayload, 'dispatch_executor_release_authorization_signed_receipt_template_hash');
+
+        $blockingReasons = [
+            'external_signature_validation_evidence_missing',
+            'signed_payload_values_missing',
+            'authorization_persistence_schema_missing',
+            'atomic_receipt_use_writer_missing',
+            'provider_sandbox_binding_evidence_missing',
+            'provider_start_driver_disabled',
+        ];
+
+        $preflight = [
+            'status' => 'blocked',
+            'blocking_reasons' => $blockingReasons,
+            'blocking_count' => count($blockingReasons),
+            'signed_receipt_template_hash' => $templateHash,
+            'receipt_key' => data_get($template, 'receipt_key'),
+            'authorization_id' => data_get($template, 'authorization_id'),
+            'provider' => data_get($template, 'provider'),
+            'provider_role' => data_get($template, 'provider_role'),
+            'packet_id' => data_get($template, 'packet_id'),
+            'required_before_persistence' => [
+                'validated_operator_signature' => false,
+                'validated_atlas_policy_signature' => false,
+                'complete_signed_payload' => false,
+                'signature_refs_are_bound_to_template_hash' => false,
+                'required_evidence_hashes_present' => false,
+                'hard_denial_conditions_absent' => false,
+                'authorization_persistence_storage_ready' => false,
+            ],
+            'required_before_executor_release' => [
+                'signed_authorization_receipt_persisted' => false,
+                'receipt_use_atomic_writer_ready' => false,
+                'provider_sandbox_or_worktree_bound' => false,
+                'pre_start_heartbeat_ready' => false,
+                'cost_and_work_product_capture_ready' => false,
+            ],
+            'preflight_policy' => [
+                'preflight_is_read_only' => true,
+                'signature_acceptance_allowed_here' => false,
+                'signature_validation_allowed_here' => false,
+                'authorization_persistence_allowed_here' => false,
+                'release_allowed_by_preflight' => false,
+                'provider_start_allowed_by_preflight' => false,
+            ],
+            'next_required_command' => 'php artisan atlas:ai:self-construction --agent-dispatch-executor-release-authorization-persistence-template --json',
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_dispatch_executor_release_authorization_signed_receipt_preflight.v1',
+            'status' => 'blocked',
+            'mode' => 'read_only_agent_dispatch_executor_release_authorization_signed_receipt_preflight',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'dispatch_executor_release_authorization_signed_receipt_preflight' => $preflight,
+            'dispatch_executor_release_authorization_signed_receipt_preflight_hash' => $this->stableHash($preflight),
+            'non_execution_guarantees' => [
+                'agent_dispatch_executor_release_authorization_signed_receipt_preflight_does_not_start_providers',
+                'agent_dispatch_executor_release_authorization_signed_receipt_preflight_does_not_mark_receipt_used',
+                'agent_dispatch_executor_release_authorization_signed_receipt_preflight_does_not_dispatch_work',
+                'agent_dispatch_executor_release_authorization_signed_receipt_preflight_does_not_accept_signatures',
+                'agent_dispatch_executor_release_authorization_signed_receipt_preflight_does_not_validate_signatures',
+                'agent_dispatch_executor_release_authorization_signed_receipt_preflight_does_not_persist_authorization',
+            ],
+            'human_summary' => 'Agent dispatch executor release authorization signed receipt preflight is blocked by design until signatures, evidence, persistence storage and atomic receipt-use writer exist.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentDispatchExecutorReleaseAuthorizationPersistenceTemplate(array $options = []): array
+    {
+        $preflightPayload = $this->agentDispatchExecutorReleaseAuthorizationSignedReceiptPreflight($options);
+        $preflight = (array) data_get($preflightPayload, 'dispatch_executor_release_authorization_signed_receipt_preflight', []);
+        $preflightHash = (string) data_get($preflightPayload, 'dispatch_executor_release_authorization_signed_receipt_preflight_hash');
+
+        $template = [
+            'status' => 'blocked_before_authorization_persistence_writer',
+            'source_signed_receipt_preflight_hash' => $preflightHash,
+            'receipt_key' => data_get($preflight, 'receipt_key'),
+            'authorization_id' => data_get($preflight, 'authorization_id'),
+            'provider' => data_get($preflight, 'provider'),
+            'provider_role' => data_get($preflight, 'provider_role'),
+            'packet_id' => data_get($preflight, 'packet_id'),
+            'persistence_target' => [
+                'table' => 'atlas_self_construction_agent_dispatch_executor_release_authorizations',
+                'record_key_column' => 'authorization_key',
+                'idempotency_column' => 'signed_receipt_hash',
+                'status_column' => 'status',
+                'append_only_ledger_event_type' => 'self_construction.agent_dispatch_executor_release_authorization.persisted',
+            ],
+            'required_columns' => [
+                'authorization_key',
+                'receipt_key',
+                'authorization_id',
+                'packet_id',
+                'provider',
+                'provider_role',
+                'decision',
+                'status',
+                'signed_by',
+                'signed_at',
+                'expires_at',
+                'signed_receipt_template_hash',
+                'signed_receipt_preflight_hash',
+                'signed_receipt_hash',
+                'payload',
+                'persisted_at',
+            ],
+            'required_atomic_guards' => [
+                'unique_authorization_key',
+                'unique_signed_receipt_hash',
+                'reject_expired_signed_receipt',
+                'reject_reused_signed_receipt',
+                'reject_missing_external_signature_validation_report',
+                'reject_hard_denial_condition',
+                'write_authorization_and_ledger_event_in_same_transaction',
+            ],
+            'required_before_persistence_writer' => [
+                'authorization_persistence_migration_exists' => false,
+                'authorization_model_exists' => false,
+                'authorization_repository_exists' => false,
+                'external_signature_validation_report_exists' => false,
+                'signed_payload_values_exist' => false,
+                'append_only_event_writer_exists' => false,
+                'idempotency_guard_exists' => false,
+            ],
+            'persistence_policy' => [
+                'template_is_read_only' => true,
+                'authorization_persistence_allowed_here' => false,
+                'ledger_write_allowed_here' => false,
+                'receipt_use_mark_allowed_here' => false,
+                'release_allowed_by_template' => false,
+                'provider_start_allowed_by_template' => false,
+                'requires_separate_persistence_preflight' => true,
+                'requires_separate_atomic_writer' => true,
+            ],
+            'next_required_command' => 'php artisan atlas:ai:self-construction --agent-dispatch-executor-release-authorization-persistence-preflight --json',
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_dispatch_executor_release_authorization_persistence_template.v1',
+            'status' => 'blocked',
+            'mode' => 'read_only_agent_dispatch_executor_release_authorization_persistence_template',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'dispatch_executor_release_authorization_persistence_template' => $template,
+            'dispatch_executor_release_authorization_persistence_template_hash' => $this->stableHash($template),
+            'non_execution_guarantees' => [
+                'agent_dispatch_executor_release_authorization_persistence_template_does_not_start_providers',
+                'agent_dispatch_executor_release_authorization_persistence_template_does_not_mark_receipt_used',
+                'agent_dispatch_executor_release_authorization_persistence_template_does_not_dispatch_work',
+                'agent_dispatch_executor_release_authorization_persistence_template_does_not_accept_signatures',
+                'agent_dispatch_executor_release_authorization_persistence_template_does_not_validate_signatures',
+                'agent_dispatch_executor_release_authorization_persistence_template_does_not_persist_authorization',
+                'agent_dispatch_executor_release_authorization_persistence_template_does_not_write_ledger',
+            ],
+            'human_summary' => 'Agent dispatch executor release authorization persistence template is blocked/read-only; it defines the future storage, idempotency and ledger contract without persisting authorization or releasing providers.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentDispatchExecutorReleaseAuthorizationPersistencePreflight(array $options = []): array
+    {
+        $templatePayload = $this->agentDispatchExecutorReleaseAuthorizationPersistenceTemplate($options);
+        $template = (array) data_get($templatePayload, 'dispatch_executor_release_authorization_persistence_template', []);
+        $templateHash = (string) data_get($templatePayload, 'dispatch_executor_release_authorization_persistence_template_hash');
+        $targetTable = (string) data_get($template, 'persistence_target.table');
+
+        $migrationExists = file_exists(database_path('migrations/2026_05_12_020000_create_atlas_self_construction_agent_dispatch_executor_release_authorizations_table.php'));
+        $modelExists = class_exists(\App\Models\AtlasSelfConstructionAgentDispatchExecutorReleaseAuthorization::class);
+        $schemaExists = $targetTable !== '' && \Illuminate\Support\Facades\Schema::hasTable($targetTable);
+
+        $blockingReasons = array_values(array_filter([
+            $migrationExists ? null : 'authorization_persistence_migration_missing',
+            $modelExists ? null : 'authorization_model_missing',
+            $schemaExists ? null : 'authorization_persistence_table_missing',
+            'authorization_repository_missing',
+            'external_signature_validation_report_missing',
+            'signed_payload_values_missing',
+            'append_only_event_writer_missing',
+            'idempotency_guard_missing',
+            'atomic_transaction_boundary_missing',
+            'receipt_use_writer_missing',
+            'provider_release_still_disabled',
+        ]));
+
+        $preflight = [
+            'status' => 'blocked',
+            'blocking_reasons' => $blockingReasons,
+            'blocking_count' => count($blockingReasons),
+            'persistence_template_hash' => $templateHash,
+            'source_signed_receipt_preflight_hash' => data_get($template, 'source_signed_receipt_preflight_hash'),
+            'receipt_key' => data_get($template, 'receipt_key'),
+            'authorization_id' => data_get($template, 'authorization_id'),
+            'provider' => data_get($template, 'provider'),
+            'provider_role' => data_get($template, 'provider_role'),
+            'packet_id' => data_get($template, 'packet_id'),
+            'storage_checks' => [
+                'migration_exists' => $migrationExists,
+                'model_exists' => $modelExists,
+                'table_exists' => $schemaExists,
+                'target_table' => $targetTable,
+            ],
+            'writer_checks' => [
+                'authorization_repository_exists' => false,
+                'external_signature_validation_report_exists' => false,
+                'signed_payload_values_exist' => false,
+                'append_only_event_writer_exists' => false,
+                'idempotency_guard_exists' => false,
+                'atomic_transaction_boundary_exists' => false,
+                'receipt_use_writer_exists' => false,
+            ],
+            'required_atomic_guards' => data_get($template, 'required_atomic_guards', []),
+            'preflight_policy' => [
+                'preflight_is_read_only' => true,
+                'authorization_persistence_allowed_here' => false,
+                'ledger_write_allowed_here' => false,
+                'receipt_use_mark_allowed_here' => false,
+                'release_allowed_by_preflight' => false,
+                'provider_start_allowed_by_preflight' => false,
+            ],
+            'next_required_command' => 'php artisan atlas:ai:self-construction --agent-dispatch-executor-release-authorization-persistence-writer-contract-template --json',
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_dispatch_executor_release_authorization_persistence_preflight.v1',
+            'status' => 'blocked',
+            'mode' => 'read_only_agent_dispatch_executor_release_authorization_persistence_preflight',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'dispatch_executor_release_authorization_persistence_preflight' => $preflight,
+            'dispatch_executor_release_authorization_persistence_preflight_hash' => $this->stableHash($preflight),
+            'non_execution_guarantees' => [
+                'agent_dispatch_executor_release_authorization_persistence_preflight_does_not_start_providers',
+                'agent_dispatch_executor_release_authorization_persistence_preflight_does_not_mark_receipt_used',
+                'agent_dispatch_executor_release_authorization_persistence_preflight_does_not_dispatch_work',
+                'agent_dispatch_executor_release_authorization_persistence_preflight_does_not_accept_signatures',
+                'agent_dispatch_executor_release_authorization_persistence_preflight_does_not_validate_signatures',
+                'agent_dispatch_executor_release_authorization_persistence_preflight_does_not_persist_authorization',
+                'agent_dispatch_executor_release_authorization_persistence_preflight_does_not_write_ledger',
+            ],
+            'human_summary' => 'Agent dispatch executor release authorization persistence preflight remains blocked until storage, repository, external signature validation, idempotency, append-only event writer and atomic receipt-use writer exist.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentDispatchExecutorReleaseAuthorizationPersistenceWriterContractTemplate(array $options = []): array
+    {
+        $preflightPayload = $this->agentDispatchExecutorReleaseAuthorizationPersistencePreflight($options);
+        $preflight = (array) data_get($preflightPayload, 'dispatch_executor_release_authorization_persistence_preflight', []);
+        $preflightHash = (string) data_get($preflightPayload, 'dispatch_executor_release_authorization_persistence_preflight_hash');
+
+        $contract = [
+            'status' => 'writer_contract_template_ready_but_not_implemented',
+            'persistence_preflight_hash' => $preflightHash,
+            'receipt_key' => data_get($preflight, 'receipt_key'),
+            'authorization_id' => data_get($preflight, 'authorization_id'),
+            'provider' => data_get($preflight, 'provider'),
+            'provider_role' => data_get($preflight, 'provider_role'),
+            'packet_id' => data_get($preflight, 'packet_id'),
+            'contract' => [
+                'service' => 'AgentDispatchExecutorReleaseAuthorizationPersistenceWriter',
+                'method' => 'persistSignedReleaseAuthorization',
+                'input_dto' => 'SignedExecutorReleaseAuthorizationPersistenceInput',
+                'output_dto' => 'SignedExecutorReleaseAuthorizationPersistenceResult',
+                'transaction_boundary' => 'single_database_transaction',
+                'idempotency_key' => 'signed_receipt_hash',
+            ],
+            'required_input_fields' => [
+                'authorization_key',
+                'receipt_key',
+                'authorization_id',
+                'decision',
+                'signed_by',
+                'signed_at',
+                'expires_at',
+                'signed_receipt_template_hash',
+                'signed_receipt_preflight_hash',
+                'persistence_template_hash',
+                'persistence_preflight_hash',
+                'external_signature_validation_report_hash',
+                'signed_receipt_hash',
+                'payload',
+            ],
+            'required_validation_steps' => [
+                'verify_persistence_preflight_hash_matches_current_contract',
+                'verify_signed_receipt_hash_is_unique',
+                'verify_authorization_key_is_unique',
+                'verify_decision_is_approve_release_once_or_reject_release_or_request_more_evidence',
+                'reject_expired_signed_receipt',
+                'reject_missing_external_signature_validation_report_hash',
+                'reject_hard_denial_conditions',
+                'write_authorization_record',
+                'write_append_only_ledger_event',
+                'return_persistence_receipt_hash',
+            ],
+            'forbidden_writer_behaviors' => [
+                'starting_provider',
+                'dispatching_work',
+                'marking_dispatch_receipt_used',
+                'validating_raw_signatures_without_external_report',
+                'mutating_packet_state',
+                'mutating_policy',
+                'bypassing_idempotency',
+                'writing_authorization_without_ledger_event',
+            ],
+            'required_tests' => [
+                'persists_authorization_once_with_validated_signature_report',
+                'is_idempotent_for_same_signed_receipt_hash',
+                'rejects_duplicate_authorization_key',
+                'rejects_expired_signed_receipt',
+                'rejects_missing_external_signature_validation_report',
+                'does_not_start_provider_or_dispatch_work',
+                'writes_ledger_event_in_same_transaction',
+            ],
+            'implementation_files_allowed_future' => [
+                'app/Services/Ai/SelfConstruction/AgentDispatchExecutorReleaseAuthorizationPersistenceWriter.php',
+                'app/Models/AtlasSelfConstructionAgentDispatchExecutorReleaseAuthorization.php',
+                'database/migrations/*_create_atlas_self_construction_agent_dispatch_executor_release_authorizations_table.php',
+                'tests/Feature/Ai/AtlasAiSelfConstructionAgentDispatchExecutorReleaseAuthorizationPersistenceWriterTest.php',
+            ],
+            'contract_policy' => [
+                'template_is_read_only' => true,
+                'writer_implementation_allowed_here' => false,
+                'authorization_persistence_allowed_here' => false,
+                'ledger_write_allowed_here' => false,
+                'provider_start_allowed_here' => false,
+                'requires_separate_implementation_preflight' => true,
+            ],
+            'next_required_command' => 'php artisan atlas:ai:self-construction --agent-dispatch-executor-release-authorization-persistence-writer-implementation-preflight --json',
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_dispatch_executor_release_authorization_persistence_writer_contract_template.v1',
+            'status' => 'agent_dispatch_executor_release_authorization_persistence_writer_contract_template_ready',
+            'mode' => 'read_only_agent_dispatch_executor_release_authorization_persistence_writer_contract_template',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'dispatch_executor_release_authorization_persistence_writer_contract_template' => $contract,
+            'dispatch_executor_release_authorization_persistence_writer_contract_template_hash' => $this->stableHash($contract),
+            'non_execution_guarantees' => [
+                'agent_dispatch_executor_release_authorization_persistence_writer_contract_template_does_not_start_providers',
+                'agent_dispatch_executor_release_authorization_persistence_writer_contract_template_does_not_mark_receipt_used',
+                'agent_dispatch_executor_release_authorization_persistence_writer_contract_template_does_not_dispatch_work',
+                'agent_dispatch_executor_release_authorization_persistence_writer_contract_template_does_not_accept_signatures',
+                'agent_dispatch_executor_release_authorization_persistence_writer_contract_template_does_not_validate_signatures',
+                'agent_dispatch_executor_release_authorization_persistence_writer_contract_template_does_not_persist_authorization',
+                'agent_dispatch_executor_release_authorization_persistence_writer_contract_template_does_not_write_ledger',
+                'agent_dispatch_executor_release_authorization_persistence_writer_contract_template_does_not_create_writer_files',
+            ],
+            'human_summary' => 'Agent dispatch executor release authorization persistence writer contract template is ready, but it only defines the future writer interface, validations, forbidden behaviors and tests.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentDispatchExecutorReleaseAuthorizationPersistenceWriterImplementationPreflight(array $options = []): array
+    {
+        $contractPayload = $this->agentDispatchExecutorReleaseAuthorizationPersistenceWriterContractTemplate($options);
+        $contract = (array) data_get($contractPayload, 'dispatch_executor_release_authorization_persistence_writer_contract_template', []);
+        $contractHash = (string) data_get($contractPayload, 'dispatch_executor_release_authorization_persistence_writer_contract_template_hash');
+        $allowedFiles = (array) data_get($contract, 'implementation_files_allowed_future', []);
+
+        $preflight = [
+            'status' => 'ready_for_scoped_writer_implementation_packet',
+            'writer_contract_template_hash' => $contractHash,
+            'receipt_key' => data_get($contract, 'receipt_key'),
+            'authorization_id' => data_get($contract, 'authorization_id'),
+            'provider' => data_get($contract, 'provider'),
+            'provider_role' => data_get($contract, 'provider_role'),
+            'packet_id' => data_get($contract, 'packet_id'),
+            'allowed_files' => $allowedFiles,
+            'allowed_file_count' => count($allowedFiles),
+            'required_first_changes' => [
+                'create_authorization_persistence_migration',
+                'create_authorization_model',
+                'create_persistence_writer_service',
+                'create_writer_feature_test',
+                'wire_no_provider_start_or_dispatch_side_effects',
+            ],
+            'implementation_constraints' => [
+                'do_not_start_providers',
+                'do_not_dispatch_work',
+                'do_not_mark_dispatch_receipts_used',
+                'do_not_accept_raw_signatures',
+                'do_not_validate_raw_signatures_without_external_report',
+                'do_not_mutate_packet_state',
+                'do_not_mutate_policy',
+                'do_not_touch_voice_runtime',
+                'do_not_touch_hot_kernel_runtime',
+            ],
+            'required_gates' => [
+                'php -l app/Services/Ai/SelfConstruction/AgentDispatchExecutorReleaseAuthorizationPersistenceWriter.php',
+                'php -l app/Models/AtlasSelfConstructionAgentDispatchExecutorReleaseAuthorization.php',
+                'php artisan test tests/Feature/Ai/AtlasAiSelfConstructionAgentDispatchExecutorReleaseAuthorizationPersistenceWriterTest.php',
+                'php artisan test tests/Feature/Ai/AtlasAiSelfConstructionCommandTest.php --filter=agent_dispatch_executor_release_authorization',
+                'php artisan atlas:engineering:knowledge docs-health --json',
+                'php artisan atlas:ai:architecture-validate --json',
+                'git diff --check',
+            ],
+            'preflight_policy' => [
+                'preflight_is_read_only' => true,
+                'writer_file_creation_allowed_by_preflight' => false,
+                'authorization_persistence_allowed_here' => false,
+                'ledger_write_allowed_here' => false,
+                'provider_start_allowed_here' => false,
+                'requires_explicit_implementation_packet' => true,
+            ],
+            'next_required_command' => 'php artisan atlas:ai:self-construction --agent-dispatch-executor-release-authorization-persistence-writer-implementation-packet --json',
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_dispatch_executor_release_authorization_persistence_writer_implementation_preflight.v1',
+            'status' => 'ready_for_scoped_writer_implementation_packet',
+            'mode' => 'read_only_agent_dispatch_executor_release_authorization_persistence_writer_implementation_preflight',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'dispatch_executor_release_authorization_persistence_writer_implementation_preflight' => $preflight,
+            'dispatch_executor_release_authorization_persistence_writer_implementation_preflight_hash' => $this->stableHash($preflight),
+            'non_execution_guarantees' => [
+                'agent_dispatch_executor_release_authorization_persistence_writer_implementation_preflight_does_not_start_providers',
+                'agent_dispatch_executor_release_authorization_persistence_writer_implementation_preflight_does_not_mark_receipt_used',
+                'agent_dispatch_executor_release_authorization_persistence_writer_implementation_preflight_does_not_dispatch_work',
+                'agent_dispatch_executor_release_authorization_persistence_writer_implementation_preflight_does_not_accept_signatures',
+                'agent_dispatch_executor_release_authorization_persistence_writer_implementation_preflight_does_not_validate_signatures',
+                'agent_dispatch_executor_release_authorization_persistence_writer_implementation_preflight_does_not_persist_authorization',
+                'agent_dispatch_executor_release_authorization_persistence_writer_implementation_preflight_does_not_write_ledger',
+                'agent_dispatch_executor_release_authorization_persistence_writer_implementation_preflight_does_not_create_writer_files',
+            ],
+            'human_summary' => 'Agent dispatch executor release authorization persistence writer implementation preflight is ready to produce a scoped implementation packet, but it does not create writer files or persist authorization.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentDispatchExecutorReleaseAuthorizationPersistenceWriterImplementationPacket(array $options = []): array
+    {
+        $preflightPayload = $this->agentDispatchExecutorReleaseAuthorizationPersistenceWriterImplementationPreflight($options);
+        $preflight = (array) data_get($preflightPayload, 'dispatch_executor_release_authorization_persistence_writer_implementation_preflight', []);
+        $preflightHash = (string) data_get($preflightPayload, 'dispatch_executor_release_authorization_persistence_writer_implementation_preflight_hash');
+        $allowedFiles = (array) data_get($preflight, 'allowed_files', []);
+
+        $tasks = [
+            [
+                'id' => 'T1',
+                'title' => 'Create executor release authorization persistence migration',
+                'type' => 'migration',
+                'allowed_files' => ['database/migrations/*_create_atlas_self_construction_agent_dispatch_executor_release_authorizations_table.php'],
+                'acceptance' => 'Table contains authorization key, receipt links, signer metadata, hashes, payload, status, timestamps and unique idempotency indexes.',
+            ],
+            [
+                'id' => 'T2',
+                'title' => 'Create executor release authorization model',
+                'type' => 'model',
+                'allowed_files' => ['app/Models/AtlasSelfConstructionAgentDispatchExecutorReleaseAuthorization.php'],
+                'acceptance' => 'Model exposes guarded fillable/casts for payload and datetime fields without side effects.',
+            ],
+            [
+                'id' => 'T3',
+                'title' => 'Create persistence writer service',
+                'type' => 'service',
+                'allowed_files' => ['app/Services/Ai/SelfConstruction/AgentDispatchExecutorReleaseAuthorizationPersistenceWriter.php'],
+                'acceptance' => 'Writer validates required fields, idempotency and external signature validation hash, writes authorization and append-only event in one transaction, and never starts providers.',
+            ],
+            [
+                'id' => 'T4',
+                'title' => 'Create writer feature test',
+                'type' => 'test',
+                'allowed_files' => ['tests/Feature/Ai/AtlasAiSelfConstructionAgentDispatchExecutorReleaseAuthorizationPersistenceWriterTest.php'],
+                'acceptance' => 'Tests cover successful persistence, idempotency, duplicate rejection, expiry rejection, missing signature report rejection and no dispatch/provider side effects.',
+            ],
+        ];
+
+        $packet = [
+            'status' => 'ready_for_scoped_writer_implementation',
+            'implementation_packet_id' => 'AGENT-DISPATCH-EXECUTOR-RELEASE-AUTHORIZATION-PERSISTENCE-WRITER-IMPLEMENTATION-SELF-CONSTRUCTION-0001',
+            'source_preflight_hash' => $preflightHash,
+            'objective' => 'Implement the guarded persistence writer for signed executor release authorizations without enabling provider execution.',
+            'non_goals' => [
+                'do_not_start_providers',
+                'do_not_dispatch_work',
+                'do_not_mark_dispatch_receipts_used',
+                'do_not_build_signature_authority',
+                'do_not_mutate_packet_state',
+                'do_not_release_executor',
+            ],
+            'allowed_files' => $allowedFiles,
+            'forbidden_scopes' => [
+                'voice_runtime',
+                'hot_kernel_runtime',
+                'provider_start_drivers',
+                'policy_mutation',
+                'packet_claim_or_completion_state',
+            ],
+            'tasks' => $tasks,
+            'task_count' => count($tasks),
+            'acceptance_criteria' => [
+                'signed_authorization_can_be_persisted_once_with_external_signature_validation_report_hash',
+                'same_signed_receipt_hash_is_idempotent',
+                'duplicate_authorization_key_is_rejected',
+                'expired_signed_receipt_is_rejected',
+                'missing_external_signature_validation_report_hash_is_rejected',
+                'authorization_and_ledger_event_share_one_transaction',
+                'writer_does_not_start_provider_dispatch_work_or_mark_receipt_used',
+            ],
+            'required_gates' => data_get($preflight, 'required_gates', []),
+            'stop_conditions' => [
+                'need_to_modify_file_outside_allowed_files',
+                'need_to_start_provider_or_dispatch_work',
+                'need_to_validate_raw_signature_inside_writer',
+                'missing_append_only_event_api_contract',
+                'test_requires_hot_runtime_or_voice_scope_change',
+            ],
+            'implementation_policy' => [
+                'packet_is_read_only' => true,
+                'implementation_allowed_by_packet' => true,
+                'provider_start_allowed_by_packet' => false,
+                'dispatch_allowed_by_packet' => false,
+                'signature_validation_authority_allowed_by_packet' => false,
+                'executor_release_allowed_by_packet' => false,
+            ],
+            'next_required_action' => 'Implement only the allowed files, then run the required gates and report evidence.',
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_dispatch_executor_release_authorization_persistence_writer_implementation_packet.v1',
+            'status' => 'ready_for_scoped_writer_implementation',
+            'mode' => 'read_only_agent_dispatch_executor_release_authorization_persistence_writer_implementation_packet',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'dispatch_executor_release_authorization_persistence_writer_implementation_packet' => $packet,
+            'dispatch_executor_release_authorization_persistence_writer_implementation_packet_hash' => $this->stableHash($packet),
+            'non_execution_guarantees' => [
+                'agent_dispatch_executor_release_authorization_persistence_writer_implementation_packet_does_not_start_providers',
+                'agent_dispatch_executor_release_authorization_persistence_writer_implementation_packet_does_not_mark_receipt_used',
+                'agent_dispatch_executor_release_authorization_persistence_writer_implementation_packet_does_not_dispatch_work',
+                'agent_dispatch_executor_release_authorization_persistence_writer_implementation_packet_does_not_accept_signatures',
+                'agent_dispatch_executor_release_authorization_persistence_writer_implementation_packet_does_not_validate_signatures',
+                'agent_dispatch_executor_release_authorization_persistence_writer_implementation_packet_does_not_persist_authorization',
+                'agent_dispatch_executor_release_authorization_persistence_writer_implementation_packet_does_not_write_ledger',
+                'agent_dispatch_executor_release_authorization_persistence_writer_implementation_packet_does_not_create_writer_files',
+            ],
+            'human_summary' => 'Agent dispatch executor release authorization persistence writer implementation packet is ready; it defines the scoped implementation work but does not create files or persist authorization.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentDispatchExecutorReleaseAuthorizationPersistenceStatus(array $options = []): array
+    {
+        $authorizationModel = \App\Models\AtlasSelfConstructionAgentDispatchExecutorReleaseAuthorization::class;
+        $writerService = \App\Services\Ai\SelfConstruction\AgentDispatchExecutorReleaseAuthorizationPersistenceWriter::class;
+        $authorizationTable = 'atlas_self_construction_agent_dispatch_executor_release_authorizations';
+        $receiptHash = strtolower(trim((string) ($options['receipt_hash'] ?? '')));
+        $receiptHashIsValid = preg_match('/^[a-f0-9]{64}$/', $receiptHash) === 1;
+
+        $storage = [
+            'authorization_table' => $authorizationTable,
+            'authorization_table_ready' => \Illuminate\Support\Facades\Schema::hasTable($authorizationTable),
+            'authorization_model_ready' => class_exists($authorizationModel),
+            'persistence_writer_ready' => class_exists($writerService),
+            'ledger_table_ready' => \Illuminate\Support\Facades\Schema::hasTable('atlas_ledger_events'),
+            'receipt_hash_filter' => $receiptHashIsValid ? $receiptHash : null,
+            'receipt_hash_filter_valid' => $receiptHash === '' || $receiptHashIsValid,
+        ];
+
+        $selectedAuthorization = null;
+        $persistedAuthorizationCount = 0;
+
+        if ($storage['authorization_table_ready'] && $storage['authorization_model_ready']) {
+            /** @var class-string<\Illuminate\Database\Eloquent\Model> $authorizationModel */
+            $persistedAuthorizationCount = $authorizationModel::query()->count();
+            $query = $authorizationModel::query()->latest('created_at');
+
+            if ($receiptHashIsValid) {
+                $query->where('signed_receipt_hash', $receiptHash);
+            }
+
+            $authorization = $query->first();
+
+            if ($authorization !== null) {
+                $expiresAt = $authorization->getAttribute('expires_at');
+                $selectedAuthorization = [
+                    'id' => (string) $authorization->getAttribute('id'),
+                    'authorization_key' => (string) $authorization->getAttribute('authorization_key'),
+                    'receipt_key' => (string) $authorization->getAttribute('receipt_key'),
+                    'authorization_id' => (string) $authorization->getAttribute('authorization_id'),
+                    'packet_id' => $authorization->getAttribute('packet_id'),
+                    'provider' => $authorization->getAttribute('provider'),
+                    'provider_role' => $authorization->getAttribute('provider_role'),
+                    'decision' => (string) $authorization->getAttribute('decision'),
+                    'status' => (string) $authorization->getAttribute('status'),
+                    'signed_by' => (string) $authorization->getAttribute('signed_by'),
+                    'signed_receipt_hash' => (string) $authorization->getAttribute('signed_receipt_hash'),
+                    'expires_at' => method_exists($expiresAt, 'toIso8601String') ? $expiresAt->toIso8601String() : (string) $expiresAt,
+                ];
+            }
+        }
+
+        $selectedStatus = (string) data_get($selectedAuthorization, 'status', '');
+        $selectedDecision = (string) data_get($selectedAuthorization, 'decision', '');
+        $selectedExpiresAt = (string) data_get($selectedAuthorization, 'expires_at', '');
+        $selectedNotExpired = $selectedExpiresAt !== '' && now()->lessThan(\Carbon\CarbonImmutable::parse($selectedExpiresAt));
+        $selectedUsableForFutureReleasePreflight = $selectedAuthorization !== null
+            && $selectedStatus === 'persisted_pending_executor_release'
+            && $selectedDecision === 'approve_release_once'
+            && $selectedNotExpired;
+
+        $blockingReasons = array_values(array_filter([
+            $storage['authorization_table_ready'] ? null : 'authorization_table_missing',
+            $storage['authorization_model_ready'] ? null : 'authorization_model_missing',
+            $storage['persistence_writer_ready'] ? null : 'persistence_writer_missing',
+            $storage['ledger_table_ready'] ? null : 'ledger_table_missing',
+            $storage['receipt_hash_filter_valid'] ? null : 'receipt_hash_filter_invalid',
+        ]));
+
+        $status = [
+            'status' => $blockingReasons === [] ? 'agent_dispatch_executor_release_authorization_persistence_status_ready' : 'blocked',
+            'storage' => $storage,
+            'persisted_authorization_count' => $persistedAuthorizationCount,
+            'selected_authorization' => $selectedAuthorization,
+            'selected_authorization_present' => $selectedAuthorization !== null,
+            'selected_authorization_not_expired' => $selectedNotExpired,
+            'selected_usable_for_future_release_preflight' => $selectedUsableForFutureReleasePreflight,
+            'blocking_count' => count($blockingReasons),
+            'blocking_reasons' => $blockingReasons,
+            'release_preconditions' => [
+                'persisted_authorization_present' => $selectedAuthorization !== null,
+                'decision_approves_one_release' => $selectedDecision === 'approve_release_once',
+                'status_pending_executor_release' => $selectedStatus === 'persisted_pending_executor_release',
+                'authorization_not_expired' => $selectedNotExpired,
+                'ledger_table_ready' => (bool) $storage['ledger_table_ready'],
+                'future_receipt_use_mark_writer_required' => true,
+                'provider_sandbox_binding_required' => true,
+                'manual_release_authorization_required' => true,
+            ],
+            'next_required_command' => 'php artisan atlas:ai:self-construction --agent-dispatch-executor-release-preflight --json',
+            'status_policy' => [
+                'read_only' => true,
+                'authorization_persistence_allowed_here' => false,
+                'receipt_use_mark_allowed_here' => false,
+                'provider_start_allowed_here' => false,
+                'dispatch_allowed_here' => false,
+            ],
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_dispatch_executor_release_authorization_persistence_status.v1',
+            'status' => (string) $status['status'],
+            'mode' => 'read_only_agent_dispatch_executor_release_authorization_persistence_status',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'dispatch_executor_release_authorization_persistence_status' => $status,
+            'dispatch_executor_release_authorization_persistence_status_hash' => $this->stableHash($status),
+            'non_execution_guarantees' => [
+                'agent_dispatch_executor_release_authorization_persistence_status_does_not_start_providers',
+                'agent_dispatch_executor_release_authorization_persistence_status_does_not_mark_receipt_used',
+                'agent_dispatch_executor_release_authorization_persistence_status_does_not_dispatch_work',
+                'agent_dispatch_executor_release_authorization_persistence_status_does_not_accept_signatures',
+                'agent_dispatch_executor_release_authorization_persistence_status_does_not_validate_signatures',
+                'agent_dispatch_executor_release_authorization_persistence_status_does_not_persist_authorization',
+                'agent_dispatch_executor_release_authorization_persistence_status_does_not_write_ledger',
+            ],
+            'human_summary' => $blockingReasons === []
+                ? 'Agent dispatch executor release authorization persistence status is ready; persisted authorization state can be inspected, but providers remain unreleased.'
+                : 'Agent dispatch executor release authorization persistence status is blocked by missing storage or invalid filters; no provider release is allowed.',
         ];
     }
 
@@ -41579,6 +45657,84 @@ final class AtlasSelfConstructionReadinessService
             'role' => 'implementation_worker',
             'receives' => 'packet_scope_bootstrap',
             'best_for' => ['scoped_implementation', 'tests', 'docs_updates', 'evidence_reporting'],
+        ];
+    }
+
+    private function agentControlPlaneRuntimeSchemaReady(): bool
+    {
+        return \Illuminate\Support\Facades\Schema::hasTable('atlas_self_construction_agent_runs')
+            && \Illuminate\Support\Facades\Schema::hasTable('atlas_self_construction_agent_heartbeats');
+    }
+
+    /**
+     * @param  array<string, mixed>  $reservation
+     * @return array<string, mixed>
+     */
+    private function syncAgentRunFromReservation(array $reservation): array
+    {
+        $actor = (string) data_get($reservation, 'actor');
+        $providerRole = $this->providerRoleForActor($actor);
+        $state = (string) data_get($reservation, 'state', 'claimed');
+        $status = match ($state) {
+            'completed' => 'succeeded',
+            'released' => 'cancelled',
+            default => 'running',
+        };
+        $leaseExpiresAt = (string) data_get($reservation, 'lease_expires_at');
+        $expiresAt = strtotime($leaseExpiresAt);
+        $liveness = match (true) {
+            $status === 'succeeded' => 'completed',
+            $status === 'cancelled' => 'released',
+            $expiresAt !== false && $expiresAt > time() => 'active_lease',
+            $expiresAt !== false => 'expired_lease',
+            default => 'unknown',
+        };
+        $reservationId = (string) data_get($reservation, 'reservation_id');
+        $packetId = (string) data_get($reservation, 'packet_id');
+        $runKey = 'SELF-CONSTRUCTION-RUN-'.strtoupper(substr(hash('sha256', $reservationId.'|'.$packetId), 0, 24));
+
+        $run = \App\Models\AtlasSelfConstructionAgentRun::query()->updateOrCreate(
+            ['run_key' => $runKey],
+            [
+                'packet_id' => $packetId,
+                'reservation_id' => $reservationId,
+                'actor' => $actor,
+                'provider' => (string) data_get($providerRole, 'provider', 'generic_ai_agent'),
+                'provider_role' => (string) data_get($providerRole, 'role', 'implementation_worker'),
+                'session_id' => (string) data_get($reservation, 'session'),
+                'workspace_id' => 'FORGE-WORKSPACE-ATLAS-SELF-CONSTRUCTION-0001',
+                'obra_id' => 'OBRA-ATLAS-SELF-CONSTRUCTION-OS',
+                'status' => $status,
+                'liveness' => $liveness,
+                'packet_hash' => data_get($reservation, 'packet_hash'),
+                'allowed_files_hash' => data_get($reservation, 'allowed_files_hash'),
+                'lease_expires_at' => data_get($reservation, 'lease_expires_at'),
+                'started_at' => data_get($reservation, 'claimed_at'),
+                'finished_at' => data_get($reservation, 'completed_at') ?: data_get($reservation, 'released_at'),
+                'completion_evidence_hash' => data_get($reservation, 'completion_evidence_hash'),
+                'summary' => $status === 'succeeded'
+                    ? 'Self-Construction packet completed from reservation ledger.'
+                    : 'Self-Construction packet active from reservation ledger.',
+                'metadata' => [
+                    'source' => 'self_construction_reservation_ledger',
+                    'reservation_state' => $state,
+                    'release_reason' => data_get($reservation, 'release_reason'),
+                    'completion_reason' => data_get($reservation, 'completion_reason'),
+                ],
+            ],
+        );
+
+        return [
+            'run_id' => $run->id,
+            'run_key' => $run->run_key,
+            'packet_id' => $run->packet_id,
+            'reservation_id' => $run->reservation_id,
+            'actor' => $run->actor,
+            'provider' => $run->provider,
+            'session' => $run->session_id,
+            'status' => $run->status,
+            'liveness' => $run->liveness,
+            'created' => $run->wasRecentlyCreated,
         ];
     }
 

@@ -70,6 +70,7 @@ driver, benchmark, skill, connector or recipe.
 | Evidence | Ledger, projections, packets, replay, audit | `master-architecture/runtime-evidence-learning.md` |
 | Learning | memory signals, quality score, Curator proposals | `master-architecture/runtime-evidence-learning.md` |
 | Production Workspace | Obras Shared Workspace, Forge Workspace, packets, artifacts, integration queue | `obras/shared-workspace-and-forge.md` |
+| Agent Control Plane | provider sessions, agent runs, heartbeat runs, checkout locks, wakeup queue, execution workspaces, liveness | `self-construction/agent-control-plane-contract.md`, `self-construction/paperclip-control-plane-benchmark.md` |
 | Human Knowledge | AtlasVault/Obsidian, review, identity, synthesis | knowledge governance docs |
 | Surface | CLI, App, Mobile, API, MCP, Voice | pipeline and surface docs |
 
