@@ -655,6 +655,7 @@ class ProgrammingEnterpriseRuntimeTest extends TestCase
         $this->assertTrue(data_get($report, 'artifact_coverage.rivals_invalid_battery_quarantine.checks.wrapper_action_registered'));
         $this->assertTrue(data_get($report, 'artifact_coverage.rivals_invalid_battery_quarantine.checks.declares_no_provider_call'));
         $this->assertTrue(data_get($report, 'artifact_coverage.rivals_invalid_battery_quarantine.checks.declares_no_score_admitted'));
+        $this->assertTrue(data_get($report, 'artifact_coverage.rivals_invalid_battery_quarantine.checks.stores_multiple_triage_fingerprints'));
         $this->assertTrue(data_get($report, 'artifact_coverage.rivals_invalid_battery_quarantine.checks.feature_test_covers_wrapper_command'));
         $this->assertTrue(data_get($report, 'artifact_coverage.rivals_history_timeline.covered'));
         $this->assertTrue(data_get($report, 'artifact_coverage.rivals_history_timeline.checks.history_timeline_schema_declared'));

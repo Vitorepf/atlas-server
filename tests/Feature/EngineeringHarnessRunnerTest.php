@@ -3567,6 +3567,8 @@ class EngineeringHarnessRunnerTest extends TestCase
 
         $this->assertSame(0, $exitCode, Artisan::output());
         $this->assertSame('triaged_quarantined', data_get($payload, 'status'));
+        $this->assertContains(data_get($payload, 'invalid_battery_fingerprint'), data_get($payload, 'accepted_fingerprints', []));
+        $this->assertGreaterThanOrEqual(1, data_get($payload, 'record.record_count'));
         $this->assertTrue((bool) data_get($payload, 'safety.no_provider_call'));
         $this->assertTrue((bool) data_get($payload, 'safety.no_score_admitted'));
         $this->assertTrue((bool) data_get($payload, 'safety.no_history_deleted'));
@@ -3575,6 +3577,8 @@ class EngineeringHarnessRunnerTest extends TestCase
         $report = app(EngineeringBenchmarkService::class)->fairClaudeReportPayload($suite->refresh(), ['limit' => 20]);
         $this->assertSame('invalid_battery_no_comparable_score', data_get($report, 'result_integrity.status'));
         $this->assertSame('triaged_quarantined', data_get($report, 'result_integrity.invalid_battery_triage.status'));
+        $this->assertContains(data_get($report, 'result_integrity.invalid_battery_triage.invalid_battery_fingerprint'), data_get($report, 'result_integrity.invalid_battery_triage.accepted_fingerprints', []));
+        $this->assertGreaterThanOrEqual(1, data_get($report, 'result_integrity.invalid_battery_triage.accepted_record_count'));
         $this->assertFalse((bool) data_get($report, 'result_integrity.triage_required_before_rerun'));
         $this->assertFalse((bool) data_get($report, 'result_integrity.score_admitted'));
         $this->assertFalse((bool) data_get($report, 'result_integrity.claim_winner_admitted'));

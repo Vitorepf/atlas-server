@@ -958,6 +958,10 @@ class ProgrammingProfessionalCompletionAuditService
             'declares_no_history_deleted' => str_contains($fairSource, "'no_history_deleted' => true"),
             'stores_fingerprint' => str_contains($fairSource, 'invalid_battery_fingerprint'),
             'stores_suite_triage_record' => str_contains($fairSource, 'rivals_invalid_battery_triage'),
+            'stores_multiple_triage_fingerprints' => str_contains($fairSource, 'accepted_fingerprints')
+                && str_contains($fairSource, 'record_count')
+                && str_contains($serviceSource, 'accepted_fingerprints')
+                && str_contains($serviceSource, 'accepted_record_count'),
             'service_keeps_quarantined_cases_out_of_score' => str_contains($serviceSource, 'triaged_invalid_batteries_remain_excluded_from_score')
                 && str_contains($serviceSource, 'quarantined_cases_stay_out_of_win_loss_math'),
             'feature_test_covers_canonical_command' => str_contains($testSource, 'test_invalid_fair_battery_can_be_quarantined_without_admitting_score_or_deleting_history'),
