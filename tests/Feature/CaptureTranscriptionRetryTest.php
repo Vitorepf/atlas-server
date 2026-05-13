@@ -68,6 +68,28 @@ class CaptureTranscriptionRetryTest extends TestCase
             ->assertJsonPath('capture_safety.raw_content_memory_write_allowed', false)
             ->assertJsonPath('capture_safety.human_review_required_for_promotion', true)
             ->assertJsonPath('capture_safety.promotion_status', 'proposal_pending')
+            ->assertJsonPath('capture_safety.content_intelligence_schema_version', 'atlas.capture.content_intelligence.v1')
+            ->assertJsonPath('capture_safety.content_type', 'text')
+            ->assertJsonPath('capture_safety.destination_enum', 'semantic_note')
+            ->assertJsonPath('capture_safety.quality_label', 'high')
+            ->assertJsonPath('capture_safety.blackink_defaulted', false)
+            ->assertJsonPath('capture_safety.content_intelligence_provider_export_allowed', false)
+            ->assertJsonPath('capture_safety.content_intelligence_open_brain_context_allowed', false)
+            ->assertJsonPath('metadata.content_intelligence.schema_version', 'atlas.capture.content_intelligence.v1')
+            ->assertJsonPath('metadata.content_intelligence.status', 'candidate_pending_review')
+            ->assertJsonPath('metadata.content_intelligence.content_type', 'text')
+            ->assertJsonPath('metadata.content_intelligence.source_type', 'operator_capture')
+            ->assertJsonPath('metadata.content_intelligence.destination.enum', 'semantic_note')
+            ->assertJsonPath('metadata.content_intelligence.quality.label', 'high')
+            ->assertJsonPath('metadata.content_intelligence.privacy.provider_export_allowed', false)
+            ->assertJsonPath('metadata.content_intelligence.privacy.open_brain_context_allowed', false)
+            ->assertJsonPath('metadata.content_intelligence.privacy.embedding_allowed', false)
+            ->assertJsonPath('metadata.content_intelligence.privacy.memory_write_allowed', false)
+            ->assertJsonPath('metadata.content_intelligence.promotion.requires_proposal', true)
+            ->assertJsonPath('metadata.content_intelligence.promotion.automatic_memory_promotion_allowed', false)
+            ->assertJsonPath('metadata.content_intelligence.dedupe.graph_rag_check', 'blocked_until_external_graph_runtime_is_approved')
+            ->assertJsonPath('metadata.content_intelligence.business_context_defaulted', false)
+            ->assertJsonPath('metadata.content_intelligence.blackink_defaulted', false)
             ->assertJsonPath('metadata.semantic_curation.schema_version', 'atlas.capture.semantic_curation_review.v1')
             ->assertJsonPath('metadata.semantic_curation.status', 'proposal_pending')
             ->assertJsonPath('review_workflow.schema_version', 'atlas.capture.review_workflow.v1')
@@ -91,6 +113,11 @@ class CaptureTranscriptionRetryTest extends TestCase
         $capture = \DB::table('captures')->first();
         $metadata = json_decode($capture->metadata, true, flags: JSON_THROW_ON_ERROR);
         $this->assertSame(hash('sha256', 'Preciso de ideias de cruz para a Black Ink. Ideias que possam transformar a Black Ink em uma ferramenta unica.'), $metadata['cognitive_quarantine']['content_hash']);
+        $this->assertSame('atlas.capture.content_intelligence.v1', $metadata['cognitive_quarantine']['content_intelligence_schema_version']);
+        $this->assertSame('semantic_note', $metadata['cognitive_quarantine']['content_destination_enum']);
+        $this->assertSame($metadata['content_intelligence']['quality']['score'], $metadata['cognitive_quarantine']['content_quality_score']);
+        $this->assertSame($metadata['cognitive_quarantine']['content_hash'], $metadata['content_intelligence']['source_refs']['content_hash']);
+        $this->assertContains('content_hash_recorded', $metadata['content_intelligence']['quality']['reasons']);
 
         $proposal = \DB::table('semantic_curation_proposals')->first();
         $this->assertSame($proposal->id, $metadata['semantic_curation']['proposal_id']);
@@ -110,6 +137,16 @@ class CaptureTranscriptionRetryTest extends TestCase
         $this->assertSame($capture->id, $proposalMetadata['cognitive_quarantine']['proposal']['capture_id']);
         $this->assertSame('atlas.capture.curation_proposal_quarantine.v1', $proposalFrontmatter['cognitive_quarantine']['schema_version']);
         $this->assertSame('proposal_pending', $proposalFrontmatter['cognitive_quarantine']['promotion_status']);
+        $this->assertSame('atlas.capture.content_intelligence.proposal.v1', $proposalMetadata['content_intelligence']['schema_version']);
+        $this->assertSame('atlas.capture.content_intelligence.v1', $proposalMetadata['content_intelligence']['source_schema_version']);
+        $this->assertSame('proposal_pending_review', $proposalMetadata['content_intelligence']['status']);
+        $this->assertSame('capture', $proposalMetadata['content_intelligence']['source_type']);
+        $this->assertSame($capture->id, $proposalMetadata['content_intelligence']['capture_id']);
+        $this->assertFalse($proposalMetadata['content_intelligence']['raw_content_persisted_in_proposal']);
+        $this->assertFalse($proposalMetadata['content_intelligence']['privacy']['provider_export_allowed']);
+        $this->assertFalse($proposalMetadata['content_intelligence']['privacy']['open_brain_context_allowed']);
+        $this->assertFalse($proposalMetadata['content_intelligence']['promotion']['automatic_memory_promotion_allowed']);
+        $this->assertSame('atlas.capture.content_intelligence.proposal.v1', $proposalFrontmatter['content_intelligence']['schema_version']);
 
         $proposalResponse = $this->getJson('/semantic/curation-proposals', [
             'X-Atlas-Token' => 'test-token-with-enough-length-123',

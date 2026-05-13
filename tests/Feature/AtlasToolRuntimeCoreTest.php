@@ -119,6 +119,12 @@ class AtlasToolRuntimeCoreTest extends TestCase
         $this->assertSame('scanner', data_get($run->metadata_json, 'tool_type'));
         $this->assertSame('T2', data_get($run->metadata_json, 'execution_tier'));
         $this->assertSame('atlas.tool_evidence_receipt.v1', data_get($run->metadata_json, 'receipt_schema_version'));
+        $this->assertSame('atlas.tool_action_runtime.contract.v1', data_get($run->metadata_json, 'action_runtime_contract.schema_version'));
+        $this->assertSame('evidence_recording', data_get($run->metadata_json, 'action_runtime_contract.mode'));
+        $this->assertFalse(data_get($run->metadata_json, 'action_runtime_contract.provider_dispatch_allowed'));
+        $this->assertFalse(data_get($run->metadata_json, 'action_runtime_contract.runtime_policy_mutation_allowed'));
+        $this->assertFalse(data_get($run->metadata_json, 'action_runtime_contract.agent_control_plane_allowed'));
+        $this->assertTrue(data_get($run->metadata_json, 'action_runtime_contract.operator_approval_required_for_execution'));
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) data_get($run->metadata_json, 'summary_hash'));
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) data_get($run->metadata_json, 'normalized_result_hash'));
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) data_get($run->metadata_json, 'evidence_receipt_hash'));
@@ -1182,6 +1188,10 @@ BASH);
         $exportPayload = json_decode(Artisan::output(), true);
 
         $this->assertSame('atlas.tool_evidence.v1', $exportPayload['schema'] ?? null);
+        $this->assertSame('atlas.tool_action_runtime.contract.v1', data_get($exportPayload, 'receipt.action_runtime_contract.schema_version'));
+        $this->assertSame('evidence_recording', data_get($exportPayload, 'receipt.action_runtime_contract.mode'));
+        $this->assertFalse(data_get($exportPayload, 'receipt.action_runtime_contract.provider_dispatch_allowed'));
+        $this->assertFalse(data_get($exportPayload, 'receipt.action_runtime_contract.agent_control_plane_allowed'));
         $this->assertSame($runId, data_get($exportPayload, 'integrity.run_id'));
         $this->assertSame('ripgrep', data_get($exportPayload, 'integrity.tool_slug'));
         $this->assertNotEmpty(data_get($exportPayload, 'integrity.artifact_hashes'));
@@ -1207,6 +1217,9 @@ BASH);
         $this->getJson('/tools/evidence/'.$runId.'/export?workspace='.urlencode($this->workspace), $this->headers)
             ->assertOk()
             ->assertJsonPath('schema', 'atlas.tool_evidence.v1')
+            ->assertJsonPath('receipt.action_runtime_contract.schema_version', 'atlas.tool_action_runtime.contract.v1')
+            ->assertJsonPath('receipt.action_runtime_contract.provider_dispatch_allowed', false)
+            ->assertJsonPath('receipt.action_runtime_contract.agent_control_plane_allowed', false)
             ->assertJsonPath('integrity.run_id', $runId)
             ->assertJsonMissingPath('run.workspace')
             ->assertJsonMissingPath('artifacts.0.path')

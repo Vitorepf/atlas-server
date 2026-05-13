@@ -81,6 +81,13 @@ Agora existe:
   sempre com decisao humana, rollback, proibicoes ate review e
   `auto_promotion_allowed=false`;
 - comando `php artisan atlas:ai:external-graph-harness --json`;
+- comando `php artisan atlas:ai:external-graph-harness --scan-root=<allowed> --json`
+  que gera candidato sandboxado `atlas.external_graph_candidate.v1` a partir de
+  paths permitidos, sem executar Graphify, provider, rede, runtime ou writes;
+- opção `--emit-review-inbox` para emitir proposta Inbox
+  `atlas.external_graph_review_inbox.v1` quando houver candidato aceito, sempre
+  proposal-only, sem persistir grafo bruto e com Memory/Context/Constelacao/
+  runtime/provider/policy bloqueados;
 - API `/ai/external-graph-harness`;
 - operação `external_graph_harness_report` no catálogo Architecture Operations.
 
@@ -114,6 +121,8 @@ O grafo externo nunca pula para Memory, Context Builder, Constelacao ou Decide.
 |---|---|---|
 | CLI | `php artisan atlas:ai:external-graph-harness --json` | publica contrato e report |
 | CLI | `php artisan atlas:ai:external-graph-harness --candidate-file=<json> --json` | valida candidato sem writes |
+| CLI | `php artisan atlas:ai:external-graph-harness --scan-root=<allowed> --json` | gera candidato sandboxado sem runtime |
+| CLI | `php artisan atlas:ai:external-graph-harness --scan-root=<allowed> --emit-review-inbox --json` | abre proposta revisavel |
 | API | `GET /ai/external-graph-harness` | contrato/report |
 | API | `POST /ai/external-graph-harness` com `candidate` | valida candidato sem writes |
 | Architecture Operations | `external_graph_harness_report` | descoberta por humanos/IAs |
@@ -209,5 +218,8 @@ O harness so deixa `implemented_partial` quando:
 8. docs-health, architecture-validate e index-code estiverem verdes.
 
 P0/P2 ja cumprem contrato, validacao, CLI/API/report e testes focados. P1/P3
-permanecem bloqueados ate existir decisao especifica para extrair grafo real e
-emitir proposal do Curator.
+agora tem um builder sandboxado inicial para candidato read-only a partir de
+paths permitidos do repo e emissao de proposal Inbox para candidato aceito, sem
+executar Graphify real nem promover o grafo. P1 ainda nao instala nem executa
+Graphify upstream; P3 ainda depende de review humano para qualquer AP futuro ou
+melhoria de extractor nativo.

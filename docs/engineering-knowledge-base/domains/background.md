@@ -111,6 +111,11 @@ Background Safety prepares safety decisions, permission summaries, readiness
 scores, cadence reviews and approval requirements. If a real scheduled task is
 needed, Atlas Decide must route to the owning runtime with explicit approval
 and a separate Decision Receipt.
+`RunScheduledTaskJob` persists `atlas.long_running_work.autonomy_contract.v1`
+inside each `atlas.scheduled_task_run_receipt.v1`: autonomy remains low,
+execution is single-run, stop conditions are explicit, recursive schedule
+execution and autonomous follow-up are blocked, and operator review is required
+for escalation.
 
 ## Evidence Contract
 

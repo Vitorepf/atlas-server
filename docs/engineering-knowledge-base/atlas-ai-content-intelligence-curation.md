@@ -83,7 +83,15 @@ Ja existe base operacional:
     `atlas.capture.resource_safety.v1` so API consumers can distinguish raw
     authenticated payload visibility from provider/Open Brain/embedding/memory
     eligibility.
-13. AtlasVault como Human Knowledge Surface, nao fonte operacional crua.
+13. text/file capture now writes `atlas.capture.content_intelligence.v1` with
+    content type, source refs, destination enum, deterministic quality score,
+    dedupe posture and explicit no-provider/no-embedding/no-memory promotion
+    gates before any Open Brain use.
+14. semantic curation proposals project that contract as
+    `atlas.capture.content_intelligence.proposal.v1`, preserving lineage,
+    quality and destination metadata while keeping raw content quarantined and
+    provider/Open Brain promotion blocked until review.
+15. AtlasVault como Human Knowledge Surface, nao fonte operacional crua.
 
 Falta transformar isso em Content Intelligence completo para fontes externas,
 source reputation, YouTube global, PDFs, feeds e routing multi-dominio.
@@ -183,7 +191,7 @@ Exige review/approval:
 | Fase | Status | Entrega |
 |---|---|---|
 | CI-0 | active | contrato canonico e ligacao com semantic curation existente |
-| CI-1 | future | content source schema + quality score + destination enum |
+| CI-1 | active | content source schema + quality score + destination enum in capture metadata/resource safety |
 | CI-2 | future | YouTube URL ingest com transcript/traducao/timestamps |
 | CI-3 | future | source reputation, blacklist e weak archive |
 | CI-4 | future | redundancy check via Graph/Vector RAG |

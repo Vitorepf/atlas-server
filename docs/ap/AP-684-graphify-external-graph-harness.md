@@ -30,6 +30,14 @@ decisao humana requerida, rollback, `policy_patch_review_required=true`,
 `promotion_allowed=false` e `next_action` explicito mesmo quando nao ha
 candidato. O `review_packet` tambem carrega `future_runtime_invocation_contract`
 do AP-201 para qualquer runtime Python futuro.
+P1 possui builder sandboxado inicial via
+`php artisan atlas:ai:external-graph-harness --scan-root=<allowed> --json`,
+que gera `atlas.external_graph_candidate.v1` de paths permitidos sem executar
+Graphify upstream, provider, rede, runtime ou writes.
+P3 possui emissao governada inicial via `--emit-review-inbox`: candidato aceito
+vira proposta `atlas.external_graph_review_inbox.v1`, sem grafo bruto persistido
+e com Memory, Context Builder, Constelacao, provider, runtime e policy patch
+bloqueados.
 Graphify upstream: preservado como source material, nao dependencia aprovada.
 Disseccao enterprise: pronta em source material detalhado, incluindo pipeline,
 modulos, schema, comandos, Claude/Atlas, benchmark, colheita, riscos e DoD.
@@ -141,10 +149,12 @@ Qualquer path fora disso exige nova revisao.
 | P2 | report Architecture Operations comparando Atlas vs candidato | promover para memoria/contexto |
 | P3 | Curator finding revisavel com source refs e confidence | aplicar patch automatico |
 
-Status atual: P0 e P2 read-only estao implementados. O contrato agora publica
+Status atual: P0 e P2 read-only estao implementados. P1 tem builder sandboxado
+read-only inicial, ainda sem executar Graphify upstream. P3 emite proposal Inbox
+para review humano quando ha candidato aceito. O contrato agora publica
 `review_only_constraints` no contract, na validation e no report, e publica
-`review_packet` por candidato validado. P1 real de extracao sandboxada e P3
-Curator proposal continuam pendentes.
+`review_packet` por candidato validado. Graphify upstream real e qualquer AP de
+runtime/extractor futuro continuam pendentes.
 
 API hardening: `POST /ai/external-graph-harness` falha fechado com
 `candidate_must_be_json_object` e HTTP 422 quando `candidate` existe mas nao e

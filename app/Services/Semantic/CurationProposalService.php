@@ -4,7 +4,6 @@ namespace App\Services\Semantic;
 
 use App\Models\AiMemoryDelta;
 use App\Models\Capture;
-use App\Models\AtlasMemoryEntry;
 use App\Models\SemanticCurationProposal;
 use App\Models\SemanticNote;
 use App\Services\Ai\AiMemoryDeltaProposer;
@@ -102,6 +101,7 @@ class CurationProposalService
                 'sensitivity' => data_get($capture->metadata, 'sensitivity', 'normal'),
             ];
         $cognitiveQuarantine = $this->proposalCognitiveQuarantine($capture);
+        $contentIntelligence = $this->proposalContentIntelligence($capture);
 
         $title = $overrides['title']
             ?? ($destination['title'] ?? null)
@@ -137,6 +137,7 @@ class CurationProposalService
             'source_refs' => ['capture_id' => $capture->id, 'capture_client_id' => $capture->client_id],
             'postgres_refs' => ['captures' => [$capture->id]],
             'cognitive_quarantine' => $cognitiveQuarantine,
+            'content_intelligence' => $contentIntelligence,
             'ratification' => [
                 'required' => true,
                 'proposed_by' => 'atlas_aclarador',
@@ -173,6 +174,7 @@ class CurationProposalService
                 'semantic_clarification' => $clarification,
                 'privacy' => $privacy,
                 'cognitive_quarantine' => $cognitiveQuarantine,
+                'content_intelligence' => $contentIntelligence,
                 ...($overrides['metadata'] ?? []),
             ]),
         ]);
@@ -189,6 +191,7 @@ class CurationProposalService
                 'reason' => $proposal->reason,
                 'raw_source' => $this->redactedSourceEvidence($text),
                 'cognitive_quarantine' => $cognitiveQuarantine,
+                'content_intelligence' => $contentIntelligence,
             ],
             'privacy' => $privacy,
             'refs' => [
@@ -610,6 +613,44 @@ class CurationProposalService
                 'created_by' => 'curation-proposal-v2',
             ],
             'updated_at' => now()->toJSON(),
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function proposalContentIntelligence(Capture $capture): array
+    {
+        $source = is_array(data_get($capture->metadata, 'content_intelligence'))
+            ? data_get($capture->metadata, 'content_intelligence')
+            : [];
+
+        return [
+            ...$source,
+            'schema_version' => 'atlas.capture.content_intelligence.proposal.v1',
+            'source_schema_version' => $source['schema_version'] ?? null,
+            'status' => 'proposal_pending_review',
+            'source_type' => 'capture',
+            'capture_id' => $capture->id,
+            'capture_client_id_hash' => hash('sha256', $capture->client_id),
+            'raw_content_persisted_in_proposal' => false,
+            'privacy' => [
+                ...(is_array($source['privacy'] ?? null) ? $source['privacy'] : []),
+                'provider_export_allowed' => false,
+                'embedding_allowed' => false,
+                'open_brain_context_allowed' => false,
+                'memory_write_allowed' => false,
+                'raw_content_exposed' => false,
+            ],
+            'promotion' => [
+                ...(is_array($source['promotion'] ?? null) ? $source['promotion'] : []),
+                'requires_human_review' => true,
+                'automatic_memory_promotion_allowed' => false,
+            ],
+            'audit' => [
+                'lineage' => 'capture_content_intelligence_to_curation_proposal',
+                'projected_at' => now()->toJSON(),
+            ],
         ];
     }
 

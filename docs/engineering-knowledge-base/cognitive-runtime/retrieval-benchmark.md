@@ -153,6 +153,10 @@ must keep `provider_call_allowed=false`, `runtime_execution_allowed=false`,
 `policy_auto_apply_allowed=false`, `raw_query_persisted=false` and
 `raw_context_persisted=false`; its `safety` block repeats those fail-closed
 flags for Open Brain consumers.
+The plan also exposes `atlas.rivals.evaluation_contract.v1`: required metrics,
+baseline strategy, winner policy, minimum evidence hashes and forbidden claims
+before evidence. This prevents a shadow plan from becoming a qualitative claim
+or promotion signal without measured, reviewable results.
 
 Add `--emit-rivals-shadow-inbox` only when an operator wants the AP-693 scope
 projected into Inbox for human review:

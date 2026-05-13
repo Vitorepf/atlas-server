@@ -61,10 +61,15 @@ class TaskPlanningServiceEventReceiptTest extends TestCase
         $this->assertNotSame(data_get($first->payload, 'event_hash'), data_get($second->payload, 'event_hash'));
 
         $this->assertSame('atlas.task_orchestration.local_event_receipt.v1', data_get($second->payload, 'orchestration_receipt.schema_version'));
+        $this->assertSame('open', data_get($second->payload, 'orchestration_receipt.task_status'));
+        $this->assertSame('atlas', data_get($second->payload, 'orchestration_receipt.task_domain'));
+        $this->assertFalse(data_get($second->payload, 'orchestration_receipt.source_capture_linked'));
         $this->assertFalse(data_get($second->payload, 'orchestration_receipt.provider_dispatch_allowed'));
         $this->assertFalse(data_get($second->payload, 'orchestration_receipt.runtime_execution_allowed'));
+        $this->assertFalse(data_get($second->payload, 'orchestration_receipt.agent_control_plane_allowed'));
         $this->assertFalse(data_get($second->payload, 'orchestration_receipt.policy_mutation_allowed'));
         $this->assertFalse(data_get($second->payload, 'orchestration_receipt.auto_completion_allowed'));
+        $this->assertTrue(data_get($second->payload, 'orchestration_receipt.operator_review_required_for_external_execution'));
     }
 
     public function test_task_event_resource_reports_hash_chain_safety_for_planning_events(): void

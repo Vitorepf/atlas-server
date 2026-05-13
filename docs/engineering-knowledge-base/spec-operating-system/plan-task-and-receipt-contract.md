@@ -76,6 +76,11 @@ Task and task-event API/CLI resources expose safety summaries as
 `atlas.task_orchestration.event_safety.v1`. These are read-model contracts:
 provider dispatch, runtime execution, policy mutation and automatic completion
 stay closed unless a separate Decision Receipt authorizes them.
+Task resources also expose `atlas.task_orchestration.intent_contract.v1`, which
+declares allowed local actions and blocked external actions. Agent Control Plane
+dispatch is explicitly blocked here; tasks can plan, schedule, defer, record
+evidence or complete by operator action, but external provider/runtime/agent
+handoff still requires operator review and a separate authorization path.
 
 Planning, schedule, defer, calendar and completion paths that use
 `TaskPlanningService::recordEvent()` also persist the same local event schema.
@@ -83,7 +88,7 @@ The service appends `atlas.task_orchestration.local_event_receipt.v1` to each
 payload, assigns a per-task `event_sequence`, links to the previous event id and
 hash, and stores a SHA-256 `event_hash`. This makes normal task planning
 replayable by Open Brain without implying provider dispatch, runtime execution,
-policy mutation or automatic completion authority.
+Agent Control Plane dispatch, policy mutation or automatic completion authority.
 
 ## Decision Receipt Fields
 

@@ -704,7 +704,8 @@ class AtlasOpenBrainContextInjectionService
 
         return $refCount
             + count((array) data_get($contextPack, 'evidence.previous_traces', []))
-            + count((array) data_get($contextPack, 'evidence.replay_events', []));
+            + count((array) data_get($contextPack, 'evidence.replay_events', []))
+            + count((array) data_get($contextPack, 'evidence.replay_refs', []));
     }
 
     /**

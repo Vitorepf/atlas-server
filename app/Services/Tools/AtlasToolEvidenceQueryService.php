@@ -104,6 +104,14 @@ class AtlasToolEvidenceQueryService
                 'summary_hash' => data_get($run->metadata_json, 'summary_hash'),
                 'normalized_result_hash' => data_get($run->metadata_json, 'normalized_result_hash'),
                 'evidence_receipt_hash' => data_get($run->metadata_json, 'evidence_receipt_hash'),
+                'action_runtime_contract' => data_get($run->metadata_json, 'action_runtime_contract') ?: [
+                    'schema_version' => 'atlas.tool_action_runtime.contract.v1',
+                    'mode' => 'evidence_export',
+                    'provider_dispatch_allowed' => false,
+                    'runtime_policy_mutation_allowed' => false,
+                    'agent_control_plane_allowed' => false,
+                    'operator_approval_required_for_execution' => true,
+                ],
                 'raw_command_exposed' => false,
                 'raw_output_exposed' => false,
                 'workspace_path_exposed' => false,
@@ -142,6 +150,7 @@ class AtlasToolEvidenceQueryService
                     'summary_hash' => data_get($run->metadata_json, 'summary_hash'),
                     'normalized_result_hash' => data_get($run->metadata_json, 'normalized_result_hash'),
                     'evidence_receipt_hash' => data_get($run->metadata_json, 'evidence_receipt_hash'),
+                    'action_runtime_contract_schema_version' => data_get($run->metadata_json, 'action_runtime_contract.schema_version'),
                 ],
             ],
             'artifacts' => $run->artifacts

@@ -144,8 +144,16 @@ class EngineeringTaskApiTest extends TestCase
             ->assertJsonPath('safety.runtime_execution_allowed', false)
             ->assertJsonPath('safety.policy_mutation_allowed', false)
             ->assertJsonPath('safety.auto_complete_allowed', false)
+            ->assertJsonPath('safety.agent_control_plane_allowed', false)
+            ->assertJsonPath('safety.operator_review_required_for_external_execution', true)
             ->assertJsonPath('safety.has_engineering_contract', true)
-            ->assertJsonPath('safety.has_latest_engineering_run', true);
+            ->assertJsonPath('safety.has_latest_engineering_run', true)
+            ->assertJsonPath('safety.orchestration_contract.schema_version', 'atlas.task_orchestration.intent_contract.v1')
+            ->assertJsonPath('safety.orchestration_contract.mode', 'local_task_coordination')
+            ->assertJsonPath('safety.orchestration_contract.blocked_external_actions.0', 'provider_dispatch')
+            ->assertJsonPath('safety.orchestration_contract.blocked_external_actions.2', 'agent_control_plane_dispatch')
+            ->assertJsonPath('safety.orchestration_contract.allowed_local_actions.0', 'plan')
+            ->assertJsonPath('safety.orchestration_contract.requires_operator_before.2', 'agent_handoff');
     }
 
     public function test_task_engineering_evidence_endpoint_records_review_evidence(): void

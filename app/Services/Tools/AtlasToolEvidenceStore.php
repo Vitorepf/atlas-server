@@ -78,6 +78,7 @@ class AtlasToolEvidenceStore
                     'normalized_result_hash' => $normalizedResultHash,
                     'evidence_receipt_hash' => $evidenceReceiptHash,
                     'receipt_schema_version' => 'atlas.tool_evidence_receipt.v1',
+                    'action_runtime_contract' => $this->actionRuntimeContract($toolSlug, $payload, $context),
                     ...((array) ($context['metadata'] ?? [])),
                 ],
             ]);
@@ -106,6 +107,31 @@ class AtlasToolEvidenceStore
             && Schema::hasTable('atlas_tool_runs')
             && Schema::hasTable('atlas_tool_artifacts')
             && Schema::hasTable('atlas_tool_findings');
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     * @param  array<string,mixed>  $context
+     * @return array<string,mixed>
+     */
+    private function actionRuntimeContract(string $toolSlug, array $payload, array $context): array
+    {
+        return [
+            'schema_version' => 'atlas.tool_action_runtime.contract.v1',
+            'tool_slug' => $toolSlug,
+            'mode' => 'evidence_recording',
+            'surface' => (string) ($context['surface'] ?? 'engineering'),
+            'run_context_type' => $context['run_context_type'] ?? null,
+            'run_context_id' => $context['run_context_id'] ?? null,
+            'command_hash' => isset($payload['command']) ? hash('sha256', json_encode($payload['command'], JSON_UNESCAPED_SLASHES) ?: '') : null,
+            'raw_command_exposed' => false,
+            'raw_output_exposed' => false,
+            'workspace_path_exposed' => false,
+            'provider_dispatch_allowed' => false,
+            'runtime_policy_mutation_allowed' => false,
+            'agent_control_plane_allowed' => false,
+            'operator_approval_required_for_execution' => true,
+        ];
     }
 
     /**

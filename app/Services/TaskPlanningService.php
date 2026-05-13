@@ -426,11 +426,16 @@ class TaskPlanningService
                 'source' => $source,
                 'event_sequence' => $eventSequence,
                 'hash_algorithm' => 'sha256',
+                'task_status' => $task->status,
+                'task_domain' => $task->domain,
+                'source_capture_linked' => $task->source_capture_id !== null,
                 'provider_dispatch_allowed' => false,
                 'runtime_execution_allowed' => false,
+                'agent_control_plane_allowed' => false,
                 'policy_mutation_allowed' => false,
                 'auto_completion_allowed' => false,
                 'payload_api_only' => true,
+                'operator_review_required_for_external_execution' => true,
             ],
         ];
         $eventPayload['event_hash'] = $this->stableTaskEventHash($task, $eventType, $source, $eventPayload);

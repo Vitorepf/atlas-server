@@ -56,16 +56,9 @@ Base, context packs e governanca.
 
 ## Veredito Critico
 
-O conceito e forte porque separa evolucao qualitativa de feature list, mas nao
-pode virar fantasia operacional. Cada patamar precisa de:
-
-1. contrato canonico;
-2. capability registry;
-3. evidence no Ledger;
-4. Rivals ou benchmark equivalente;
-5. gates de agency humana;
-6. limites de privacy e autonomia;
-7. rollback quando multiplicador for negativo.
+O conceito separa evolucao qualitativa de feature list, mas cada patamar exige
+contrato canonico, capability registry, Evidence Ledger, Rivals ou benchmark,
+agency humana, limites de privacy/autonomia e rollback.
 
 ## Autoridade
 
@@ -82,16 +75,9 @@ paralelo, vigilancia continua, decisao automatica ou self-modification sem gate.
 
 ## Definicao De Outro Patamar
 
-Outro patamar = Atlas vira outra natureza de relacao com:
-
-1. tempo: lembra, compara e aprende por anos;
-2. self do Vitor: modela valores, padroes e drift sem controlar;
-3. providers: usa todos como insumo, mantendo canal unico;
-4. autonomia: propõe e executa tarefas longas com receipts e gates;
-5. ambiente: aparece no canal certo, no momento certo, com opt-in.
-
-Nao e "mais rapido". Nao e "mais inteligente" isoladamente. E mudanca na forma
-como Atlas participa da vida, trabalho e estrategia.
+Outro patamar = Atlas lembra por anos, modela valores e drift sem controlar,
+usa providers como insumo sob canal unico, propõe/executa tarefas longas com
+receipts e aparece no ambiente certo com opt-in.
 
 ## Patamares P1-P7
 
@@ -105,8 +91,8 @@ como Atlas participa da vida, trabalho e estrategia.
 | P6 | Federado Encarnado | surfaces ambiente tornam Atlas presente sem friccao |
 | P7 | Espelho Longevo | anos/decadas de Ledger revelam padroes invisiveis ao Vitor |
 
-Estado atual: P1 com pecas de P3/P5 em construcao. Nao declarar P4+ ate haver
-evidence longitudinal.
+Estado atual: P3 no read model apos ledger, provider evidence e repair/gate
+dry-run. Nao declarar P4+ ate haver score humano Rivals e evidence longitudinal.
 
 ## Eixos X/Y/Z
 
@@ -121,28 +107,11 @@ sem Kernel solta agente, profundidade sem agency humana cria dependencia.
 
 ## Dominio Futuro: Decisao Estrategica
 
-Status: `future/scaffold`.
-
-Objetivo: Atlas atua como co-estrategista de longo prazo. Ele questiona,
-compara, relembra, simula e propõe. Ele nao decide pelo Vitor.
-
-Flows candidatos:
-
-1. `strategic_decision.review`
-2. `strategic_decision.cooldown`
-3. `strategic_decision.values_alignment`
-4. `strategic_decision.counterargument`
-5. `strategic_decision.regret_tracking`
-6. `strategic_decision.longitudinal_pattern`
-
-Gates obrigatorios:
-
-1. cool-down gate para decisoes grandes;
-2. multi-perspective gate;
-3. values-alignment gate;
-4. human agency gate;
-5. no-oracle gate;
-6. privacy/redaction gate.
+Status: `future/scaffold`. Atlas pode questionar, comparar, relembra, simular e
+propor; ele nao decide pelo Vitor. Flows candidatos: review, cooldown,
+values_alignment, counterargument, regret_tracking e longitudinal_pattern.
+Gates: cool-down, multi-perspective, values-alignment, human agency, no-oracle e
+privacy/redaction.
 
 ## Sinais De Mudanca De Patamar
 
@@ -188,6 +157,24 @@ Declara `current_level`, `evidence`, `missing_gates` e `next_level_blockers`.
 
 Nao muda comportamento. So mede.
 
+O gate `evidence_ledger_available` diferencia schema operacional de evidencia
+real. Se `migrations` indicar o ledger como rodado mas a tabela
+`atlas_ledger_events` estiver ausente, a migration idempotente
+`2026_05_13_010000_repair_missing_atlas_ledger_events_table.php` repara o
+drift sem criar eventos falsos. P2 continua bloqueado ate haver eventos reais
+de provider/performance no Evidence Ledger.
+
+Quando houver traces reais em `ai_traces` gravados durante indisponibilidade do
+Ledger, `php artisan atlas:ai:ledger-backfill-traces --json` pode gerar
+`PROVIDER_RETURNED` como backfill auditavel. O payload usa hashes/metadados
+seguros, marca `backfill=true` e declara que prompt, resposta e input humano
+crus nao foram copiados para o Ledger.
+
+Checkpoint 2026-05-13: o ledger foi reparado, traces existentes foram
+backfilled como provider evidence e o gate P3 foi exercitado com
+`GATE_BLOCKED` + `REPAIR_INITIATED` + `REPAIR_COMPLETED` em dry-run. Isso
+autoriza declarar P3 no read model, mas nao autoriza executar repair real.
+
 ### QL-2 — Rivals Strategy
 
 Status: implementado como storage/read model inicial.
@@ -196,6 +183,14 @@ Superficie: `php artisan atlas:ai:rivals-strategy report --hours=8760 --json`.
 
 Registra decisao direta vs assistida por Atlas, revisitas 30/90/180/365 e
 scores de regret/alignment/agency. Precisa casos reais para liberar P4+.
+
+Checkpoint 2026-05-13: o caso Rivals "Priorizar estrutura mae Memory/Open Brain
+antes de Voice e Self-Construction" foi registrado com revisitas 30/90/180/365.
+P4 permanece bloqueado ate existir score humano real de regret, alignment e
+agency; esses scores nao devem ser simulados por agente.
+O read model conta a agenda 30/90/180/365 ligada ao caso mesmo quando as datas
+estao no futuro; `due_reviews` continua separado e lista apenas revisitas que
+ja venceram dentro da janela consultada.
 
 ### QL-3 — Strategic Decision domain scaffold
 

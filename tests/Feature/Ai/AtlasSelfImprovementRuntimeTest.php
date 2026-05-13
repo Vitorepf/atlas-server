@@ -81,6 +81,11 @@ class AtlasSelfImprovementRuntimeTest extends TestCase
         $this->assertNotNull($result['run_id']);
         $this->assertTrue($result['dry_run'], 'Dry-run should be true when emit=false.');
         $this->assertGreaterThanOrEqual(2, count($result['findings']));
+        $this->assertNotContains(
+            'self_improvement_run:'.$result['run_id'],
+            collect($result['findings'])->flatMap(fn (array $finding): array => collect((array) ($finding['source_refs'] ?? []))->pluck('id')->all())->all(),
+            'The current self-improvement envelope must not be flagged as missing its terminal event before the run can append it.'
+        );
         $this->assertDatabaseHas('atlas_initiative_runs', [
             'id' => $result['run_id'],
             'kind' => 'self_improvement_nightly_review',

@@ -83,6 +83,12 @@ block. The receipt is pointer/hash only: it may include `tool_run_id`,
 commands, raw output or workspace paths. Provider dispatch and runtime policy
 mutation remain closed in exported evidence receipts.
 
+Each run also carries `atlas.tool_action_runtime.contract.v1`. This contract
+states that persisted evidence is `evidence_recording`, not execution authority:
+raw command/output/workspace remain hidden, provider dispatch, policy mutation
+and Agent Control Plane dispatch stay false, and operator approval is required
+before any external execution path can use that evidence.
+
 ## Policy Contract
 
 `AtlasToolPolicyEngine` emits auditable decisions:

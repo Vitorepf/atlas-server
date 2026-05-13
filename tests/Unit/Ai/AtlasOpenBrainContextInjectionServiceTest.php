@@ -176,7 +176,7 @@ class AtlasOpenBrainContextInjectionServiceTest extends TestCase
             $this->task('dev'),
             new AiContextPack(
                 data: [
-                    'task' => ['type' => 'dev', 'desired_mode' => 'dev', 'risk_level' => 'high', 'domain' => 'developer', 'objective' => 'test'],
+                    'task' => ['type' => 'dev', 'desired_mode' => 'dev', 'risk_level' => 'low', 'domain' => 'developer', 'objective' => 'test'],
                     'surface' => ['kind' => 'mac_cli', 'workspace' => base_path()],
                     'retrieval' => [
                         'schema_version' => 'atlas.context.retrieval_plan.v1',
@@ -208,6 +208,48 @@ class AtlasOpenBrainContextInjectionServiceTest extends TestCase
         $this->assertContains('retrieval_required_source_unavailable', $result['warnings']);
         $this->assertContains('Refresh evidence replay or attach trace/envelope evidence before retrying.', $result['next_actions']);
         $this->assertStringContainsString('retrieval_plan: mode=audit_heavy; selected=evidence_replay,code_intelligence,memory_signals; required=evidence_replay', $result['prompt_section'] ?? '');
+    }
+
+    public function test_replay_refs_satisfy_required_evidence_replay_source(): void
+    {
+        $result = $this->service->inject(
+            'validar deploy com replay anexado',
+            $this->task('dev'),
+            new AiContextPack(
+                data: [
+                    'task' => ['type' => 'dev', 'desired_mode' => 'dev', 'risk_level' => 'low', 'domain' => 'developer', 'objective' => 'test'],
+                    'surface' => ['kind' => 'mac_cli', 'workspace' => base_path()],
+                    'retrieval' => [
+                        'schema_version' => 'atlas.context.retrieval_plan.v1',
+                        'mode' => 'audit_heavy',
+                        'selected_sources' => [
+                            ['type' => 'evidence_replay', 'required' => true, 'limit' => 8],
+                        ],
+                        'budgets' => ['max_context_refs' => 8],
+                        'policy' => ['provider_safe_only' => true],
+                    ],
+                    'evidence' => [
+                        'replay_refs' => [
+                            ['type' => 'ledger_event', 'id' => '01HREPLAYREF000000000001'],
+                        ],
+                    ],
+                    'memory' => ['semantic' => [['title' => 'Atlas']]],
+                    'constraints' => [],
+                ],
+                contextRefs: [['type' => 'semantic_note', 'id' => 1]],
+            ),
+            ['payload' => [
+                'atlas_workflow_mode' => 'dev',
+                'workspace' => base_path(),
+                'open_brain' => ['mode' => 'auto'],
+            ]],
+        );
+
+        $this->assertNotSame('failed_closed', $result['status']);
+        $this->assertSame(['evidence_replay'], data_get($result, 'summary.retrieval_plan.available_sources'));
+        $this->assertSame([], data_get($result, 'summary.retrieval_plan.required_unavailable_sources'));
+        $this->assertSame('ok', data_get($result, 'summary.retrieval_plan.review_signal.status'));
+        $this->assertNotContains('retrieval_required_source_unavailable', $result['warnings']);
     }
 
     public function test_required_open_brain_fails_closed_when_required_retrieval_source_is_unavailable(): void

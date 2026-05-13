@@ -96,6 +96,15 @@ class RunScheduledTaskJobTest extends TestCase
         $this->assertSame($task->id, data_get($task->metadata, 'last_run_receipt.scheduled_task_id'));
         $this->assertSame('success', data_get($task->metadata, 'last_run_receipt.status'));
         $this->assertSame('saved_local', data_get($task->metadata, 'last_run_receipt.delivery_status'));
+        $this->assertSame('atlas.long_running_work.autonomy_contract.v1', data_get($task->metadata, 'last_run_receipt.autonomy_contract.schema_version'));
+        $this->assertSame('low', data_get($task->metadata, 'last_run_receipt.autonomy_contract.autonomy_level'));
+        $this->assertTrue(data_get($task->metadata, 'last_run_receipt.autonomy_contract.background_execution'));
+        $this->assertTrue(data_get($task->metadata, 'last_run_receipt.autonomy_contract.single_run_only'));
+        $this->assertTrue(data_get($task->metadata, 'last_run_receipt.autonomy_contract.operator_review_required_for_escalation'));
+        $this->assertFalse(data_get($task->metadata, 'last_run_receipt.autonomy_contract.schedule_mutation_allowed'));
+        $this->assertFalse(data_get($task->metadata, 'last_run_receipt.autonomy_contract.recursive_schedule_execution_allowed'));
+        $this->assertFalse(data_get($task->metadata, 'last_run_receipt.autonomy_contract.autonomous_followup_allowed'));
+        $this->assertContains('timeout_reached', data_get($task->metadata, 'last_run_receipt.autonomy_contract.stop_conditions'));
         $this->assertSame('read', data_get($task->metadata, 'last_run_receipt.tool_permission_mode'));
         $this->assertTrue(data_get($task->metadata, 'last_run_receipt.anti_recursion_guarded'));
         $this->assertFalse(data_get($task->metadata, 'last_run_receipt.raw_prompt_persisted'));

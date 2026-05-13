@@ -3,6 +3,7 @@
 namespace App\Services\Ai\Kernel\Architecture;
 
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
 
 final class AtlasExternalGraphHarnessService
@@ -268,6 +269,96 @@ final class AtlasExternalGraphHarnessService
             'review_packet' => $this->reviewPacket($errors, $warnings, $candidateHash, count($nodes), count($edges)),
             'promotion_allowed' => false,
             'promotion_state' => $errors === [] ? 'eligible_for_architecture_operations_review_only' : 'blocked_until_candidate_fixed',
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    public function sandboxCandidate(string $scanRoot, int $maxFiles = 80): array
+    {
+        $scanRoot = $this->normalizePath($scanRoot);
+        $maxFiles = max(1, min(200, $maxFiles));
+
+        if ($scanRoot === '' || ! $this->isAllowedPath($scanRoot) || $this->isDeniedPath($scanRoot)) {
+            return [
+                'schema_version' => 'atlas.external_graph_sandbox_candidate.v1',
+                'status' => 'blocked',
+                'mode' => 'sandbox_candidate_builder_no_runtime_no_writes',
+                'errors' => ['scan_root_not_allowed_or_denied'],
+                'candidate' => null,
+                'candidate_validation' => null,
+                'guardrails' => $this->contract()['guardrails'],
+            ];
+        }
+
+        $absoluteRoot = base_path($scanRoot);
+        if (! File::isDirectory($absoluteRoot)) {
+            return [
+                'schema_version' => 'atlas.external_graph_sandbox_candidate.v1',
+                'status' => 'blocked',
+                'mode' => 'sandbox_candidate_builder_no_runtime_no_writes',
+                'errors' => ['scan_root_directory_missing'],
+                'candidate' => null,
+                'candidate_validation' => null,
+                'guardrails' => $this->contract()['guardrails'],
+            ];
+        }
+
+        $files = collect(File::allFiles($absoluteRoot))
+            ->map(fn (\SplFileInfo $file): string => $this->normalizePath($scanRoot.'/'.$file->getRelativePathname()))
+            ->filter(fn (string $path): bool => $path !== ''
+                && $this->isAllowedPath($path)
+                && ! $this->isDeniedPath($path)
+                && in_array(pathinfo($path, PATHINFO_EXTENSION), ['php', 'md'], true))
+            ->sort()
+            ->take($maxFiles)
+            ->values();
+
+        $nodes = $files
+            ->map(fn (string $path): array => [
+                'id' => $this->sandboxNodeId($path),
+                'label' => basename($path),
+                'kind' => pathinfo($path, PATHINFO_EXTENSION) === 'md' ? 'doc' : 'code_file',
+                'source_refs' => [
+                    ['path' => $path],
+                ],
+            ])
+            ->all();
+
+        $candidate = [
+            'schema_version' => 'atlas.external_graph_candidate.v1',
+            'source_tool' => 'graphify',
+            'source_tool_version' => 'atlas-sandbox-candidate-builder-v1',
+            'source_archive_hash' => $this->sandboxArchiveHash($files->all()),
+            'scan_root' => $scanRoot,
+            'generated_at' => now()->toJSON(),
+            'privacy_class' => 'engineering_internal',
+            'review_state' => 'candidate',
+            'nodes' => $nodes,
+            'edges' => [],
+            'metadata' => [
+                'builder' => 'atlas_sandbox_candidate_builder',
+                'graphify_executed' => false,
+                'provider_calls_executed' => false,
+                'network_fetching_executed' => false,
+                'writes_executed' => false,
+                'max_files' => $maxFiles,
+            ],
+        ];
+
+        $validation = $this->validateCandidate($candidate);
+
+        return [
+            'schema_version' => 'atlas.external_graph_sandbox_candidate.v1',
+            'status' => $validation['status'] === 'accepted_read_only_candidate' ? 'candidate_built_read_only' : 'blocked',
+            'mode' => 'sandbox_candidate_builder_no_runtime_no_writes',
+            'scan_root' => $scanRoot,
+            'file_count' => $files->count(),
+            'candidate' => $candidate,
+            'candidate_validation' => $validation,
+            'guardrails' => $this->contract()['guardrails'],
+            'promotion_allowed' => false,
         ];
     }
 
@@ -570,6 +661,29 @@ final class AtlasExternalGraphHarnessService
             'tests/Feature',
             'tests/Unit',
         ];
+    }
+
+    private function sandboxNodeId(string $path): string
+    {
+        return 'sandbox_file:'.hash('sha256', $path);
+    }
+
+    /**
+     * @param  array<int,string>  $paths
+     */
+    private function sandboxArchiveHash(array $paths): string
+    {
+        $manifest = [];
+
+        foreach ($paths as $path) {
+            $absolute = base_path($path);
+            $manifest[] = [
+                'path' => $path,
+                'hash' => File::isFile($absolute) ? hash_file('sha256', $absolute) : null,
+            ];
+        }
+
+        return hash('sha256', json_encode($manifest, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
     }
 
     /**

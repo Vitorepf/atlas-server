@@ -38,11 +38,14 @@ class AtlasRivalsStrategyReadModel
             ->whereBetween('created_at', [$since, $until])
             ->latest()
             ->get();
-        $reviews = AtlasStrategyRivalsReview::query()
+        $dueReviews = AtlasStrategyRivalsReview::query()
             ->whereBetween('review_due_at', [$since, $until])
             ->orderBy('review_due_at')
             ->get();
-        $summary = $this->summary($cases, $reviews);
+        $scheduledReviews = $cases
+            ->flatMap(fn (AtlasStrategyRivalsCase $case): Collection => $case->reviews)
+            ->values();
+        $summary = $this->summary($cases, $scheduledReviews);
 
         return [
             'available' => true,
@@ -52,7 +55,7 @@ class AtlasRivalsStrategyReadModel
             'gates' => $this->gates($summary, true),
             'review_signal' => $this->reviewSignal($summary, true),
             'recent_cases' => $cases->take(10)->map(fn (AtlasStrategyRivalsCase $case): array => $this->casePayload($case))->values()->all(),
-            'due_reviews' => $reviews
+            'due_reviews' => $dueReviews
                 ->filter(fn (AtlasStrategyRivalsReview $review): bool => $review->review_due_at <= $until && $review->status === 'pending')
                 ->take(10)
                 ->map(fn (AtlasStrategyRivalsReview $review): array => $this->reviewPayload($review))

@@ -62,6 +62,7 @@ class CaptureResource extends JsonResource
     {
         $metadata = is_array($this->metadata) ? $this->metadata : [];
         $cognitiveQuarantine = is_array($metadata['cognitive_quarantine'] ?? null) ? $metadata['cognitive_quarantine'] : [];
+        $contentIntelligence = is_array($metadata['content_intelligence'] ?? null) ? $metadata['content_intelligence'] : [];
         $contentTextPresent = is_string($this->content_text) && $this->content_text !== '';
 
         return [
@@ -83,6 +84,14 @@ class CaptureResource extends JsonResource
             'context_eligible' => $cognitiveQuarantine['context_eligible'] ?? false,
             'promotion_status' => $cognitiveQuarantine['promotion_status'] ?? 'unclassified',
             'content_hash' => $cognitiveQuarantine['content_hash'] ?? $this->content_sha256,
+            'content_intelligence_schema_version' => $contentIntelligence['schema_version'] ?? null,
+            'content_type' => $contentIntelligence['content_type'] ?? null,
+            'destination_enum' => data_get($contentIntelligence, 'destination.enum'),
+            'quality_score' => data_get($contentIntelligence, 'quality.score'),
+            'quality_label' => data_get($contentIntelligence, 'quality.label'),
+            'blackink_defaulted' => data_get($contentIntelligence, 'blackink_defaulted', false),
+            'content_intelligence_provider_export_allowed' => data_get($contentIntelligence, 'privacy.provider_export_allowed', false),
+            'content_intelligence_open_brain_context_allowed' => data_get($contentIntelligence, 'privacy.open_brain_context_allowed', false),
             'content_file_integrity' => $this->fileIntegrity($fileExists),
         ];
     }

@@ -195,9 +195,11 @@ class CaptureService
         $existing = is_array($metadata['cognitive_quarantine'] ?? null) ? $metadata['cognitive_quarantine'] : [];
         $contentHash = $this->captureContentHash($data, $storedFile);
         $now = now()->toJSON();
+        $contentIntelligence = $this->contentIntelligenceContract($metadata, $data, $storedFile, $domain, $contentHash, $now);
 
         return [
             ...$metadata,
+            'content_intelligence' => $contentIntelligence,
             'cognitive_quarantine' => [
                 ...$existing,
                 'schema_version' => 'atlas.capture.cognitive_quarantine.v1',
@@ -216,6 +218,9 @@ class CaptureService
                 'source_kind' => is_scalar($data['kind'] ?? null) ? (string) $data['kind'] : null,
                 'source_domain' => $domain,
                 'content_hash' => $contentHash,
+                'content_intelligence_schema_version' => $contentIntelligence['schema_version'],
+                'content_destination_enum' => $contentIntelligence['destination']['enum'],
+                'content_quality_score' => $contentIntelligence['quality']['score'],
                 'lineage' => [
                     'origin' => 'capture_pipeline',
                     'captured_at' => is_scalar($data['captured_at'] ?? null) ? (string) $data['captured_at'] : null,
@@ -230,6 +235,185 @@ class CaptureService
                 'created_at' => $existing['created_at'] ?? $now,
             ],
         ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $metadata
+     * @param  array<string,mixed>  $data
+     * @param  array<string,mixed>|null  $storedFile
+     * @return array<string,mixed>
+     */
+    private function contentIntelligenceContract(array $metadata, array $data, ?array $storedFile, string $domain, ?string $contentHash, string $now): array
+    {
+        $kind = is_scalar($data['kind'] ?? null) ? (string) $data['kind'] : 'unknown';
+        $contentType = $this->contentTypeFor($kind, $storedFile);
+        $quality = $this->captureQualityScore($data, $storedFile, $contentHash, $domain);
+        $destinationEnum = $this->initialDestinationEnum($metadata);
+        $language = $this->scalarString($metadata['language'] ?? data_get($metadata, 'source.language'));
+
+        return [
+            'schema_version' => 'atlas.capture.content_intelligence.v1',
+            'status' => 'candidate_pending_review',
+            'content_type' => $contentType,
+            'source_type' => 'operator_capture',
+            'source_domain' => $domain,
+            'source_business_context' => $domain,
+            'business_context_defaulted' => false,
+            'blackink_defaulted' => false,
+            'destination' => [
+                'enum' => $destinationEnum,
+                'allowed' => [
+                    'semantic_note',
+                    'task',
+                    'project',
+                    'archive',
+                    'discard',
+                    'atlas_memory_candidate',
+                    'weak_archive',
+                    'benchmark_case',
+                ],
+                'decision' => 'proposal_required_before_promotion',
+            ],
+            'quality' => [
+                'score' => $quality['score'],
+                'label' => $quality['label'],
+                'reasons' => $quality['reasons'],
+            ],
+            'source_refs' => [
+                'extractor_version' => 'atlas.capture.content_intelligence.v1',
+                'capture_client_id_hash' => is_scalar($data['client_id'] ?? null) ? hash('sha256', (string) $data['client_id']) : null,
+                'content_hash' => $contentHash,
+                'file_sha256' => $this->scalarString($storedFile['sha256'] ?? ($data['content_sha256'] ?? null)),
+                'mime_type' => $this->scalarString($storedFile['mime_type'] ?? null),
+                'language' => $language,
+                'captured_at' => $this->scalarString($data['captured_at'] ?? null),
+                'captured_timezone' => $this->scalarString($data['captured_timezone'] ?? null),
+                'indexed_at' => $now,
+            ],
+            'dedupe' => [
+                'memory_check' => 'pending_review',
+                'graph_rag_check' => 'blocked_until_external_graph_runtime_is_approved',
+                'duplicate_policy' => 'hash_first_no_raw_content_export',
+            ],
+            'privacy' => [
+                'provider_export_allowed' => false,
+                'embedding_allowed' => false,
+                'open_brain_context_allowed' => false,
+                'memory_write_allowed' => false,
+                'raw_content_exposed' => false,
+            ],
+            'promotion' => [
+                'requires_proposal' => true,
+                'requires_human_review' => true,
+                'automatic_memory_promotion_allowed' => false,
+            ],
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>|null  $storedFile
+     */
+    private function contentTypeFor(string $kind, ?array $storedFile): string
+    {
+        $mime = $this->scalarString($storedFile['mime_type'] ?? null);
+
+        if ($mime && str_starts_with($mime, 'audio/')) {
+            return 'audio';
+        }
+        if ($mime && str_starts_with($mime, 'image/')) {
+            return 'image';
+        }
+        if ($mime === 'application/pdf') {
+            return 'pdf';
+        }
+
+        return match ($kind) {
+            'audio' => 'audio',
+            'image' => 'image',
+            'file' => 'file',
+            default => 'text',
+        };
+    }
+
+    /**
+     * @param  array<string,mixed>  $metadata
+     */
+    private function initialDestinationEnum(array $metadata): string
+    {
+        $destination = $this->scalarString(data_get($metadata, 'semantic_clarification.result.possible_destination.destination'))
+            ?? $this->scalarString(data_get($metadata, 'semantic_clarification.result.possible_destination.kind'))
+            ?? $this->scalarString(data_get($metadata, 'triage.destination'));
+
+        return match ($destination) {
+            'task' => 'task',
+            'project' => 'project',
+            'archive' => 'archive',
+            'discard' => 'discard',
+            default => 'semantic_note',
+        };
+    }
+
+    /**
+     * @param  array<string,mixed>  $data
+     * @param  array<string,mixed>|null  $storedFile
+     * @return array{score:int,label:string,reasons:array<int,string>}
+     */
+    private function captureQualityScore(array $data, ?array $storedFile, ?string $contentHash, string $domain): array
+    {
+        $score = 20;
+        $reasons = ['raw_capture_quarantined_before_promotion'];
+        $text = is_scalar($data['content_text'] ?? null) ? trim((string) $data['content_text']) : '';
+
+        if ($text !== '') {
+            $score += 30;
+            $reasons[] = 'text_content_present';
+            $length = mb_strlen($text);
+            if ($length >= 80) {
+                $score += 15;
+                $reasons[] = 'sufficient_text_density';
+            } elseif ($length < 20) {
+                $score -= 10;
+                $reasons[] = 'short_text_low_density';
+            }
+        }
+
+        if ($storedFile !== null) {
+            $score += 20;
+            $reasons[] = 'file_source_present';
+        }
+
+        if ($contentHash) {
+            $score += 15;
+            $reasons[] = 'content_hash_recorded';
+        }
+
+        if ($domain !== '') {
+            $score += 10;
+            $reasons[] = 'source_domain_declared';
+        }
+
+        $score = max(0, min(100, $score));
+
+        return [
+            'score' => $score,
+            'label' => match (true) {
+                $score >= 75 => 'high',
+                $score >= 50 => 'medium',
+                default => 'low',
+            },
+            'reasons' => array_values(array_unique($reasons)),
+        ];
+    }
+
+    private function scalarString(mixed $value): ?string
+    {
+        if (! is_scalar($value)) {
+            return null;
+        }
+
+        $value = trim((string) $value);
+
+        return $value === '' ? null : $value;
     }
 
     /**

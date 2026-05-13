@@ -81,7 +81,7 @@ class AtlasSelfImprovementRuntime
             ]);
 
             $events = $this->ledgerEvents($hours);
-            $findings = collect($this->findingsForFlow($flow, $events, $filters, $hours))
+            $findings = collect($this->findingsForFlow($flow, $events, $filters, $hours, $envelopeId))
                 ->unique('dedupe_key')
                 ->sortByDesc(fn (array $finding): float => (float) ($finding['confidence'] ?? 0))
                 ->take($limit)
@@ -152,12 +152,12 @@ class AtlasSelfImprovementRuntime
      * @param  Collection<int,AtlasLedgerEvent>  $events
      * @return array<int,array<string,mixed>>
      */
-    private function findingsForFlow(string $flow, Collection $events, array $filters = [], int $hours = 24): array
+    private function findingsForFlow(string $flow, Collection $events, array $filters = [], int $hours = 24, ?string $currentEnvelopeId = null): array
     {
         return match ($flow) {
             'self_improvement.capability_gap_scan' => [
                 ...$this->domainOnboardingFindings($filters),
-                ...$this->missingTerminalFindings($events),
+                ...$this->missingTerminalFindings($events, $currentEnvelopeId),
                 ...$this->toolCoverageFindings($events),
                 ...$this->repairLoopFindings($events, $filters),
                 ...$this->kernelPipelineFindings($events, $filters),
@@ -203,7 +203,7 @@ class AtlasSelfImprovementRuntime
                 ...$this->sloDriftFindings($events, $filters),
                 ...$this->repairLoopFindings($events, $filters),
                 ...$this->kernelPipelineFindings($events, $filters),
-                ...$this->missingTerminalFindings($events),
+                ...$this->missingTerminalFindings($events, $currentEnvelopeId),
                 ...$this->operationFailureFindings($events),
                 ...$this->gateBlockedFindings($events),
             ],
@@ -237,7 +237,7 @@ class AtlasSelfImprovementRuntime
                 ...$this->sloDriftFindings($events, $filters),
                 ...$this->repairLoopFindings($events, $filters),
                 ...$this->kernelPipelineFindings($events, $filters),
-                ...$this->missingTerminalFindings($events),
+                ...$this->missingTerminalFindings($events, $currentEnvelopeId),
                 ...$this->operationFailureFindings($events),
                 ...$this->gateBlockedFindings($events),
                 ...$this->toolCoverageFindings($events),
@@ -3133,7 +3133,7 @@ class AtlasSelfImprovementRuntime
      * @param  Collection<int,AtlasLedgerEvent>  $events
      * @return array<int,array<string,mixed>>
      */
-    private function missingTerminalFindings(Collection $events): array
+    private function missingTerminalFindings(Collection $events, ?string $currentEnvelopeId = null): array
     {
         $terminal = [
             LedgerEventType::OperationCompleted->value,
@@ -3145,6 +3145,7 @@ class AtlasSelfImprovementRuntime
         return $events
             ->where('event_type', LedgerEventType::ExecutionStarted->value)
             ->groupBy('envelope_id')
+            ->reject(fn (Collection $started, string $envelopeId): bool => $currentEnvelopeId !== null && $envelopeId === $currentEnvelopeId)
             ->filter(fn (Collection $started, string $envelopeId): bool => $events
                 ->where('envelope_id', $envelopeId)
                 ->whereIn('event_type', $terminal)

@@ -199,6 +199,15 @@ Important context injection events are evidence. They can feed read models and
 Self-Improvement proposals, but they cannot silently promote memory or mutate
 critical behavior.
 
+## Retrieval Availability
+
+When a retrieval plan marks a source as required, Open Brain must explain
+availability by source and fail closed in `required` mode if that source is
+missing. `evidence_replay` is available when any provider-safe replay reference
+exists in context refs or in `evidence.previous_traces`,
+`evidence.replay_events` or `evidence.replay_refs`. `replay_refs` is the
+preferred compact contract for attached ledger/envelope evidence.
+
 ## Failure Semantics
 
 | Status | Meaning | Runtime behavior |

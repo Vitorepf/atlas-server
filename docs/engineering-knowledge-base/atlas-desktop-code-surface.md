@@ -39,6 +39,7 @@ maintenance:
   - Keep ≤ 360 lines; if it grows, split per zone of the surface into child specs.
   - Bidirectional `related_paths` must stay in sync with each axis owner doc.
 related_paths:
+  - docs/engineering-knowledge-base/atlas-desktop-backend-contract.md
   - docs/engineering-knowledge-base/atlas-code-category-evolution.md
   - docs/engineering-knowledge-base/atlas-ai-master-architecture.md
   - docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md

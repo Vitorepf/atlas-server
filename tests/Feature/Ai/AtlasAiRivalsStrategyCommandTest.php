@@ -64,6 +64,31 @@ class AtlasAiRivalsStrategyCommandTest extends TestCase
         $this->assertSame(4, data_get($payload, 'rivals_strategy.scheduled_review_count'));
     }
 
+    public function test_recent_report_counts_future_revisit_schedule_for_registered_cases(): void
+    {
+        Artisan::call('atlas:ai:rivals-strategy', [
+            'action' => 'register-case',
+            '--title' => 'Priorizar Memory antes de Voice',
+            '--baseline' => 'Continuar Voice como trilha principal',
+            '--atlas' => 'Estacionar Voice e consolidar Memory/Open Brain',
+            '--json' => true,
+        ]);
+
+        $exit = Artisan::call('atlas:ai:rivals-strategy', [
+            'action' => 'report',
+            '--hours' => 1,
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame(1, data_get($payload, 'rivals_strategy.case_count'));
+        $this->assertSame(4, data_get($payload, 'rivals_strategy.scheduled_review_count'));
+        $this->assertSame(4, data_get($payload, 'rivals_strategy.pending_review_count'));
+        $this->assertSame([], data_get($payload, 'rivals_strategy.due_reviews'));
+        $this->assertSame('passed', collect(data_get($payload, 'rivals_strategy.gates', []))->firstWhere('id', 'revisit_schedule_created')['status'] ?? null);
+    }
+
     public function test_command_records_scored_review_and_updates_multiplier_signal(): void
     {
         Artisan::call('atlas:ai:rivals-strategy', [

@@ -2,9 +2,9 @@
 
 namespace Tests\Feature\Ai;
 
+use App\Models\AiInboxItem;
 use App\Models\AtlasLedgerEvent;
 use App\Models\AtlasMemoryQualitySnapshot;
-use App\Models\AiInboxItem;
 use App\Services\Ai\AtlasMemoryRegistryService;
 use App\Services\Ai\AtlasVerbatimMemoryService;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
@@ -126,6 +126,15 @@ final class AtlasAiLocalRagBenchmarkCommandTest extends TestCase
         $this->assertContains('docs/ap/AP-693-retrieval-rivals-shadow-comparison-contract.md', data_get($payload, 'review_packet.evidence_required'));
         $this->assertContains('execute_python_graph_rag', data_get($payload, 'review_packet.forbidden_actions'));
         $this->assertContains('send_raw_capture_to_provider', data_get($payload, 'review_packet.forbidden_actions'));
+        $this->assertSame('atlas.rivals.evaluation_contract.v1', data_get($payload, 'evaluation_contract.schema_version'));
+        $this->assertSame('memory_open_brain_retrieval', data_get($payload, 'evaluation_contract.benchmark_family'));
+        $this->assertSame('current_governed_hybrid_memory_recall', data_get($payload, 'evaluation_contract.baseline_strategy_id'));
+        $this->assertContains('precision_at_k', data_get($payload, 'evaluation_contract.required_metrics'));
+        $this->assertContains('provider_safe_context_rate', data_get($payload, 'evaluation_contract.required_metrics'));
+        $this->assertContains('rival_strategy_is_better', data_get($payload, 'evaluation_contract.forbidden_claims_without_evidence'));
+        $this->assertFalse(data_get($payload, 'evaluation_contract.raw_query_persisted'));
+        $this->assertFalse(data_get($payload, 'evaluation_contract.raw_context_persisted'));
+        $this->assertFalse(data_get($payload, 'evaluation_contract.auto_promotion_allowed'));
         $this->assertSame('draft_ap_for_retrieval_shadow_comparison_before_execution', $payload['next_action']);
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $payload['plan_hash']);
         $this->assertStringNotContainsString('Bearer', Artisan::output());

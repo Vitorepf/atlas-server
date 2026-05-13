@@ -92,6 +92,38 @@ class AtlasExternalGraphHarnessServiceTest extends TestCase
         $this->assertSame('review_external_graph_candidate_against_native_code_intelligence', $report['next_action']);
     }
 
+    public function test_builds_sandbox_candidate_from_allowed_repo_root_without_runtime_or_writes(): void
+    {
+        $result = app(AtlasExternalGraphHarnessService::class)->sandboxCandidate(
+            'app/Services/Ai/Kernel/Architecture',
+            5,
+        );
+
+        $this->assertSame('atlas.external_graph_sandbox_candidate.v1', $result['schema_version']);
+        $this->assertSame('candidate_built_read_only', $result['status']);
+        $this->assertSame('sandbox_candidate_builder_no_runtime_no_writes', $result['mode']);
+        $this->assertFalse($result['promotion_allowed']);
+        $this->assertFalse(data_get($result, 'guardrails.provider_calls_enabled'));
+        $this->assertFalse(data_get($result, 'guardrails.writes_memory_registry'));
+        $this->assertSame('atlas.external_graph_candidate.v1', data_get($result, 'candidate.schema_version'));
+        $this->assertSame('graphify', data_get($result, 'candidate.source_tool'));
+        $this->assertSame('atlas-sandbox-candidate-builder-v1', data_get($result, 'candidate.source_tool_version'));
+        $this->assertFalse(data_get($result, 'candidate.metadata.graphify_executed'));
+        $this->assertFalse(data_get($result, 'candidate.metadata.provider_calls_executed'));
+        $this->assertSame('accepted_read_only_candidate', data_get($result, 'candidate_validation.status'));
+        $this->assertSame('ready_for_human_review', data_get($result, 'candidate_validation.review_packet.status'));
+    }
+
+    public function test_sandbox_candidate_blocks_denied_or_missing_roots(): void
+    {
+        $result = app(AtlasExternalGraphHarnessService::class)->sandboxCandidate('docs/engineering-knowledge-base/private', 5);
+
+        $this->assertSame('blocked', $result['status']);
+        $this->assertContains('scan_root_not_allowed_or_denied', $result['errors']);
+        $this->assertNull($result['candidate']);
+        $this->assertNull($result['candidate_validation']);
+    }
+
     public function test_rejects_private_or_unreferenced_candidate(): void
     {
         $candidate = $this->validCandidate();

@@ -88,13 +88,56 @@ class AtlasTaskResource extends JsonResource
             'runtime_execution_allowed' => false,
             'policy_mutation_allowed' => false,
             'auto_complete_allowed' => false,
+            'agent_control_plane_allowed' => false,
+            'operator_review_required_for_external_execution' => true,
             'source_capture_linked' => $this->source_capture_id !== null,
             'has_engineering_contract' => data_get($metadata, 'engineering_contract') !== null,
             'has_latest_engineering_run' => data_get($metadata, 'latest_engineering_run') !== null,
             'has_schedule' => $this->planned_for_date !== null || $this->planned_start_at !== null || $this->due_at !== null,
+            'orchestration_contract' => $this->orchestrationContract($metadata),
             'status' => $this->status,
             'planning_status' => $this->planning_status,
             'priority' => $this->priority,
         ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $metadata
+     * @return array<string,mixed>
+     */
+    private function orchestrationContract(array $metadata): array
+    {
+        return [
+            'schema_version' => 'atlas.task_orchestration.intent_contract.v1',
+            'mode' => 'local_task_coordination',
+            'allowed_local_actions' => $this->allowedLocalActions(),
+            'blocked_external_actions' => [
+                'provider_dispatch',
+                'runtime_execution',
+                'agent_control_plane_dispatch',
+                'policy_mutation',
+                'auto_completion',
+            ],
+            'requires_operator_before' => [
+                'external_provider_execution',
+                'runtime_tool_execution',
+                'agent_handoff',
+                'memory_or_policy_mutation',
+            ],
+            'engineering_contract_present' => data_get($metadata, 'engineering_contract') !== null,
+            'latest_engineering_run_present' => data_get($metadata, 'latest_engineering_run') !== null,
+        ];
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function allowedLocalActions(): array
+    {
+        return match ($this->status) {
+            'completed' => ['review_history'],
+            'blocked' => ['record_evidence', 'defer', 'recover', 'reschedule'],
+            default => ['plan', 'schedule', 'defer', 'record_evidence', 'complete_with_operator_action'],
+        };
     }
 }
