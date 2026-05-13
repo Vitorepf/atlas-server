@@ -104,6 +104,7 @@ class AgentCodexRealInvokerPostStartExecutorFreshReleaseGate
 
             $metadata['codex_real_invoker_post_start_executor_fresh_release'] = [
                 'post_start_executor_fresh_release_gate_id' => $normalized['post_start_executor_fresh_release_gate_id'],
+                'post_start_evidence_acceptance_bridge_id' => $normalized['post_start_evidence_acceptance_bridge_id'],
                 'post_start_executor_plan_gate_id' => $normalized['post_start_executor_plan_gate_id'],
                 'post_start_implementation_boundary_gate_id' => $normalized['post_start_implementation_boundary_gate_id'],
                 'post_start_signed_real_invoker_release_gate_id' => $normalized['post_start_signed_real_invoker_release_gate_id'],
@@ -212,6 +213,7 @@ class AgentCodexRealInvokerPostStartExecutorFreshReleaseGate
         $required = [
             'run_key',
             'post_start_executor_fresh_release_gate_id',
+            'post_start_evidence_acceptance_bridge_id',
             'post_start_executor_plan_gate_id',
             'post_start_implementation_boundary_gate_id',
             'post_start_signed_real_invoker_release_gate_id',
@@ -356,6 +358,7 @@ class AgentCodexRealInvokerPostStartExecutorFreshReleaseGate
 
         foreach ([
             'post_start_executor_plan_gate_id',
+            'post_start_evidence_acceptance_bridge_id',
             'post_start_implementation_boundary_gate_id',
             'post_start_signed_real_invoker_release_gate_id',
             'post_start_real_invoker_release_preflight_gate_id',
@@ -447,6 +450,7 @@ class AgentCodexRealInvokerPostStartExecutorFreshReleaseGate
             'status' => 'codex_real_invoker_post_start_executor_fresh_release_recorded',
             'idempotent' => $idempotent,
             'post_start_executor_fresh_release_gate_id' => (string) data_get($run->metadata, 'codex_real_invoker_post_start_executor_fresh_release.post_start_executor_fresh_release_gate_id'),
+            'post_start_evidence_acceptance_bridge_id' => (string) data_get($run->metadata, 'codex_real_invoker_post_start_executor_fresh_release.post_start_evidence_acceptance_bridge_id'),
             'post_start_executor_plan_gate_id' => (string) data_get($run->metadata, 'codex_real_invoker_post_start_executor_fresh_release.post_start_executor_plan_gate_id'),
             'real_invoker_executor_fresh_release_id' => (string) data_get($run->metadata, 'codex_real_invoker_post_start_executor_fresh_release.real_invoker_executor_fresh_release_id'),
             'real_invoker_executor_plan_id' => (string) data_get($run->metadata, 'codex_real_invoker_post_start_executor_fresh_release.real_invoker_executor_plan_id'),

@@ -79,6 +79,11 @@ class EngineeringBenchmarkService
         'baseline_model',
         'baseline_timeout_seconds',
         'baseline_validation_timeout_seconds',
+        'rivals_battery_mode',
+        'rivals_battery_plan_hash',
+        'operator_plan_reviewed',
+        'operator_cost_acknowledged',
+        'rivals_battery_plan',
     ];
 
     private const DEFAULT_SUITE_SLUG = 'atlas-core-smoke';
@@ -773,6 +778,7 @@ class EngineeringBenchmarkService
         $corpusManifest = $this->arrayValue(data_get($suite->metadata ?? [], 'corpus_manifest', []));
         $readiness = $this->fairClaudeReportReadiness($fairRuns, $paired, $baseline, $replay, $corpusManifest);
         $nextActions = $this->fairClaudeReportNextActions($readiness, $paired, $baseline, $replay, $caseComparisons);
+        $batteryExecutionContract = $this->fairClaudeBatteryExecutionContract($suite, $readiness, $paired, $baseline, $replay);
         $executiveSummary = $this->fairClaudeExecutiveSummary($readiness, $paired, $baseline, $replay, $caseComparisons);
         $evidencePacket = $this->fairClaudeEvidencePacket(
             $suite,
@@ -815,6 +821,7 @@ class EngineeringBenchmarkService
             ],
             'readiness' => $readiness,
             'executive_summary' => $executiveSummary,
+            'battery_execution_contract' => $batteryExecutionContract,
             'next_actions' => $nextActions,
             'evidence_packet' => $evidencePacket,
             'claim_markdown' => $claimMarkdown,
@@ -835,6 +842,98 @@ class EngineeringBenchmarkService
         $payload['export_bundle'] = $this->fairClaudeExportBundle($payload);
 
         return $payload;
+    }
+
+    /**
+     * @param  array<string,mixed>  $readiness
+     * @param  array<string,mixed>  $paired
+     * @param  array<string,mixed>  $baseline
+     * @param  array<string,mixed>  $replay
+     * @return array<string,mixed>
+     */
+    private function fairClaudeBatteryExecutionContract(
+        AtlasEngineeringBenchmarkSuite $suite,
+        array $readiness,
+        array $paired,
+        array $baseline,
+        array $replay,
+    ): array {
+        $releaseCount = (int) ($readiness['release_corpus_case_count'] ?? 0);
+        $minimumReleaseCount = (int) ($readiness['minimum_release_corpus_case_count'] ?? 6);
+        $corpusPrepared = $releaseCount >= $minimumReleaseCount;
+        $pairedRunCount = (int) ($paired['case_count'] ?? 0);
+        $comparableCount = (int) ($readiness['comparable_count'] ?? 0);
+        $baselineExecuted = (bool) ($baseline['enabled'] ?? false);
+        $replayVerified = (bool) ($replay['enabled'] ?? false)
+            && (int) ($replay['packet_count'] ?? 0) > 0
+            && (int) ($replay['artifact_integrity_failed_count'] ?? 0) === 0;
+
+        return [
+            'schema_version' => 'atlas.fair_claude.battery_execution_contract.v1',
+            'status' => $corpusPrepared ? 'operator_execution_required' : 'prepare_corpus_required',
+            'summary' => $corpusPrepared
+                ? 'Corpus pronto; falta executar bateria pareada real com provider e baseline Claude Code.'
+                : 'Corpus release ainda incompleto; prepare o corpus antes de qualquer bateria.',
+            'operator_required' => true,
+            'agent_auto_execution_allowed' => false,
+            'provider_dispatch_required' => true,
+            'external_cost_possible' => true,
+            'synthetic_scores_allowed' => false,
+            'current_state' => [
+                'corpus_prepared' => $corpusPrepared,
+                'release_corpus_case_count' => $releaseCount,
+                'minimum_release_corpus_case_count' => $minimumReleaseCount,
+                'paired_case_count' => $pairedRunCount,
+                'comparable_case_count' => $comparableCount,
+                'baseline_executed' => $baselineExecuted,
+                'replay_verified' => $replayVerified,
+                'ready_for_claim' => (bool) ($readiness['ready_for_claim'] ?? false),
+            ],
+            'start_requirements' => [
+                'release_corpus_prepared',
+                'separate_atlas_workspace',
+                'separate_claude_code_baseline_workspace',
+                'claude_code_binary_available',
+                'operator_accepts_time_and_provider_cost',
+                'runbook_ready_to_start_battery_true',
+            ],
+            'commands' => [
+                'prepare_corpus' => 'atlas rivals prepare --json',
+                'runbook' => 'atlas rivals runbook --json',
+                'quick_battery' => 'atlas rivals run --json',
+                'medium_battery' => 'atlas rivals run --medium --json',
+                'full_battery' => 'atlas rivals run --full --json',
+                'report' => 'atlas rivals report --json',
+                'verify_export' => 'atlas rivals verify --output-dir=atlas-rivals-report --json',
+                'artisan_report' => "php artisan atlas:engineering:benchmark:rivals report --suite={$suite->slug} --json",
+            ],
+            'recommended_presets' => [
+                [
+                    'id' => 'quick',
+                    'case_count' => 1,
+                    'estimated_time' => '10-25 min',
+                    'purpose' => 'provar que a automacao e o baseline executam sem pagar a bateria inteira.',
+                ],
+                [
+                    'id' => 'medium',
+                    'case_count' => 3,
+                    'estimated_time' => '30-75 min',
+                    'purpose' => 'gerar sinal util sem custo de bateria completa.',
+                ],
+                [
+                    'id' => 'full',
+                    'case_count' => null,
+                    'estimated_time' => '90-180+ min',
+                    'purpose' => 'produzir evidencia forte para claim externo.',
+                ],
+            ],
+            'safety' => [
+                'read_model_only' => true,
+                'report_does_not_execute_provider' => true,
+                'operator_must_start_run' => true,
+                'claim_blocked_until_real_comparable_cases' => $comparableCount === 0,
+            ],
+        ];
     }
 
     /**
@@ -3126,6 +3225,17 @@ class EngineeringBenchmarkService
                 'Preparar corpus release',
                 'O relatório não pode sustentar claim antes de ter o mínimo de casos release ativos.',
                 'atlas rivals prepare --json',
+                'benchmark_operator',
+            );
+        }
+
+        if (! $blocking->contains('fair_release_corpus_below_minimum') && $blocking->contains('no_fair_claude_runs')) {
+            $add(
+                'run_battery_runbook',
+                'critical',
+                'Validar runbook da bateria',
+                'Antes de executar provider, confirme workspace Atlas, workspace Claude Code separado e binário Claude Code disponível.',
+                'atlas rivals runbook --json',
                 'benchmark_operator',
             );
         }

@@ -57,6 +57,8 @@ class AiTelemetryPerformanceReportTest extends TestCase
         $this->assertSame('atlas_ai_performance', $item->category);
         $this->assertStringContainsString('Traces: 2', (string) $item->body);
         $this->assertSame('2026-04-30', data_get($item->payload, 'report.report_date'));
+        $this->assertSame(2, data_get($item->payload, 'report.summary.traces'));
+        $this->assertIsNumeric(data_get($item->payload, 'report.summary.quality_avg'));
         $this->assertSame('trace_created_at', data_get($item->payload, 'report.validation.basis'));
 
         $this->artisan('atlas:ai:telemetry:performance-report', [
@@ -241,7 +243,7 @@ class AiTelemetryPerformanceReportTest extends TestCase
         $quality = (int) ($summaryOverrides['final_quality_score'] ?? 80);
         $efficiency = (int) ($summaryOverrides['final_efficiency_score'] ?? 76);
 
-        $trace = new AiTrace();
+        $trace = new AiTrace;
         $trace->forceFill([
             'id' => $traceId,
             'trace_key' => 'trace-'.$traceId,

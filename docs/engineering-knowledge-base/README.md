@@ -13,6 +13,7 @@ tags:
 capabilities:
   - session_bootstrap
   - documentation_operating_system
+  - canonical_module_doc_v1
   - atlas_system_graph
   - atlas_living_architecture_graph
   - knowledge_governance_system
@@ -70,6 +71,7 @@ decisions:
   - Atlas AI Session Bootstrap e o primeiro pacote curto para novas sessoes responderem o que e Atlas, o que existe, o que falta e como evoluir.
   - Atlas AI Provider Evolution Intelligence define como absorver lancamentos de Claude, ChatGPT, Gemini, Codex e labs sem virar wrapper fragil.
   - Atlas AI Documentation Operating System define limites de tamanho, ownership, anti-hallucination, promocao e sync/index para documentacao de alta performance.
+  - Atlas Canonical Module Doc v1 define o formato forte para docs tecnicos que alimentam Cartografia, Atlas Code e IAs implementadoras com grafo, escopo, evidencias e testes.
   - Atlas System Graph define o mapa visual/navegavel do Atlas para humanos e IAs: sistemas, programas, modulos, artefatos, dependencias, status, riscos, unlocks e projecao gerenciada para AtlasVault/Obsidian.
   - Atlas Living Architecture Graph define o proximo patamar do System Graph: notes reais no Obsidian com links, status, dependencias, evidence e next actions para consciencia arquitetural viva.
   - Atlas AI Knowledge Governance System define a fonte de verdade entre repo docs, Postgres KB, Code Intelligence, Evidence Ledger, Obsidian, AGENTS/CLAUDE e chat source material.
@@ -110,6 +112,7 @@ maintenance:
   - Leia atlas-ai-provider-evolution-intelligence.md antes de reagir a lancamento de provider, vertical agents, connectors, realtime, model release ou skill pack externo.
   - Rode `php artisan atlas:ai:session-bootstrap --task="<task>" --json` e `php artisan atlas:ai:place-feature "<feature>" --json` antes de implementacao estrutural.
   - Leia atlas-ai-documentation-operating-system.md antes de criar, dividir, promover, arquivar ou expandir docs canonicos.
+  - Leia atlas-canonical-module-doc-v1.md antes de criar ou migrar doc tecnico que precise aparecer na Cartografia, orientar Atlas Code ou guiar implementacao por IA.
   - Leia atlas-system-graph.md antes de criar mapa visual, node Obsidian, modulo novo, programa de evolucao, relacao de dependencia/unlock ou grafo de tomada de decisao do Atlas.
   - Leia system-graph/living-architecture-graph-contract.md antes de construir ou atualizar os nodes reais do Atlas no Obsidian.
   - Rode `php artisan atlas:ai:docs-split-plan --owner=<owner_area> --json` antes de expandir qualquer doc `split_required`; use `severity` e `status` para reduzir contexto quando a sessao tiver escopo estreito.
@@ -152,6 +155,7 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-ai-session-bootstrap.md
   - docs/engineering-knowledge-base/atlas-ai-provider-evolution-intelligence.md
   - docs/engineering-knowledge-base/atlas-ai-documentation-operating-system.md
+  - docs/engineering-knowledge-base/atlas-canonical-module-doc-v1.md
   - docs/engineering-knowledge-base/atlas-system-graph.md
   - docs/engineering-knowledge-base/system-graph/node-catalog-and-build-contract.md
   - docs/engineering-knowledge-base/system-graph/living-architecture-graph-contract.md
@@ -344,6 +348,7 @@ detalhe de modulo com docs/testes.
 |---|---|
 | `atlas-ai-session-bootstrap.md` | Pacote curto para uma nova sessao entender o que e Atlas, o que existe, o que falta e como evoluir sem ler conversa antiga |
 | `atlas-ai-documentation-operating-system.md` | Contrato de documentacao de alta performance: limites de tamanho, status, ownership, anti-hallucination, promocao e sync/index |
+| `atlas-canonical-module-doc-v1.md` | Schema forte para docs tecnicos navegaveis pela Cartografia e seguros para IAs: grafo, escopo, proibicoes, evidencias e testes |
 | `atlas-system-graph.md` | Mapa visual/navegavel do Atlas para Obsidian e IAs: sistemas, programas, modulos, dependencias, status, riscos, unlocks e template de nodes |
 | `system-graph/node-catalog-and-build-contract.md` | Catalogo inicial e contrato de construcao dos nodes do Atlas System Graph no AtlasVault/Obsidian |
 | `system-graph/living-architecture-graph-contract.md` | Contrato do Atlas Living Architecture Graph: grafo Obsidian vivo com nodes reais, status, dependencias, evidencias e proximas acoes |

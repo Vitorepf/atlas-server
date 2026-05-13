@@ -55,6 +55,56 @@ class MobilePushService
         }
     }
 
+    /**
+     * @return array<string,mixed>
+     */
+    public function replayPendingDispatches(int $limit = 50, bool $dryRun = true): array
+    {
+        $limit = max(1, min(200, $limit));
+        $candidates = AiInboxItem::query()
+            ->whereNotIn('status', ['resolved', 'dismissed', 'expired'])
+            ->whereDoesntHave('pushDeliveries')
+            ->latest('created_at')
+            ->limit($limit)
+            ->get()
+            ->filter(fn (AiInboxItem $item): bool => ($item->push_policy['send'] ?? 'auto') !== 'none')
+            ->values();
+        $dispatched = 0;
+
+        if (! $dryRun) {
+            foreach ($candidates as $item) {
+                $before = $item->pushDeliveries()->count();
+                $this->dispatchForInboxItem($item->refresh());
+                $after = $item->pushDeliveries()->count();
+                if ($after > $before) {
+                    $dispatched++;
+                }
+            }
+        }
+
+        return [
+            'schema_version' => 'atlas.mobile.push_replay_pending.v1',
+            'dry_run' => $dryRun,
+            'limit' => $limit,
+            'candidate_count' => $candidates->count(),
+            'dispatched_count' => $dispatched,
+            'mobile_enabled' => (bool) config('atlas.mobile.enabled', false),
+            'items' => $candidates
+                ->map(fn (AiInboxItem $item): array => [
+                    'id' => $item->id,
+                    'type' => $item->type,
+                    'category' => $item->category,
+                    'severity' => $item->severity,
+                    'status' => $item->status,
+                    'dedupe_key' => $item->dedupe_key,
+                    'push_policy_send' => $item->push_policy['send'] ?? 'auto',
+                    'created_at' => $item->created_at?->toJSON(),
+                ])
+                ->values()
+                ->all(),
+        ];
+    }
+
     public function dispatchToDevice(AtlasMobileDevice $device, AiInboxItem $item): bool
     {
         if (! $this->pushInfrastructureAvailable()) {

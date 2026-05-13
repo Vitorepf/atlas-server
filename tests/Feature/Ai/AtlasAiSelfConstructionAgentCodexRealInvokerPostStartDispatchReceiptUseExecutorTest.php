@@ -49,6 +49,10 @@ class AtlasAiSelfConstructionAgentCodexRealInvokerPostStartDispatchReceiptUseExe
         $this->assertFalse($result['provider_start_allowed_after_mark']);
         $this->assertFalse($result['dispatch_allowed']);
         $this->assertSame('receipt_marked_used', data_get($result, 'receipt_use_result.status'));
+        $this->assertSame(
+            'codex-real-invoker-post-start-evidence-acceptance-bridge-001',
+            $result['post_start_evidence_acceptance_bridge_id']
+        );
 
         $receipt = AtlasSelfConstructionAgentDispatchReceipt::query()
             ->where('receipt_hash', str_repeat('a', 64))
@@ -122,6 +126,22 @@ class AtlasAiSelfConstructionAgentCodexRealInvokerPostStartDispatchReceiptUseExe
 
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('dispatch_allowed_already_true');
+
+        app(AgentCodexRealInvokerPostStartDispatchReceiptUseExecutor::class)
+            ->executePostStartDispatchReceiptUse($this->validInput());
+    }
+
+    public function test_post_start_dispatch_receipt_use_rejects_handoff_without_evidence_acceptance_bridge(): void
+    {
+        $this->createDispatchExecutorHandoffRun([
+            'metadata' => $this->metadataWithDispatchExecutorHandoff([
+                'post_start_evidence_acceptance_bridge_id' => null,
+            ]),
+        ]);
+        $this->createReceipt();
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('post_start_evidence_acceptance_bridge_id_mismatch');
 
         app(AgentCodexRealInvokerPostStartDispatchReceiptUseExecutor::class)
             ->executePostStartDispatchReceiptUse($this->validInput());
@@ -234,6 +254,7 @@ class AtlasAiSelfConstructionAgentCodexRealInvokerPostStartDispatchReceiptUseExe
             'codex_real_invoker_post_start_dispatch_executor_handoff' => array_merge([
                 'dispatch_executor_handoff_id' => 'codex-real-invoker-post-start-dispatch-executor-handoff-001',
                 'signed_dispatch_authorization_id' => 'codex-real-invoker-post-start-signed-dispatch-auth-001',
+                'post_start_evidence_acceptance_bridge_id' => 'codex-real-invoker-post-start-evidence-acceptance-bridge-001',
                 'signed_dispatch_receipt_hash' => str_repeat('a', 64),
                 'executor_handoff_packet_hash' => str_repeat('6', 64),
                 'executor_workspace_hash' => str_repeat('7', 64),
@@ -262,6 +283,7 @@ class AtlasAiSelfConstructionAgentCodexRealInvokerPostStartDispatchReceiptUseExe
             'run_key' => 'provider-start:attempt-001',
             'dispatch_executor_handoff_id' => 'codex-real-invoker-post-start-dispatch-executor-handoff-001',
             'signed_dispatch_authorization_id' => 'codex-real-invoker-post-start-signed-dispatch-auth-001',
+            'post_start_evidence_acceptance_bridge_id' => 'codex-real-invoker-post-start-evidence-acceptance-bridge-001',
             'signed_dispatch_receipt_hash' => str_repeat('a', 64),
             'executor_contract_hash' => str_repeat('b', 64),
             'executor_release_authorization_hash' => str_repeat('c', 64),

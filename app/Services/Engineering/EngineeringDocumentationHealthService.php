@@ -8,12 +8,15 @@ use SplFileInfo;
 
 class EngineeringDocumentationHealthService
 {
+    private const CANONICAL_MODULE_SCHEMA = 'atlas_canonical_module_doc.v1';
+
     /**
      * @var array<string,int|null>
      */
     private const REQUIRED_DOCS = [
         'docs/engineering-knowledge-base/atlas-ai-session-bootstrap.md' => 180,
         'docs/engineering-knowledge-base/atlas-ai-documentation-operating-system.md' => 260,
+        'docs/engineering-knowledge-base/atlas-canonical-module-doc-v1.md' => 520,
         'docs/engineering-knowledge-base/atlas-ai-knowledge-governance-system.md' => 260,
         'docs/engineering-knowledge-base/atlas-ai-runtime-language-boundaries.md' => 260,
         'docs/engineering-knowledge-base/atlas-ai-qualitative-levels-roadmap.md' => 260,
@@ -41,6 +44,102 @@ class EngineeringDocumentationHealthService
     ];
 
     /**
+     * @var array<int,string>
+     */
+    private const CANONICAL_MODULE_REQUIRED_FRONTMATTER = [
+        'doc_schema',
+        'graph_id',
+        'graph_title',
+        'graph_world',
+        'graph_layer',
+        'graph_kind',
+        'graph_parent',
+        'graph_status',
+        'graph_source',
+        'owner',
+        'repo_paths',
+        'allowed_changes',
+        'forbidden_changes',
+        'depends_on',
+        'flows_to',
+        'unlocks',
+        'governs',
+        'evidence',
+        'required_tests',
+        'requires_evidence',
+        'risk_level',
+        'next_actions',
+    ];
+
+    /**
+     * @var array<int,string>
+     */
+    private const CANONICAL_MODULE_REQUIRED_SECTIONS = [
+        'Resumo',
+        'Papel no Atlas',
+        'Onde Se Encaixa',
+        'Contratos',
+        'Fluxo',
+        'Regras para IA',
+        'Escopo de Implementacao',
+        'Dependencias',
+        'Evidencias',
+        'Riscos',
+        'Exemplos',
+        'Proximas Acoes',
+    ];
+
+    /**
+     * @var array<int,string>
+     */
+    private const CANONICAL_MODULE_ALLOWED_STATUS = [
+        'planned',
+        'future',
+        'building',
+        'active',
+        'deprecated',
+    ];
+
+    /**
+     * @var array<int,string>
+     */
+    private const CANONICAL_MODULE_ALLOWED_LAYERS = [
+        'world',
+        'system',
+        'flow',
+        'module',
+        'gear',
+        'subcomponent',
+    ];
+
+    /**
+     * @var array<int,string>
+     */
+    private const CANONICAL_MODULE_ALLOWED_KINDS = [
+        'contract',
+        'system',
+        'flow',
+        'module',
+        'policy',
+        'runbook',
+        'adr',
+        'index',
+        'surface',
+        'screen',
+        'step',
+    ];
+
+    /**
+     * @var array<int,string>
+     */
+    private const CANONICAL_MODULE_ALLOWED_RISK = [
+        'low',
+        'medium',
+        'high',
+        'critical',
+    ];
+
+    /**
      * @var array<string,string>
      */
     private const GRANDFATHERED_SPLIT_REQUIRED = [
@@ -59,9 +158,12 @@ class EngineeringDocumentationHealthService
     {
         $docs = $this->scanDocs();
         $required = $this->requiredDocsReport($docs);
+        $frontmatterViolations = $this->frontmatterViolations($docs);
+        $canonicalViolations = $this->canonicalModuleViolations($docs);
         $violations = array_values(array_merge(
             $required['missing'],
-            $this->frontmatterViolations($docs),
+            $frontmatterViolations,
+            $canonicalViolations,
         ));
         $oversized = $this->oversizedDocs($docs);
 
@@ -73,7 +175,8 @@ class EngineeringDocumentationHealthService
                 'required_doc_count' => count(self::REQUIRED_DOCS),
                 'required_missing_count' => count($required['missing']),
                 'oversized_count' => count($oversized),
-                'frontmatter_violation_count' => count($this->frontmatterViolations($docs)),
+                'frontmatter_violation_count' => count($frontmatterViolations),
+                'canonical_module_violation_count' => count($canonicalViolations),
             ],
             'required_docs' => $required['items'],
             'oversized_docs' => $oversized,
@@ -109,6 +212,7 @@ class EngineeringDocumentationHealthService
                     'category' => (string) ($frontmatter['category'] ?? 'missing'),
                     'frontmatter' => $frontmatter,
                     'frontmatter_errors' => array_values((array) ($parsed['errors'] ?? [])),
+                    'body' => (string) ($parsed['body'] ?? ''),
                     'limit' => $this->lineLimit($relativePath, $frontmatter),
                 ];
             })
@@ -177,6 +281,98 @@ class EngineeringDocumentationHealthService
 
     /**
      * @param  array<int,array<string,mixed>>  $docs
+     * @return array<int,string>
+     */
+    private function canonicalModuleViolations(array $docs): array
+    {
+        $violations = [];
+        $graphIds = [];
+
+        foreach ($docs as $doc) {
+            $path = (string) $doc['path'];
+            $frontmatter = (array) $doc['frontmatter'];
+            if (($frontmatter['doc_schema'] ?? null) !== self::CANONICAL_MODULE_SCHEMA) {
+                continue;
+            }
+            if (str_contains($path, '/templates/')) {
+                continue;
+            }
+
+            foreach (self::CANONICAL_MODULE_REQUIRED_FRONTMATTER as $field) {
+                if (! array_key_exists($field, $frontmatter) || $frontmatter[$field] === [] || $frontmatter[$field] === '') {
+                    $violations[] = "{$path}: missing canonical module field [{$field}]";
+                }
+            }
+
+            $graphId = trim((string) ($frontmatter['graph_id'] ?? ''));
+            if ($graphId !== '') {
+                if (isset($graphIds[$graphId])) {
+                    $violations[] = "{$path}: duplicate graph_id [{$graphId}] already used by {$graphIds[$graphId]}";
+                }
+                $graphIds[$graphId] = $path;
+                if (! preg_match('/^[a-z0-9][a-z0-9-]*$/', $graphId)) {
+                    $violations[] = "{$path}: graph_id [{$graphId}] must be a stable lowercase ASCII slug";
+                }
+            }
+
+            $graphStatus = (string) ($frontmatter['graph_status'] ?? '');
+            if ($graphStatus !== '' && ! in_array($graphStatus, self::CANONICAL_MODULE_ALLOWED_STATUS, true)) {
+                $violations[] = "{$path}: graph_status [{$graphStatus}] is not allowed";
+            }
+
+            $graphLayer = (string) ($frontmatter['graph_layer'] ?? '');
+            if ($graphLayer !== '' && ! in_array($graphLayer, self::CANONICAL_MODULE_ALLOWED_LAYERS, true)) {
+                $violations[] = "{$path}: graph_layer [{$graphLayer}] is not allowed";
+            }
+
+            $graphKind = (string) ($frontmatter['graph_kind'] ?? '');
+            if ($graphKind !== '' && ! in_array($graphKind, self::CANONICAL_MODULE_ALLOWED_KINDS, true)) {
+                $violations[] = "{$path}: graph_kind [{$graphKind}] is not allowed";
+            }
+
+            $graphSource = (string) ($frontmatter['graph_source'] ?? '');
+            if ($graphSource !== '' && $graphSource !== 'repo') {
+                $violations[] = "{$path}: graph_source must be [repo] for canonical engineering docs";
+            }
+
+            $riskLevel = (string) ($frontmatter['risk_level'] ?? '');
+            if ($riskLevel !== '' && ! in_array($riskLevel, self::CANONICAL_MODULE_ALLOWED_RISK, true)) {
+                $violations[] = "{$path}: risk_level [{$riskLevel}] is not allowed";
+            }
+
+            foreach (['repo_paths', 'allowed_changes', 'forbidden_changes', 'evidence', 'required_tests', 'next_actions'] as $field) {
+                if (array_key_exists($field, $frontmatter) && ! is_array($frontmatter[$field])) {
+                    $violations[] = "{$path}: canonical module field [{$field}] must be a list";
+                }
+            }
+
+            if (array_key_exists('requires_evidence', $frontmatter) && ! is_bool($frontmatter['requires_evidence'])) {
+                $violations[] = "{$path}: canonical module field [requires_evidence] must be boolean";
+            }
+
+            foreach ((array) ($frontmatter['repo_paths'] ?? []) as $repoPath) {
+                $repoPath = trim((string) $repoPath);
+                if ($repoPath === '' || str_starts_with($repoPath, 'external:') || str_starts_with($repoPath, 'future:')) {
+                    continue;
+                }
+                if (! file_exists(base_path($repoPath))) {
+                    $violations[] = "{$path}: repo_paths entry [{$repoPath}] does not exist";
+                }
+            }
+
+            $body = (string) ($doc['body'] ?? '');
+            foreach (self::CANONICAL_MODULE_REQUIRED_SECTIONS as $section) {
+                if (! preg_match('/^##\s+'.preg_quote($section, '/').'\s*$/mi', $body)) {
+                    $violations[] = "{$path}: missing canonical module section [{$section}]";
+                }
+            }
+        }
+
+        return $violations;
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $docs
      * @return array<int,array<string,mixed>>
      */
     private function oversizedDocs(array $docs): array
@@ -208,6 +404,9 @@ class EngineeringDocumentationHealthService
     {
         if (array_key_exists($path, self::REQUIRED_DOCS)) {
             return self::REQUIRED_DOCS[$path];
+        }
+        if (($frontmatter['doc_schema'] ?? null) === self::CANONICAL_MODULE_SCHEMA) {
+            return 520;
         }
         if (str_contains($path, '/archive/')) {
             return null;

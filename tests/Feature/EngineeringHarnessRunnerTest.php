@@ -2654,6 +2654,12 @@ class EngineeringHarnessRunnerTest extends TestCase
             ->assertJsonPath('executive_summary.claim_status', 'atlas_leading_but_blocked')
             ->assertJsonPath('executive_summary.winner', 'atlas')
             ->assertJsonPath('executive_summary.sample.comparable_cases', 1)
+            ->assertJsonPath('battery_execution_contract.schema_version', 'atlas.fair_claude.battery_execution_contract.v1')
+            ->assertJsonPath('battery_execution_contract.operator_required', true)
+            ->assertJsonPath('battery_execution_contract.agent_auto_execution_allowed', false)
+            ->assertJsonPath('battery_execution_contract.provider_dispatch_required', true)
+            ->assertJsonPath('battery_execution_contract.current_state.comparable_case_count', 1)
+            ->assertJsonPath('battery_execution_contract.commands.runbook', 'atlas rivals runbook --json')
             ->assertJsonPath('evidence_packet.kind', 'fair_claude_claim_evidence_packet')
             ->assertJsonPath('evidence_packet.protocol.atlas_provider_lock', 'claude_cli')
             ->assertJsonPath('evidence_packet.protocol.atlas_model_lock', 'opus')
@@ -3059,6 +3065,157 @@ class EngineeringHarnessRunnerTest extends TestCase
         $this->assertSame(6, data_get($report, 'readiness.release_corpus_case_count'));
         $this->assertSame(8, data_get($report, 'readiness.active_corpus_case_count'));
         $this->assertNotContains('fair_release_corpus_below_minimum', data_get($report, 'readiness.blocking_reasons', []));
+    }
+
+    public function test_fair_claude_prepare_api_seeds_corpus_for_mobile_rivals(): void
+    {
+        $this->postJson('/engineering/benchmarks/fair-claude/prepare', [
+            'suite' => 'atlas-fair-claude-v1',
+        ], $this->headers)
+            ->assertOk()
+            ->assertJsonPath('suite.slug', 'atlas-fair-claude-v1')
+            ->assertJsonPath('promoted_count', 8)
+            ->assertJsonPath('corpus_manifest.official_subsets.release', 6);
+
+        $this->getJson('/engineering/benchmarks/suites/atlas-fair-claude-v1/fair-claude-report', $this->headers)
+            ->assertOk()
+            ->assertJsonPath('readiness.release_corpus_case_count', 6)
+            ->assertJsonPath('readiness.active_corpus_case_count', 8)
+            ->assertJsonPath('battery_execution_contract.status', 'operator_execution_required')
+            ->assertJsonPath('battery_execution_contract.current_state.corpus_prepared', true)
+            ->assertJsonPath('battery_execution_contract.current_state.comparable_case_count', 0)
+            ->assertJsonPath('battery_execution_contract.external_cost_possible', true)
+            ->assertJsonFragment([
+                'id' => 'run_battery_runbook',
+                'command' => 'atlas rivals runbook --json',
+            ])
+            ->assertJsonMissingPath('error');
+    }
+
+    public function test_rivals_battery_plan_is_read_only_and_requires_operator_confirmation(): void
+    {
+        $this->postJson('/engineering/benchmarks/fair-claude/prepare', [
+            'suite' => 'atlas-fair-claude-v1',
+        ], $this->headers)->assertOk();
+
+        $this->postJson('/engineering/benchmarks/suites/atlas-fair-claude-v1/rivals/battery-plan', [
+            'mode' => 'official_fair',
+            'workspace' => $this->workspace,
+            'baseline_workspace' => $this->createWorkspace(),
+            'provider' => 'claude_cli',
+            'model' => 'opus',
+            'limit' => 6,
+        ], $this->headers)
+            ->assertOk()
+            ->assertJsonPath('battery_plan.schema_version', 'atlas.rivals.battery_plan.v1')
+            ->assertJsonPath('battery_plan.status', 'ready_for_operator_confirmation')
+            ->assertJsonPath('battery_plan.ready', true)
+            ->assertJsonPath('battery_plan.operator_required', true)
+            ->assertJsonPath('battery_plan.cost_acknowledgement_required', true)
+            ->assertJsonPath('battery_plan.agent_auto_execution_allowed', false)
+            ->assertJsonPath('battery_plan.safety.no_provider_call', true)
+            ->assertJsonPath('battery_plan.safety.no_benchmark_run_created', true)
+            ->assertJsonPath('battery_plan.execution_intent.baseline', 'paired')
+            ->assertJsonPath('battery_plan.execution_intent.fair_claim_eligible', true)
+            ->assertJsonPath('battery_plan.selection_contract.schema_version', 'atlas.rivals.battery_selection_contract.v1')
+            ->assertJsonPath('battery_plan.selection_contract.allowed_modes.0.id', 'official_fair')
+            ->assertJsonPath('battery_plan.selection_contract.allowed_modes.1.id', 'same_model')
+            ->assertJsonPath('battery_plan.selection_contract.allowed_modes.2.id', 'max')
+            ->assertJsonPath('battery_plan.selection_contract.ui_must_send_provider_and_model_for_modes.0', 'official_fair')
+            ->assertJsonPath('battery_plan.selection_contract.provider_model_options.0.provider', 'claude_cli')
+            ->assertJsonPath('battery_plan.corpus.release_case_count', 6)
+            ->assertJsonMissingPath('error');
+
+        $this->postJson('/engineering/benchmarks/suites/atlas-fair-claude-v1/rivals/battery-plan', [
+            'mode' => 'official_fair',
+            'workspace' => $this->workspace,
+            'provider' => 'claude_cli',
+            'model' => 'opus',
+        ], $this->headers)
+            ->assertOk()
+            ->assertJsonPath('battery_plan.status', 'blocked')
+            ->assertJsonPath('battery_plan.ready', false)
+            ->assertJsonFragment(['separate_baseline_workspace_required']);
+    }
+
+    public function test_rivals_battery_plan_requires_atlas_token(): void
+    {
+        $this->postJson('/engineering/benchmarks/suites/atlas-fair-claude-v1/rivals/battery-plan', [
+            'mode' => 'official_fair',
+            'workspace' => $this->workspace,
+            'baseline_workspace' => $this->createWorkspace(),
+            'provider' => 'claude_cli',
+            'model' => 'opus',
+            'limit' => 6,
+        ], ['X-Atlas-Token' => 'wrong-token-with-enough-length'])
+            ->assertUnauthorized()
+            ->assertJsonPath('error.message', 'Invalid or missing X-Atlas-Token.');
+    }
+
+    public function test_rivals_battery_run_requires_review_cost_acknowledgement_and_current_plan_hash(): void
+    {
+        $this->postJson('/engineering/benchmarks/fair-claude/prepare', [
+            'suite' => 'atlas-fair-claude-v1',
+        ], $this->headers)->assertOk();
+
+        $baselineWorkspace = $this->createWorkspace();
+        $plan = $this->postJson('/engineering/benchmarks/suites/atlas-fair-claude-v1/rivals/battery-plan', [
+            'mode' => 'official_fair',
+            'workspace' => $this->workspace,
+            'baseline_workspace' => $baselineWorkspace,
+            'provider' => 'claude_cli',
+            'model' => 'opus',
+            'limit' => 6,
+        ], $this->headers)
+            ->assertOk()
+            ->json('battery_plan');
+
+        $runPayload = [
+            'workspace' => $this->workspace,
+            'provider' => 'claude_cli',
+            'model' => 'opus',
+            'model_policy' => 'fixed',
+            'fair_mode' => true,
+            'claude_only' => true,
+            'single_provider' => true,
+            'no_decide' => true,
+            'fallback_disabled' => true,
+            'require_pass_without_human' => true,
+            'claude_code_baseline' => 'run',
+            'claude_code_baseline_mode' => 'run',
+            'claude_code_baseline_model' => 'opus',
+            'claude_code_baseline_workspace' => $baselineWorkspace,
+            'baseline_runner' => 'run',
+            'baseline_model' => 'opus',
+            'limit' => 6,
+            'corpus_tier' => 'release',
+            'rivals_battery_mode' => 'official_fair',
+            'rivals_battery_plan_hash' => data_get($plan, 'plan_hash'),
+        ];
+        $before = AtlasEngineeringBenchmarkRun::query()->count();
+
+        $this->postJson('/engineering/benchmarks/suites/atlas-fair-claude-v1/run', $runPayload, $this->headers)
+            ->assertStatus(422)
+            ->assertJsonPath('error', 'rivals_battery_plan_review_required');
+
+        $this->postJson('/engineering/benchmarks/suites/atlas-fair-claude-v1/run', [
+            ...$runPayload,
+            'operator_plan_reviewed' => true,
+        ], $this->headers)
+            ->assertStatus(422)
+            ->assertJsonPath('error', 'rivals_battery_cost_acknowledgement_required');
+
+        $this->postJson('/engineering/benchmarks/suites/atlas-fair-claude-v1/run', [
+            ...$runPayload,
+            'operator_plan_reviewed' => true,
+            'operator_cost_acknowledged' => true,
+            'rivals_battery_plan_hash' => str_repeat('0', 64),
+        ], $this->headers)
+            ->assertStatus(422)
+            ->assertJsonPath('error', 'rivals_battery_plan_hash_mismatch')
+            ->assertJsonPath('battery_plan.safety.no_provider_call', true);
+
+        $this->assertSame($before, AtlasEngineeringBenchmarkRun::query()->count());
     }
 
     public function test_fair_claude_runbook_reports_real_battery_commands_and_start_blockers(): void

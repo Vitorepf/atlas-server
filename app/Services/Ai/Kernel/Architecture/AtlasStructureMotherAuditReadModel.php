@@ -10,7 +10,6 @@ use App\Services\Ai\Scheduling\LongRunningWorkReadModel;
 use App\Services\Ai\Tasks\TaskOrchestrationReadModel;
 use App\Services\Ai\Telemetry\AiProviderCostRateService;
 use App\Services\Engineering\EngineeringDocumentationHealthService;
-use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\Schema;
 
 class AtlasStructureMotherAuditReadModel
@@ -164,8 +163,11 @@ class AtlasStructureMotherAuditReadModel
                         'active_insight_item_count',
                         'critical_insight_item_count',
                         'active_critical_insight_item_count',
+                        'push_requested_insight_count',
                         'push_delivery_count',
                     ]),
+                    'mobile_push_configuration' => $proactive['mobile_push_configuration'] ?? null,
+                    'review_signal' => $proactive['review_signal'] ?? null,
                     'critical_review_contract' => $proactive['critical_review_contract'] ?? null,
                 ],
                 command: 'php artisan atlas:ai:proactive-layer-report --hours='.$hours.' --json',
@@ -438,6 +440,7 @@ class AtlasStructureMotherAuditReadModel
     {
         $byId = collect($modules)->keyBy('id');
         $rivals = (array) data_get($byId->get('evaluation_rivals_framework'), 'evidence.p4_promotion_readiness', []);
+        $proactiveEvidence = (array) data_get($byId->get('notification_proactive_layer'), 'evidence', []);
         $critical = (array) data_get($byId->get('notification_proactive_layer'), 'evidence.critical_review_contract', []);
         $actions = [];
 
@@ -450,7 +453,27 @@ class AtlasStructureMotherAuditReadModel
                 'due_at' => data_get($rivals, 'next_review.review_due_at'),
                 'command' => data_get($rivals, 'next_review.record_command'),
                 'operator_required' => true,
+                'actionable_now' => false,
+                'calendar_wait_required' => true,
                 'synthetic_completion_allowed' => false,
+                'api' => [
+                    'method' => 'POST',
+                    'endpoint' => '/ai/rivals-strategy/review',
+                    'body' => [
+                        'review_id' => data_get($rivals, 'next_review.id', '<review-id>'),
+                        'regret_score' => '<0-100>',
+                        'alignment_score' => '<0-100>',
+                        'agency_score' => '<0-100>',
+                        'outcome_summary' => '<operator evidence summary>',
+                    ],
+                    'score_fields' => ['regret_score', 'alignment_score', 'agency_score'],
+                    'score_range' => [0, 100],
+                    'operator_required' => true,
+                    'review_due_at_required' => true,
+                    'synthetic_scores_allowed' => false,
+                    'completion_gate_recheck_required' => true,
+                    'recording_schema_version' => 'atlas.rivals_strategy.review_recording.v1',
+                ],
                 'notes' => [
                     'Wait until the review horizon is real.',
                     'Record regret/alignment/agency only from operator review evidence.',
@@ -465,9 +488,21 @@ class AtlasStructureMotherAuditReadModel
                 'type' => 'human_inbox_review',
                 'status' => 'pending',
                 'operator_required' => true,
+                'actionable_now' => true,
+                'calendar_wait_required' => false,
                 'agent_auto_resolve_allowed' => false,
                 'agent_auto_dismiss_allowed' => false,
                 'critical_active_count' => (int) ($critical['critical_active_count'] ?? 0),
+                'review_command' => (string) data_get(
+                    $critical,
+                    'operator_review_plan.commands.review_critical',
+                    'php artisan atlas:cli:inbox review-critical',
+                ),
+                'review_command_json' => (string) data_get(
+                    $critical,
+                    'operator_review_plan.commands.review_critical_json',
+                    'php artisan atlas:cli:inbox review-critical --json',
+                ),
                 'review_paths' => collect((array) ($critical['items'] ?? []))
                     ->map(fn (array $item): ?string => is_string($item['review_path'] ?? null) ? $item['review_path'] : null)
                     ->filter()
@@ -475,6 +510,81 @@ class AtlasStructureMotherAuditReadModel
                     ->all(),
                 'item_commands' => (array) data_get($critical, 'operator_review_plan.item_commands', []),
                 'allowed_actions' => (array) ($critical['allowed_actions'] ?? []),
+                'api' => [
+                    'review' => [
+                        'method' => 'GET',
+                        'endpoint' => '/v1/mobile/inbox/critical-review',
+                        'raw_payload_exposed' => false,
+                    ],
+                    'respond' => [
+                        'method' => 'POST',
+                        'endpoint_template' => '/v1/mobile/inbox/{inbox_item_id}/respond',
+                        'allowed_action_ids' => ['mark_read', 'snooze', 'dismiss'],
+                        'reason_required_for' => ['mark_read', 'snooze', 'dismiss'],
+                        'evidence_required_for' => ['dismiss'],
+                        'receipt_event_type' => 'inbox.action.completed',
+                        'ledger_schema_version' => 'atlas.inbox_action.receipt.v1',
+                    ],
+                    'discuss' => [
+                        'method' => 'POST',
+                        'endpoint_template' => '/v1/mobile/inbox/{inbox_item_id}/discuss',
+                        'receipt_event_type' => 'inbox.action.completed',
+                    ],
+                    'operator_required' => true,
+                    'agent_auto_resolve_allowed' => false,
+                    'agent_auto_dismiss_allowed' => false,
+                ],
+            ];
+        }
+
+        if (in_array('push_requested_without_delivery_attempt', (array) data_get($proactiveEvidence, 'review_signal.reasons', []), true)) {
+            $actions[] = [
+                'id' => 'replay_pending_mobile_push_dispatches',
+                'module_id' => 'notification_proactive_layer',
+                'type' => 'operator_push_replay',
+                'status' => 'pending',
+                'operator_required' => true,
+                'actionable_now' => true,
+                'calendar_wait_required' => false,
+                'agent_auto_dispatch_allowed' => false,
+                'external_notification_possible' => true,
+                'push_requested_insight_count' => (int) data_get($proactiveEvidence, 'push_requested_insight_count', 0),
+                'push_delivery_count' => (int) data_get($proactiveEvidence, 'push_delivery_count', 0),
+                'diagnostics' => (array) data_get($proactiveEvidence, 'mobile_push_configuration.delivery_diagnostics', []),
+                'dry_run_command' => (string) data_get(
+                    $proactiveEvidence,
+                    'mobile_push_configuration.pending_dispatch_commands.dry_run',
+                    'php artisan atlas:cli:mobile replay-push --json',
+                ),
+                'apply_command' => "php artisan atlas:cli:mobile replay-push --apply --confirm-external-dispatch --reason='<operator evidence summary>' --json",
+                'canonical_apply_command' => "php artisan atlas:cli:mobile replay-push --apply --confirm-external-dispatch --reason='<operator evidence summary>' --json",
+                'api' => [
+                    'method' => 'POST',
+                    'endpoint' => '/ai/mobile/push/replay',
+                    'dry_run_body' => [
+                        'limit' => 50,
+                        'apply' => false,
+                    ],
+                    'apply_body' => [
+                        'limit' => 50,
+                        'apply' => true,
+                        'confirm_external_dispatch' => true,
+                        'reason' => '<operator evidence summary>',
+                    ],
+                    'prior_dry_run_required' => true,
+                    'apply_requires_prior_dry_run' => true,
+                    'prior_dry_run_max_age_minutes' => 15,
+                    'prior_dry_run_candidate_required' => true,
+                    'confirmation_required' => true,
+                    'operator_reason_required' => true,
+                    'receipt_event_type' => 'mobile.push_replay.requested',
+                    'raw_push_tokens_exposed' => false,
+                    'raw_device_ids_exposed' => false,
+                ],
+                'notes' => [
+                    'Dry-run first to list candidate inbox items.',
+                    'Apply sends real mobile push notifications and must be started by the operator.',
+                ],
             ];
         }
 
@@ -489,6 +599,8 @@ class AtlasStructureMotherAuditReadModel
                 'type' => 'human_cost_rate_review',
                 'status' => 'pending',
                 'operator_required' => true,
+                'actionable_now' => true,
+                'calendar_wait_required' => false,
                 'agent_may_not_infer_prices' => true,
                 'current_provider_pricing_required' => true,
                 'list_missing_command' => 'php artisan atlas:ai:telemetry:cost-rates --missing --hours=240 --json',
@@ -510,10 +622,13 @@ class AtlasStructureMotherAuditReadModel
             ];
         }
 
+        $actionSummary = $this->operatorActionSummary($actions, $complete);
+
         return [
             'schema_version' => 'atlas.structure_mother.operator_action_plan.v1',
             'status' => $complete ? 'clear' : ($actions === [] ? 'blocked_without_action_plan' : 'pending_operator_or_calendar_action'),
             'action_count' => count($actions),
+            'action_summary' => $actionSummary,
             'actions' => $actions,
             'rules' => [
                 'agent_may_not_fabricate_rivals_scores' => true,
@@ -521,6 +636,35 @@ class AtlasStructureMotherAuditReadModel
                 'agent_may_not_infer_provider_prices' => true,
                 'operator_or_calendar_required_for_completion' => ! $complete,
             ],
+        ];
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $actions
+     * @return array<string,mixed>
+     */
+    private function operatorActionSummary(array $actions, bool $complete): array
+    {
+        $collection = collect($actions);
+        $actionableNow = $collection->filter(fn (array $action): bool => (bool) ($action['actionable_now'] ?? false))->values();
+        $calendarWait = $collection->filter(fn (array $action): bool => (bool) ($action['calendar_wait_required'] ?? false))->values();
+
+        return [
+            'schema_version' => 'atlas.structure_mother.operator_action_summary.v1',
+            'status' => $complete ? 'clear' : ($actionableNow->isNotEmpty() ? 'operator_action_available_now' : 'waiting_for_calendar_or_external_evidence'),
+            'actionable_now_count' => $actionableNow->count(),
+            'calendar_wait_count' => $calendarWait->count(),
+            'human_review_action_count' => $collection->where('operator_required', true)->count(),
+            'external_effect_action_count' => $collection
+                ->filter(fn (array $action): bool => (bool) ($action['external_notification_possible'] ?? false))
+                ->count(),
+            'next_calendar_due_at' => $calendarWait
+                ->map(fn (array $action): ?string => is_string($action['due_at'] ?? null) ? $action['due_at'] : null)
+                ->filter()
+                ->sort()
+                ->first(),
+            'next_action_ids' => $actionableNow->pluck('id')->values()->all(),
+            'calendar_action_ids' => $calendarWait->pluck('id')->values()->all(),
         ];
     }
 

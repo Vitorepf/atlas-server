@@ -19,11 +19,13 @@ capabilities:
   - canonical_source_governance
   - documentation_health
   - session_bootstrap
+  - canonical_module_doc_v1
 decisions:
   - Documentacao e parte do produto Atlas, nao tarefa secundaria.
   - Toda sessao nova deve conseguir descobrir status real sem depender de memoria de chat.
   - A hierarquia entre repo docs, Postgres, Obsidian, provider projections e chat e definida por `atlas-ai-knowledge-governance-system.md`.
   - Docs ativos devem ser curtos, indexaveis, com ownership claro e links para implementacao.
+  - Docs tecnicos que alimentam Cartografia ou Atlas Code devem usar `doc_schema: atlas_canonical_module_doc.v1`.
   - Docs longos devem ser divididos em specs menores antes de receber novas responsabilidades.
 maintenance:
   - Manter abaixo de 260 linhas.
@@ -31,6 +33,7 @@ maintenance:
   - Rodar sync e index-code depois de alterar docs canonicos.
 related_paths:
   - docs/engineering-knowledge-base/atlas-ai-session-bootstrap.md
+  - docs/engineering-knowledge-base/atlas-canonical-module-doc-v1.md
   - docs/engineering-knowledge-base/atlas-ai-knowledge-governance-system.md
   - docs/engineering-knowledge-base/START_HERE.md
   - docs/engineering-knowledge-base/README.md
@@ -46,20 +49,16 @@ related_paths:
 # Atlas AI Documentation Operating System
 
 Este documento define como a documentacao do Atlas deve funcionar para humanos,
-IAs, CLI, app, context packs e futuras sessoes.
-
-O objetivo e eliminar perda de contexto, duplicacao, docs concorrentes e falso
-negativo do tipo "achei que nao existia".
+IAs, CLI, app, context packs e futuras sessoes, eliminando perda de contexto,
+duplicacao, docs concorrentes e falso negativo do tipo "achei que nao existia".
 
 ## Principio Central
 
-Documentacao e infraestrutura de inteligencia.
+Documentacao e infraestrutura de inteligencia. Se o Atlas nao consegue explicar
+com precisao o que ele e, o que existe, o que falta e como evoluir, entao o
+sistema ainda nao esta enterprise.
 
-Se o Atlas nao consegue explicar com precisao o que ele e, o que existe, o que
-falta e como evoluir, entao o sistema ainda nao esta enterprise.
-
-Governanca documental e lei do kernel: `atlas ai architecture-validate` deve
-falhar quando bootstrap, frontmatter ou docs obrigatorios estiverem quebrados.
+Governanca documental e lei do kernel: `atlas ai architecture-validate` deve falhar quando bootstrap, frontmatter ou docs obrigatorios estiverem quebrados.
 
 ## Perguntas Canonicas
 
@@ -81,6 +80,7 @@ Toda organizacao documental deve permitir responder rapidamente:
 | Bootstrap | resposta curta para nova sessao | `atlas-ai-session-bootstrap.md` |
 | Authority | hierarquia e conflito entre docs | `atlas-ai-canonical-architecture-index.md` |
 | Documentation OS | regras de documentacao | este documento |
+| Canonical Module Doc | formato forte para docs tecnicos navegaveis e seguros para IA | `atlas-canonical-module-doc-v1.md` |
 | Knowledge Governance | fonte de verdade entre repo docs, Postgres, Obsidian, provider projections e chat | `atlas-ai-knowledge-governance-system.md` |
 | Kernel | contratos executaveis | `atlas-ai-kernel-architecture.md` e specs fatiadas |
 | Master | produto, planes, dominios e estrategia | `atlas-ai-master-architecture.md` |
@@ -96,6 +96,7 @@ Docs ativos precisam caber bem em context packs e leitura de IA.
 |---|---:|---|
 | Bootstrap / index | 180 linhas | dividir em indice + detalhe |
 | Contrato canonico | 260 linhas | extrair sub-spec por assunto |
+| Canonical Module Doc v1 | 520 linhas | dividir em contrato pai + filhos de fluxo/modulo |
 | Domain spec | 260 linhas | dividir flows/gates/runtime |
 | AP / phase spec | 300 linhas | dividir por AP ou fase |
 | Runbook operacional | 220 linhas | mover exemplos longos para appendix |
@@ -123,8 +124,9 @@ maintenance:
 related_paths:
 ```
 
-Campos `summary`, `decisions`, `maintenance` e `related_paths` sao criticos para
-context pack, retrieval, revisao e continuidade.
+Campos `summary`, `decisions`, `maintenance` e `related_paths` sao criticos para context pack, retrieval, revisao e continuidade.
+
+Quando o doc governa uma peca navegavel da Cartografia ou uma area executada por IA, ele tambem deve declarar `doc_schema: atlas_canonical_module_doc.v1` e os campos de grafo, escopo, proibicoes, evidencias e testes definidos em `atlas-canonical-module-doc-v1.md`.
 
 ## Status Permitidos
 

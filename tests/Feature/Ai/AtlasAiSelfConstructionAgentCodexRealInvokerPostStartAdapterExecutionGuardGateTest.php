@@ -49,6 +49,10 @@ class AtlasAiSelfConstructionAgentCodexRealInvokerPostStartAdapterExecutionGuard
         $this->assertFalse($result['adapter_execution_allowed']);
         $this->assertFalse($result['dispatch_allowed']);
         $this->assertSame('provider_adapter_execution_blocked', data_get($result, 'provider_adapter_execution_guard_result.status'));
+        $this->assertSame(
+            'codex-real-invoker-post-start-evidence-acceptance-bridge-001',
+            $result['post_start_evidence_acceptance_bridge_id']
+        );
 
         $observedRun = AtlasSelfConstructionAgentRun::query()
             ->where('run_key', 'codex-post-start-observed-run-001')
@@ -123,6 +127,23 @@ class AtlasAiSelfConstructionAgentCodexRealInvokerPostStartAdapterExecutionGuard
 
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('dispatch_allowed_already_true');
+
+        app(AgentCodexRealInvokerPostStartAdapterExecutionGuardGate::class)
+            ->blockPostStartAdapterExecution($this->validInput());
+    }
+
+    public function test_post_start_adapter_execution_guard_rejects_boundary_without_evidence_acceptance_bridge(): void
+    {
+        $this->createPrerequisites([
+            'observed_run' => [
+                'metadata' => $this->metadataWithBoundary([
+                    'post_start_evidence_acceptance_bridge_id' => null,
+                ]),
+            ],
+        ]);
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('post_start_evidence_acceptance_bridge_id_mismatch');
 
         app(AgentCodexRealInvokerPostStartAdapterExecutionGuardGate::class)
             ->blockPostStartAdapterExecution($this->validInput());
@@ -249,6 +270,7 @@ class AtlasAiSelfConstructionAgentCodexRealInvokerPostStartAdapterExecutionGuard
                 'provider_start_run_key' => 'provider-start:codex-post-start-attempt-001',
                 'dispatch_executor_handoff_id' => 'codex-real-invoker-post-start-dispatch-executor-handoff-001',
                 'signed_dispatch_authorization_id' => 'codex-real-invoker-post-start-signed-dispatch-auth-001',
+                'post_start_evidence_acceptance_bridge_id' => 'codex-real-invoker-post-start-evidence-acceptance-bridge-001',
                 'signed_dispatch_receipt_hash' => str_repeat('a', 64),
                 'context_pack_hash' => str_repeat('1', 64),
                 'continuation_summary_hash' => str_repeat('2', 64),
@@ -313,6 +335,7 @@ class AtlasAiSelfConstructionAgentCodexRealInvokerPostStartAdapterExecutionGuard
             'provider_start_attempt_id' => 'codex-post-start-attempt-001',
             'dispatch_executor_handoff_id' => 'codex-real-invoker-post-start-dispatch-executor-handoff-001',
             'signed_dispatch_authorization_id' => 'codex-real-invoker-post-start-signed-dispatch-auth-001',
+            'post_start_evidence_acceptance_bridge_id' => 'codex-real-invoker-post-start-evidence-acceptance-bridge-001',
             'signed_dispatch_receipt_hash' => str_repeat('a', 64),
             'actor' => 'codex-a',
             'session' => 'session-a',

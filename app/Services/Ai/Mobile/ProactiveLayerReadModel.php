@@ -4,6 +4,7 @@ namespace App\Services\Ai\Mobile;
 
 use App\Models\AiInboxItem;
 use App\Models\AtlasInitiativeRun;
+use App\Models\AtlasMobileDevice;
 use App\Models\MobilePushDelivery;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
@@ -51,8 +52,9 @@ class ProactiveLayerReadModel
             ->latest()
             ->get();
         $pushDeliveries = $this->pushDeliveries($insights, $tables['mobile_push_deliveries']);
+        $mobilePushConfiguration = $this->mobilePushConfiguration($insights, $tables['atlas_mobile_devices']);
 
-        $summary = $this->summary($runs, $insights, $pushDeliveries, $tables['mobile_push_deliveries']);
+        $summary = $this->summary($runs, $insights, $pushDeliveries, $tables['mobile_push_deliveries'], $mobilePushConfiguration);
         $reviewSignal = $this->reviewSignal($summary);
 
         return [
@@ -62,7 +64,7 @@ class ProactiveLayerReadModel
             'tables' => $tables,
             'status' => $reviewSignal['status'] === 'ok' ? 'ok' : 'warning',
             ...$summary,
-            'safety' => $this->reportSafety($tables['mobile_push_deliveries']),
+            'safety' => $this->reportSafety($tables['mobile_push_deliveries'], (bool) data_get($mobilePushConfiguration, 'push_dispatch_enabled')),
             'review_signal' => $reviewSignal,
             'critical_review_contract' => $this->criticalReviewContract($insights),
             'latest_runs' => $runs->take(10)->map(fn (AtlasInitiativeRun $run): array => $this->runPayload($run))->values()->all(),
@@ -79,6 +81,7 @@ class ProactiveLayerReadModel
         return [
             'atlas_initiative_runs' => Schema::hasTable('atlas_initiative_runs'),
             'ai_inbox_items' => Schema::hasTable('ai_inbox_items'),
+            'atlas_mobile_devices' => Schema::hasTable('atlas_mobile_devices'),
             'mobile_push_deliveries' => Schema::hasTable('mobile_push_deliveries'),
         ];
     }
@@ -103,9 +106,10 @@ class ProactiveLayerReadModel
      * @param  Collection<int,AtlasInitiativeRun>  $runs
      * @param  Collection<int,AiInboxItem>  $insights
      * @param  Collection<int,MobilePushDelivery>  $pushDeliveries
+     * @param  array<string,mixed>  $mobilePushConfiguration
      * @return array<string,mixed>
      */
-    private function summary(Collection $runs, Collection $insights, Collection $pushDeliveries, bool $pushTableExists): array
+    private function summary(Collection $runs, Collection $insights, Collection $pushDeliveries, bool $pushTableExists, array $mobilePushConfiguration): array
     {
         $emittedIds = $runs
             ->flatMap(fn (AtlasInitiativeRun $run): array => (array) ($run->emitted_inbox_item_ids ?? []))
@@ -113,6 +117,12 @@ class ProactiveLayerReadModel
             ->unique()
             ->values();
         $candidateCount = $runs->sum(fn (AtlasInitiativeRun $run): int => count((array) ($run->findings ?? [])));
+        $pushRequestedInsightCount = $insights
+            ->filter(fn (AiInboxItem $item): bool => ($item->push_policy['send'] ?? 'auto') !== 'none')
+            ->count();
+        $activePushRequestedInsightCount = $this->activeInsights($insights)
+            ->filter(fn (AiInboxItem $item): bool => ($item->push_policy['send'] ?? 'auto') !== 'none')
+            ->count();
 
         return [
             'run_count' => $runs->count(),
@@ -131,8 +141,11 @@ class ProactiveLayerReadModel
             'severity_counts' => $insights->pluck('severity')->countBy()->all(),
             'category_counts' => $insights->pluck('category')->filter()->countBy()->all(),
             'push_delivery_available' => $pushTableExists,
+            'push_requested_insight_count' => $pushRequestedInsightCount,
+            'active_push_requested_insight_count' => $activePushRequestedInsightCount,
             'push_delivery_count' => $pushDeliveries->count(),
             'push_status_counts' => $pushDeliveries->pluck('status')->countBy()->all(),
+            'mobile_push_configuration' => $mobilePushConfiguration,
         ];
     }
 
@@ -142,21 +155,62 @@ class ProactiveLayerReadModel
      */
     private function reviewSignal(array $summary): array
     {
+        $reasons = [];
+        $recommendedAction = 'continue_proactive_layer_monitoring';
+        $severity = 'none';
+
         if ((int) ($summary['failed_run_count'] ?? 0) > 0) {
-            return [
-                'status' => 'warning',
-                'severity' => 'medium',
-                'reasons' => ['insight_watch_runs_failed'],
-                'recommended_action' => 'inspect_failed_insight_watch_runs',
-            ];
+            $reasons[] = 'insight_watch_runs_failed';
+            $recommendedAction = 'inspect_failed_insight_watch_runs';
+            $severity = 'medium';
         }
 
         if ((int) ($summary['active_critical_insight_item_count'] ?? 0) > 0) {
+            $reasons[] = 'critical_proactive_insights_active';
+            $recommendedAction = 'review_critical_proactive_insights';
+            $severity = 'high';
+        }
+
+        if ((int) ($summary['active_push_requested_insight_count'] ?? $summary['push_requested_insight_count'] ?? 0) > 0
+            && ! (bool) data_get($summary, 'mobile_push_configuration.push_dispatch_enabled')) {
+            $reasons[] = 'mobile_push_dispatch_disabled';
+            if ($severity === 'none') {
+                $severity = 'medium';
+                $recommendedAction = 'enable_mobile_push_or_accept_inbox_only_delivery';
+            }
+        }
+
+        $pushBlockedReason = data_get($summary, 'mobile_push_configuration.push_dispatch_blocked_reason');
+        if (is_string($pushBlockedReason) && $pushBlockedReason !== '' && ! in_array($pushBlockedReason, $reasons, true)) {
+            $reasons[] = $pushBlockedReason;
+            if ($severity === 'none') {
+                $severity = 'medium';
+            }
+            $recommendedAction = match ($pushBlockedReason) {
+                'no_registered_push_token' => 'register_mobile_push_token',
+                'notification_permission_denied' => 'enable_mobile_notification_permission',
+                'mobile_device_table_missing' => 'run_mobile_gateway_migrations',
+                default => $recommendedAction,
+            };
+        }
+
+        if ((int) ($summary['active_push_requested_insight_count'] ?? $summary['push_requested_insight_count'] ?? 0) > 0
+            && (int) ($summary['push_delivery_count'] ?? 0) === 0
+            && (bool) data_get($summary, 'mobile_push_configuration.push_dispatch_enabled')
+            && data_get($summary, 'mobile_push_configuration.push_dispatch_blocked_reason') === null) {
+            $reasons[] = 'push_requested_without_delivery_attempt';
+            if ($severity === 'none') {
+                $severity = 'medium';
+            }
+            $recommendedAction = 'replay_pending_mobile_push_dispatches';
+        }
+
+        if ($reasons !== []) {
             return [
                 'status' => 'warning',
-                'severity' => 'high',
-                'reasons' => ['critical_proactive_insights_active'],
-                'recommended_action' => 'review_critical_proactive_insights',
+                'severity' => $severity,
+                'reasons' => array_values(array_unique($reasons)),
+                'recommended_action' => $recommendedAction,
             ];
         }
 
@@ -171,7 +225,7 @@ class ProactiveLayerReadModel
     /**
      * @return array<string,mixed>
      */
-    private function reportSafety(bool $pushDeliveryAvailable): array
+    private function reportSafety(bool $pushDeliveryAvailable, bool $pushDispatchEnabled): array
     {
         return [
             'schema_version' => 'atlas.proactive_layer.report_safety.v1',
@@ -179,6 +233,7 @@ class ProactiveLayerReadModel
             'writes' => false,
             'atlas_initiated_insights_only' => true,
             'push_delivery_available' => $pushDeliveryAvailable,
+            'push_dispatch_enabled' => $pushDispatchEnabled,
             'push_pointer_only' => true,
             'authenticated_fetch_required' => true,
             'deep_link_only_delivery' => true,
@@ -190,6 +245,99 @@ class ProactiveLayerReadModel
             'agent_auto_dismiss_allowed' => false,
             'operator_review_required_for_critical' => true,
         ];
+    }
+
+    /**
+     * @param  Collection<int,AiInboxItem>  $insights
+     * @return array<string,mixed>
+     */
+    private function mobilePushConfiguration(Collection $insights, bool $deviceTableExists): array
+    {
+        $mobileEnabled = (bool) config('atlas.mobile.enabled', false);
+        $pushRequestedInsightCount = $insights
+            ->filter(fn (AiInboxItem $item): bool => ($item->push_policy['send'] ?? 'auto') !== 'none')
+            ->count();
+        $activePushRequestedInsightCount = $this->activeInsights($insights)
+            ->filter(fn (AiInboxItem $item): bool => ($item->push_policy['send'] ?? 'auto') !== 'none')
+            ->count();
+        $userIds = $insights
+            ->pluck('user_id')
+            ->filter(fn (mixed $id): bool => is_string($id) && $id !== '')
+            ->unique()
+            ->values()
+            ->all();
+        $devices = $deviceTableExists
+            ? AtlasMobileDevice::query()
+                ->when($userIds !== [], fn ($query) => $query->whereIn('user_id', $userIds))
+                ->get()
+            : collect();
+        $activeDevices = $devices->whereNull('revoked_at');
+        $pushTokenDevices = $activeDevices->filter(fn (AtlasMobileDevice $device): bool => is_string($device->expo_push_token) && trim($device->expo_push_token) !== '');
+        $grantedDevices = $pushTokenDevices->where('notification_permissions', 'granted');
+        $permissionDeniedDevices = $activeDevices->where('notification_permissions', 'denied');
+        $blockedReason = null;
+        if (! $mobileEnabled) {
+            $blockedReason = 'atlas_mobile_disabled';
+        } elseif (! $deviceTableExists) {
+            $blockedReason = 'mobile_device_table_missing';
+        } elseif ($activePushRequestedInsightCount > 0 && $pushTokenDevices->isEmpty()) {
+            $blockedReason = 'no_registered_push_token';
+        } elseif ($activePushRequestedInsightCount > 0 && $grantedDevices->isEmpty() && $permissionDeniedDevices->isNotEmpty()) {
+            $blockedReason = 'notification_permission_denied';
+        }
+
+        return [
+            'schema_version' => 'atlas.proactive.mobile_push_configuration.v1',
+            'mobile_enabled' => $mobileEnabled,
+            'push_dispatch_enabled' => $mobileEnabled,
+            'push_dispatch_blocked_reason' => $blockedReason,
+            'push_requested_insight_count' => $pushRequestedInsightCount,
+            'active_push_requested_insight_count' => $activePushRequestedInsightCount,
+            'pending_dispatch_commands' => [
+                'dry_run' => 'php artisan atlas:cli:mobile replay-push --json',
+                'apply' => "php artisan atlas:cli:mobile replay-push --apply --confirm-external-dispatch --reason='<operator evidence summary>' --json",
+            ],
+            'pending_dispatch_apply_contract' => [
+                'schema_version' => 'atlas.proactive.pending_push_apply_contract.v1',
+                'prior_dry_run_required' => true,
+                'prior_dry_run_max_age_minutes' => 15,
+                'prior_dry_run_candidate_required' => true,
+                'confirm_external_dispatch_required' => true,
+                'operator_reason_required' => true,
+                'external_notification_possible' => true,
+                'receipt_event_type' => 'mobile.push_replay.requested',
+            ],
+            'delivery_diagnostics' => [
+                'schema_version' => 'atlas.proactive.push_delivery_diagnostics.v1',
+                'device_table_available' => $deviceTableExists,
+                'active_device_count' => $activeDevices->count(),
+                'revoked_device_count' => $devices->whereNotNull('revoked_at')->count(),
+                'push_token_device_count' => $pushTokenDevices->count(),
+                'granted_push_device_count' => $grantedDevices->count(),
+                'permission_denied_device_count' => $permissionDeniedDevices->count(),
+                'permission_unknown_device_count' => $activeDevices->where('notification_permissions', 'unknown')->count(),
+                'raw_push_token_exposed' => false,
+                'raw_device_id_exposed' => false,
+            ],
+            'operator_action' => match ($blockedReason) {
+                'atlas_mobile_disabled' => 'set ATLAS_MOBILE_ENABLED=true and restart the Laravel process before expecting push delivery',
+                'mobile_device_table_missing' => 'run mobile gateway migrations before expecting push delivery',
+                'no_registered_push_token' => 'open Mobile Pairing and register push for this device',
+                'notification_permission_denied' => 'enable notifications for Atlas in iOS settings and register push again',
+                default => null,
+            },
+        ];
+    }
+
+    /**
+     * @param  Collection<int,AiInboxItem>  $insights
+     * @return Collection<int,AiInboxItem>
+     */
+    private function activeInsights(Collection $insights): Collection
+    {
+        return $insights
+            ->filter(fn (AiInboxItem $item): bool => ! in_array($item->status, ['resolved', 'dismissed', 'expired'], true))
+            ->values();
     }
 
     /**
@@ -266,6 +414,8 @@ class ProactiveLayerReadModel
             'schema_version' => 'atlas.proactive.operator_review_plan.v1',
             'status' => 'pending_operator_review',
             'commands' => [
+                'review_critical' => 'php artisan atlas:cli:inbox review-critical',
+                'review_critical_json' => 'php artisan atlas:cli:inbox review-critical --json',
                 'list_critical' => 'php artisan atlas:cli:inbox list --filter=insight --severity=critical --json',
                 'report' => 'php artisan atlas:ai:proactive-layer-report --hours=720 --json',
             ],

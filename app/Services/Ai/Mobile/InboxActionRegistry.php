@@ -1473,10 +1473,38 @@ class InboxActionRegistry
         ?AtlasMobileDevice $actor,
         ?string $idempotencyKey,
     ): void {
+        $actorType = $actor ? 'mobile_device' : 'operator_cli';
+        $receiptFields = [
+            'schema_version',
+            'action',
+            'idempotency_key',
+            'inbox_item_id',
+            'inbox_item_status',
+            'actor_type',
+            'actor_id',
+            'result_hash',
+        ];
+        $receipt = [
+            'schema_version' => 'atlas.inbox_action.receipt.v1',
+            'action' => $actionId,
+            'idempotency_key' => $idempotencyKey,
+            'inbox_item_id' => $item->id,
+            'inbox_item_status' => $item->status,
+            'actor_type' => $actorType,
+            'actor_id' => $actor?->id,
+            'result_hash' => DecisionReceiptHash::hash($result),
+        ];
+        $receipt['receipt_hash_algorithm'] = 'sha256';
+        $receipt['receipt_hash_fields'] = $receiptFields;
+        $receipt['receipt_hash'] = DecisionReceiptHash::hash(collect($receiptFields)
+            ->mapWithKeys(fn (string $field): array => [$field => $receipt[$field] ?? null])
+            ->all());
+
         $payload = [
             'schema_version' => 'atlas.inbox_action.v1',
             'action' => $actionId,
             'idempotency_key' => $idempotencyKey,
+            'action_receipt' => $receipt,
             'inbox_item' => [
                 'id' => $item->id,
                 'type' => $item->type,
@@ -1488,7 +1516,7 @@ class InboxActionRegistry
                 'dedupe_key' => $item->dedupe_key,
             ],
             'actor' => [
-                'type' => $actor ? 'mobile_device' : 'operator_cli',
+                'type' => $actorType,
                 'id' => $actor?->id,
             ],
             'result' => $result,

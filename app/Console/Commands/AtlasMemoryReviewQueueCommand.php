@@ -10,9 +10,12 @@ use Illuminate\Support\Str;
 class AtlasMemoryReviewQueueCommand extends Command
 {
     protected $signature = 'atlas:memory:review-queue
-        {--area=* : memory, verbatim or relations}
+        {--area=* : memory, verbatim, relations, semantic_curation or memory_delta}
         {--scope-type= : global, project, task, engineering_run, workspace, user or session}
         {--scope-id= : Scope identifier}
+        {--scope= : Memory delta scope, for example global, project:atlas or workspace:/path}
+        {--type=* : Memory delta type filter}
+        {--source-type= : Semantic curation source type filter}
         {--project-id= : Project UUID}
         {--task-id= : Task UUID}
         {--run-id= : Engineering run UUID}
@@ -53,6 +56,8 @@ class AtlasMemoryReviewQueueCommand extends Command
         $this->components->twoColumnDetail('Memory privacy', (string) data_get($queue, 'counts.memory_privacy', 0));
         $this->components->twoColumnDetail('Verbatim privacy', (string) data_get($queue, 'counts.verbatim_privacy', 0));
         $this->components->twoColumnDetail('Relations', (string) data_get($queue, 'counts.relation', 0));
+        $this->components->twoColumnDetail('Semantic curation', (string) data_get($queue, 'counts.semantic_curation', 0));
+        $this->components->twoColumnDetail('Memory deltas', (string) data_get($queue, 'counts.memory_delta', 0));
 
         $this->table(
             ['priority', 'kind', 'scope', 'target', 'reason', 'action'],
@@ -76,6 +81,9 @@ class AtlasMemoryReviewQueueCommand extends Command
             'areas' => array_values(array_filter((array) $this->option('area'), 'is_string')),
             'scope_type' => $this->stringOption('scope-type'),
             'scope_id' => $this->stringOption('scope-id'),
+            'scope' => $this->stringOption('scope'),
+            'types' => array_values(array_filter((array) $this->option('type'), 'is_string')),
+            'source_type' => $this->stringOption('source-type'),
             'project_id' => $this->stringOption('project-id'),
             'task_id' => $this->stringOption('task-id'),
             'engineering_run_id' => $this->stringOption('run-id'),

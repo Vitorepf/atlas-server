@@ -39,6 +39,10 @@ class AtlasAiSelfConstructionAgentCodexRealInvokerPostStartProcessInvocationAuth
 
         $this->assertSame('codex_real_invoker_post_start_process_invocation_authorization_recorded', $result['status']);
         $this->assertFalse($result['idempotent']);
+        $this->assertSame(
+            'codex-real-invoker-post-start-evidence-acceptance-bridge-001',
+            $result['post_start_evidence_acceptance_bridge_id']
+        );
         $this->assertTrue($result['post_start_process_invocation_authorization_recorded']);
         $this->assertTrue($result['external_process_invocation_authorized']);
         $this->assertTrue($result['external_process_invoker_dry_run_required']);
@@ -60,6 +64,10 @@ class AtlasAiSelfConstructionAgentCodexRealInvokerPostStartProcessInvocationAuth
             ->firstOrFail();
 
         $this->assertSame('post_start_process_invocation_authorized_pending_external_process_invoker_dry_run', data_get($observed->metadata, 'codex_real_invoker_post_start_process_invocation_authorization.status'));
+        $this->assertSame(
+            'codex-real-invoker-post-start-evidence-acceptance-bridge-001',
+            data_get($observed->metadata, 'codex_real_invoker_post_start_process_invocation_authorization.post_start_evidence_acceptance_bridge_id')
+        );
         $this->assertSame('authorized_pending_external_process_invoker', data_get($provider->metadata, 'codex_external_process_invocation_authorization.status'));
         $this->assertFalse((bool) data_get($provider->metadata, 'codex_external_process_invocation_authorization.external_process_started'));
         $this->assertDatabaseHas('atlas_ledger_events', [
@@ -105,6 +113,21 @@ class AtlasAiSelfConstructionAgentCodexRealInvokerPostStartProcessInvocationAuth
 
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('post_start_external_process_runtime_gate_id_mismatch');
+
+        app(AgentCodexRealInvokerPostStartProcessInvocationAuthorizationGate::class)
+            ->authorizePostStartProcessInvocation($this->validInput());
+    }
+
+    public function test_post_start_process_invocation_authorization_rejects_external_runtime_without_evidence_acceptance_bridge(): void
+    {
+        $metadata = $this->observedMetadata();
+        $metadata['codex_real_invoker_post_start_external_process_runtime']['post_start_evidence_acceptance_bridge_id'] = null;
+
+        $this->createObservedRun(['metadata' => $metadata]);
+        $this->createProviderStartRun();
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('post_start_evidence_acceptance_bridge_id_mismatch');
 
         app(AgentCodexRealInvokerPostStartProcessInvocationAuthorizationGate::class)
             ->authorizePostStartProcessInvocation($this->validInput());
@@ -253,6 +276,7 @@ class AtlasAiSelfConstructionAgentCodexRealInvokerPostStartProcessInvocationAuth
                 'provider_start_driver_gate_id' => 'codex-post-start-provider-start-driver-gate-001',
                 'provider_start_attempt_id' => 'attempt-001',
                 'provider_start_run_key' => 'provider-start:attempt-001',
+                'post_start_evidence_acceptance_bridge_id' => 'codex-real-invoker-post-start-evidence-acceptance-bridge-001',
                 'signed_dispatch_receipt_hash' => str_repeat('f', 64),
                 'operator_release_receipt_hash' => str_repeat('a', 64),
                 'operator_spawn_receipt_hash' => str_repeat('e', 64),
@@ -340,6 +364,7 @@ class AtlasAiSelfConstructionAgentCodexRealInvokerPostStartProcessInvocationAuth
             'adapter_invocation_id' => 'adapter-invocation-001',
             'provider_start_driver_gate_id' => 'codex-post-start-provider-start-driver-gate-001',
             'provider_start_attempt_id' => 'attempt-001',
+            'post_start_evidence_acceptance_bridge_id' => 'codex-real-invoker-post-start-evidence-acceptance-bridge-001',
             'signed_dispatch_receipt_hash' => str_repeat('f', 64),
             'operator_release_receipt_hash' => str_repeat('a', 64),
             'operator_spawn_receipt_hash' => str_repeat('e', 64),

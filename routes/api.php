@@ -37,13 +37,25 @@ use App\Http\Controllers\AtlasAiSelfImprovementScheduleHealthController;
 use App\Http\Controllers\AtlasAiSelfImprovementScheduleReportController;
 use App\Http\Controllers\AtlasAiSloController;
 use App\Http\Controllers\AtlasAiStrategicDecisionController;
+use App\Http\Controllers\AtlasAiStructureMotherAuditController;
 use App\Http\Controllers\AtlasAiVoiceRealtimeController;
 use App\Http\Controllers\AtlasCalendarBlockController;
+use App\Http\Controllers\AtlasCartographyController;
+use App\Http\Controllers\AtlasCodeBootController;
+use App\Http\Controllers\AtlasCodeDiffController;
+use App\Http\Controllers\AtlasCodeEvidenceController;
+use App\Http\Controllers\AtlasCodeMcpStatusController;
+use App\Http\Controllers\AtlasCodeReceiptController;
+use App\Http\Controllers\AtlasCodeReceiptShowController;
+use App\Http\Controllers\AtlasCodeSessionController;
+use App\Http\Controllers\AtlasCodeThreadController;
+use App\Http\Controllers\AtlasCodeWorkController;
 use App\Http\Controllers\AtlasConstelacaoController;
 use App\Http\Controllers\AtlasDomainController;
 use App\Http\Controllers\AtlasMemoryController;
 use App\Http\Controllers\AtlasMemoryMaintenanceController;
 use App\Http\Controllers\AtlasMemoryRecallController;
+use App\Http\Controllers\AtlasMobilePushReplayController;
 use App\Http\Controllers\AtlasOpenBrainController;
 use App\Http\Controllers\AtlasOpenBrainMcpController;
 use App\Http\Controllers\AtlasProjectBlockerController;
@@ -150,6 +162,7 @@ Route::prefix('v1/mobile')->group(function () use ($registerAtlasVoiceRoutes): v
         Route::delete('/mac/maintenance-windows/{window}', [MobileMacAgentController::class, 'deleteMaintenanceWindow']);
 
         Route::get('/inbox', [MobileInboxController::class, 'index']);
+        Route::get('/inbox/critical-review', [MobileInboxController::class, 'criticalReview']);
         Route::get('/inbox/{inboxItem}', [MobileInboxController::class, 'show']);
         Route::post('/inbox/{inboxItem}/read', [MobileInboxController::class, 'markRead']);
         Route::post('/inbox/{inboxItem}/dismiss', [MobileInboxController::class, 'dismiss']);
@@ -241,8 +254,10 @@ Route::middleware('atlas.token')->group(function () use ($registerAtlasVoiceRout
     Route::get('/engineering/benchmarks/suites', [EngineeringBenchmarkController::class, 'indexSuites']);
     Route::post('/engineering/benchmarks/suites', [EngineeringBenchmarkController::class, 'storeSuite']);
     Route::post('/engineering/benchmarks/suites/default', [EngineeringBenchmarkController::class, 'ensureDefaultSuite']);
+    Route::post('/engineering/benchmarks/fair-claude/prepare', [EngineeringBenchmarkController::class, 'prepareFairClaudeSuite']);
     Route::get('/engineering/benchmarks/suites/{suite}/trends', [EngineeringBenchmarkController::class, 'showTrends']);
     Route::get('/engineering/benchmarks/suites/{suite}/fair-claude-report', [EngineeringBenchmarkController::class, 'showFairClaudeReport']);
+    Route::post('/engineering/benchmarks/suites/{suite}/rivals/battery-plan', [EngineeringBenchmarkController::class, 'rivalsBatteryPlan']);
     Route::post('/engineering/benchmarks/suites/{suite}/corpus/refresh', [EngineeringBenchmarkController::class, 'refreshCorpus']);
     Route::post('/engineering/benchmarks/suites/{suite}/calibrate', [EngineeringBenchmarkController::class, 'calibrateSuite']);
     Route::get('/engineering/benchmarks/suites/{suite}', [EngineeringBenchmarkController::class, 'showSuite']);
@@ -362,6 +377,8 @@ Route::middleware('atlas.token')->group(function () use ($registerAtlasVoiceRout
     Route::get('/ai/architecture/operations', AtlasAiArchitectureOperationsController::class);
     Route::get('/ai/architecture/readiness', [AtlasAiGovernanceController::class, 'architectureReadiness']);
     Route::get('/ai/runtime-boundary', AtlasAiRuntimeBoundaryController::class);
+    Route::get('/ai/structure-mother-audit', AtlasAiStructureMotherAuditController::class);
+    Route::post('/ai/mobile/push/replay', AtlasMobilePushReplayController::class);
     Route::get('/ai/session-bootstrap', [AtlasAiGovernanceController::class, 'sessionBootstrap']);
     Route::get('/ai/feature-placement', [AtlasAiGovernanceController::class, 'placeFeature']);
     Route::get('/ai/docs-split-plan', [AtlasAiGovernanceController::class, 'docsSplitPlan']);
@@ -484,9 +501,9 @@ Route::middleware('atlas.token')->group(function () use ($registerAtlasVoiceRout
  * The cartography never writes; these endpoints are GET-only by design.
  */
 Route::prefix('atlas-cartography')->group(function () {
-    Route::get('/graph', [\App\Http\Controllers\AtlasCartographyController::class, 'graph']);
-    Route::get('/note/{graph_id}', [\App\Http\Controllers\AtlasCartographyController::class, 'note']);
-    Route::get('/recent-changes', [\App\Http\Controllers\AtlasCartographyController::class, 'recentChanges']);
+    Route::get('/graph', [AtlasCartographyController::class, 'graph']);
+    Route::get('/note/{graph_id}', [AtlasCartographyController::class, 'note']);
+    Route::get('/recent-changes', [AtlasCartographyController::class, 'recentChanges']);
 });
 
 /*
@@ -500,32 +517,32 @@ Route::prefix('atlas-cartography')->group(function () {
  */
 Route::prefix('atlas-code')->group(function () {
     // BOOT · unified contract for the Desktop topbar
-    Route::get('/boot', \App\Http\Controllers\AtlasCodeBootController::class);
+    Route::get('/boot', AtlasCodeBootController::class);
 
     // MCP · pill status
-    Route::get('/mcp/status', \App\Http\Controllers\AtlasCodeMcpStatusController::class);
+    Route::get('/mcp/status', AtlasCodeMcpStatusController::class);
 
     // WORKS · normalized Obra surface
-    Route::get('/works', [\App\Http\Controllers\AtlasCodeWorkController::class, 'index']);
-    Route::post('/works', [\App\Http\Controllers\AtlasCodeWorkController::class, 'store']);
-    Route::get('/works/{project}', [\App\Http\Controllers\AtlasCodeWorkController::class, 'show']);
-    Route::get('/works/{project}/state', [\App\Http\Controllers\AtlasCodeWorkController::class, 'state']);
+    Route::get('/works', [AtlasCodeWorkController::class, 'index']);
+    Route::post('/works', [AtlasCodeWorkController::class, 'store']);
+    Route::get('/works/{project}', [AtlasCodeWorkController::class, 'show']);
+    Route::get('/works/{project}/state', [AtlasCodeWorkController::class, 'state']);
 
     // 4 · sessions for an obra (project) · NEW
-    Route::get('/works/{project}/sessions', [\App\Http\Controllers\AtlasCodeSessionController::class, 'indexForWork']);
+    Route::get('/works/{project}/sessions', [AtlasCodeSessionController::class, 'indexForWork']);
 
     // 10 · evidence aggregator per obra · NEW (wraps tools/evidence + engineering/runs)
-    Route::get('/works/{project}/evidence', [\App\Http\Controllers\AtlasCodeEvidenceController::class, 'indexForWork']);
+    Route::get('/works/{project}/evidence', [AtlasCodeEvidenceController::class, 'indexForWork']);
 
     // THREAD · normalized thread+messages contract
-    Route::get('/threads/{thread}', [\App\Http\Controllers\AtlasCodeThreadController::class, 'show']);
+    Route::get('/threads/{thread}', [AtlasCodeThreadController::class, 'show']);
 
     // RECEIPT · Receipt v2 direct
-    Route::get('/decisions/{decision}/receipt', [\App\Http\Controllers\AtlasCodeReceiptShowController::class, 'show']);
+    Route::get('/decisions/{decision}/receipt', [AtlasCodeReceiptShowController::class, 'show']);
 
     // 9 · sign decision receipt · NEW
-    Route::post('/decisions/{decision}/sign', [\App\Http\Controllers\AtlasCodeReceiptController::class, 'sign']);
+    Route::post('/decisions/{decision}/sign', [AtlasCodeReceiptController::class, 'sign']);
 
     // 12 · apply diff · NEW
-    Route::post('/diffs/{patch}/apply', [\App\Http\Controllers\AtlasCodeDiffController::class, 'apply']);
+    Route::post('/diffs/{patch}/apply', [AtlasCodeDiffController::class, 'apply']);
 });

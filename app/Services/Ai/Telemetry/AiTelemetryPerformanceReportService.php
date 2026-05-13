@@ -26,8 +26,7 @@ class AiTelemetryPerformanceReportService
         private readonly ContextBundleService $bundles,
         private readonly AtlasInboxService $inbox,
         private readonly EngineOrchestrator $engine,
-    ) {
-    }
+    ) {}
 
     /**
      * @return array<string,mixed>
@@ -974,6 +973,7 @@ class AiTelemetryPerformanceReportService
             'timezone' => $report['timezone'] ?? null,
             'status' => $report['status'] ?? null,
             'health_score' => $report['health_score'] ?? null,
+            'summary' => $report['summary'] ?? null,
             'decision' => $report['executive_summary'] ?? $report['summary_text'] ?? null,
             'highlights' => $this->highlights($report),
             'next_actions' => $report['actions'] ?? [],

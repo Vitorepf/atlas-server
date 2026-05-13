@@ -341,6 +341,118 @@ class MobileGatewayTest extends TestCase
         $this->assertSame('read', $item->refresh()->status);
     }
 
+    public function test_mobile_inbox_critical_review_returns_human_triage_without_resolving_items(): void
+    {
+        $token = $this->pairedDeviceToken();
+        $item = app(AtlasInboxService::class)->create([
+            'type' => 'insight',
+            'category' => 'atlas',
+            'severity' => 'critical',
+            'status' => 'unread',
+            'title' => 'Telemetry health critical',
+            'summary' => 'Telemetry health critical; score 20/100.',
+            'initiator' => 'atlas',
+            'dedupe_key' => 'insight:critical:mobile-review:test',
+            'available_actions' => [['id' => 'discuss'], ['id' => 'mark_read']],
+            'payload' => [
+                'health' => [
+                    'status' => 'critical',
+                    'health_score' => 20,
+                    'sample' => ['trace_count' => 12, 'confidence' => 'normal'],
+                    'issues' => [[
+                        'key' => 'final_quality_avg',
+                        'severity' => 'critical',
+                        'value' => 42,
+                        'threshold' => 70,
+                        'summary' => 'Quality is too low.',
+                    ]],
+                    'actions' => ['Open recent low-score traces and compare context.'],
+                ],
+            ],
+            'push_policy' => ['send' => 'none'],
+            'priority_score' => 95,
+        ]);
+
+        app(AtlasInboxService::class)->create([
+            'type' => 'insight',
+            'category' => 'atlas_ai_performance',
+            'severity' => 'critical',
+            'status' => 'read',
+            'title' => 'Performance report',
+            'summary' => 'Performance critical.',
+            'initiator' => 'atlas',
+            'dedupe_key' => 'insight:critical:mobile-performance:test',
+            'available_actions' => [['id' => 'discuss']],
+            'payload' => [
+                'report' => [
+                    'status' => 'critical',
+                    'report_date' => '2026-05-12',
+                    'summary' => [
+                        'traces' => 16,
+                        'quality_avg' => 77.9,
+                        'efficiency_avg' => 74.6,
+                        'unknown_cost_rate' => 0,
+                    ],
+                ],
+            ],
+            'push_policy' => ['send' => 'none'],
+            'priority_score' => 90,
+        ]);
+
+        AiInboxItem::query()->create([
+            'user_id' => 'other-user',
+            'type' => 'insight',
+            'category' => 'atlas',
+            'severity' => 'critical',
+            'status' => 'unread',
+            'title' => 'Other user critical',
+            'initiator' => 'atlas',
+            'dedupe_key' => 'insight:critical:other-user:test',
+            'available_actions' => [],
+            'payload' => [],
+            'push_policy' => ['send' => 'none'],
+            'priority_score' => 99,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $payload = $this
+            ->withHeader('Authorization', 'Bearer '.$token)
+            ->getJson('/v1/mobile/inbox/critical-review?limit=10')
+            ->assertOk()
+            ->assertJsonPath('critical_review.schema_version', 'atlas.inbox.critical_review.v1')
+            ->assertJsonPath('critical_review.status', 'human_review_required')
+            ->assertJsonPath('critical_review.active_critical_count', 2)
+            ->assertJsonPath('critical_review.returned_item_count', 2)
+            ->assertJsonPath('critical_review.review_summary.schema_version', 'atlas.inbox.critical_review_summary.v1')
+            ->assertJsonPath('critical_review.review_summary.unread_count', 1)
+            ->assertJsonPath('critical_review.review_summary.read_count', 1)
+            ->assertJsonPath('critical_review.review_summary.health_signal_count', 1)
+            ->assertJsonPath('critical_review.review_summary.performance_report_count', 1)
+            ->assertJsonPath('critical_review.review_summary.still_requires_operator_decision_count', 2)
+            ->assertJsonPath('critical_review.review_summary.safety.agent_auto_resolve_allowed', false)
+            ->assertJsonPath('critical_review.agent_auto_resolve_allowed', false)
+            ->assertJsonPath('critical_review.raw_payload_exposed', false)
+            ->assertJsonPath('critical_review.api_contract.schema_version', 'atlas.inbox.critical_review.api_contract.v1')
+            ->assertJsonPath('critical_review.api_contract.respond_endpoint_template', 'POST /v1/mobile/inbox/{inbox_item_id}/respond')
+            ->assertJsonPath('critical_review.api_contract.receipt_event_type', 'inbox.action.completed')
+            ->assertJsonPath('critical_review.api_contract.ledger_schema_version', 'atlas.inbox_action.receipt.v1')
+            ->assertJsonPath('critical_review.api_contract.agent_auto_dismiss_allowed', false)
+            ->json();
+
+        $reviewedItem = collect(data_get($payload, 'critical_review.items'))->firstWhere('id', $item->id);
+        $this->assertSame('health', data_get($reviewedItem, 'review_kind'));
+        $this->assertSame('Atlas AI em estado critico - saude 20/100', data_get($reviewedItem, 'headline'));
+        $this->assertSame('discuss_in_atlas', data_get($reviewedItem, 'decision_options.0.id'));
+        $this->assertSame('discuss', data_get($reviewedItem, 'decision_options.0.action_id'));
+        $this->assertTrue(data_get($reviewedItem, 'decision_options.0.recommended'));
+        $this->assertFalse(data_get($reviewedItem, 'decision_options.0.allowed_for_agent'));
+        $this->assertTrue(data_get($reviewedItem, 'decision_options.3.requires_evidence'));
+        $this->assertSame('removes_from_active_critical_gate', data_get($reviewedItem, 'decision_options.3.state_effect'));
+
+        $this->assertSame('unread', $item->refresh()->status);
+    }
+
     public function test_discuss_repairs_stale_idempotent_response_without_thread_id(): void
     {
         $token = $this->pairedDeviceToken();
@@ -1892,6 +2004,10 @@ class MobileGatewayTest extends TestCase
 
     public function test_cli_inbox_show_respond_and_discuss_use_same_handlers(): void
     {
+        if (! Schema::hasTable('atlas_ledger_events')) {
+            (require database_path('migrations/2026_05_05_020000_create_atlas_ledger_events_table.php'))->up();
+        }
+
         $bundle = app(ContextBundleService::class)->create([
             'purpose' => 'insight',
             'title' => 'Contexto CLI',
@@ -1930,6 +2046,18 @@ class MobileGatewayTest extends TestCase
         $this->assertSame(0, $respondExit);
         $this->assertSame('read', data_get($respondPayload, 'item.status'));
         $this->assertSame('mark_read', data_get($respondPayload, 'item.response.action'));
+
+        $markReadLedgerEvent = AtlasLedgerEvent::query()
+            ->where('event_type', LedgerEventType::InboxActionRecorded->value)
+            ->where('correlation_id', $item->id)
+            ->firstOrFail();
+
+        $this->assertSame('atlas.inbox_action.receipt.v1', data_get($markReadLedgerEvent->payload, 'action_receipt.schema_version'));
+        $this->assertSame('mark_read', data_get($markReadLedgerEvent->payload, 'action_receipt.action'));
+        $this->assertSame('operator_cli', data_get($markReadLedgerEvent->payload, 'action_receipt.actor_type'));
+        $this->assertSame('sha256', data_get($markReadLedgerEvent->payload, 'action_receipt.receipt_hash_algorithm'));
+        $this->assertContains('result_hash', data_get($markReadLedgerEvent->payload, 'action_receipt.receipt_hash_fields'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($markReadLedgerEvent->payload, 'action_receipt.receipt_hash'));
 
         $snoozeItem = app(AtlasInboxService::class)->create([
             'type' => 'insight',
@@ -2113,6 +2241,206 @@ class MobileGatewayTest extends TestCase
         Http::assertSent(fn ($request): bool => $request['to'] === 'ExponentPushToken[test]'
             && $request['data']['inbox_id'] === $item->id
             && $request['data']['deep_link'] === 'atlas://inbox/'.$item->id);
+    }
+
+    public function test_mobile_cli_replay_push_reprocesses_requested_items_without_delivery_attempts(): void
+    {
+        config()->set('atlas.mobile.enabled', true);
+        config()->set('atlas.mobile.batching.enabled', false);
+        config()->set('atlas.mobile.quiet_hours.enabled', false);
+        config()->set('atlas.mobile.retry.queue_enabled', false);
+        Http::fake(['*' => Http::response(['data' => ['status' => 'ok', 'id' => 'ticket-replay']], 200)]);
+        $this->pairedDeviceToken('ExponentPushToken[test]');
+        $item = AiInboxItem::query()->create([
+            'user_id' => 'vitor',
+            'type' => 'insight',
+            'category' => 'atlas',
+            'severity' => 'warning',
+            'status' => 'unread',
+            'title' => 'Replay push pendente',
+            'initiator' => 'atlas',
+            'dedupe_key' => 'insight:push-replay:test',
+            'available_actions' => [['id' => 'discuss']],
+            'payload' => [],
+            'deep_link' => 'atlas://inbox/pending',
+            'push_policy' => ['send' => 'immediate'],
+            'priority_score' => 80,
+        ]);
+
+        $dryRunExit = Artisan::call('atlas:cli:mobile', [
+            'action' => 'replay-push',
+            '--json' => true,
+        ]);
+        $dryRun = json_decode(Artisan::output(), true);
+
+        $this->assertSame(0, $dryRunExit);
+        $this->assertTrue($dryRun['dry_run']);
+        $this->assertSame(1, $dryRun['candidate_count']);
+        $this->assertSame(0, MobilePushDelivery::query()->count());
+        $dryRunReceipt = AuditEvent::query()
+            ->where('event_type', 'mobile.push_replay.requested')
+            ->where('actor_id', 'cli')
+            ->latest()
+            ->firstOrFail();
+        $this->assertTrue((bool) data_get($dryRunReceipt->evidence, 'dry_run'));
+        $this->assertSame(1, data_get($dryRunReceipt->evidence, 'candidate_count'));
+        $this->assertFalse((bool) data_get($dryRunReceipt->privacy, 'raw_push_tokens_exposed'));
+
+        $applyExit = Artisan::call('atlas:cli:mobile', [
+            'action' => 'replay-push',
+            '--apply' => true,
+            '--json' => true,
+        ]);
+        $blocked = json_decode(Artisan::output(), true);
+
+        $this->assertSame(1, $applyExit);
+        $this->assertSame('confirmation_required', $blocked['status'] ?? null);
+        $this->assertSame(0, MobilePushDelivery::query()->count());
+
+        $applyExit = Artisan::call('atlas:cli:mobile', [
+            'action' => 'replay-push',
+            '--apply' => true,
+            '--confirm-external-dispatch' => true,
+            '--reason' => 'operator confirmed CLI replay after dry-run',
+            '--json' => true,
+        ]);
+        $applied = json_decode(Artisan::output(), true);
+
+        $this->assertSame(0, $applyExit);
+        $this->assertFalse($applied['dry_run']);
+        $this->assertSame(1, $applied['candidate_count']);
+        $this->assertSame(1, $applied['dispatched_count']);
+        $delivery = MobilePushDelivery::query()->firstOrFail();
+        $this->assertSame($item->id, $delivery->inbox_item_id);
+        $this->assertSame('sent', $delivery->status);
+        $applyReceipt = AuditEvent::query()
+            ->where('event_type', 'mobile.push_replay.requested')
+            ->where('actor_id', 'cli')
+            ->where('severity', 'warning')
+            ->firstOrFail();
+        $this->assertFalse((bool) data_get($applyReceipt->evidence, 'dry_run'));
+        $this->assertSame(1, data_get($applyReceipt->evidence, 'dispatched_count'));
+        $this->assertTrue((bool) data_get($applyReceipt->evidence, 'external_dispatch_confirmed'));
+        $this->assertNotNull(data_get($applyReceipt->evidence, 'operator_reason_hash'));
+    }
+
+    public function test_mobile_cli_replay_push_apply_requires_recent_dry_run(): void
+    {
+        config()->set('atlas.mobile.enabled', true);
+        config()->set('atlas.mobile.batching.enabled', false);
+        config()->set('atlas.mobile.quiet_hours.enabled', false);
+        config()->set('atlas.mobile.retry.queue_enabled', false);
+        Http::fake(['*' => Http::response(['data' => ['status' => 'ok', 'id' => 'ticket-replay-blocked']], 200)]);
+        $this->pairedDeviceToken('ExponentPushToken[test]');
+        AiInboxItem::query()->create([
+            'user_id' => 'vitor',
+            'type' => 'insight',
+            'category' => 'atlas',
+            'severity' => 'warning',
+            'status' => 'unread',
+            'title' => 'Replay push sem dry-run',
+            'initiator' => 'atlas',
+            'dedupe_key' => 'insight:push-replay:no-dry-run',
+            'available_actions' => [['id' => 'discuss']],
+            'payload' => [],
+            'deep_link' => 'atlas://inbox/no-dry-run',
+            'push_policy' => ['send' => 'immediate'],
+            'priority_score' => 80,
+        ]);
+
+        $applyExit = Artisan::call('atlas:cli:mobile', [
+            'action' => 'replay-push',
+            '--apply' => true,
+            '--confirm-external-dispatch' => true,
+            '--reason' => 'operator confirmed replay without dry-run',
+            '--json' => true,
+        ]);
+        $blocked = json_decode(Artisan::output(), true);
+
+        $this->assertSame(1, $applyExit);
+        $this->assertSame('prior_dry_run_required', $blocked['status'] ?? null);
+        $this->assertTrue((bool) data_get($blocked, 'rules.prior_dry_run_required'));
+        $this->assertSame(0, MobilePushDelivery::query()->count());
+    }
+
+    public function test_mobile_push_replay_api_requires_confirmation_before_external_dispatch(): void
+    {
+        config()->set('atlas.mobile.enabled', true);
+        config()->set('atlas.mobile.batching.enabled', false);
+        config()->set('atlas.mobile.quiet_hours.enabled', false);
+        config()->set('atlas.mobile.retry.queue_enabled', false);
+        Http::fake(['*' => Http::response(['data' => ['status' => 'ok', 'id' => 'ticket-replay-api']], 200)]);
+        $this->pairedDeviceToken('ExponentPushToken[test]');
+        AiInboxItem::query()->create([
+            'user_id' => 'vitor',
+            'type' => 'insight',
+            'category' => 'atlas',
+            'severity' => 'warning',
+            'status' => 'unread',
+            'title' => 'Replay push via API',
+            'initiator' => 'atlas',
+            'dedupe_key' => 'insight:push-replay-api:test',
+            'available_actions' => [['id' => 'discuss']],
+            'payload' => [],
+            'deep_link' => 'atlas://inbox/pending-api',
+            'push_policy' => ['send' => 'immediate'],
+            'priority_score' => 80,
+        ]);
+
+        $headers = ['X-Atlas-Token' => 'testing-atlas-token-with-enough-length'];
+
+        $this->withHeader('X-Atlas-Token', 'wrong-token-with-enough-length')
+            ->postJson('/ai/mobile/push/replay', ['limit' => 10])
+            ->assertUnauthorized()
+            ->assertJsonPath('error.message', 'Invalid or missing X-Atlas-Token.');
+
+        $this->postJson('/ai/mobile/push/replay', ['apply' => true], $headers)
+            ->assertStatus(422)
+            ->assertJsonPath('status', 'confirmation_required');
+
+        $this->postJson('/ai/mobile/push/replay', [
+            'limit' => 10,
+            'apply' => true,
+            'confirm_external_dispatch' => true,
+            'reason' => 'operator confirmed replay without prior dry-run',
+        ], $headers)
+            ->assertStatus(422)
+            ->assertJsonPath('status', 'prior_dry_run_required')
+            ->assertJsonPath('rules.prior_dry_run_required', true)
+            ->assertJsonPath('rules.prior_dry_run_candidate_required', true);
+        $this->assertSame(0, MobilePushDelivery::query()->count());
+
+        $this->postJson('/ai/mobile/push/replay', ['limit' => 10], $headers)
+            ->assertOk()
+            ->assertJsonPath('push_replay.dry_run', true)
+            ->assertJsonPath('push_replay.candidate_count', 1);
+        $this->assertSame(0, MobilePushDelivery::query()->count());
+        $dryRunReceipt = AuditEvent::query()
+            ->where('event_type', 'mobile.push_replay.requested')
+            ->latest()
+            ->firstOrFail();
+        $this->assertTrue((bool) data_get($dryRunReceipt->evidence, 'dry_run'));
+        $this->assertFalse((bool) data_get($dryRunReceipt->privacy, 'raw_push_tokens_exposed'));
+
+        $this->postJson('/ai/mobile/push/replay', [
+            'limit' => 10,
+            'apply' => true,
+            'confirm_external_dispatch' => true,
+            'reason' => 'operator confirmed replay after delivery diagnosis',
+        ], $headers)
+            ->assertOk()
+            ->assertJsonPath('push_replay.dry_run', false)
+            ->assertJsonPath('push_replay.dispatched_count', 1)
+            ->assertJsonPath('push_replay.external_dispatch_confirmed', true);
+        $this->assertSame(1, MobilePushDelivery::query()->count());
+        $applyReceipt = AuditEvent::query()
+            ->where('event_type', 'mobile.push_replay.requested')
+            ->where('severity', 'warning')
+            ->firstOrFail();
+        $this->assertFalse((bool) data_get($applyReceipt->evidence, 'dry_run'));
+        $this->assertSame(1, data_get($applyReceipt->evidence, 'dispatched_count'));
+        $this->assertNotNull(data_get($applyReceipt->evidence, 'operator_reason_hash'));
+        $this->assertTrue((bool) data_get($applyReceipt->privacy, 'operator_reason_stored_as_hash'));
     }
 
     public function test_push_payload_does_not_include_sensitive_inbox_body_or_summary(): void
@@ -3306,6 +3634,7 @@ PHP);
 
     public function test_atlas_cli_mobile_status_outputs_snapshot_in_json(): void
     {
+        config()->set('atlas.mobile.enabled', true);
         $this->pairedDeviceToken('ExponentPushToken[status]');
 
         $exitCode = Artisan::call('atlas:cli:mobile', [
@@ -3317,14 +3646,50 @@ PHP);
         $this->assertSame(0, $exitCode);
         $this->assertArrayHasKey('status', $payload);
         $this->assertArrayHasKey('expo', $payload);
+        $this->assertArrayHasKey('configuration', $payload);
         $this->assertArrayHasKey('push_24h', $payload);
         $this->assertArrayHasKey('devices', $payload);
         $this->assertArrayHasKey('inbox', $payload);
+        $this->assertSame('healthy', data_get($payload, 'status'));
+        $this->assertTrue((bool) data_get($payload, 'configuration.mobile_enabled'));
         $this->assertSame(1, data_get($payload, 'devices.active'));
+    }
+
+    public function test_atlas_cli_mobile_status_reports_disabled_push_configuration(): void
+    {
+        config()->set('atlas.mobile.enabled', false);
+        $this->pairedDeviceToken('ExponentPushToken[status-disabled]');
+
+        $exitCode = Artisan::call('atlas:cli:mobile', [
+            'action' => 'status',
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true);
+
+        $this->assertSame(0, $exitCode);
+        $this->assertSame('disabled', data_get($payload, 'status'));
+        $this->assertFalse((bool) data_get($payload, 'configuration.mobile_enabled'));
+        $this->assertFalse((bool) data_get($payload, 'configuration.push_dispatch_enabled'));
+        $this->assertSame('atlas_mobile_disabled', data_get($payload, 'configuration.push_dispatch_blocked_reason'));
+        $this->assertSame(1, data_get($payload, 'devices.with_push_token'));
+    }
+
+    public function test_mobile_alert_check_reports_disabled_push_configuration(): void
+    {
+        config()->set('atlas.mobile.enabled', false);
+        Cache::put(MobileReliabilityMonitor::SCHEDULER_TICK_KEY, now()->toJSON(), now()->addHour());
+
+        $snapshot = app(MobileReliabilityMonitor::class)->snapshot();
+        $checks = collect($snapshot['checks'])->keyBy('name');
+
+        $this->assertSame('warning', $snapshot['status']);
+        $this->assertSame('warning', data_get($checks, 'mobile_push_configuration.status'));
+        $this->assertSame('atlas_mobile_disabled', data_get($checks, 'mobile_push_configuration.evidence.blocked_reason'));
     }
 
     public function test_mobile_alert_check_dry_run_reports_scheduler_stale_without_webhook(): void
     {
+        config()->set('atlas.mobile.enabled', true);
         Cache::put(MobileReliabilityMonitor::SCHEDULER_TICK_KEY, now()->subMinutes(10)->toJSON(), now()->addHour());
         Http::fake();
 
@@ -3414,6 +3779,7 @@ PHP);
 
     public function test_mobile_alert_check_apply_sends_webhook_once_per_cooldown_and_records_recovery(): void
     {
+        config()->set('atlas.mobile.enabled', true);
         config()->set('atlas.mobile.alerts.webhook_url', 'https://alerts.test/atlas');
         config()->set('atlas.mobile.alerts.cooldown_minutes', 30);
         Cache::put(MobileReliabilityMonitor::SCHEDULER_TICK_KEY, now()->subMinutes(10)->toJSON(), now()->addHour());
@@ -3467,6 +3833,7 @@ PHP);
 
     public function test_mobile_alert_check_writes_local_jsonl_without_webhook(): void
     {
+        config()->set('atlas.mobile.enabled', true);
         $path = storage_path('framework/testing/atlas-health-alerts-'.Str::uuid().'.jsonl');
         config()->set('atlas.mobile.alerts.webhook_url', null);
         config()->set('atlas.mobile.alerts.local_log_enabled', true);

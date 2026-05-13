@@ -18,8 +18,8 @@ final class RepoVaultReader
     }
 
     /**
-     * Walk the repo docs directory and build an index keyed by frontmatter `id`
-     * (which doubles as `graph_id` in the cartography).
+     * Walk the repo docs directory and build an index keyed by frontmatter
+     * `graph_id` when available, falling back to `id` for legacy docs.
      *
      * @return array<string, array{path: string, relative_path: string, frontmatter: array<string, mixed>, mtime: int, exists: true}>
      */
@@ -37,7 +37,7 @@ final class RepoVaultReader
                 continue;
             }
             $parsed = $this->parser->parse($content);
-            $id = $parsed['frontmatter']['id'] ?? null;
+            $id = $parsed['frontmatter']['graph_id'] ?? $parsed['frontmatter']['id'] ?? null;
             if (! is_string($id) || $id === '') {
                 continue;
             }

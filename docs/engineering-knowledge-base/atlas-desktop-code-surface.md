@@ -85,12 +85,134 @@ related_paths:
   - docs/engineering-knowledge-base/self-construction/capability-maturity-ladder.md
   - docs/engineering-knowledge-base/obras/shared-workspace-and-forge.md
   - docs/engineering-knowledge-base/obras/ai-harness-governance-and-quality.md
+doc_schema: atlas_canonical_module_doc.v1
+graph_id: atlas-desktop-code-surface
+graph_title: Atlas Desktop Code Surface
+graph_world: atlas
+graph_layer: system
+graph_kind: surface
+graph_parent: atlas-desktop
+graph_status: building
+graph_source: repo
 owner: atlas-ai
 layer: 1-surfaces
 line_limit: 360
+repo_paths:
+  - docs/engineering-knowledge-base/atlas-desktop-code-surface.md
+  - docs/engineering-knowledge-base/atlas-desktop-backend-contract.md
+  - ../atlas-desktop/apps/desktop/src/App.tsx
+  - ../atlas-desktop/apps/desktop/src/lib/bridge.ts
+  - ../atlas-desktop/packages/atlas-domain/src/cartography.ts
+allowed_changes:
+  - Evoluir a especificacao da superficie Code quando o contrato backend ou o Desktop mudarem.
+  - Ajustar zonas da tela, invariantes e fluxo operacional se preservar governanca, receipt e evidencia.
+  - Traduzir trechos legados para portugues sem alterar semantica canonica.
+forbidden_changes:
+  - Transformar Atlas Code em editor comum com chat lateral.
+  - Permitir execucao sem spec, plano, receipt, escopo, gates e evidencia.
+  - Colocar escolha livre de provider/modelo fora do Atlas Decide.
+depends_on:
+  - atlas-desktop-backend-contract
+  - atlas-ai-spec-operating-system
+  - atlas-ai-self-construction-os
+  - atlas-ai-documentation-operating-system
+flows_to:
+  - atlas-code-operating-room
+  - atlas-desktop
+unlocks:
+  - engineering-operations-system
+  - software-construction-operating-room
+governs:
+  - atlas-code
+  - programming-domain
+  - self-construction-os
+evidence:
+  - docs/engineering-knowledge-base/atlas-desktop-code-surface.md
+  - ../atlas-desktop/apps/desktop/src/App.tsx
+  - ../atlas-desktop/apps/desktop/src/lib/bridge.ts
+required_tests:
+  - php artisan atlas:engineering:knowledge docs-health --json
+requires_evidence: true
+risk_level: critical
+next_actions:
+  - Remover comportamento inutil ou mockado da tela e conectar conversas, Obras, terminal, receipts e evidence reais.
 ---
 
 # Atlas Desktop · Code Surface Specification
+
+## Resumo
+
+Este doc define a tela Atlas Code como cabine operacional de programacao, nao
+como editor tradicional. A tela deve permitir declarar intencao, acompanhar SDD,
+assinar contrato, observar execucao, validar gates, ler evidencia e operar
+terminal real.
+
+## Papel no Atlas
+
+Atlas Code materializa o Engineering Operations System: humano dirige,
+Kernel decide, IAs executam, evidencia prova. Ele deve substituir o padrao
+Cursor/Claude Code/Codex chat-wrapper por uma sala de operacao governada.
+
+## Onde Se Encaixa
+
+Pai: `atlas-desktop`. Dependencias principais: Spec OS, Self-Construction OS,
+Programming Domain, Documentation OS, Atlas Decide, Evidence Ledger e backend
+real do `atlas-server`.
+
+## Contratos
+
+Sem receipt, nao executa. Sem spec, nao planeja. Sem evidence, nao promove.
+Sem fonte real, mostra vazio honesto. O usuario nao escolhe provider por gosto;
+Atlas Decide escolhe e qualquer override precisa auditoria.
+
+## Fluxo
+
+Intencao humana passa por contexto, spec, critica, plano, tarefas, receipt,
+execucao multiagente, gates, repair, evidence e learning proposal. A tela deve
+mostrar esse fluxo de forma navegavel e verificavel.
+
+## Regras para IA
+
+Toda IA que alterar Atlas Code deve preservar os invariantes deste doc, checar
+o contrato backend e provar mudancas com paths reais. Nao pode adicionar mock,
+estado fake ou UX que esconda ausencia de backend.
+
+## Escopo de Implementacao
+
+Permitido: UI, bridge, estados vazios honestos, terminal, SSE, evidence panels,
+receipts e conexao com endpoints reais. Proibido: runtime paralelo, provider
+dropdown livre, execucao sem contrato ou mocks persistentes.
+
+## Dependencias
+
+- `atlas-desktop-backend-contract`
+- `atlas-ai-spec-operating-system`
+- `atlas-ai-self-construction-os`
+- `atlas-ai-documentation-operating-system`
+- `atlas-canonical-module-doc-v1`
+
+## Evidencias
+
+- `../atlas-desktop/apps/desktop/src/App.tsx`
+- `../atlas-desktop/apps/desktop/src/lib/bridge.ts`
+- `docs/engineering-knowledge-base/atlas-desktop-backend-contract.md`
+
+## Riscos
+
+- A tela virar apenas mock visual sem uso real.
+- Terminal parecer conectado mas nao receber input.
+- Atlas Code duplicar Kernel em vez de consumir `atlas-server`.
+- Falta de evidence permitir "implementado" falso.
+
+## Exemplos
+
+Correto: botao de envio desabilitado enquanto nao houver Obra ativa. Proibido:
+criar conversas, receipts ou outputs ficticios para preencher a tela.
+
+## Proximas Acoes
+
+Conectar Obras, conversas, terminal PTY, receipts, gates e evidence reais; todo
+painel sem backend deve mostrar estado vazio honesto.
 
 ## 1. Definition
 

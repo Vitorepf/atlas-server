@@ -159,6 +159,10 @@ class AiTelemetryMetricsTest extends TestCase
             '--model' => 'cli-test-model',
             '--input-microusd' => 2000,
             '--output-microusd' => 3000,
+            '--pricing-confidence' => 'research_preview_estimate',
+            '--pricing-source' => 'OpenAI Codex rate card',
+            '--pricing-source-url' => 'https://help.openai.com/articles/20001106-codex-rate-card',
+            '--pricing-note' => 'Spark preview rate is estimated until OpenAI publishes a final rate.',
             '--json' => true,
         ])->assertExitCode(0);
 
@@ -168,6 +172,12 @@ class AiTelemetryMetricsTest extends TestCase
             'input_microusd_per_1k' => 2000,
             'output_microusd_per_1k' => 3000,
         ]);
+        $cliRate = AiProviderCostRate::query()
+            ->where('provider', 'codex_cli')
+            ->where('model', 'cli-test-model')
+            ->firstOrFail();
+        $this->assertSame('research_preview_estimate', data_get($cliRate->metadata, 'pricing_confidence'));
+        $this->assertSame('OpenAI Codex rate card', data_get($cliRate->metadata, 'pricing_source'));
     }
 
     public function test_cost_rate_upsert_rejects_negative_input_and_output_rates(): void
@@ -495,6 +505,36 @@ class AiTelemetryMetricsTest extends TestCase
             ->assertJsonPath('missing_rates.0.provider', 'claude_cli')
             ->assertJsonPath('missing_rates.0.model', 'test-model')
             ->assertJsonPath('missing_rates.0.traces', 1);
+
+        $exitCode = Artisan::call('atlas:ai:telemetry:cost-rates', [
+            '--missing' => true,
+            '--hours' => 24,
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true);
+
+        $this->assertSame(0, $exitCode);
+        $this->assertSame('atlas.telemetry.cost_rates.operator_action_plan.v1', data_get($payload, 'operator_action_plan.schema_version'));
+        $this->assertSame('operator_rate_input_required', data_get($payload, 'operator_action_plan.status'));
+        $this->assertTrue((bool) data_get($payload, 'operator_action_plan.rules.operator_supplied_rates_required'));
+        $this->assertTrue((bool) data_get($payload, 'operator_action_plan.rules.agent_must_not_infer_prices'));
+        $this->assertTrue((bool) data_get($payload, 'operator_action_plan.rules.external_price_lookup_not_performed'));
+        $this->assertFalse((bool) data_get($payload, 'operator_action_plan.rules.synthetic_rates_allowed'));
+        $this->assertSame(
+            "php artisan atlas:ai:telemetry:cost-rates --provider='claude_cli' --model='test-model' --input-microusd=<current_input_microusd_per_1k> --output-microusd=<current_output_microusd_per_1k> --json",
+            data_get($payload, 'operator_action_plan.items.0.configure_command'),
+        );
+
+        $humanExitCode = Artisan::call('atlas:ai:telemetry:cost-rates', [
+            '--missing' => true,
+            '--hours' => 24,
+        ]);
+        $humanOutput = Artisan::output();
+
+        $this->assertSame(0, $humanExitCode);
+        $this->assertStringContainsString('Next operator commands:', $humanOutput);
+        $this->assertStringContainsString('--provider=\'claude_cli\' --model=\'test-model\'', $humanOutput);
+        $this->assertStringContainsString('Do not infer, synthesize, or auto-fill these values.', $humanOutput);
 
         $templatePath = storage_path('framework/testing/atlas-ai-cost-rates-'.Str::uuid().'.template.json');
         $this->artisan('atlas:ai:telemetry:cost-rates', [

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\AiInboxItemResource;
 use App\Models\AiInboxItem;
 use App\Models\AtlasMobileDevice;
+use App\Services\Ai\Mobile\AiCriticalInboxReviewReadModel;
 use App\Services\Ai\Mobile\AtlasInboxService;
 use App\Services\Ai\Mobile\InboxActionRegistry;
 use App\Services\Ai\Mobile\MobileGatewayRateLimiter;
@@ -50,6 +51,16 @@ class MobileInboxController extends Controller
         return response()->json([
             'item' => (new AiInboxItemResource($inboxItem->load('contextBundle')))->resolve(),
         ]);
+    }
+
+    public function criticalReview(Request $request, AiCriticalInboxReviewReadModel $review): JsonResponse
+    {
+        $device = $this->device($request);
+        $data = $request->validate([
+            'limit' => ['nullable', 'integer', 'min:1', 'max:100'],
+        ]);
+
+        return response()->json($review->review($device->user_id, (int) ($data['limit'] ?? 50)));
     }
 
     public function markRead(Request $request, AiInboxItem $inboxItem, AtlasInboxService $inbox): JsonResponse

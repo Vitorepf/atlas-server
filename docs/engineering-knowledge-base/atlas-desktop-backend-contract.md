@@ -42,9 +42,57 @@ related_paths:
   - ../atlas-desktop/docs/architecture/0001-atlas-desktop-boundaries.md
   - ../atlas-desktop/packages/atlas-domain/src/cartography.ts
   - ../atlas-desktop/apps/desktop/src/lib/bridge.ts
+doc_schema: atlas_canonical_module_doc.v1
+graph_id: atlas-desktop-backend-contract
+graph_title: Atlas Desktop Backend Contract
+graph_world: atlas
+graph_layer: system
+graph_kind: contract
+graph_parent: atlas-desktop
+graph_status: active
+graph_source: repo
 owner: atlas-ai
 layer: 1-surfaces
 line_limit: 360
+repo_paths:
+  - docs/engineering-knowledge-base/atlas-desktop-backend-contract.md
+  - routes/api.php
+  - app/Http/Controllers/AtlasCartographyController.php
+  - ../atlas-desktop/docs/architecture/0001-atlas-desktop-boundaries.md
+  - ../atlas-desktop/packages/atlas-domain/src/cartography.ts
+  - ../atlas-desktop/apps/desktop/src/lib/bridge.ts
+allowed_changes:
+  - Ajustar contratos de endpoints consumidos pelo Atlas Desktop.
+  - Corrigir shape de payload para remover mock e expor estado real.
+  - Adicionar wrappers dedicados quando rotas historicas tiverem shape incompatível com o Desktop.
+forbidden_changes:
+  - Transformar Atlas Desktop em Kernel ou fonte primaria de decisao.
+  - Inventar dados de Obra, receipt, evidencia, MCP, terminal ou provider.
+  - Fazer Cartografia escrever em repo ou AtlasVault.
+depends_on:
+  - atlas-ai-documentation-operating-system
+  - atlas-canonical-module-doc-v1
+  - atlas-ai-memory-context-core-open-brain
+flows_to:
+  - atlas-desktop-code-surface
+  - atlas-cartography
+unlocks:
+  - atlas-code-operating-room
+  - atlas-semantic-graph
+governs:
+  - atlas-desktop
+  - atlas-code
+  - atlas-cartography
+evidence:
+  - routes/api.php
+  - app/Http/Controllers/AtlasCartographyController.php
+  - docs/engineering-knowledge-base/atlas-desktop-backend-contract.md
+required_tests:
+  - php artisan atlas:engineering:knowledge docs-health --json
+requires_evidence: true
+risk_level: critical
+next_actions:
+  - Conectar Atlas Desktop apenas em endpoints reais e remover qualquer fallback mockado.
 ---
 
 # Atlas Desktop Backend Contract
@@ -57,6 +105,73 @@ do Atlas Desktop:
 
 O Desktop nunca vira Kernel. Ele mostra, comanda, assina e observa. O Kernel
 continua no `atlas-server`.
+
+## Resumo
+
+Este doc governa o backend real que Atlas Desktop consome. Ele existe para
+impedir que Cartografia e Atlas Code virem telas bonitas com dados falsos.
+
+## Papel no Atlas
+
+Ele define a fronteira entre a cabine operacional desktop e o Kernel Laravel.
+O Desktop navega, mostra, observa e assina; o `atlas-server` decide, executa,
+serve MCP, registra evidencia e preserva a fonte de verdade.
+
+## Onde Se Encaixa
+
+Pai: `atlas-desktop`. Irmaos: `atlas-desktop-code-surface` e a Cartografia.
+Filhos operacionais: endpoints `/atlas-cartography/*`, `/atlas-code/*`,
+`/ai/*`, `/projects` e MCP do Open Brain.
+
+## Contratos
+
+Contrato central: nenhuma tela pode inventar estado. Se uma fonte nao existe,
+o backend deve retornar vazio, offline, missing_source ou erro explicito.
+
+## Fluxo
+
+Cartografia le repo docs + AtlasVault. Atlas Code le Obras, sessoes, receipts,
+gates, evidence, MCP e terminal nativo via bridge. Ambos exibem fonte real.
+
+## Regras para IA
+
+Antes de alterar este contrato, a IA deve checar rotas reais, controllers,
+bridge do Desktop e docs de Cartografia/Atlas Code. Nao pode declarar endpoint
+implementado sem evidencia verificavel.
+
+## Escopo de Implementacao
+
+Permitido: docs, wrappers de API, shape de payload, health, evidence e bridge.
+Proibido: duplicar Kernel no Desktop ou introduzir mock como fallback normal.
+
+## Dependencias
+
+- `atlas-ai-documentation-operating-system`
+- `atlas-canonical-module-doc-v1`
+- `atlas-desktop-code-surface`
+- `atlas-ai-memory-context-core-open-brain`
+
+## Evidencias
+
+- `routes/api.php`
+- `app/Http/Controllers/AtlasCartographyController.php`
+- `../atlas-desktop/apps/desktop/src/lib/bridge.ts`
+
+## Riscos
+
+- UI parecer pronta enquanto backend retorna dados falsos.
+- Desktop assumir responsabilidade do Kernel.
+- Rotas antigas com shape diferente quebrarem o contrato do bridge.
+
+## Exemplos
+
+Exemplo correto: `missing_source=true` quando uma peca da Cartografia nao tem
+arquivo fonte. Exemplo proibido: gerar uma Obra fake para preencher rail vazio.
+
+## Proximas Acoes
+
+Remover mocks do Desktop, conectar wrappers reais e fazer cada painel exibir
+estado vazio honesto quando nao houver dado.
 
 ## 1. Regras absolutas
 
@@ -131,6 +246,12 @@ Campos obrigatorios:
       "lanes": [],
       "connections": []
     }
+  },
+  "semantic_graph": {
+    "worlds": [],
+    "nodes": [],
+    "hierarchy": {},
+    "relations": []
   }
 }
 ```
@@ -148,6 +269,13 @@ Cada peca deve carregar:
 - `evidence`
 - `risks`
 - `next_actions`
+
+`semantic_graph` carrega o mapa fonte-real:
+
+- `nodes`: docs/notas reais indexados por `graph_id`.
+- `hierarchy`: `graph_parent -> filhos`, base para mundo -> sistema -> fluxo -> modulo -> engrenagem.
+- `relations`: conexoes derivadas de `depends_on`, `flows_to`, `unlocks` e `governs`.
+- `worlds`: mundos encontrados nos frontmatters, hoje `atlas` e `vault`.
 
 ### 2.5 Gaps conhecidos da Cartografia
 

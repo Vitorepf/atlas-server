@@ -82,11 +82,33 @@ class AtlasAiStructureMotherAuditCommandTest extends TestCase
         );
         $this->assertSame('pending_operator_or_calendar_action', data_get($payload, 'structure_mother_audit.operator_action_plan.status'));
         $this->assertSame(3, data_get($payload, 'structure_mother_audit.operator_action_plan.action_count'));
+        $this->assertSame('atlas.structure_mother.operator_action_summary.v1', data_get($payload, 'structure_mother_audit.operator_action_plan.action_summary.schema_version'));
+        $this->assertSame('operator_action_available_now', data_get($payload, 'structure_mother_audit.operator_action_plan.action_summary.status'));
+        $this->assertSame(2, data_get($payload, 'structure_mother_audit.operator_action_plan.action_summary.actionable_now_count'));
+        $this->assertSame(1, data_get($payload, 'structure_mother_audit.operator_action_plan.action_summary.calendar_wait_count'));
+        $this->assertContains('review_critical_proactive_insights', data_get($payload, 'structure_mother_audit.operator_action_plan.action_summary.next_action_ids'));
         $this->assertContains('record_real_rivals_review_when_due', collect(data_get($payload, 'structure_mother_audit.operator_action_plan.actions'))->pluck('id')->all());
         $this->assertContains('review_critical_proactive_insights', collect(data_get($payload, 'structure_mother_audit.operator_action_plan.actions'))->pluck('id')->all());
         $this->assertContains('configure_missing_provider_cost_rates', collect(data_get($payload, 'structure_mother_audit.operator_action_plan.actions'))->pluck('id')->all());
+        $rivalsAction = collect(data_get($payload, 'structure_mother_audit.operator_action_plan.actions'))->firstWhere('id', 'record_real_rivals_review_when_due');
+        $this->assertSame('/ai/rivals-strategy/review', data_get($rivalsAction, 'api.endpoint'));
+        $this->assertSame('POST', data_get($rivalsAction, 'api.method'));
+        $this->assertFalse(data_get($rivalsAction, 'actionable_now'));
+        $this->assertTrue(data_get($rivalsAction, 'calendar_wait_required'));
+        $this->assertFalse(data_get($rivalsAction, 'api.synthetic_scores_allowed'));
+        $this->assertTrue(data_get($rivalsAction, 'api.review_due_at_required'));
+        $this->assertSame('atlas.rivals_strategy.review_recording.v1', data_get($rivalsAction, 'api.recording_schema_version'));
         $proactiveAction = collect(data_get($payload, 'structure_mother_audit.operator_action_plan.actions'))->firstWhere('id', 'review_critical_proactive_insights');
+        $this->assertSame('php artisan atlas:cli:inbox review-critical', data_get($proactiveAction, 'review_command'));
+        $this->assertSame('php artisan atlas:cli:inbox review-critical --json', data_get($proactiveAction, 'review_command_json'));
         $this->assertStringContainsString('atlas:cli:inbox show', data_get($proactiveAction, 'item_commands.0.show'));
+        $this->assertTrue(data_get($proactiveAction, 'actionable_now'));
+        $this->assertFalse(data_get($proactiveAction, 'calendar_wait_required'));
+        $this->assertSame('/v1/mobile/inbox/critical-review', data_get($proactiveAction, 'api.review.endpoint'));
+        $this->assertSame('/v1/mobile/inbox/{inbox_item_id}/respond', data_get($proactiveAction, 'api.respond.endpoint_template'));
+        $this->assertSame('inbox.action.completed', data_get($proactiveAction, 'api.respond.receipt_event_type'));
+        $this->assertSame('atlas.inbox_action.receipt.v1', data_get($proactiveAction, 'api.respond.ledger_schema_version'));
+        $this->assertFalse(data_get($proactiveAction, 'api.agent_auto_resolve_allowed'));
         $costRateAction = collect(data_get($payload, 'structure_mother_audit.operator_action_plan.actions'))->firstWhere('id', 'configure_missing_provider_cost_rates');
         $this->assertTrue(data_get($costRateAction, 'agent_may_not_infer_prices'));
         $this->assertStringContainsString('--input-microusd=<current_input_microusd_per_1k>', data_get($costRateAction, 'missing_rates.0.configure_command'));
@@ -117,7 +139,90 @@ class AtlasAiStructureMotherAuditCommandTest extends TestCase
         $this->assertSame(0, data_get($payload, 'structure_mother_audit.operator_action_plan.action_count'));
     }
 
-    private function bindAuditService(bool $rivalsReady, int $criticalInsights): void
+    public function test_operator_action_plan_includes_pending_push_replay_when_delivery_attempts_are_missing(): void
+    {
+        $this->bindAuditService(rivalsReady: false, criticalInsights: 1, pushReplayPending: true);
+
+        Artisan::call('atlas:ai:structure-mother-audit', [
+            '--hours' => 720,
+            '--workspace' => base_path(),
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+        $actions = collect(data_get($payload, 'structure_mother_audit.operator_action_plan.actions'));
+        $pushAction = $actions->firstWhere('id', 'replay_pending_mobile_push_dispatches');
+
+        $this->assertContains('push_requested_without_delivery_attempt', collect(data_get($payload, 'structure_mother_audit.blockers'))->pluck('blocker')->all());
+        $this->assertSame('operator_push_replay', data_get($pushAction, 'type'));
+        $this->assertFalse(data_get($pushAction, 'agent_auto_dispatch_allowed'));
+        $this->assertTrue(data_get($pushAction, 'external_notification_possible'));
+        $this->assertSame('php artisan atlas:cli:mobile replay-push --json', data_get($pushAction, 'dry_run_command'));
+        $this->assertSame("php artisan atlas:cli:mobile replay-push --apply --confirm-external-dispatch --reason='<operator evidence summary>' --json", data_get($pushAction, 'apply_command'));
+        $this->assertSame("php artisan atlas:cli:mobile replay-push --apply --confirm-external-dispatch --reason='<operator evidence summary>' --json", data_get($pushAction, 'canonical_apply_command'));
+        $this->assertSame('POST', data_get($pushAction, 'api.method'));
+        $this->assertSame('/ai/mobile/push/replay', data_get($pushAction, 'api.endpoint'));
+        $this->assertTrue(data_get($pushAction, 'api.prior_dry_run_required'));
+        $this->assertTrue(data_get($pushAction, 'api.apply_requires_prior_dry_run'));
+        $this->assertSame(15, data_get($pushAction, 'api.prior_dry_run_max_age_minutes'));
+        $this->assertTrue(data_get($pushAction, 'api.prior_dry_run_candidate_required'));
+        $this->assertTrue(data_get($pushAction, 'api.confirmation_required'));
+        $this->assertTrue(data_get($pushAction, 'api.operator_reason_required'));
+        $this->assertSame('mobile.push_replay.requested', data_get($pushAction, 'api.receipt_event_type'));
+        $this->assertFalse(data_get($pushAction, 'api.raw_push_tokens_exposed'));
+        $this->assertSame(1, data_get($pushAction, 'diagnostics.push_token_device_count'));
+    }
+
+    public function test_human_output_lists_operator_action_plan_without_json(): void
+    {
+        $this->bindAuditService(rivalsReady: false, criticalInsights: 1, pushReplayPending: true);
+
+        $exit = Artisan::call('atlas:ai:structure-mother-audit', [
+            '--hours' => 720,
+            '--workspace' => base_path(),
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Structure Mother Audit', $output);
+        $this->assertStringContainsString('Operator actions', $output);
+        $this->assertStringContainsString('Actionable now', $output);
+        $this->assertStringContainsString('review_critical_proactive_insights', $output);
+        $this->assertStringContainsString('php artisan atlas:cli:inbox review-critical', $output);
+        $this->assertStringContainsString('replay_pending_mobile_push_dispatches', $output);
+        $this->assertStringContainsString('php artisan atlas:cli:mobile replay-push --json', $output);
+        $this->assertStringContainsString('record_real_rivals_review_when_due', $output);
+        $this->assertStringContainsString('Safety rules', $output);
+        $this->assertStringNotContainsString('"structure_mother_audit"', $output);
+    }
+
+    public function test_api_exposes_structure_mother_audit_operator_action_plan(): void
+    {
+        config()->set('atlas.token', 'testing-atlas-token-with-enough-length');
+        $this->bindAuditService(rivalsReady: false, criticalInsights: 1, pushReplayPending: true);
+
+        $this
+            ->withHeader('X-Atlas-Token', 'testing-atlas-token-with-enough-length')
+            ->getJson('/ai/structure-mother-audit?hours=720&workspace='.urlencode(base_path()))
+            ->assertOk()
+            ->assertJsonPath('status', 'ok')
+            ->assertJsonPath('structure_mother_audit.schema_version', 'atlas.structure_mother_audit.v1')
+            ->assertJsonPath('structure_mother_audit.operator_action_plan.schema_version', 'atlas.structure_mother.operator_action_plan.v1')
+            ->assertJsonPath('structure_mother_audit.operator_action_plan.status', 'pending_operator_or_calendar_action');
+    }
+
+    public function test_api_requires_atlas_token(): void
+    {
+        config()->set('atlas.token', 'testing-atlas-token-with-enough-length');
+        $this->bindAuditService(rivalsReady: false, criticalInsights: 1, pushReplayPending: true);
+
+        $this
+            ->withHeader('X-Atlas-Token', 'wrong-token-with-enough-length')
+            ->getJson('/ai/structure-mother-audit?hours=720&workspace='.urlencode(base_path()))
+            ->assertUnauthorized()
+            ->assertJsonPath('error.message', 'Invalid or missing X-Atlas-Token.');
+    }
+
+    private function bindAuditService(bool $rivalsReady, int $criticalInsights, bool $pushReplayPending = false): void
     {
         $this->app->instance(AtlasStructureMotherAuditReadModel::class, new AtlasStructureMotherAuditReadModel(
             $this->memoryQuality(),
@@ -127,7 +232,7 @@ class AtlasAiStructureMotherAuditCommandTest extends TestCase
             $this->tools(),
             $this->longRunningWork(),
             $this->rivals($rivalsReady),
-            $this->proactive($criticalInsights),
+            $this->proactive($criticalInsights, $pushReplayPending),
             $this->qualitativeLevels($rivalsReady),
             $this->costRates($rivalsReady),
         ));
@@ -249,7 +354,7 @@ class AtlasAiStructureMotherAuditCommandTest extends TestCase
         return $mock;
     }
 
-    private function proactive(int $criticalInsights): ProactiveLayerReadModel
+    private function proactive(int $criticalInsights, bool $pushReplayPending = false): ProactiveLayerReadModel
     {
         $mock = Mockery::mock(ProactiveLayerReadModel::class);
         $mock->shouldReceive('report')->andReturn([
@@ -260,7 +365,20 @@ class AtlasAiStructureMotherAuditCommandTest extends TestCase
             'active_insight_item_count' => $criticalInsights,
             'critical_insight_item_count' => $criticalInsights,
             'active_critical_insight_item_count' => $criticalInsights,
+            'push_requested_insight_count' => $pushReplayPending ? 2 : 0,
             'push_delivery_count' => 0,
+            'mobile_push_configuration' => [
+                'pending_dispatch_commands' => [
+                    'dry_run' => 'php artisan atlas:cli:mobile replay-push --json',
+                    'apply' => 'php artisan atlas:cli:mobile replay-push --apply --json',
+                ],
+                'delivery_diagnostics' => [
+                    'push_token_device_count' => $pushReplayPending ? 1 : 0,
+                    'granted_push_device_count' => $pushReplayPending ? 1 : 0,
+                    'raw_push_token_exposed' => false,
+                    'raw_device_id_exposed' => false,
+                ],
+            ],
             'critical_review_contract' => [
                 'critical_active_count' => $criticalInsights,
                 'agent_resolution_allowed' => false,
@@ -272,7 +390,10 @@ class AtlasAiStructureMotherAuditCommandTest extends TestCase
                 ],
             ],
             'review_signal' => [
-                'reasons' => $criticalInsights > 0 ? ['critical_proactive_insights_active'] : [],
+                'reasons' => array_values(array_filter([
+                    $criticalInsights > 0 ? 'critical_proactive_insights_active' : null,
+                    $pushReplayPending ? 'push_requested_without_delivery_attempt' : null,
+                ])),
             ],
         ]);
 

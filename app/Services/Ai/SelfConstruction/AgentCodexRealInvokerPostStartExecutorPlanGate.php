@@ -100,6 +100,7 @@ class AgentCodexRealInvokerPostStartExecutorPlanGate
 
             $metadata['codex_real_invoker_post_start_executor_plan'] = [
                 'post_start_executor_plan_gate_id' => $normalized['post_start_executor_plan_gate_id'],
+                'post_start_evidence_acceptance_bridge_id' => $normalized['post_start_evidence_acceptance_bridge_id'],
                 'post_start_implementation_boundary_gate_id' => $normalized['post_start_implementation_boundary_gate_id'],
                 'post_start_signed_real_invoker_release_gate_id' => $normalized['post_start_signed_real_invoker_release_gate_id'],
                 'post_start_real_invoker_release_preflight_gate_id' => $normalized['post_start_real_invoker_release_preflight_gate_id'],
@@ -202,6 +203,7 @@ class AgentCodexRealInvokerPostStartExecutorPlanGate
         $required = [
             'run_key',
             'post_start_executor_plan_gate_id',
+            'post_start_evidence_acceptance_bridge_id',
             'post_start_implementation_boundary_gate_id',
             'post_start_signed_real_invoker_release_gate_id',
             'post_start_real_invoker_release_preflight_gate_id',
@@ -336,6 +338,7 @@ class AgentCodexRealInvokerPostStartExecutorPlanGate
 
         foreach ([
             'post_start_implementation_boundary_gate_id',
+            'post_start_evidence_acceptance_bridge_id',
             'post_start_signed_real_invoker_release_gate_id',
             'post_start_real_invoker_release_preflight_gate_id',
             'post_start_external_process_invoker_dry_run_gate_id',
@@ -422,6 +425,7 @@ class AgentCodexRealInvokerPostStartExecutorPlanGate
             'status' => 'codex_real_invoker_post_start_executor_plan_recorded',
             'idempotent' => $idempotent,
             'post_start_executor_plan_gate_id' => (string) data_get($run->metadata, 'codex_real_invoker_post_start_executor_plan.post_start_executor_plan_gate_id'),
+            'post_start_evidence_acceptance_bridge_id' => (string) data_get($run->metadata, 'codex_real_invoker_post_start_executor_plan.post_start_evidence_acceptance_bridge_id'),
             'post_start_implementation_boundary_gate_id' => (string) data_get($run->metadata, 'codex_real_invoker_post_start_executor_plan.post_start_implementation_boundary_gate_id'),
             'real_invoker_executor_plan_id' => (string) data_get($run->metadata, 'codex_real_invoker_post_start_executor_plan.real_invoker_executor_plan_id'),
             'real_invoker_implementation_boundary_id' => (string) data_get($run->metadata, 'codex_real_invoker_post_start_executor_plan.real_invoker_implementation_boundary_id'),

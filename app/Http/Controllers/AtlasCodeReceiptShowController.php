@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Models\AiDecision;
+use App\Models\AtlasLedgerEvent;
 use Illuminate\Http\JsonResponse;
 
 /**
@@ -44,6 +45,8 @@ final class AtlasCodeReceiptShowController extends Controller
             }
         }
 
+        $signature = $this->latestSignature($decision);
+
         return response()->json([
             'id' => (string) $decision->getKey(),
             'traceId' => $decision->trace_id ? (string) $decision->trace_id : null,
@@ -57,11 +60,33 @@ final class AtlasCodeReceiptShowController extends Controller
             'budgetEstUsd' => (float) ($constraints['budget_est_usd'] ?? 0),
             'budgetUsedUsd' => (float) (data_get($decision->metrics_snapshot, 'budget_used_usd') ?? 0),
             'fallbackChain' => array_values(array_unique($fallback)),
-            'signedBy' => null,
-            'signature' => null,
-            'signedAt' => null,
+            'signedBy' => $signature['signed_by'],
+            'signature' => $signature['signature'],
+            'signedAt' => $signature['signed_at'],
             'reason' => (string) ($decision->reason ?? ''),
             'createdAt' => $decision->created_at?->toJSON(),
         ]);
+    }
+
+    /**
+     * @return array{signed_by: ?string, signature: ?string, signed_at: ?string}
+     */
+    private function latestSignature(AiDecision $decision): array
+    {
+        $event = AtlasLedgerEvent::query()
+            ->where('receipt_id', (string) $decision->getKey())
+            ->where('event_type', 'atlas_code.receipt.signed')
+            ->latest('occurred_at')
+            ->first();
+
+        if (! $event) {
+            return ['signed_by' => null, 'signature' => null, 'signed_at' => null];
+        }
+
+        return [
+            'signed_by' => is_string(data_get($event->payload, 'signer_id')) ? data_get($event->payload, 'signer_id') : null,
+            'signature' => is_string(data_get($event->payload, 'signature')) ? data_get($event->payload, 'signature') : null,
+            'signed_at' => is_string(data_get($event->payload, 'signed_at')) ? data_get($event->payload, 'signed_at') : null,
+        ];
     }
 }

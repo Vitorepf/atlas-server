@@ -13,6 +13,7 @@ use InvalidArgumentException;
 class AgentCodexRealInvokerPostStartLivenessMonitor
 {
     private const LEDGER_TABLE = 'atlas_ledger_events';
+
     private const ALLOWED_STATES = ['alive', 'silent', 'stale', 'orphaned'];
 
     public function __construct(
@@ -58,6 +59,7 @@ class AgentCodexRealInvokerPostStartLivenessMonitor
 
             $metadata['codex_real_invoker_post_start_liveness_monitor'] = [
                 'post_start_liveness_monitor_id' => $normalized['post_start_liveness_monitor_id'],
+                'post_start_evidence_acceptance_bridge_id' => $normalized['post_start_evidence_acceptance_bridge_id'],
                 'post_start_evidence_receipt_id' => $normalized['post_start_evidence_receipt_id'],
                 'post_start_receipt_contract_id' => $normalized['post_start_receipt_contract_id'],
                 'operator_start_handoff_id' => $normalized['operator_start_handoff_id'],
@@ -94,6 +96,7 @@ class AgentCodexRealInvokerPostStartLivenessMonitor
             $ledgerEvent = $this->ledger->record(LedgerEventType::OperationCompleted, [
                 'domain_event_type' => 'self_construction.agent_codex_real_invoker_post_start_liveness.recorded',
                 'post_start_liveness_monitor_id' => $normalized['post_start_liveness_monitor_id'],
+                'post_start_evidence_acceptance_bridge_id' => $normalized['post_start_evidence_acceptance_bridge_id'],
                 'post_start_evidence_receipt_id' => $normalized['post_start_evidence_receipt_id'],
                 'post_start_receipt_contract_id' => $normalized['post_start_receipt_contract_id'],
                 'codex_execution_id' => $normalized['codex_execution_id'],
@@ -140,6 +143,7 @@ class AgentCodexRealInvokerPostStartLivenessMonitor
             'manual_start_executor_receipt_id',
             'operator_start_handoff_id',
             'post_start_receipt_contract_id',
+            'post_start_evidence_acceptance_bridge_id',
             'post_start_evidence_receipt_id',
             'post_start_liveness_monitor_id',
             'observed_liveness_state',
@@ -186,6 +190,7 @@ class AgentCodexRealInvokerPostStartLivenessMonitor
             'manual_start_executor_receipt_id' => (string) $input['manual_start_executor_receipt_id'],
             'operator_start_handoff_id' => (string) $input['operator_start_handoff_id'],
             'post_start_receipt_contract_id' => (string) $input['post_start_receipt_contract_id'],
+            'post_start_evidence_acceptance_bridge_id' => (string) $input['post_start_evidence_acceptance_bridge_id'],
             'post_start_evidence_receipt_id' => (string) $input['post_start_evidence_receipt_id'],
             'post_start_liveness_monitor_id' => (string) $input['post_start_liveness_monitor_id'],
             'observed_liveness_state' => $state,
@@ -213,10 +218,30 @@ class AgentCodexRealInvokerPostStartLivenessMonitor
             throw new InvalidArgumentException('codex_real_invoker_post_start_evidence_receipt_missing_or_mismatch');
         }
 
+        if ((string) data_get($metadata, 'codex_real_invoker_post_start_evidence_acceptance_bridge.post_start_evidence_acceptance_bridge_id') !== $normalized['post_start_evidence_acceptance_bridge_id']) {
+            throw new InvalidArgumentException('codex_real_invoker_post_start_evidence_acceptance_bridge_missing_or_mismatch');
+        }
+
         foreach (['post_start_receipt_contract_id', 'operator_start_handoff_id', 'manual_start_executor_receipt_id', 'codex_execution_id'] as $field) {
             if ((string) data_get($metadata, 'codex_real_invoker_post_start_evidence_receipt.'.$field) !== $normalized[$field]) {
                 throw new InvalidArgumentException($field.'_mismatch');
             }
+
+            if ((string) data_get($metadata, 'codex_real_invoker_post_start_evidence_acceptance_bridge.'.$field) !== $normalized[$field]) {
+                throw new InvalidArgumentException('post_start_evidence_acceptance_bridge_'.$field.'_mismatch');
+            }
+        }
+
+        if ((string) data_get($metadata, 'codex_real_invoker_post_start_evidence_acceptance_bridge.post_start_evidence_receipt_id') !== $normalized['post_start_evidence_receipt_id']) {
+            throw new InvalidArgumentException('post_start_evidence_acceptance_bridge_post_start_evidence_receipt_id_mismatch');
+        }
+
+        if ((string) data_get($metadata, 'codex_real_invoker_post_start_evidence_acceptance_bridge.status') !== 'post_start_evidence_acceptance_recorded_pending_liveness_monitoring') {
+            throw new InvalidArgumentException('codex_real_invoker_post_start_evidence_acceptance_bridge_not_ready_for_liveness');
+        }
+
+        if (! (bool) data_get($metadata, 'codex_real_invoker_post_start_evidence_acceptance_bridge.post_start_evidence_acceptance_recorded', false)) {
+            throw new InvalidArgumentException('post_start_evidence_acceptance_not_recorded');
         }
 
         if ((string) data_get($metadata, 'codex_real_invoker_post_start_evidence_receipt.status') !== 'post_start_evidence_receipt_recorded_pending_liveness_monitoring') {
@@ -231,11 +256,19 @@ class AgentCodexRealInvokerPostStartLivenessMonitor
             if ((bool) data_get($metadata, 'codex_real_invoker_post_start_evidence_receipt.'.$field, false)) {
                 throw new InvalidArgumentException($field.'_already_true');
             }
+
+            if ((bool) data_get($metadata, 'codex_real_invoker_post_start_evidence_acceptance_bridge.'.$field, false)) {
+                throw new InvalidArgumentException('post_start_evidence_acceptance_bridge_'.$field.'_already_true');
+            }
         }
 
         foreach (['external_process_started', 'provider_started'] as $field) {
             if (! (bool) data_get($metadata, 'codex_real_invoker_post_start_evidence_receipt.'.$field, false)) {
                 throw new InvalidArgumentException($field.'_not_true');
+            }
+
+            if (! (bool) data_get($metadata, 'codex_real_invoker_post_start_evidence_acceptance_bridge.'.$field, false)) {
+                throw new InvalidArgumentException('post_start_evidence_acceptance_bridge_'.$field.'_not_true');
             }
         }
     }
@@ -249,6 +282,7 @@ class AgentCodexRealInvokerPostStartLivenessMonitor
             'status' => 'codex_real_invoker_post_start_liveness_recorded',
             'idempotent' => $idempotent,
             'post_start_liveness_monitor_id' => (string) data_get($run->metadata, 'codex_real_invoker_post_start_liveness_monitor.post_start_liveness_monitor_id'),
+            'post_start_evidence_acceptance_bridge_id' => (string) data_get($run->metadata, 'codex_real_invoker_post_start_liveness_monitor.post_start_evidence_acceptance_bridge_id'),
             'post_start_evidence_receipt_id' => (string) data_get($run->metadata, 'codex_real_invoker_post_start_liveness_monitor.post_start_evidence_receipt_id'),
             'codex_execution_id' => (string) data_get($run->metadata, 'codex_real_invoker_post_start_liveness_monitor.codex_execution_id'),
             'agent_run_id' => (string) $run->id,

@@ -34,15 +34,12 @@ class AtlasCodeEvidenceController extends Controller
             ->limit($limit)
             ->get(['id', 'status', 'decision', 'started_at', 'finished_at', 'updated_at']);
 
-        $runIds = $runs->pluck('id')->all();
-
-        $evidences = empty($runIds)
-            ? collect()
-            : AtlasEngineeringEvidence::query()
-                ->whereIn('run_id', $runIds)
-                ->orderByDesc('created_at')
-                ->limit($limit)
-                ->get();
+        $evidences = AtlasEngineeringEvidence::query()
+            ->where('project_id', $project->getKey())
+            ->orderByDesc('recorded_at')
+            ->orderByDesc('created_at')
+            ->limit($limit)
+            ->get();
 
         $items = collect();
 
@@ -64,9 +61,9 @@ class AtlasCodeEvidenceController extends Controller
             $items->push([
                 'id' => 'evidence:' . $ev->id,
                 'obraId' => (string) $project->getKey(),
-                'kind' => (string) ($ev->kind ?? 'evidence'),
-                'summary' => (string) ($ev->summary ?? $ev->message ?? 'evidence ' . $ev->id),
-                'createdAt' => $ev->created_at?->toJSON(),
+                'kind' => (string) ($ev->evidence_type ?? 'evidence'),
+                'summary' => (string) ($ev->summary ?? $ev->output_excerpt ?? 'evidence ' . $ev->id),
+                'createdAt' => ($ev->recorded_at ?? $ev->created_at)?->toJSON(),
             ]);
         }
 

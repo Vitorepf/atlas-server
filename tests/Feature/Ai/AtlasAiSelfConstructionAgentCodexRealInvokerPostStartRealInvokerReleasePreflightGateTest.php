@@ -39,6 +39,10 @@ class AtlasAiSelfConstructionAgentCodexRealInvokerPostStartRealInvokerReleasePre
 
         $this->assertSame('codex_real_invoker_post_start_real_invoker_release_preflight_recorded', $result['status']);
         $this->assertFalse($result['idempotent']);
+        $this->assertSame(
+            'codex-real-invoker-post-start-evidence-acceptance-bridge-001',
+            $result['post_start_evidence_acceptance_bridge_id']
+        );
         $this->assertTrue($result['post_start_real_invoker_release_preflight_recorded']);
         $this->assertTrue($result['real_invoker_release_preflight_passed']);
         $this->assertTrue($result['signed_release_gate_required']);
@@ -62,6 +66,10 @@ class AtlasAiSelfConstructionAgentCodexRealInvokerPostStartRealInvokerReleasePre
             ->firstOrFail();
 
         $this->assertSame('post_start_real_invoker_release_preflight_passed_pending_signed_release_gate', data_get($observed->metadata, 'codex_real_invoker_post_start_real_invoker_release_preflight.status'));
+        $this->assertSame(
+            'codex-real-invoker-post-start-evidence-acceptance-bridge-001',
+            data_get($observed->metadata, 'codex_real_invoker_post_start_real_invoker_release_preflight.post_start_evidence_acceptance_bridge_id')
+        );
         $this->assertSame('real_invoker_release_preflight_passed_pending_signed_release', data_get($provider->metadata, 'codex_real_invoker_release_preflight.status'));
         $this->assertFalse((bool) data_get($provider->metadata, 'codex_real_invoker_release_preflight.external_process_started'));
         $this->assertDatabaseHas('atlas_ledger_events', [
@@ -107,6 +115,21 @@ class AtlasAiSelfConstructionAgentCodexRealInvokerPostStartRealInvokerReleasePre
 
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('post_start_external_process_invoker_dry_run_gate_id_mismatch');
+
+        app(AgentCodexRealInvokerPostStartRealInvokerReleasePreflightGate::class)
+            ->recordPostStartRealInvokerReleasePreflight($this->validInput());
+    }
+
+    public function test_post_start_real_invoker_release_preflight_rejects_dry_run_without_evidence_acceptance_bridge(): void
+    {
+        $metadata = $this->observedMetadata();
+        $metadata['codex_real_invoker_post_start_external_process_invoker_dry_run']['post_start_evidence_acceptance_bridge_id'] = null;
+
+        $this->createObservedRun(['metadata' => $metadata]);
+        $this->createProviderStartRun();
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('post_start_evidence_acceptance_bridge_id_mismatch');
 
         app(AgentCodexRealInvokerPostStartRealInvokerReleasePreflightGate::class)
             ->recordPostStartRealInvokerReleasePreflight($this->validInput());
@@ -259,6 +282,7 @@ class AtlasAiSelfConstructionAgentCodexRealInvokerPostStartRealInvokerReleasePre
                 'provider_start_driver_gate_id' => 'codex-post-start-provider-start-driver-gate-001',
                 'provider_start_attempt_id' => 'attempt-001',
                 'provider_start_run_key' => 'provider-start:attempt-001',
+                'post_start_evidence_acceptance_bridge_id' => 'codex-real-invoker-post-start-evidence-acceptance-bridge-001',
                 'signed_dispatch_receipt_hash' => str_repeat('f', 64),
                 'operator_release_receipt_hash' => str_repeat('a', 64),
                 'operator_spawn_receipt_hash' => str_repeat('e', 64),
@@ -361,6 +385,7 @@ class AtlasAiSelfConstructionAgentCodexRealInvokerPostStartRealInvokerReleasePre
             'adapter_invocation_id' => 'adapter-invocation-001',
             'provider_start_driver_gate_id' => 'codex-post-start-provider-start-driver-gate-001',
             'provider_start_attempt_id' => 'attempt-001',
+            'post_start_evidence_acceptance_bridge_id' => 'codex-real-invoker-post-start-evidence-acceptance-bridge-001',
             'signed_dispatch_receipt_hash' => str_repeat('f', 64),
             'operator_release_receipt_hash' => str_repeat('a', 64),
             'operator_spawn_receipt_hash' => str_repeat('e', 64),

@@ -2,8 +2,8 @@
 
 namespace App\Services\Ai\Mobile;
 
-use App\Models\AiJob;
 use App\Models\AiInboxItem;
+use App\Models\AiJob;
 use App\Models\MobilePushDelivery;
 use App\Services\AuditLogService;
 use Illuminate\Support\Carbon;
@@ -18,13 +18,13 @@ class MobileReliabilityMonitor
     public const SCHEDULER_TICK_KEY = 'atlas:scheduler:last_tick_at';
 
     private const LAST_STATUS_KEY = 'atlas:mobile:reliability:last_status';
+
     private const ALERT_COOLDOWN_PREFIX = 'atlas:mobile:reliability:alert:';
 
     public function __construct(
         private readonly ExpoCircuitBreaker $circuit,
         private readonly AuditLogService $audit,
-    ) {
-    }
+    ) {}
 
     /**
      * @return array<string,mixed>
@@ -49,6 +49,7 @@ class MobileReliabilityMonitor
     public function snapshot(): array
     {
         $checks = [
+            $this->mobilePushConfigurationCheck(),
             $this->schedulerStaleCheck(),
             $this->performanceReportFreshCheck(),
             $this->pushDegradedCheck(),
@@ -73,6 +74,26 @@ class MobileReliabilityMonitor
     public static function recordSchedulerTick(): void
     {
         Cache::put(self::SCHEDULER_TICK_KEY, now()->toJSON(), now()->addDay());
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function mobilePushConfigurationCheck(): array
+    {
+        $enabled = (bool) config('atlas.mobile.enabled', false);
+
+        return $this->checkResult(
+            'mobile_push_configuration',
+            $enabled ? 'healthy' : 'warning',
+            $enabled ? 'Mobile push habilitado.' : 'Mobile push desabilitado por configuracao.',
+            [
+                'mobile_enabled' => $enabled,
+                'push_dispatch_enabled' => $enabled,
+                'blocked_reason' => $enabled ? null : 'atlas_mobile_disabled',
+                'env_key' => 'ATLAS_MOBILE_ENABLED',
+            ],
+        );
     }
 
     /**

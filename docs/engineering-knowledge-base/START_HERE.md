@@ -14,6 +14,7 @@ tags:
 capabilities:
   - session_bootstrap
   - documentation_operating_system
+  - canonical_module_doc_v1
   - knowledge_governance_system
   - provider_evolution_intelligence
   - runtime_language_boundaries
@@ -50,6 +51,7 @@ decisions:
   - Toda IA nova deve ler Atlas AI Provider Evolution Intelligence antes de avaliar lancamento de Claude, ChatGPT, Gemini, Codex, vertical agents, connectors ou skill packs externos.
   - Toda IA nova deve rodar `php artisan atlas:ai:session-bootstrap --task="<task>" --json` e `php artisan atlas:ai:place-feature "<feature>" --json` antes de implementar feature estrutural.
   - Toda IA nova deve ler Atlas AI Documentation Operating System antes de criar docs, expandir specs grandes ou declarar que algo nao existe.
+  - Toda IA nova deve ler Atlas Canonical Module Doc v1 antes de criar ou alterar docs tecnicos que alimentem Cartografia, Atlas Code ou implementacao por IA.
   - Toda IA nova deve rodar `php artisan atlas:ai:docs-split-plan --owner=<owner_area> --json` antes de expandir docs grandes, usando `severity`/`status` quando precisar de contexto menor.
   - Toda IA nova deve ler Atlas AI Knowledge Governance System antes de depender de Obsidian, AGENTS/CLAUDE, Postgres KB ou chat como contexto para implementacao.
   - Toda IA nova deve ler Atlas AI Runtime Language Boundaries antes de propor Python, Go, Swift, microservico, worker externo ou daemon.
@@ -85,6 +87,7 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-ai-session-bootstrap.md
   - docs/engineering-knowledge-base/atlas-ai-provider-evolution-intelligence.md
   - docs/engineering-knowledge-base/atlas-ai-documentation-operating-system.md
+  - docs/engineering-knowledge-base/atlas-canonical-module-doc-v1.md
   - docs/engineering-knowledge-base/atlas-ai-knowledge-governance-system.md
   - docs/engineering-knowledge-base/atlas-ai-runtime-language-boundaries.md
   - docs/engineering-knowledge-base/atlas-native-mac-agent.md

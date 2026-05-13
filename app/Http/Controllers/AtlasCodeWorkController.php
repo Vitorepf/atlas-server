@@ -5,7 +5,13 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Models\AiThread;
+use App\Models\AiDecision;
+use App\Models\AiTrace;
+use App\Models\AtlasEngineeringEvidence;
+use App\Models\AtlasEngineeringRun;
+use App\Models\AtlasLedgerEvent;
 use App\Models\AtlasProject;
+use App\Models\AtlasToolRun;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -110,6 +116,11 @@ final class AtlasCodeWorkController extends Controller
             ])->all()
             : [];
 
+        $traceIds = $this->traceIdsForWork($project, $threads->pluck('id')->map(fn ($id): string => (string) $id)->all());
+        $latestDecision = $traceIds === []
+            ? null
+            : AiDecision::query()->whereIn('trace_id', $traceIds)->latest('created_at')->first();
+
         return response()->json([
             'work' => $this->shape($project, withDetail: true),
             'sessions' => $threads->map(fn (AiThread $t): array => [
@@ -122,9 +133,9 @@ final class AtlasCodeWorkController extends Controller
             'active_thread' => $activeThread ? (string) $activeThread->getKey() : null,
             'messages' => $messages,
             'sdd' => $this->sddSnapshot($project),
-            'receipt' => null,
-            'gates' => [],
-            'evidence' => [],
+            'receipt' => $latestDecision ? $this->receiptShape($latestDecision, $project) : null,
+            'gates' => $this->gateRunsForWork($project),
+            'evidence' => $this->evidenceForWork($project),
             'repair' => [],
             'learning_proposals' => [],
             'generated_at' => now()->toJSON(),
@@ -243,5 +254,181 @@ final class AtlasCodeWorkController extends Controller
             return 'active';
         }
         return 'pending';
+    }
+
+    /**
+     * @param  array<int,string>  $threadIds
+     * @return array<int,string>
+     */
+    private function traceIdsForWork(AtlasProject $project, array $threadIds): array
+    {
+        return AiTrace::query()
+            ->where(function ($query) use ($project, $threadIds): void {
+                $query->where('source_id', (string) $project->getKey());
+                if ($threadIds !== []) {
+                    $query->orWhereIn('thread_id', $threadIds);
+                }
+            })
+            ->latest('created_at')
+            ->limit(50)
+            ->pluck('id')
+            ->map(fn ($id): string => (string) $id)
+            ->all();
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function receiptShape(AiDecision $decision, AtlasProject $project): array
+    {
+        $score = (int) ($decision->confidence_score ?? 0);
+        $confidence = match (true) {
+            $score >= 80 => 'high',
+            $score >= 50 => 'medium',
+            $score > 0 => 'low',
+            default => 'unknown',
+        };
+
+        $candidates = is_array($decision->candidates) ? $decision->candidates : [];
+        $fallback = [];
+        foreach ($candidates as $candidate) {
+            if (! is_array($candidate)) {
+                continue;
+            }
+            $name = $candidate['provider'] ?? $candidate['name'] ?? null;
+            if (is_string($name) && $name !== ($decision->selected_provider ?? null)) {
+                $fallback[] = $name;
+            }
+        }
+
+        $signature = $this->latestSignature($decision);
+
+        return [
+            'id' => (string) $decision->getKey(),
+            'obraId' => (string) $project->getKey(),
+            'traceId' => $decision->trace_id ? (string) $decision->trace_id : null,
+            'primary' => (string) ($decision->selected_provider ?? 'unknown'),
+            'model' => (string) ($decision->selected_model ?? ''),
+            'confidence' => $confidence,
+            'confidenceScore' => $score,
+            'routeMode' => (string) ($decision->route_mode ?? ''),
+            'taskType' => (string) ($decision->task_type ?? ''),
+            'riskLevel' => (string) ($decision->risk_level ?? ''),
+            'budgetEstUsd' => (float) data_get($decision->constraints, 'budget_est_usd', 0),
+            'budgetUsedUsd' => (float) data_get($decision->metrics_snapshot, 'budget_used_usd', 0),
+            'fallbackChain' => array_values(array_unique($fallback)),
+            'signedBy' => $signature['signed_by'],
+            'signature' => $signature['signature'],
+            'signedAt' => $signature['signed_at'],
+            'reason' => (string) ($decision->reason ?? ''),
+            'createdAt' => $decision->created_at?->toJSON(),
+        ];
+    }
+
+    /**
+     * @return array{signed_by: ?string, signature: ?string, signed_at: ?string}
+     */
+    private function latestSignature(AiDecision $decision): array
+    {
+        $event = AtlasLedgerEvent::query()
+            ->where('receipt_id', (string) $decision->getKey())
+            ->where('event_type', 'atlas_code.receipt.signed')
+            ->latest('occurred_at')
+            ->first();
+
+        if (! $event) {
+            return ['signed_by' => null, 'signature' => null, 'signed_at' => null];
+        }
+
+        return [
+            'signed_by' => is_string(data_get($event->payload, 'signer_id')) ? data_get($event->payload, 'signer_id') : null,
+            'signature' => is_string(data_get($event->payload, 'signature')) ? data_get($event->payload, 'signature') : null,
+            'signed_at' => is_string(data_get($event->payload, 'signed_at')) ? data_get($event->payload, 'signed_at') : null,
+        ];
+    }
+
+    /**
+     * @return array<int,array<string,mixed>>
+     */
+    private function gateRunsForWork(AtlasProject $project): array
+    {
+        $workspace = (string) (data_get($project->metadata, 'workspace_path') ?: '');
+
+        $toolRuns = AtlasToolRun::query()
+            ->where(function ($query) use ($project, $workspace): void {
+                $query->where(function ($inner) use ($project): void {
+                    $inner->where('run_context_type', 'atlas_project')
+                        ->where('run_context_id', (string) $project->getKey());
+                });
+
+                if ($workspace !== '') {
+                    $query->orWhere('workspace', $workspace);
+                }
+            })
+            ->latest('created_at')
+            ->limit(30)
+            ->get(['id', 'tool_slug', 'status', 'summary_json', 'created_at']);
+
+        $runs = $toolRuns->map(function (AtlasToolRun $run): array {
+            return [
+                'id' => (string) $run->id,
+                'tool_slug' => (string) ($run->tool_slug ?? 'tool_run'),
+                'status' => (string) ($run->status ?? 'pending'),
+                'message' => (string) (data_get($run->summary_json, 'summary') ?? data_get($run->summary_json, 'message') ?? ''),
+            ];
+        });
+
+        $engineeringRuns = AtlasEngineeringRun::query()
+            ->where('project_id', $project->getKey())
+            ->latest('updated_at')
+            ->limit(10)
+            ->get(['id', 'status', 'decision']);
+
+        foreach ($engineeringRuns as $run) {
+            $runs->push([
+                'id' => 'engineering:' . $run->id,
+                'tool_slug' => 'engineering_run',
+                'status' => (string) ($run->status ?? $run->decision ?? 'pending'),
+                'message' => (string) ($run->decision ?? ''),
+            ]);
+        }
+
+        return $runs->values()->all();
+    }
+
+    /**
+     * @return array<int,array<string,mixed>>
+     */
+    private function evidenceForWork(AtlasProject $project): array
+    {
+        $runs = AtlasEngineeringRun::query()
+            ->where('project_id', $project->getKey())
+            ->orderByDesc('updated_at')
+            ->limit(25)
+            ->get(['id', 'status', 'decision', 'finished_at', 'updated_at']);
+
+        $evidence = AtlasEngineeringEvidence::query()
+            ->where('project_id', $project->getKey())
+            ->orderByDesc('recorded_at')
+            ->orderByDesc('created_at')
+            ->limit(25)
+            ->get();
+
+        return collect()
+            ->merge($runs->map(fn (AtlasEngineeringRun $run): array => [
+                'id' => 'run:' . $run->id,
+                'kind' => 'engineering_run',
+                'summary' => sprintf('engineering run %s · %s', substr((string) $run->id, 0, 8), (string) ($run->status ?? 'unknown')),
+                'createdAt' => ($run->finished_at ?? $run->updated_at)?->toJSON(),
+            ]))
+            ->merge($evidence->map(fn (AtlasEngineeringEvidence $item): array => [
+                'id' => 'evidence:' . $item->id,
+                'kind' => (string) ($item->evidence_type ?? 'evidence'),
+                'summary' => (string) ($item->summary ?? $item->output_excerpt ?? 'evidence ' . $item->id),
+                'createdAt' => ($item->recorded_at ?? $item->created_at)?->toJSON(),
+            ]))
+            ->sortByDesc(fn (array $item): string => (string) ($item['createdAt'] ?? ''))
+            ->values()
+            ->all();
     }
 }

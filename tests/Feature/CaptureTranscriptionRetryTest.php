@@ -666,6 +666,9 @@ class CaptureTranscriptionRetryTest extends TestCase
         $this->assertSame('atlas.memory.promotion_receipt.v1', $memoryMetadata['promotion_receipt']['schema_version']);
         $this->assertSame($proposalId, $memoryMetadata['promotion_receipt']['proposal_id']);
         $this->assertSame('feature-test', $memoryMetadata['promotion_receipt']['promoted_by']);
+        $this->assertSame('sha256', $memoryMetadata['promotion_receipt']['receipt_hash_algorithm']);
+        $this->assertContains('memory_delta_id', $memoryMetadata['promotion_receipt']['receipt_hash_fields']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $memoryMetadata['promotion_receipt']['receipt_hash']);
 
         $verbatim = \DB::table('atlas_verbatim_memories')
             ->where('source_type', 'capture')
@@ -678,6 +681,9 @@ class CaptureTranscriptionRetryTest extends TestCase
         $verbatimMetadata = json_decode($verbatim->metadata, true, flags: JSON_THROW_ON_ERROR);
         $this->assertSame('atlas.verbatim_memory.promotion_receipt.v1', $verbatimMetadata['promotion_receipt']['schema_version']);
         $this->assertSame('feature-test', $verbatimMetadata['promotion_receipt']['promoted_by']);
+        $this->assertSame('sha256', $verbatimMetadata['promotion_receipt']['receipt_hash_algorithm']);
+        $this->assertContains('content_hash', $verbatimMetadata['promotion_receipt']['receipt_hash_fields']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $verbatimMetadata['promotion_receipt']['receipt_hash']);
 
         $capture = \DB::table('captures')->where('id', $captureId)->first();
         $captureMetadata = json_decode($capture->metadata, true, flags: JSON_THROW_ON_ERROR);

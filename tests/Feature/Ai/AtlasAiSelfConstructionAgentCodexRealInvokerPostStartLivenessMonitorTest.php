@@ -38,6 +38,7 @@ class AtlasAiSelfConstructionAgentCodexRealInvokerPostStartLivenessMonitorTest e
 
         $this->assertSame('codex_real_invoker_post_start_liveness_recorded', $result['status']);
         $this->assertFalse($result['idempotent']);
+        $this->assertSame('codex-post-start-evidence-acceptance-bridge-001', $result['post_start_evidence_acceptance_bridge_id']);
         $this->assertSame('alive', $result['observed_liveness_state']);
         $this->assertFalse($result['actual_process_start_allowed']);
         $this->assertTrue($result['external_process_started']);
@@ -85,6 +86,19 @@ class AtlasAiSelfConstructionAgentCodexRealInvokerPostStartLivenessMonitorTest e
         ]));
     }
 
+    public function test_post_start_liveness_rejects_missing_post_start_evidence_acceptance_bridge_metadata(): void
+    {
+        $this->createPostStartEvidenceReceiptRun([
+            'metadata' => $this->metadataWithPostStartEvidenceReceipt(includeBridge: false),
+        ]);
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('codex_real_invoker_post_start_evidence_acceptance_bridge_missing_or_mismatch');
+
+        app(AgentCodexRealInvokerPostStartLivenessMonitor::class)
+            ->recordPostStartLiveness($this->validInput());
+    }
+
     public function test_post_start_liveness_rejects_missing_post_start_evidence_receipt_metadata(): void
     {
         $this->createPostStartEvidenceReceiptRun(['metadata' => []]);
@@ -112,7 +126,7 @@ class AtlasAiSelfConstructionAgentCodexRealInvokerPostStartLivenessMonitorTest e
     public function test_post_start_liveness_rejects_evidence_receipt_with_dispatch_allowed(): void
     {
         $this->createPostStartEvidenceReceiptRun([
-            'metadata' => $this->metadataWithPostStartEvidenceReceipt(['dispatch_allowed' => true]),
+            'metadata' => $this->metadataWithPostStartEvidenceReceipt(receiptOverrides: ['dispatch_allowed' => true]),
         ]);
 
         $this->expectException(InvalidArgumentException::class);
@@ -180,9 +194,9 @@ class AtlasAiSelfConstructionAgentCodexRealInvokerPostStartLivenessMonitorTest e
      * @param  array<string,mixed>  $receiptOverrides
      * @return array<string,mixed>
      */
-    private function metadataWithPostStartEvidenceReceipt(array $receiptOverrides = []): array
+    private function metadataWithPostStartEvidenceReceipt(array $receiptOverrides = [], array $bridgeOverrides = [], bool $includeBridge = true): array
     {
-        return [
+        $metadata = [
             'codex_real_invoker_post_start_evidence_receipt' => array_merge([
                 'codex_execution_id' => 'codex-execution-001',
                 'manual_start_executor_receipt_id' => 'codex-real-invoker-manual-start-receipt-001',
@@ -202,6 +216,32 @@ class AtlasAiSelfConstructionAgentCodexRealInvokerPostStartLivenessMonitorTest e
                 'dispatch_allowed' => false,
             ], $receiptOverrides),
         ];
+
+        if ($includeBridge) {
+            $metadata['codex_real_invoker_post_start_evidence_acceptance_bridge'] = array_merge([
+                'post_start_evidence_acceptance_bridge_id' => 'codex-post-start-evidence-acceptance-bridge-001',
+                'codex_execution_id' => 'codex-execution-001',
+                'manual_start_executor_receipt_id' => 'codex-real-invoker-manual-start-receipt-001',
+                'operator_start_handoff_id' => 'codex-real-invoker-operator-start-handoff-001',
+                'post_start_receipt_contract_id' => 'codex-real-invoker-post-start-receipt-contract-001',
+                'post_start_evidence_receipt_id' => 'codex-real-invoker-post-start-evidence-receipt-001',
+                'provider' => 'codex',
+                'adapter' => 'codex',
+                'status' => 'post_start_evidence_acceptance_recorded_pending_liveness_monitoring',
+                'post_start_evidence_acceptance_recorded' => true,
+                'post_start_receipt_contract_built' => true,
+                'post_start_evidence_receipt_recorded' => true,
+                'operator_external_start_attested' => true,
+                'atlas_process_spawned' => false,
+                'actual_process_start_allowed' => false,
+                'external_process_started' => true,
+                'token_spend_allowed' => false,
+                'provider_started' => true,
+                'dispatch_allowed' => false,
+            ], $bridgeOverrides);
+        }
+
+        return $metadata;
     }
 
     /**
@@ -215,6 +255,7 @@ class AtlasAiSelfConstructionAgentCodexRealInvokerPostStartLivenessMonitorTest e
             'manual_start_executor_receipt_id' => 'codex-real-invoker-manual-start-receipt-001',
             'operator_start_handoff_id' => 'codex-real-invoker-operator-start-handoff-001',
             'post_start_receipt_contract_id' => 'codex-real-invoker-post-start-receipt-contract-001',
+            'post_start_evidence_acceptance_bridge_id' => 'codex-post-start-evidence-acceptance-bridge-001',
             'post_start_evidence_receipt_id' => 'codex-real-invoker-post-start-evidence-receipt-001',
             'post_start_liveness_monitor_id' => 'codex-real-invoker-post-start-liveness-001',
             'observed_liveness_state' => 'alive',

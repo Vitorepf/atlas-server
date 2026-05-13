@@ -39,6 +39,10 @@ class AtlasAiSelfConstructionAgentCodexRealInvokerPostStartSignedRealInvokerRele
 
         $this->assertSame('codex_real_invoker_post_start_signed_real_invoker_release_recorded', $result['status']);
         $this->assertFalse($result['idempotent']);
+        $this->assertSame(
+            'codex-real-invoker-post-start-evidence-acceptance-bridge-001',
+            $result['post_start_evidence_acceptance_bridge_id']
+        );
         $this->assertTrue($result['signed_real_invoker_release_authorized']);
         $this->assertTrue($result['implementation_boundary_required']);
         $this->assertTrue($result['observed_external_process_started']);
@@ -54,6 +58,10 @@ class AtlasAiSelfConstructionAgentCodexRealInvokerPostStartSignedRealInvokerRele
         $this->assertSame(
             'post_start_signed_real_invoker_release_authorized_pending_implementation_boundary',
             data_get($observed->metadata, 'codex_real_invoker_post_start_signed_real_invoker_release.status')
+        );
+        $this->assertSame(
+            'codex-real-invoker-post-start-evidence-acceptance-bridge-001',
+            data_get($observed->metadata, 'codex_real_invoker_post_start_signed_real_invoker_release.post_start_evidence_acceptance_bridge_id')
         );
 
         $this->assertDatabaseHas('atlas_ledger_events', [
@@ -99,6 +107,22 @@ class AtlasAiSelfConstructionAgentCodexRealInvokerPostStartSignedRealInvokerRele
 
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('post_start_real_invoker_release_preflight_gate_id_mismatch');
+
+        app(AgentCodexRealInvokerPostStartSignedRealInvokerReleaseGate::class)
+            ->authorizePostStartSignedRealInvokerRelease($this->validInput());
+    }
+
+    public function test_post_start_signed_real_invoker_release_rejects_preflight_without_evidence_acceptance_bridge(): void
+    {
+        $this->createObservedReleasePreflightRun([
+            'metadata' => $this->observedMetadataWithReleasePreflight([
+                'post_start_evidence_acceptance_bridge_id' => null,
+            ]),
+        ]);
+        $this->createProviderReleasePreflightRun();
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('post_start_evidence_acceptance_bridge_id_mismatch');
 
         app(AgentCodexRealInvokerPostStartSignedRealInvokerReleaseGate::class)
             ->authorizePostStartSignedRealInvokerRelease($this->validInput());
@@ -252,6 +276,7 @@ class AtlasAiSelfConstructionAgentCodexRealInvokerPostStartSignedRealInvokerRele
                 'adapter_invocation_id' => 'codex-adapter-invocation-001',
                 'provider_start_driver_gate_id' => 'codex-provider-start-driver-gate-001',
                 'provider_start_attempt_id' => 'attempt-001',
+                'post_start_evidence_acceptance_bridge_id' => 'codex-real-invoker-post-start-evidence-acceptance-bridge-001',
                 'signed_dispatch_receipt_hash' => str_repeat('a', 64),
                 'operator_release_receipt_hash' => str_repeat('b', 64),
                 'operator_spawn_receipt_hash' => str_repeat('c', 64),
@@ -363,6 +388,7 @@ class AtlasAiSelfConstructionAgentCodexRealInvokerPostStartSignedRealInvokerRele
             'adapter_invocation_id' => 'codex-adapter-invocation-001',
             'provider_start_driver_gate_id' => 'codex-provider-start-driver-gate-001',
             'provider_start_attempt_id' => 'attempt-001',
+            'post_start_evidence_acceptance_bridge_id' => 'codex-real-invoker-post-start-evidence-acceptance-bridge-001',
             'signed_dispatch_receipt_hash' => str_repeat('a', 64),
             'operator_release_receipt_hash' => str_repeat('b', 64),
             'operator_spawn_receipt_hash' => str_repeat('c', 64),

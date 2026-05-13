@@ -42,6 +42,7 @@ class AtlasAiSelfConstructionAgentCodexRealInvokerPostStartImplementationBoundar
         $this->assertTrue($result['real_invoker_implementation_boundary_prepared']);
         $this->assertTrue($result['executor_plan_required']);
         $this->assertTrue($result['observed_external_process_started']);
+        $this->assertSame('codex-real-invoker-post-start-evidence-acceptance-bridge-001', $result['post_start_evidence_acceptance_bridge_id']);
         $this->assertFalse($result['external_process_started']);
         $this->assertFalse($result['token_spend_allowed']);
         $this->assertFalse($result['provider_started']);
@@ -54,6 +55,10 @@ class AtlasAiSelfConstructionAgentCodexRealInvokerPostStartImplementationBoundar
         $this->assertSame(
             'post_start_implementation_boundary_prepared_pending_executor_plan',
             data_get($observed->metadata, 'codex_real_invoker_post_start_implementation_boundary.status')
+        );
+        $this->assertSame(
+            'codex-real-invoker-post-start-evidence-acceptance-bridge-001',
+            data_get($observed->metadata, 'codex_real_invoker_post_start_implementation_boundary.post_start_evidence_acceptance_bridge_id')
         );
 
         $this->assertDatabaseHas('atlas_ledger_events', [
@@ -113,6 +118,22 @@ class AtlasAiSelfConstructionAgentCodexRealInvokerPostStartImplementationBoundar
 
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('dispatch_allowed_already_true');
+
+        app(AgentCodexRealInvokerPostStartImplementationBoundaryGate::class)
+            ->preparePostStartImplementationBoundary($this->validInput());
+    }
+
+    public function test_post_start_implementation_boundary_rejects_signed_release_without_evidence_acceptance_bridge(): void
+    {
+        $this->createObservedSignedReleaseRun([
+            'metadata' => $this->observedMetadataWithSignedRelease([
+                'post_start_evidence_acceptance_bridge_id' => null,
+            ]),
+        ]);
+        $this->createProviderSignedReleaseRun();
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('post_start_evidence_acceptance_bridge_id_mismatch');
 
         app(AgentCodexRealInvokerPostStartImplementationBoundaryGate::class)
             ->preparePostStartImplementationBoundary($this->validInput());
@@ -217,6 +238,7 @@ class AtlasAiSelfConstructionAgentCodexRealInvokerPostStartImplementationBoundar
         return [
             'codex_real_invoker_post_start_signed_real_invoker_release' => array_merge([
                 'post_start_signed_real_invoker_release_gate_id' => 'codex-post-start-signed-real-invoker-release-gate-001',
+                'post_start_evidence_acceptance_bridge_id' => 'codex-real-invoker-post-start-evidence-acceptance-bridge-001',
                 'post_start_real_invoker_release_preflight_gate_id' => 'codex-post-start-real-invoker-release-preflight-gate-001',
                 'post_start_external_process_invoker_dry_run_gate_id' => 'codex-post-start-external-process-invoker-dry-run-gate-001',
                 'post_start_process_invocation_authorization_gate_id' => 'codex-post-start-process-invocation-authorization-gate-001',
@@ -334,6 +356,7 @@ class AtlasAiSelfConstructionAgentCodexRealInvokerPostStartImplementationBoundar
         return [
             'run_key' => 'observed-codex-run-001',
             'post_start_implementation_boundary_gate_id' => 'codex-post-start-implementation-boundary-gate-001',
+            'post_start_evidence_acceptance_bridge_id' => 'codex-real-invoker-post-start-evidence-acceptance-bridge-001',
             'post_start_signed_real_invoker_release_gate_id' => 'codex-post-start-signed-real-invoker-release-gate-001',
             'post_start_real_invoker_release_preflight_gate_id' => 'codex-post-start-real-invoker-release-preflight-gate-001',
             'post_start_external_process_invoker_dry_run_gate_id' => 'codex-post-start-external-process-invoker-dry-run-gate-001',

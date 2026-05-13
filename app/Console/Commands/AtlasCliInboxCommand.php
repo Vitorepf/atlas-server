@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Console\Commands\Support\AtlasCliLimitInput;
 use App\Http\Resources\AiInboxItemResource;
 use App\Models\AiInboxItem;
+use App\Services\Ai\Mobile\AiCriticalInboxReviewReadModel;
 use App\Services\Ai\Mobile\AtlasInboxService;
 use App\Services\Ai\Mobile\InboxActionRegistry;
 use Illuminate\Console\Command;
@@ -14,7 +15,7 @@ use Illuminate\Support\Str;
 class AtlasCliInboxCommand extends Command
 {
     protected $signature = 'atlas:cli:inbox
-        {action=list : list, show, respond, dismiss or discuss}
+        {action=list : list, show, review-critical, respond, dismiss or discuss}
         {id? : Inbox item id}
         {--action= : Action id for respond}
         {--reason=}
@@ -59,6 +60,7 @@ class AtlasCliInboxCommand extends Command
         return match ($action) {
             'list' => $this->list($inbox),
             'show' => $this->show(),
+            'review-critical' => $this->reviewCritical(),
             'dismiss' => $this->dismiss($inbox),
             'respond' => $this->respond($actions),
             'discuss' => $this->discuss($actions),
@@ -106,6 +108,58 @@ class AtlasCliInboxCommand extends Command
             Str::limit($row['title'], 70),
             $row['created_at'],
         ])->all());
+
+        return self::SUCCESS;
+    }
+
+    private function reviewCritical(): int
+    {
+        $payload = app(AiCriticalInboxReviewReadModel::class)->review('vitor', $this->limitOption());
+        $criticalReview = (array) ($payload['critical_review'] ?? []);
+        $activeCriticalCount = (int) ($criticalReview['active_critical_count'] ?? 0);
+        $rows = (array) ($criticalReview['items'] ?? []);
+        $summary = (array) ($criticalReview['review_summary'] ?? []);
+
+        if ((bool) $this->option('json')) {
+            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+
+            return self::SUCCESS;
+        }
+
+        if ($activeCriticalCount === 0) {
+            $this->line('Nenhum insight critico ativo aguardando revisao humana.');
+
+            return self::SUCCESS;
+        }
+
+        $this->components->twoColumnDetail('<fg=bright-red;options=bold>Insights criticos ativos</>', (string) $activeCriticalCount);
+        $this->components->twoColumnDetail('Itens exibidos', (string) count($rows));
+        $this->components->twoColumnDetail('Nao lidos exibidos', (string) ($summary['unread_count'] ?? 0));
+        $this->components->twoColumnDetail('Saude / Performance', ($summary['health_signal_count'] ?? 0).' / '.($summary['performance_report_count'] ?? 0));
+        $this->components->twoColumnDetail('Custo ja recalculado', (string) ($summary['cost_visibility_recovered_count'] ?? 0));
+        $this->line('<fg=yellow;options=bold>Regra de seguranca:</> somente operador decide; agente nao resolve nem descarta automaticamente');
+        $this->newLine();
+
+        $this->table(['id', 'status', 'quando', 'titulo humano', 'metricas visiveis'], collect($rows)->map(fn (array $row): array => [
+            $row['id'],
+            $row['status_label'],
+            $row['created_at'],
+            Str::limit((string) $row['headline'], 72),
+            collect($row['metrics'] ?? [])
+                ->take(3)
+                ->map(fn (array $metric): string => ($metric['label'] ?? '-').': '.($metric['value'] ?? '-'))
+                ->implode('; '),
+        ])->all());
+
+        foreach ($rows as $row) {
+            $this->newLine();
+            $this->line('<fg=bright-blue;options=bold>'.$row['headline'].'</>');
+            $this->line((string) $row['plain_summary']);
+            $this->line('Proximo passo: '.$row['operator_next_step']);
+            $this->line('Abrir: '.$row['commands']['show']);
+            $this->line('Discutir: '.$row['commands']['discuss']);
+            $this->line('Marcar revisado: '.$row['commands']['mark_read_after_review']);
+        }
 
         return self::SUCCESS;
     }

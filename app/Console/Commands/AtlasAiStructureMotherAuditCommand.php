@@ -53,6 +53,101 @@ class AtlasAiStructureMotherAuditCommand extends Command
                 ->all(),
         );
 
+        $this->renderOperatorActionPlan((array) data_get($report, 'operator_action_plan', []));
+
         return self::SUCCESS;
+    }
+
+    /**
+     * @param  array<string,mixed>  $plan
+     */
+    private function renderOperatorActionPlan(array $plan): void
+    {
+        $actions = collect((array) ($plan['actions'] ?? []));
+        if ($actions->isEmpty()) {
+            $this->newLine();
+            $this->components->twoColumnDetail('<fg=green;options=bold>Operator actions</>', 'clear');
+
+            return;
+        }
+
+        $summary = (array) ($plan['action_summary'] ?? []);
+        $this->newLine();
+        $this->components->twoColumnDetail('<fg=yellow;options=bold>Operator actions</>', (string) ($plan['status'] ?? 'pending'));
+        $this->components->twoColumnDetail('Actionable now', (string) ($summary['actionable_now_count'] ?? $actions->where('actionable_now', true)->count()));
+        $this->components->twoColumnDetail('Calendar wait', (string) ($summary['calendar_wait_count'] ?? $actions->where('calendar_wait_required', true)->count()));
+        $this->components->twoColumnDetail('External effect', (string) ($summary['external_effect_action_count'] ?? $actions->where('external_notification_possible', true)->count()));
+        if ($dueAt = $summary['next_calendar_due_at'] ?? null) {
+            $this->components->twoColumnDetail('Next calendar due', (string) $dueAt);
+        }
+
+        $this->table(
+            ['id', 'type', 'when', 'safe command / endpoint'],
+            $actions->map(fn (array $action): array => [
+                (string) ($action['id'] ?? '-'),
+                (string) ($action['type'] ?? '-'),
+                $this->operatorActionWhen($action),
+                $this->operatorActionPrimaryCommand($action),
+            ])->all(),
+        );
+
+        $rules = (array) ($plan['rules'] ?? []);
+        $ruleLines = collect($rules)
+            ->filter(fn (mixed $value): bool => $value === true)
+            ->keys()
+            ->map(fn (mixed $key): string => (string) $key)
+            ->values()
+            ->all();
+
+        if ($ruleLines !== []) {
+            $this->line('<fg=gray>Safety rules: '.implode('; ', $ruleLines).'</>');
+        }
+    }
+
+    /**
+     * @param  array<string,mixed>  $action
+     */
+    private function operatorActionWhen(array $action): string
+    {
+        if ((bool) ($action['actionable_now'] ?? false)) {
+            return 'now';
+        }
+
+        if ((bool) ($action['calendar_wait_required'] ?? false)) {
+            return 'wait until '.(string) ($action['due_at'] ?? 'calendar due');
+        }
+
+        return 'pending';
+    }
+
+    /**
+     * @param  array<string,mixed>  $action
+     */
+    private function operatorActionPrimaryCommand(array $action): string
+    {
+        foreach ([
+            'dry_run_command',
+            'command',
+            'review_command',
+        ] as $key) {
+            if (is_string($action[$key] ?? null) && $action[$key] !== '') {
+                return $action[$key];
+            }
+        }
+
+        $itemCommands = (array) data_get($action, 'item_commands.0', []);
+        foreach (['show', 'discuss', 'mark_read_after_review'] as $key) {
+            if (is_string($itemCommands[$key] ?? null) && $itemCommands[$key] !== '') {
+                return $itemCommands[$key];
+            }
+        }
+
+        $apiMethod = data_get($action, 'api.method') ?? data_get($action, 'api.review.method') ?? data_get($action, 'api.respond.method');
+        $apiEndpoint = data_get($action, 'api.endpoint') ?? data_get($action, 'api.review.endpoint') ?? data_get($action, 'api.respond.endpoint_template');
+        if (is_string($apiMethod) && is_string($apiEndpoint)) {
+            return $apiMethod.' '.$apiEndpoint;
+        }
+
+        return '-';
     }
 }

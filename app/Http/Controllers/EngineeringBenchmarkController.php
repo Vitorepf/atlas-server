@@ -8,6 +8,7 @@ use App\Models\AtlasEngineeringRun;
 use App\Services\Engineering\EngineeringBenchmarkService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Validation\Rule;
 
 class EngineeringBenchmarkController extends Controller
@@ -149,6 +150,276 @@ class EngineeringBenchmarkController extends Controller
         return response()->json($benchmarks->fairClaudeReportPayload($this->resolveSuite($suite), $data));
     }
 
+    public function rivalsBatteryPlan(Request $request, string $suite): JsonResponse
+    {
+        $data = $request->validate([
+            'mode' => ['required', Rule::in(['official_fair', 'same_model', 'max'])],
+            'workspace' => ['nullable', 'string', 'max:1000'],
+            'baseline_workspace' => ['nullable', 'string', 'max:1000'],
+            'provider' => ['nullable', 'string', 'max:80'],
+            'model' => ['nullable', 'string', 'max:120'],
+            'limit' => ['nullable', 'integer', 'min:1', 'max:30'],
+        ]);
+
+        $plan = $this->rivalsBatteryPlanPayload($this->resolveSuite($suite)->load('cases'), $data);
+
+        return response()->json(['battery_plan' => $plan]);
+    }
+
+    /**
+     * @param  array<string,mixed>  $data
+     * @return array<string,mixed>
+     */
+    private function rivalsBatteryPlanPayload(AtlasEngineeringBenchmarkSuite $resolved, array $data): array
+    {
+        $mode = (string) $data['mode'];
+        $workspace = trim((string) ($data['workspace'] ?? ''));
+        $baselineWorkspace = trim((string) ($data['baseline_workspace'] ?? ''));
+        $provider = trim((string) ($data['provider'] ?? ''));
+        $model = trim((string) ($data['model'] ?? ''));
+        $limit = (int) ($data['limit'] ?? 6);
+        $releaseCorpus = (int) (data_get($resolved->metadata, 'corpus_manifest.official_subsets.release')
+            ?: $resolved->cases->where('status', 'active')->where('corpus_tier', 'release')->count());
+        $activeCorpus = (int) (data_get($resolved->metadata, 'corpus_manifest.active_cases')
+            ?: $resolved->cases->where('status', 'active')->count());
+        $minimumRelease = 6;
+        $blockers = [];
+        if ($workspace === '') {
+            $blockers[] = 'workspace_required';
+        }
+        if ($releaseCorpus < $minimumRelease) {
+            $blockers[] = 'release_corpus_below_minimum';
+        }
+        if ($mode === 'official_fair' && $baselineWorkspace === '') {
+            $blockers[] = 'separate_baseline_workspace_required';
+        }
+        if ($mode !== 'max' && $provider === '') {
+            $blockers[] = 'provider_required';
+        }
+        if ($mode !== 'max' && $model === '') {
+            $blockers[] = 'model_required';
+        }
+
+        $effectiveProvider = match ($mode) {
+            'official_fair' => 'claude_cli',
+            'max' => $provider !== '' ? $provider : 'policy',
+            default => $provider,
+        };
+        $effectiveModel = match ($mode) {
+            'official_fair' => 'opus',
+            'max' => $model !== '' ? $model : 'best-quality',
+            default => $model,
+        };
+        $baseline = match ($mode) {
+            'official_fair' => 'paired',
+            'same_model' => 'atlas_fixed_provider_model',
+            default => 'not_paired',
+        };
+        $plan = [
+            'schema_version' => 'atlas.rivals.battery_plan.v1',
+            'suite' => [
+                'id' => $resolved->id,
+                'slug' => $resolved->slug,
+                'name' => $resolved->name,
+            ],
+            'mode' => $mode,
+            'status' => $blockers === [] ? 'ready_for_operator_confirmation' : 'blocked',
+            'ready' => $blockers === [],
+            'blockers' => $blockers,
+            'operator_required' => true,
+            'cost_acknowledgement_required' => true,
+            'agent_auto_execution_allowed' => false,
+            'provider_dispatch_required' => true,
+            'external_cost_possible' => true,
+            'synthetic_scores_allowed' => false,
+            'plan_review_required' => true,
+            'selection_contract' => [
+                'schema_version' => 'atlas.rivals.battery_selection_contract.v1',
+                'allowed_modes' => $this->rivalsBatteryModeCatalog(),
+                'provider_model_options' => $this->rivalsProviderModelOptions(),
+                'ui_must_send_mode' => true,
+                'ui_must_send_provider_and_model_for_modes' => ['official_fair', 'same_model'],
+                'ui_may_leave_provider_or_model_empty_for_modes' => ['max'],
+            ],
+            'execution_intent' => [
+                'baseline' => $baseline,
+                'provider' => $effectiveProvider,
+                'model' => $effectiveModel,
+                'case_limit' => $limit,
+                'workspace_required' => true,
+                'baseline_workspace_required' => $mode === 'official_fair',
+                'fair_claim_eligible' => $mode === 'official_fair',
+                'max_capability_run' => $mode === 'max',
+            ],
+            'corpus' => [
+                'active_case_count' => $activeCorpus,
+                'release_case_count' => $releaseCorpus,
+                'minimum_release_case_count' => $minimumRelease,
+            ],
+            'safety' => [
+                'read_only_plan' => true,
+                'no_provider_call' => true,
+                'no_benchmark_run_created' => true,
+                'no_score_recorded' => true,
+                'no_completion_gate_change' => true,
+            ],
+        ];
+        $plan['plan_hash'] = hash('sha256', json_encode($plan, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '');
+        $plan['generated_at'] = now()->toJSON();
+
+        return $plan;
+    }
+
+    /**
+     * @return array<int,array<string,mixed>>
+     */
+    private function rivalsBatteryModeCatalog(): array
+    {
+        return [
+            [
+                'id' => 'official_fair',
+                'label' => 'Justa oficial',
+                'description' => 'Bateria pareada com baseline externo em workspace separado, provider/modelo fixos e claim comparavel.',
+                'requires_provider' => true,
+                'requires_model' => true,
+                'requires_baseline_workspace' => true,
+                'fair_claim_eligible' => true,
+                'max_capability_run' => false,
+                'recommended_provider' => 'claude_cli',
+                'recommended_model' => 'opus',
+            ],
+            [
+                'id' => 'same_model',
+                'label' => 'Mesmo modelo',
+                'description' => 'Atlas roda com o mesmo provider/modelo escolhido para isolar arquitetura, contexto e orquestracao.',
+                'requires_provider' => true,
+                'requires_model' => true,
+                'requires_baseline_workspace' => false,
+                'fair_claim_eligible' => false,
+                'max_capability_run' => false,
+                'recommended_provider' => 'codex_cli',
+                'recommended_model' => $this->providerModel('codex_cli', 'model_identity'),
+            ],
+            [
+                'id' => 'max',
+                'label' => 'Maximo Atlas',
+                'description' => 'Atlas usa politica best-quality e gates estritos para medir capacidade maxima, nao uma comparacao isolada de modelo.',
+                'requires_provider' => false,
+                'requires_model' => false,
+                'requires_baseline_workspace' => false,
+                'fair_claim_eligible' => false,
+                'max_capability_run' => true,
+                'recommended_provider' => 'policy',
+                'recommended_model' => 'best-quality',
+            ],
+        ];
+    }
+
+    /**
+     * @return array<int,array<string,mixed>>
+     */
+    private function rivalsProviderModelOptions(): array
+    {
+        return collect((array) config('atlas.ai.providers', []))
+            ->only(['claude_cli', 'codex_cli', 'gemini_cli'])
+            ->map(function (mixed $config, string $provider): array {
+                $providerConfig = is_array($config) ? $config : [];
+
+                return [
+                    'provider' => $provider,
+                    'label' => str_replace('_', ' ', $provider),
+                    'allow_auto' => (bool) ($providerConfig['allow_auto'] ?? false),
+                    'allow_manual' => (bool) ($providerConfig['allow_manual'] ?? false),
+                    'models' => $this->providerModelOptions($providerConfig),
+                ];
+            })
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @param  array<string,mixed>  $providerConfig
+     * @return array<int,array<string,mixed>>
+     */
+    private function providerModelOptions(array $providerConfig): array
+    {
+        $models = [];
+
+        foreach ([
+            ['key' => 'model_identity', 'label_key' => 'model_label', 'tier_key' => 'model_tier', 'role' => 'default'],
+            ['key' => 'premium_model', 'label_key' => 'premium_model_label', 'tier_key' => null, 'role' => 'premium'],
+            ['key' => 'fallback_model', 'label_key' => 'fallback_model_label', 'tier_key' => null, 'role' => 'fallback'],
+        ] as $definition) {
+            $model = trim((string) ($providerConfig[$definition['key']] ?? ''));
+            if ($model === '' || $model === 'codex_cli_default' || $model === 'claude_cli_default') {
+                continue;
+            }
+
+            $models[$model] = [
+                'model' => $model,
+                'label' => trim((string) ($providerConfig[$definition['label_key']] ?? '')) ?: $model,
+                'role' => $definition['role'],
+                'tier' => $definition['tier_key'] ? ($providerConfig[$definition['tier_key']] ?? null) : null,
+            ];
+        }
+
+        return array_values($models);
+    }
+
+    private function providerModel(string $provider, string $key): string
+    {
+        $value = trim((string) config("atlas.ai.providers.{$provider}.{$key}", ''));
+
+        return $value !== '' ? $value : $provider;
+    }
+
+    public function prepareFairClaudeSuite(Request $request, EngineeringBenchmarkService $benchmarks): JsonResponse
+    {
+        $data = $request->validate([
+            'suite' => ['nullable', 'string', 'max:120'],
+            'workspace' => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        $suite = is_string($data['suite'] ?? null) && trim((string) $data['suite']) !== ''
+            ? trim((string) $data['suite'])
+            : 'atlas-fair-claude-v1';
+        $args = [
+            'action' => 'prepare',
+            '--suite' => $suite,
+            '--json' => false,
+        ];
+        if (is_string($data['workspace'] ?? null) && trim((string) $data['workspace']) !== '') {
+            $args['--workspace'] = trim((string) $data['workspace']);
+        }
+
+        $exitCode = Artisan::call('atlas:engineering:benchmark:claude-fair', $args);
+        if ($exitCode !== 0) {
+            return response()->json([
+                'error' => 'fair_claude_prepare_failed',
+                'message' => trim(Artisan::output()) ?: 'Fair Claude prepare failed.',
+                'suite' => $suite,
+            ], 422);
+        }
+
+        $prepared = $this->resolveSuite($suite)->load('cases');
+        $manifest = data_get($prepared->metadata, 'corpus_manifest', []);
+        $seededCases = $prepared->cases
+            ->filter(fn ($case): bool => data_get($case->metadata, 'source') === 'fair_claude_seed_v1')
+            ->sortBy('case_code')
+            ->values();
+        $payload = [
+            'suite' => $benchmarks->suitePayload($prepared)['suite'] ?? null,
+            'corpus_manifest' => $manifest,
+            'promoted_count' => $seededCases->count(),
+            'promoted_cases' => $seededCases
+                ->map(fn ($case): array => $benchmarks->casePayload($case))
+                ->values()
+                ->all(),
+        ];
+
+        return response()->json($payload);
+    }
+
     public function storeCase(
         Request $request,
         string $suite,
@@ -245,6 +516,10 @@ class EngineeringBenchmarkController extends Controller
             'baseline_model' => ['nullable', 'string', 'max:120'],
             'baseline_timeout_seconds' => ['nullable', 'integer', 'min:1', 'max:3600'],
             'baseline_validation_timeout_seconds' => ['nullable', 'integer', 'min:1', 'max:1800'],
+            'rivals_battery_mode' => ['nullable', Rule::in(['official_fair', 'same_model', 'max'])],
+            'rivals_battery_plan_hash' => ['nullable', 'string', 'size:64'],
+            'operator_plan_reviewed' => ['nullable', 'boolean'],
+            'operator_cost_acknowledged' => ['nullable', 'boolean'],
             'permission' => ['nullable', Rule::in(['auto', 'read', 'write', 'danger'])],
             'sandbox' => ['nullable', Rule::in(['workspace', 'worktree', 'docker'])],
             'docker_service' => ['nullable', 'string', 'max:120'],
@@ -293,7 +568,63 @@ class EngineeringBenchmarkController extends Controller
             'runner_options' => ['nullable', 'array'],
         ]);
 
-        $run = $benchmarks->runSuite($this->resolveSuite($suite), $data);
+        $resolved = $this->resolveSuite($suite)->load('cases');
+        if (isset($data['rivals_battery_mode'])) {
+            $plan = $this->rivalsBatteryPlanPayload($resolved, [
+                'mode' => $data['rivals_battery_mode'],
+                'workspace' => $data['workspace'] ?? null,
+                'baseline_workspace' => $data['claude_code_baseline_workspace'] ?? null,
+                'provider' => $data['provider'] ?? null,
+                'model' => $data['model'] ?? null,
+                'limit' => $data['limit'] ?? null,
+            ]);
+
+            if (($data['operator_plan_reviewed'] ?? false) !== true) {
+                return response()->json([
+                    'error' => 'rivals_battery_plan_review_required',
+                    'message' => 'Revise e confirme o plano Rivals antes de executar a bateria real.',
+                    'battery_plan' => $plan,
+                ], 422);
+            }
+
+            if (($data['operator_cost_acknowledged'] ?? false) !== true) {
+                return response()->json([
+                    'error' => 'rivals_battery_cost_acknowledgement_required',
+                    'message' => 'Confirme explicitamente o custo/provider externo antes de executar a bateria real.',
+                    'battery_plan' => $plan,
+                ], 422);
+            }
+
+            if (($plan['ready'] ?? false) !== true) {
+                return response()->json([
+                    'error' => 'rivals_battery_plan_blocked',
+                    'message' => 'O plano Rivals ainda possui bloqueios operacionais.',
+                    'battery_plan' => $plan,
+                ], 422);
+            }
+
+            if (($data['rivals_battery_plan_hash'] ?? null) !== ($plan['plan_hash'] ?? null)) {
+                return response()->json([
+                    'error' => 'rivals_battery_plan_hash_mismatch',
+                    'message' => 'O hash aprovado no app não corresponde ao plano atual. Recalcule e revise o plano.',
+                    'battery_plan' => $plan,
+                ], 422);
+            }
+
+            $data['runner_options'] = array_replace_recursive($data['runner_options'] ?? [], [
+                'rivals_battery_plan' => [
+                    'schema_version' => $plan['schema_version'],
+                    'mode' => $plan['mode'],
+                    'plan_hash' => $plan['plan_hash'],
+                    'status' => $plan['status'],
+                    'execution_intent' => $plan['execution_intent'],
+                    'operator_plan_reviewed' => true,
+                    'operator_cost_acknowledged' => true,
+                ],
+            ]);
+        }
+
+        $run = $benchmarks->runSuite($resolved, $data);
 
         return response()->json($benchmarks->runPayload($run), 201);
     }

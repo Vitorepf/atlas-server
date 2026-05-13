@@ -9,9 +9,7 @@ use Illuminate\Support\Facades\Schema;
 
 class MobileHealthService
 {
-    public function __construct(private readonly ExpoCircuitBreaker $circuit)
-    {
-    }
+    public function __construct(private readonly ExpoCircuitBreaker $circuit) {}
 
     /**
      * @return array<string,mixed>
@@ -107,10 +105,16 @@ class MobileHealthService
         $pushDeferred24h = (int) (($deliveries24h['deferred_quiet_hours'] ?? 0) + ($deliveries24h['batched'] ?? 0) + ($deliveries24h['deferred_circuit_open'] ?? 0));
         $pushTotal24h = array_sum(array_map('intval', $deliveries24h));
         $pushSuccessRate = $pushTotal24h > 0 ? round($pushSent24h / $pushTotal24h, 4) : null;
+        $mobileEnabled = (bool) config('atlas.mobile.enabled', false);
 
         return [
             'generated_at' => $now->toJSON(),
-            'status' => $this->overallStatus($lastSent, $lastFailed, $pendingReceipts, $pushSuccessRate),
+            'status' => $this->overallStatus($mobileEnabled, $lastSent, $lastFailed, $pendingReceipts, $pushSuccessRate),
+            'configuration' => [
+                'mobile_enabled' => $mobileEnabled,
+                'push_dispatch_enabled' => $mobileEnabled,
+                'push_dispatch_blocked_reason' => $mobileEnabled ? null : 'atlas_mobile_disabled',
+            ],
             'expo' => [
                 'last_success_at' => $this->toJson($lastSent),
                 'last_failure_at' => $this->toJson($lastFailed),
@@ -138,8 +142,12 @@ class MobileHealthService
         ];
     }
 
-    private function overallStatus(mixed $lastSent, mixed $lastFailed, int $pendingReceipts, ?float $successRate): string
+    private function overallStatus(bool $mobileEnabled, mixed $lastSent, mixed $lastFailed, int $pendingReceipts, ?float $successRate): string
     {
+        if (! $mobileEnabled) {
+            return 'disabled';
+        }
+
         if ($this->circuit->isOpen()) {
             return 'degraded';
         }

@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Services\Ai\Mobile\AiInboxHumanPresentation;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -30,6 +31,7 @@ class AiInboxItemResource extends JsonResource
             'deep_link' => $this->deep_link,
             'push_policy' => $this->push_policy ?? [],
             'safety' => $this->safetySummary(),
+            'presentation' => app(AiInboxHumanPresentation::class)->forItem($this->resource),
             'priority_score' => $this->priority_score,
             'confidence_score' => $this->confidence_score,
             'expires_at' => $this->expires_at?->toJSON(),

@@ -459,7 +459,7 @@ class CurationProposalService
             ? data_get($proposal->metadata, 'cognitive_quarantine')
             : [];
 
-        return [
+        $receipt = [
             'schema_version' => 'atlas.memory.promotion_receipt.v1',
             'source' => 'semantic_curation_proposal',
             'human_gate' => 'semantic_curation_proposal_accept',
@@ -476,6 +476,23 @@ class CurationProposalService
             'quarantine_schema_version' => is_scalar($quarantine['schema_version'] ?? null) ? (string) $quarantine['schema_version'] : null,
             'promoted_at' => now()->toJSON(),
         ];
+
+        return $this->withReceiptHash($receipt, [
+            'schema_version',
+            'source',
+            'human_gate',
+            'ratified_by_operator',
+            'promoted_by',
+            'proposal_id',
+            'semantic_note_id',
+            'semantic_note_path',
+            'capture_id',
+            'capture_client_id',
+            'memory_delta_id',
+            'content_hash',
+            'privacy',
+            'quarantine_schema_version',
+        ]);
     }
 
     /**
@@ -488,7 +505,7 @@ class CurationProposalService
             ? data_get($proposal->metadata, 'cognitive_quarantine')
             : [];
 
-        return [
+        $receipt = [
             'schema_version' => 'atlas.verbatim_memory.promotion_receipt.v1',
             'source' => 'semantic_curation_proposal',
             'human_gate' => 'semantic_curation_proposal_accept',
@@ -503,6 +520,41 @@ class CurationProposalService
             'privacy' => $this->privacyFromProposal($proposal),
             'quarantine_schema_version' => is_scalar($quarantine['schema_version'] ?? null) ? (string) $quarantine['schema_version'] : null,
             'promoted_at' => now()->toJSON(),
+        ];
+
+        return $this->withReceiptHash($receipt, [
+            'schema_version',
+            'source',
+            'human_gate',
+            'ratified_by_operator',
+            'promoted_by',
+            'proposal_id',
+            'semantic_note_id',
+            'semantic_note_path',
+            'capture_id',
+            'capture_client_id',
+            'content_hash',
+            'privacy',
+            'quarantine_schema_version',
+        ]);
+    }
+
+    /**
+     * @param  array<string,mixed>  $receipt
+     * @param  array<int,string>  $fields
+     * @return array<string,mixed>
+     */
+    private function withReceiptHash(array $receipt, array $fields): array
+    {
+        $hashPayload = collect($fields)
+            ->mapWithKeys(fn (string $field): array => [$field => $receipt[$field] ?? null])
+            ->all();
+
+        return [
+            ...$receipt,
+            'receipt_hash_algorithm' => 'sha256',
+            'receipt_hash_fields' => $fields,
+            'receipt_hash' => hash('sha256', json_encode($hashPayload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: ''),
         ];
     }
 

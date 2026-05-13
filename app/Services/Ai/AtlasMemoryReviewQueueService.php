@@ -2,9 +2,11 @@
 
 namespace App\Services\Ai;
 
+use App\Models\AiMemoryDelta;
 use App\Models\AtlasMemoryEntry;
 use App\Models\AtlasMemoryEntryRelation;
 use App\Models\AtlasVerbatimMemory;
+use App\Models\SemanticCurationProposal;
 use App\Services\Ai\Memory\MemoryQueryInput;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -34,6 +36,12 @@ class AtlasMemoryReviewQueueService
         if (in_array('relation', $areas, true)) {
             $items = $items->merge($this->relationItems($filters, $limit));
         }
+        if (in_array('semantic_curation', $areas, true)) {
+            $items = $items->merge($this->semanticCurationItems($filters, $limit));
+        }
+        if (in_array('memory_delta', $areas, true)) {
+            $items = $items->merge($this->memoryDeltaItems($filters, $limit));
+        }
 
         $ordered = $items
             ->sortByDesc(fn (array $item): string => sprintf('%03d|%s', (int) ($item['priority'] ?? 0), (string) ($item['updated_at'] ?? '')))
@@ -48,6 +56,8 @@ class AtlasMemoryReviewQueueService
                 'memory_privacy' => 0,
                 'verbatim_privacy' => 0,
                 'relation' => 0,
+                'semantic_curation' => 0,
+                'memory_delta' => 0,
             ], $ordered->countBy('kind')->all()),
             'items' => $ordered->all(),
         ];
@@ -272,6 +282,133 @@ class AtlasMemoryReviewQueueService
         ];
     }
 
+    /**
+     * @param  array<string,mixed>  $filters
+     * @return Collection<int,array<string,mixed>>
+     */
+    private function semanticCurationItems(array $filters, int $limit): Collection
+    {
+        if (! Schema::hasTable('semantic_curation_proposals')) {
+            return collect();
+        }
+
+        $query = SemanticCurationProposal::query()
+            ->whereIn('status', $this->semanticCurationStatuses($filters));
+
+        if (is_string($filters['source_type'] ?? null) && trim((string) $filters['source_type']) !== '') {
+            $query->where('source_type', trim((string) $filters['source_type']));
+        }
+
+        return $query
+            ->latest('updated_at')
+            ->limit($limit)
+            ->get()
+            ->map(fn (SemanticCurationProposal $proposal): array => $this->semanticCurationItem($proposal));
+    }
+
+    /**
+     * @param  array<string,mixed>  $filters
+     * @return Collection<int,array<string,mixed>>
+     */
+    private function memoryDeltaItems(array $filters, int $limit): Collection
+    {
+        if (! Schema::hasTable('ai_memory_deltas')) {
+            return collect();
+        }
+
+        $query = AiMemoryDelta::query()
+            ->whereIn('status', $this->memoryDeltaStatuses($filters));
+
+        if (is_string($filters['scope'] ?? null) && trim((string) $filters['scope']) !== '') {
+            $query->where('scope', trim((string) $filters['scope']));
+        }
+
+        $types = array_values(array_filter((array) ($filters['types'] ?? $filters['type'] ?? []), 'is_string'));
+        if ($types !== []) {
+            $query->whereIn('type', $types);
+        }
+
+        return $query
+            ->latest('updated_at')
+            ->limit($limit)
+            ->get()
+            ->map(fn (AiMemoryDelta $delta): array => $this->memoryDeltaItem($delta));
+    }
+
+    private function semanticCurationItem(SemanticCurationProposal $proposal): array
+    {
+        $pending = $proposal->status === 'pending';
+        $priority = $pending ? 72 : 55;
+
+        return [
+            'id' => 'semantic_curation:'.$proposal->id,
+            'kind' => 'semantic_curation',
+            'review_type' => 'capture_to_open_brain',
+            'priority' => $priority,
+            'severity' => $this->severity($priority),
+            'reason' => $proposal->reason,
+            'action_hint' => 'review semantic curation proposal '.$proposal->id.' before memory/Open Brain promotion',
+            'proposal_id' => $proposal->id,
+            'source_type' => $proposal->source_type,
+            'source_refs' => $proposal->source_refs ?? [],
+            'proposed_note_type' => $proposal->proposed_note_type,
+            'title' => $proposal->proposed_title,
+            'summary' => $proposal->proposed_summary,
+            'score' => $proposal->score,
+            'status' => $proposal->status,
+            'safety' => [
+                'schema_version' => 'atlas.semantic_curation.review_queue_safety.v1',
+                'memory_write_allowed' => false,
+                'context_injection_allowed' => false,
+                'embedding_allowed' => false,
+                'provider_export_allowed' => false,
+                'open_brain_context_allowed' => false,
+                'operator_review_required' => true,
+                'raw_capture_text_exposed' => false,
+            ],
+            'created_at' => $proposal->created_at?->toJSON(),
+            'updated_at' => $proposal->updated_at?->toJSON(),
+        ];
+    }
+
+    private function memoryDeltaItem(AiMemoryDelta $delta): array
+    {
+        $accepted = $delta->status === 'accepted';
+        $priority = $accepted ? 78 : 68;
+
+        return [
+            'id' => 'memory_delta:'.$delta->id,
+            'kind' => 'memory_delta',
+            'review_type' => $accepted ? 'accepted_delta_promotion' : 'delta_review',
+            'priority' => $priority,
+            'severity' => $this->severity($priority),
+            'reason' => $accepted ? 'accepted_delta_waiting_for_promotion' : 'pending_delta_requires_operator_review',
+            'action_hint' => $accepted
+                ? 'php artisan atlas:cli:memory promote '.$delta->id.' --json'
+                : 'php artisan atlas:cli:memory show '.$delta->id.' --json',
+            'memory_delta_id' => $delta->id,
+            'delta_type' => $delta->type,
+            'title' => Str::limit($delta->claim, 120, ''),
+            'summary' => Str::limit($delta->claim, 260, ''),
+            'scope' => $delta->scope,
+            'confidence' => $delta->confidence,
+            'requires_confirmation' => $delta->requires_confirmation,
+            'status' => $delta->status,
+            'safety' => [
+                'schema_version' => 'atlas.memory_delta.review_queue_safety.v1',
+                'memory_write_allowed' => $accepted,
+                'context_injection_allowed' => false,
+                'embedding_allowed' => false,
+                'provider_export_allowed' => false,
+                'open_brain_context_allowed' => false,
+                'operator_review_required' => ! $accepted,
+                'promotion_requires_receipt' => true,
+            ],
+            'created_at' => $delta->created_at?->toJSON(),
+            'updated_at' => $delta->updated_at?->toJSON(),
+        ];
+    }
+
     private function memoryPrivacyColumnsExist(): bool
     {
         return Schema::hasColumn('atlas_memory_entries', 'privacy_class')
@@ -291,7 +428,7 @@ class AtlasMemoryReviewQueueService
         ));
 
         if ($areas === []) {
-            return ['memory_privacy', 'verbatim_privacy', 'relation'];
+            return ['memory_privacy', 'verbatim_privacy', 'relation', 'semantic_curation', 'memory_delta'];
         }
 
         $aliases = [
@@ -301,11 +438,20 @@ class AtlasMemoryReviewQueueService
             'verbatim' => 'verbatim_privacy',
             'relation' => 'relation',
             'relations' => 'relation',
+            'semantic' => 'semantic_curation',
+            'semantic_curation' => 'semantic_curation',
+            'curation' => 'semantic_curation',
+            'capture' => 'semantic_curation',
+            'capture_promotion' => 'semantic_curation',
+            'delta' => 'memory_delta',
+            'deltas' => 'memory_delta',
+            'memory_delta' => 'memory_delta',
+            'memory_deltas' => 'memory_delta',
         ];
 
         return collect($areas)
             ->map(fn (string $area): string => $aliases[$area] ?? $area)
-            ->filter(fn (string $area): bool => in_array($area, ['memory_privacy', 'verbatim_privacy', 'relation'], true))
+            ->filter(fn (string $area): bool => in_array($area, ['memory_privacy', 'verbatim_privacy', 'relation', 'semantic_curation', 'memory_delta'], true))
             ->unique()
             ->values()
             ->all();
@@ -348,6 +494,32 @@ class AtlasMemoryReviewQueueService
         $status = $filters['relation_status'] ?? 'open';
 
         return is_string($status) && in_array($status, AtlasMemoryEntryRelation::STATUSES, true) ? $status : 'open';
+    }
+
+    /**
+     * @param  array<string,mixed>  $filters
+     * @return array<int,string>
+     */
+    private function semanticCurationStatuses(array $filters): array
+    {
+        $statuses = array_values(array_filter((array) ($filters['semantic_curation_statuses'] ?? $filters['semantic_curation_status'] ?? []), 'is_string'));
+
+        return $statuses === []
+            ? ['pending', 'postponed']
+            : array_values(array_intersect($statuses, ['pending', 'accepted', 'edited', 'postponed']));
+    }
+
+    /**
+     * @param  array<string,mixed>  $filters
+     * @return array<int,string>
+     */
+    private function memoryDeltaStatuses(array $filters): array
+    {
+        $statuses = array_values(array_filter((array) ($filters['memory_delta_statuses'] ?? $filters['memory_delta_status'] ?? []), 'is_string'));
+
+        return $statuses === []
+            ? ['pending', 'accepted']
+            : array_values(array_intersect($statuses, ['pending', 'accepted']));
     }
 
     private function privacyPriority(string $privacyClass, bool $blocked, string $redactionStatus, bool $unreviewed): int

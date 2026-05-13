@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Http\Resources\MobileDeviceResource;
 use App\Models\AtlasMobileDevice;
+use App\Models\AuditEvent;
 use App\Services\Ai\Mobile\AtlasInboxService;
 use App\Services\Ai\Mobile\ContextBundleService;
 use App\Services\Ai\Mobile\MobileHealthService;
@@ -11,19 +12,24 @@ use App\Services\Ai\Mobile\MobileMaintenanceService;
 use App\Services\Ai\Mobile\MobilePairingService;
 use App\Services\Ai\Mobile\MobilePushService;
 use App\Services\Ai\Mobile\MobileReliabilityMonitor;
+use App\Services\AuditLogService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class AtlasCliMobileCommand extends Command
 {
+    private const PUSH_REPLAY_PRIOR_DRY_RUN_MAX_AGE_MINUTES = 15;
+
     protected $signature = 'atlas:cli:mobile
-        {action=devices : devices, pair, revoke, push-test, flush-push, receipts, expire-stale, cleanup, status or alert-check}
+        {action=devices : devices, pair, revoke, push-test, replay-push, flush-push, receipts, expire-stale, cleanup, status or alert-check}
         {arg? : Device id for revoke or label for pair}
         {--label= : Human-readable device label}
         {--device= : Device id for push-test}
         {--limit=100 : Max Expo receipts to check}
         {--apply : Run cleanup/expire-stale destructively (default is dry-run)}
+        {--confirm-external-dispatch : Confirm replay-push --apply may send real mobile push notifications}
+        {--reason= : Operator reason for replay-push --apply}
         {--json : Print machine-readable JSON}';
 
     protected $description = 'Manage Atlas mobile devices, pairing codes and maintenance tasks.';
@@ -36,8 +42,8 @@ class AtlasCliMobileCommand extends Command
         MobileMaintenanceService $maintenance,
         MobileHealthService $health,
         MobileReliabilityMonitor $reliability,
-    ): int
-    {
+        AuditLogService $audit,
+    ): int {
         if (! Schema::hasTable('atlas_mobile_devices') || ! Schema::hasTable('mobile_pairing_codes')) {
             $this->error('Tabelas mobile ainda nao existem. Rode migrations.');
 
@@ -51,6 +57,7 @@ class AtlasCliMobileCommand extends Command
             'pair' => $this->pair($pairing),
             'revoke' => $this->revoke($pairing),
             'push-test' => $this->pushTest($inbox, $bundles, $push),
+            'replay-push', 'replay-pending-push' => $this->replayPush($push, $audit),
             'flush-push' => $this->flushPush($push),
             'receipts', 'push-receipts' => $this->receipts($push),
             'expire-stale' => $this->expireStale($maintenance),
@@ -215,6 +222,119 @@ class AtlasCliMobileCommand extends Command
         $this->info("Push batches enviados: {$count}");
 
         return self::SUCCESS;
+    }
+
+    private function replayPush(MobilePushService $push, AuditLogService $audit): int
+    {
+        $apply = (bool) $this->option('apply');
+        $reason = trim((string) $this->option('reason'));
+        if ($apply && (! (bool) $this->option('confirm-external-dispatch') || $reason === '')) {
+            return $this->renderReplayPushFailure('confirmation_required', [
+                'message' => 'replay-push --apply exige --confirm-external-dispatch e --reason.',
+                'rules' => [
+                    'dry_run_default' => true,
+                    'external_notification_possible' => true,
+                    'confirm_external_dispatch_required' => true,
+                    'operator_reason_required' => true,
+                ],
+            ]);
+        }
+
+        if ($apply && ! $this->hasRecentReplayPushDryRunReceipt()) {
+            return $this->renderReplayPushFailure('prior_dry_run_required', [
+                'message' => 'replay-push --apply exige dry-run recente com candidatos.',
+                'rules' => [
+                    'prior_dry_run_required' => true,
+                    'prior_dry_run_max_age_minutes' => self::PUSH_REPLAY_PRIOR_DRY_RUN_MAX_AGE_MINUTES,
+                    'prior_dry_run_candidate_required' => true,
+                ],
+            ]);
+        }
+
+        $result = $push->replayPendingDispatches((int) $this->option('limit'), ! $apply);
+        $this->recordReplayPushReceipt($audit, $result, $apply, $reason);
+
+        if ((bool) $this->option('json')) {
+            $this->line(json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+
+            return self::SUCCESS;
+        }
+
+        $verb = $result['dry_run'] ? 'seriam reprocessados' : 'reprocessados';
+        $this->info("Push pendentes {$verb}: {$result['candidate_count']}; deliveries criados: {$result['dispatched_count']}");
+
+        return self::SUCCESS;
+    }
+
+    /**
+     * @param  array<string,mixed>  $extra
+     */
+    private function renderReplayPushFailure(string $status, array $extra): int
+    {
+        $payload = ['status' => $status, ...$extra];
+
+        if ((bool) $this->option('json')) {
+            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+
+            return self::FAILURE;
+        }
+
+        $this->error((string) ($extra['message'] ?? $status));
+
+        return self::FAILURE;
+    }
+
+    private function hasRecentReplayPushDryRunReceipt(): bool
+    {
+        if (! Schema::hasTable('audit_events')) {
+            return false;
+        }
+
+        return AuditEvent::query()
+            ->where('event_type', 'mobile.push_replay.requested')
+            ->where('actor_type', 'operator')
+            ->where('actor_id', 'cli')
+            ->where('occurred_at', '>=', now()->subMinutes(self::PUSH_REPLAY_PRIOR_DRY_RUN_MAX_AGE_MINUTES))
+            ->latest('occurred_at')
+            ->limit(20)
+            ->get()
+            ->contains(function (AuditEvent $event): bool {
+                return (bool) data_get($event->evidence, 'dry_run')
+                    && (int) data_get($event->evidence, 'candidate_count', 0) > 0;
+            });
+    }
+
+    /**
+     * @param  array<string,mixed>  $result
+     */
+    private function recordReplayPushReceipt(AuditLogService $audit, array $result, bool $apply, string $reason): void
+    {
+        $audit->record('mobile.push_replay.requested', [
+            'subject_type' => 'mobile_push_replay',
+            'actor_type' => 'operator',
+            'actor_id' => 'cli',
+            'severity' => $apply ? 'warning' : 'info',
+            'summary' => $apply
+                ? 'Operator applied pending mobile push replay via CLI.'
+                : 'Operator ran pending mobile push replay CLI dry-run.',
+            'evidence' => [
+                'schema_version' => 'atlas.mobile.push_replay.operator_receipt.v1',
+                'dry_run' => (bool) $result['dry_run'],
+                'limit' => (int) $result['limit'],
+                'candidate_count' => (int) $result['candidate_count'],
+                'dispatched_count' => (int) $result['dispatched_count'],
+                'mobile_enabled' => (bool) $result['mobile_enabled'],
+                'external_dispatch_confirmed' => $apply,
+                'operator_reason_hash' => $apply ? hash('sha256', $reason) : null,
+                'item_ids' => collect((array) $result['items'])->pluck('id')->values()->all(),
+            ],
+            'privacy' => [
+                'classification' => 'operational',
+                'raw_push_tokens_exposed' => false,
+                'raw_device_ids_exposed' => false,
+                'operator_reason_stored_as_hash' => true,
+            ],
+        ]);
     }
 
     private function receipts(MobilePushService $push): int

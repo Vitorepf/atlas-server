@@ -62,6 +62,7 @@ class AgentCodexRealInvokerPostStartDispatchReleaseGate
                 'post_start_receipt_contract_id' => $normalized['post_start_receipt_contract_id'],
                 'operator_start_handoff_id' => $normalized['operator_start_handoff_id'],
                 'manual_start_executor_receipt_id' => $normalized['manual_start_executor_receipt_id'],
+                'post_start_evidence_acceptance_bridge_id' => $normalized['post_start_evidence_acceptance_bridge_id'],
                 'codex_execution_id' => $normalized['codex_execution_id'],
                 'dispatch_scope_hash' => $normalized['dispatch_scope_hash'],
                 'continuation_summary_hash' => $normalized['continuation_summary_hash'],
@@ -96,6 +97,7 @@ class AgentCodexRealInvokerPostStartDispatchReleaseGate
                 'domain_event_type' => 'self_construction.agent_codex_real_invoker_post_start_dispatch_release_gate.ready',
                 'dispatch_release_gate_id' => $normalized['dispatch_release_gate_id'],
                 'post_start_liveness_monitor_id' => $normalized['post_start_liveness_monitor_id'],
+                'post_start_evidence_acceptance_bridge_id' => $normalized['post_start_evidence_acceptance_bridge_id'],
                 'post_start_evidence_receipt_id' => $normalized['post_start_evidence_receipt_id'],
                 'post_start_receipt_contract_id' => $normalized['post_start_receipt_contract_id'],
                 'codex_execution_id' => $normalized['codex_execution_id'],
@@ -145,6 +147,7 @@ class AgentCodexRealInvokerPostStartDispatchReleaseGate
             'operator_start_handoff_id',
             'post_start_receipt_contract_id',
             'post_start_evidence_receipt_id',
+            'post_start_evidence_acceptance_bridge_id',
             'post_start_liveness_monitor_id',
             'dispatch_release_gate_id',
             'dispatch_scope_hash',
@@ -186,6 +189,7 @@ class AgentCodexRealInvokerPostStartDispatchReleaseGate
             'operator_start_handoff_id' => (string) $input['operator_start_handoff_id'],
             'post_start_receipt_contract_id' => (string) $input['post_start_receipt_contract_id'],
             'post_start_evidence_receipt_id' => (string) $input['post_start_evidence_receipt_id'],
+            'post_start_evidence_acceptance_bridge_id' => (string) $input['post_start_evidence_acceptance_bridge_id'],
             'post_start_liveness_monitor_id' => (string) $input['post_start_liveness_monitor_id'],
             'dispatch_release_gate_id' => (string) $input['dispatch_release_gate_id'],
             'actor' => (string) $input['actor'],
@@ -212,7 +216,7 @@ class AgentCodexRealInvokerPostStartDispatchReleaseGate
             throw new InvalidArgumentException('codex_real_invoker_post_start_liveness_monitor_missing_or_mismatch');
         }
 
-        foreach (['post_start_evidence_receipt_id', 'post_start_receipt_contract_id', 'operator_start_handoff_id', 'manual_start_executor_receipt_id', 'codex_execution_id'] as $field) {
+        foreach (['post_start_evidence_acceptance_bridge_id', 'post_start_evidence_receipt_id', 'post_start_receipt_contract_id', 'operator_start_handoff_id', 'manual_start_executor_receipt_id', 'codex_execution_id'] as $field) {
             if ((string) data_get($metadata, 'codex_real_invoker_post_start_liveness_monitor.'.$field) !== $normalized[$field]) {
                 throw new InvalidArgumentException($field.'_mismatch');
             }
@@ -253,6 +257,7 @@ class AgentCodexRealInvokerPostStartDispatchReleaseGate
             'idempotent' => $idempotent,
             'dispatch_release_gate_id' => (string) data_get($run->metadata, 'codex_real_invoker_post_start_dispatch_release_gate.dispatch_release_gate_id'),
             'post_start_liveness_monitor_id' => (string) data_get($run->metadata, 'codex_real_invoker_post_start_dispatch_release_gate.post_start_liveness_monitor_id'),
+            'post_start_evidence_acceptance_bridge_id' => (string) data_get($run->metadata, 'codex_real_invoker_post_start_dispatch_release_gate.post_start_evidence_acceptance_bridge_id'),
             'codex_execution_id' => (string) data_get($run->metadata, 'codex_real_invoker_post_start_dispatch_release_gate.codex_execution_id'),
             'agent_run_id' => (string) $run->id,
             'run_key' => $run->run_key,
