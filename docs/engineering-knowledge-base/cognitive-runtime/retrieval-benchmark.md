@@ -130,6 +130,10 @@ false, and forbid provider calls, Python runtime execution, Graph RAG auto-enabl
 and policy auto-apply. Its comparison winner is meaningful only for the current
 measured path; `delta_measured=false` until an approved rival strategy is allowed
 to run.
+Retrieval Rivals reports, shadow plans and Inbox projections must expose
+`safety` as `atlas.retrieval_rivals.safety.v1`: proposal-only, no provider call,
+no runtime execution, no policy auto-apply, no memory write, no raw query/context
+persistence and no raw capture exposure.
 
 Before any rival strategy can run in shadow mode, inspect the blocked shadow
 plan:
@@ -147,7 +151,8 @@ shadow case contract, decision receipt hash, evidence ledger event contract,
 privacy/provider safety review and rollback plan before any shadow execution. It
 must keep `provider_call_allowed=false`, `runtime_execution_allowed=false`,
 `policy_auto_apply_allowed=false`, `raw_query_persisted=false` and
-`raw_context_persisted=false`.
+`raw_context_persisted=false`; its `safety` block repeats those fail-closed
+flags for Open Brain consumers.
 
 Add `--emit-rivals-shadow-inbox` only when an operator wants the AP-693 scope
 projected into Inbox for human review:
@@ -186,7 +191,9 @@ produces proposal-only review packet
 review and still forbid Graph RAG/Python runtime promotion. When snapshots are
 recorded, metadata stores only the safe summary of `retrieval_rivals_packet`
 schema/status/mode/comparison/strategy statuses/checks so longitudinal reports
-can prove rival alternatives remained non-executed.
+can prove rival alternatives remained non-executed. The report `safety` block
+also records whether latest/previous snapshot source ids were represented by
+hash, never raw IDs or raw context.
 
 Add `--emit-rivals-inbox` only when an operator wants a regressed report
 projected into Inbox:
@@ -202,13 +209,16 @@ cannot apply policy, promote runtime or write memory.
 
 The Inbox action runtime handles `review_retrieval_regression` as an audit-only
 review. It writes `atlas.inbox_action.memory_retrieval_regression_review.v1` to
-the item payload and emits `INBOX_ACTION_RECORDED`; it marks the item read but
-does not resolve it, execute runtime, apply policy or mutate memory.
+the item payload and emits `INBOX_ACTION_RECORDED`; it also writes deterministic
+receipt `atlas.memory_retrieval_regression_decision_receipt.v1` with report hash,
+latest/previous snapshot hashes and `memory_write_allowed_now=false`. It marks
+the item read but does not resolve it, execute runtime, apply policy or mutate
+memory.
 `atlas:ai:inbox-action-report`, `/ai/inbox-actions/report` and the Open Brain
 MCP `atlas_inbox_action_report` read model project the safe review fields:
-decision, reviewed marker, report/snapshot hashes and no-external-action /
-no-runtime / no-policy flags. They do not project raw retrieval context or query
-text.
+decision, reviewed marker, report/snapshot hashes, decision receipt hash,
+memory-write block and no-external-action / no-runtime / no-policy flags. They
+do not project raw retrieval context or query text.
 
 ## Golden Set Shape
 

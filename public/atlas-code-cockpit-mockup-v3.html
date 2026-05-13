@@ -1,0 +1,1937 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Atlas · Code · Cockpit v3</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500;1,600&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --cream: #f3ecda;
+      --cream-deep: #ebe2cb;
+      --cream-paper: #f7f1e3;
+      --cream-canvas: #faf4e4;
+      --ink: #1a1714;
+      --ink2: #4a4138;
+      --ink3: #8a7f70;
+      --ink4: #b6ac9c;
+      --bronze: #8a6a35;
+      --bronze-deep: #5e4520;
+      --bronze-soft: rgba(138,106,53,.28);
+      --bronze-veil: rgba(138,106,53,.07);
+      --bronze-glow: rgba(138,106,53,.18);
+      --prussian: #2b3e54;
+      --moss: #4a5f3a;
+      --moss-veil: rgba(74,95,58,.10);
+      --moss-soft: rgba(74,95,58,.28);
+      --rec-red: #8a3025;
+      --rec-red-veil: rgba(138,48,37,.06);
+      --rec-red-soft: rgba(138,48,37,.30);
+      --hair: rgba(26,23,20,.14);
+      --hair-soft: rgba(26,23,20,.07);
+      --serif: 'Cormorant Garamond', Georgia, serif;
+      --mono: 'JetBrains Mono', ui-monospace, 'Menlo', monospace;
+      --sans: 'Inter', system-ui, sans-serif;
+      --ease-i: cubic-bezier(0.32, 0.72, 0.24, 1);
+      --ease-c: cubic-bezier(0.4, 1, 0.2, 1);
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; overflow: hidden; }
+    body { background: var(--cream); color: var(--ink); font-family: var(--serif); font-size: 16px; -webkit-font-smoothing: antialiased; }
+    button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+    input, textarea { font: inherit; color: inherit; }
+
+    /* ═════════ LAYOUT MASTER ═════════ */
+    .app {
+      display: grid;
+      height: 100vh;
+      width: 100vw;
+      overflow: hidden;
+      grid-template-rows: 52px auto auto minmax(0, 1fr) 180px;
+      grid-template-columns: 280px minmax(0, 1fr) 380px;
+      grid-template-areas:
+        "topbar    topbar     topbar"
+        "forge     forge      forge"
+        "routing   routing    routing"
+        "sessions  conversa   ops"
+        "terminal  terminal   terminal";
+    }
+
+    /* ═════════ TOPBAR ═════════ */
+    .topbar {
+      grid-area: topbar;
+      display: grid;
+      grid-template-columns: auto 1fr auto auto;
+      align-items: center;
+      gap: 22px;
+      padding: 0 22px;
+      border-bottom: 1px solid var(--bronze-soft);
+      background: var(--cream-paper);
+      z-index: 30;
+    }
+    .brand { display: flex; align-items: baseline; gap: 12px; }
+    .brand-name {
+      font-weight: 500;
+      font-size: 16px;
+      letter-spacing: 3.4px;
+      color: var(--ink);
+      text-transform: uppercase;
+    }
+    .brand-sub { font-style: italic; font-size: 12px; color: var(--ink2); }
+    .brand-v {
+      font-family: var(--mono);
+      font-size: 8.5px;
+      letter-spacing: 1.4px;
+      color: var(--bronze);
+      padding: 1px 5px;
+      border: 1px solid var(--bronze-soft);
+      border-radius: 2px;
+      margin-left: 4px;
+      text-transform: uppercase;
+    }
+    .tabs { display: flex; gap: 22px; }
+    .tab {
+      font-family: var(--mono);
+      font-size: 10.5px;
+      letter-spacing: 1.8px;
+      color: var(--ink3);
+      text-transform: uppercase;
+      padding: 6px 0;
+      border-bottom: 1.5px solid transparent;
+      transition: color 180ms var(--ease-i), border-color 180ms var(--ease-i);
+    }
+    .tab.on { color: var(--bronze); border-bottom-color: var(--bronze); }
+    .tab:hover { color: var(--ink); }
+    .folio {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 1.6px;
+      color: var(--prussian);
+      text-transform: uppercase;
+    }
+    .folio .live-dot {
+      display: inline-block;
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--moss);
+      margin-right: 6px;
+      animation: live-pulse 2.4s ease-in-out infinite;
+    }
+    .folio .div { color: var(--bronze); margin: 0 5px; }
+    @keyframes live-pulse {
+      0%, 100% { opacity: 0.55; }
+      50% { opacity: 1; }
+    }
+
+    /* ═════════ FORGE WORKSPACE BAR ═════════ */
+    .forge-bar {
+      grid-area: forge;
+      display: grid;
+      grid-template-columns: auto 1fr auto auto;
+      align-items: center;
+      gap: 18px;
+      padding: 10px 22px;
+      border-bottom: 1px solid var(--hair);
+      background: linear-gradient(180deg, var(--cream-paper) 0%, var(--cream) 100%);
+      font-family: var(--mono);
+      font-size: 10.5px;
+      letter-spacing: 1.4px;
+      color: var(--ink2);
+      text-transform: uppercase;
+    }
+    .forge-bar .eyebrow {
+      color: var(--bronze);
+      letter-spacing: 1.8px;
+    }
+    .forge-bar .obra-id {
+      padding: 2px 7px;
+      background: var(--bronze-veil);
+      border: 1px solid var(--bronze-soft);
+      color: var(--bronze-deep);
+      font-weight: 500;
+      border-radius: 2px;
+      letter-spacing: 1.2px;
+    }
+    .forge-bar .objective {
+      font-family: var(--serif);
+      font-style: italic;
+      font-size: 14px;
+      color: var(--ink);
+      letter-spacing: 0;
+      text-transform: none;
+    }
+    .forge-bar .status-board {
+      display: flex;
+      gap: 14px;
+      align-items: center;
+    }
+    .forge-bar .status-item {
+      display: flex;
+      gap: 6px;
+      align-items: baseline;
+    }
+    .forge-bar .status-item .l { color: var(--ink3); font-size: 9px; }
+    .forge-bar .status-item .v { color: var(--ink); font-weight: 500; }
+    .forge-bar .status-item .v.warn { color: var(--rec-red); }
+    .forge-bar .status-item .v.ok { color: var(--moss); }
+    .forge-bar .mother-contract {
+      color: var(--bronze);
+      cursor: pointer;
+      padding-bottom: 1px;
+      border-bottom: 1px solid transparent;
+      transition: border-color 180ms var(--ease-i);
+    }
+    .forge-bar .mother-contract:hover { border-bottom-color: var(--bronze); }
+
+    /* ═════════ STATUS ROUTING (expandido com 14 sinais) ═════════ */
+    .routing {
+      grid-area: routing;
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      gap: 22px;
+      align-items: center;
+      padding: 10px 22px 12px;
+      border-bottom: 1px solid var(--hair);
+      background: var(--cream-paper);
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 1.3px;
+      color: var(--ink2);
+      text-transform: uppercase;
+    }
+    .routing-left { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+    .routing-eyebrow { color: var(--bronze); letter-spacing: 1.6px; }
+    .routing-decision { color: var(--ink); font-weight: 500; }
+    .routing-decision .glyph { color: var(--bronze); margin: 0 5px; }
+    .routing-tokens { color: var(--ink3); }
+    .routing-signals {
+      display: inline-flex;
+      gap: 4px;
+      align-items: center;
+      cursor: pointer;
+      padding: 2px 6px;
+      border: 1px solid var(--hair);
+      border-radius: 2px;
+      transition: border-color 180ms var(--ease-i);
+    }
+    .routing-signals:hover { border-color: var(--bronze-soft); }
+    .routing-signals .count {
+      font-weight: 500;
+      color: var(--bronze-deep);
+    }
+    .routing-mid {
+      text-align: center;
+      font-style: italic;
+      font-family: var(--serif);
+      font-size: 13px;
+      color: var(--ink2);
+      text-transform: none;
+      letter-spacing: 0;
+      line-height: 1.4;
+    }
+    .routing-right { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .receipt-badge {
+      padding: 3px 7px;
+      background: var(--bronze-veil);
+      border: 1px solid var(--bronze-soft);
+      border-radius: 2px;
+      font-family: var(--mono);
+      font-size: 9px;
+      letter-spacing: 1.1px;
+      color: var(--bronze-deep);
+      text-transform: uppercase;
+    }
+    .receipt-badge.btn { cursor: pointer; }
+    .receipt-badge.btn:hover { background: var(--bronze-soft); }
+
+    /* ═════════ SESSIONS (esquerda) ═════════ */
+    .sessions {
+      grid-area: sessions;
+      border-right: 1px solid var(--bronze-soft);
+      overflow-y: auto;
+      min-height: 0;
+      background: var(--cream-paper);
+      padding: 18px 18px 20px;
+    }
+    .sess-search {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 9px;
+      border: 1px solid var(--hair);
+      border-radius: 2px;
+      background: var(--cream);
+      transition: border-color 180ms var(--ease-i);
+      margin-bottom: 14px;
+    }
+    .sess-search:focus-within { border-color: var(--bronze); }
+    .sess-search .glyph { font-family: var(--mono); font-size: 10px; color: var(--bronze); }
+    .sess-search input { flex: 1; border: 0; outline: none; background: transparent; font-style: italic; font-size: 12.5px; color: var(--ink); }
+    .sess-search input::placeholder { color: var(--ink3); }
+    .sess-section { margin-bottom: 16px; }
+    .sess-section h3 {
+      margin: 0 0 6px;
+      font-family: var(--mono);
+      font-size: 9px;
+      letter-spacing: 1.6px;
+      color: var(--bronze);
+      text-transform: uppercase;
+      font-weight: 400;
+      padding-bottom: 4px;
+      border-bottom: 1px solid var(--hair);
+      display: flex;
+      justify-content: space-between;
+    }
+    .sess-section h3 .meta {
+      font-size: 8px;
+      color: var(--ink3);
+      letter-spacing: 1px;
+    }
+    .sess-new {
+      display: grid;
+      grid-template-columns: 22px 1fr;
+      gap: 9px;
+      align-items: center;
+      padding: 8px 0 10px;
+      border-bottom: 1px solid var(--hair-soft);
+      cursor: pointer;
+      transition: padding-left 180ms var(--ease-i);
+    }
+    .sess-new:hover { padding-left: 3px; }
+    .sess-new .diamond { font-family: var(--serif); font-style: italic; font-size: 20px; color: var(--bronze); text-align: center; line-height: 1; }
+    .sess-new .label { font-style: italic; font-size: 13px; color: var(--ink); }
+    .sess-new .label small { display: block; font-style: normal; font-family: var(--mono); font-size: 8px; color: var(--ink3); letter-spacing: 1.1px; text-transform: uppercase; margin-top: 1px; }
+    .sess-entry {
+      display: grid;
+      gap: 3px;
+      padding: 8px 0 9px;
+      border-bottom: 1px solid var(--hair-soft);
+      cursor: pointer;
+      transition: padding-left 180ms var(--ease-i);
+    }
+    .sess-entry:hover { padding-left: 3px; }
+    .sess-entry:last-child { border-bottom: 0; }
+    .sess-entry.active {
+      border-left: 1.5px solid var(--bronze);
+      padding-left: 7px;
+      margin-left: -9px;
+      background: var(--bronze-veil);
+      padding-right: 9px;
+    }
+    .sess-entry .meta {
+      font-family: var(--mono);
+      font-size: 8px;
+      letter-spacing: 1px;
+      color: var(--ink3);
+      text-transform: uppercase;
+      display: flex;
+      gap: 8px;
+    }
+    .sess-entry .meta .origin { color: var(--bronze); font-weight: 500; }
+    .sess-entry .meta .origin.manual { color: var(--ink3); }
+    .sess-entry .title { font-size: 12.5px; color: var(--ink); letter-spacing: 0.2px; line-height: 1.3; }
+    .sess-entry .workspace { font-style: italic; font-size: 11px; color: var(--ink2); }
+    .sess-entry.running .meta .origin::before {
+      content: '';
+      display: inline-block;
+      width: 5px; height: 5px;
+      border-radius: 50%;
+      background: var(--bronze);
+      margin-right: 4px;
+      animation: live-pulse 3.5s ease-in-out infinite;
+    }
+    .sess-entry .snapshot {
+      margin-top: 4px;
+      padding: 4px 7px;
+      background: var(--cream);
+      border-left: 1.5px solid var(--moss);
+      font-family: var(--mono);
+      font-size: 8px;
+      letter-spacing: 1px;
+      color: var(--moss);
+      text-transform: uppercase;
+    }
+
+    /* ═════════ CONVERSA (centro) ═════════ */
+    .conversa {
+      grid-area: conversa;
+      display: grid;
+      grid-template-rows: minmax(0, 1fr) auto;
+      min-width: 0;
+      min-height: 0;
+      background: var(--cream-canvas);
+    }
+    .conv-thread {
+      overflow-y: auto;
+      min-height: 0;
+      padding: 22px 32px 18px;
+    }
+
+    /* SDD Pipeline checklist (mandatory order visible at top of conversation) */
+    .sdd-pipeline {
+      max-width: 760px;
+      margin: 0 auto 22px;
+      padding: 12px 16px 14px;
+      background: var(--cream-paper);
+      border: 1px solid var(--bronze-soft);
+      border-radius: 2px;
+    }
+    .sdd-pipeline .pipeline-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      padding-bottom: 7px;
+      border-bottom: 1px solid var(--hair);
+      margin-bottom: 9px;
+    }
+    .sdd-pipeline .pipeline-head .label {
+      font-family: var(--mono);
+      font-size: 9px;
+      letter-spacing: 1.5px;
+      color: var(--bronze);
+      text-transform: uppercase;
+    }
+    .sdd-pipeline .pipeline-head .meta {
+      font-family: var(--mono);
+      font-size: 8.5px;
+      letter-spacing: 1.1px;
+      color: var(--ink3);
+      text-transform: uppercase;
+    }
+    .pipeline-steps {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 4px;
+    }
+    .pipeline-step {
+      display: flex;
+      gap: 5px;
+      align-items: center;
+      padding: 4px 5px;
+      font-family: var(--mono);
+      font-size: 8.5px;
+      letter-spacing: 1px;
+      color: var(--ink3);
+      text-transform: uppercase;
+      border-bottom: 1.5px solid var(--hair-soft);
+    }
+    .pipeline-step.done { color: var(--moss); border-bottom-color: var(--moss-soft); }
+    .pipeline-step.now { color: var(--bronze); border-bottom-color: var(--bronze); animation: live-pulse 2s ease-in-out infinite; }
+    .pipeline-step.todo { color: var(--ink3); }
+    .pipeline-step .glyph { font-size: 10px; }
+
+    .conv-msg { max-width: 760px; margin: 0 auto 24px; }
+    .conv-msg .who {
+      font-family: var(--mono);
+      font-size: 9px;
+      letter-spacing: 1.8px;
+      color: var(--bronze);
+      text-transform: uppercase;
+      margin-bottom: 7px;
+      display: flex;
+      gap: 9px;
+      align-items: baseline;
+    }
+    .conv-msg .who .time { color: var(--ink3); letter-spacing: 1.1px; }
+    .conv-msg.you .who { color: var(--prussian); }
+    .conv-msg.you .body {
+      font-family: var(--serif);
+      font-style: italic;
+      font-size: 17px;
+      line-height: 1.5;
+      color: var(--ink);
+      padding-left: 16px;
+      border-left: 2px solid var(--prussian);
+    }
+    .conv-msg.atlas .body {
+      font-family: var(--serif);
+      font-size: 15.5px;
+      line-height: 1.55;
+      color: var(--ink);
+    }
+    .conv-msg.atlas .body p { margin: 0 0 10px; }
+    .conv-msg.atlas .body p:last-child { margin-bottom: 0; }
+    .conv-msg.atlas .body em { font-style: italic; color: var(--ink2); }
+    .conv-msg.atlas .body code, .conv-msg.atlas .body kbd {
+      font-family: var(--mono);
+      font-size: 12px;
+      background: var(--bronze-veil);
+      padding: 1px 5px;
+      border-radius: 2px;
+      color: var(--bronze-deep);
+    }
+
+    /* Context Pack collapsible */
+    .ctx-collapsed {
+      margin-top: 9px;
+      padding: 9px 13px;
+      border: 1px solid var(--hair);
+      border-radius: 2px;
+      background: var(--cream-paper);
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 12px;
+      cursor: pointer;
+      transition: background 180ms var(--ease-i);
+    }
+    .ctx-collapsed:hover { background: var(--cream); }
+    .ctx-collapsed .label { font-family: var(--mono); font-size: 9.5px; letter-spacing: 1.4px; color: var(--bronze); text-transform: uppercase; }
+    .ctx-collapsed .meta { font-family: var(--mono); font-size: 8.5px; letter-spacing: 1px; color: var(--ink3); text-transform: uppercase; }
+    .ctx-collapsed .arrow { color: var(--bronze); }
+
+    /* Spec Critic clarification card */
+    .clarification {
+      margin-top: 11px;
+      padding: 12px 14px;
+      background: rgba(43,62,84,.06);
+      border: 1px solid rgba(43,62,84,.30);
+      border-left: 2px solid var(--prussian);
+      border-radius: 2px;
+    }
+    .clarification .label {
+      font-family: var(--mono);
+      font-size: 9px;
+      letter-spacing: 1.5px;
+      color: var(--prussian);
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+    .clarification .q {
+      font-family: var(--serif);
+      font-style: italic;
+      font-size: 15px;
+      color: var(--ink);
+      line-height: 1.45;
+      margin-bottom: 8px;
+    }
+    .clarification .options { display: grid; gap: 4px; }
+    .clarification .opt {
+      display: grid;
+      grid-template-columns: 22px 1fr;
+      gap: 8px;
+      align-items: baseline;
+      padding: 5px 0;
+      border-bottom: 1px solid var(--hair-soft);
+      cursor: pointer;
+      transition: padding-left 180ms var(--ease-i);
+    }
+    .clarification .opt:last-child { border-bottom: 0; }
+    .clarification .opt:hover { padding-left: 3px; }
+    .clarification .opt .roman { font-family: var(--mono); font-size: 9px; color: var(--bronze); letter-spacing: 1.2px; text-transform: uppercase; }
+    .clarification .opt .text { font-size: 13.5px; color: var(--ink); line-height: 1.3; }
+
+    /* Plan inside conversation */
+    .plano {
+      margin: 13px 0 0;
+      padding: 14px 18px 16px;
+      background: var(--cream-paper);
+      border: 1px solid var(--bronze-soft);
+      border-radius: 2px;
+    }
+    .plano .plano-head {
+      font-family: var(--mono);
+      font-size: 9.5px;
+      letter-spacing: 1.6px;
+      color: var(--bronze);
+      text-transform: uppercase;
+      padding-bottom: 7px;
+      border-bottom: 1px solid var(--hair);
+      margin-bottom: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+    }
+    .plano .plano-head .meta { color: var(--ink3); font-size: 8.5px; }
+    .plano-step {
+      display: grid;
+      grid-template-columns: 24px 1fr auto;
+      gap: 11px;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--hair-soft);
+      align-items: start;
+    }
+    .plano-step:last-child { border-bottom: 0; }
+    .plano-step .roman { font-family: var(--mono); font-size: 9px; letter-spacing: 1.1px; color: var(--bronze); text-transform: uppercase; padding-top: 3px; text-align: right; }
+    .plano-step .info { display: grid; gap: 3px; min-width: 0; }
+    .plano-step .info .title { font-size: 13.5px; color: var(--ink); letter-spacing: 0.3px; line-height: 1.3; }
+    .plano-step .info .files { font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.4px; color: var(--ink2); }
+    .plano-step .info .files .path { color: var(--bronze-deep); }
+    .plano-step .agent-tag {
+      font-family: var(--mono);
+      font-size: 8px;
+      letter-spacing: 1.1px;
+      color: var(--ink3);
+      text-transform: uppercase;
+      padding: 2px 5px;
+      background: var(--bronze-veil);
+      border: 1px solid var(--bronze-soft);
+      border-radius: 2px;
+      white-space: nowrap;
+    }
+    .plano-confirm {
+      display: flex;
+      gap: 9px;
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid var(--hair);
+    }
+    .plano-action {
+      padding: 7px 12px;
+      font-family: var(--mono);
+      font-size: 9.5px;
+      letter-spacing: 1.3px;
+      text-transform: uppercase;
+      border-radius: 2px;
+      border: 1px solid var(--bronze-soft);
+      color: var(--bronze);
+      cursor: pointer;
+      transition: all 180ms var(--ease-i);
+    }
+    .plano-action:hover { background: var(--bronze-veil); border-color: var(--bronze); }
+    .plano-action.primary { background: var(--ink); color: var(--cream); border-color: var(--ink); }
+    .plano-action.primary:hover { background: var(--bronze-deep); border-color: var(--bronze-deep); }
+
+    /* Multi-agent parallel tracks */
+    .tracks { margin: 11px 0 0; display: grid; gap: 7px; }
+    .track {
+      display: grid;
+      grid-template-columns: 24px 1fr auto auto;
+      gap: 10px;
+      padding: 9px 12px;
+      background: var(--cream-paper);
+      border: 1px solid var(--hair);
+      border-radius: 2px;
+      align-items: center;
+    }
+    .track.running { border-color: var(--bronze-soft); }
+    .track .roman { font-family: var(--mono); font-size: 9px; letter-spacing: 1.1px; color: var(--bronze); text-transform: uppercase; text-align: right; }
+    .track .info { min-width: 0; display: grid; gap: 2px; }
+    .track .info .name { font-family: var(--mono); font-size: 10px; letter-spacing: 0.5px; color: var(--ink); font-weight: 500; }
+    .track .info .task { font-style: italic; font-size: 12px; color: var(--ink2); line-height: 1.3; }
+    .track .progress { font-family: var(--mono); font-size: 8.5px; letter-spacing: 1.1px; color: var(--ink3); text-transform: uppercase; white-space: nowrap; }
+    .track .status {
+      font-family: var(--mono);
+      font-size: 8.5px;
+      letter-spacing: 1.1px;
+      text-transform: uppercase;
+      padding: 2px 7px;
+      border-radius: 2px;
+      white-space: nowrap;
+    }
+    .track .status.done { background: var(--moss-veil); color: var(--moss); border: 1px solid var(--moss-soft); }
+    .track .status.run { background: var(--bronze-veil); color: var(--bronze-deep); border: 1px solid var(--bronze-soft); animation: live-pulse 2s ease-in-out infinite; }
+    .track .status.local { background: rgba(43,62,84,.06); color: var(--prussian); border: 1px solid rgba(43,62,84,.25); }
+
+    /* Diff block inline */
+    .diff {
+      margin: 11px 0 0;
+      border: 1px solid var(--hair);
+      border-radius: 2px;
+      background: var(--cream-paper);
+      overflow: hidden;
+    }
+    .diff-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      padding: 8px 13px;
+      border-bottom: 1px solid var(--hair);
+      background: var(--cream);
+    }
+    .diff-head .path { font-family: var(--mono); font-size: 10px; letter-spacing: 0.4px; color: var(--ink); }
+    .diff-head .path .sep { color: var(--bronze); padding: 0 4px; }
+    .diff-head .meta { font-family: var(--mono); font-size: 8.5px; letter-spacing: 1.1px; color: var(--ink3); text-transform: uppercase; }
+    .diff-head .meta .plus { color: var(--moss); }
+    .diff-head .meta .minus { color: var(--rec-red); }
+    .diff-body { font-family: var(--mono); font-size: 11.5px; line-height: 1.55; padding: 7px 0; }
+    .diff-line {
+      display: flex;
+      align-items: baseline;
+      padding: 0 13px;
+      white-space: pre;
+    }
+    .diff-line .ln { flex: 0 0 34px; font-size: 9.5px; color: var(--ink4); letter-spacing: 0.3px; user-select: none; }
+    .diff-line.add { background: var(--moss-veil); }
+    .diff-line.add .ln { color: var(--moss); }
+    .diff-line.del { background: var(--rec-red-veil); }
+    .diff-line.del .ln { color: var(--rec-red); }
+    .kw { color: var(--bronze); font-weight: 500; }
+    .ty { color: var(--moss); }
+    .fn { color: var(--prussian); font-weight: 500; }
+    .cm { color: var(--ink3); font-style: italic; }
+    .diff-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 9px 13px;
+      border-top: 1px solid var(--hair);
+      background: var(--cream);
+    }
+    .diff-footer .receipt-info { font-family: var(--mono); font-size: 8.5px; letter-spacing: 1.1px; color: var(--ink2); text-transform: uppercase; }
+    .diff-footer .receipt-info .hash { color: var(--bronze-deep); font-weight: 500; }
+    .diff-footer .actions { display: flex; gap: 7px; }
+    .diff-footer .action {
+      padding: 4px 9px;
+      font-family: var(--mono);
+      font-size: 8.5px;
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
+      border-radius: 2px;
+      border: 1px solid var(--bronze-soft);
+      color: var(--bronze);
+      cursor: pointer;
+      transition: all 180ms var(--ease-i);
+    }
+    .diff-footer .action:hover { background: var(--bronze-veil); border-color: var(--bronze); }
+    .diff-footer .action.primary { background: var(--ink); color: var(--cream); border-color: var(--ink); }
+    .diff-footer .action.primary:hover { background: var(--bronze-deep); border-color: var(--bronze-deep); }
+    .diff-footer .action.danger { color: var(--rec-red); border-color: var(--rec-red-soft); }
+
+    /* Composer */
+    .composer {
+      border-top: 1px solid var(--bronze-soft);
+      padding: 12px 32px 16px;
+      background: var(--cream-paper);
+      display: grid;
+      gap: 7px;
+    }
+    .composer-row { display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: end; }
+    .composer textarea {
+      width: 100%;
+      min-height: 50px;
+      max-height: 140px;
+      resize: none;
+      border: 1px solid var(--hair);
+      border-radius: 2px;
+      background: var(--cream);
+      padding: 10px 13px;
+      font-family: var(--serif);
+      font-style: italic;
+      font-size: 15.5px;
+      line-height: 1.45;
+      color: var(--ink);
+      outline: none;
+      transition: border-color 180ms var(--ease-i);
+    }
+    .composer textarea:focus { border-color: var(--bronze); }
+    .composer textarea::placeholder { color: var(--ink3); }
+    .composer .send-btn {
+      width: 42px; height: 42px;
+      display: grid;
+      place-items: center;
+      border: 1px solid var(--bronze);
+      border-radius: 2px;
+      color: var(--bronze);
+      font-family: var(--serif);
+      font-style: italic;
+      font-size: 21px;
+      cursor: pointer;
+      animation: live-pulse 3.5s ease-in-out infinite;
+      transition: background 180ms var(--ease-i);
+    }
+    .composer .send-btn:hover { background: var(--bronze-veil); }
+    .composer .composer-meta {
+      display: flex;
+      justify-content: space-between;
+      font-family: var(--mono);
+      font-size: 8.5px;
+      letter-spacing: 1.2px;
+      color: var(--ink3);
+      text-transform: uppercase;
+    }
+    .composer .composer-meta .glyph { color: var(--bronze); }
+    .composer .composer-meta kbd {
+      font-family: var(--mono);
+      font-size: 8.5px;
+      padding: 1px 4px;
+      border: 1px solid var(--hair);
+      border-radius: 2px;
+      background: var(--cream);
+      color: var(--ink2);
+      letter-spacing: 0.6px;
+    }
+
+    /* ═════════ OPERATIONAL PANEL (direita · 4 macro tabs) ═════════ */
+    .ops {
+      grid-area: ops;
+      border-left: 1px solid var(--bronze-soft);
+      overflow-y: auto;
+      min-height: 0;
+      min-width: 0;
+      background: var(--cream-paper);
+      padding: 0 0 18px;
+    }
+    .ops-tabs {
+      display: flex;
+      border-bottom: 1px solid var(--hair);
+      background: var(--cream-paper);
+      position: sticky;
+      top: 0;
+      z-index: 2;
+    }
+    .ops-tab {
+      flex: 1;
+      padding: 11px 6px;
+      font-family: var(--mono);
+      font-size: 9px;
+      letter-spacing: 1.4px;
+      color: var(--ink3);
+      text-transform: uppercase;
+      border-right: 1px solid var(--hair);
+      border-bottom: 1.5px solid transparent;
+      margin-bottom: -1px;
+      cursor: pointer;
+      transition: color 180ms var(--ease-i), background 180ms var(--ease-i);
+    }
+    .ops-tab:last-child { border-right: 0; }
+    .ops-tab:hover { color: var(--ink2); }
+    .ops-tab.on { color: var(--bronze); border-bottom-color: var(--bronze); background: var(--cream); }
+    .ops-panel { padding: 16px 18px 0; display: none; }
+    .ops-panel.on { display: block; }
+
+    .ops-section { margin-bottom: 20px; }
+    .ops-section h4 {
+      margin: 0 0 7px;
+      font-family: var(--mono);
+      font-size: 9px;
+      letter-spacing: 1.6px;
+      color: var(--bronze);
+      text-transform: uppercase;
+      font-weight: 400;
+      padding-bottom: 4px;
+      border-bottom: 1px solid var(--hair);
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+    }
+    .ops-section h4 .meta { font-size: 8.5px; color: var(--ink3); font-weight: 400; }
+
+    /* ─── Spec Graph (Plan tab) ─── */
+    .spec-graph { display: grid; gap: 0; }
+    .spec-node {
+      display: grid;
+      grid-template-columns: 18px 1fr auto;
+      gap: 8px;
+      align-items: baseline;
+      padding: 6px 0;
+      border-bottom: 1px solid var(--hair-soft);
+    }
+    .spec-node:last-child { border-bottom: 0; }
+    .spec-node .glyph { font-family: var(--mono); font-size: 10px; color: var(--bronze); }
+    .spec-node .label { font-size: 12.5px; color: var(--ink); letter-spacing: 0.3px; }
+    .spec-node .label small { display: block; font-family: var(--mono); font-size: 8.5px; color: var(--ink3); letter-spacing: 1px; text-transform: uppercase; margin-top: 1px; }
+    .spec-node .conf { font-family: var(--mono); font-size: 8.5px; letter-spacing: 1px; color: var(--moss); text-transform: uppercase; }
+    .spec-node .conf.med { color: var(--bronze); }
+    .spec-node .conf.low { color: var(--rec-red); }
+
+    /* ─── Build Graph mini (Plan tab) ─── */
+    .build-graph { display: grid; gap: 5px; }
+    .build-node {
+      display: grid;
+      grid-template-columns: 28px 1fr auto;
+      gap: 8px;
+      align-items: baseline;
+      padding: 5px 7px;
+      border: 1px solid var(--hair);
+      border-radius: 2px;
+    }
+    .build-node.l0 { border-color: var(--rec-red-soft); }
+    .build-node.l1 { border-color: var(--bronze-soft); }
+    .build-node.l2 { border-color: var(--bronze-soft); background: var(--bronze-veil); }
+    .build-node.l3 { border-color: var(--moss-soft); background: var(--moss-veil); }
+    .build-node .lvl { font-family: var(--mono); font-size: 9px; letter-spacing: 1.1px; color: var(--bronze); text-transform: uppercase; }
+    .build-node .name { font-size: 12px; color: var(--ink); }
+    .build-node .dep { font-family: var(--mono); font-size: 8px; color: var(--ink3); letter-spacing: 1px; text-transform: uppercase; }
+
+    /* ─── Capability Maturity Ladder (Plan tab) ─── */
+    .ladder {
+      display: grid;
+      grid-template-columns: repeat(9, 1fr);
+      gap: 2px;
+      margin: 6px 0;
+    }
+    .ladder-cell {
+      padding: 5px 3px;
+      text-align: center;
+      font-family: var(--mono);
+      font-size: 8.5px;
+      letter-spacing: 0.8px;
+      color: var(--ink3);
+      text-transform: uppercase;
+      border: 1px solid var(--hair);
+      border-radius: 2px;
+      background: var(--cream);
+    }
+    .ladder-cell.on { background: var(--bronze-veil); color: var(--bronze-deep); border-color: var(--bronze); font-weight: 500; }
+    .ladder-cell.past { background: var(--moss-veil); color: var(--moss); border-color: var(--moss-soft); }
+    .ladder-key {
+      display: flex;
+      justify-content: space-between;
+      font-family: var(--mono);
+      font-size: 8.5px;
+      color: var(--ink3);
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      margin-top: 4px;
+    }
+
+    /* ─── Decision Receipt v2 (Execute tab) ─── */
+    .receipt-card {
+      padding: 13px 14px;
+      background: var(--cream);
+      border: 1px solid var(--bronze-soft);
+      border-radius: 2px;
+      margin-bottom: 10px;
+    }
+    .receipt-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      padding: 4px 0;
+      border-bottom: 1px solid var(--hair-soft);
+    }
+    .receipt-row:last-child { border-bottom: 0; }
+    .receipt-row .l { font-family: var(--mono); font-size: 8.5px; letter-spacing: 1.3px; color: var(--bronze); text-transform: uppercase; }
+    .receipt-row .v { font-family: var(--mono); font-size: 10.5px; color: var(--ink); letter-spacing: 0.3px; text-align: right; max-width: 60%; word-break: break-all; }
+    .receipt-row .v.hash { color: var(--bronze-deep); font-weight: 500; }
+    .receipt-row .v.cost { color: var(--prussian); }
+    .receipt-row .v.ok { color: var(--moss); }
+    .receipt-fallback {
+      margin-top: 7px;
+      padding-top: 7px;
+      border-top: 1px solid var(--hair);
+    }
+    .receipt-fallback .l { font-family: var(--mono); font-size: 8.5px; letter-spacing: 1.3px; color: var(--bronze); text-transform: uppercase; display: block; margin-bottom: 4px; }
+    .receipt-fallback .chain {
+      font-family: var(--mono);
+      font-size: 9px;
+      color: var(--ink2);
+      letter-spacing: 0.4px;
+    }
+    .receipt-fallback .chain .arrow { color: var(--bronze); margin: 0 4px; }
+    .receipt-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid var(--hair);
+    }
+    .receipt-action {
+      padding: 7px 8px;
+      font-family: var(--mono);
+      font-size: 9.5px;
+      letter-spacing: 1.3px;
+      text-transform: uppercase;
+      border-radius: 2px;
+      border: 1px solid var(--bronze-soft);
+      color: var(--bronze);
+      cursor: pointer;
+      transition: all 180ms var(--ease-i);
+    }
+    .receipt-action:hover { background: var(--bronze-veil); border-color: var(--bronze); }
+    .receipt-action.primary { background: var(--ink); color: var(--cream); border-color: var(--ink); }
+    .receipt-action.primary:hover { background: var(--bronze-deep); border-color: var(--bronze-deep); }
+    .receipt-meta {
+      display: flex;
+      justify-content: center;
+      gap: 14px;
+      margin-top: 8px;
+      font-family: var(--mono);
+      font-size: 8.5px;
+      letter-spacing: 1.1px;
+      color: var(--bronze);
+      text-transform: uppercase;
+    }
+    .receipt-meta a { color: inherit; cursor: pointer; padding-bottom: 1px; border-bottom: 1px solid transparent; transition: border-color 180ms var(--ease-i); }
+    .receipt-meta a:hover { border-bottom-color: var(--bronze); }
+
+    /* ─── Scope Heatmap (Execute tab) ─── */
+    .scope-heatmap { display: grid; gap: 3px; }
+    .scope-entry {
+      display: grid;
+      grid-template-columns: 8px 1fr auto;
+      gap: 8px;
+      align-items: baseline;
+      padding: 4px 6px;
+      border-radius: 2px;
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--ink);
+      letter-spacing: 0.4px;
+    }
+    .scope-entry .swatch { width: 7px; height: 7px; border-radius: 50%; align-self: center; }
+    .scope-entry .delta { font-size: 8.5px; letter-spacing: 1px; text-transform: uppercase; color: var(--ink3); }
+    .scope-entry.allowed { background: var(--moss-veil); }
+    .scope-entry.allowed .swatch { background: var(--moss); }
+    .scope-entry.forbidden { background: var(--rec-red-veil); }
+    .scope-entry.forbidden .swatch { background: var(--rec-red); }
+    .scope-entry.unknown { background: rgba(138,106,53,.04); }
+    .scope-entry.unknown .swatch { background: var(--bronze); }
+    .scope-entry.hot { background: rgba(43,62,84,.06); }
+    .scope-entry.hot .swatch { background: var(--prussian); }
+    .scope-legend {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 6px;
+      font-family: var(--mono);
+      font-size: 8px;
+      letter-spacing: 1px;
+      color: var(--ink3);
+      text-transform: uppercase;
+    }
+    .scope-legend span::before {
+      content: '';
+      display: inline-block;
+      width: 5px; height: 5px;
+      border-radius: 50%;
+      margin-right: 4px;
+      vertical-align: 1px;
+    }
+    .scope-legend .a::before { background: var(--moss); }
+    .scope-legend .f::before { background: var(--rec-red); }
+    .scope-legend .u::before { background: var(--bronze); }
+    .scope-legend .h::before { background: var(--prussian); }
+
+    /* ─── Specialist Lens (Execute tab) ─── */
+    .specialist {
+      padding: 10px 12px;
+      background: var(--cream);
+      border: 1px solid var(--bronze-soft);
+      border-radius: 2px;
+    }
+    .specialist .head {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 1.5px;
+      color: var(--bronze-deep);
+      text-transform: uppercase;
+      font-weight: 500;
+      margin-bottom: 5px;
+    }
+    .specialist .sub {
+      font-style: italic;
+      font-size: 12px;
+      color: var(--ink2);
+      margin-bottom: 8px;
+    }
+    .specialist .row {
+      display: grid;
+      grid-template-columns: 60px 1fr;
+      gap: 8px;
+      padding: 4px 0;
+      border-bottom: 1px solid var(--hair-soft);
+      font-family: var(--mono);
+      font-size: 9px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+    .specialist .row:last-child { border-bottom: 0; }
+    .specialist .row .l { color: var(--bronze); }
+    .specialist .row .v { color: var(--ink); }
+
+    /* ─── Quality Gates (Verify tab) ─── */
+    .gates { display: grid; gap: 4px; }
+    .gate {
+      display: grid;
+      grid-template-columns: 18px 1fr auto;
+      gap: 8px;
+      align-items: baseline;
+      padding: 6px 8px;
+      border: 1px solid var(--hair);
+      border-radius: 2px;
+    }
+    .gate.passed { background: var(--moss-veil); border-color: var(--moss-soft); }
+    .gate.failed { background: var(--rec-red-veil); border-color: var(--rec-red-soft); }
+    .gate.blocked { background: var(--bronze-veil); border-color: var(--bronze-soft); }
+    .gate.pending { background: var(--cream); border-color: var(--hair); }
+    .gate .glyph { font-family: var(--mono); font-size: 12px; }
+    .gate.passed .glyph { color: var(--moss); }
+    .gate.failed .glyph { color: var(--rec-red); }
+    .gate.blocked .glyph { color: var(--bronze); }
+    .gate.pending .glyph { color: var(--ink3); }
+    .gate .name { font-size: 12px; color: var(--ink); }
+    .gate .name small { display: block; font-family: var(--mono); font-size: 8.5px; color: var(--ink3); letter-spacing: 1px; text-transform: uppercase; margin-top: 1px; }
+    .gate .stat { font-family: var(--mono); font-size: 8.5px; letter-spacing: 1.1px; text-transform: uppercase; }
+    .gate.passed .stat { color: var(--moss); }
+    .gate.failed .stat { color: var(--rec-red); }
+    .gate.blocked .stat { color: var(--bronze); }
+    .gate.pending .stat { color: var(--ink3); }
+
+    /* ─── Drift Detector (Verify tab) ─── */
+    .drift-3col {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 4px;
+    }
+    .drift-col {
+      padding: 7px;
+      border: 1px solid var(--hair);
+      border-radius: 2px;
+    }
+    .drift-col .head {
+      font-family: var(--mono);
+      font-size: 8.5px;
+      letter-spacing: 1.3px;
+      color: var(--bronze);
+      text-transform: uppercase;
+      margin-bottom: 5px;
+      padding-bottom: 4px;
+      border-bottom: 1px solid var(--hair-soft);
+    }
+    .drift-col .row {
+      font-family: var(--mono);
+      font-size: 9px;
+      color: var(--ink);
+      padding: 3px 0;
+      letter-spacing: 0.3px;
+    }
+    .drift-col .row.match { color: var(--moss); }
+    .drift-col .row.mismatch { color: var(--rec-red); }
+    .drift-summary {
+      margin-top: 7px;
+      padding: 6px 9px;
+      background: var(--moss-veil);
+      border-left: 2px solid var(--moss);
+      font-family: var(--mono);
+      font-size: 9px;
+      letter-spacing: 1px;
+      color: var(--moss);
+      text-transform: uppercase;
+    }
+    .drift-summary.warn { background: var(--rec-red-veil); border-left-color: var(--rec-red); color: var(--rec-red); }
+
+    /* ─── Evidence Timeline (Verify tab) ─── */
+    .evidence-list { display: grid; gap: 0; }
+    .evidence-entry {
+      display: grid;
+      grid-template-columns: 50px 1fr auto;
+      gap: 8px;
+      align-items: baseline;
+      padding: 5px 0;
+      border-bottom: 1px solid var(--hair-soft);
+    }
+    .evidence-entry:last-child { border-bottom: 0; }
+    .evidence-entry .time { font-family: var(--mono); font-size: 8.5px; color: var(--bronze); letter-spacing: 1px; text-transform: uppercase; }
+    .evidence-entry .body { font-size: 11.5px; color: var(--ink); line-height: 1.3; }
+    .evidence-entry .body code { font-family: var(--mono); font-size: 9.5px; color: var(--bronze-deep); }
+    .evidence-entry .hash { font-family: var(--mono); font-size: 8px; color: var(--ink3); letter-spacing: 1px; }
+
+    /* ─── Learning Inbox + Repair (Learn tab) ─── */
+    .proposal-card {
+      padding: 11px 13px;
+      border: 1px dashed var(--bronze-soft);
+      border-radius: 2px;
+      margin-bottom: 9px;
+    }
+    .proposal-card .head {
+      font-family: var(--mono);
+      font-size: 8.5px;
+      letter-spacing: 1.4px;
+      color: var(--bronze);
+      text-transform: uppercase;
+      margin-bottom: 5px;
+    }
+    .proposal-card .body {
+      font-style: italic;
+      font-size: 12.5px;
+      color: var(--ink);
+      line-height: 1.4;
+      margin-bottom: 7px;
+    }
+    .proposal-card .actions {
+      display: flex;
+      gap: 6px;
+      font-family: var(--mono);
+      font-size: 8.5px;
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
+    }
+    .proposal-card .actions a {
+      padding: 3px 8px;
+      border: 1px solid var(--bronze-soft);
+      border-radius: 2px;
+      color: var(--bronze);
+      cursor: pointer;
+      transition: all 180ms var(--ease-i);
+    }
+    .proposal-card .actions a:hover { background: var(--bronze-veil); border-color: var(--bronze); }
+    .proposal-card .actions a.danger { color: var(--rec-red); border-color: var(--rec-red-soft); }
+
+    .repair-flow {
+      padding: 11px 13px;
+      background: var(--rec-red-veil);
+      border: 1px solid var(--rec-red-soft);
+      border-radius: 2px;
+    }
+    .repair-flow .label {
+      font-family: var(--mono);
+      font-size: 8.5px;
+      letter-spacing: 1.4px;
+      color: var(--rec-red);
+      text-transform: uppercase;
+      margin-bottom: 5px;
+    }
+    .repair-flow .classification {
+      font-size: 12px;
+      color: var(--ink);
+      margin-bottom: 4px;
+    }
+    .repair-flow .classification code {
+      font-family: var(--mono);
+      font-size: 10.5px;
+      background: var(--cream);
+      padding: 1px 4px;
+      border-radius: 2px;
+      color: var(--rec-red);
+    }
+    .repair-flow .hyp {
+      font-style: italic;
+      font-size: 12px;
+      color: var(--ink2);
+      margin-bottom: 7px;
+    }
+    .repair-flow .attempts {
+      font-family: var(--mono);
+      font-size: 8.5px;
+      letter-spacing: 1.1px;
+      color: var(--ink3);
+      text-transform: uppercase;
+    }
+
+    /* ═════════ TERMINAL ═════════ */
+    .terminal {
+      grid-area: terminal;
+      background: var(--cream-paper);
+      border-top: 1px solid var(--bronze-soft);
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      min-height: 0;
+      min-width: 0;
+      overflow: hidden;
+    }
+    .term-head { display: flex; justify-content: space-between; align-items: center; padding: 8px 18px; border-bottom: 1px solid var(--hair); }
+    .term-head .tab-strip { display: flex; gap: 14px; }
+    .term-head .term-tab { font-family: var(--mono); font-size: 9.5px; letter-spacing: 1.2px; color: var(--ink3); text-transform: uppercase; padding: 4px 0; border-bottom: 1.5px solid transparent; cursor: pointer; }
+    .term-head .term-tab.on { color: var(--bronze); border-bottom-color: var(--bronze); }
+    .term-head .term-meta { font-family: var(--mono); font-size: 9px; letter-spacing: 1.3px; color: var(--ink3); text-transform: uppercase; }
+    .pty-badge {
+      display: inline-block;
+      margin-left: 8px;
+      padding: 1px 5px;
+      background: var(--moss-veil);
+      color: var(--moss);
+      border: 1px solid var(--moss-soft);
+      border-radius: 2px;
+      font-size: 8px;
+      letter-spacing: 1.1px;
+    }
+    .term-body { padding: 11px 18px 14px; overflow-y: auto; min-height: 0; font-family: var(--mono); font-size: 11px; line-height: 1.55; color: var(--ink); }
+    .term-line { white-space: pre-wrap; word-break: break-word; }
+    .term-line.user .prompt { color: var(--bronze); font-weight: 500; }
+    .term-line.user .cwd { color: var(--prussian); }
+    .term-line.atlas { color: var(--ink2); }
+    .term-line.atlas .glyph { color: var(--bronze); }
+    .term-line.atlas .ok { color: var(--moss); }
+    .term-line.atlas .warn { color: var(--rec-red); }
+    .term-line.atlas .hash { color: var(--bronze-deep); font-weight: 500; }
+    .term-line.indent { padding-left: 22px; }
+    .term-cursor { display: inline-block; width: 6px; height: 12px; background: var(--bronze); animation: term-blink 1.1s steps(1) infinite; vertical-align: -2px; margin-left: 2px; }
+    @keyframes term-blink { 0%, 49% { opacity: 1; } 50%, 100% { opacity: 0; } }
+  </style>
+</head>
+<body>
+  <div class="app">
+
+    <!-- ═════════ TOPBAR ═════════ -->
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-name">Atlas · Code</span>
+        <span class="brand-v">v3</span>
+        <span class="brand-sub">janela do Kernel · você dirige, Atlas programa</span>
+      </div>
+      <nav class="tabs">
+        <button class="tab">Cartografia</button>
+        <button class="tab on">Code</button>
+        <button class="tab">Inbox</button>
+        <button class="tab">Histórico</button>
+        <button class="tab">Agenda</button>
+      </nav>
+      <div class="folio">
+        <span class="live-dot"></span>
+        core <span class="div">·</span> pid 24891
+      </div>
+      <div class="folio">
+        vol I <span class="div">·</span> no 005 <span class="div">·</span> 12 mai 2026
+      </div>
+    </header>
+
+    <!-- ═════════ FORGE WORKSPACE BAR ═════════ -->
+    <section class="forge-bar">
+      <div style="display:flex;gap:10px;align-items:baseline;">
+        <span class="eyebrow">obra ativa</span>
+        <span class="obra-id">OBRA-238</span>
+      </div>
+      <div style="display:flex;gap:10px;align-items:baseline;min-width:0;">
+        <span class="objective">Refatorar módulo Decide pra extrair trait Gated&lt;T&gt;</span>
+        <button class="mother-contract">▸ mother contract</button>
+      </div>
+      <div class="status-board">
+        <div class="status-item"><span class="l">forge:</span><span class="v ok">L2</span></div>
+        <div class="status-item"><span class="l">packets:</span><span class="v">3/4</span></div>
+        <div class="status-item"><span class="l">gates:</span><span class="v">7/9</span></div>
+        <div class="status-item"><span class="l">gargalos:</span><span class="v warn">1</span></div>
+      </div>
+      <div class="status-board">
+        <div class="status-item"><span class="l">policy:</span><span class="v">canon v3</span></div>
+      </div>
+    </section>
+
+    <!-- ═════════ STATUS ROUTING (14 sinais) ═════════ -->
+    <section class="routing">
+      <div class="routing-left">
+        <span class="routing-eyebrow">atlas decide</span>
+        <span class="routing-decision">claude sonnet 4 <span class="glyph">+</span> codex <span class="glyph">+</span> local llama</span>
+        <span class="routing-tokens">3 agents · 7.2k tokens</span>
+        <span class="routing-signals">14 sinais <span class="count">·</span> confidence <span class="count">0.87</span></span>
+        <span style="font-family:var(--serif);font-style:italic;font-size:12px;color:var(--bronze-deep);text-transform:none;letter-spacing:0;">explicar ▸</span>
+      </div>
+      <div class="routing-mid">
+        <em>Claude pra arquitetura (AP-99 q=0.94, n=67). Codex pra implementação. Local llama pra typecheck (zero custo).</em>
+      </div>
+      <div class="routing-right">
+        <span class="receipt-badge">receipt 0x4f2c8a1d</span>
+        <span class="receipt-badge">est $0.012 · real $0.014</span>
+        <span class="receipt-badge">budget $25/d · $8.34 used</span>
+        <button class="receipt-badge btn">▸ replay</button>
+      </div>
+    </section>
+
+    <!-- ═════════ SESSIONS ═════════ -->
+    <aside class="sessions">
+      <div class="sess-search">
+        <span class="glyph">∴</span>
+        <input type="search" placeholder="buscar obra, sessão, tema, arquivo…">
+      </div>
+
+      <button class="sess-new">
+        <span class="diamond">✦</span>
+        <span class="label">Nova Obra<small>declara intent + objective</small></span>
+      </button>
+
+      <section class="sess-section">
+        <h3>Em curso <span class="meta">3 ao vivo</span></h3>
+        <div class="sess-entry running active">
+          <div class="meta"><span class="origin">cli · rodando</span><span>12 turnos</span><span>2min</span></div>
+          <div class="title">OBRA-238 · Refatorar Decide → trait Gated</div>
+          <div class="workspace">~/develop/Atlas/atlas-core</div>
+          <div class="snapshot">snapshot 3.2kb · intent preserved · 4 evidence refs</div>
+        </div>
+        <div class="sess-entry running">
+          <div class="meta"><span class="origin">cli · rodando</span><span>47%</span><span>3min</span></div>
+          <div class="title">OBRA-239 · Migrar policy gate versionado</div>
+          <div class="workspace">~/develop/Atlas/atlas-core</div>
+        </div>
+        <div class="sess-entry running">
+          <div class="meta"><span class="origin">cli · rodando</span><span>4 turnos</span><span>8min</span></div>
+          <div class="title">OBRA-237 · Audit Source Authority canon</div>
+          <div class="workspace">~/develop/Atlas/atlas-server/docs</div>
+        </div>
+      </section>
+
+      <section class="sess-section">
+        <h3>Conversas <span class="meta">12 totais</span></h3>
+        <div class="sess-entry">
+          <div class="meta"><span class="origin manual">manual</span><span>há 1h</span><span>claude</span></div>
+          <div class="title">Atlas Desktop · arquitetura Tauri vs Electron</div>
+          <div class="workspace">~/develop/Atlas</div>
+        </div>
+        <div class="sess-entry">
+          <div class="meta"><span class="origin manual">manual</span><span>há 3h</span><span>codex</span></div>
+          <div class="title">Cartografia · backend reader Laravel</div>
+          <div class="workspace">~/develop/Atlas/atlas-server</div>
+        </div>
+        <div class="sess-entry">
+          <div class="meta"><span class="origin manual">manual</span><span>ontem</span><span>claude</span></div>
+          <div class="title">Schema cartografia v1 · source authority</div>
+          <div class="workspace">~/develop/Atlas/atlas-server/docs</div>
+        </div>
+        <div class="sess-entry">
+          <div class="meta"><span class="origin manual">manual</span><span>2d</span><span>local</span></div>
+          <div class="title">Mobile · dock canon ✦ + voice mode</div>
+          <div class="workspace">~/develop/Atlas/atlas-app</div>
+        </div>
+      </section>
+    </aside>
+
+    <!-- ═════════ CONVERSA ═════════ -->
+    <main class="conversa">
+      <div class="conv-thread">
+
+        <!-- SDD Pipeline checklist (ordem mandatória visível) -->
+        <div class="sdd-pipeline">
+          <div class="pipeline-head">
+            <span class="label">Spec OS Pipeline · ordem mandatória</span>
+            <span class="meta">5/10 estágios · executando</span>
+          </div>
+          <div class="pipeline-steps">
+            <div class="pipeline-step done"><span class="glyph">✓</span>Context Scout</div>
+            <div class="pipeline-step done"><span class="glyph">✓</span>Spec Compiler</div>
+            <div class="pipeline-step done"><span class="glyph">✓</span>Spec Critic</div>
+            <div class="pipeline-step done"><span class="glyph">✓</span>Clarification</div>
+            <div class="pipeline-step done"><span class="glyph">✓</span>Plan Compiler</div>
+            <div class="pipeline-step now"><span class="glyph">⏳</span>Decision Receipt</div>
+            <div class="pipeline-step todo"><span class="glyph">○</span>Multi-Agent Exec</div>
+            <div class="pipeline-step todo"><span class="glyph">○</span>QA + Evidence</div>
+            <div class="pipeline-step todo"><span class="glyph">○</span>Drift Check</div>
+            <div class="pipeline-step todo"><span class="glyph">○</span>Learning Curator</div>
+          </div>
+        </div>
+
+        <!-- M1 humano -->
+        <article class="conv-msg you">
+          <div class="who">você<span class="time">14:32</span></div>
+          <div class="body">
+            refatora o módulo Decide pra extrair trait Gated&lt;T&gt; — o local llama detectou padrão repetido em 4 funções. mantém policy gate canon, atualiza testes.
+          </div>
+        </article>
+
+        <!-- M2 Context Scout + Compiler -->
+        <article class="conv-msg atlas">
+          <div class="who">atlas<span class="time">14:32 · há 12s</span></div>
+          <div class="body">
+            <p>Context Scout carregou 6 fontes. Spec Compiler interpretou intent → 3 requirements + 5 acceptance criteria. Spec Critic atacou ambiguidade.</p>
+            <div class="ctx-collapsed">
+              <span class="label">Context Pack · 6 fontes · compilado uma vez</span>
+              <span class="meta">7.2k tokens · vs 198k codebase · 3.6% sinal · ▸ ver</span>
+              <span class="arrow">›</span>
+            </div>
+          </div>
+        </article>
+
+        <!-- M3 Clarification -->
+        <article class="conv-msg atlas">
+          <div class="who">atlas<span class="time">14:32 · há 8s</span></div>
+          <div class="body">
+            <p>Spec Critic detectou 1 ambiguidade blocking. Antes de continuar:</p>
+            <div class="clarification">
+              <div class="label">clarification · 1 pergunta · 4 opções</div>
+              <div class="q">O trait <code style="font-family:var(--mono);background:var(--bronze-veil);padding:0 4px;border-radius:2px;color:var(--bronze-deep);">Gated&lt;T&gt;</code> deve cobrir <em>budget gate</em> apenas, ou ambos (budget + policy)?</div>
+              <div class="options">
+                <div class="opt"><span class="roman">i.</span><span class="text">Apenas budget gate (mais conservador, 1 refactor)</span></div>
+                <div class="opt"><span class="roman">ii.</span><span class="text">Budget + policy gates (canon completo, 2 refactors)</span></div>
+                <div class="opt"><span class="roman">iii.</span><span class="text">Todos os gates do canon (5 refactors, alto risco)</span></div>
+                <div class="opt"><span class="roman">iv.</span><span class="text">Pular clarification e usar hipótese low-confidence</span></div>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <!-- M4 humano responde -->
+        <article class="conv-msg you">
+          <div class="who">você<span class="time">14:33</span></div>
+          <div class="body">ii — budget + policy</div>
+        </article>
+
+        <!-- M5 Atlas propõe plano com Receipt embedded -->
+        <article class="conv-msg atlas">
+          <div class="who">atlas<span class="time">14:33 · há 4s</span></div>
+          <div class="body">
+            <p>Plan Compiler emitiu plano em <em>3 passos</em>. Decision Receipt v2 assinado pelo Kernel. Confirma antes de eu chamar qualquer provider.</p>
+
+            <div class="plano">
+              <div class="plano-head">
+                <span>Plano · 3 passos · receipt 0x4f2c8a1d · custo $0.012</span>
+                <span class="meta">policy canon v3 · rollback ready</span>
+              </div>
+
+              <div class="plano-step">
+                <span class="roman">i.</span>
+                <div class="info">
+                  <span class="title">Extrair <code style="font-family:var(--mono);background:var(--bronze-veil);padding:0 4px;border-radius:2px;color:var(--bronze-deep);">trait Gated&lt;T&gt;</code> em arquivo novo</span>
+                  <span class="files"><span class="path">atlas-core/src/gated.rs</span> · novo</span>
+                </div>
+                <span class="agent-tag">claude sonnet 4</span>
+              </div>
+
+              <div class="plano-step">
+                <span class="roman">ii.</span>
+                <div class="info">
+                  <span class="title">Migrar <code style="font-family:var(--mono);background:var(--bronze-veil);padding:0 4px;border-radius:2px;color:var(--bronze-deep);">budget_gate</code> + <code style="font-family:var(--mono);background:var(--bronze-veil);padding:0 4px;border-radius:2px;color:var(--bronze-deep);">policy_gate</code> pra usar o trait</span>
+                  <span class="files">2 arquivos · <span class="path">decide.rs · receipt.rs</span></span>
+                </div>
+                <span class="agent-tag">codex gpt-5.5</span>
+              </div>
+
+              <div class="plano-step">
+                <span class="roman">iii.</span>
+                <div class="info">
+                  <span class="title">Atualizar 9 testes + adicionar 3 pendentes pro trait</span>
+                  <span class="files">1 arquivo · <span class="path">tests/decide_test.rs</span></span>
+                </div>
+                <span class="agent-tag">local · llama 3.3 70b · MLX M4</span>
+              </div>
+
+              <div class="plano-confirm">
+                <button class="plano-action primary">▸ executar plano</button>
+                <button class="plano-action">ajustar passos</button>
+                <button class="plano-action">rejeitar</button>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <!-- M6 humano executa -->
+        <article class="conv-msg you">
+          <div class="who">você<span class="time">14:34</span></div>
+          <div class="body">proceed</div>
+        </article>
+
+        <!-- M7 multi-agent tracks paralelas -->
+        <article class="conv-msg atlas">
+          <div class="who">atlas<span class="time">14:34 · ao vivo</span></div>
+          <div class="body">
+            <p><em>Work Splitter validou Collision Matrix (3 packets disjuntos). 3 agents em paralelo. Scope Validator live.</em></p>
+
+            <div class="tracks">
+              <div class="track">
+                <span class="roman">i.</span>
+                <div class="info">
+                  <span class="name">claude sonnet 4</span>
+                  <span class="task">extraindo trait Gated&lt;T&gt; · 4.1s · 8.2k tokens</span>
+                </div>
+                <span class="progress">$0.011</span>
+                <span class="status done">✓ concluído</span>
+              </div>
+              <div class="track running">
+                <span class="roman">ii.</span>
+                <div class="info">
+                  <span class="name">codex gpt-5.5</span>
+                  <span class="task">migrando budget_gate + policy_gate · 47% · ~3min</span>
+                </div>
+                <span class="progress">3.4k tokens</span>
+                <span class="status run">⏳ executando</span>
+              </div>
+              <div class="track">
+                <span class="roman">iii.</span>
+                <div class="info">
+                  <span class="name">local · llama 3.3 70b · MLX M4</span>
+                  <span class="task">typecheck + 12 testes propostos · 0.8s</span>
+                </div>
+                <span class="progress">zero custo</span>
+                <span class="status local">✓ local</span>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <!-- M8 diff -->
+        <article class="conv-msg atlas">
+          <div class="who">atlas<span class="time">14:34 · há 2s</span></div>
+          <div class="body">
+            <p>Passo <em>i.</em> entregou. Scope Validator: 1 arquivo touched, todos dentro de <code>allowed_files</code>. Receipt evidence anexada.</p>
+
+            <div class="diff">
+              <div class="diff-head">
+                <span class="path">atlas-core <span class="sep">›</span> src <span class="sep">›</span> gated.rs <span style="color:var(--moss);margin-left:8px;font-family:var(--mono);font-size:8.5px;letter-spacing:1px;text-transform:uppercase;">novo</span></span>
+                <span class="meta"><span class="plus">+18</span> · <span class="minus">-0</span> · receipt 0x4f2c</span>
+              </div>
+              <div class="diff-body">
+                <div class="diff-line add"><span class="ln">1</span><span class="kw">use</span> <span class="ty">crate::policy::Policy</span>;</div>
+                <div class="diff-line add"><span class="ln">2</span><span class="kw">use</span> <span class="ty">crate::receipt::Receipt</span>;</div>
+                <div class="diff-line add"><span class="ln">3</span></div>
+                <div class="diff-line add"><span class="ln">4</span><span class="cm">/// Trait canônico de gate. Toda operação policy-checked passa por aqui.</span></div>
+                <div class="diff-line add"><span class="ln">5</span><span class="kw">pub trait</span> <span class="ty">Gated</span>&lt;<span class="ty">T</span>&gt; {</div>
+                <div class="diff-line add"><span class="ln">6</span>    <span class="kw">type</span> <span class="ty">Error</span>;</div>
+                <div class="diff-line add"><span class="ln">7</span>    <span class="kw">async fn</span> <span class="fn">gate</span>(&amp;<span class="kw">self</span>, candidate: <span class="ty">T</span>, policy: &amp;<span class="ty">Policy</span>)</div>
+                <div class="diff-line add"><span class="ln">8</span>        -&gt; <span class="ty">Result</span>&lt;<span class="ty">Receipt</span>, <span class="ty">Self::Error</span>&gt;;</div>
+                <div class="diff-line add"><span class="ln">9</span>}</div>
+              </div>
+              <div class="diff-footer">
+                <span class="receipt-info">receipt <span class="hash">0x4f2c8a1d</span> · scope ok · gates pendentes 2/9</span>
+                <div class="actions">
+                  <button class="action primary">aplicar</button>
+                  <button class="action">ajuste</button>
+                  <button class="action danger">rejeitar</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </article>
+
+      </div>
+
+      <!-- composer -->
+      <div class="composer">
+        <div class="composer-row">
+          <textarea placeholder="conversa com o Atlas… ele monta o plano, decide os agents, executa. você dirige e audita."></textarea>
+          <button class="send-btn" title="enviar · long-press = voice mode (LiveKit)">✦</button>
+        </div>
+        <div class="composer-meta">
+          <div><span class="glyph">∴</span> atlas decide vai escolher providers · long-press <kbd>✦</kbd> = voice mode mobile · paste = multimodal</div>
+          <div><kbd>cmd</kbd>+<kbd>enter</kbd> envia · <kbd>cmd</kbd>+<kbd>k</kbd> comandos · <kbd>esc</kbd> cancela</div>
+        </div>
+      </div>
+    </main>
+
+    <!-- ═════════ OPERATIONAL PANEL ═════════ -->
+    <aside class="ops">
+      <nav class="ops-tabs">
+        <button class="ops-tab on" data-tab="plan">Plan</button>
+        <button class="ops-tab" data-tab="execute">Execute</button>
+        <button class="ops-tab" data-tab="verify">Verify</button>
+        <button class="ops-tab" data-tab="learn">Learn</button>
+      </nav>
+
+      <!-- ──── PLAN tab ──── -->
+      <section class="ops-panel on" data-panel="plan">
+        <div class="ops-section">
+          <h4>Spec Graph <span class="meta">3 req · 5 ac</span></h4>
+          <div class="spec-graph">
+            <div class="spec-node">
+              <span class="glyph">∴</span>
+              <span class="label">refatora Decide → trait Gated<small>user intent</small></span>
+              <span class="conf">confirmed</span>
+            </div>
+            <div class="spec-node">
+              <span class="glyph">→</span>
+              <span class="label">extrair abstração de gate composable<small>interpreted goal</small></span>
+              <span class="conf">confirmed</span>
+            </div>
+            <div class="spec-node">
+              <span class="glyph">·</span>
+              <span class="label">trait Gated&lt;T&gt; em arquivo separado<small>requirement r1</small></span>
+              <span class="conf">confirmed</span>
+            </div>
+            <div class="spec-node">
+              <span class="glyph">·</span>
+              <span class="label">budget_gate + policy_gate migrados<small>requirement r2</small></span>
+              <span class="conf">confirmed</span>
+            </div>
+            <div class="spec-node">
+              <span class="glyph">·</span>
+              <span class="label">9 testes preservam comportamento<small>requirement r3 · 3 ac novos</small></span>
+              <span class="conf med">strong-inference</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="ops-section">
+          <h4>Build Graph <span class="meta">peça atual destacada</span></h4>
+          <div class="build-graph">
+            <div class="build-node l3"><span class="lvl">L3</span><span class="name">Documentation OS</span><span class="dep">root</span></div>
+            <div class="build-node l3"><span class="lvl">L3</span><span class="name">Evidence Ledger</span><span class="dep">L3 ok</span></div>
+            <div class="build-node l2"><span class="lvl">L2</span><span class="name">Atlas Decide v2 · <em>peça atual</em></span><span class="dep">unlocks L3 self-prog</span></div>
+            <div class="build-node l1"><span class="lvl">L1</span><span class="name">Self-Programming Loop</span><span class="dep">blocked by L2</span></div>
+            <div class="build-node l0"><span class="lvl">L0</span><span class="name">Strategic Self-Construction</span><span class="dep">future</span></div>
+          </div>
+        </div>
+
+        <div class="ops-section">
+          <h4>Capability Maturity <span class="meta">atlas-decide</span></h4>
+          <div class="ladder">
+            <div class="ladder-cell past">L0</div>
+            <div class="ladder-cell past">L1</div>
+            <div class="ladder-cell on">L2</div>
+            <div class="ladder-cell">L3</div>
+            <div class="ladder-cell">L4</div>
+            <div class="ladder-cell">L5</div>
+            <div class="ladder-cell">L6</div>
+            <div class="ladder-cell">L7</div>
+            <div class="ladder-cell">L8</div>
+          </div>
+          <div class="ladder-key">
+            <span>named</span>
+            <span>specified · agora</span>
+            <span>autonomous</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- ──── EXECUTE tab ──── -->
+      <section class="ops-panel" data-panel="execute">
+        <div class="ops-section">
+          <h4>Decision Receipt v2 <span class="meta">aguardando assinatura</span></h4>
+          <div class="receipt-card">
+            <div class="receipt-row"><span class="l">receipt_id</span><span class="v hash">0x4f2c8a1d</span></div>
+            <div class="receipt-row"><span class="l">signed_by</span><span class="v">kernel_signer_2026</span></div>
+            <div class="receipt-row"><span class="l">obra_id</span><span class="v">OBRA-238</span></div>
+            <div class="receipt-row"><span class="l">domain</span><span class="v">programming</span></div>
+            <div class="receipt-row"><span class="l">flow</span><span class="v">programming.forge</span></div>
+            <div class="receipt-row"><span class="l">specialist</span><span class="v">backend_api</span></div>
+            <div class="receipt-row"><span class="l">primary provider</span><span class="v">claude · sonnet 4</span></div>
+            <div class="receipt-row"><span class="l">confidence</span><span class="v ok">HIGH · 0.87 · ap99 n=67</span></div>
+            <div class="receipt-row"><span class="l">budget</span><span class="v cost">est $0.012 / $25 day · used $8.34</span></div>
+            <div class="receipt-row"><span class="l">autonomy</span><span class="v">execute_with_signoff</span></div>
+            <div class="receipt-row"><span class="l">dry-run</span><span class="v ok">passou</span></div>
+            <div class="receipt-row"><span class="l">rollback</span><span class="v ok">git revert + restore</span></div>
+
+            <div class="receipt-fallback">
+              <span class="l">fallback chain</span>
+              <div class="chain">claude opus <span class="arrow">→</span> claude sonnet <span class="arrow">(rate_limit)</span> · openai gpt-5.5 <span class="arrow">(unavailable)</span></div>
+            </div>
+
+            <div class="receipt-actions">
+              <button class="receipt-action primary">assinar e aplicar</button>
+              <button class="receipt-action">rejeitar</button>
+            </div>
+            <div class="receipt-meta">
+              <a>▸ replay frame a frame</a>
+              <a>▸ comparar vs anterior</a>
+              <a>▸ json completo</a>
+            </div>
+          </div>
+        </div>
+
+        <div class="ops-section">
+          <h4>Scope Heatmap · ao vivo <span class="meta">5 tocados</span></h4>
+          <div class="scope-heatmap">
+            <div class="scope-entry allowed"><span class="swatch"></span><span>atlas-core/src/gated.rs</span><span class="delta">+18 novo</span></div>
+            <div class="scope-entry allowed"><span class="swatch"></span><span>atlas-core/src/decide.rs</span><span class="delta">+12 -8</span></div>
+            <div class="scope-entry unknown"><span class="swatch"></span><span>atlas-core/src/receipt.rs</span><span class="delta">pendente</span></div>
+            <div class="scope-entry allowed"><span class="swatch"></span><span>atlas-core/src/policy.rs</span><span class="delta">pendente</span></div>
+            <div class="scope-entry allowed"><span class="swatch"></span><span>tests/decide_test.rs</span><span class="delta">pendente</span></div>
+            <div class="scope-entry forbidden"><span class="swatch"></span><span>atlas-core/src/kernel.rs</span><span class="delta">forbidden · não tocar</span></div>
+            <div class="scope-entry hot"><span class="swatch"></span><span>atlas-core/src/provider.rs</span><span class="delta">hot · OBRA-239</span></div>
+          </div>
+          <div class="scope-legend">
+            <span class="a">allowed</span>
+            <span class="f">forbidden</span>
+            <span class="u">unknown</span>
+            <span class="h">hot external</span>
+          </div>
+        </div>
+
+        <div class="ops-section">
+          <h4>Specialist Lens <span class="meta">backend_api · L1</span></h4>
+          <div class="specialist">
+            <div class="head">programming.backend_api</div>
+            <div class="sub">api contracts + auth + rate limits + database governance</div>
+            <div class="row"><span class="l">tools</span><span class="v">phpstan · pint · schemathesis · trivy</span></div>
+            <div class="row"><span class="l">gates</span><span class="v">contract · auth · postgres · security</span></div>
+            <div class="row"><span class="l">evidence</span><span class="v">test trace · contract diff · db review</span></div>
+            <div class="row"><span class="l">repair</span><span class="v">migration_rollback · auth_pattern</span></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ──── VERIFY tab ──── -->
+      <section class="ops-panel" data-panel="verify">
+        <div class="ops-section">
+          <h4>Quality Gates <span class="meta">7/9 passed</span></h4>
+          <div class="gates">
+            <div class="gate passed">
+              <span class="glyph">✓</span>
+              <span class="name">contract<small>task contract presente</small></span>
+              <span class="stat">passed</span>
+            </div>
+            <div class="gate passed">
+              <span class="glyph">✓</span>
+              <span class="name">blueprint snapshot<small>v42 hash abc123</small></span>
+              <span class="stat">passed</span>
+            </div>
+            <div class="gate passed">
+              <span class="glyph">✓</span>
+              <span class="name">acceptance criteria<small>5/5 com evidence</small></span>
+              <span class="stat">passed</span>
+            </div>
+            <div class="gate passed">
+              <span class="glyph">✓</span>
+              <span class="name">scenario coverage<small>happy + alt + exc + reg + db</small></span>
+              <span class="stat">passed</span>
+            </div>
+            <div class="gate passed">
+              <span class="glyph">✓</span>
+              <span class="name">tests<small>9/9 pass · typecheck ok</small></span>
+              <span class="stat">passed</span>
+            </div>
+            <div class="gate passed">
+              <span class="glyph">✓</span>
+              <span class="name">security scan<small>gitleaks · semgrep · trivy</small></span>
+              <span class="stat">passed</span>
+            </div>
+            <div class="gate passed">
+              <span class="glyph">✓</span>
+              <span class="name">scope validator<small>0 forbidden · 1 unknown</small></span>
+              <span class="stat">passed</span>
+            </div>
+            <div class="gate blocked">
+              <span class="glyph">△</span>
+              <span class="name">manual QA visual<small>desktop ok · mobile pending</small></span>
+              <span class="stat">blocked</span>
+            </div>
+            <div class="gate pending">
+              <span class="glyph">○</span>
+              <span class="name">deep review P0/P1<small>aguardando codex finalizar</small></span>
+              <span class="stat">pending</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="ops-section">
+          <h4>Drift Detector <span class="meta">spec ↔ code ↔ tests</span></h4>
+          <div class="drift-3col">
+            <div class="drift-col">
+              <div class="head">Spec</div>
+              <div class="row match">trait Gated&lt;T&gt;</div>
+              <div class="row match">budget gate</div>
+              <div class="row match">policy gate</div>
+              <div class="row match">9 testes</div>
+              <div class="row match">3 ac novos</div>
+            </div>
+            <div class="drift-col">
+              <div class="head">Code</div>
+              <div class="row match">gated.rs ✓</div>
+              <div class="row match">decide.rs ✓</div>
+              <div class="row mismatch">receipt.rs pend</div>
+              <div class="row match">9 tests ok</div>
+              <div class="row mismatch">3 ac falta</div>
+            </div>
+            <div class="drift-col">
+              <div class="head">Tests</div>
+              <div class="row match">trait covered</div>
+              <div class="row match">budget covered</div>
+              <div class="row mismatch">policy pending</div>
+              <div class="row match">9/9 pass</div>
+              <div class="row mismatch">3 pending</div>
+            </div>
+          </div>
+          <div class="drift-summary warn">2 divergências detectadas · bloqueio de Report até resolução</div>
+        </div>
+
+        <div class="ops-section">
+          <h4>Evidence Ledger <span class="meta">pipe-10 · últimas 5</span></h4>
+          <div class="evidence-list">
+            <div class="evidence-entry">
+              <span class="time">14:34</span>
+              <span class="body">receipt <code>0x4f2c</code> trait Gated criado · scope ok</span>
+              <span class="hash">novo</span>
+            </div>
+            <div class="evidence-entry">
+              <span class="time">14:11</span>
+              <span class="body">receipt <code>0x3a18</code> policy v3 publicada</span>
+              <span class="hash">prev</span>
+            </div>
+            <div class="evidence-entry">
+              <span class="time">12:04</span>
+              <span class="body">receipt <code>0x2c0f</code> evidence ledger schema v2</span>
+              <span class="hash">prev</span>
+            </div>
+            <div class="evidence-entry">
+              <span class="time">2d</span>
+              <span class="body">receipt <code>0x1e8b</code> runtime sandbox uniforme</span>
+              <span class="hash">prev</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ──── LEARN tab ──── -->
+      <section class="ops-panel" data-panel="learn">
+        <div class="ops-section">
+          <h4>Learning Proposals <span class="meta">proposal-only</span></h4>
+
+          <div class="proposal-card">
+            <div class="head">self-construction · curator</div>
+            <div class="body">
+              Llama detectou que <em>Gated&lt;T&gt;</em> pode ser reusado em 4 outros módulos do Atlas Core. Propõe extender o trait pra capability gating no Runtime. Aplicação modifica o próprio Atlas governadamente.
+            </div>
+            <div class="actions">
+              <a>aceitar</a>
+              <a>rever depois</a>
+              <a class="danger">descartar</a>
+            </div>
+          </div>
+
+          <div class="proposal-card">
+            <div class="head">provider evolution intelligence · weekly scan</div>
+            <div class="body">
+              Sonnet melhorou em backend_api + refactor: 0.93 quality (vs Opus 0.94) com latência 8s (vs 15s) e custo 4x menor. <em>Recomenda benchmark controlado antes de Curator aprovar swap como default.</em>
+            </div>
+            <div class="actions">
+              <a>rodar benchmark</a>
+              <a>arquivar</a>
+              <a>snooze 7d</a>
+            </div>
+          </div>
+        </div>
+
+        <div class="ops-section">
+          <h4>Repair Loop <span class="meta">1 ativo</span></h4>
+          <div class="repair-flow">
+            <div class="label">repair attempt 1/3 · gate failure</div>
+            <div class="classification">classificação: <code>visual_regression</code> · severity P1 · confidence 0.85</div>
+            <div class="hyp">hipótese: padding-left regression em <code style="font-family:var(--mono);font-size:10.5px;background:var(--cream);padding:1px 4px;border-radius:2px;">components/Button.tsx:42</code> · revert seguro</div>
+            <div class="attempts">attempts: 1/3 · evidence: before-after screenshot · status: aguardando review humano</div>
+          </div>
+        </div>
+      </section>
+    </aside>
+
+    <!-- ═════════ TERMINAL ═════════ -->
+    <section class="terminal">
+      <div class="term-head">
+        <div class="tab-strip">
+          <button class="term-tab on">zsh · atlas-core</button>
+          <button class="term-tab">atlas cli</button>
+          <button class="term-tab">cargo watch</button>
+          <button class="term-tab">+</button>
+        </div>
+        <div class="term-meta">
+          PTY master · zsh 5.9 · ~/develop/Atlas/atlas-core
+          <span class="pty-badge">pty real · não simulação</span>
+        </div>
+      </div>
+      <div class="term-body">
+        <div class="term-line user"><span class="prompt">atlas</span> <span class="cwd">~/develop/Atlas/atlas-core</span> <span class="prompt">$</span> # comandos shell continuam disponíveis · Atlas observa</div>
+        <div class="term-line atlas"><span class="glyph">∴</span> work splitter validou collision matrix · 3 packets disjuntos</div>
+        <div class="term-line atlas indent">  ✓ AIP-238-A (claude · gated.rs) → safe parallel</div>
+        <div class="term-line atlas indent">  ✓ AIP-238-B (codex · decide.rs+receipt.rs) → safe parallel</div>
+        <div class="term-line atlas indent">  ✓ AIP-238-C (local · tests) → safe parallel</div>
+        <div class="term-line atlas"><span class="glyph">∴</span> agent ii. (codex) escrevendo em atlas-core/src/decide.rs · streaming</div>
+        <div class="term-line atlas indent">  + 12 linhas · - 8 linhas · 47% completo</div>
+        <div class="term-line atlas"><span class="glyph">∴</span> agent iii. (local llama) typecheck contínuo · MLX M4</div>
+        <div class="term-line atlas indent">  ✓ <span class="ok">trait Gated&lt;T&gt; resolved</span> · zero erros · 0.4s · zero custo</div>
+        <div class="term-line atlas"><span class="glyph">▸</span> aguardando codex finalizar · proceed automático após receipt assinado<span class="term-cursor"></span></div>
+      </div>
+    </section>
+
+  </div>
+
+  <script>
+    // Tabs gerais
+    document.querySelectorAll('.tabs .tab').forEach(t => {
+      t.addEventListener('click', () => {
+        document.querySelectorAll('.tabs .tab').forEach(x => x.classList.remove('on'));
+        t.classList.add('on');
+      });
+    });
+    // Ops macro tabs
+    document.querySelectorAll('.ops-tab').forEach(t => {
+      t.addEventListener('click', () => {
+        const target = t.dataset.tab;
+        document.querySelectorAll('.ops-tab').forEach(x => x.classList.remove('on'));
+        document.querySelectorAll('.ops-panel').forEach(p => p.classList.remove('on'));
+        t.classList.add('on');
+        document.querySelector(`.ops-panel[data-panel="${target}"]`).classList.add('on');
+      });
+    });
+    // Terminal tabs
+    document.querySelectorAll('.term-tab').forEach(t => {
+      t.addEventListener('click', () => {
+        document.querySelectorAll('.term-tab').forEach(x => x.classList.remove('on'));
+        t.classList.add('on');
+      });
+    });
+    // Composer
+    const ta = document.querySelector('.composer textarea');
+    const sendBtn = document.querySelector('.send-btn');
+    if (ta) setTimeout(() => ta.focus(), 200);
+    sendBtn?.addEventListener('click', () => alert('mockup v3 — quando Atlas Core estiver conectado, isso dispara Spec OS pipeline real'));
+  </script>
+</body>
+</html>

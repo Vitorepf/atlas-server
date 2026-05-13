@@ -144,8 +144,10 @@ Open Brain MCP task tools are lifecycle surfaces, not provider dispatchers. They
 may create a task and append `atlas.task_orchestration.event.v1` events for
 `started`, `milestone` and `completed`; they must fail closed when the task event
 table is unavailable. These events are audit breadcrumbs for orchestration state.
-They do not authorize provider execution, runtime execution, merge, approval,
-dispatch, policy mutation or memory mutation.
+Events must be hash-chained with sequence, previous event id/hash and current
+event hash so orchestration progress has replayable lineage. They do not
+authorize provider execution, runtime execution, merge, approval, dispatch,
+policy mutation or memory mutation.
 
 ## Splitter Behavior
 

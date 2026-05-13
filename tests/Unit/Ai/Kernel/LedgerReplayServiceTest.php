@@ -838,6 +838,8 @@ class LedgerReplayServiceTest extends TestCase
 
     public function test_inbox_action_window_report_projects_retrieval_regression_reviews(): void
     {
+        $receiptHash = hash('sha256', 'retrieval-regression-receipt');
+
         $this->recordInboxActionEvent(
             eventId: '01HINBOXACTIONRETRIEVAL001',
             inboxItemId: 'inbox-retrieval-regression-1',
@@ -853,6 +855,12 @@ class LedgerReplayServiceTest extends TestCase
                 'report_hash' => hash('sha256', 'retrieval-report-replay'),
                 'latest_snapshot_hash' => hash('sha256', 'retrieval-latest-replay'),
                 'previous_snapshot_hash' => hash('sha256', 'retrieval-previous-replay'),
+                'decision_receipt_hash' => $receiptHash,
+                'decision_receipt' => [
+                    'schema_version' => 'atlas.memory_retrieval_regression_decision_receipt.v1',
+                    'receipt_hash' => $receiptHash,
+                    'memory_write_allowed_now' => false,
+                ],
                 'no_external_action' => true,
                 'no_runtime_execution' => true,
                 'no_policy_patch' => true,
@@ -875,6 +883,9 @@ class LedgerReplayServiceTest extends TestCase
         $this->assertContains('memory_retrieval_regression_review_recorded', data_get($report, 'review_signal.reasons'));
         $this->assertSame('atlas.inbox_action.memory_retrieval_regression_review.v1', data_get($report, 'recent_events.0.retrieval_regression_review_schema_version'));
         $this->assertSame('needs_more_evidence', data_get($report, 'recent_events.0.retrieval_regression_decision'));
+        $this->assertSame($receiptHash, data_get($report, 'recent_events.0.retrieval_regression_decision_receipt_hash'));
+        $this->assertSame('atlas.memory_retrieval_regression_decision_receipt.v1', data_get($report, 'recent_events.0.retrieval_regression_receipt_schema_version'));
+        $this->assertFalse((bool) data_get($report, 'recent_events.0.retrieval_regression_memory_write_allowed_now'));
         $this->assertTrue((bool) data_get($report, 'recent_events.0.retrieval_regression_reviewed'));
         $this->assertTrue((bool) data_get($report, 'recent_events.0.retrieval_regression_no_external_action'));
         $this->assertTrue((bool) data_get($report, 'recent_events.0.retrieval_regression_no_runtime_execution'));

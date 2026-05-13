@@ -63,9 +63,27 @@ schema `atlas.task_orchestration.event.v1` for `started`, `milestone` and
 `completed` events. If `atlas_tasks` or `atlas_task_events` is unavailable, the
 tool fails closed with no task write.
 
+Each event payload carries `event_sequence`, `previous_event_id`,
+`previous_event_hash` and `event_hash` so task progress is locally hash-chained
+and can be replayed as an audit trail. The hash chain is an orchestration
+lineage receipt only; it is not a provider dispatch receipt.
+
 Lifecycle events must state when they did not execute providers or runtimes.
 Provider dispatch, external runtime execution, merge, approval and policy change
 remain outside the task event contract and require a Decision Receipt.
+Task and task-event API/CLI resources expose safety summaries as
+`atlas.task_orchestration.task_safety.v1` and
+`atlas.task_orchestration.event_safety.v1`. These are read-model contracts:
+provider dispatch, runtime execution, policy mutation and automatic completion
+stay closed unless a separate Decision Receipt authorizes them.
+
+Planning, schedule, defer, calendar and completion paths that use
+`TaskPlanningService::recordEvent()` also persist the same local event schema.
+The service appends `atlas.task_orchestration.local_event_receipt.v1` to each
+payload, assigns a per-task `event_sequence`, links to the previous event id and
+hash, and stores a SHA-256 `event_hash`. This makes normal task planning
+replayable by Open Brain without implying provider dispatch, runtime execution,
+policy mutation or automatic completion authority.
 
 ## Decision Receipt Fields
 

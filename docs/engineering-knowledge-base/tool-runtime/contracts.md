@@ -70,6 +70,19 @@ expected cost, default trigger, authority group and authority role. `context`
 metadata may add recipe or execution-origin fields, but it does not create a new
 authority model outside the registry.
 
+Each run metadata also carries `receipt_schema_version`,
+`summary_hash`, `normalized_result_hash` and `evidence_receipt_hash`. The ledger
+event reuses those hashes so gates can compare persisted evidence with replayed
+ToolEvidenceRecorded events without exposing raw command output or workspace
+paths.
+
+Evidence export surfaces must expose these hashes as an explicit `receipt`
+block. The receipt is pointer/hash only: it may include `tool_run_id`,
+`tool_slug`, `workspace_hash`, `command_hash`, `summary_hash`,
+`normalized_result_hash` and `evidence_receipt_hash`, but it must not expose raw
+commands, raw output or workspace paths. Provider dispatch and runtime policy
+mutation remain closed in exported evidence receipts.
+
 ## Policy Contract
 
 `AtlasToolPolicyEngine` emits auditable decisions:

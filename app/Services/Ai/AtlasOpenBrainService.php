@@ -57,6 +57,8 @@ class AtlasOpenBrainService
             'semantic_count' => count((array) data_get($contextPack, 'memory.semantic', [])),
             'provider_safe' => true,
         ];
+        $auditTableExists = Schema::hasTable('atlas_open_brain_access_logs');
+        $safety = $this->safetySummary($summary, $auditTableExists, $auditTableExists ? $hash : null);
 
         $audit = $this->recordAudit([
             'surface' => $surface,
@@ -74,13 +76,14 @@ class AtlasOpenBrainService
                 'task_type' => data_get($contextPack, 'task.type'),
                 'workspace' => $workspace,
             ],
-            'result_summary_json' => $summary,
+            'result_summary_json' => $summary + ['safety' => $safety],
             'metadata' => [
                 'schema_version' => 1,
                 'source' => 'atlas_open_brain_service',
             ],
             'accessed_at' => now(),
         ]);
+        $safety = $this->safetySummary($summary, $audit !== null, is_string($audit['context_pack_hash'] ?? null) ? (string) $audit['context_pack_hash'] : null);
 
         $result = [
             'ok' => true,
@@ -89,6 +92,7 @@ class AtlasOpenBrainService
             'context_pack' => $contextPack,
             'context_refs' => $contextRefs,
             'summary' => $summary,
+            'safety' => $safety,
             'audit' => $audit,
         ];
 
@@ -122,6 +126,30 @@ class AtlasOpenBrainService
             'memory_refs_count' => $log->memory_refs_count,
             'provider_safe' => $log->provider_safe,
             'accessed_at' => $log->accessed_at?->toJSON(),
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $summary
+     * @return array<string,mixed>
+     */
+    private function safetySummary(array $summary, bool $auditPersisted, ?string $persistedContextPackHash): array
+    {
+        return [
+            'schema_version' => 'atlas.open_brain.context_pack_safety.v1',
+            'provider_safe_only' => true,
+            'provider_export_allowed' => true,
+            'open_brain_context_allowed' => true,
+            'raw_content_exposed' => false,
+            'raw_content_persisted' => false,
+            'audit_persisted' => $auditPersisted,
+            'context_pack_hash_persisted' => $persistedContextPackHash !== null && $persistedContextPackHash !== '',
+            'context_refs_count' => (int) ($summary['context_refs_count'] ?? 0),
+            'memory_refs_count' => (int) ($summary['memory_refs_count'] ?? 0),
+            'recall_count' => (int) ($summary['recall_count'] ?? 0),
+            'registry_count' => (int) ($summary['registry_count'] ?? 0),
+            'verbatim_count' => (int) ($summary['verbatim_count'] ?? 0),
+            'semantic_count' => (int) ($summary['semantic_count'] ?? 0),
         ];
     }
 

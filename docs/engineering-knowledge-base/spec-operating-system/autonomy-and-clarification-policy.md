@@ -73,3 +73,10 @@ Scheduler failure metadata is evidence, not authority. It must not expose API
 keys, bearer tokens, cookies, private keys or raw provider credentials, and it
 does not authorize retries, provider changes, notification delivery or task
 mutation beyond the guarded scheduled-run contract.
+
+Each scheduled execution persists `metadata.last_run_receipt` with schema
+`atlas.scheduled_task_run_receipt.v1` plus `last_run_receipt_hash`. The receipt
+is hash/pointer-only: it stores prompt, title, schedule, workspace, output and
+error hashes, not raw prompt/output/workspace paths. It also states the autonomy
+closures for background work: anti-recursion guarded, tool permissions read-only,
+provider changes closed, retry authorization closed and schedule mutation closed.

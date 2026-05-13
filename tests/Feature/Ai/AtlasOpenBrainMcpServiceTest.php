@@ -2349,6 +2349,10 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
         $this->assertSame('mcp_tool', $event->source);
         $this->assertSame('atlas.task_orchestration.event.v1', data_get($event->payload, 'schema_version'));
         $this->assertSame('atlas_open_brain_mcp', data_get($event->payload, 'tool'));
+        $this->assertSame(1, data_get($event->payload, 'event_sequence'));
+        $this->assertNull(data_get($event->payload, 'previous_event_id'));
+        $this->assertNull(data_get($event->payload, 'previous_event_hash'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) data_get($event->payload, 'event_hash'));
         $this->assertTrue((bool) data_get($event->payload, 'objective_present'));
         $this->assertTrue((bool) data_get($event->payload, 'no_provider_execution'));
         $this->assertTrue((bool) data_get($event->payload, 'no_runtime_execution'));
@@ -2382,6 +2386,44 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
         $this->assertSame('atlas_open_brain_mcp', data_get($event?->payload, 'tool'));
         $this->assertTrue((bool) data_get($event?->payload, 'no_provider_execution'));
         $this->assertTrue((bool) data_get($event?->payload, 'no_runtime_execution'));
+    }
+
+    public function test_task_lifecycle_events_are_hash_chained(): void
+    {
+        $service = $this->app->make(AtlasOpenBrainMcpService::class);
+        $start = $service->handleJsonRpc([
+            'jsonrpc' => '2.0',
+            'id' => 141,
+            'method' => 'tools/call',
+            'params' => [
+                'name' => 'atlas_task_start',
+                'arguments' => ['title' => 'Chain task'],
+            ],
+        ]);
+        $taskId = $start['result']['structuredContent']['task_id'];
+
+        $service->handleJsonRpc([
+            'jsonrpc' => '2.0',
+            'id' => 142,
+            'method' => 'tools/call',
+            'params' => [
+                'name' => 'atlas_task_progress',
+                'arguments' => [
+                    'task_id' => $taskId,
+                    'milestone' => 'first-checkpoint',
+                ],
+            ],
+        ]);
+
+        $events = AtlasTaskEvent::where('task_id', $taskId)->orderBy('occurred_at')->get();
+        $this->assertCount(2, $events);
+        $this->assertSame(1, data_get($events[0]->payload, 'event_sequence'));
+        $this->assertSame(2, data_get($events[1]->payload, 'event_sequence'));
+        $this->assertSame($events[0]->id, data_get($events[1]->payload, 'previous_event_id'));
+        $this->assertSame(data_get($events[0]->payload, 'event_hash'), data_get($events[1]->payload, 'previous_event_hash'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) data_get($events[1]->payload, 'event_hash'));
+        $this->assertTrue((bool) data_get($events[1]->payload, 'no_provider_execution'));
+        $this->assertTrue((bool) data_get($events[1]->payload, 'no_runtime_execution'));
     }
 
     public function test_task_complete_sets_status_and_event(): void

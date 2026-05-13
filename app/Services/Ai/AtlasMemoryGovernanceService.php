@@ -459,6 +459,29 @@ class AtlasMemoryGovernanceService
             'title' => $entry->title,
             'status' => $entry->status,
             'priority' => $entry->priority,
+            'safety' => $this->memorySafety($entry),
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function memorySafety(AtlasMemoryEntry $entry): array
+    {
+        $providerExportAllowed = $entry->external_ai_allowed === true
+            && $entry->privacy_class !== 'secret'
+            && $entry->redaction_status !== 'blocked';
+
+        return [
+            'schema_version' => 'atlas.memory_entry.safety.v1',
+            'memory_eligible' => $entry->status === 'active',
+            'context_eligible' => $entry->status === 'active' && $providerExportAllowed,
+            'provider_export_allowed' => $providerExportAllowed,
+            'open_brain_context_allowed' => $entry->status === 'active' && $providerExportAllowed,
+            'raw_content_exposed' => false,
+            'privacy_class' => $entry->privacy_class,
+            'redaction_status' => $entry->redaction_status,
+            'content_hash' => $entry->content_hash,
         ];
     }
 

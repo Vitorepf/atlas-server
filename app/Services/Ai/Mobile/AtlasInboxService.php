@@ -43,6 +43,10 @@ class AtlasInboxService
             }
         }
 
+        $availableActions = $this->actions($type, $data);
+        $pushPolicy = $this->array($data['push_policy'] ?? []);
+        $payload = $this->array($data['payload'] ?? []);
+
         try {
             $item = AiInboxItem::query()->create([
                 'user_id' => $userId,
@@ -58,11 +62,11 @@ class AtlasInboxService
                 'initiator' => $this->initiator((string) ($data['initiator'] ?? 'system')),
                 'context_bundle_id' => $this->nullableString($data['context_bundle_id'] ?? null),
                 'dedupe_key' => $dedupeKey,
-                'available_actions' => $this->actions($type, $data),
+                'available_actions' => $availableActions,
                 'response' => null,
-                'payload' => $this->array($data['payload'] ?? []),
+                'payload' => $payload,
                 'deep_link' => null,
-                'push_policy' => $this->array($data['push_policy'] ?? []),
+                'push_policy' => $pushPolicy,
                 'priority_score' => max(0, min(100, (int) ($data['priority_score'] ?? 50))),
                 'confidence_score' => isset($data['confidence_score']) ? (float) $data['confidence_score'] : null,
                 'expires_at' => $data['expires_at'] ?? $this->defaultExpiresAt($type),
@@ -83,7 +87,22 @@ class AtlasInboxService
             return $this->dedupeExisting($existing, $data, $type, $severity, $status, $dedupeKey);
         }
 
-        $item->update(['deep_link' => $this->deepLink($data, $item->id)]);
+        $deepLink = $this->deepLink($data, $item->id);
+        $item->update([
+            'deep_link' => $deepLink,
+            'payload' => $this->payloadWithProactiveDeliveryContract(
+                payload: $payload,
+                itemId: $item->id,
+                type: $type,
+                severity: $severity,
+                status: $status,
+                dedupeKey: $dedupeKey,
+                contextBundleId: $this->nullableString($data['context_bundle_id'] ?? null),
+                availableActions: $availableActions,
+                pushPolicy: $pushPolicy,
+                deepLink: $deepLink,
+            ),
+        ]);
 
         $this->audit->record('inbox.created', [
             'subject_type' => 'ai_inbox_item',
@@ -267,6 +286,16 @@ class AtlasInboxService
         $payload = $existing->payload ?? [];
         $payload['occurrence_count'] = ((int) ($payload['occurrence_count'] ?? 1)) + 1;
         $payload['last_occurrence_at'] = now()->toJSON();
+        unset($payload['proactive_delivery_contract']);
+
+        $availableActions = $this->actions($type, $data);
+        $pushPolicy = array_key_exists('push_policy', $data)
+            ? $this->array($data['push_policy'] ?? [])
+            : $this->array($existing->push_policy ?? []);
+        $contextBundleId = array_key_exists('context_bundle_id', $data)
+            ? $this->nullableString($data['context_bundle_id'] ?? null)
+            : $this->nullableString($existing->context_bundle_id ?? null);
+        $deepLink = $this->deepLink($data, $existing->id);
 
         $updates = [
             'title' => $this->title($data),
@@ -277,17 +306,28 @@ class AtlasInboxService
             'status' => $status,
             'source_type' => $this->nullableString($data['source_type'] ?? null),
             'source_id' => $this->nullableString($data['source_id'] ?? null),
-            'payload' => array_replace_recursive($payload, $this->array($data['payload'] ?? [])),
-            'available_actions' => $this->actions($type, $data),
-            'deep_link' => $this->deepLink($data, $existing->id),
+            'payload' => $this->payloadWithProactiveDeliveryContract(
+                payload: array_replace_recursive($payload, $this->array($data['payload'] ?? [])),
+                itemId: $existing->id,
+                type: $type,
+                severity: $severity,
+                status: $status,
+                dedupeKey: $dedupeKey,
+                contextBundleId: $contextBundleId,
+                availableActions: $availableActions,
+                pushPolicy: $pushPolicy,
+                deepLink: $deepLink,
+            ),
+            'available_actions' => $availableActions,
+            'deep_link' => $deepLink,
         ];
 
         if (array_key_exists('context_bundle_id', $data)) {
-            $updates['context_bundle_id'] = $this->nullableString($data['context_bundle_id'] ?? null);
+            $updates['context_bundle_id'] = $contextBundleId;
         }
 
         if (array_key_exists('push_policy', $data)) {
-            $updates['push_policy'] = $this->array($data['push_policy'] ?? []);
+            $updates['push_policy'] = $pushPolicy;
         }
 
         if (array_key_exists('priority_score', $data)) {
@@ -369,6 +409,66 @@ class AtlasInboxService
     private function deepLink(array $data, string $id): string
     {
         return $this->nullableString($data['deep_link'] ?? null) ?: "atlas://inbox/{$id}";
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     * @param  array<int,array<string,mixed>>  $availableActions
+     * @param  array<string,mixed>  $pushPolicy
+     * @return array<string,mixed>
+     */
+    private function payloadWithProactiveDeliveryContract(
+        array $payload,
+        string $itemId,
+        string $type,
+        string $severity,
+        string $status,
+        ?string $dedupeKey,
+        ?string $contextBundleId,
+        array $availableActions,
+        array $pushPolicy,
+        string $deepLink,
+    ): array {
+        $contract = [
+            'schema_version' => 'atlas.proactive.delivery_contract.v1',
+            'surface' => 'mobile_inbox',
+            'inbox_item_id' => $itemId,
+            'push_send_mode' => (string) ($pushPolicy['send'] ?? 'auto'),
+            'push_pointer_only' => true,
+            'authenticated_fetch_required' => true,
+            'deep_link_only_delivery' => true,
+            'context_bundle_api_only' => $contextBundleId !== null,
+            'raw_context_exposed_in_push' => false,
+            'raw_payload_exposed_in_push' => false,
+            'body_exposed_in_push' => false,
+            'auto_action_allowed' => false,
+            'action_execution_requires_registry' => true,
+            'operator_review_required' => $availableActions !== [],
+            'type' => $type,
+            'severity' => $severity,
+            'status' => $status,
+            'available_action_count' => count($availableActions),
+            'dedupe_key_hash' => $dedupeKey ? hash('sha256', $dedupeKey) : null,
+            'context_bundle_id_hash' => $contextBundleId ? hash('sha256', $contextBundleId) : null,
+            'deep_link_hash' => hash('sha256', $deepLink),
+            'push_data_fields' => [
+                'inbox_id',
+                'thread_id',
+                'deep_link',
+                'open_action',
+                'atlas_mode',
+                'target',
+                'type',
+                'severity',
+                'unread_count',
+                'unread_count_at',
+            ],
+        ];
+
+        $contract['contract_hash'] = hash('sha256', json_encode($contract, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '');
+        $payload['proactive_delivery_contract'] = $contract;
+
+        return $payload;
     }
 
     private function defaultExpiresAt(string $type): mixed

@@ -274,6 +274,8 @@ class AtlasMemoryContextComposer
             'privacy_reviewed_at' => $this->scalarOrNull($raw['privacy_reviewed_at'] ?? null),
             'reviewed_at' => $this->scalarOrNull($raw['reviewed_at'] ?? null),
             'content_hash' => $this->scalarOrNull($raw['content_hash'] ?? null),
+            'redacted_hash' => $this->scalarOrNull($raw['redacted_hash'] ?? null),
+            'raw_content_persisted' => false,
         ];
     }
 

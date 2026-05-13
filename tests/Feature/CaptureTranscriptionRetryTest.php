@@ -53,13 +53,31 @@ class CaptureTranscriptionRetryTest extends TestCase
             ->assertJsonPath('metadata.cognitive_quarantine.memory_eligible', false)
             ->assertJsonPath('metadata.cognitive_quarantine.context_eligible', false)
             ->assertJsonPath('metadata.cognitive_quarantine.embedding_allowed', false)
+            ->assertJsonPath('metadata.cognitive_quarantine.provider_export_allowed', false)
+            ->assertJsonPath('metadata.cognitive_quarantine.open_brain_context_allowed', false)
+            ->assertJsonPath('metadata.cognitive_quarantine.raw_content_exposed', false)
             ->assertJsonPath('metadata.cognitive_quarantine.promotion_status', 'proposal_pending')
             ->assertJsonPath('metadata.cognitive_quarantine.review.status', 'pending')
+            ->assertJsonPath('capture_safety.schema_version', 'atlas.capture.resource_safety.v1')
+            ->assertJsonPath('capture_safety.authenticated_api_payload', true)
+            ->assertJsonPath('capture_safety.raw_capture', true)
+            ->assertJsonPath('capture_safety.raw_text_in_response', true)
+            ->assertJsonPath('capture_safety.raw_content_provider_export_allowed', false)
+            ->assertJsonPath('capture_safety.raw_content_open_brain_context_allowed', false)
+            ->assertJsonPath('capture_safety.raw_content_embedding_allowed', false)
+            ->assertJsonPath('capture_safety.raw_content_memory_write_allowed', false)
+            ->assertJsonPath('capture_safety.human_review_required_for_promotion', true)
+            ->assertJsonPath('capture_safety.promotion_status', 'proposal_pending')
             ->assertJsonPath('metadata.semantic_curation.schema_version', 'atlas.capture.semantic_curation_review.v1')
             ->assertJsonPath('metadata.semantic_curation.status', 'proposal_pending')
             ->assertJsonPath('review_workflow.schema_version', 'atlas.capture.review_workflow.v1')
             ->assertJsonPath('review_workflow.status', 'proposal_pending')
             ->assertJsonPath('review_workflow.human_gate', 'ratify_or_dismiss')
+            ->assertJsonPath('review_workflow.safety.schema_version', 'atlas.capture.review_workflow_safety.v1')
+            ->assertJsonPath('review_workflow.safety.provider_export_allowed', false)
+            ->assertJsonPath('review_workflow.safety.open_brain_context_allowed', false)
+            ->assertJsonPath('review_workflow.safety.raw_content_exposed', false)
+            ->assertJsonPath('review_workflow.safety.promotion_status', 'proposal_pending')
             ->assertJsonPath('review_workflow.actions.0.id', 'ratify_semantic_note')
             ->assertJsonPath('review_workflow.actions.1.id', 'promote_to_memory_registry')
             ->assertJsonPath('review_workflow.actions.2.id', 'promote_to_verbatim_store');
@@ -84,11 +102,24 @@ class CaptureTranscriptionRetryTest extends TestCase
         $this->assertFalse($proposalMetadata['cognitive_quarantine']['memory_eligible']);
         $this->assertFalse($proposalMetadata['cognitive_quarantine']['context_eligible']);
         $this->assertFalse($proposalMetadata['cognitive_quarantine']['embedding_allowed']);
+        $this->assertFalse($proposalMetadata['cognitive_quarantine']['provider_export_allowed']);
+        $this->assertFalse($proposalMetadata['cognitive_quarantine']['open_brain_context_allowed']);
+        $this->assertFalse($proposalMetadata['cognitive_quarantine']['raw_content_exposed']);
         $this->assertSame('pending', $proposalMetadata['cognitive_quarantine']['review']['status']);
         $this->assertSame($metadata['cognitive_quarantine']['content_hash'], $proposalMetadata['cognitive_quarantine']['content_hash']);
         $this->assertSame($capture->id, $proposalMetadata['cognitive_quarantine']['proposal']['capture_id']);
         $this->assertSame('atlas.capture.curation_proposal_quarantine.v1', $proposalFrontmatter['cognitive_quarantine']['schema_version']);
         $this->assertSame('proposal_pending', $proposalFrontmatter['cognitive_quarantine']['promotion_status']);
+
+        $proposalResponse = $this->getJson('/semantic/curation-proposals', [
+            'X-Atlas-Token' => 'test-token-with-enough-length-123',
+        ])->assertOk();
+        $proposalResponse
+            ->assertJsonPath('proposals.0.safety.schema_version', 'atlas.semantic_curation_proposal.safety.v1')
+            ->assertJsonPath('proposals.0.safety.provider_export_allowed', false)
+            ->assertJsonPath('proposals.0.safety.open_brain_context_allowed', false)
+            ->assertJsonPath('proposals.0.safety.raw_content_exposed', false)
+            ->assertJsonPath('proposals.0.safety.promotion_status', 'proposal_pending');
     }
 
     public function test_sensitive_capture_blocks_external_ai_and_records_redacted_audit(): void
@@ -149,6 +180,58 @@ class CaptureTranscriptionRetryTest extends TestCase
         $this->assertArrayHasKey('sha256', $proposalEvidence['raw_source']);
         $this->assertSame('atlas.capture.curation_proposal_quarantine.v1', $proposalEvidence['cognitive_quarantine']['schema_version']);
         $this->assertFalse($proposalEvidence['cognitive_quarantine']['memory_eligible']);
+    }
+
+    public function test_duplicate_capture_ingest_records_replay_receipt_without_raw_content(): void
+    {
+        $this->createCaptureTables();
+        $this->createSemanticCurationProposalTable();
+        $this->createAuditEventsTable();
+
+        config()->set('atlas.token', 'test-token-with-enough-length-123');
+
+        $clientId = (string) Str::uuid();
+        $content = 'Capture replay should be idempotent and keep raw content out of replay audit.';
+        $payload = [
+            'client_id' => $clientId,
+            'kind' => 'text',
+            'domain' => 'blackink',
+            'content_text' => $content,
+            'captured_at' => now()->toJSON(),
+            'captured_timezone' => 'America/Sao_Paulo',
+            'metadata' => [],
+        ];
+        $headers = ['X-Atlas-Token' => 'test-token-with-enough-length-123'];
+
+        $first = $this->postJson('/captures', $payload, $headers)
+            ->assertCreated();
+        $this->postJson('/captures', $payload, $headers)
+            ->assertOk()
+            ->assertJsonPath('id', $first->json('id'));
+
+        $this->assertSame(1, \DB::table('captures')->where('client_id', $clientId)->count());
+        $this->assertDatabaseHas('audit_events', [
+            'event_type' => 'capture_replayed',
+            'subject_type' => 'capture',
+            'subject_id' => $first->json('id'),
+        ]);
+
+        $event = \DB::table('audit_events')
+            ->where('event_type', 'capture_replayed')
+            ->first();
+        $evidence = json_decode($event->evidence, true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame('atlas.capture.ingest_replay_receipt.v1', $evidence['schema_version']);
+        $this->assertFalse($evidence['created']);
+        $this->assertSame('client_id_already_exists', $evidence['replay_reason']);
+        $this->assertSame(hash('sha256', $clientId), $evidence['capture_client_id_hash']);
+        $this->assertTrue($evidence['content_fingerprint']['redacted']);
+        $this->assertSame(hash('sha256', $content), $evidence['content_fingerprint']['sha256']);
+        $this->assertFalse($evidence['raw_content_exposed']);
+        $this->assertSame('atlas.capture.cognitive_quarantine.v1', $evidence['cognitive_quarantine']['schema_version']);
+        $this->assertFalse($evidence['cognitive_quarantine']['provider_export_allowed']);
+        $this->assertFalse($evidence['cognitive_quarantine']['open_brain_context_allowed']);
+        $this->assertStringNotContainsString($content, json_encode($evidence, JSON_THROW_ON_ERROR));
     }
 
     public function test_ai_gateway_blocks_sensitive_capture_source_before_queueing_job(): void

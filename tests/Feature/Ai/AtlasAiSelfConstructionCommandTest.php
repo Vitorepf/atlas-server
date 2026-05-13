@@ -969,12 +969,6 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertGreaterThanOrEqual(21, data_get($payload, 'digest.surface_count'));
         $this->assertGreaterThanOrEqual(4, data_get($payload, 'digest.blocker_count'));
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'digest_hash'));
-        $this->assertSame('read_only_long_running_checkpoint', data_get($payload, 'checkpoint_receipt.receipt_type'));
-        $this->assertSame('unsigned_checkpoint_only', data_get($payload, 'checkpoint_receipt.authority.signature_status'));
-        $this->assertFalse(data_get($payload, 'checkpoint_receipt.authority.execution_allowed'));
-        $this->assertFalse(data_get($payload, 'checkpoint_receipt.audit_trail.ledger_write_allowed_here'));
-        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'checkpoint_receipt_hash'));
-        $this->assertContains('readiness_digest_checkpoint_receipt_does_not_write_ledger', data_get($payload, 'non_execution_guarantees'));
         $this->assertContains('readiness_digest_does_not_enable_execution', data_get($payload, 'non_execution_guarantees'));
         $this->assertContains('git diff --check', data_get($payload, 'digest.required_next_commands'));
     }
@@ -991,7 +985,6 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertStringContainsString('Current phase', $output);
         $this->assertStringContainsString('Next action', $output);
         $this->assertStringContainsString('Digest hash', $output);
-        $this->assertStringContainsString('Checkpoint hash', $output);
         $this->assertStringContainsString('Readiness digest is ready', $output);
     }
 
@@ -1104,7 +1097,6 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertSame('request_human_signature_review', data_get($payload, 'token.next_action_id'));
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'token.manifest_hash'));
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'token.digest_hash'));
-        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'token.checkpoint_receipt_hash'));
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'token_hash'));
         $this->assertContains('git status --short', data_get($payload, 'token.must_run_first'));
         $this->assertContains('runtimes/python/voice_realtime/**', data_get($payload, 'token.must_not_touch'));
@@ -30997,6 +30989,1786 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertFalse(data_get($payload, 'codex_real_invoker_implementation_boundary_implementation_packet.implementation_policy.provider_process_start_allowed_by_packet'));
         $this->assertContains('agent_codex_real_invoker_implementation_boundary_implementation_packet_does_not_create_boundary_files', data_get($payload, 'non_execution_guarantees'));
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'codex_real_invoker_implementation_boundary_implementation_packet_hash'));
+    }
+
+    public function test_command_returns_agent_codex_real_invoker_executor_plan_contract_template_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-codex-real-invoker-executor-plan-contract-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_codex_real_invoker_executor_plan_contract_template.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('read_only_agent_codex_real_invoker_executor_plan_contract_template', data_get($payload, 'mode'));
+        $this->assertSame('codex_real_invoker_executor_plan_contract_template_ready', data_get($payload, 'status'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'runtime_write_allowed'));
+        $this->assertSame('prepareExecutorPlan', data_get($payload, 'codex_real_invoker_executor_plan_contract_template.contract.method'));
+        $this->assertContains('require_codex_real_invoker_implementation_boundary_prepared', data_get($payload, 'codex_real_invoker_executor_plan_contract_template.real_invoker_executor_plan_must'));
+        $this->assertContains('call_codex_cli_or_codex_app', data_get($payload, 'codex_real_invoker_executor_plan_contract_template.real_invoker_executor_plan_must_not'));
+        $this->assertFalse(data_get($payload, 'codex_real_invoker_executor_plan_contract_template.contract_policy.executor_enablement_allowed_here'));
+        $this->assertContains('agent_codex_real_invoker_executor_plan_contract_template_does_not_enable_executor', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'codex_real_invoker_executor_plan_contract_template_hash'));
+    }
+
+    public function test_command_returns_agent_codex_real_invoker_executor_plan_preflight_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-codex-real-invoker-executor-plan-preflight' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_codex_real_invoker_executor_plan_preflight.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('read_only_agent_codex_real_invoker_executor_plan_preflight', data_get($payload, 'mode'));
+        $this->assertContains(data_get($payload, 'status'), [
+            'codex_real_invoker_executor_plan_ready',
+            'blocked',
+        ]);
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'runtime_write_allowed'));
+        $this->assertFalse(data_get($payload, 'codex_real_invoker_executor_plan_preflight.preflight_policy.executor_enablement_allowed_here'));
+        $this->assertFalse(data_get($payload, 'codex_real_invoker_executor_plan_preflight.preflight_policy.token_spend_allowed_here'));
+        $this->assertContains('agent_codex_real_invoker_executor_plan_preflight_does_not_call_codex', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'codex_real_invoker_executor_plan_preflight_hash'));
+    }
+
+    public function test_command_returns_agent_codex_real_invoker_executor_plan_implementation_packet_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-codex-real-invoker-executor-plan-implementation-packet' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_codex_real_invoker_executor_plan_implementation_packet.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('read_only_agent_codex_real_invoker_executor_plan_implementation_packet', data_get($payload, 'mode'));
+        $this->assertSame('ready_for_scoped_codex_real_invoker_executor_plan_implementation', data_get($payload, 'status'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'runtime_write_allowed'));
+        $this->assertSame(4, data_get($payload, 'codex_real_invoker_executor_plan_implementation_packet.task_count'));
+        $this->assertContains('do_not_enable_executor', data_get($payload, 'codex_real_invoker_executor_plan_implementation_packet.non_goals'));
+        $this->assertContains('real_invoker_executor_plan_requires_implementation_boundary_metadata', data_get($payload, 'codex_real_invoker_executor_plan_implementation_packet.acceptance_criteria'));
+        $this->assertFalse(data_get($payload, 'codex_real_invoker_executor_plan_implementation_packet.implementation_policy.executor_enablement_allowed_by_packet'));
+        $this->assertContains('agent_codex_real_invoker_executor_plan_implementation_packet_does_not_enable_executor', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'codex_real_invoker_executor_plan_implementation_packet_hash'));
+    }
+
+    public function test_command_returns_agent_codex_real_invoker_executor_fresh_release_gate_contract_template_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-codex-real-invoker-executor-fresh-release-gate-contract-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_codex_real_invoker_executor_fresh_release_gate_contract_template.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('read_only_agent_codex_real_invoker_executor_fresh_release_gate_contract_template', data_get($payload, 'mode'));
+        $this->assertSame('codex_real_invoker_executor_fresh_release_gate_contract_template_ready', data_get($payload, 'status'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'runtime_write_allowed'));
+        $this->assertSame('authorizeFreshRelease', data_get($payload, 'codex_real_invoker_executor_fresh_release_gate_contract_template.contract.method'));
+        $this->assertContains('require_codex_real_invoker_executor_plan_prepared', data_get($payload, 'codex_real_invoker_executor_fresh_release_gate_contract_template.real_invoker_executor_fresh_release_must'));
+        $this->assertContains('call_codex_cli_or_codex_app', data_get($payload, 'codex_real_invoker_executor_fresh_release_gate_contract_template.real_invoker_executor_fresh_release_must_not'));
+        $this->assertFalse(data_get($payload, 'codex_real_invoker_executor_fresh_release_gate_contract_template.contract_policy.executor_enablement_allowed_here'));
+        $this->assertContains('agent_codex_real_invoker_executor_fresh_release_gate_contract_template_does_not_enable_executor', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'codex_real_invoker_executor_fresh_release_gate_contract_template_hash'));
+    }
+
+    public function test_command_returns_agent_codex_real_invoker_executor_fresh_release_gate_preflight_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-codex-real-invoker-executor-fresh-release-gate-preflight' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_codex_real_invoker_executor_fresh_release_gate_preflight.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('read_only_agent_codex_real_invoker_executor_fresh_release_gate_preflight', data_get($payload, 'mode'));
+        $this->assertContains(data_get($payload, 'status'), [
+            'codex_real_invoker_executor_fresh_release_gate_ready',
+            'blocked',
+        ]);
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'runtime_write_allowed'));
+        $this->assertFalse(data_get($payload, 'codex_real_invoker_executor_fresh_release_gate_preflight.preflight_policy.executor_enablement_allowed_here'));
+        $this->assertFalse(data_get($payload, 'codex_real_invoker_executor_fresh_release_gate_preflight.preflight_policy.token_spend_allowed_here'));
+        $this->assertContains('agent_codex_real_invoker_executor_fresh_release_gate_preflight_does_not_call_codex', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'codex_real_invoker_executor_fresh_release_gate_preflight_hash'));
+    }
+
+    public function test_command_returns_agent_codex_real_invoker_executor_fresh_release_gate_implementation_packet_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-codex-real-invoker-executor-fresh-release-gate-implementation-packet' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_codex_real_invoker_executor_fresh_release_gate_implementation_packet.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('read_only_agent_codex_real_invoker_executor_fresh_release_gate_implementation_packet', data_get($payload, 'mode'));
+        $this->assertSame('ready_for_scoped_codex_real_invoker_executor_fresh_release_gate_implementation', data_get($payload, 'status'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'runtime_write_allowed'));
+        $this->assertSame(4, data_get($payload, 'codex_real_invoker_executor_fresh_release_gate_implementation_packet.task_count'));
+        $this->assertContains('do_not_enable_executor', data_get($payload, 'codex_real_invoker_executor_fresh_release_gate_implementation_packet.non_goals'));
+        $this->assertContains('fresh_release_gate_requires_executor_plan_metadata', data_get($payload, 'codex_real_invoker_executor_fresh_release_gate_implementation_packet.acceptance_criteria'));
+        $this->assertFalse(data_get($payload, 'codex_real_invoker_executor_fresh_release_gate_implementation_packet.implementation_policy.executor_enablement_allowed_by_packet'));
+        $this->assertContains('agent_codex_real_invoker_executor_fresh_release_gate_implementation_packet_does_not_enable_executor', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'codex_real_invoker_executor_fresh_release_gate_implementation_packet_hash'));
+    }
+
+    public function test_command_returns_agent_codex_real_invoker_executor_enablement_gate_contract_template_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-codex-real-invoker-executor-enablement-gate-contract-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_codex_real_invoker_executor_enablement_gate_contract_template.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('read_only_agent_codex_real_invoker_executor_enablement_gate_contract_template', data_get($payload, 'mode'));
+        $this->assertSame('codex_real_invoker_executor_enablement_gate_contract_template_ready', data_get($payload, 'status'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'runtime_write_allowed'));
+        $this->assertSame('enableExecutor', data_get($payload, 'codex_real_invoker_executor_enablement_gate_contract_template.contract.method'));
+        $this->assertContains('require_codex_real_invoker_executor_fresh_release_authorized', data_get($payload, 'codex_real_invoker_executor_enablement_gate_contract_template.real_invoker_executor_enablement_must'));
+        $this->assertContains('call_codex_cli_or_codex_app', data_get($payload, 'codex_real_invoker_executor_enablement_gate_contract_template.real_invoker_executor_enablement_must_not'));
+        $this->assertFalse(data_get($payload, 'codex_real_invoker_executor_enablement_gate_contract_template.contract_policy.provider_process_start_allowed_here'));
+        $this->assertContains('agent_codex_real_invoker_executor_enablement_gate_contract_template_does_not_start_codex', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'codex_real_invoker_executor_enablement_gate_contract_template_hash'));
+    }
+
+    public function test_command_returns_agent_codex_real_invoker_executor_enablement_gate_preflight_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-codex-real-invoker-executor-enablement-gate-preflight' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_codex_real_invoker_executor_enablement_gate_preflight.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('read_only_agent_codex_real_invoker_executor_enablement_gate_preflight', data_get($payload, 'mode'));
+        $this->assertContains(data_get($payload, 'status'), [
+            'codex_real_invoker_executor_enablement_gate_ready',
+            'blocked',
+        ]);
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'runtime_write_allowed'));
+        $this->assertFalse(data_get($payload, 'codex_real_invoker_executor_enablement_gate_preflight.preflight_policy.provider_process_start_allowed_here'));
+        $this->assertFalse(data_get($payload, 'codex_real_invoker_executor_enablement_gate_preflight.preflight_policy.token_spend_allowed_here'));
+        $this->assertContains('agent_codex_real_invoker_executor_enablement_gate_preflight_does_not_call_codex', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'codex_real_invoker_executor_enablement_gate_preflight_hash'));
+    }
+
+    public function test_command_returns_agent_codex_real_invoker_executor_enablement_gate_implementation_packet_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-codex-real-invoker-executor-enablement-gate-implementation-packet' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_codex_real_invoker_executor_enablement_gate_implementation_packet.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('read_only_agent_codex_real_invoker_executor_enablement_gate_implementation_packet', data_get($payload, 'mode'));
+        $this->assertSame('ready_for_scoped_codex_real_invoker_executor_enablement_gate_implementation', data_get($payload, 'status'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'runtime_write_allowed'));
+        $this->assertSame(4, data_get($payload, 'codex_real_invoker_executor_enablement_gate_implementation_packet.task_count'));
+        $this->assertContains('do_not_start_codex_process', data_get($payload, 'codex_real_invoker_executor_enablement_gate_implementation_packet.non_goals'));
+        $this->assertContains('enablement_gate_requires_fresh_release_metadata', data_get($payload, 'codex_real_invoker_executor_enablement_gate_implementation_packet.acceptance_criteria'));
+        $this->assertFalse(data_get($payload, 'codex_real_invoker_executor_enablement_gate_implementation_packet.implementation_policy.provider_process_start_allowed_by_packet'));
+        $this->assertContains('agent_codex_real_invoker_executor_enablement_gate_implementation_packet_does_not_start_codex', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'codex_real_invoker_executor_enablement_gate_implementation_packet_hash'));
+    }
+
+    public function test_command_returns_agent_codex_real_invoker_supervised_start_activation_gate_contract_template_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-codex-real-invoker-supervised-start-activation-gate-contract-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_codex_real_invoker_supervised_start_activation_gate_contract_template.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('read_only_agent_codex_real_invoker_supervised_start_activation_gate_contract_template', data_get($payload, 'mode'));
+        $this->assertSame('codex_real_invoker_supervised_start_activation_gate_contract_template_ready', data_get($payload, 'status'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'runtime_write_allowed'));
+        $this->assertSame('prepareActivation', data_get($payload, 'codex_real_invoker_supervised_start_activation_gate_contract_template.contract.method'));
+        $this->assertContains('require_codex_real_invoker_executor_enabled', data_get($payload, 'codex_real_invoker_supervised_start_activation_gate_contract_template.real_invoker_supervised_start_activation_must'));
+        $this->assertContains('call_codex_cli_or_codex_app', data_get($payload, 'codex_real_invoker_supervised_start_activation_gate_contract_template.real_invoker_supervised_start_activation_must_not'));
+        $this->assertFalse(data_get($payload, 'codex_real_invoker_supervised_start_activation_gate_contract_template.contract_policy.provider_process_start_allowed_here'));
+        $this->assertContains('agent_codex_real_invoker_supervised_start_activation_gate_contract_template_does_not_start_codex', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'codex_real_invoker_supervised_start_activation_gate_contract_template_hash'));
+    }
+
+    public function test_command_returns_agent_codex_real_invoker_supervised_start_activation_gate_preflight_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-codex-real-invoker-supervised-start-activation-gate-preflight' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_codex_real_invoker_supervised_start_activation_gate_preflight.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('read_only_agent_codex_real_invoker_supervised_start_activation_gate_preflight', data_get($payload, 'mode'));
+        $this->assertContains(data_get($payload, 'status'), [
+            'codex_real_invoker_supervised_start_activation_gate_ready',
+            'blocked',
+        ]);
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'runtime_write_allowed'));
+        $this->assertFalse(data_get($payload, 'codex_real_invoker_supervised_start_activation_gate_preflight.preflight_policy.provider_process_start_allowed_here'));
+        $this->assertFalse(data_get($payload, 'codex_real_invoker_supervised_start_activation_gate_preflight.preflight_policy.token_spend_allowed_here'));
+        $this->assertContains('agent_codex_real_invoker_supervised_start_activation_gate_preflight_does_not_call_codex', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'codex_real_invoker_supervised_start_activation_gate_preflight_hash'));
+    }
+
+    public function test_command_returns_agent_codex_real_invoker_supervised_start_activation_gate_implementation_packet_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-codex-real-invoker-supervised-start-activation-gate-implementation-packet' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_codex_real_invoker_supervised_start_activation_gate_implementation_packet.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('read_only_agent_codex_real_invoker_supervised_start_activation_gate_implementation_packet', data_get($payload, 'mode'));
+        $this->assertSame('ready_for_scoped_codex_real_invoker_supervised_start_activation_gate_implementation', data_get($payload, 'status'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'runtime_write_allowed'));
+        $this->assertSame(4, data_get($payload, 'codex_real_invoker_supervised_start_activation_gate_implementation_packet.task_count'));
+        $this->assertContains('do_not_start_codex_process', data_get($payload, 'codex_real_invoker_supervised_start_activation_gate_implementation_packet.non_goals'));
+        $this->assertContains('activation_gate_requires_executor_enablement_metadata', data_get($payload, 'codex_real_invoker_supervised_start_activation_gate_implementation_packet.acceptance_criteria'));
+        $this->assertFalse(data_get($payload, 'codex_real_invoker_supervised_start_activation_gate_implementation_packet.implementation_policy.provider_process_start_allowed_by_packet'));
+        $this->assertContains('agent_codex_real_invoker_supervised_start_activation_gate_implementation_packet_does_not_start_codex', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'codex_real_invoker_supervised_start_activation_gate_implementation_packet_hash'));
+    }
+
+    public function test_command_returns_agent_codex_real_invoker_guarded_process_start_executor_contract_template_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-codex-real-invoker-guarded-process-start-executor-contract-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_codex_real_invoker_guarded_process_start_executor_contract_template.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('read_only_agent_codex_real_invoker_guarded_process_start_executor_contract_template', data_get($payload, 'mode'));
+        $this->assertSame('codex_real_invoker_guarded_process_start_executor_contract_template_ready', data_get($payload, 'status'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'runtime_write_allowed'));
+        $this->assertSame('prepareGuardedStart', data_get($payload, 'codex_real_invoker_guarded_process_start_executor_contract_template.contract.method'));
+        $this->assertContains('require_codex_real_invoker_supervised_start_activation', data_get($payload, 'codex_real_invoker_guarded_process_start_executor_contract_template.real_invoker_guarded_process_start_must'));
+        $this->assertContains('call_codex_cli_or_codex_app', data_get($payload, 'codex_real_invoker_guarded_process_start_executor_contract_template.real_invoker_guarded_process_start_must_not'));
+        $this->assertFalse(data_get($payload, 'codex_real_invoker_guarded_process_start_executor_contract_template.contract_policy.actual_process_start_allowed_here'));
+        $this->assertContains('agent_codex_real_invoker_guarded_process_start_executor_contract_template_does_not_start_codex', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'codex_real_invoker_guarded_process_start_executor_contract_template_hash'));
+    }
+
+    public function test_command_returns_agent_codex_real_invoker_guarded_process_start_executor_preflight_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-codex-real-invoker-guarded-process-start-executor-preflight' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_codex_real_invoker_guarded_process_start_executor_preflight.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('read_only_agent_codex_real_invoker_guarded_process_start_executor_preflight', data_get($payload, 'mode'));
+        $this->assertContains(data_get($payload, 'status'), [
+            'codex_real_invoker_guarded_process_start_executor_ready',
+            'blocked',
+        ]);
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'runtime_write_allowed'));
+        $this->assertFalse(data_get($payload, 'codex_real_invoker_guarded_process_start_executor_preflight.preflight_policy.actual_process_start_allowed_here'));
+        $this->assertFalse(data_get($payload, 'codex_real_invoker_guarded_process_start_executor_preflight.preflight_policy.token_spend_allowed_here'));
+        $this->assertContains('agent_codex_real_invoker_guarded_process_start_executor_preflight_does_not_call_codex', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'codex_real_invoker_guarded_process_start_executor_preflight_hash'));
+    }
+
+    public function test_command_returns_agent_codex_real_invoker_guarded_process_start_executor_implementation_packet_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-codex-real-invoker-guarded-process-start-executor-implementation-packet' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_codex_real_invoker_guarded_process_start_executor_implementation_packet.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('read_only_agent_codex_real_invoker_guarded_process_start_executor_implementation_packet', data_get($payload, 'mode'));
+        $this->assertSame('ready_for_scoped_codex_real_invoker_guarded_process_start_executor_implementation', data_get($payload, 'status'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'runtime_write_allowed'));
+        $this->assertSame(4, data_get($payload, 'codex_real_invoker_guarded_process_start_executor_implementation_packet.task_count'));
+        $this->assertContains('do_not_start_codex_process', data_get($payload, 'codex_real_invoker_guarded_process_start_executor_implementation_packet.non_goals'));
+        $this->assertContains('guarded_start_executor_requires_supervised_activation_metadata', data_get($payload, 'codex_real_invoker_guarded_process_start_executor_implementation_packet.acceptance_criteria'));
+        $this->assertFalse(data_get($payload, 'codex_real_invoker_guarded_process_start_executor_implementation_packet.implementation_policy.actual_process_start_allowed_by_packet'));
+        $this->assertContains('agent_codex_real_invoker_guarded_process_start_executor_implementation_packet_does_not_start_codex', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'codex_real_invoker_guarded_process_start_executor_implementation_packet_hash'));
+    }
+
+    public function test_command_returns_agent_codex_real_invoker_final_process_start_authorization_gate_contract_template_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-codex-real-invoker-final-process-start-authorization-gate-contract-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_codex_real_invoker_final_process_start_authorization_gate_contract_template.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('read_only_agent_codex_real_invoker_final_process_start_authorization_gate_contract_template', data_get($payload, 'mode'));
+        $this->assertSame('codex_real_invoker_final_process_start_authorization_gate_contract_template_ready', data_get($payload, 'status'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'runtime_write_allowed'));
+        $this->assertSame('authorizeFinalStart', data_get($payload, 'codex_real_invoker_final_process_start_authorization_gate_contract_template.contract.method'));
+        $this->assertContains('require_codex_real_invoker_guarded_process_start', data_get($payload, 'codex_real_invoker_final_process_start_authorization_gate_contract_template.real_invoker_final_process_start_authorization_must'));
+        $this->assertContains('call_codex_cli_or_codex_app', data_get($payload, 'codex_real_invoker_final_process_start_authorization_gate_contract_template.real_invoker_final_process_start_authorization_must_not'));
+        $this->assertFalse(data_get($payload, 'codex_real_invoker_final_process_start_authorization_gate_contract_template.contract_policy.actual_process_start_allowed_here'));
+        $this->assertContains('agent_codex_real_invoker_final_process_start_authorization_gate_contract_template_does_not_start_codex', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'codex_real_invoker_final_process_start_authorization_gate_contract_template_hash'));
+    }
+
+    public function test_command_returns_agent_codex_real_invoker_final_process_start_authorization_gate_preflight_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-codex-real-invoker-final-process-start-authorization-gate-preflight' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_codex_real_invoker_final_process_start_authorization_gate_preflight.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('read_only_agent_codex_real_invoker_final_process_start_authorization_gate_preflight', data_get($payload, 'mode'));
+        $this->assertContains(data_get($payload, 'status'), [
+            'codex_real_invoker_final_process_start_authorization_gate_ready',
+            'blocked',
+        ]);
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'runtime_write_allowed'));
+        $this->assertFalse(data_get($payload, 'codex_real_invoker_final_process_start_authorization_gate_preflight.preflight_policy.actual_process_start_allowed_here'));
+        $this->assertFalse(data_get($payload, 'codex_real_invoker_final_process_start_authorization_gate_preflight.preflight_policy.token_spend_allowed_here'));
+        $this->assertContains('agent_codex_real_invoker_final_process_start_authorization_gate_preflight_does_not_call_codex', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'codex_real_invoker_final_process_start_authorization_gate_preflight_hash'));
+    }
+
+    public function test_command_returns_agent_codex_real_invoker_final_process_start_authorization_gate_implementation_packet_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-codex-real-invoker-final-process-start-authorization-gate-implementation-packet' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_codex_real_invoker_final_process_start_authorization_gate_implementation_packet.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('read_only_agent_codex_real_invoker_final_process_start_authorization_gate_implementation_packet', data_get($payload, 'mode'));
+        $this->assertSame('ready_for_scoped_codex_real_invoker_final_process_start_authorization_gate_implementation', data_get($payload, 'status'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'runtime_write_allowed'));
+        $this->assertSame(4, data_get($payload, 'codex_real_invoker_final_process_start_authorization_gate_implementation_packet.task_count'));
+        $this->assertContains('do_not_start_codex_process', data_get($payload, 'codex_real_invoker_final_process_start_authorization_gate_implementation_packet.non_goals'));
+        $this->assertContains('final_start_authorization_requires_guarded_process_start_metadata', data_get($payload, 'codex_real_invoker_final_process_start_authorization_gate_implementation_packet.acceptance_criteria'));
+        $this->assertFalse(data_get($payload, 'codex_real_invoker_final_process_start_authorization_gate_implementation_packet.implementation_policy.actual_process_start_allowed_by_packet'));
+        $this->assertContains('agent_codex_real_invoker_final_process_start_authorization_gate_implementation_packet_does_not_start_codex', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'codex_real_invoker_final_process_start_authorization_gate_implementation_packet_hash'));
+    }
+
+    public function test_command_returns_agent_codex_real_invoker_actual_process_start_rehearsal_executor_contract_template_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-codex-real-invoker-actual-process-start-rehearsal-executor-contract-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_codex_real_invoker_actual_process_start_rehearsal_executor_contract_template.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('read_only_agent_codex_real_invoker_actual_process_start_rehearsal_executor_contract_template', data_get($payload, 'mode'));
+        $this->assertSame('codex_real_invoker_actual_process_start_rehearsal_executor_contract_template_ready', data_get($payload, 'status'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'runtime_write_allowed'));
+        $this->assertSame('rehearseActualStart', data_get($payload, 'codex_real_invoker_actual_process_start_rehearsal_executor_contract_template.contract.method'));
+        $this->assertContains('require_codex_real_invoker_final_process_start_authorization', data_get($payload, 'codex_real_invoker_actual_process_start_rehearsal_executor_contract_template.real_invoker_actual_process_start_rehearsal_must'));
+        $this->assertContains('require_liveness_probe_rehearsal_hash', data_get($payload, 'codex_real_invoker_actual_process_start_rehearsal_executor_contract_template.real_invoker_actual_process_start_rehearsal_must'));
+        $this->assertContains('call_codex_cli_or_codex_app', data_get($payload, 'codex_real_invoker_actual_process_start_rehearsal_executor_contract_template.real_invoker_actual_process_start_rehearsal_must_not'));
+        $this->assertFalse(data_get($payload, 'codex_real_invoker_actual_process_start_rehearsal_executor_contract_template.contract_policy.actual_process_start_allowed_here'));
+        $this->assertContains('agent_codex_real_invoker_actual_process_start_rehearsal_executor_contract_template_does_not_start_codex', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'codex_real_invoker_actual_process_start_rehearsal_executor_contract_template_hash'));
+    }
+
+    public function test_command_returns_agent_codex_real_invoker_actual_process_start_rehearsal_executor_preflight_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-codex-real-invoker-actual-process-start-rehearsal-executor-preflight' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_codex_real_invoker_actual_process_start_rehearsal_executor_preflight.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('read_only_agent_codex_real_invoker_actual_process_start_rehearsal_executor_preflight', data_get($payload, 'mode'));
+        $this->assertContains(data_get($payload, 'status'), [
+            'codex_real_invoker_actual_process_start_rehearsal_executor_ready',
+            'blocked',
+        ]);
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'runtime_write_allowed'));
+        $this->assertFalse(data_get($payload, 'codex_real_invoker_actual_process_start_rehearsal_executor_preflight.preflight_policy.actual_process_start_allowed_here'));
+        $this->assertFalse(data_get($payload, 'codex_real_invoker_actual_process_start_rehearsal_executor_preflight.preflight_policy.token_spend_allowed_here'));
+        $this->assertContains('agent_codex_real_invoker_actual_process_start_rehearsal_executor_preflight_does_not_call_codex', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'codex_real_invoker_actual_process_start_rehearsal_executor_preflight_hash'));
+    }
+
+    public function test_command_returns_agent_codex_real_invoker_actual_process_start_rehearsal_executor_implementation_packet_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-codex-real-invoker-actual-process-start-rehearsal-executor-implementation-packet' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_codex_real_invoker_actual_process_start_rehearsal_executor_implementation_packet.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('read_only_agent_codex_real_invoker_actual_process_start_rehearsal_executor_implementation_packet', data_get($payload, 'mode'));
+        $this->assertSame('ready_for_scoped_codex_real_invoker_actual_process_start_rehearsal_executor_implementation', data_get($payload, 'status'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'runtime_write_allowed'));
+        $this->assertSame(4, data_get($payload, 'codex_real_invoker_actual_process_start_rehearsal_executor_implementation_packet.task_count'));
+        $this->assertContains('do_not_start_codex_process', data_get($payload, 'codex_real_invoker_actual_process_start_rehearsal_executor_implementation_packet.non_goals'));
+        $this->assertContains('actual_start_rehearsal_requires_final_process_start_authorization_metadata', data_get($payload, 'codex_real_invoker_actual_process_start_rehearsal_executor_implementation_packet.acceptance_criteria'));
+        $this->assertFalse(data_get($payload, 'codex_real_invoker_actual_process_start_rehearsal_executor_implementation_packet.implementation_policy.actual_process_start_allowed_by_packet'));
+        $this->assertContains('agent_codex_real_invoker_actual_process_start_rehearsal_executor_implementation_packet_does_not_start_codex', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'codex_real_invoker_actual_process_start_rehearsal_executor_implementation_packet_hash'));
+    }
+
+    public function test_command_returns_agent_codex_real_invoker_process_start_envelope_builder_contract_template_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-codex-real-invoker-process-start-envelope-builder-contract-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_codex_real_invoker_process_start_envelope_builder_contract_template.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('read_only_agent_codex_real_invoker_process_start_envelope_builder_contract_template', data_get($payload, 'mode'));
+        $this->assertSame('codex_real_invoker_process_start_envelope_builder_contract_template_ready', data_get($payload, 'status'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'runtime_write_allowed'));
+        $this->assertSame('buildStartEnvelope', data_get($payload, 'codex_real_invoker_process_start_envelope_builder_contract_template.contract.method'));
+        $this->assertContains('require_codex_real_invoker_actual_process_start_rehearsal', data_get($payload, 'codex_real_invoker_process_start_envelope_builder_contract_template.real_invoker_process_start_envelope_must'));
+        $this->assertContains('require_start_command_hash', data_get($payload, 'codex_real_invoker_process_start_envelope_builder_contract_template.real_invoker_process_start_envelope_must'));
+        $this->assertContains('call_codex_cli_or_codex_app', data_get($payload, 'codex_real_invoker_process_start_envelope_builder_contract_template.real_invoker_process_start_envelope_must_not'));
+        $this->assertFalse(data_get($payload, 'codex_real_invoker_process_start_envelope_builder_contract_template.contract_policy.actual_process_start_allowed_here'));
+        $this->assertContains('agent_codex_real_invoker_process_start_envelope_builder_contract_template_does_not_start_codex', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'codex_real_invoker_process_start_envelope_builder_contract_template_hash'));
+    }
+
+    public function test_command_returns_agent_codex_real_invoker_process_start_envelope_builder_preflight_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-codex-real-invoker-process-start-envelope-builder-preflight' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_codex_real_invoker_process_start_envelope_builder_preflight.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('read_only_agent_codex_real_invoker_process_start_envelope_builder_preflight', data_get($payload, 'mode'));
+        $this->assertContains(data_get($payload, 'status'), [
+            'codex_real_invoker_process_start_envelope_builder_ready',
+            'blocked',
+        ]);
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'runtime_write_allowed'));
+        $this->assertFalse(data_get($payload, 'codex_real_invoker_process_start_envelope_builder_preflight.preflight_policy.actual_process_start_allowed_here'));
+        $this->assertFalse(data_get($payload, 'codex_real_invoker_process_start_envelope_builder_preflight.preflight_policy.token_spend_allowed_here'));
+        $this->assertContains('agent_codex_real_invoker_process_start_envelope_builder_preflight_does_not_call_codex', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'codex_real_invoker_process_start_envelope_builder_preflight_hash'));
+    }
+
+    public function test_command_returns_agent_codex_real_invoker_process_start_envelope_builder_implementation_packet_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-codex-real-invoker-process-start-envelope-builder-implementation-packet' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_codex_real_invoker_process_start_envelope_builder_implementation_packet.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('read_only_agent_codex_real_invoker_process_start_envelope_builder_implementation_packet', data_get($payload, 'mode'));
+        $this->assertSame('ready_for_scoped_codex_real_invoker_process_start_envelope_builder_implementation', data_get($payload, 'status'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'runtime_write_allowed'));
+        $this->assertSame(4, data_get($payload, 'codex_real_invoker_process_start_envelope_builder_implementation_packet.task_count'));
+        $this->assertContains('do_not_start_codex_process', data_get($payload, 'codex_real_invoker_process_start_envelope_builder_implementation_packet.non_goals'));
+        $this->assertContains('process_start_envelope_requires_actual_process_start_rehearsal_metadata', data_get($payload, 'codex_real_invoker_process_start_envelope_builder_implementation_packet.acceptance_criteria'));
+        $this->assertFalse(data_get($payload, 'codex_real_invoker_process_start_envelope_builder_implementation_packet.implementation_policy.actual_process_start_allowed_by_packet'));
+        $this->assertContains('agent_codex_real_invoker_process_start_envelope_builder_implementation_packet_does_not_start_codex', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'codex_real_invoker_process_start_envelope_builder_implementation_packet_hash'));
+    }
+
+    public function test_command_returns_agent_codex_real_invoker_start_execution_gate_contract_template_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-codex-real-invoker-start-execution-gate-contract-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_codex_real_invoker_start_execution_gate_contract_template.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('read_only_agent_codex_real_invoker_start_execution_gate_contract_template', data_get($payload, 'mode'));
+        $this->assertSame('codex_real_invoker_start_execution_gate_contract_template_ready', data_get($payload, 'status'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'runtime_write_allowed'));
+        $this->assertSame('authorizeStartExecution', data_get($payload, 'codex_real_invoker_start_execution_gate_contract_template.contract.method'));
+        $this->assertContains('require_codex_real_invoker_process_start_envelope', data_get($payload, 'codex_real_invoker_start_execution_gate_contract_template.real_invoker_start_execution_gate_must'));
+        $this->assertContains('require_human_start_signature_hash', data_get($payload, 'codex_real_invoker_start_execution_gate_contract_template.real_invoker_start_execution_gate_must'));
+        $this->assertContains('call_codex_cli_or_codex_app', data_get($payload, 'codex_real_invoker_start_execution_gate_contract_template.real_invoker_start_execution_gate_must_not'));
+        $this->assertFalse(data_get($payload, 'codex_real_invoker_start_execution_gate_contract_template.contract_policy.actual_process_start_allowed_here'));
+        $this->assertContains('agent_codex_real_invoker_start_execution_gate_contract_template_does_not_start_codex', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'codex_real_invoker_start_execution_gate_contract_template_hash'));
+    }
+
+    public function test_command_returns_agent_codex_real_invoker_start_execution_gate_preflight_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-codex-real-invoker-start-execution-gate-preflight' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_codex_real_invoker_start_execution_gate_preflight.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('read_only_agent_codex_real_invoker_start_execution_gate_preflight', data_get($payload, 'mode'));
+        $this->assertContains(data_get($payload, 'status'), [
+            'codex_real_invoker_start_execution_gate_ready',
+            'blocked',
+        ]);
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'runtime_write_allowed'));
+        $this->assertFalse(data_get($payload, 'codex_real_invoker_start_execution_gate_preflight.preflight_policy.actual_process_start_allowed_here'));
+        $this->assertFalse(data_get($payload, 'codex_real_invoker_start_execution_gate_preflight.preflight_policy.token_spend_allowed_here'));
+        $this->assertContains('agent_codex_real_invoker_start_execution_gate_preflight_does_not_call_codex', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'codex_real_invoker_start_execution_gate_preflight_hash'));
+    }
+
+    public function test_command_returns_agent_codex_real_invoker_start_execution_gate_implementation_packet_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-codex-real-invoker-start-execution-gate-implementation-packet' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_codex_real_invoker_start_execution_gate_implementation_packet.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('read_only_agent_codex_real_invoker_start_execution_gate_implementation_packet', data_get($payload, 'mode'));
+        $this->assertSame('ready_for_scoped_codex_real_invoker_start_execution_gate_implementation', data_get($payload, 'status'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'runtime_write_allowed'));
+        $this->assertSame(4, data_get($payload, 'codex_real_invoker_start_execution_gate_implementation_packet.task_count'));
+        $this->assertContains('do_not_start_codex_process', data_get($payload, 'codex_real_invoker_start_execution_gate_implementation_packet.non_goals'));
+        $this->assertContains('start_execution_gate_requires_process_start_envelope_metadata', data_get($payload, 'codex_real_invoker_start_execution_gate_implementation_packet.acceptance_criteria'));
+        $this->assertFalse(data_get($payload, 'codex_real_invoker_start_execution_gate_implementation_packet.implementation_policy.actual_process_start_allowed_by_packet'));
+        $this->assertContains('agent_codex_real_invoker_start_execution_gate_implementation_packet_does_not_start_codex', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'codex_real_invoker_start_execution_gate_implementation_packet_hash'));
+    }
+
+    public function test_command_returns_agent_codex_real_invoker_process_starter_readiness_gate_contract_template_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-codex-real-invoker-process-starter-readiness-gate-contract-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_codex_real_invoker_process_starter_readiness_gate_contract_template.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('read_only_agent_codex_real_invoker_process_starter_readiness_gate_contract_template', data_get($payload, 'mode'));
+        $this->assertSame('codex_real_invoker_process_starter_readiness_gate_contract_template_ready', data_get($payload, 'status'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'runtime_write_allowed'));
+        $this->assertSame('prepareProcessStarter', data_get($payload, 'codex_real_invoker_process_starter_readiness_gate_contract_template.contract.method'));
+        $this->assertContains('require_codex_real_invoker_start_execution_gate', data_get($payload, 'codex_real_invoker_process_starter_readiness_gate_contract_template.real_invoker_process_starter_readiness_gate_must'));
+        $this->assertContains('require_operator_process_starter_signature_hash', data_get($payload, 'codex_real_invoker_process_starter_readiness_gate_contract_template.real_invoker_process_starter_readiness_gate_must'));
+        $this->assertContains('call_codex_cli_or_codex_app', data_get($payload, 'codex_real_invoker_process_starter_readiness_gate_contract_template.real_invoker_process_starter_readiness_gate_must_not'));
+        $this->assertFalse(data_get($payload, 'codex_real_invoker_process_starter_readiness_gate_contract_template.contract_policy.actual_process_start_allowed_here'));
+        $this->assertContains('agent_codex_real_invoker_process_starter_readiness_gate_contract_template_does_not_start_codex', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'codex_real_invoker_process_starter_readiness_gate_contract_template_hash'));
+    }
+
+    public function test_command_returns_agent_codex_real_invoker_process_starter_readiness_gate_preflight_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-codex-real-invoker-process-starter-readiness-gate-preflight' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_codex_real_invoker_process_starter_readiness_gate_preflight.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('read_only_agent_codex_real_invoker_process_starter_readiness_gate_preflight', data_get($payload, 'mode'));
+        $this->assertContains(data_get($payload, 'status'), [
+            'codex_real_invoker_process_starter_readiness_gate_ready',
+            'blocked',
+        ]);
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'runtime_write_allowed'));
+        $this->assertFalse(data_get($payload, 'codex_real_invoker_process_starter_readiness_gate_preflight.preflight_policy.actual_process_start_allowed_here'));
+        $this->assertFalse(data_get($payload, 'codex_real_invoker_process_starter_readiness_gate_preflight.preflight_policy.token_spend_allowed_here'));
+        $this->assertContains('agent_codex_real_invoker_process_starter_readiness_gate_preflight_does_not_call_codex', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'codex_real_invoker_process_starter_readiness_gate_preflight_hash'));
+    }
+
+    public function test_command_returns_agent_codex_real_invoker_process_starter_readiness_gate_implementation_packet_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-codex-real-invoker-process-starter-readiness-gate-implementation-packet' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_codex_real_invoker_process_starter_readiness_gate_implementation_packet.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('read_only_agent_codex_real_invoker_process_starter_readiness_gate_implementation_packet', data_get($payload, 'mode'));
+        $this->assertSame('ready_for_scoped_codex_real_invoker_process_starter_readiness_gate_implementation', data_get($payload, 'status'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'runtime_write_allowed'));
+        $this->assertSame(4, data_get($payload, 'codex_real_invoker_process_starter_readiness_gate_implementation_packet.task_count'));
+        $this->assertContains('do_not_start_codex_process', data_get($payload, 'codex_real_invoker_process_starter_readiness_gate_implementation_packet.non_goals'));
+        $this->assertContains('process_starter_readiness_requires_start_execution_gate_metadata', data_get($payload, 'codex_real_invoker_process_starter_readiness_gate_implementation_packet.acceptance_criteria'));
+        $this->assertFalse(data_get($payload, 'codex_real_invoker_process_starter_readiness_gate_implementation_packet.implementation_policy.actual_process_start_allowed_by_packet'));
+        $this->assertContains('agent_codex_real_invoker_process_starter_readiness_gate_implementation_packet_does_not_start_codex', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'codex_real_invoker_process_starter_readiness_gate_implementation_packet_hash'));
+    }
+
+    public function test_command_returns_agent_codex_real_invoker_manual_start_executor_receipt_writer_contract_template_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-codex-real-invoker-manual-start-executor-receipt-writer-contract-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_codex_real_invoker_manual_start_executor_receipt_writer_contract_template.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('read_only_agent_codex_real_invoker_manual_start_executor_receipt_writer_contract_template', data_get($payload, 'mode'));
+        $this->assertSame('codex_real_invoker_manual_start_executor_receipt_writer_contract_template_ready', data_get($payload, 'status'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'runtime_write_allowed'));
+        $this->assertSame('writeManualStartExecutorReceipt', data_get($payload, 'codex_real_invoker_manual_start_executor_receipt_writer_contract_template.contract.method'));
+        $this->assertContains('require_codex_real_invoker_process_starter_readiness_gate', data_get($payload, 'codex_real_invoker_manual_start_executor_receipt_writer_contract_template.real_invoker_manual_start_executor_receipt_must'));
+        $this->assertContains('require_no_autostart_attestation_hash', data_get($payload, 'codex_real_invoker_manual_start_executor_receipt_writer_contract_template.real_invoker_manual_start_executor_receipt_must'));
+        $this->assertContains('call_codex_cli_or_codex_app', data_get($payload, 'codex_real_invoker_manual_start_executor_receipt_writer_contract_template.real_invoker_manual_start_executor_receipt_must_not'));
+        $this->assertFalse(data_get($payload, 'codex_real_invoker_manual_start_executor_receipt_writer_contract_template.contract_policy.actual_process_start_allowed_here'));
+        $this->assertContains('agent_codex_real_invoker_manual_start_executor_receipt_writer_contract_template_does_not_start_codex', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'codex_real_invoker_manual_start_executor_receipt_writer_contract_template_hash'));
+    }
+
+    public function test_command_returns_agent_codex_real_invoker_manual_start_executor_receipt_writer_preflight_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-codex-real-invoker-manual-start-executor-receipt-writer-preflight' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_codex_real_invoker_manual_start_executor_receipt_writer_preflight.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('read_only_agent_codex_real_invoker_manual_start_executor_receipt_writer_preflight', data_get($payload, 'mode'));
+        $this->assertContains(data_get($payload, 'status'), [
+            'codex_real_invoker_manual_start_executor_receipt_writer_ready',
+            'blocked',
+        ]);
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'runtime_write_allowed'));
+        $this->assertFalse(data_get($payload, 'codex_real_invoker_manual_start_executor_receipt_writer_preflight.preflight_policy.actual_process_start_allowed_here'));
+        $this->assertFalse(data_get($payload, 'codex_real_invoker_manual_start_executor_receipt_writer_preflight.preflight_policy.token_spend_allowed_here'));
+        $this->assertContains('agent_codex_real_invoker_manual_start_executor_receipt_writer_preflight_does_not_call_codex', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'codex_real_invoker_manual_start_executor_receipt_writer_preflight_hash'));
+    }
+
+    public function test_command_returns_agent_codex_real_invoker_manual_start_executor_receipt_writer_implementation_packet_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-codex-real-invoker-manual-start-executor-receipt-writer-implementation-packet' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_codex_real_invoker_manual_start_executor_receipt_writer_implementation_packet.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('read_only_agent_codex_real_invoker_manual_start_executor_receipt_writer_implementation_packet', data_get($payload, 'mode'));
+        $this->assertSame('ready_for_scoped_codex_real_invoker_manual_start_executor_receipt_writer_implementation', data_get($payload, 'status'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'runtime_write_allowed'));
+        $this->assertSame(4, data_get($payload, 'codex_real_invoker_manual_start_executor_receipt_writer_implementation_packet.task_count'));
+        $this->assertContains('do_not_start_codex_process', data_get($payload, 'codex_real_invoker_manual_start_executor_receipt_writer_implementation_packet.non_goals'));
+        $this->assertContains('manual_start_executor_receipt_requires_process_starter_readiness_metadata', data_get($payload, 'codex_real_invoker_manual_start_executor_receipt_writer_implementation_packet.acceptance_criteria'));
+        $this->assertFalse(data_get($payload, 'codex_real_invoker_manual_start_executor_receipt_writer_implementation_packet.implementation_policy.actual_process_start_allowed_by_packet'));
+        $this->assertContains('agent_codex_real_invoker_manual_start_executor_receipt_writer_implementation_packet_does_not_start_codex', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'codex_real_invoker_manual_start_executor_receipt_writer_implementation_packet_hash'));
+    }
+
+    public function test_command_returns_agent_codex_real_invoker_operator_start_handoff_builder_contract_template_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-codex-real-invoker-operator-start-handoff-builder-contract-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_codex_real_invoker_operator_start_handoff_builder_contract_template.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('read_only_agent_codex_real_invoker_operator_start_handoff_builder_contract_template', data_get($payload, 'mode'));
+        $this->assertSame('codex_real_invoker_operator_start_handoff_builder_contract_template_ready', data_get($payload, 'status'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'runtime_write_allowed'));
+        $this->assertSame('buildOperatorStartHandoff', data_get($payload, 'codex_real_invoker_operator_start_handoff_builder_contract_template.contract.method'));
+        $this->assertContains('require_codex_real_invoker_manual_start_executor_receipt', data_get($payload, 'codex_real_invoker_operator_start_handoff_builder_contract_template.real_invoker_operator_start_handoff_must'));
+        $this->assertContains('require_handoff_packet_hash', data_get($payload, 'codex_real_invoker_operator_start_handoff_builder_contract_template.real_invoker_operator_start_handoff_must'));
+        $this->assertContains('call_codex_cli_or_codex_app', data_get($payload, 'codex_real_invoker_operator_start_handoff_builder_contract_template.real_invoker_operator_start_handoff_must_not'));
+        $this->assertFalse(data_get($payload, 'codex_real_invoker_operator_start_handoff_builder_contract_template.contract_policy.actual_process_start_allowed_here'));
+        $this->assertContains('agent_codex_real_invoker_operator_start_handoff_builder_contract_template_does_not_start_codex', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'codex_real_invoker_operator_start_handoff_builder_contract_template_hash'));
+    }
+
+    public function test_command_returns_agent_codex_real_invoker_operator_start_handoff_builder_preflight_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-codex-real-invoker-operator-start-handoff-builder-preflight' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_codex_real_invoker_operator_start_handoff_builder_preflight.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('read_only_agent_codex_real_invoker_operator_start_handoff_builder_preflight', data_get($payload, 'mode'));
+        $this->assertContains(data_get($payload, 'status'), [
+            'codex_real_invoker_operator_start_handoff_builder_ready',
+            'blocked',
+        ]);
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'runtime_write_allowed'));
+        $this->assertFalse(data_get($payload, 'codex_real_invoker_operator_start_handoff_builder_preflight.preflight_policy.actual_process_start_allowed_here'));
+        $this->assertFalse(data_get($payload, 'codex_real_invoker_operator_start_handoff_builder_preflight.preflight_policy.token_spend_allowed_here'));
+        $this->assertContains('agent_codex_real_invoker_operator_start_handoff_builder_preflight_does_not_call_codex', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'codex_real_invoker_operator_start_handoff_builder_preflight_hash'));
+    }
+
+    public function test_command_returns_agent_codex_real_invoker_operator_start_handoff_builder_implementation_packet_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-codex-real-invoker-operator-start-handoff-builder-implementation-packet' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_codex_real_invoker_operator_start_handoff_builder_implementation_packet.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('read_only_agent_codex_real_invoker_operator_start_handoff_builder_implementation_packet', data_get($payload, 'mode'));
+        $this->assertSame('ready_for_scoped_codex_real_invoker_operator_start_handoff_builder_implementation', data_get($payload, 'status'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'runtime_write_allowed'));
+        $this->assertSame(4, data_get($payload, 'codex_real_invoker_operator_start_handoff_builder_implementation_packet.task_count'));
+        $this->assertContains('do_not_start_codex_process', data_get($payload, 'codex_real_invoker_operator_start_handoff_builder_implementation_packet.non_goals'));
+        $this->assertContains('operator_start_handoff_requires_manual_start_executor_receipt_metadata', data_get($payload, 'codex_real_invoker_operator_start_handoff_builder_implementation_packet.acceptance_criteria'));
+        $this->assertFalse(data_get($payload, 'codex_real_invoker_operator_start_handoff_builder_implementation_packet.implementation_policy.actual_process_start_allowed_by_packet'));
+        $this->assertContains('agent_codex_real_invoker_operator_start_handoff_builder_implementation_packet_does_not_start_codex', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'codex_real_invoker_operator_start_handoff_builder_implementation_packet_hash'));
+    }
+
+    public function test_command_returns_agent_codex_real_invoker_post_start_receipt_contract_builder_contract_template_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-codex-real-invoker-post-start-receipt-contract-builder-contract-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_codex_real_invoker_post_start_receipt_contract_builder_contract_template.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('read_only_agent_codex_real_invoker_post_start_receipt_contract_builder_contract_template', data_get($payload, 'mode'));
+        $this->assertSame('codex_real_invoker_post_start_receipt_contract_builder_contract_template_ready', data_get($payload, 'status'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertSame('buildPostStartReceiptContract', data_get($payload, 'codex_real_invoker_post_start_receipt_contract_builder_contract_template.contract.method'));
+        $this->assertContains('require_codex_real_invoker_operator_start_handoff', data_get($payload, 'codex_real_invoker_post_start_receipt_contract_builder_contract_template.real_invoker_post_start_receipt_contract_must'));
+        $this->assertContains('require_external_process_identity_contract_hash', data_get($payload, 'codex_real_invoker_post_start_receipt_contract_builder_contract_template.real_invoker_post_start_receipt_contract_must'));
+        $this->assertContains('accept_external_process_started_evidence', data_get($payload, 'codex_real_invoker_post_start_receipt_contract_builder_contract_template.real_invoker_post_start_receipt_contract_must_not'));
+        $this->assertFalse(data_get($payload, 'codex_real_invoker_post_start_receipt_contract_builder_contract_template.contract_policy.actual_process_start_allowed_here'));
+        $this->assertContains('agent_codex_real_invoker_post_start_receipt_contract_builder_contract_template_does_not_start_codex', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'codex_real_invoker_post_start_receipt_contract_builder_contract_template_hash'));
+    }
+
+    public function test_command_returns_agent_codex_real_invoker_post_start_receipt_contract_builder_preflight_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-codex-real-invoker-post-start-receipt-contract-builder-preflight' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_codex_real_invoker_post_start_receipt_contract_builder_preflight.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('read_only_agent_codex_real_invoker_post_start_receipt_contract_builder_preflight', data_get($payload, 'mode'));
+        $this->assertContains(data_get($payload, 'status'), [
+            'codex_real_invoker_post_start_receipt_contract_builder_ready',
+            'blocked',
+        ]);
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertFalse(data_get($payload, 'codex_real_invoker_post_start_receipt_contract_builder_preflight.preflight_policy.actual_process_start_allowed_here'));
+        $this->assertFalse(data_get($payload, 'codex_real_invoker_post_start_receipt_contract_builder_preflight.preflight_policy.token_spend_allowed_here'));
+        $this->assertContains('agent_codex_real_invoker_post_start_receipt_contract_builder_preflight_does_not_call_codex', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'codex_real_invoker_post_start_receipt_contract_builder_preflight_hash'));
+    }
+
+    public function test_command_returns_agent_codex_real_invoker_post_start_receipt_contract_builder_implementation_packet_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-codex-real-invoker-post-start-receipt-contract-builder-implementation-packet' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_codex_real_invoker_post_start_receipt_contract_builder_implementation_packet.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('read_only_agent_codex_real_invoker_post_start_receipt_contract_builder_implementation_packet', data_get($payload, 'mode'));
+        $this->assertSame('ready_for_scoped_codex_real_invoker_post_start_receipt_contract_builder_implementation', data_get($payload, 'status'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertSame(4, data_get($payload, 'codex_real_invoker_post_start_receipt_contract_builder_implementation_packet.task_count'));
+        $this->assertContains('do_not_start_codex_process', data_get($payload, 'codex_real_invoker_post_start_receipt_contract_builder_implementation_packet.non_goals'));
+        $this->assertContains('post_start_receipt_contract_requires_operator_start_handoff_metadata', data_get($payload, 'codex_real_invoker_post_start_receipt_contract_builder_implementation_packet.acceptance_criteria'));
+        $this->assertFalse(data_get($payload, 'codex_real_invoker_post_start_receipt_contract_builder_implementation_packet.implementation_policy.actual_process_start_allowed_by_packet'));
+        $this->assertContains('agent_codex_real_invoker_post_start_receipt_contract_builder_implementation_packet_does_not_start_codex', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'codex_real_invoker_post_start_receipt_contract_builder_implementation_packet_hash'));
+    }
+
+    public function test_command_returns_agent_codex_real_invoker_post_start_evidence_receipt_writer_contract_template_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-codex-real-invoker-post-start-evidence-receipt-writer-contract-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_codex_real_invoker_post_start_evidence_receipt_writer_contract_template.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('read_only_agent_codex_real_invoker_post_start_evidence_receipt_writer_contract_template', data_get($payload, 'mode'));
+        $this->assertSame('codex_real_invoker_post_start_evidence_receipt_writer_contract_template_ready', data_get($payload, 'status'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertSame('writePostStartEvidenceReceipt', data_get($payload, 'codex_real_invoker_post_start_evidence_receipt_writer_contract_template.contract.method'));
+        $this->assertContains('require_codex_real_invoker_post_start_receipt_contract', data_get($payload, 'codex_real_invoker_post_start_evidence_receipt_writer_contract_template.real_invoker_post_start_evidence_receipt_must'));
+        $this->assertContains('require_no_atlas_process_spawn_attestation_hash', data_get($payload, 'codex_real_invoker_post_start_evidence_receipt_writer_contract_template.real_invoker_post_start_evidence_receipt_must'));
+        $this->assertContains('call_codex_cli_or_codex_app', data_get($payload, 'codex_real_invoker_post_start_evidence_receipt_writer_contract_template.real_invoker_post_start_evidence_receipt_must_not'));
+        $this->assertFalse(data_get($payload, 'codex_real_invoker_post_start_evidence_receipt_writer_contract_template.contract_policy.actual_process_start_allowed_here'));
+        $this->assertContains('agent_codex_real_invoker_post_start_evidence_receipt_writer_contract_template_does_not_start_codex', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'codex_real_invoker_post_start_evidence_receipt_writer_contract_template_hash'));
+    }
+
+    public function test_command_returns_agent_codex_real_invoker_post_start_evidence_receipt_writer_preflight_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-codex-real-invoker-post-start-evidence-receipt-writer-preflight' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_codex_real_invoker_post_start_evidence_receipt_writer_preflight.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('read_only_agent_codex_real_invoker_post_start_evidence_receipt_writer_preflight', data_get($payload, 'mode'));
+        $this->assertContains(data_get($payload, 'status'), [
+            'codex_real_invoker_post_start_evidence_receipt_writer_ready',
+            'blocked',
+        ]);
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertFalse(data_get($payload, 'codex_real_invoker_post_start_evidence_receipt_writer_preflight.preflight_policy.actual_process_start_allowed_here'));
+        $this->assertFalse(data_get($payload, 'codex_real_invoker_post_start_evidence_receipt_writer_preflight.preflight_policy.token_spend_allowed_here'));
+        $this->assertContains('agent_codex_real_invoker_post_start_evidence_receipt_writer_preflight_does_not_call_codex', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'codex_real_invoker_post_start_evidence_receipt_writer_preflight_hash'));
+    }
+
+    public function test_command_returns_agent_codex_real_invoker_post_start_evidence_receipt_writer_implementation_packet_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-codex-real-invoker-post-start-evidence-receipt-writer-implementation-packet' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_codex_real_invoker_post_start_evidence_receipt_writer_implementation_packet.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('read_only_agent_codex_real_invoker_post_start_evidence_receipt_writer_implementation_packet', data_get($payload, 'mode'));
+        $this->assertSame('ready_for_scoped_codex_real_invoker_post_start_evidence_receipt_writer_implementation', data_get($payload, 'status'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertSame(4, data_get($payload, 'codex_real_invoker_post_start_evidence_receipt_writer_implementation_packet.task_count'));
+        $this->assertContains('do_not_start_codex_process', data_get($payload, 'codex_real_invoker_post_start_evidence_receipt_writer_implementation_packet.non_goals'));
+        $this->assertContains('post_start_evidence_receipt_requires_post_start_receipt_contract_metadata', data_get($payload, 'codex_real_invoker_post_start_evidence_receipt_writer_implementation_packet.acceptance_criteria'));
+        $this->assertFalse(data_get($payload, 'codex_real_invoker_post_start_evidence_receipt_writer_implementation_packet.implementation_policy.actual_process_start_allowed_by_packet'));
+        $this->assertContains('agent_codex_real_invoker_post_start_evidence_receipt_writer_implementation_packet_does_not_start_codex', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'codex_real_invoker_post_start_evidence_receipt_writer_implementation_packet_hash'));
+    }
+
+    public function test_command_returns_agent_codex_real_invoker_post_start_liveness_monitor_contract_template_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-codex-real-invoker-post-start-liveness-monitor-contract-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_codex_real_invoker_post_start_liveness_monitor_contract_template.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('read_only_agent_codex_real_invoker_post_start_liveness_monitor_contract_template', data_get($payload, 'mode'));
+        $this->assertSame('codex_real_invoker_post_start_liveness_monitor_contract_template_ready', data_get($payload, 'status'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertSame('recordPostStartLiveness', data_get($payload, 'codex_real_invoker_post_start_liveness_monitor_contract_template.contract.method'));
+        $this->assertContains('require_codex_real_invoker_post_start_evidence_receipt', data_get($payload, 'codex_real_invoker_post_start_liveness_monitor_contract_template.real_invoker_post_start_liveness_must'));
+        $this->assertContains('require_observed_liveness_state_alive_silent_stale_or_orphaned', data_get($payload, 'codex_real_invoker_post_start_liveness_monitor_contract_template.real_invoker_post_start_liveness_must'));
+        $this->assertContains('call_codex_cli_or_codex_app', data_get($payload, 'codex_real_invoker_post_start_liveness_monitor_contract_template.real_invoker_post_start_liveness_must_not'));
+        $this->assertFalse(data_get($payload, 'codex_real_invoker_post_start_liveness_monitor_contract_template.contract_policy.actual_process_start_allowed_here'));
+        $this->assertContains('agent_codex_real_invoker_post_start_liveness_monitor_contract_template_does_not_start_codex', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'codex_real_invoker_post_start_liveness_monitor_contract_template_hash'));
+    }
+
+    public function test_command_returns_agent_codex_real_invoker_post_start_liveness_monitor_preflight_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-codex-real-invoker-post-start-liveness-monitor-preflight' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_codex_real_invoker_post_start_liveness_monitor_preflight.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('read_only_agent_codex_real_invoker_post_start_liveness_monitor_preflight', data_get($payload, 'mode'));
+        $this->assertContains(data_get($payload, 'status'), [
+            'codex_real_invoker_post_start_liveness_monitor_ready',
+            'blocked',
+        ]);
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertFalse(data_get($payload, 'codex_real_invoker_post_start_liveness_monitor_preflight.preflight_policy.actual_process_start_allowed_here'));
+        $this->assertFalse(data_get($payload, 'codex_real_invoker_post_start_liveness_monitor_preflight.preflight_policy.token_spend_allowed_here'));
+        $this->assertContains('agent_codex_real_invoker_post_start_liveness_monitor_preflight_does_not_call_codex', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'codex_real_invoker_post_start_liveness_monitor_preflight_hash'));
+    }
+
+    public function test_command_returns_agent_codex_real_invoker_post_start_liveness_monitor_implementation_packet_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-codex-real-invoker-post-start-liveness-monitor-implementation-packet' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_codex_real_invoker_post_start_liveness_monitor_implementation_packet.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('read_only_agent_codex_real_invoker_post_start_liveness_monitor_implementation_packet', data_get($payload, 'mode'));
+        $this->assertSame('ready_for_scoped_codex_real_invoker_post_start_liveness_monitor_implementation', data_get($payload, 'status'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertSame(4, data_get($payload, 'codex_real_invoker_post_start_liveness_monitor_implementation_packet.task_count'));
+        $this->assertContains('do_not_start_codex_process', data_get($payload, 'codex_real_invoker_post_start_liveness_monitor_implementation_packet.non_goals'));
+        $this->assertContains('post_start_liveness_requires_post_start_evidence_receipt_metadata', data_get($payload, 'codex_real_invoker_post_start_liveness_monitor_implementation_packet.acceptance_criteria'));
+        $this->assertFalse(data_get($payload, 'codex_real_invoker_post_start_liveness_monitor_implementation_packet.implementation_policy.actual_process_start_allowed_by_packet'));
+        $this->assertContains('agent_codex_real_invoker_post_start_liveness_monitor_implementation_packet_does_not_start_codex', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'codex_real_invoker_post_start_liveness_monitor_implementation_packet_hash'));
+    }
+
+    public function test_command_returns_agent_codex_real_invoker_post_start_dispatch_release_gate_contract_template_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-codex-real-invoker-post-start-dispatch-release-gate-contract-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_codex_real_invoker_post_start_dispatch_release_gate_contract_template.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('read_only_agent_codex_real_invoker_post_start_dispatch_release_gate_contract_template', data_get($payload, 'mode'));
+        $this->assertSame('codex_real_invoker_post_start_dispatch_release_gate_contract_template_ready', data_get($payload, 'status'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertSame('preparePostStartDispatchRelease', data_get($payload, 'codex_real_invoker_post_start_dispatch_release_gate_contract_template.contract.method'));
+        $this->assertContains('require_codex_real_invoker_post_start_liveness_monitor', data_get($payload, 'codex_real_invoker_post_start_dispatch_release_gate_contract_template.real_invoker_post_start_dispatch_release_must'));
+        $this->assertContains('require_liveness_state_alive', data_get($payload, 'codex_real_invoker_post_start_dispatch_release_gate_contract_template.real_invoker_post_start_dispatch_release_must'));
+        $this->assertContains('dispatch_work_to_provider', data_get($payload, 'codex_real_invoker_post_start_dispatch_release_gate_contract_template.real_invoker_post_start_dispatch_release_must_not'));
+        $this->assertFalse(data_get($payload, 'codex_real_invoker_post_start_dispatch_release_gate_contract_template.contract_policy.dispatch_allowed_here'));
+        $this->assertContains('agent_codex_real_invoker_post_start_dispatch_release_gate_contract_template_does_not_dispatch_work', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'codex_real_invoker_post_start_dispatch_release_gate_contract_template_hash'));
+    }
+
+    public function test_command_returns_agent_codex_real_invoker_post_start_dispatch_release_gate_preflight_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-codex-real-invoker-post-start-dispatch-release-gate-preflight' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_codex_real_invoker_post_start_dispatch_release_gate_preflight.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('read_only_agent_codex_real_invoker_post_start_dispatch_release_gate_preflight', data_get($payload, 'mode'));
+        $this->assertContains(data_get($payload, 'status'), [
+            'codex_real_invoker_post_start_dispatch_release_gate_ready',
+            'blocked',
+        ]);
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertFalse(data_get($payload, 'codex_real_invoker_post_start_dispatch_release_gate_preflight.preflight_policy.actual_process_start_allowed_here'));
+        $this->assertFalse(data_get($payload, 'codex_real_invoker_post_start_dispatch_release_gate_preflight.preflight_policy.dispatch_allowed_here'));
+        $this->assertContains('agent_codex_real_invoker_post_start_dispatch_release_gate_preflight_does_not_call_codex', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'codex_real_invoker_post_start_dispatch_release_gate_preflight_hash'));
+    }
+
+    public function test_command_returns_agent_codex_real_invoker_post_start_dispatch_release_gate_implementation_packet_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-codex-real-invoker-post-start-dispatch-release-gate-implementation-packet' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_codex_real_invoker_post_start_dispatch_release_gate_implementation_packet.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('read_only_agent_codex_real_invoker_post_start_dispatch_release_gate_implementation_packet', data_get($payload, 'mode'));
+        $this->assertSame('ready_for_scoped_codex_real_invoker_post_start_dispatch_release_gate_implementation', data_get($payload, 'status'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertSame(4, data_get($payload, 'codex_real_invoker_post_start_dispatch_release_gate_implementation_packet.task_count'));
+        $this->assertContains('do_not_dispatch_work_to_codex', data_get($payload, 'codex_real_invoker_post_start_dispatch_release_gate_implementation_packet.non_goals'));
+        $this->assertContains('post_start_dispatch_release_gate_requires_liveness_alive', data_get($payload, 'codex_real_invoker_post_start_dispatch_release_gate_implementation_packet.acceptance_criteria'));
+        $this->assertFalse(data_get($payload, 'codex_real_invoker_post_start_dispatch_release_gate_implementation_packet.implementation_policy.dispatch_allowed_by_packet'));
+        $this->assertContains('agent_codex_real_invoker_post_start_dispatch_release_gate_implementation_packet_does_not_dispatch_work', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'codex_real_invoker_post_start_dispatch_release_gate_implementation_packet_hash'));
+    }
+
+    public function test_command_returns_agent_codex_real_invoker_post_start_signed_dispatch_authorization_gate_contract_template_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-codex-real-invoker-post-start-signed-dispatch-authorization-gate-contract-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_codex_real_invoker_post_start_signed_dispatch_authorization_gate_contract_template.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('read_only_agent_codex_real_invoker_post_start_signed_dispatch_authorization_gate_contract_template', data_get($payload, 'mode'));
+        $this->assertSame('codex_real_invoker_post_start_signed_dispatch_authorization_gate_contract_template_ready', data_get($payload, 'status'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertSame('authorizePostStartSignedDispatch', data_get($payload, 'codex_real_invoker_post_start_signed_dispatch_authorization_gate_contract_template.contract.method'));
+        $this->assertContains('require_codex_real_invoker_post_start_dispatch_release_gate', data_get($payload, 'codex_real_invoker_post_start_signed_dispatch_authorization_gate_contract_template.real_invoker_post_start_signed_dispatch_authorization_must'));
+        $this->assertContains('require_human_dispatch_signature_hash', data_get($payload, 'codex_real_invoker_post_start_signed_dispatch_authorization_gate_contract_template.real_invoker_post_start_signed_dispatch_authorization_must'));
+        $this->assertContains('dispatch_work_to_provider', data_get($payload, 'codex_real_invoker_post_start_signed_dispatch_authorization_gate_contract_template.real_invoker_post_start_signed_dispatch_authorization_must_not'));
+        $this->assertFalse(data_get($payload, 'codex_real_invoker_post_start_signed_dispatch_authorization_gate_contract_template.contract_policy.dispatch_allowed_here'));
+        $this->assertContains('agent_codex_real_invoker_post_start_signed_dispatch_authorization_gate_contract_template_does_not_dispatch_work', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'codex_real_invoker_post_start_signed_dispatch_authorization_gate_contract_template_hash'));
+    }
+
+    public function test_command_returns_agent_codex_real_invoker_post_start_signed_dispatch_authorization_gate_preflight_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-codex-real-invoker-post-start-signed-dispatch-authorization-gate-preflight' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_codex_real_invoker_post_start_signed_dispatch_authorization_gate_preflight.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('read_only_agent_codex_real_invoker_post_start_signed_dispatch_authorization_gate_preflight', data_get($payload, 'mode'));
+        $this->assertContains(data_get($payload, 'status'), [
+            'codex_real_invoker_post_start_signed_dispatch_authorization_gate_ready',
+            'blocked',
+        ]);
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertFalse(data_get($payload, 'codex_real_invoker_post_start_signed_dispatch_authorization_gate_preflight.preflight_policy.actual_process_start_allowed_here'));
+        $this->assertFalse(data_get($payload, 'codex_real_invoker_post_start_signed_dispatch_authorization_gate_preflight.preflight_policy.dispatch_allowed_here'));
+        $this->assertContains('agent_codex_real_invoker_post_start_signed_dispatch_authorization_gate_preflight_does_not_call_codex', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'codex_real_invoker_post_start_signed_dispatch_authorization_gate_preflight_hash'));
+    }
+
+    public function test_command_returns_agent_codex_real_invoker_post_start_signed_dispatch_authorization_gate_implementation_packet_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-codex-real-invoker-post-start-signed-dispatch-authorization-gate-implementation-packet' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_codex_real_invoker_post_start_signed_dispatch_authorization_gate_implementation_packet.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('read_only_agent_codex_real_invoker_post_start_signed_dispatch_authorization_gate_implementation_packet', data_get($payload, 'mode'));
+        $this->assertSame('ready_for_scoped_codex_real_invoker_post_start_signed_dispatch_authorization_gate_implementation', data_get($payload, 'status'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertSame(4, data_get($payload, 'codex_real_invoker_post_start_signed_dispatch_authorization_gate_implementation_packet.task_count'));
+        $this->assertContains('do_not_dispatch_work_to_codex', data_get($payload, 'codex_real_invoker_post_start_signed_dispatch_authorization_gate_implementation_packet.non_goals'));
+        $this->assertContains('post_start_signed_dispatch_authorization_requires_signature_and_receipt_hashes', data_get($payload, 'codex_real_invoker_post_start_signed_dispatch_authorization_gate_implementation_packet.acceptance_criteria'));
+        $this->assertFalse(data_get($payload, 'codex_real_invoker_post_start_signed_dispatch_authorization_gate_implementation_packet.implementation_policy.dispatch_allowed_by_packet'));
+        $this->assertContains('agent_codex_real_invoker_post_start_signed_dispatch_authorization_gate_implementation_packet_does_not_dispatch_work', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'codex_real_invoker_post_start_signed_dispatch_authorization_gate_implementation_packet_hash'));
+    }
+
+    public function test_command_returns_agent_codex_real_invoker_post_start_dispatch_executor_handoff_contract_template_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-codex-real-invoker-post-start-dispatch-executor-handoff-contract-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_codex_real_invoker_post_start_dispatch_executor_handoff_contract_template.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('read_only_agent_codex_real_invoker_post_start_dispatch_executor_handoff_contract_template', data_get($payload, 'mode'));
+        $this->assertSame('codex_real_invoker_post_start_dispatch_executor_handoff_contract_template_ready', data_get($payload, 'status'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertSame('preparePostStartDispatchExecutorHandoff', data_get($payload, 'codex_real_invoker_post_start_dispatch_executor_handoff_contract_template.contract.method'));
+        $this->assertContains('require_codex_real_invoker_post_start_signed_dispatch_authorization', data_get($payload, 'codex_real_invoker_post_start_dispatch_executor_handoff_contract_template.real_invoker_post_start_dispatch_executor_handoff_must'));
+        $this->assertContains('require_executor_workspace_hash', data_get($payload, 'codex_real_invoker_post_start_dispatch_executor_handoff_contract_template.real_invoker_post_start_dispatch_executor_handoff_must'));
+        $this->assertContains('dispatch_work_to_provider', data_get($payload, 'codex_real_invoker_post_start_dispatch_executor_handoff_contract_template.real_invoker_post_start_dispatch_executor_handoff_must_not'));
+        $this->assertFalse(data_get($payload, 'codex_real_invoker_post_start_dispatch_executor_handoff_contract_template.contract_policy.dispatch_allowed_here'));
+        $this->assertContains('agent_codex_real_invoker_post_start_dispatch_executor_handoff_contract_template_does_not_dispatch_work', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'codex_real_invoker_post_start_dispatch_executor_handoff_contract_template_hash'));
+    }
+
+    public function test_command_returns_agent_codex_real_invoker_post_start_dispatch_executor_handoff_preflight_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-codex-real-invoker-post-start-dispatch-executor-handoff-preflight' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_codex_real_invoker_post_start_dispatch_executor_handoff_preflight.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('read_only_agent_codex_real_invoker_post_start_dispatch_executor_handoff_preflight', data_get($payload, 'mode'));
+        $this->assertContains(data_get($payload, 'status'), [
+            'codex_real_invoker_post_start_dispatch_executor_handoff_ready',
+            'blocked',
+        ]);
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertFalse(data_get($payload, 'codex_real_invoker_post_start_dispatch_executor_handoff_preflight.preflight_policy.actual_process_start_allowed_here'));
+        $this->assertFalse(data_get($payload, 'codex_real_invoker_post_start_dispatch_executor_handoff_preflight.preflight_policy.dispatch_allowed_here'));
+        $this->assertContains('agent_codex_real_invoker_post_start_dispatch_executor_handoff_preflight_does_not_call_codex', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'codex_real_invoker_post_start_dispatch_executor_handoff_preflight_hash'));
+    }
+
+    public function test_command_returns_agent_codex_real_invoker_post_start_dispatch_executor_handoff_implementation_packet_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-codex-real-invoker-post-start-dispatch-executor-handoff-implementation-packet' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_codex_real_invoker_post_start_dispatch_executor_handoff_implementation_packet.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('read_only_agent_codex_real_invoker_post_start_dispatch_executor_handoff_implementation_packet', data_get($payload, 'mode'));
+        $this->assertSame('ready_for_scoped_codex_real_invoker_post_start_dispatch_executor_handoff_implementation', data_get($payload, 'status'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertSame(4, data_get($payload, 'codex_real_invoker_post_start_dispatch_executor_handoff_implementation_packet.task_count'));
+        $this->assertContains('do_not_dispatch_work_to_codex', data_get($payload, 'codex_real_invoker_post_start_dispatch_executor_handoff_implementation_packet.non_goals'));
+        $this->assertContains('post_start_dispatch_executor_handoff_requires_executor_packet_workspace_and_scope_hashes', data_get($payload, 'codex_real_invoker_post_start_dispatch_executor_handoff_implementation_packet.acceptance_criteria'));
+        $this->assertFalse(data_get($payload, 'codex_real_invoker_post_start_dispatch_executor_handoff_implementation_packet.implementation_policy.dispatch_allowed_by_packet'));
+        $this->assertContains('agent_codex_real_invoker_post_start_dispatch_executor_handoff_implementation_packet_does_not_dispatch_work', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'codex_real_invoker_post_start_dispatch_executor_handoff_implementation_packet_hash'));
+    }
+
+    public function test_command_returns_agent_codex_real_invoker_post_start_dispatch_receipt_use_executor_contract_template_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-codex-real-invoker-post-start-dispatch-receipt-use-executor-contract-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_codex_real_invoker_post_start_dispatch_receipt_use_executor_contract_template.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('read_only_agent_codex_real_invoker_post_start_dispatch_receipt_use_executor_contract_template', data_get($payload, 'mode'));
+        $this->assertSame('codex_real_invoker_post_start_dispatch_receipt_use_executor_contract_template_ready', data_get($payload, 'status'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertSame('executePostStartDispatchReceiptUse', data_get($payload, 'codex_real_invoker_post_start_dispatch_receipt_use_executor_contract_template.contract.method'));
+        $this->assertContains('require_codex_real_invoker_post_start_dispatch_executor_handoff', data_get($payload, 'codex_real_invoker_post_start_dispatch_receipt_use_executor_contract_template.real_invoker_post_start_dispatch_receipt_use_must'));
+        $this->assertContains('call_atomic_receipt_use_writer', data_get($payload, 'codex_real_invoker_post_start_dispatch_receipt_use_executor_contract_template.real_invoker_post_start_dispatch_receipt_use_must'));
+        $this->assertContains('dispatch_work_to_provider', data_get($payload, 'codex_real_invoker_post_start_dispatch_receipt_use_executor_contract_template.real_invoker_post_start_dispatch_receipt_use_must_not'));
+        $this->assertFalse(data_get($payload, 'codex_real_invoker_post_start_dispatch_receipt_use_executor_contract_template.contract_policy.dispatch_allowed_here'));
+        $this->assertContains('agent_codex_real_invoker_post_start_dispatch_receipt_use_executor_contract_template_does_not_dispatch_work', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'codex_real_invoker_post_start_dispatch_receipt_use_executor_contract_template_hash'));
+    }
+
+    public function test_command_returns_agent_codex_real_invoker_post_start_dispatch_receipt_use_executor_preflight_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-codex-real-invoker-post-start-dispatch-receipt-use-executor-preflight' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_codex_real_invoker_post_start_dispatch_receipt_use_executor_preflight.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('read_only_agent_codex_real_invoker_post_start_dispatch_receipt_use_executor_preflight', data_get($payload, 'mode'));
+        $this->assertContains(data_get($payload, 'status'), [
+            'codex_real_invoker_post_start_dispatch_receipt_use_executor_ready',
+            'blocked',
+        ]);
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertTrue(data_get($payload, 'codex_real_invoker_post_start_dispatch_receipt_use_executor_preflight.preflight_policy.receipt_use_mark_allowed_by_executor'));
+        $this->assertFalse(data_get($payload, 'codex_real_invoker_post_start_dispatch_receipt_use_executor_preflight.preflight_policy.actual_process_start_allowed_here'));
+        $this->assertFalse(data_get($payload, 'codex_real_invoker_post_start_dispatch_receipt_use_executor_preflight.preflight_policy.dispatch_allowed_here'));
+        $this->assertContains('agent_codex_real_invoker_post_start_dispatch_receipt_use_executor_preflight_does_not_call_codex', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'codex_real_invoker_post_start_dispatch_receipt_use_executor_preflight_hash'));
+    }
+
+    public function test_command_returns_agent_codex_real_invoker_post_start_dispatch_receipt_use_executor_implementation_packet_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-codex-real-invoker-post-start-dispatch-receipt-use-executor-implementation-packet' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_codex_real_invoker_post_start_dispatch_receipt_use_executor_implementation_packet.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('read_only_agent_codex_real_invoker_post_start_dispatch_receipt_use_executor_implementation_packet', data_get($payload, 'mode'));
+        $this->assertSame('ready_for_scoped_codex_real_invoker_post_start_dispatch_receipt_use_executor_implementation', data_get($payload, 'status'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertSame(4, data_get($payload, 'codex_real_invoker_post_start_dispatch_receipt_use_executor_implementation_packet.task_count'));
+        $this->assertContains('do_not_dispatch_work_to_codex', data_get($payload, 'codex_real_invoker_post_start_dispatch_receipt_use_executor_implementation_packet.non_goals'));
+        $this->assertContains('post_start_dispatch_receipt_use_executor_marks_signed_receipt_used_once', data_get($payload, 'codex_real_invoker_post_start_dispatch_receipt_use_executor_implementation_packet.acceptance_criteria'));
+        $this->assertFalse(data_get($payload, 'codex_real_invoker_post_start_dispatch_receipt_use_executor_implementation_packet.implementation_policy.dispatch_allowed_by_packet'));
+        $this->assertContains('agent_codex_real_invoker_post_start_dispatch_receipt_use_executor_implementation_packet_does_not_dispatch_work', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'codex_real_invoker_post_start_dispatch_receipt_use_executor_implementation_packet_hash'));
+    }
+
+    public function test_command_returns_agent_codex_real_invoker_post_start_provider_start_driver_gate_contract_template_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-codex-real-invoker-post-start-provider-start-driver-gate-contract-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_codex_real_invoker_post_start_provider_start_driver_gate_contract_template.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('read_only_agent_codex_real_invoker_post_start_provider_start_driver_gate_contract_template', data_get($payload, 'mode'));
+        $this->assertSame('codex_real_invoker_post_start_provider_start_driver_gate_contract_template_ready', data_get($payload, 'status'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertSame('preparePostStartProviderStartDriver', data_get($payload, 'codex_real_invoker_post_start_provider_start_driver_gate_contract_template.contract.method'));
+        $this->assertContains('require_codex_real_invoker_post_start_dispatch_receipt_use_metadata', data_get($payload, 'codex_real_invoker_post_start_provider_start_driver_gate_contract_template.real_invoker_post_start_provider_start_driver_gate_must'));
+        $this->assertContains('delegate_to_agent_dispatch_executor_provider_start_driver', data_get($payload, 'codex_real_invoker_post_start_provider_start_driver_gate_contract_template.real_invoker_post_start_provider_start_driver_gate_must'));
+        $this->assertContains('enable_adapter_invocation', data_get($payload, 'codex_real_invoker_post_start_provider_start_driver_gate_contract_template.real_invoker_post_start_provider_start_driver_gate_must_not'));
+        $this->assertFalse(data_get($payload, 'codex_real_invoker_post_start_provider_start_driver_gate_contract_template.contract_policy.adapter_invocation_allowed_here'));
+        $this->assertContains('agent_codex_real_invoker_post_start_provider_start_driver_gate_contract_template_does_not_call_codex', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'codex_real_invoker_post_start_provider_start_driver_gate_contract_template_hash'));
+    }
+
+    public function test_command_returns_agent_codex_real_invoker_post_start_provider_start_driver_gate_preflight_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-codex-real-invoker-post-start-provider-start-driver-gate-preflight' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_codex_real_invoker_post_start_provider_start_driver_gate_preflight.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('read_only_agent_codex_real_invoker_post_start_provider_start_driver_gate_preflight', data_get($payload, 'mode'));
+        $this->assertContains(data_get($payload, 'status'), [
+            'codex_real_invoker_post_start_provider_start_driver_gate_ready',
+            'blocked',
+        ]);
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertTrue(data_get($payload, 'codex_real_invoker_post_start_provider_start_driver_gate_preflight.preflight_policy.provider_start_driver_bridge_allowed_by_service'));
+        $this->assertFalse(data_get($payload, 'codex_real_invoker_post_start_provider_start_driver_gate_preflight.preflight_policy.adapter_invocation_allowed_here'));
+        $this->assertFalse(data_get($payload, 'codex_real_invoker_post_start_provider_start_driver_gate_preflight.preflight_policy.dispatch_allowed_here'));
+        $this->assertContains('agent_codex_real_invoker_post_start_provider_start_driver_gate_preflight_does_not_call_codex', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'codex_real_invoker_post_start_provider_start_driver_gate_preflight_hash'));
+    }
+
+    public function test_command_returns_agent_codex_real_invoker_post_start_provider_start_driver_gate_implementation_packet_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-codex-real-invoker-post-start-provider-start-driver-gate-implementation-packet' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_codex_real_invoker_post_start_provider_start_driver_gate_implementation_packet.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('read_only_agent_codex_real_invoker_post_start_provider_start_driver_gate_implementation_packet', data_get($payload, 'mode'));
+        $this->assertSame('ready_for_scoped_codex_real_invoker_post_start_provider_start_driver_gate_implementation', data_get($payload, 'status'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertSame(4, data_get($payload, 'codex_real_invoker_post_start_provider_start_driver_gate_implementation_packet.task_count'));
+        $this->assertContains('do_not_enable_adapter_invocation', data_get($payload, 'codex_real_invoker_post_start_provider_start_driver_gate_implementation_packet.non_goals'));
+        $this->assertContains('post_start_provider_start_driver_gate_delegates_to_generic_provider_start_driver', data_get($payload, 'codex_real_invoker_post_start_provider_start_driver_gate_implementation_packet.acceptance_criteria'));
+        $this->assertFalse(data_get($payload, 'codex_real_invoker_post_start_provider_start_driver_gate_implementation_packet.implementation_policy.dispatch_allowed_by_packet'));
+        $this->assertContains('agent_codex_real_invoker_post_start_provider_start_driver_gate_implementation_packet_does_not_dispatch_work', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'codex_real_invoker_post_start_provider_start_driver_gate_implementation_packet_hash'));
+    }
+
+    public function test_command_returns_agent_codex_real_invoker_post_start_adapter_invocation_boundary_gate_contract_template_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-codex-real-invoker-post-start-adapter-invocation-boundary-gate-contract-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_codex_real_invoker_post_start_adapter_invocation_boundary_gate_contract_template.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('read_only_agent_codex_real_invoker_post_start_adapter_invocation_boundary_gate_contract_template', data_get($payload, 'mode'));
+        $this->assertSame('codex_real_invoker_post_start_adapter_invocation_boundary_gate_contract_template_ready', data_get($payload, 'status'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertSame('preparePostStartAdapterInvocationBoundary', data_get($payload, 'codex_real_invoker_post_start_adapter_invocation_boundary_gate_contract_template.contract.method'));
+        $this->assertContains('require_codex_real_invoker_post_start_provider_start_driver_metadata', data_get($payload, 'codex_real_invoker_post_start_adapter_invocation_boundary_gate_contract_template.real_invoker_post_start_adapter_invocation_boundary_gate_must'));
+        $this->assertContains('delegate_to_agent_dispatch_executor_adapter_invocation_boundary', data_get($payload, 'codex_real_invoker_post_start_adapter_invocation_boundary_gate_contract_template.real_invoker_post_start_adapter_invocation_boundary_gate_must'));
+        $this->assertContains('enable_adapter_execution', data_get($payload, 'codex_real_invoker_post_start_adapter_invocation_boundary_gate_contract_template.real_invoker_post_start_adapter_invocation_boundary_gate_must_not'));
+        $this->assertFalse(data_get($payload, 'codex_real_invoker_post_start_adapter_invocation_boundary_gate_contract_template.contract_policy.adapter_invocation_allowed_here'));
+        $this->assertContains('agent_codex_real_invoker_post_start_adapter_invocation_boundary_gate_contract_template_does_not_call_codex', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'codex_real_invoker_post_start_adapter_invocation_boundary_gate_contract_template_hash'));
+    }
+
+    public function test_command_returns_agent_codex_real_invoker_post_start_adapter_invocation_boundary_gate_preflight_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-codex-real-invoker-post-start-adapter-invocation-boundary-gate-preflight' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_codex_real_invoker_post_start_adapter_invocation_boundary_gate_preflight.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('read_only_agent_codex_real_invoker_post_start_adapter_invocation_boundary_gate_preflight', data_get($payload, 'mode'));
+        $this->assertContains(data_get($payload, 'status'), [
+            'codex_real_invoker_post_start_adapter_invocation_boundary_gate_ready',
+            'blocked',
+        ]);
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertTrue(data_get($payload, 'codex_real_invoker_post_start_adapter_invocation_boundary_gate_preflight.preflight_policy.adapter_invocation_boundary_bridge_allowed_by_service'));
+        $this->assertFalse(data_get($payload, 'codex_real_invoker_post_start_adapter_invocation_boundary_gate_preflight.preflight_policy.adapter_invocation_allowed_here'));
+        $this->assertFalse(data_get($payload, 'codex_real_invoker_post_start_adapter_invocation_boundary_gate_preflight.preflight_policy.dispatch_allowed_here'));
+        $this->assertContains('agent_codex_real_invoker_post_start_adapter_invocation_boundary_gate_preflight_does_not_call_codex', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'codex_real_invoker_post_start_adapter_invocation_boundary_gate_preflight_hash'));
+    }
+
+    public function test_command_returns_agent_codex_real_invoker_post_start_adapter_invocation_boundary_gate_implementation_packet_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-codex-real-invoker-post-start-adapter-invocation-boundary-gate-implementation-packet' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_codex_real_invoker_post_start_adapter_invocation_boundary_gate_implementation_packet.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('read_only_agent_codex_real_invoker_post_start_adapter_invocation_boundary_gate_implementation_packet', data_get($payload, 'mode'));
+        $this->assertSame('ready_for_scoped_codex_real_invoker_post_start_adapter_invocation_boundary_gate_implementation', data_get($payload, 'status'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertSame(4, data_get($payload, 'codex_real_invoker_post_start_adapter_invocation_boundary_gate_implementation_packet.task_count'));
+        $this->assertContains('do_not_enable_adapter_execution', data_get($payload, 'codex_real_invoker_post_start_adapter_invocation_boundary_gate_implementation_packet.non_goals'));
+        $this->assertContains('post_start_adapter_invocation_boundary_gate_delegates_to_generic_adapter_invocation_boundary', data_get($payload, 'codex_real_invoker_post_start_adapter_invocation_boundary_gate_implementation_packet.acceptance_criteria'));
+        $this->assertFalse(data_get($payload, 'codex_real_invoker_post_start_adapter_invocation_boundary_gate_implementation_packet.implementation_policy.dispatch_allowed_by_packet'));
+        $this->assertContains('agent_codex_real_invoker_post_start_adapter_invocation_boundary_gate_implementation_packet_does_not_dispatch_work', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'codex_real_invoker_post_start_adapter_invocation_boundary_gate_implementation_packet_hash'));
+    }
+
+    public function test_command_returns_agent_codex_real_invoker_post_start_adapter_execution_guard_gate_contract_template_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-codex-real-invoker-post-start-adapter-execution-guard-gate-contract-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_codex_real_invoker_post_start_adapter_execution_guard_gate_contract_template.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('read_only_agent_codex_real_invoker_post_start_adapter_execution_guard_gate_contract_template', data_get($payload, 'mode'));
+        $this->assertSame('codex_real_invoker_post_start_adapter_execution_guard_gate_contract_template_ready', data_get($payload, 'status'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertSame('blockPostStartAdapterExecution', data_get($payload, 'codex_real_invoker_post_start_adapter_execution_guard_gate_contract_template.contract.method'));
+        $this->assertContains('require_codex_real_invoker_post_start_adapter_invocation_boundary_metadata', data_get($payload, 'codex_real_invoker_post_start_adapter_execution_guard_gate_contract_template.real_invoker_post_start_adapter_execution_guard_gate_must'));
+        $this->assertContains('delegate_to_agent_provider_adapter_execution_guard', data_get($payload, 'codex_real_invoker_post_start_adapter_execution_guard_gate_contract_template.real_invoker_post_start_adapter_execution_guard_gate_must'));
+        $this->assertContains('enable_adapter_execution', data_get($payload, 'codex_real_invoker_post_start_adapter_execution_guard_gate_contract_template.real_invoker_post_start_adapter_execution_guard_gate_must_not'));
+        $this->assertFalse(data_get($payload, 'codex_real_invoker_post_start_adapter_execution_guard_gate_contract_template.contract_policy.adapter_execution_allowed_here'));
+        $this->assertContains('agent_codex_real_invoker_post_start_adapter_execution_guard_gate_contract_template_does_not_call_codex', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'codex_real_invoker_post_start_adapter_execution_guard_gate_contract_template_hash'));
+    }
+
+    public function test_command_returns_agent_codex_real_invoker_post_start_adapter_execution_guard_gate_preflight_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-codex-real-invoker-post-start-adapter-execution-guard-gate-preflight' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_codex_real_invoker_post_start_adapter_execution_guard_gate_preflight.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('read_only_agent_codex_real_invoker_post_start_adapter_execution_guard_gate_preflight', data_get($payload, 'mode'));
+        $this->assertContains(data_get($payload, 'status'), [
+            'codex_real_invoker_post_start_adapter_execution_guard_gate_ready',
+            'blocked',
+        ]);
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertTrue(data_get($payload, 'codex_real_invoker_post_start_adapter_execution_guard_gate_preflight.preflight_policy.adapter_execution_guard_bridge_allowed_by_service'));
+        $this->assertFalse(data_get($payload, 'codex_real_invoker_post_start_adapter_execution_guard_gate_preflight.preflight_policy.adapter_execution_allowed_here'));
+        $this->assertFalse(data_get($payload, 'codex_real_invoker_post_start_adapter_execution_guard_gate_preflight.preflight_policy.dispatch_allowed_here'));
+        $this->assertContains('agent_codex_real_invoker_post_start_adapter_execution_guard_gate_preflight_does_not_call_codex', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'codex_real_invoker_post_start_adapter_execution_guard_gate_preflight_hash'));
+    }
+
+    public function test_command_returns_agent_codex_real_invoker_post_start_adapter_execution_guard_gate_implementation_packet_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-codex-real-invoker-post-start-adapter-execution-guard-gate-implementation-packet' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_codex_real_invoker_post_start_adapter_execution_guard_gate_implementation_packet.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('read_only_agent_codex_real_invoker_post_start_adapter_execution_guard_gate_implementation_packet', data_get($payload, 'mode'));
+        $this->assertSame('ready_for_scoped_codex_real_invoker_post_start_adapter_execution_guard_gate_implementation', data_get($payload, 'status'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertSame(4, data_get($payload, 'codex_real_invoker_post_start_adapter_execution_guard_gate_implementation_packet.task_count'));
+        $this->assertContains('do_not_create_codex_provider_execution_contract', data_get($payload, 'codex_real_invoker_post_start_adapter_execution_guard_gate_implementation_packet.non_goals'));
+        $this->assertContains('post_start_adapter_execution_guard_gate_delegates_to_provider_adapter_execution_guard', data_get($payload, 'codex_real_invoker_post_start_adapter_execution_guard_gate_implementation_packet.acceptance_criteria'));
+        $this->assertFalse(data_get($payload, 'codex_real_invoker_post_start_adapter_execution_guard_gate_implementation_packet.implementation_policy.dispatch_allowed_by_packet'));
+        $this->assertContains('agent_codex_real_invoker_post_start_adapter_execution_guard_gate_implementation_packet_does_not_dispatch_work', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'codex_real_invoker_post_start_adapter_execution_guard_gate_implementation_packet_hash'));
+    }
+
+    public function test_command_returns_agent_codex_real_invoker_post_start_provider_execution_contract_gate_contract_template_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-codex-real-invoker-post-start-provider-execution-contract-gate-contract-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_codex_real_invoker_post_start_provider_execution_contract_gate_contract_template.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('read_only_agent_codex_real_invoker_post_start_provider_execution_contract_gate_contract_template', data_get($payload, 'mode'));
+        $this->assertSame('codex_real_invoker_post_start_provider_execution_contract_gate_contract_template_ready', data_get($payload, 'status'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertSame('preparePostStartProviderExecutionContract', data_get($payload, 'codex_real_invoker_post_start_provider_execution_contract_gate_contract_template.contract.method'));
+        $this->assertContains('require_codex_real_invoker_post_start_adapter_execution_guard_metadata', data_get($payload, 'codex_real_invoker_post_start_provider_execution_contract_gate_contract_template.real_invoker_post_start_provider_execution_contract_gate_must'));
+        $this->assertContains('delegate_to_codex_provider_execution_driver', data_get($payload, 'codex_real_invoker_post_start_provider_execution_contract_gate_contract_template.real_invoker_post_start_provider_execution_contract_gate_must'));
+        $this->assertContains('authorize_process_start', data_get($payload, 'codex_real_invoker_post_start_provider_execution_contract_gate_contract_template.real_invoker_post_start_provider_execution_contract_gate_must_not'));
+        $this->assertFalse(data_get($payload, 'codex_real_invoker_post_start_provider_execution_contract_gate_contract_template.contract_policy.provider_process_start_allowed_here'));
+        $this->assertTrue(data_get($payload, 'codex_real_invoker_post_start_provider_execution_contract_gate_contract_template.contract_policy.requires_separate_codex_process_start_release_contract'));
+        $this->assertContains('agent_codex_real_invoker_post_start_provider_execution_contract_gate_contract_template_does_not_call_codex', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'codex_real_invoker_post_start_provider_execution_contract_gate_contract_template_hash'));
+    }
+
+    public function test_command_returns_agent_codex_real_invoker_post_start_provider_execution_contract_gate_preflight_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-codex-real-invoker-post-start-provider-execution-contract-gate-preflight' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_codex_real_invoker_post_start_provider_execution_contract_gate_preflight.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('read_only_agent_codex_real_invoker_post_start_provider_execution_contract_gate_preflight', data_get($payload, 'mode'));
+        $this->assertContains(data_get($payload, 'status'), [
+            'codex_real_invoker_post_start_provider_execution_contract_gate_ready',
+            'blocked',
+        ]);
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertTrue(data_get($payload, 'codex_real_invoker_post_start_provider_execution_contract_gate_preflight.preflight_policy.provider_execution_contract_bridge_allowed_by_service'));
+        $this->assertTrue(data_get($payload, 'codex_real_invoker_post_start_provider_execution_contract_gate_preflight.preflight_policy.codex_provider_execution_driver_allowed_by_service'));
+        $this->assertFalse(data_get($payload, 'codex_real_invoker_post_start_provider_execution_contract_gate_preflight.preflight_policy.provider_process_start_allowed_here'));
+        $this->assertFalse(data_get($payload, 'codex_real_invoker_post_start_provider_execution_contract_gate_preflight.preflight_policy.dispatch_allowed_here'));
+        $this->assertContains('agent_codex_real_invoker_post_start_provider_execution_contract_gate_preflight_does_not_start_codex', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'codex_real_invoker_post_start_provider_execution_contract_gate_preflight_hash'));
+    }
+
+    public function test_command_returns_agent_codex_real_invoker_post_start_provider_execution_contract_gate_implementation_packet_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-codex-real-invoker-post-start-provider-execution-contract-gate-implementation-packet' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_codex_real_invoker_post_start_provider_execution_contract_gate_implementation_packet.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('read_only_agent_codex_real_invoker_post_start_provider_execution_contract_gate_implementation_packet', data_get($payload, 'mode'));
+        $this->assertSame('ready_for_scoped_codex_real_invoker_post_start_provider_execution_contract_gate_implementation', data_get($payload, 'status'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertSame(4, data_get($payload, 'codex_real_invoker_post_start_provider_execution_contract_gate_implementation_packet.task_count'));
+        $this->assertContains('do_not_authorize_process_start_release', data_get($payload, 'codex_real_invoker_post_start_provider_execution_contract_gate_implementation_packet.non_goals'));
+        $this->assertContains('post_start_provider_execution_contract_gate_delegates_to_codex_provider_execution_driver', data_get($payload, 'codex_real_invoker_post_start_provider_execution_contract_gate_implementation_packet.acceptance_criteria'));
+        $this->assertFalse(data_get($payload, 'codex_real_invoker_post_start_provider_execution_contract_gate_implementation_packet.implementation_policy.dispatch_allowed_by_packet'));
+        $this->assertContains('agent_codex_real_invoker_post_start_provider_execution_contract_gate_implementation_packet_does_not_dispatch_work', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'codex_real_invoker_post_start_provider_execution_contract_gate_implementation_packet_hash'));
+    }
+
+    public function test_command_returns_agent_codex_real_invoker_post_start_process_start_release_gate_contract_template_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-codex-real-invoker-post-start-process-start-release-gate-contract-template' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_codex_real_invoker_post_start_process_start_release_gate_contract_template.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('read_only_agent_codex_real_invoker_post_start_process_start_release_gate_contract_template', data_get($payload, 'mode'));
+        $this->assertSame('codex_real_invoker_post_start_process_start_release_gate_contract_template_ready', data_get($payload, 'status'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertSame('authorizePostStartProcessStartRelease', data_get($payload, 'codex_real_invoker_post_start_process_start_release_gate_contract_template.contract.method'));
+        $this->assertContains('require_codex_real_invoker_post_start_provider_execution_contract_metadata', data_get($payload, 'codex_real_invoker_post_start_process_start_release_gate_contract_template.real_invoker_post_start_process_start_release_gate_must'));
+        $this->assertContains('delegate_to_codex_process_start_release_gate', data_get($payload, 'codex_real_invoker_post_start_process_start_release_gate_contract_template.real_invoker_post_start_process_start_release_gate_must'));
+        $this->assertContains('run_supervised_start_executor', data_get($payload, 'codex_real_invoker_post_start_process_start_release_gate_contract_template.real_invoker_post_start_process_start_release_gate_must_not'));
+        $this->assertFalse(data_get($payload, 'codex_real_invoker_post_start_process_start_release_gate_contract_template.contract_policy.provider_process_start_allowed_here'));
+        $this->assertTrue(data_get($payload, 'codex_real_invoker_post_start_process_start_release_gate_contract_template.contract_policy.requires_separate_supervised_start_executor_contract'));
+        $this->assertContains('agent_codex_real_invoker_post_start_process_start_release_gate_contract_template_does_not_call_codex', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'codex_real_invoker_post_start_process_start_release_gate_contract_template_hash'));
+    }
+
+    public function test_command_returns_agent_codex_real_invoker_post_start_process_start_release_gate_preflight_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-codex-real-invoker-post-start-process-start-release-gate-preflight' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_codex_real_invoker_post_start_process_start_release_gate_preflight.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('read_only_agent_codex_real_invoker_post_start_process_start_release_gate_preflight', data_get($payload, 'mode'));
+        $this->assertContains(data_get($payload, 'status'), [
+            'codex_real_invoker_post_start_process_start_release_gate_ready',
+            'blocked',
+        ]);
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertTrue(data_get($payload, 'codex_real_invoker_post_start_process_start_release_gate_preflight.preflight_policy.post_start_process_start_release_bridge_allowed_by_service'));
+        $this->assertTrue(data_get($payload, 'codex_real_invoker_post_start_process_start_release_gate_preflight.preflight_policy.codex_process_start_release_gate_allowed_by_service'));
+        $this->assertFalse(data_get($payload, 'codex_real_invoker_post_start_process_start_release_gate_preflight.preflight_policy.provider_process_start_allowed_here'));
+        $this->assertFalse(data_get($payload, 'codex_real_invoker_post_start_process_start_release_gate_preflight.preflight_policy.dispatch_allowed_here'));
+        $this->assertContains('agent_codex_real_invoker_post_start_process_start_release_gate_preflight_does_not_start_codex', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'codex_real_invoker_post_start_process_start_release_gate_preflight_hash'));
+    }
+
+    public function test_command_returns_agent_codex_real_invoker_post_start_process_start_release_gate_implementation_packet_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-codex-real-invoker-post-start-process-start-release-gate-implementation-packet' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_codex_real_invoker_post_start_process_start_release_gate_implementation_packet.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('read_only_agent_codex_real_invoker_post_start_process_start_release_gate_implementation_packet', data_get($payload, 'mode'));
+        $this->assertSame('ready_for_scoped_codex_real_invoker_post_start_process_start_release_gate_implementation', data_get($payload, 'status'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertSame(4, data_get($payload, 'codex_real_invoker_post_start_process_start_release_gate_implementation_packet.task_count'));
+        $this->assertContains('do_not_run_supervised_start_executor', data_get($payload, 'codex_real_invoker_post_start_process_start_release_gate_implementation_packet.non_goals'));
+        $this->assertContains('post_start_process_start_release_gate_delegates_to_codex_process_start_release_gate', data_get($payload, 'codex_real_invoker_post_start_process_start_release_gate_implementation_packet.acceptance_criteria'));
+        $this->assertFalse(data_get($payload, 'codex_real_invoker_post_start_process_start_release_gate_implementation_packet.implementation_policy.dispatch_allowed_by_packet'));
+        $this->assertContains('agent_codex_real_invoker_post_start_process_start_release_gate_implementation_packet_does_not_dispatch_work', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'codex_real_invoker_post_start_process_start_release_gate_implementation_packet_hash'));
     }
 
     public function test_command_returns_single_session_instruction_packet_as_json(): void

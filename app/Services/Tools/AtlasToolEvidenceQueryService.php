@@ -95,6 +95,21 @@ class AtlasToolEvidenceQueryService
         return [
             'schema' => 'atlas.tool_evidence.v1',
             'generated_at' => now()->toISOString(),
+            'receipt' => [
+                'schema_version' => data_get($run->metadata_json, 'receipt_schema_version') ?: 'atlas.tool_evidence_receipt.v1',
+                'tool_run_id' => $run->id,
+                'tool_slug' => $run->tool_slug,
+                'workspace_hash' => $run->workspace_hash,
+                'command_hash' => $run->command_hash,
+                'summary_hash' => data_get($run->metadata_json, 'summary_hash'),
+                'normalized_result_hash' => data_get($run->metadata_json, 'normalized_result_hash'),
+                'evidence_receipt_hash' => data_get($run->metadata_json, 'evidence_receipt_hash'),
+                'raw_command_exposed' => false,
+                'raw_output_exposed' => false,
+                'workspace_path_exposed' => false,
+                'provider_dispatch_allowed' => false,
+                'runtime_policy_mutation_allowed' => false,
+            ],
             'run' => [
                 'id' => $run->id,
                 'tool_slug' => $run->tool_slug,
@@ -123,6 +138,10 @@ class AtlasToolEvidenceQueryService
                     'recipe_creates_evidence' => data_get($run->metadata_json, 'recipe_creates_evidence'),
                     'recipe_blocking_capable' => data_get($run->metadata_json, 'recipe_blocking_capable'),
                     'execution_origin' => data_get($run->metadata_json, 'execution_origin'),
+                    'receipt_schema_version' => data_get($run->metadata_json, 'receipt_schema_version'),
+                    'summary_hash' => data_get($run->metadata_json, 'summary_hash'),
+                    'normalized_result_hash' => data_get($run->metadata_json, 'normalized_result_hash'),
+                    'evidence_receipt_hash' => data_get($run->metadata_json, 'evidence_receipt_hash'),
                 ],
             ],
             'artifacts' => $run->artifacts
@@ -161,6 +180,10 @@ class AtlasToolEvidenceQueryService
                 'tool_slug' => $run->tool_slug,
                 'workspace_hash' => $run->workspace_hash,
                 'command_hash' => $run->command_hash,
+                'receipt_schema_version' => data_get($run->metadata_json, 'receipt_schema_version'),
+                'summary_hash' => data_get($run->metadata_json, 'summary_hash'),
+                'normalized_result_hash' => data_get($run->metadata_json, 'normalized_result_hash'),
+                'evidence_receipt_hash' => data_get($run->metadata_json, 'evidence_receipt_hash'),
                 'artifact_hashes' => $run->artifacts
                     ->map(fn ($artifact): array => [
                         'id' => $artifact->id,

@@ -45,6 +45,9 @@ Tool runs persist:
 `ToolEvidenceRecorded` ledger events mirror authority group and role from the
 persisted run metadata so audit/replay can reason about which tool family
 produced the evidence without exposing raw workspace paths or command output.
+They also mirror `summary_hash`, `normalized_result_hash` and
+`evidence_receipt_hash` from the run metadata. Gates can use those hashes as the
+lineage bridge between local evidence tables and append-only ledger replay.
 
 Exports use sanitized metadata and hashes. Raw secrets or unsafe artifacts do not
 leave the evidence boundary.

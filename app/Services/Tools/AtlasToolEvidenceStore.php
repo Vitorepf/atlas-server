@@ -3,6 +3,7 @@
 namespace App\Services\Tools;
 
 use App\Models\AtlasToolArtifact;
+use App\Models\AtlasToolDefinition;
 use App\Models\AtlasToolFinding;
 use App\Models\AtlasToolRun;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
@@ -33,8 +34,20 @@ class AtlasToolEvidenceStore
         $workspace = realpath($workspace) ?: $workspace;
         $definition = $this->registry->definition($toolSlug);
         $normalized = $this->normalizer->normalize($toolSlug, $payload);
+        $summaryHash = $this->stableHash($normalized['summary'] ?? []);
+        $normalizedResultHash = $this->stableHash($normalized);
+        $evidenceReceiptHash = $this->stableHash([
+            'tool_slug' => $toolSlug,
+            'workspace_hash' => hash('sha256', $workspace),
+            'run_context_type' => $context['run_context_type'] ?? null,
+            'run_context_id' => $context['run_context_id'] ?? null,
+            'status' => (string) ($payload['status'] ?? 'unknown'),
+            'required' => (bool) ($payload['required'] ?? false),
+            'summary_hash' => $summaryHash,
+            'normalized_result_hash' => $normalizedResultHash,
+        ]);
 
-        $run = DB::transaction(function () use ($context, $definition, $normalized, $payload, $toolSlug, $workspace): AtlasToolRun {
+        $run = DB::transaction(function () use ($context, $definition, $evidenceReceiptHash, $normalized, $normalizedResultHash, $payload, $summaryHash, $toolSlug, $workspace): AtlasToolRun {
             $run = AtlasToolRun::query()->create([
                 'tool_definition_id' => $definition?->id,
                 'tool_slug' => $toolSlug,
@@ -61,6 +74,10 @@ class AtlasToolEvidenceStore
                     'category' => $payload['category'] ?? null,
                     'reason' => $payload['reason'] ?? null,
                     'command' => isset($payload['command']) ? AtlasSecurity::redactCommand((array) $payload['command']) : null,
+                    'summary_hash' => $summaryHash,
+                    'normalized_result_hash' => $normalizedResultHash,
+                    'evidence_receipt_hash' => $evidenceReceiptHash,
+                    'receipt_schema_version' => 'atlas.tool_evidence_receipt.v1',
                     ...((array) ($context['metadata'] ?? [])),
                 ],
             ]);
@@ -127,8 +144,10 @@ class AtlasToolEvidenceStore
                 'duration_ms' => $run->duration_ms,
                 'finding_count' => count((array) ($normalized['findings'] ?? [])),
                 'blocking_failure_count' => count((array) ($normalized['blocking_failures'] ?? [])),
-                'summary_hash' => hash('sha256', json_encode($normalized['summary'] ?? [], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}'),
-                'normalized_result_hash' => hash('sha256', json_encode($normalized, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}'),
+                'summary_hash' => data_get($run->metadata_json, 'summary_hash'),
+                'normalized_result_hash' => data_get($run->metadata_json, 'normalized_result_hash'),
+                'evidence_receipt_hash' => data_get($run->metadata_json, 'evidence_receipt_hash'),
+                'receipt_schema_version' => data_get($run->metadata_json, 'receipt_schema_version'),
             ], [
                 'tenant_id' => (string) ($context['tenant_id'] ?? 'default'),
                 'operator_id' => (string) ($context['operator_id'] ?? 'system'),
@@ -144,10 +163,32 @@ class AtlasToolEvidenceStore
         }
     }
 
+    private function stableHash(mixed $payload): string
+    {
+        $encoded = json_encode($this->sortKeysRecursive($payload), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+
+        return hash('sha256', $encoded === false ? '' : $encoded);
+    }
+
+    private function sortKeysRecursive(mixed $value): mixed
+    {
+        if (! is_array($value)) {
+            return $value;
+        }
+
+        if (array_is_list($value)) {
+            return array_map(fn (mixed $item): mixed => $this->sortKeysRecursive($item), $value);
+        }
+
+        ksort($value);
+
+        return array_map(fn (mixed $item): mixed => $this->sortKeysRecursive($item), $value);
+    }
+
     /**
      * @return array<string,mixed>
      */
-    private function definitionMetadata(?\App\Models\AtlasToolDefinition $definition): array
+    private function definitionMetadata(?AtlasToolDefinition $definition): array
     {
         if (! $definition) {
             return [];

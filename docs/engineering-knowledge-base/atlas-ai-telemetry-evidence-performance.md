@@ -76,6 +76,10 @@ pecas se relacionam.
   sem reprocessamento ou nota explicita.
 - Push notification e inbox carregam resumo seguro; dados sensiveis ficam no
   backend/auditoria.
+- Health insights emitidos para Inbox carregam
+  `atlas.telemetry_health.notification_receipt.v1`, com hash de janela, status,
+  issue keys, politica de notificacao e bloqueios de provider/runtime/policy/
+  memory write.
 
 ## Comandos Canonicos
 
@@ -121,6 +125,14 @@ Performance reports sao projecoes para acao humana. Eles devem conter:
 - data quality e missing cost rates;
 - traces notaveis e recomendacoes;
 - dedupe key por data/tipo para evitar spam.
+
+`atlas:ai:telemetry:health --emit --json` cria um insight operacional apenas
+quando a janela esta em `warning` ou `critical`. A payload deve explicar por que
+o operador recebeu o item (`why_received`), qual politica de notificacao foi
+usada (`push_policy`) e o receipt hashavel
+`atlas.telemetry_health.notification_receipt.v1`. O receipt nunca autoriza
+provider call, runtime execution, policy patch ou escrita de memoria; ele existe
+para replay/auditoria do alerta proativo.
 
 ## Safety E Privacy
 

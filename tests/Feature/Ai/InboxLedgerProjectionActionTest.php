@@ -219,6 +219,29 @@ class InboxLedgerProjectionActionTest extends TestCase
         $this->assertSame('accepted_regression', data_get($result, 'result.retrieval_regression_review_action.decision'));
         $this->assertTrue((bool) data_get($result, 'result.retrieval_regression_review_action.no_runtime_execution'));
         $this->assertSame('retrieval-report-hash', data_get($result, 'result.retrieval_regression_review_action.report_hash'));
+        $this->assertSame(hash('sha256', 'latest-snapshot-id'), data_get($result, 'result.retrieval_regression_review_action.latest_snapshot_hash'));
+        $this->assertSame(hash('sha256', 'previous-snapshot-id'), data_get($result, 'result.retrieval_regression_review_action.previous_snapshot_hash'));
+        $this->assertSame('atlas.memory_retrieval_regression_decision_receipt.v1', data_get($result, 'result.retrieval_regression_review_action.decision_receipt.schema_version'));
+        $this->assertTrue((bool) data_get($result, 'result.retrieval_regression_review_action.decision_receipt.dry_run'));
+        $this->assertFalse((bool) data_get($result, 'result.retrieval_regression_review_action.decision_receipt.memory_write_allowed_now'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($result, 'result.retrieval_regression_review_action.decision_receipt_hash'));
+        $this->assertContains('memory_write_allowed_now', data_get($result, 'result.retrieval_regression_review_action.decision_receipt.receipt_hash_fields'));
+        $this->assertNotContains('issued_at', data_get($result, 'result.retrieval_regression_review_action.decision_receipt.receipt_hash_fields'));
+
+        $sameDecisionItem = $this->retrievalRegressionInboxItem('same-decision');
+        $sameDecisionResult = app(InboxActionRegistry::class)->handle(
+            $sameDecisionItem,
+            'review_retrieval_regression',
+            [
+                'decision' => 'accepted_regression',
+                'operator_note' => 'Abrir follow-up para revisar ranking e corpus.',
+            ],
+            'test-review-retrieval-regression-same-decision-'.$sameDecisionItem->id,
+        );
+        $this->assertSame(
+            data_get($result, 'result.retrieval_regression_review_action.decision_receipt_hash'),
+            data_get($sameDecisionResult, 'result.retrieval_regression_review_action.decision_receipt_hash'),
+        );
 
         $item->refresh();
         $this->assertSame('read', $item->status);
@@ -235,6 +258,8 @@ class InboxLedgerProjectionActionTest extends TestCase
             ->firstOrFail();
         $this->assertSame('review_retrieval_regression', data_get($ledgerEvent->payload, 'action'));
         $this->assertSame('atlas.inbox_action.memory_retrieval_regression_review.v1', data_get($ledgerEvent->payload, 'result.retrieval_regression_review_action.schema_version'));
+        $this->assertSame('atlas.memory_retrieval_regression_decision_receipt.v1', data_get($ledgerEvent->payload, 'result.retrieval_regression_review_action.decision_receipt.schema_version'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($ledgerEvent->payload, 'result.retrieval_regression_review_action.decision_receipt.receipt_hash'));
         $this->assertSame('open_memory_retrieval_regression_review', data_get($ledgerEvent->payload, 'recommended_action'));
         $this->assertStringNotContainsString('Exact local capture evidence', $ledgerEvent->toJson());
     }
@@ -578,7 +603,7 @@ class InboxLedgerProjectionActionTest extends TestCase
         ]);
     }
 
-    private function retrievalRegressionInboxItem(): AiInboxItem
+    private function retrievalRegressionInboxItem(?string $dedupeSuffix = null): AiInboxItem
     {
         return AiInboxItem::query()->create([
             'id' => (string) Str::uuid(),
@@ -593,7 +618,7 @@ class InboxLedgerProjectionActionTest extends TestCase
             'source_type' => 'local_rag_benchmark',
             'source_id' => 'latest-snapshot-id',
             'initiator' => 'system',
-            'dedupe_key' => 'memory-retrieval-rivals:latest-snapshot-id',
+            'dedupe_key' => 'memory-retrieval-rivals:latest-snapshot-id'.($dedupeSuffix ? ':'.$dedupeSuffix : ''),
             'available_actions' => [
                 ['id' => 'review_retrieval_regression', 'label' => 'Revisar regressao', 'style' => 'primary'],
                 ['id' => 'discuss', 'label' => 'Discutir', 'style' => 'secondary'],

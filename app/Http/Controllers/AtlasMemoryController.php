@@ -282,13 +282,16 @@ class AtlasMemoryController extends Controller
             ], 422);
         }
 
+        $delta = $delta->refresh();
+
         return response()->json([
             'memory' => (new AtlasMemoryEntryResource($entry->refresh()))->resolve(),
             'memory_delta' => [
                 'id' => $delta->id,
-                'status' => $delta->refresh()->status,
+                'status' => $delta->status,
                 'promoted_memory_entry_id' => $delta->promoted_memory_entry_id,
                 'promoted_at' => $delta->promoted_at?->toJSON(),
+                'safety' => $this->memoryDeltaSafety($delta),
             ],
         ]);
     }
@@ -307,6 +310,7 @@ class AtlasMemoryController extends Controller
             'requires_confirmation' => $delta->requires_confirmation,
             'promoted_memory_entry_id' => $delta->promoted_memory_entry_id,
             'promoted_at' => $delta->promoted_at?->toJSON(),
+            'safety' => $this->memoryDeltaSafety($delta),
             'created_at' => $delta->created_at?->toJSON(),
             'updated_at' => $delta->updated_at?->toJSON(),
         ];
@@ -320,6 +324,21 @@ class AtlasMemoryController extends Controller
             'do_not_use_when' => $delta->do_not_use_when,
             'superseded_by' => $delta->superseded_by,
         ] : $payload;
+    }
+
+    private function memoryDeltaSafety(AiMemoryDelta $delta): array
+    {
+        return [
+            'schema_version' => 'atlas.memory_delta.safety.v1',
+            'memory_eligible' => in_array($delta->status, ['accepted', 'promoted'], true),
+            'context_eligible' => $delta->status === 'promoted',
+            'provider_export_allowed' => false,
+            'open_brain_context_allowed' => $delta->status === 'promoted',
+            'raw_content_exposed' => false,
+            'promotion_status' => $delta->status,
+            'claim_hash' => hash('sha256', (string) $delta->claim),
+            'evidence_count' => count($delta->evidence ?? []),
+        ];
     }
 
     public function scanGovernance(

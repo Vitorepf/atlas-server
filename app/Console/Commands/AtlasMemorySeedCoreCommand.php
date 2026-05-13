@@ -189,7 +189,36 @@ class AtlasMemorySeedCoreCommand extends Command
             'source_type' => $entry->source_type,
             'source_id' => $entry->source_id,
             'status' => $entry->status,
+            'safety' => $this->safetySummary($entry),
             'recorded_at' => $entry->recorded_at?->toJSON(),
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function safetySummary(AtlasMemoryEntry $entry): array
+    {
+        $privacyClass = (string) data_get($entry->metadata ?? [], 'privacy.class', $entry->privacy_class ?? 'normal');
+        $redactionStatus = (string) data_get($entry->metadata ?? [], 'privacy.redaction_status', $entry->redaction_status ?? 'clean');
+        $externalAiAllowed = filter_var(
+            data_get($entry->metadata ?? [], 'privacy.external_ai_allowed', $entry->external_ai_allowed ?? true),
+            FILTER_VALIDATE_BOOL,
+        );
+        $providerExportAllowed = $externalAiAllowed
+            && $privacyClass !== 'secret'
+            && $redactionStatus !== 'blocked';
+
+        return [
+            'schema_version' => 'atlas.memory_entry.safety.v1',
+            'memory_eligible' => $entry->status === 'active',
+            'context_eligible' => $entry->status === 'active' && $providerExportAllowed,
+            'provider_export_allowed' => $providerExportAllowed,
+            'open_brain_context_allowed' => $entry->status === 'active' && $providerExportAllowed,
+            'raw_content_exposed' => false,
+            'privacy_class' => $privacyClass,
+            'redaction_status' => $redactionStatus,
+            'content_hash' => $entry->content_hash,
         ];
     }
 }

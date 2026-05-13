@@ -37,6 +37,7 @@ class CaptureResource extends JsonResource
             'captured_lng' => $this->captured_lng,
             'pre_capture_digital_context' => Metadata::forResponse($this->pre_capture_digital_context),
             'metadata' => Metadata::forResponse($this->metadata),
+            'capture_safety' => $this->captureSafety($fileExists),
             'review_workflow' => $this->reviewWorkflow(),
             'links' => $this->whenLoaded('links', fn () => CaptureLinkResource::collection($this->links)->resolve()),
             'created_at' => $this->created_at?->toJSON(),
@@ -55,6 +56,38 @@ class CaptureResource extends JsonResource
     }
 
     /**
+     * @return array<string,mixed>
+     */
+    private function captureSafety(?bool $fileExists): array
+    {
+        $metadata = is_array($this->metadata) ? $this->metadata : [];
+        $cognitiveQuarantine = is_array($metadata['cognitive_quarantine'] ?? null) ? $metadata['cognitive_quarantine'] : [];
+        $contentTextPresent = is_string($this->content_text) && $this->content_text !== '';
+
+        return [
+            'schema_version' => 'atlas.capture.resource_safety.v1',
+            'authenticated_api_payload' => true,
+            'raw_capture' => true,
+            'raw_content_present' => $contentTextPresent || $this->content_file_path !== null,
+            'raw_text_in_response' => $contentTextPresent,
+            'raw_file_path_in_response' => $this->content_file_path !== null,
+            'raw_content_provider_export_allowed' => false,
+            'raw_content_open_brain_context_allowed' => false,
+            'raw_content_embedding_allowed' => false,
+            'raw_content_memory_write_allowed' => false,
+            'human_review_required_for_promotion' => true,
+            'provider_export_allowed' => $cognitiveQuarantine['provider_export_allowed'] ?? false,
+            'open_brain_context_allowed' => $cognitiveQuarantine['open_brain_context_allowed'] ?? false,
+            'embedding_allowed' => $cognitiveQuarantine['embedding_allowed'] ?? false,
+            'memory_eligible' => $cognitiveQuarantine['memory_eligible'] ?? false,
+            'context_eligible' => $cognitiveQuarantine['context_eligible'] ?? false,
+            'promotion_status' => $cognitiveQuarantine['promotion_status'] ?? 'unclassified',
+            'content_hash' => $cognitiveQuarantine['content_hash'] ?? $this->content_sha256,
+            'content_file_integrity' => $this->fileIntegrity($fileExists),
+        ];
+    }
+
+    /**
      * @return array<string,mixed>|null
      */
     private function reviewWorkflow(): ?array
@@ -62,6 +95,7 @@ class CaptureResource extends JsonResource
         $metadata = is_array($this->metadata) ? $this->metadata : [];
         $triage = is_array($metadata['triage'] ?? null) ? $metadata['triage'] : [];
         $semanticCuration = is_array($metadata['semantic_curation'] ?? null) ? $metadata['semantic_curation'] : [];
+        $cognitiveQuarantine = is_array($metadata['cognitive_quarantine'] ?? null) ? $metadata['cognitive_quarantine'] : [];
         $proposalId = is_scalar($triage['proposal_id'] ?? null) ? (string) $triage['proposal_id'] : null;
         $proposalId ??= is_scalar($semanticCuration['proposal_id'] ?? null) ? (string) $semanticCuration['proposal_id'] : null;
         $memoryDeltaId = is_scalar($triage['memory_delta_id'] ?? null) ? (string) $triage['memory_delta_id'] : null;
@@ -133,6 +167,7 @@ class CaptureResource extends JsonResource
             'proposal_status' => $triage['proposal_status'] ?? $semanticCuration['proposal_status'] ?? null,
             'memory_delta_id' => $memoryDeltaId,
             'memory_delta_status' => $triage['memory_delta_status'] ?? null,
+            'safety' => $this->reviewWorkflowSafety($cognitiveQuarantine),
             'memory_promotion' => $memoryPromotion ? [
                 'status' => $memoryPromotion['status'] ?? 'promoted',
                 'memory_entry_id' => $memoryPromotion['memory_entry_id'] ?? null,
@@ -144,6 +179,25 @@ class CaptureResource extends JsonResource
                 'receipt_schema_version' => $verbatimPromotion['schema_version'] ?? null,
             ] : null,
             'actions' => $actions,
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $cognitiveQuarantine
+     * @return array<string,mixed>
+     */
+    private function reviewWorkflowSafety(array $cognitiveQuarantine): array
+    {
+        return [
+            'schema_version' => 'atlas.capture.review_workflow_safety.v1',
+            'memory_eligible' => $cognitiveQuarantine['memory_eligible'] ?? false,
+            'context_eligible' => $cognitiveQuarantine['context_eligible'] ?? false,
+            'embedding_allowed' => $cognitiveQuarantine['embedding_allowed'] ?? false,
+            'provider_export_allowed' => $cognitiveQuarantine['provider_export_allowed'] ?? false,
+            'open_brain_context_allowed' => $cognitiveQuarantine['open_brain_context_allowed'] ?? false,
+            'raw_content_exposed' => $cognitiveQuarantine['raw_content_exposed'] ?? false,
+            'promotion_status' => $cognitiveQuarantine['promotion_status'] ?? 'unclassified',
+            'content_hash' => $cognitiveQuarantine['content_hash'] ?? null,
         ];
     }
 

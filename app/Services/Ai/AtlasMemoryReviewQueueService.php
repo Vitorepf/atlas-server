@@ -201,6 +201,7 @@ class AtlasMemoryReviewQueueService
             'privacy_class' => $entry->privacy_class,
             'external_ai_allowed' => $entry->external_ai_allowed,
             'redaction_status' => $entry->redaction_status,
+            'safety' => $this->memorySafety($entry),
             'status' => $entry->status,
             'created_at' => $entry->created_at?->toJSON(),
             'updated_at' => $entry->updated_at?->toJSON(),
@@ -240,6 +241,7 @@ class AtlasMemoryReviewQueueService
             'privacy_class' => $memory->privacy_class,
             'external_ai_allowed' => $memory->external_ai_allowed,
             'redaction_status' => $memory->redaction_status,
+            'safety' => $this->verbatimSafety($memory),
             'status' => $memory->status,
             'created_at' => $memory->created_at?->toJSON(),
             'updated_at' => $memory->updated_at?->toJSON(),
@@ -420,6 +422,54 @@ class AtlasMemoryReviewQueueService
             'summary' => $entry->redacted_summary ?: $entry->summary,
             'status' => $entry->status,
             'priority' => $entry->priority,
+            'safety' => $this->memorySafety($entry),
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function memorySafety(AtlasMemoryEntry $entry): array
+    {
+        $providerExportAllowed = $entry->external_ai_allowed === true
+            && $entry->privacy_class !== 'secret'
+            && $entry->redaction_status !== 'blocked';
+
+        return [
+            'schema_version' => 'atlas.memory_entry.safety.v1',
+            'memory_eligible' => $entry->status === 'active',
+            'context_eligible' => $entry->status === 'active' && $providerExportAllowed,
+            'provider_export_allowed' => $providerExportAllowed,
+            'open_brain_context_allowed' => $entry->status === 'active' && $providerExportAllowed,
+            'raw_content_exposed' => false,
+            'privacy_class' => $entry->privacy_class,
+            'redaction_status' => $entry->redaction_status,
+            'content_hash' => $entry->content_hash,
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function verbatimSafety(AtlasVerbatimMemory $memory): array
+    {
+        $providerExportAllowed = $memory->external_ai_allowed === true
+            && $memory->privacy_class !== 'secret'
+            && $memory->redaction_status !== 'blocked'
+            && trim((string) $memory->redacted_text) !== '';
+
+        return [
+            'schema_version' => 'atlas.verbatim_memory.safety.v1',
+            'memory_eligible' => $memory->status === 'active',
+            'context_eligible' => $memory->status === 'active' && $providerExportAllowed,
+            'provider_export_allowed' => $providerExportAllowed,
+            'open_brain_context_allowed' => $memory->status === 'active' && $providerExportAllowed,
+            'raw_content_exposed' => false,
+            'verbatim_text_exposed' => false,
+            'privacy_class' => $memory->privacy_class,
+            'redaction_status' => $memory->redaction_status,
+            'content_hash' => $memory->content_hash,
+            'redacted_hash' => $memory->redacted_hash,
         ];
     }
 }

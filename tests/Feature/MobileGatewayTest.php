@@ -1359,6 +1359,52 @@ class MobileGatewayTest extends TestCase
         $this->assertDatabaseCount('ai_inbox_items', 1);
         $this->assertSame(2, $second->payload['occurrence_count']);
         $this->assertSame('Job finalizado novamente', $second->title);
+        $this->assertSame('atlas.proactive.delivery_contract.v1', data_get($second->payload, 'proactive_delivery_contract.schema_version'));
+        $this->assertTrue(data_get($second->payload, 'proactive_delivery_contract.push_pointer_only'));
+        $this->assertTrue(data_get($second->payload, 'proactive_delivery_contract.authenticated_fetch_required'));
+        $this->assertFalse(data_get($second->payload, 'proactive_delivery_contract.raw_payload_exposed_in_push'));
+        $this->assertFalse(data_get($second->payload, 'proactive_delivery_contract.auto_action_allowed'));
+        $this->assertSame(hash('sha256', 'job:daily-report'), data_get($second->payload, 'proactive_delivery_contract.dedupe_key_hash'));
+        $this->assertIsString(data_get($second->payload, 'proactive_delivery_contract.contract_hash'));
+    }
+
+    public function test_inbox_service_persists_proactive_delivery_contract_for_push_boundary(): void
+    {
+        $item = app(AtlasInboxService::class)->create([
+            'type' => 'insight',
+            'severity' => 'warning',
+            'title' => 'Insight proativo',
+            'summary' => 'Resumo seguro para inbox.',
+            'body' => 'Texto completo fica atras da API autenticada.',
+            'context_bundle_id' => (string) Str::uuid(),
+            'dedupe_key' => 'insight:proactive-contract',
+            'push_policy' => ['send' => 'immediate', 'target' => 'atlas_ai'],
+            'payload' => [
+                'raw_context_marker' => 'available only in authenticated inbox detail',
+            ],
+        ]);
+
+        $contract = data_get($item->payload, 'proactive_delivery_contract');
+
+        $this->assertSame('atlas.proactive.delivery_contract.v1', data_get($contract, 'schema_version'));
+        $this->assertSame($item->id, data_get($contract, 'inbox_item_id'));
+        $this->assertSame('mobile_inbox', data_get($contract, 'surface'));
+        $this->assertSame('immediate', data_get($contract, 'push_send_mode'));
+        $this->assertTrue(data_get($contract, 'push_pointer_only'));
+        $this->assertTrue(data_get($contract, 'authenticated_fetch_required'));
+        $this->assertTrue(data_get($contract, 'deep_link_only_delivery'));
+        $this->assertTrue(data_get($contract, 'context_bundle_api_only'));
+        $this->assertFalse(data_get($contract, 'raw_context_exposed_in_push'));
+        $this->assertFalse(data_get($contract, 'raw_payload_exposed_in_push'));
+        $this->assertFalse(data_get($contract, 'body_exposed_in_push'));
+        $this->assertFalse(data_get($contract, 'auto_action_allowed'));
+        $this->assertTrue(data_get($contract, 'action_execution_requires_registry'));
+        $this->assertSame('warning', data_get($contract, 'severity'));
+        $this->assertSame(hash('sha256', 'insight:proactive-contract'), data_get($contract, 'dedupe_key_hash'));
+        $this->assertIsString(data_get($contract, 'deep_link_hash'));
+        $this->assertIsString(data_get($contract, 'contract_hash'));
+        $this->assertContains('inbox_id', data_get($contract, 'push_data_fields'));
+        $this->assertContains('deep_link', data_get($contract, 'push_data_fields'));
     }
 
     public function test_inbox_service_does_not_dedupe_against_expired_items(): void

@@ -39,6 +39,7 @@ class AtlasMemoryEntryResource extends JsonResource
             'status' => $this->status,
             'tags' => Metadata::listForResponse($this->tags),
             'metadata' => Metadata::forResponse($this->metadata),
+            'safety' => $this->safetySummary(),
             'content_hash' => $this->content_hash,
             'recorded_at' => $this->recorded_at?->toJSON(),
             'last_used_at' => $this->last_used_at?->toJSON(),
@@ -48,6 +49,28 @@ class AtlasMemoryEntryResource extends JsonResource
             'created_at' => $this->created_at?->toJSON(),
             'updated_at' => $this->updated_at?->toJSON(),
             'deleted_at' => $this->deleted_at?->toJSON(),
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function safetySummary(): array
+    {
+        $providerExportAllowed = $this->external_ai_allowed === true
+            && $this->privacy_class !== 'secret'
+            && $this->redaction_status !== 'blocked';
+
+        return [
+            'schema_version' => 'atlas.memory_entry.safety.v1',
+            'memory_eligible' => $this->status === 'active',
+            'context_eligible' => $this->status === 'active' && $providerExportAllowed,
+            'provider_export_allowed' => $providerExportAllowed,
+            'open_brain_context_allowed' => $this->status === 'active' && $providerExportAllowed,
+            'raw_content_exposed' => false,
+            'privacy_class' => $this->privacy_class,
+            'redaction_status' => $this->redaction_status,
+            'content_hash' => $this->content_hash,
         ];
     }
 }

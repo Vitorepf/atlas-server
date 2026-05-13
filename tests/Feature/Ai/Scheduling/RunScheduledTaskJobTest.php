@@ -91,7 +91,76 @@ class RunScheduledTaskJobTest extends TestCase
         $this->assertFileExists($task->last_output_path);
         $this->assertStringContainsString('Atlas - Scheduled Task: Resumo de foco', File::get($task->last_output_path));
         $this->assertStringContainsString('Resposta agendada pronta.', File::get($task->last_output_path));
+        $this->assertSame('atlas.scheduled_task_run_receipt.v1', data_get($task->metadata, 'last_run_schema_version'));
+        $this->assertSame('atlas.scheduled_task_run_receipt.v1', data_get($task->metadata, 'last_run_receipt.schema_version'));
+        $this->assertSame($task->id, data_get($task->metadata, 'last_run_receipt.scheduled_task_id'));
+        $this->assertSame('success', data_get($task->metadata, 'last_run_receipt.status'));
+        $this->assertSame('saved_local', data_get($task->metadata, 'last_run_receipt.delivery_status'));
+        $this->assertSame('read', data_get($task->metadata, 'last_run_receipt.tool_permission_mode'));
+        $this->assertTrue(data_get($task->metadata, 'last_run_receipt.anti_recursion_guarded'));
+        $this->assertFalse(data_get($task->metadata, 'last_run_receipt.raw_prompt_persisted'));
+        $this->assertFalse(data_get($task->metadata, 'last_run_receipt.raw_output_in_metadata'));
+        $this->assertFalse(data_get($task->metadata, 'last_run_receipt.workspace_path_exposed'));
+        $this->assertFalse(data_get($task->metadata, 'last_run_receipt.provider_change_allowed'));
+        $this->assertFalse(data_get($task->metadata, 'last_run_receipt.retry_authorized_by_receipt'));
+        $this->assertFalse(data_get($task->metadata, 'last_run_receipt.schedule_mutation_allowed'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) data_get($task->metadata, 'last_run_receipt.prompt_hash'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) data_get($task->metadata, 'last_run_receipt.workspace_hash'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) data_get($task->metadata, 'last_output_hash'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) data_get($task->metadata, 'last_run_receipt_hash'));
+        $this->assertNull(data_get($task->metadata, 'previous_run_receipt_hash'));
+        $this->assertStringContainsString('Run receipt: '.data_get($task->metadata, 'last_run_receipt_hash'), File::get($task->last_output_path));
         $this->assertFalse((bool) data_get($task->metadata, 'last_delivery_suppressed'));
+    }
+
+    public function test_job_chains_scheduled_run_receipts_between_runs(): void
+    {
+        $task = AiScheduledTask::query()->create([
+            'title' => 'Rotina encadeada',
+            'prompt' => 'Faça o checkpoint.',
+            'schedule' => 'daily',
+            'kind' => 'recurring',
+            'skill_ids' => [],
+            'target_platform' => 'local',
+            'workspace' => base_path(),
+            'enabled' => true,
+            'next_run_at' => now(),
+            'repeat_remaining' => null,
+            'context_from_task_ids' => [],
+            'wrap_response' => true,
+            'metadata' => [
+                'timeout_seconds' => 30,
+                'last_run_receipt_hash' => str_repeat('a', 64),
+            ],
+        ]);
+        $trace = $this->trace(['status' => 'queued']);
+
+        $this->mock(AiGatewayService::class, function (MockInterface $mock) use ($trace): void {
+            $mock->shouldReceive('enqueueInteraction')
+                ->once()
+                ->andReturn($trace);
+        });
+        $this->mock(AiWorker::class, function (MockInterface $mock) use ($trace): void {
+            $mock->shouldReceive('runNextForTrace')
+                ->once()
+                ->andReturnUsing(function () use ($trace) {
+                    $trace->update([
+                        'status' => 'succeeded',
+                        'response_text' => 'Checkpoint executado.',
+                        'completed_at' => now(),
+                    ]);
+
+                    return null;
+                });
+        });
+
+        RunScheduledTaskJob::dispatchSync($task->id);
+
+        $task->refresh();
+        $this->assertSame(str_repeat('a', 64), data_get($task->metadata, 'previous_run_receipt_hash'));
+        $this->assertSame(str_repeat('a', 64), data_get($task->metadata, 'last_run_receipt.previous_run_receipt_hash'));
+        $this->assertNotSame(str_repeat('a', 64), data_get($task->metadata, 'last_run_receipt_hash'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) data_get($task->metadata, 'last_run_receipt_hash'));
     }
 
     public function test_job_records_deferred_status_when_mac_background_readiness_delays_trace(): void

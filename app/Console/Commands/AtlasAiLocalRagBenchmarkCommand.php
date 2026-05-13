@@ -121,6 +121,7 @@ final class AtlasAiLocalRagBenchmarkCommand extends Command
                     'schema_version' => $payload['schema_version'] ?? null,
                     'status' => $payload['status'] ?? null,
                     'mode' => $payload['mode'] ?? null,
+                    'safety' => $payload['safety'] ?? [],
                     'review_ap' => $payload['review_ap'] ?? null,
                     'plan_hash' => $payload['plan_hash'] ?? null,
                     'baseline_strategy_id' => $payload['baseline_strategy_id'] ?? null,
@@ -268,6 +269,16 @@ final class AtlasAiLocalRagBenchmarkCommand extends Command
             'next_action' => 'draft_ap_for_retrieval_shadow_comparison_before_execution',
             'generated_at' => now()->toJSON(),
         ];
+        $payload['safety'] = self::retrievalRivalsSafety([
+            'proposal_only' => true,
+            'provider_call_allowed' => false,
+            'runtime_execution_allowed' => false,
+            'policy_auto_apply_allowed' => false,
+            'memory_write_allowed' => false,
+            'raw_query_persisted' => false,
+            'raw_context_persisted' => false,
+            'raw_capture_exposed' => false,
+        ]);
         $payload['plan_hash_algorithm'] = 'sha256';
         $payload['plan_hash'] = hash('sha256', json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
 
@@ -330,6 +341,7 @@ final class AtlasAiLocalRagBenchmarkCommand extends Command
                 'retrieval_rivals' => [
                     'schema_version' => $payload['schema_version'] ?? null,
                     'status' => $payload['status'] ?? null,
+                    'safety' => $payload['safety'] ?? [],
                     'report_hash' => $payload['report_hash'] ?? null,
                     'comparison' => $payload['comparison'] ?? [],
                     'review_packet' => $payload['review_packet'] ?? [],
@@ -675,10 +687,41 @@ final class AtlasAiLocalRagBenchmarkCommand extends Command
             ],
             'generated_at' => now()->toJSON(),
         ];
+        $payload['safety'] = self::retrievalRivalsSafety([
+            'proposal_only' => true,
+            'provider_call_allowed' => false,
+            'runtime_execution_allowed' => false,
+            'policy_auto_apply_allowed' => false,
+            'memory_write_allowed' => false,
+            'raw_query_persisted' => false,
+            'raw_context_persisted' => false,
+            'raw_capture_exposed' => false,
+            'latest_snapshot_hashed' => is_array($comparison['latest'] ?? null) && ($comparison['latest']['source_id_hash'] ?? null) !== null,
+            'previous_snapshot_hashed' => is_array($comparison['previous'] ?? null) && ($comparison['previous']['source_id_hash'] ?? null) !== null,
+        ]);
         $payload['report_hash_algorithm'] = 'sha256';
         $payload['report_hash'] = hash('sha256', json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
 
         return $payload;
+    }
+
+    /**
+     * @param  array<string,mixed>  $overrides
+     * @return array<string,mixed>
+     */
+    private static function retrievalRivalsSafety(array $overrides = []): array
+    {
+        return array_merge([
+            'schema_version' => 'atlas.retrieval_rivals.safety.v1',
+            'proposal_only' => true,
+            'provider_call_allowed' => false,
+            'runtime_execution_allowed' => false,
+            'policy_auto_apply_allowed' => false,
+            'memory_write_allowed' => false,
+            'raw_query_persisted' => false,
+            'raw_context_persisted' => false,
+            'raw_capture_exposed' => false,
+        ], $overrides);
     }
 
     /**

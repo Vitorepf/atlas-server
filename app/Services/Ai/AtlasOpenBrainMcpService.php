@@ -2023,17 +2023,60 @@ class AtlasOpenBrainMcpService
      */
     private function recordTaskLifecycleEvent(AtlasTask $task, string $eventType, array $payload): AtlasTaskEvent
     {
+        $previousEvent = $task->events()
+            ->latest('occurred_at')
+            ->latest('id')
+            ->first();
+        $eventSequence = (int) $task->events()->count() + 1;
+        $eventPayload = [
+            'schema_version' => 'atlas.task_orchestration.event.v1',
+            'tool' => 'atlas_open_brain_mcp',
+            'event_sequence' => $eventSequence,
+            'previous_event_id' => $previousEvent?->id,
+            'previous_event_hash' => data_get($previousEvent?->payload, 'event_hash'),
+            ...$payload,
+        ];
+        $eventPayload['event_hash'] = $this->stableTaskEventHash($task, $eventType, $eventPayload);
+
         return AtlasTaskEvent::create([
             'task_id' => (string) $task->id,
             'event_type' => $eventType,
             'source' => 'mcp_tool',
-            'payload' => [
-                'schema_version' => 'atlas.task_orchestration.event.v1',
-                'tool' => 'atlas_open_brain_mcp',
-                ...$payload,
-            ],
+            'payload' => $eventPayload,
             'occurred_at' => now(),
         ]);
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     */
+    private function stableTaskEventHash(AtlasTask $task, string $eventType, array $payload): string
+    {
+        $hashPayload = $payload;
+        unset($hashPayload['event_hash']);
+
+        $encoded = json_encode($this->sortKeysRecursive([
+            'task_id' => (string) $task->id,
+            'event_type' => $eventType,
+            'payload' => $hashPayload,
+        ]), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+
+        return hash('sha256', $encoded === false ? '' : $encoded);
+    }
+
+    private function sortKeysRecursive(mixed $value): mixed
+    {
+        if (! is_array($value)) {
+            return $value;
+        }
+
+        if (array_is_list($value)) {
+            return array_map(fn (mixed $item): mixed => $this->sortKeysRecursive($item), $value);
+        }
+
+        ksort($value);
+
+        return array_map(fn (mixed $item): mixed => $this->sortKeysRecursive($item), $value);
     }
 
     /**

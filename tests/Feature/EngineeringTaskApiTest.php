@@ -72,7 +72,10 @@ class EngineeringTaskApiTest extends TestCase
             ->assertJsonPath('blueprint.acceptance_matrix.0.id', 'ac_1')
             ->assertJsonPath('status_snapshot.decision.status', 'needs_human_review')
             ->assertJsonPath('latest_run.plan_id', 'plan_1')
-            ->assertJsonPath('events.0.event_type', 'engineering_dev_run_completed');
+            ->assertJsonPath('events.0.event_type', 'engineering_dev_run_completed')
+            ->assertJsonPath('events.0.safety.schema_version', 'atlas.task_orchestration.event_safety.v1')
+            ->assertJsonPath('events.0.safety.provider_dispatch_allowed', false)
+            ->assertJsonPath('events.0.safety.runtime_execution_allowed', false);
     }
 
     public function test_task_engineering_blueprint_can_be_frozen_and_returned(): void
@@ -112,6 +115,37 @@ class EngineeringTaskApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('blueprint_snapshot.version', 1)
             ->assertJsonPath('blueprint_snapshot.matches_current_content', true);
+    }
+
+    public function test_task_api_resource_exposes_orchestration_safety_contract(): void
+    {
+        $task = AtlasTask::query()->create([
+            'title' => 'Publicar safety de task',
+            'description' => 'Task API deve deixar claro que read model nao executa runtime.',
+            'status' => 'open',
+            'priority' => 'high',
+            'domain' => 'atlas',
+            'estimated_minutes' => 45,
+            'metadata' => [
+                'engineering_contract' => [
+                    'goal' => 'Expor safety em task.',
+                ],
+                'latest_engineering_run' => [
+                    'status' => 'needs_review',
+                ],
+            ],
+        ]);
+
+        $this->getJson("/tasks/{$task->id}", $this->headers)
+            ->assertOk()
+            ->assertJsonPath('safety.schema_version', 'atlas.task_orchestration.task_safety.v1')
+            ->assertJsonPath('safety.read_model_only', true)
+            ->assertJsonPath('safety.provider_dispatch_allowed', false)
+            ->assertJsonPath('safety.runtime_execution_allowed', false)
+            ->assertJsonPath('safety.policy_mutation_allowed', false)
+            ->assertJsonPath('safety.auto_complete_allowed', false)
+            ->assertJsonPath('safety.has_engineering_contract', true)
+            ->assertJsonPath('safety.has_latest_engineering_run', true);
     }
 
     public function test_task_engineering_evidence_endpoint_records_review_evidence(): void

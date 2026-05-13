@@ -59,6 +59,18 @@ Every export must include:
 - audit hash or trace id;
 - generated timestamp.
 
+Context pack exports from API, CLI and MCP must expose `safety` as
+`atlas.open_brain.context_pack_safety.v1`. The safety summary declares
+`provider_safe_only=true`, `raw_content_exposed=false`,
+`raw_content_persisted=false`, audit persistence state and safe ref counts.
+
+Memory recall surfaces must also expose safety summary counts:
+
+- `redacted_ref_count` for refs backed by redacted/verbatim hashes;
+- `raw_content_persisted_count`, which must stay `0` for provider-safe recall;
+- audit trails that preserve `redacted_hash` while declaring
+  `raw_content_persisted=false`.
+
 ## Supported Surfaces
 
 - CLI context commands;

@@ -160,6 +160,13 @@ Minimum conceptual shape:
     "budget_chars": 20000,
     "provider_safe": true
   },
+  "safety": {
+    "schema_version": "atlas.open_brain.context_pack_safety.v1",
+    "provider_safe_only": true,
+    "raw_content_exposed": false,
+    "raw_content_persisted": false,
+    "audit_persisted": true
+  },
   "warnings": []
 }
 ```

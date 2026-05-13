@@ -29,6 +29,7 @@ class AiInboxItemResource extends JsonResource
             'payload' => $this->payload ?? [],
             'deep_link' => $this->deep_link,
             'push_policy' => $this->push_policy ?? [],
+            'safety' => $this->safetySummary(),
             'priority_score' => $this->priority_score,
             'confidence_score' => $this->confidence_score,
             'expires_at' => $this->expires_at?->toJSON(),
@@ -50,6 +51,39 @@ class AiInboxItemResource extends JsonResource
                 'file_refs' => $this->contextBundle->file_refs ?? [],
                 'diff_refs' => $this->contextBundle->diff_refs ?? [],
             ] : null),
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function safetySummary(): array
+    {
+        $pushPolicy = is_array($this->push_policy) ? $this->push_policy : [];
+        $availableActions = is_array($this->available_actions) ? $this->available_actions : [];
+        $pushSend = (string) ($pushPolicy['send'] ?? 'auto');
+        $proactiveContract = is_array(data_get($this->payload ?? [], 'proactive_delivery_contract'))
+            ? data_get($this->payload ?? [], 'proactive_delivery_contract')
+            : [];
+
+        return [
+            'schema_version' => 'atlas.inbox_item.safety.v1',
+            'authenticated_api_required' => true,
+            'proactive_delivery_contract_schema' => data_get($proactiveContract, 'schema_version'),
+            'proactive_delivery_contract_hash' => data_get($proactiveContract, 'contract_hash'),
+            'has_proactive_delivery_contract' => $proactiveContract !== [],
+            'push_is_pointer_only' => true,
+            'push_delivery_requested' => $pushSend !== 'none',
+            'push_send_mode' => $pushSend,
+            'deep_link_only_delivery' => true,
+            'context_bundle_api_only' => $this->context_bundle_id !== null,
+            'raw_context_exposed_in_push' => false,
+            'raw_payload_exposed_in_push' => false,
+            'body_exposed_in_push' => false,
+            'auto_action_allowed' => false,
+            'available_action_count' => count($availableActions),
+            'status' => $this->status,
+            'severity' => $this->severity,
         ];
     }
 }

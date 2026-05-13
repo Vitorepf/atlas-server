@@ -74,7 +74,16 @@ Ja existe base operacional:
    Memory Registry com receipt;
 9. `captures.metadata.semantic_curation` liga proposta automatica ao
    `CaptureResource.review_workflow` sem marcar destino como resolvido;
-10. AtlasVault como Human Knowledge Surface, nao fonte operacional crua.
+10. raw capture quarantine keeps `provider_export_allowed=false`,
+    `open_brain_context_allowed=false` and `raw_content_exposed=false` until
+    human review promotes a safe memory/verbatim artifact.
+11. duplicate capture ingest records `atlas.capture.ingest_replay_receipt.v1`
+    audit evidence with hashes/quarantine flags and no raw content exposure.
+12. `CaptureResource.capture_safety` exposes
+    `atlas.capture.resource_safety.v1` so API consumers can distinguish raw
+    authenticated payload visibility from provider/Open Brain/embedding/memory
+    eligibility.
+13. AtlasVault como Human Knowledge Surface, nao fonte operacional crua.
 
 Falta transformar isso em Content Intelligence completo para fontes externas,
 source reputation, YouTube global, PDFs, feeds e routing multi-dominio.

@@ -70,17 +70,36 @@ class RunScheduledTaskJob implements ShouldQueue
 
         $durationMs = (int) ((hrtime(true) - $started) / 1_000_000);
         $silent = $status === 'success' && Str::startsWith(ltrim($output), '[SILENT]');
-        $path = $this->writeOutput($task, $status, $output, $durationMs, $trace, $error);
+        $previousReceiptHash = data_get($task->metadata, 'last_run_receipt_hash');
+        $outputHash = hash('sha256', AtlasSecurity::redactString($output));
+        $deliveryStatus = $this->deliveryStatus($task, $status, $silent);
+        $receipt = $this->scheduledRunReceipt(
+            task: $task,
+            status: $status,
+            outputHash: $outputHash,
+            durationMs: $durationMs,
+            trace: $trace,
+            error: $error,
+            previousReceiptHash: is_string($previousReceiptHash) ? $previousReceiptHash : null,
+            deliveryStatus: $deliveryStatus,
+        );
+        $receiptHash = $this->scheduledRunReceiptHash($receipt);
+        $path = $this->writeOutput($task, $status, $output, $durationMs, $trace, $error, $receiptHash);
 
         $task->update([
             'last_run_at' => now(),
             'last_status' => $status,
             'last_output_path' => $path,
             'metadata' => array_merge($task->metadata ?? [], [
+                'last_run_schema_version' => 'atlas.scheduled_task_run_receipt.v1',
                 'last_trace_id' => $trace?->id,
                 'last_duration_ms' => $durationMs,
+                'last_output_hash' => $outputHash,
+                'last_run_receipt' => $receipt,
+                'last_run_receipt_hash' => $receiptHash,
+                'previous_run_receipt_hash' => $previousReceiptHash,
                 'last_delivery_suppressed' => $silent,
-                'last_delivery_status' => $this->deliveryStatus($task, $status, $silent),
+                'last_delivery_status' => $deliveryStatus,
                 'last_error' => $error ? Str::limit(AtlasSecurity::redactString($error->getMessage()), 500, '') : null,
             ]),
         ]);
@@ -262,18 +281,18 @@ TXT);
         return implode("\n", $parts);
     }
 
-    private function writeOutput(AiScheduledTask $task, string $status, string $output, int $durationMs, ?AiTrace $trace, ?Throwable $error): string
+    private function writeOutput(AiScheduledTask $task, string $status, string $output, int $durationMs, ?AiTrace $trace, ?Throwable $error, string $receiptHash): string
     {
         $timestamp = now()->format('Ymd_His');
         $directory = storage_path('app/atlas/scheduled/'.$task->id);
         $path = $directory.'/'.$timestamp.'.md';
         File::ensureDirectoryExists($directory);
-        File::put($path, AtlasSecurity::redactString($this->renderOutput($task, $status, $output, $durationMs, $trace, $error)));
+        File::put($path, AtlasSecurity::redactString($this->renderOutput($task, $status, $output, $durationMs, $trace, $error, $receiptHash)));
 
         return $path;
     }
 
-    private function renderOutput(AiScheduledTask $task, string $status, string $output, int $durationMs, ?AiTrace $trace, ?Throwable $error): string
+    private function renderOutput(AiScheduledTask $task, string $status, string $output, int $durationMs, ?AiTrace $trace, ?Throwable $error, string $receiptHash): string
     {
         if (! $task->wrap_response) {
             return $output;
@@ -290,12 +309,64 @@ TXT);
 Run at: {$runAt}
 Status: {$status}
 Duration: {$durationMs}ms
+Run receipt: {$receiptHash}
 Skills used: {$skills}{$traceLine}{$errorLine}
 
 ---
 
 {$output}
 MD)."\n";
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function scheduledRunReceipt(
+        AiScheduledTask $task,
+        string $status,
+        string $outputHash,
+        int $durationMs,
+        ?AiTrace $trace,
+        ?Throwable $error,
+        ?string $previousReceiptHash,
+        string $deliveryStatus,
+    ): array {
+        $workspace = $task->workspace ?: (string) config('atlas.ai.workdir', dirname(base_path()));
+
+        return [
+            'schema_version' => 'atlas.scheduled_task_run_receipt.v1',
+            'scheduled_task_id' => (string) $task->id,
+            'title_hash' => hash('sha256', (string) $task->title),
+            'prompt_hash' => hash('sha256', (string) $task->prompt),
+            'schedule_hash' => hash('sha256', (string) $task->schedule),
+            'workspace_hash' => hash('sha256', realpath($workspace) ?: $workspace),
+            'kind' => $task->kind,
+            'target_platform' => $task->target_platform,
+            'status' => $status,
+            'delivery_status' => $deliveryStatus,
+            'trace_id' => $trace?->id,
+            'duration_ms' => $durationMs,
+            'output_hash' => $outputHash,
+            'error_hash' => $error ? hash('sha256', AtlasSecurity::redactString($error->getMessage())) : null,
+            'previous_run_receipt_hash' => $previousReceiptHash,
+            'anti_recursion_guarded' => true,
+            'tool_permission_mode' => 'read',
+            'provider_dispatch_source' => 'scheduled_gateway',
+            'raw_prompt_persisted' => false,
+            'raw_output_in_metadata' => false,
+            'workspace_path_exposed' => false,
+            'provider_change_allowed' => false,
+            'retry_authorized_by_receipt' => false,
+            'schedule_mutation_allowed' => false,
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $receipt
+     */
+    private function scheduledRunReceiptHash(array $receipt): string
+    {
+        return hash('sha256', json_encode($receipt, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '');
     }
 
     private function timeoutSeconds(AiScheduledTask $task): int

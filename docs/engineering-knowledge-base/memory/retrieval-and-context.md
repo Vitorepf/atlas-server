@@ -94,6 +94,10 @@ privacy proof.
 Required behavior:
 
 - preserve `content_hash` from Memory Registry, Verbatim Store and semantic notes;
+- preserve `redacted_hash` for Verbatim recall and mark `raw_content_persisted=false`
+  in recall audit trails;
+- expose recall summary counts for `redacted_ref_count` and
+  `raw_content_persisted_count` so API, CLI and MCP consumers can fail closed;
 - mark missing dates as `freshness.status=unknown` instead of inventing dates;
 - mark old dated memory as `stale_review_recommended`;
 - keep audit metadata provider-safe and free of raw secrets;

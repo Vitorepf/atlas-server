@@ -128,6 +128,16 @@ Mobile deve consumir o mesmo catalogo que CLI/API/app:
 ## Push E Inbox Safety
 
 - Push payload contem `inbox_id`, `deep_link`, tipo, prioridade e resumo curto.
+- Inbox API/CLI resources expose `safety` as `atlas.inbox_item.safety.v1`:
+  authenticated API required, push pointer-only, context bundle API-only,
+  no raw context/payload/body in push and no automatic action execution.
+- Every item created by `AtlasInboxService` persists
+  `payload.proactive_delivery_contract` as
+  `atlas.proactive.delivery_contract.v1`: a hash-only boundary receipt for the
+  proactive layer with push mode, pointer-only flags, API-auth requirement,
+  context-bundle API-only status, action-registry requirement, dedupe/deep-link
+  hashes and the allowlisted push data fields. Dedupe refreshes the same
+  contract instead of reusing stale delivery metadata.
 - Conteudo sensivel fica atras de API autenticada.
 - Dedupe key evita spam.
 - Quiet hours, deferred delivery e invalid token devem ser auditaveis.

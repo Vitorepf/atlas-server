@@ -16,6 +16,7 @@ tags:
   - kernel-window
 capabilities:
   - atlas_desktop_code_surface
+  - engineering_operations_system
   - governed_coding_surface
   - multi_agent_orchestration_ui
   - spec_driven_coding_ui
@@ -23,6 +24,7 @@ capabilities:
   - evidence_ledger_ui
   - continuity_session_ui
 decisions:
+  - Atlas Code materializes the Engineering Operations System category: the MES of software construction.
   - The Code surface is a window into the Kernel, not an editor. Vitor directs; Atlas programs.
   - All 11 canonical axes must be honored; no axis-invariant is skipped for UI simplicity.
   - Atlas Decide owns provider routing. The surface displays the decision; it never lets the user pick provider by dropdown without `manual_override` audit.
@@ -37,6 +39,7 @@ maintenance:
   - Keep ≤ 360 lines; if it grows, split per zone of the surface into child specs.
   - Bidirectional `related_paths` must stay in sync with each axis owner doc.
 related_paths:
+  - docs/engineering-knowledge-base/atlas-code-category-evolution.md
   - docs/engineering-knowledge-base/atlas-ai-master-architecture.md
   - docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md
   - docs/engineering-knowledge-base/atlas-ai-pipeline.md

@@ -2,11 +2,12 @@
 
 namespace Tests\Feature;
 
+use App\Models\AtlasLedgerEvent;
 use App\Models\AtlasToolFinding;
 use App\Models\AtlasToolRun;
-use App\Models\AtlasLedgerEvent;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use App\Services\Tools\AtlasToolEvidenceStore;
+use App\Services\Tools\AtlasToolGateService;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\File;
@@ -117,7 +118,11 @@ class AtlasToolRuntimeCoreTest extends TestCase
         $this->assertSame('security', data_get($run->metadata_json, 'tool_category'));
         $this->assertSame('scanner', data_get($run->metadata_json, 'tool_type'));
         $this->assertSame('T2', data_get($run->metadata_json, 'execution_tier'));
-        $gate = app(\App\Services\Tools\AtlasToolGateService::class)->evaluate([
+        $this->assertSame('atlas.tool_evidence_receipt.v1', data_get($run->metadata_json, 'receipt_schema_version'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) data_get($run->metadata_json, 'summary_hash'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) data_get($run->metadata_json, 'normalized_result_hash'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) data_get($run->metadata_json, 'evidence_receipt_hash'));
+        $gate = app(AtlasToolGateService::class)->evaluate([
             'workspace' => $this->workspace,
             'run_context_type' => 'engineering_run',
             'run_context_id' => 'run-ledger-1',
@@ -145,6 +150,10 @@ class AtlasToolRuntimeCoreTest extends TestCase
         $this->assertSame($run->id, data_get($events->first()?->payload, 'tool_run_id'));
         $this->assertSame('semantic_sast', data_get($events->first()?->payload, 'authority_group'));
         $this->assertSame('complementary', data_get($events->first()?->payload, 'authority_role'));
+        $this->assertSame(data_get($run->metadata_json, 'summary_hash'), data_get($events->first()?->payload, 'summary_hash'));
+        $this->assertSame(data_get($run->metadata_json, 'normalized_result_hash'), data_get($events->first()?->payload, 'normalized_result_hash'));
+        $this->assertSame(data_get($run->metadata_json, 'evidence_receipt_hash'), data_get($events->first()?->payload, 'evidence_receipt_hash'));
+        $this->assertSame('atlas.tool_evidence_receipt.v1', data_get($events->first()?->payload, 'receipt_schema_version'));
         $this->assertSame([$run->id], data_get($events[1]?->payload, 'run_ids'));
         $this->assertSame('gate.evaluate', data_get($events->last()?->payload, 'stage'));
         $this->assertNull(data_get($events->first()?->payload, 'workspace'));

@@ -12,8 +12,7 @@ class AiTelemetryHealthService
         private readonly AiTelemetryScorecardService $scorecards,
         private readonly AiProviderCostRateService $costRates,
         private readonly InsightInboxEmitter $insights,
-    ) {
-    }
+    ) {}
 
     /**
      * @return array<string,mixed>
@@ -23,8 +22,7 @@ class AiTelemetryHealthService
         ?CarbonInterface $until = null,
         string $basis = 'computed_at',
         bool $exclusiveUntil = false,
-    ): array
-    {
+    ): array {
         $until ??= now();
         $scorecard = $this->scorecards->build($since, $until, $basis, $exclusiveUntil);
         if (! ($scorecard['available'] ?? false)) {
@@ -464,6 +462,7 @@ class AiTelemetryHealthService
         $breakdowns = $this->breakdowns((array) ($evaluation['scorecard'] ?? []));
         $notificationPolicy = $this->notificationPolicy($evaluation, $issues);
         $whyReceived = $this->whyReceived($evaluation, $issues, $notificationPolicy);
+        $notificationReceipt = $this->notificationReceipt($evaluation, $issues, $notificationPolicy, $whyReceived, $sample);
 
         return [
             'title' => 'Atlas precisa de revisao operacional',
@@ -483,6 +482,7 @@ class AiTelemetryHealthService
                     'window' => $window,
                     'why_received' => $whyReceived,
                     'notification_policy' => $notificationPolicy,
+                    'notification_receipt' => $notificationReceipt,
                     'sample' => $sample,
                     'breakdowns' => $breakdowns,
                     'issues' => $issues,
@@ -500,6 +500,50 @@ class AiTelemetryHealthService
             ],
             'confidence' => $status === 'critical' ? 0.9 : 0.78,
         ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $evaluation
+     * @param  array<int,array<string,mixed>>  $issues
+     * @param  array<string,mixed>  $notificationPolicy
+     * @param  array<string,mixed>  $whyReceived
+     * @param  array<string,mixed>  $sample
+     * @return array<string,mixed>
+     */
+    private function notificationReceipt(array $evaluation, array $issues, array $notificationPolicy, array $whyReceived, array $sample): array
+    {
+        $window = (array) ($evaluation['window'] ?? []);
+        $issueSummaries = collect($issues)
+            ->map(fn (array $issue): array => [
+                'key' => (string) ($issue['key'] ?? 'unknown'),
+                'severity' => (string) ($issue['severity'] ?? 'unknown'),
+                'value_hash' => hash('sha256', json_encode($issue['value'] ?? null, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: 'null'),
+                'threshold_hash' => hash('sha256', json_encode($issue['threshold'] ?? null, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: 'null'),
+            ])
+            ->values()
+            ->all();
+        $payload = [
+            'schema_version' => 'atlas.telemetry_health.notification_receipt.v1',
+            'status' => (string) ($evaluation['status'] ?? 'unknown'),
+            'health_score' => is_numeric($evaluation['health_score'] ?? null) ? (int) $evaluation['health_score'] : null,
+            'window_since' => $window['since'] ?? null,
+            'window_until' => $window['until'] ?? null,
+            'issue_count' => count($issues),
+            'issue_summaries' => $issueSummaries,
+            'sample_confidence' => (string) ($sample['confidence'] ?? 'unknown'),
+            'push_send' => $notificationPolicy['send'] ?? null,
+            'push_reason' => $notificationPolicy['reason'] ?? null,
+            'push_channel' => $notificationPolicy['channel'] ?? null,
+            'why_scheduler' => $whyReceived['scheduler'] ?? null,
+            'no_provider_call' => true,
+            'no_runtime_execution' => true,
+            'no_policy_patch' => true,
+            'no_memory_write' => true,
+        ];
+        $payload['receipt_hash_algorithm'] = 'sha256';
+        $payload['receipt_hash'] = hash('sha256', json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '');
+
+        return $payload;
     }
 
     /**

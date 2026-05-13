@@ -40,6 +40,7 @@ class CaptureService
             if ($this->isReadyForSemanticCuration($existing)) {
                 $existing = $this->clarifyProposeAndActivate($existing, 'capture_replayed');
             }
+            $this->recordCaptureReplay($existing->refresh(), $data);
 
             return ['capture' => $existing->refresh(), 'created' => false];
         }
@@ -205,6 +206,9 @@ class CaptureService
                 'context_eligible' => false,
                 'constellation_eligible' => false,
                 'embedding_allowed' => false,
+                'provider_export_allowed' => false,
+                'open_brain_context_allowed' => false,
+                'raw_content_exposed' => false,
                 'promotion_status' => $existing['promotion_status'] ?? 'unclassified',
                 'promotion_target' => $existing['promotion_target'] ?? null,
                 'source_type' => 'capture',
@@ -261,6 +265,39 @@ class CaptureService
             'sha256' => $present ? hash('sha256', $content) : null,
             'present' => $present,
         ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $data
+     */
+    private function recordCaptureReplay(Capture $capture, array $data): void
+    {
+        $this->audit->record('capture_replayed', [
+            'subject_type' => 'capture',
+            'subject_id' => $capture->id,
+            'summary' => "Captura {$capture->kind} reaproveitada por idempotencia.",
+            'evidence' => [
+                'schema_version' => 'atlas.capture.ingest_replay_receipt.v1',
+                'created' => false,
+                'replay_reason' => 'client_id_already_exists',
+                'capture_id' => $capture->id,
+                'capture_client_id_hash' => is_scalar($data['client_id'] ?? null) ? hash('sha256', (string) $data['client_id']) : null,
+                'content_fingerprint' => $this->redactedCaptureTextEvidence($capture->content_text),
+                'content_hash' => data_get($capture->metadata, 'cognitive_quarantine.content_hash')
+                    ?? $capture->content_sha256
+                    ?? (is_string($capture->content_text) && $capture->content_text !== '' ? hash('sha256', $capture->content_text) : null),
+                'cognitive_quarantine' => data_get($capture->metadata, 'cognitive_quarantine'),
+                'raw_content_exposed' => false,
+            ],
+            'privacy' => $this->capturePrivacy($capture),
+            'refs' => [
+                'capture_id' => $capture->id,
+                'capture_client_id' => $capture->client_id,
+            ],
+            'metadata' => [
+                'schema_version' => 'atlas.capture.ingest_replay_receipt.v1',
+            ],
+        ]);
     }
 
     public function retryTranscription(Capture $capture): Capture

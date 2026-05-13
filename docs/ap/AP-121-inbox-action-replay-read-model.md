@@ -27,8 +27,10 @@ para actions do Inbox. O evento fonte canonico e
 - emitir review signal `review_patch_action_without_diff_refs` quando uma action
   `review_patch` nao trouxer `diff_refs`.
 - emitir review signal `memory_retrieval_regression_review_recorded` quando
-  `review_retrieval_regression` carregar marker `reviewed=true`; se o marker
-  estiver ausente, sinalizar `review_retrieval_regression_action_without_review_marker`.
+  `review_retrieval_regression` carregar marker `reviewed=true`; o replay deve
+  projetar report hash, latest/previous snapshot hashes, decision receipt hash e
+  `memory_write_allowed_now=false`; se o marker estiver ausente, sinalizar
+  `review_retrieval_regression_action_without_review_marker`.
 - emitir review signal `memory_retrieval_shadow_scope_review_recorded` quando
   `review_retrieval_shadow_scope` carregar marker `reviewed=true` e decision
   receipt hash; se o receipt estiver ausente, sinalizar

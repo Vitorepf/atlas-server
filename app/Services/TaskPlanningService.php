@@ -387,6 +387,8 @@ class TaskPlanningService
             return null;
         }
 
+        $payload = $this->taskEventPayload($task, $eventType, $payload, $source);
+
         return AtlasTaskEvent::query()->create([
             'task_id' => $task->id,
             'event_type' => $eventType,
@@ -394,6 +396,93 @@ class TaskPlanningService
             'payload' => $payload,
             'occurred_at' => now(),
         ]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
+    private function taskEventPayload(AtlasTask $task, string $eventType, array $payload, string $source): array
+    {
+        $previousEvent = AtlasTaskEvent::query()
+            ->where('task_id', $task->id)
+            ->latest('occurred_at')
+            ->latest('created_at')
+            ->first();
+        $eventSequence = AtlasTaskEvent::query()
+            ->where('task_id', $task->id)
+            ->count() + 1;
+
+        $eventPayload = [
+            ...$payload,
+            'schema_version' => 'atlas.task_orchestration.event.v1',
+            'event_sequence' => $eventSequence,
+            'previous_event_id' => $previousEvent?->id,
+            'previous_event_hash' => data_get($previousEvent?->payload, 'event_hash'),
+            'orchestration_receipt' => [
+                'schema_version' => 'atlas.task_orchestration.local_event_receipt.v1',
+                'task_id' => $task->id,
+                'event_type' => $eventType,
+                'source' => $source,
+                'event_sequence' => $eventSequence,
+                'hash_algorithm' => 'sha256',
+                'provider_dispatch_allowed' => false,
+                'runtime_execution_allowed' => false,
+                'policy_mutation_allowed' => false,
+                'auto_completion_allowed' => false,
+                'payload_api_only' => true,
+            ],
+        ];
+        $eventPayload['event_hash'] = $this->stableTaskEventHash($task, $eventType, $source, $eventPayload);
+
+        return $eventPayload;
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private function stableTaskEventHash(AtlasTask $task, string $eventType, string $source, array $payload): string
+    {
+        unset($payload['event_hash']);
+
+        return hash('sha256', $this->stableJson([
+            'task_id' => $task->id,
+            'event_type' => $eventType,
+            'source' => $source,
+            'payload' => $payload,
+        ]));
+    }
+
+    private function stableJson(mixed $value): string
+    {
+        if (is_array($value)) {
+            if (! array_is_list($value)) {
+                ksort($value);
+            }
+
+            foreach ($value as $key => $nested) {
+                $value[$key] = $this->stableJsonValue($nested);
+            }
+        }
+
+        return json_encode($value, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+    }
+
+    private function stableJsonValue(mixed $value): mixed
+    {
+        if (! is_array($value)) {
+            return $value;
+        }
+
+        if (! array_is_list($value)) {
+            ksort($value);
+        }
+
+        foreach ($value as $key => $nested) {
+            $value[$key] = $this->stableJsonValue($nested);
+        }
+
+        return $value;
     }
 
     /**

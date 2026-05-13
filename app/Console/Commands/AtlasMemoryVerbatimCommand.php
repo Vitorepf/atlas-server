@@ -269,8 +269,34 @@ class AtlasMemoryVerbatimCommand extends Command
             'status' => $memory->status,
             'tags' => array_values((array) $memory->tags),
             'metadata' => $memory->metadata,
+            'safety' => $this->safetySummary($memory, $includeVerbatim),
             'recorded_at' => $memory->recorded_at?->toJSON(),
             'archived_at' => $memory->archived_at?->toJSON(),
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function safetySummary(AtlasVerbatimMemory $memory, bool $includeVerbatim): array
+    {
+        $providerExportAllowed = $memory->external_ai_allowed === true
+            && $memory->privacy_class !== 'secret'
+            && $memory->redaction_status !== 'blocked'
+            && trim((string) $memory->redacted_text) !== '';
+
+        return [
+            'schema_version' => 'atlas.verbatim_memory.safety.v1',
+            'memory_eligible' => $memory->status === 'active',
+            'context_eligible' => $memory->status === 'active' && $providerExportAllowed,
+            'provider_export_allowed' => $providerExportAllowed,
+            'open_brain_context_allowed' => $memory->status === 'active' && $providerExportAllowed,
+            'raw_content_exposed' => $includeVerbatim,
+            'verbatim_text_exposed' => $includeVerbatim,
+            'privacy_class' => $memory->privacy_class,
+            'redaction_status' => $memory->redaction_status,
+            'content_hash' => $memory->content_hash,
+            'redacted_hash' => $memory->redacted_hash,
         ];
     }
 

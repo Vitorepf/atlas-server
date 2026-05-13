@@ -192,6 +192,11 @@ class AtlasMemoryRegistryTest extends TestCase
 
         $this->assertSame(0, $addExit);
         $this->assertSame('technical_context', data_get($addPayload, 'memory.memory_type'));
+        $this->assertSame('atlas.memory_entry.safety.v1', data_get($addPayload, 'memory.safety.schema_version'));
+        $this->assertTrue(data_get($addPayload, 'memory.safety.memory_eligible'));
+        $this->assertFalse(data_get($addPayload, 'memory.safety.provider_export_allowed'));
+        $this->assertFalse(data_get($addPayload, 'memory.safety.open_brain_context_allowed'));
+        $this->assertFalse(data_get($addPayload, 'memory.safety.raw_content_exposed'));
 
         $listExit = Artisan::call('atlas:memory:list', [
             '--task-id' => $task->id,
@@ -201,6 +206,8 @@ class AtlasMemoryRegistryTest extends TestCase
 
         $this->assertSame(0, $listExit);
         $this->assertSame('CLI memory entry for task scoped recall.', data_get($listPayload, 'memories.0.body'));
+        $this->assertSame('atlas.memory_entry.safety.v1', data_get($listPayload, 'memories.0.safety.schema_version'));
+        $this->assertFalse(data_get($listPayload, 'memories.0.safety.provider_export_allowed'));
     }
 
     public function test_ai_context_pack_includes_registry_memory_refs_and_prompt_section(): void
@@ -532,7 +539,18 @@ class AtlasMemoryRegistryTest extends TestCase
             ->assertOk()
             ->assertJsonPath('memory.source_type', 'ai_memory_delta')
             ->assertJsonPath('memory.source_id', $apiDelta->id)
-            ->assertJsonPath('memory_delta.status', 'promoted');
+            ->assertJsonPath('memory.safety.schema_version', 'atlas.memory_entry.safety.v1')
+            ->assertJsonPath('memory.safety.memory_eligible', true)
+            ->assertJsonPath('memory.safety.context_eligible', false)
+            ->assertJsonPath('memory.safety.provider_export_allowed', false)
+            ->assertJsonPath('memory.safety.open_brain_context_allowed', false)
+            ->assertJsonPath('memory.safety.raw_content_exposed', false)
+            ->assertJsonPath('memory_delta.status', 'promoted')
+            ->assertJsonPath('memory_delta.safety.schema_version', 'atlas.memory_delta.safety.v1')
+            ->assertJsonPath('memory_delta.safety.memory_eligible', true)
+            ->assertJsonPath('memory_delta.safety.context_eligible', true)
+            ->assertJsonPath('memory_delta.safety.open_brain_context_allowed', true)
+            ->assertJsonPath('memory_delta.safety.raw_content_exposed', false);
 
         $exitCode = Artisan::call('atlas:cli:memory', [
             'action' => 'promote',
@@ -557,12 +575,19 @@ class AtlasMemoryRegistryTest extends TestCase
         $this->getJson('/ai/memory/deltas?status=pending', $this->headers)
             ->assertOk()
             ->assertJsonCount(2, 'memory_deltas')
-            ->assertJsonPath('memory_deltas.0.status', 'pending');
+            ->assertJsonPath('memory_deltas.0.status', 'pending')
+            ->assertJsonPath('memory_deltas.0.safety.schema_version', 'atlas.memory_delta.safety.v1')
+            ->assertJsonPath('memory_deltas.0.safety.memory_eligible', false)
+            ->assertJsonPath('memory_deltas.0.safety.context_eligible', false)
+            ->assertJsonPath('memory_deltas.0.safety.provider_export_allowed', false)
+            ->assertJsonPath('memory_deltas.0.safety.open_brain_context_allowed', false)
+            ->assertJsonPath('memory_deltas.0.safety.raw_content_exposed', false);
 
         $this->getJson("/ai/memory/deltas/{$accepted->id}", $this->headers)
             ->assertOk()
             ->assertJsonPath('memory_delta.id', $accepted->id)
-            ->assertJsonPath('memory_delta.evidence.0.kind', 'test');
+            ->assertJsonPath('memory_delta.evidence.0.kind', 'test')
+            ->assertJsonPath('memory_delta.safety.evidence_count', 1);
 
         $this->postJson("/ai/memory/deltas/{$accepted->id}/review", [
             'action' => 'accept',
@@ -574,7 +599,10 @@ class AtlasMemoryRegistryTest extends TestCase
             ->assertJsonPath('review_receipt.schema_version', 'atlas.memory_delta.review_receipt.v1')
             ->assertJsonPath('review_receipt.previous_status', 'pending')
             ->assertJsonPath('review_receipt.status', 'accepted')
-            ->assertJsonPath('review_receipt.reviewed_by', 'feature-test');
+            ->assertJsonPath('review_receipt.reviewed_by', 'feature-test')
+            ->assertJsonPath('memory_delta.safety.memory_eligible', true)
+            ->assertJsonPath('memory_delta.safety.context_eligible', false)
+            ->assertJsonPath('memory_delta.safety.raw_content_exposed', false);
 
         $this->postJson("/ai/memory/deltas/{$rejected->id}/review", [
             'action' => 'reject',
@@ -1105,7 +1133,10 @@ class AtlasMemoryRegistryTest extends TestCase
         $this->getJson('/ai/memory/relations?type=conflict&status=open', $this->headers)
             ->assertOk()
             ->assertJsonPath('relations.0.id', $conflict->id)
-            ->assertJsonPath('relations.0.source_memory.title', 'Relation conflict');
+            ->assertJsonPath('relations.0.source_memory.title', 'Relation conflict')
+            ->assertJsonPath('relations.0.source_memory.safety.schema_version', 'atlas.memory_entry.safety.v1')
+            ->assertJsonPath('relations.0.source_memory.safety.raw_content_exposed', false)
+            ->assertJsonPath('relations.0.target_memory.safety.schema_version', 'atlas.memory_entry.safety.v1');
 
         $this->postJson("/ai/memory/relations/{$conflict->id}/review", [
             'status' => 'resolved',
@@ -1132,6 +1163,8 @@ class AtlasMemoryRegistryTest extends TestCase
 
         $this->assertSame(0, $exitCode);
         $this->assertSame('dismissed', data_get($payload, 'relation.status'));
+        $this->assertSame('atlas.memory_entry.safety.v1', data_get($payload, 'relation.source_memory.safety.schema_version'));
+        $this->assertFalse(data_get($payload, 'relation.source_memory.safety.raw_content_exposed'));
         $this->assertSame('dismissed', $duplicateRelation->refresh()->status);
 
         $listExit = Artisan::call('atlas:memory:relations', [
@@ -1143,6 +1176,7 @@ class AtlasMemoryRegistryTest extends TestCase
 
         $this->assertSame(0, $listExit);
         $this->assertContains($duplicateRelation->id, collect(data_get($listPayload, 'relations', []))->pluck('id')->all());
+        $this->assertSame('atlas.memory_entry.safety.v1', data_get($listPayload, 'relations.0.source_memory.safety.schema_version'));
     }
 
     public function test_memory_registry_privacy_guard_redacts_blocks_and_releases_context_pack(): void
@@ -1183,6 +1217,8 @@ class AtlasMemoryRegistryTest extends TestCase
             ->assertOk()
             ->assertJsonPath('memory.privacy_class', 'normal')
             ->assertJsonPath('memory.external_ai_allowed', true)
+            ->assertJsonPath('memory.safety.provider_export_allowed', true)
+            ->assertJsonPath('memory.safety.open_brain_context_allowed', true)
             ->assertJsonPath('memory.redacted_body', 'Provider-safe decision with token removed.');
 
         $pack = $this->contextPackForTask($project, $task);
@@ -1201,6 +1237,10 @@ class AtlasMemoryRegistryTest extends TestCase
 
         $this->assertSame(0, $exitCode);
         $this->assertFalse(data_get($payload, 'memory.external_ai_allowed'));
+        $this->assertSame('atlas.memory_entry.safety.v1', data_get($payload, 'memory.safety.schema_version'));
+        $this->assertFalse(data_get($payload, 'memory.safety.provider_export_allowed'));
+        $this->assertFalse(data_get($payload, 'memory.safety.open_brain_context_allowed'));
+        $this->assertFalse(data_get($payload, 'memory.safety.raw_content_exposed'));
         $this->assertSame([], data_get($this->contextPackForTask($project, $task)->toArray(), 'memory.registry'));
 
         $scanExit = Artisan::call('atlas:memory:privacy', [
@@ -1293,6 +1333,16 @@ class AtlasMemoryRegistryTest extends TestCase
         $this->assertContains('memory_privacy:'.$sensitiveEntry->id, $items->pluck('id')->all());
         $this->assertContains('verbatim_privacy:'.$verbatim->id, $items->pluck('id')->all());
         $this->assertContains('relation:'.$relation->id, $items->pluck('id')->all());
+        $memoryItem = $items->firstWhere('id', 'memory_privacy:'.$sensitiveEntry->id);
+        $verbatimItem = $items->firstWhere('id', 'verbatim_privacy:'.$verbatim->id);
+        $relationItem = $items->firstWhere('id', 'relation:'.$relation->id);
+        $this->assertSame('atlas.memory_entry.safety.v1', data_get($memoryItem, 'safety.schema_version'));
+        $this->assertFalse(data_get($memoryItem, 'safety.provider_export_allowed'));
+        $this->assertFalse(data_get($memoryItem, 'safety.raw_content_exposed'));
+        $this->assertSame('atlas.verbatim_memory.safety.v1', data_get($verbatimItem, 'safety.schema_version'));
+        $this->assertFalse(data_get($verbatimItem, 'safety.provider_export_allowed'));
+        $this->assertFalse(data_get($verbatimItem, 'safety.verbatim_text_exposed'));
+        $this->assertSame('atlas.memory_entry.safety.v1', data_get($relationItem, 'source_memory.safety.schema_version'));
 
         $exitCode = Artisan::call('atlas:memory:review-queue', [
             '--task-id' => $task->id,
@@ -1305,6 +1355,7 @@ class AtlasMemoryRegistryTest extends TestCase
         $this->assertSame(1, data_get($cliPayload, 'review_queue.counts.memory_privacy'));
         $this->assertSame(1, data_get($cliPayload, 'review_queue.counts.verbatim_privacy'));
         $this->assertSame(1, data_get($cliPayload, 'review_queue.counts.relation'));
+        $this->assertSame('atlas.memory_entry.safety.v1', data_get($cliPayload, 'review_queue.items.0.safety.schema_version'));
     }
 
     public function test_verbatim_memory_service_redacts_links_registry_and_blocks_provider_context(): void
@@ -1410,6 +1461,9 @@ class AtlasMemoryRegistryTest extends TestCase
             ->assertJsonPath('verbatim_memory.verbatim_type', 'command')
             ->assertJsonPath('verbatim_memory.verbatim_text', null)
             ->assertJsonPath('verbatim_memory.redaction_status', 'clean')
+            ->assertJsonPath('verbatim_memory.safety.schema_version', 'atlas.verbatim_memory.safety.v1')
+            ->assertJsonPath('verbatim_memory.safety.raw_content_exposed', false)
+            ->assertJsonPath('verbatim_memory.safety.verbatim_text_exposed', false)
             ->assertJsonPath('verbatim_memory.task_id', $task->id);
 
         $id = (string) data_get($response->json(), 'verbatim_memory.id');
@@ -1418,12 +1472,15 @@ class AtlasMemoryRegistryTest extends TestCase
         $this->getJson("/ai/memory/verbatim/{$id}?include_verbatim=1", $this->headers)
             ->assertOk()
             ->assertJsonPath('verbatim_memory.verbatim_text', $exact)
-            ->assertJsonPath('verbatim_memory.redacted_text', $exact);
+            ->assertJsonPath('verbatim_memory.redacted_text', $exact)
+            ->assertJsonPath('verbatim_memory.safety.raw_content_exposed', true)
+            ->assertJsonPath('verbatim_memory.safety.verbatim_text_exposed', true);
 
         $this->getJson('/ai/memory/verbatim?type=command&tag=tests', $this->headers)
             ->assertOk()
             ->assertJsonPath('verbatim_memories.0.id', $id)
-            ->assertJsonPath('verbatim_memories.0.verbatim_text', null);
+            ->assertJsonPath('verbatim_memories.0.verbatim_text', null)
+            ->assertJsonPath('verbatim_memories.0.safety.raw_content_exposed', false);
 
         $exitCode = Artisan::call('atlas:memory:verbatim', [
             'action' => 'add',
@@ -1484,6 +1541,9 @@ class AtlasMemoryRegistryTest extends TestCase
             ->assertJsonPath('verbatim_memory.privacy_class', 'normal')
             ->assertJsonPath('verbatim_memory.external_ai_allowed', true)
             ->assertJsonPath('verbatim_memory.redaction_status', 'redacted')
+            ->assertJsonPath('verbatim_memory.safety.context_eligible', true)
+            ->assertJsonPath('verbatim_memory.safety.provider_export_allowed', true)
+            ->assertJsonPath('verbatim_memory.safety.open_brain_context_allowed', true)
             ->assertJsonPath('verbatim_memory.metadata.privacy.external_ai_allowed', true);
 
         $memory->refresh();
@@ -1503,6 +1563,8 @@ class AtlasMemoryRegistryTest extends TestCase
 
         $this->assertSame(0, $exitCode);
         $this->assertFalse(data_get($payload, 'verbatim_memory.external_ai_allowed'));
+        $this->assertFalse(data_get($payload, 'verbatim_memory.safety.provider_export_allowed'));
+        $this->assertFalse(data_get($payload, 'verbatim_memory.safety.open_brain_context_allowed'));
         $this->assertFalse(data_get(AtlasMemoryEntry::query()->findOrFail($entry->id)->metadata, 'privacy.external_ai_allowed'));
         $this->assertSame([], data_get($this->contextPackForTask($project, $task)->toArray(), 'memory.registry'));
     }
@@ -1689,8 +1751,11 @@ class AtlasMemoryRegistryTest extends TestCase
         $this->assertSame('normal', data_get($recall, '0.audit.privacy_class'));
         $this->assertSame('atlas.memory.recall_audit.v1', data_get($recall, '0.audit_trail.schema_version'));
         $this->assertSame($canonical->content_hash, data_get($recall, '0.audit_trail.content_hash'));
+        $this->assertFalse(data_get($recall, '0.audit_trail.raw_content_persisted'));
         $this->assertSame('atlas_verbatim_memory', data_get($recall, '1.lineage.source_ref_type'));
         $this->assertSame($verbatim->content_hash, data_get($recall, '1.lineage.content_hash'));
+        $this->assertSame($verbatim->redacted_hash, data_get($recall, '1.audit_trail.redacted_hash'));
+        $this->assertFalse(data_get($recall, '1.audit_trail.raw_content_persisted'));
         $this->assertSame('semantic_note', data_get($recall, '2.lineage.source_ref_type'));
         $this->assertNotEmpty(data_get($recall, '2.lineage.content_hash'));
         $this->assertNotContains($lowPriority->id, collect($recall)->pluck('source_ref_id')->all());
@@ -1760,6 +1825,8 @@ class AtlasMemoryRegistryTest extends TestCase
             ->assertOk()
             ->assertJsonPath('memory_recall.summary.policy', 'provider_safe_only')
             ->assertJsonPath('memory_recall.recall.0.audit.provider_safe', true)
+            ->assertJsonPath('memory_recall.summary.raw_content_persisted_count', 0)
+            ->assertJsonPath('memory_recall.summary.redacted_ref_count', 1)
             ->assertJsonPath('memory_recall.summary.usage_recorded_count', 1);
 
         $recallText = json_encode(data_get($response->json(), 'memory_recall.recall'), JSON_UNESCAPED_UNICODE);
@@ -1782,11 +1849,24 @@ class AtlasMemoryRegistryTest extends TestCase
 
         $this->assertSame(0, $exit);
         $this->assertGreaterThanOrEqual(1, data_get($payload, 'memory_recall.summary.recall_count'));
+        $this->assertSame(0, data_get($payload, 'memory_recall.summary.raw_content_persisted_count'));
         $this->assertSame(1, data_get($payload, 'memory_recall.summary.usage_recorded_count'));
         $this->assertSame('atlas_memory_entry', data_get($payload, 'memory_recall.recall.0.lineage.source_ref_type'));
         $this->assertSame(2, AtlasMemoryEntryUsage::query()->where('source_type', 'memory_recall')->count());
         $this->assertSame('atlas_hybrid_memory_retrieval', AtlasMemoryEntryUsage::query()->latest('created_at')->first()?->metadata['created_by'] ?? null);
         $this->assertStringNotContainsString('abcdefghijklmno', Artisan::output());
+
+        $humanExit = Artisan::call('atlas:memory:recall', [
+            'query' => ['hybrid', 'provider-safe', 'recall'],
+            '--task-id' => $task->id,
+            '--no-semantic' => true,
+        ]);
+        $humanOutput = Artisan::output();
+
+        $this->assertSame(0, $humanExit);
+        $this->assertStringContainsString('Redacted refs', $humanOutput);
+        $this->assertStringContainsString('Raw content persisted', $humanOutput);
+        $this->assertStringNotContainsString('abcdefghijklmno', $humanOutput);
     }
 
     public function test_open_brain_context_pack_api_and_cli_are_audited(): void
@@ -1826,6 +1906,11 @@ class AtlasMemoryRegistryTest extends TestCase
         ], $this->headers)
             ->assertOk()
             ->assertJsonPath('open_brain.ok', true)
+            ->assertJsonPath('open_brain.safety.schema_version', 'atlas.open_brain.context_pack_safety.v1')
+            ->assertJsonPath('open_brain.safety.provider_safe_only', true)
+            ->assertJsonPath('open_brain.safety.raw_content_exposed', false)
+            ->assertJsonPath('open_brain.safety.raw_content_persisted', false)
+            ->assertJsonPath('open_brain.safety.audit_persisted', true)
             ->assertJsonPath('open_brain.audit.requester', 'test-api');
 
         $this->assertStringContainsString('Open Brain context source', (string) data_get($response->json(), 'open_brain.prompt_section'));
@@ -1834,6 +1919,11 @@ class AtlasMemoryRegistryTest extends TestCase
             'action' => 'context_pack_export',
             'surface' => 'api',
         ]);
+        $this->assertSame(
+            'atlas.open_brain.context_pack_safety.v1',
+            data_get(AtlasOpenBrainAccessLog::query()->where('requester', 'test-api')->first()?->result_summary_json, 'safety.schema_version'),
+        );
+        $this->assertTrue(data_get(AtlasOpenBrainAccessLog::query()->where('requester', 'test-api')->first()?->result_summary_json, 'safety.audit_persisted'));
 
         $exit = Artisan::call('atlas:open-brain:context', [
             'objective' => ['Export', 'Open', 'Brain', 'context'],
@@ -1851,6 +1941,10 @@ class AtlasMemoryRegistryTest extends TestCase
         $this->assertSame(0, $exit);
         $this->assertSame(true, data_get($payload, 'open_brain.ok'));
         $this->assertNotEmpty(data_get($payload, 'open_brain.context_pack_hash'));
+        $this->assertSame('atlas.open_brain.context_pack_safety.v1', data_get($payload, 'open_brain.safety.schema_version'));
+        $this->assertFalse(data_get($payload, 'open_brain.safety.raw_content_exposed'));
+        $this->assertFalse(data_get($payload, 'open_brain.safety.raw_content_persisted'));
+        $this->assertTrue(data_get($payload, 'open_brain.safety.audit_persisted'));
         $this->assertDatabaseHas('atlas_open_brain_access_logs', [
             'requester' => 'test-cli',
             'surface' => 'cli',
@@ -1969,6 +2063,17 @@ class AtlasMemoryRegistryTest extends TestCase
             'external_ai_allowed' => false,
             'source_type' => 'manual',
         ]);
+        app(AtlasVerbatimMemoryService::class)->record([
+            'verbatim_type' => 'evidence',
+            'scope_type' => 'task',
+            'project_id' => $project->id,
+            'task_id' => $task->id,
+            'title' => 'MCP exact safe evidence',
+            'verbatim_text' => 'MCP exact evidence stays redacted, budgeted and provider-safe.',
+            'summary' => 'MCP exact evidence.',
+            'privacy_class' => 'normal',
+            'link_registry' => false,
+        ]);
 
         $listExit = Artisan::call('atlas:open-brain:mcp', [
             '--once' => json_encode([
@@ -2012,7 +2117,10 @@ class AtlasMemoryRegistryTest extends TestCase
         $this->assertSame(0, $recallExit);
         $this->assertSame(false, data_get($recallPayload, 'result.isError'));
         $this->assertSame('provider_safe_only', data_get($recallPayload, 'result.structuredContent.memory_recall.summary.policy'));
+        $this->assertSame(0, data_get($recallPayload, 'result.structuredContent.memory_recall.summary.raw_content_persisted_count'));
+        $this->assertSame(1, data_get($recallPayload, 'result.structuredContent.memory_recall.summary.redacted_ref_count'));
         $this->assertStringContainsString('MCP provider-safe recall', (string) $recallText);
+        $this->assertStringContainsString('MCP exact safe evidence', (string) $recallText);
         $this->assertStringNotContainsString('abcdefghijklmno', (string) $recallText);
 
         $contextExit = Artisan::call('atlas:open-brain:mcp', [
@@ -2437,6 +2545,10 @@ class AtlasMemoryRegistryTest extends TestCase
 
             $this->assertSame(0, $seedCode);
             $this->assertGreaterThanOrEqual(5, data_get($seed, 'seeded'));
+            $this->assertSame('atlas.memory_entry.safety.v1', data_get($seed, 'memories.0.safety.schema_version'));
+            $this->assertTrue(data_get($seed, 'memories.0.safety.provider_export_allowed'));
+            $this->assertTrue(data_get($seed, 'memories.0.safety.open_brain_context_allowed'));
+            $this->assertFalse(data_get($seed, 'memories.0.safety.raw_content_exposed'));
 
             $projectionCode = Artisan::call('atlas:memory:projection', [
                 'action' => 'write',

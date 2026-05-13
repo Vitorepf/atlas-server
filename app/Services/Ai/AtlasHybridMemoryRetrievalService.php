@@ -62,6 +62,8 @@ class AtlasHybridMemoryRetrievalService
                 'usage_recorded_count' => $usage['recorded_count'],
                 'usage_audit_id' => $usage['audit_id'],
                 'budget_chars' => collect($recall)->sum(fn (array $item): int => (int) ($item['estimated_chars'] ?? 0)),
+                'redacted_ref_count' => collect($recall)->filter(fn (array $item): bool => data_get($item, 'audit_trail.redacted_hash') !== null)->count(),
+                'raw_content_persisted_count' => collect($recall)->filter(fn (array $item): bool => data_get($item, 'audit_trail.raw_content_persisted') === true)->count(),
                 'policy' => 'provider_safe_only',
             ],
             'recall' => $recall,

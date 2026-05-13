@@ -637,6 +637,7 @@ class InboxActionRegistry
             throw ValidationException::withMessages(['decision' => 'Decision invalida para review_retrieval_regression.']);
         }
 
+        $decisionReceipt = $this->retrievalRegressionDecisionReceipt($retrievalRivals, $decision, $input);
         $reviewAction = [
             'schema_version' => 'atlas.inbox_action.memory_retrieval_regression_review.v1',
             'decision' => $decision,
@@ -647,6 +648,10 @@ class InboxActionRegistry
             'report_hash' => $this->string(data_get($retrievalRivals, 'report_hash')),
             'latest_snapshot_id' => $this->string(data_get($retrievalRivals, 'comparison.latest.id')),
             'previous_snapshot_id' => $this->string(data_get($retrievalRivals, 'comparison.previous.id')),
+            'latest_snapshot_hash' => $decisionReceipt['latest_snapshot_hash'],
+            'previous_snapshot_hash' => $decisionReceipt['previous_snapshot_hash'],
+            'decision_receipt' => $decisionReceipt,
+            'decision_receipt_hash' => $decisionReceipt['receipt_hash'],
             'review_signal' => $this->array(data_get($payload, 'proposal_contract.review_signal')),
             'operator_note' => Str::limit($this->string($input['note'] ?? $input['operator_note'] ?? null) ?? '', 500, ''),
             'completed_at' => now()->toJSON(),
@@ -665,6 +670,92 @@ class InboxActionRegistry
             'reviewed' => true,
             'no_external_action' => true,
         ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $retrievalRivals
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    private function retrievalRegressionDecisionReceipt(array $retrievalRivals, string $decision, array $input): array
+    {
+        $reportHash = $this->string(data_get($retrievalRivals, 'report_hash')) ?? 'unknown_report_hash';
+        $latestSnapshotId = $this->string(data_get($retrievalRivals, 'comparison.latest.id')) ?? 'unknown_latest_snapshot';
+        $previousSnapshotId = $this->string(data_get($retrievalRivals, 'comparison.previous.id')) ?? 'unknown_previous_snapshot';
+        $latestSnapshotHash = hash('sha256', $latestSnapshotId);
+        $previousSnapshotHash = hash('sha256', $previousSnapshotId);
+        $inputsHash = DecisionReceiptHash::hash([
+            'decision' => $decision,
+            'report_hash' => $reportHash,
+            'latest_snapshot_hash' => $latestSnapshotHash,
+            'previous_snapshot_hash' => $previousSnapshotHash,
+            'outcome' => data_get($retrievalRivals, 'comparison.outcome'),
+            'review_packet_schema_version' => data_get($retrievalRivals, 'review_packet.schema_version'),
+        ]);
+        $receipt = [
+            'schema_version' => 'atlas.memory_retrieval_regression_decision_receipt.v1',
+            'receipt_id' => 'retrieval_regression:'.substr($inputsHash, 0, 32),
+            'issued_at' => now()->toJSON(),
+            'dry_run' => true,
+            'signed_by' => 'atlas.inbox.review_retrieval_regression',
+            'decision' => $decision,
+            'report_hash' => $reportHash,
+            'latest_snapshot_hash' => $latestSnapshotHash,
+            'previous_snapshot_hash' => $previousSnapshotHash,
+            'inputs_hash' => $inputsHash,
+            'receipt_hash_fields' => [
+                'schema_version',
+                'receipt_id',
+                'dry_run',
+                'signed_by',
+                'decision',
+                'report_hash',
+                'latest_snapshot_hash',
+                'previous_snapshot_hash',
+                'inputs_hash',
+                'no_external_action',
+                'no_runtime_execution',
+                'no_policy_patch',
+                'memory_write_allowed_now',
+            ],
+            'no_external_action' => true,
+            'no_runtime_execution' => true,
+            'no_policy_patch' => true,
+            'memory_write_allowed_now' => false,
+            'future_change_requires' => [
+                'human_reviewed_policy_patch',
+                'evidence_ledger_event_contract',
+                'rollback_plan',
+                'fresh_retrieval_benchmark_snapshot',
+            ],
+            'forbidden_actions' => [
+                'enable_python_runtime',
+                'persist_raw_query',
+                'persist_raw_context',
+                'auto_apply_policy_patch',
+                'write_memory_without_curator_review',
+            ],
+            'operator_note_hash' => ($note = $this->string($input['note'] ?? $input['operator_note'] ?? null))
+                ? hash('sha256', $note)
+                : null,
+        ];
+        $receipt['receipt_hash'] = DecisionReceiptHash::hash([
+            'schema_version' => $receipt['schema_version'],
+            'receipt_id' => $receipt['receipt_id'],
+            'dry_run' => $receipt['dry_run'],
+            'signed_by' => $receipt['signed_by'],
+            'decision' => $receipt['decision'],
+            'report_hash' => $receipt['report_hash'],
+            'latest_snapshot_hash' => $receipt['latest_snapshot_hash'],
+            'previous_snapshot_hash' => $receipt['previous_snapshot_hash'],
+            'inputs_hash' => $receipt['inputs_hash'],
+            'no_external_action' => $receipt['no_external_action'],
+            'no_runtime_execution' => $receipt['no_runtime_execution'],
+            'no_policy_patch' => $receipt['no_policy_patch'],
+            'memory_write_allowed_now' => $receipt['memory_write_allowed_now'],
+        ]);
+
+        return $receipt;
     }
 
     /**

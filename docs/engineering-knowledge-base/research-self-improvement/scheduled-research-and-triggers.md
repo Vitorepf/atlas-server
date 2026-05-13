@@ -19,11 +19,13 @@ decisions:
   - Scheduled research starts read-only and proposal-only.
   - Event triggers create research jobs, not direct implementation.
   - High-criticality topics require stronger review before publication or promotion.
+  - Scheduled task runs emit versioned receipt hashes so long-running work has replayable lineage.
 maintenance:
   - Update when scheduler, queues, watchlists, source registry or automation are implemented.
 related_paths:
   - docs/engineering-knowledge-base/research-self-improvement/research-operating-system.md
   - docs/engineering-knowledge-base/research-self-improvement/automation-runbook.md
+  - app/Jobs/RunScheduledTaskJob.php
 ---
 
 # Atlas AI Scheduled Research And Triggers
@@ -82,6 +84,27 @@ Events:
 - Critical areas require human review: security, legal, medical, finance,
   compliance, privacy, credentials and infrastructure.
 
+## Scheduled Run Receipt
+
+Recurring scheduled tasks use the existing `RunScheduledTaskJob` surface. The
+job does not create a new autonomy runtime or grant additional tool authority.
+Each completed run records a compact receipt in task metadata:
+
+```json
+{
+  "last_run_schema_version": "atlas.scheduled_task_run_receipt.v1",
+  "last_output_hash": "sha256",
+  "last_run_receipt_hash": "sha256",
+  "previous_run_receipt_hash": "sha256|null"
+}
+```
+
+The receipt hash covers the scheduled task id, status, trace id, duration,
+redacted output hash, redacted error hash and previous receipt hash. Wrapped
+local output also prints the run receipt so an operator can tie the artifact on
+disk back to the task metadata. This gives long-running scheduled work a small
+audit chain without storing secrets or raw provider output in the receipt.
+
 ## Publication States
 
 | State | Meaning |
@@ -91,4 +114,3 @@ Events:
 | proposal | Self-Improvement action suggested. |
 | promoted_doc | Canonical doc updated and validated. |
 | implemented | Scoped code/docs block validated. |
-

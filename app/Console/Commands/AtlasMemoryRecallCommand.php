@@ -60,6 +60,8 @@ class AtlasMemoryRecallCommand extends Command
 
         $this->components->twoColumnDetail('<fg=bright-blue;options=bold>Atlas Memory Recall</>', (string) data_get($payload, 'summary.recall_count', 0));
         $this->components->twoColumnDetail('Policy', (string) data_get($payload, 'summary.policy', 'provider_safe_only'));
+        $this->components->twoColumnDetail('Redacted refs', (string) data_get($payload, 'summary.redacted_ref_count', 0));
+        $this->components->twoColumnDetail('Raw content persisted', (string) data_get($payload, 'summary.raw_content_persisted_count', 0));
         $this->table(
             ['rank', 'source', 'type', 'score', 'title', 'excerpt'],
             collect((array) ($payload['recall'] ?? []))->map(fn (array $row): array => [

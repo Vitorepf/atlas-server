@@ -2,6 +2,18 @@
 
 namespace App\Services\Ai\SelfConstruction;
 
+use App\Models\AtlasSelfConstructionAgentCostEvent;
+use App\Models\AtlasSelfConstructionAgentDispatchExecutorReleaseAuthorization;
+use App\Models\AtlasSelfConstructionAgentDispatchReceipt;
+use App\Models\AtlasSelfConstructionAgentHeartbeat;
+use App\Models\AtlasSelfConstructionAgentRun;
+use App\Models\AtlasSelfConstructionAgentSandboxBinding;
+use App\Models\AtlasSelfConstructionAgentWakeupItem;
+use App\Models\AtlasSelfConstructionAgentWorkProduct;
+use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Schema;
+
 final class AtlasSelfConstructionReadinessService
 {
     public function __construct(
@@ -41153,29 +41165,29 @@ final class AtlasSelfConstructionReadinessService
                 'review_state' => data_get($reservation, 'completion_evidence_hash') ? 'ready_for_integration_review' : 'missing_evidence_hash',
             ];
         }, $completedReservations));
-        $agentRunsTableReady = \Illuminate\Support\Facades\Schema::hasTable('atlas_self_construction_agent_runs');
-        $heartbeatsTableReady = \Illuminate\Support\Facades\Schema::hasTable('atlas_self_construction_agent_heartbeats');
-        $costEventsTableReady = \Illuminate\Support\Facades\Schema::hasTable('atlas_self_construction_agent_cost_events');
-        $workProductsTableReady = \Illuminate\Support\Facades\Schema::hasTable('atlas_self_construction_agent_work_products');
-        $wakeupItemsTableReady = \Illuminate\Support\Facades\Schema::hasTable('atlas_self_construction_agent_wakeup_items');
-        $dispatchReceiptsTableReady = \Illuminate\Support\Facades\Schema::hasTable('atlas_self_construction_agent_dispatch_receipts');
+        $agentRunsTableReady = Schema::hasTable('atlas_self_construction_agent_runs');
+        $heartbeatsTableReady = Schema::hasTable('atlas_self_construction_agent_heartbeats');
+        $costEventsTableReady = Schema::hasTable('atlas_self_construction_agent_cost_events');
+        $workProductsTableReady = Schema::hasTable('atlas_self_construction_agent_work_products');
+        $wakeupItemsTableReady = Schema::hasTable('atlas_self_construction_agent_wakeup_items');
+        $dispatchReceiptsTableReady = Schema::hasTable('atlas_self_construction_agent_dispatch_receipts');
         $persistentAgentRunCount = $agentRunsTableReady
-            ? \App\Models\AtlasSelfConstructionAgentRun::query()->count()
+            ? AtlasSelfConstructionAgentRun::query()->count()
             : null;
         $persistentHeartbeatCount = $heartbeatsTableReady
-            ? \App\Models\AtlasSelfConstructionAgentHeartbeat::query()->count()
+            ? AtlasSelfConstructionAgentHeartbeat::query()->count()
             : null;
         $persistentCostEventCount = $costEventsTableReady
-            ? \App\Models\AtlasSelfConstructionAgentCostEvent::query()->count()
+            ? AtlasSelfConstructionAgentCostEvent::query()->count()
             : null;
         $persistentWorkProductCount = $workProductsTableReady
-            ? \App\Models\AtlasSelfConstructionAgentWorkProduct::query()->count()
+            ? AtlasSelfConstructionAgentWorkProduct::query()->count()
             : null;
         $persistentWakeupItemCount = $wakeupItemsTableReady
-            ? \App\Models\AtlasSelfConstructionAgentWakeupItem::query()->count()
+            ? AtlasSelfConstructionAgentWakeupItem::query()->count()
             : null;
         $persistentDispatchReceiptCount = $dispatchReceiptsTableReady
-            ? \App\Models\AtlasSelfConstructionAgentDispatchReceipt::query()->count()
+            ? AtlasSelfConstructionAgentDispatchReceipt::query()->count()
             : null;
 
         $controlPlane = [
@@ -41360,8 +41372,8 @@ final class AtlasSelfConstructionReadinessService
                 'status' => 'blocked',
                 'blocking_reasons' => ['agent_control_plane_runtime_schema_missing'],
                 'required_migration' => 'database/migrations/2026_05_12_010000_create_atlas_self_construction_agent_control_plane_tables.php',
-                'agent_runs_table_ready' => \Illuminate\Support\Facades\Schema::hasTable('atlas_self_construction_agent_runs'),
-                'heartbeats_table_ready' => \Illuminate\Support\Facades\Schema::hasTable('atlas_self_construction_agent_heartbeats'),
+                'agent_runs_table_ready' => Schema::hasTable('atlas_self_construction_agent_runs'),
+                'heartbeats_table_ready' => Schema::hasTable('atlas_self_construction_agent_heartbeats'),
             ];
 
             return [
@@ -41447,7 +41459,7 @@ final class AtlasSelfConstructionReadinessService
         $actor = $this->reservationActor($options);
         $session = $this->reservationSession($options);
         $packetId = trim((string) ($options['packet'] ?? ''));
-        $query = \App\Models\AtlasSelfConstructionAgentRun::query()
+        $query = AtlasSelfConstructionAgentRun::query()
             ->where('actor', $actor)
             ->where('session_id', $session);
 
@@ -41456,7 +41468,7 @@ final class AtlasSelfConstructionReadinessService
         }
 
         $run = $query->latest('updated_at')->first();
-        if (! $run instanceof \App\Models\AtlasSelfConstructionAgentRun) {
+        if (! $run instanceof AtlasSelfConstructionAgentRun) {
             $heartbeat = [
                 'status' => 'blocked',
                 'blocking_reasons' => ['agent_run_not_found_for_actor_session'],
@@ -41544,8 +41556,8 @@ final class AtlasSelfConstructionReadinessService
                 'status' => 'blocked',
                 'blocking_reasons' => ['agent_control_plane_runtime_schema_missing'],
                 'required_migration' => 'database/migrations/2026_05_12_010000_create_atlas_self_construction_agent_control_plane_tables.php',
-                'agent_runs_table_ready' => \Illuminate\Support\Facades\Schema::hasTable('atlas_self_construction_agent_runs'),
-                'heartbeats_table_ready' => \Illuminate\Support\Facades\Schema::hasTable('atlas_self_construction_agent_heartbeats'),
+                'agent_runs_table_ready' => Schema::hasTable('atlas_self_construction_agent_runs'),
+                'heartbeats_table_ready' => Schema::hasTable('atlas_self_construction_agent_heartbeats'),
             ];
 
             return [
@@ -41565,10 +41577,10 @@ final class AtlasSelfConstructionReadinessService
         $now = now();
         $nowTimestamp = $now->getTimestamp();
         $staleAfterSeconds = 900;
-        $runs = \App\Models\AtlasSelfConstructionAgentRun::query()
+        $runs = AtlasSelfConstructionAgentRun::query()
             ->orderByDesc('updated_at')
             ->get()
-            ->map(function (\App\Models\AtlasSelfConstructionAgentRun $run) use ($nowTimestamp, $staleAfterSeconds): array {
+            ->map(function (AtlasSelfConstructionAgentRun $run) use ($nowTimestamp, $staleAfterSeconds): array {
                 $lastHeartbeatAt = $run->last_heartbeat_at;
                 $leaseExpiresAt = $run->lease_expires_at;
                 $heartbeatAgeSeconds = $lastHeartbeatAt ? max(0, $nowTimestamp - $lastHeartbeatAt->getTimestamp()) : null;
@@ -41661,14 +41673,14 @@ final class AtlasSelfConstructionReadinessService
     public function agentCostEvent(array $options = []): array
     {
         if (! $this->agentControlPlaneRuntimeSchemaReady()
-            || ! \Illuminate\Support\Facades\Schema::hasTable('atlas_self_construction_agent_cost_events')) {
+            || ! Schema::hasTable('atlas_self_construction_agent_cost_events')) {
             $costEvent = [
                 'status' => 'blocked',
                 'blocking_reasons' => ['agent_control_plane_cost_event_schema_missing'],
                 'required_migration' => 'database/migrations/2026_05_12_010000_create_atlas_self_construction_agent_control_plane_tables.php',
-                'agent_runs_table_ready' => \Illuminate\Support\Facades\Schema::hasTable('atlas_self_construction_agent_runs'),
-                'heartbeats_table_ready' => \Illuminate\Support\Facades\Schema::hasTable('atlas_self_construction_agent_heartbeats'),
-                'cost_events_table_ready' => \Illuminate\Support\Facades\Schema::hasTable('atlas_self_construction_agent_cost_events'),
+                'agent_runs_table_ready' => Schema::hasTable('atlas_self_construction_agent_runs'),
+                'heartbeats_table_ready' => Schema::hasTable('atlas_self_construction_agent_heartbeats'),
+                'cost_events_table_ready' => Schema::hasTable('atlas_self_construction_agent_cost_events'),
             ];
 
             return [
@@ -41690,7 +41702,7 @@ final class AtlasSelfConstructionReadinessService
         $actor = $this->reservationActor($options);
         $session = $this->reservationSession($options);
         $packetId = trim((string) ($options['packet'] ?? ''));
-        $query = \App\Models\AtlasSelfConstructionAgentRun::query()
+        $query = AtlasSelfConstructionAgentRun::query()
             ->where('actor', $actor)
             ->where('session_id', $session);
 
@@ -41699,7 +41711,7 @@ final class AtlasSelfConstructionReadinessService
         }
 
         $run = $query->latest('updated_at')->first();
-        if (! $run instanceof \App\Models\AtlasSelfConstructionAgentRun) {
+        if (! $run instanceof AtlasSelfConstructionAgentRun) {
             $costEvent = [
                 'status' => 'blocked',
                 'blocking_reasons' => ['agent_run_not_found_for_actor_session'],
@@ -41793,14 +41805,14 @@ final class AtlasSelfConstructionReadinessService
     public function agentWorkProduct(array $options = []): array
     {
         if (! $this->agentControlPlaneRuntimeSchemaReady()
-            || ! \Illuminate\Support\Facades\Schema::hasTable('atlas_self_construction_agent_work_products')) {
+            || ! Schema::hasTable('atlas_self_construction_agent_work_products')) {
             $workProduct = [
                 'status' => 'blocked',
                 'blocking_reasons' => ['agent_control_plane_work_product_schema_missing'],
                 'required_migration' => 'database/migrations/2026_05_12_010000_create_atlas_self_construction_agent_control_plane_tables.php',
-                'agent_runs_table_ready' => \Illuminate\Support\Facades\Schema::hasTable('atlas_self_construction_agent_runs'),
-                'heartbeats_table_ready' => \Illuminate\Support\Facades\Schema::hasTable('atlas_self_construction_agent_heartbeats'),
-                'work_products_table_ready' => \Illuminate\Support\Facades\Schema::hasTable('atlas_self_construction_agent_work_products'),
+                'agent_runs_table_ready' => Schema::hasTable('atlas_self_construction_agent_runs'),
+                'heartbeats_table_ready' => Schema::hasTable('atlas_self_construction_agent_heartbeats'),
+                'work_products_table_ready' => Schema::hasTable('atlas_self_construction_agent_work_products'),
             ];
 
             return [
@@ -41822,7 +41834,7 @@ final class AtlasSelfConstructionReadinessService
         $actor = $this->reservationActor($options);
         $session = $this->reservationSession($options);
         $packetId = trim((string) ($options['packet'] ?? ''));
-        $query = \App\Models\AtlasSelfConstructionAgentRun::query()
+        $query = AtlasSelfConstructionAgentRun::query()
             ->where('actor', $actor)
             ->where('session_id', $session);
 
@@ -41831,7 +41843,7 @@ final class AtlasSelfConstructionReadinessService
         }
 
         $run = $query->latest('updated_at')->first();
-        if (! $run instanceof \App\Models\AtlasSelfConstructionAgentRun) {
+        if (! $run instanceof AtlasSelfConstructionAgentRun) {
             $workProduct = [
                 'status' => 'blocked',
                 'blocking_reasons' => ['agent_run_not_found_for_actor_session'],
@@ -42106,7 +42118,7 @@ final class AtlasSelfConstructionReadinessService
      */
     public function agentWakeupQueue(array $options = []): array
     {
-        if (! \Illuminate\Support\Facades\Schema::hasTable('atlas_self_construction_agent_wakeup_items')) {
+        if (! Schema::hasTable('atlas_self_construction_agent_wakeup_items')) {
             $queue = [
                 'status' => 'blocked',
                 'blocking_reasons' => ['agent_control_plane_wakeup_queue_schema_missing'],
@@ -42129,11 +42141,11 @@ final class AtlasSelfConstructionReadinessService
         }
 
         $livenessPayload = $this->agentRunLiveness($options);
-        $runtimeItems = \App\Models\AtlasSelfConstructionAgentWakeupItem::query()
+        $runtimeItems = AtlasSelfConstructionAgentWakeupItem::query()
             ->orderBy('scheduled_for')
             ->limit(50)
             ->get()
-            ->map(fn (\App\Models\AtlasSelfConstructionAgentWakeupItem $item): array => [
+            ->map(fn (AtlasSelfConstructionAgentWakeupItem $item): array => [
                 'wakeup_item_id' => $item->id,
                 'wakeup_key' => $item->wakeup_key,
                 'run_id' => $item->agent_run_id,
@@ -42228,14 +42240,14 @@ final class AtlasSelfConstructionReadinessService
     public function agentWakeupWrite(array $options = []): array
     {
         if (! $this->agentControlPlaneRuntimeSchemaReady()
-            || ! \Illuminate\Support\Facades\Schema::hasTable('atlas_self_construction_agent_wakeup_items')) {
+            || ! Schema::hasTable('atlas_self_construction_agent_wakeup_items')) {
             $write = [
                 'status' => 'blocked',
                 'blocking_reasons' => ['agent_control_plane_wakeup_runtime_schema_missing'],
                 'required_migration' => 'database/migrations/2026_05_12_010000_create_atlas_self_construction_agent_control_plane_tables.php',
-                'agent_runs_table_ready' => \Illuminate\Support\Facades\Schema::hasTable('atlas_self_construction_agent_runs'),
-                'heartbeats_table_ready' => \Illuminate\Support\Facades\Schema::hasTable('atlas_self_construction_agent_heartbeats'),
-                'wakeup_items_table_ready' => \Illuminate\Support\Facades\Schema::hasTable('atlas_self_construction_agent_wakeup_items'),
+                'agent_runs_table_ready' => Schema::hasTable('atlas_self_construction_agent_runs'),
+                'heartbeats_table_ready' => Schema::hasTable('atlas_self_construction_agent_heartbeats'),
+                'wakeup_items_table_ready' => Schema::hasTable('atlas_self_construction_agent_wakeup_items'),
             ];
 
             return [
@@ -42259,7 +42271,7 @@ final class AtlasSelfConstructionReadinessService
                 $runId = (string) data_get($item, 'run_id');
                 $reason = (string) data_get($item, 'reason', 'runtime_signal_investigation');
                 $wakeupKey = 'WAKEUP-'.strtoupper(substr(hash('sha256', $runId.'|'.$reason), 0, 24));
-                $model = \App\Models\AtlasSelfConstructionAgentWakeupItem::query()->updateOrCreate(
+                $model = AtlasSelfConstructionAgentWakeupItem::query()->updateOrCreate(
                     ['wakeup_key' => $wakeupKey],
                     [
                         'agent_run_id' => $runId ?: null,
@@ -42336,7 +42348,7 @@ final class AtlasSelfConstructionReadinessService
      */
     public function agentWakeupScheduler(array $options = []): array
     {
-        if (! \Illuminate\Support\Facades\Schema::hasTable('atlas_self_construction_agent_wakeup_items')) {
+        if (! Schema::hasTable('atlas_self_construction_agent_wakeup_items')) {
             $scheduler = [
                 'status' => 'blocked',
                 'blocking_reasons' => ['agent_control_plane_wakeup_queue_schema_missing'],
@@ -42359,7 +42371,7 @@ final class AtlasSelfConstructionReadinessService
         }
 
         $now = now();
-        $readyItems = \App\Models\AtlasSelfConstructionAgentWakeupItem::query()
+        $readyItems = AtlasSelfConstructionAgentWakeupItem::query()
             ->where('status', 'queued')
             ->where(function ($query) use ($now): void {
                 $query->whereNull('scheduled_for')
@@ -42369,7 +42381,7 @@ final class AtlasSelfConstructionReadinessService
             ->orderBy('scheduled_for')
             ->limit(10)
             ->get()
-            ->map(fn (\App\Models\AtlasSelfConstructionAgentWakeupItem $item): array => [
+            ->map(fn (AtlasSelfConstructionAgentWakeupItem $item): array => [
                 'wakeup_item_id' => $item->id,
                 'wakeup_key' => $item->wakeup_key,
                 'run_id' => $item->agent_run_id,
@@ -42436,7 +42448,7 @@ final class AtlasSelfConstructionReadinessService
      */
     public function agentWakeupClaim(array $options = []): array
     {
-        if (! \Illuminate\Support\Facades\Schema::hasTable('atlas_self_construction_agent_wakeup_items')) {
+        if (! Schema::hasTable('atlas_self_construction_agent_wakeup_items')) {
             $claim = [
                 'status' => 'blocked',
                 'blocking_reasons' => ['agent_control_plane_wakeup_queue_schema_missing'],
@@ -42463,7 +42475,7 @@ final class AtlasSelfConstructionReadinessService
         $packetId = trim((string) ($options['packet'] ?? ''));
         $now = now();
 
-        $query = \App\Models\AtlasSelfConstructionAgentWakeupItem::query()
+        $query = AtlasSelfConstructionAgentWakeupItem::query()
             ->where('status', 'queued')
             ->where(function ($query) use ($now): void {
                 $query->whereNull('scheduled_for')
@@ -42479,7 +42491,7 @@ final class AtlasSelfConstructionReadinessService
             ->orderBy('scheduled_for')
             ->first();
 
-        if (! $candidate instanceof \App\Models\AtlasSelfConstructionAgentWakeupItem) {
+        if (! $candidate instanceof AtlasSelfConstructionAgentWakeupItem) {
             $claim = [
                 'status' => 'blocked',
                 'blocking_reasons' => ['no_ready_wakeup_item'],
@@ -42509,7 +42521,7 @@ final class AtlasSelfConstructionReadinessService
         }
 
         $payload = is_array($candidate->payload) ? $candidate->payload : [];
-        $updated = \App\Models\AtlasSelfConstructionAgentWakeupItem::query()
+        $updated = AtlasSelfConstructionAgentWakeupItem::query()
             ->whereKey($candidate->id)
             ->where('status', 'queued')
             ->update([
@@ -42618,7 +42630,7 @@ final class AtlasSelfConstructionReadinessService
         $adapterPayload = $this->agentAdapterContract($options);
         $adapterContract = (array) data_get($adapterPayload, 'adapter_contract', []);
 
-        if (! \Illuminate\Support\Facades\Schema::hasTable('atlas_self_construction_agent_wakeup_items')) {
+        if (! Schema::hasTable('atlas_self_construction_agent_wakeup_items')) {
             $preflight = [
                 'status' => 'blocked',
                 'blocking_reasons' => ['agent_control_plane_wakeup_queue_schema_missing'],
@@ -42645,7 +42657,7 @@ final class AtlasSelfConstructionReadinessService
         $session = $this->reservationSession($options);
         $packetId = trim((string) ($options['packet'] ?? ''));
 
-        $query = \App\Models\AtlasSelfConstructionAgentWakeupItem::query()
+        $query = AtlasSelfConstructionAgentWakeupItem::query()
             ->where('status', 'claimed');
 
         if ($packetId !== '') {
@@ -42657,7 +42669,7 @@ final class AtlasSelfConstructionReadinessService
             ->orderByDesc('updated_at')
             ->first();
 
-        if (! $claimed instanceof \App\Models\AtlasSelfConstructionAgentWakeupItem) {
+        if (! $claimed instanceof AtlasSelfConstructionAgentWakeupItem) {
             $preflight = [
                 'status' => 'blocked',
                 'blocking_reasons' => ['no_claimed_wakeup_item'],
@@ -42881,7 +42893,7 @@ final class AtlasSelfConstructionReadinessService
     {
         $templatePayload = $this->agentDispatchReceiptTemplate($options);
         $template = (array) data_get($templatePayload, 'dispatch_receipt_template', []);
-        $dispatchReceiptTableReady = \Illuminate\Support\Facades\Schema::hasTable('atlas_self_construction_agent_dispatch_receipts');
+        $dispatchReceiptTableReady = Schema::hasTable('atlas_self_construction_agent_dispatch_receipts');
         $requiredChecks = [
             'dispatch_receipt_storage_schema',
             'signed_receipt_payload',
@@ -42992,7 +43004,7 @@ final class AtlasSelfConstructionReadinessService
         $preflightPayload = $this->agentDispatchPreflight($options);
         $preflight = (array) data_get($preflightPayload, 'dispatch_preflight', []);
 
-        if (! \Illuminate\Support\Facades\Schema::hasTable('atlas_self_construction_agent_dispatch_receipts')) {
+        if (! Schema::hasTable('atlas_self_construction_agent_dispatch_receipts')) {
             $write = [
                 'status' => 'blocked',
                 'blocking_reasons' => ['signed_dispatch_receipt_persistence_schema_missing'],
@@ -43063,7 +43075,7 @@ final class AtlasSelfConstructionReadinessService
 
         $claimedWakeup = (array) data_get($preflight, 'claimed_wakeup_item', []);
         $receiptKey = 'DISPATCH-RECEIPT-'.strtoupper(substr($receiptHash, 0, 24));
-        $model = \App\Models\AtlasSelfConstructionAgentDispatchReceipt::query()->updateOrCreate(
+        $model = AtlasSelfConstructionAgentDispatchReceipt::query()->updateOrCreate(
             ['receipt_key' => $receiptKey],
             [
                 'agent_run_id' => data_get($claimedWakeup, 'run_id'),
@@ -43130,7 +43142,7 @@ final class AtlasSelfConstructionReadinessService
      */
     public function agentDispatchExecutorPreflight(array $options = []): array
     {
-        if (! \Illuminate\Support\Facades\Schema::hasTable('atlas_self_construction_agent_dispatch_receipts')) {
+        if (! Schema::hasTable('atlas_self_construction_agent_dispatch_receipts')) {
             $preflight = [
                 'status' => 'blocked',
                 'blocking_reasons' => ['signed_dispatch_receipt_persistence_schema_missing'],
@@ -43154,7 +43166,7 @@ final class AtlasSelfConstructionReadinessService
 
         $receiptHash = strtolower(trim((string) ($options['receipt_hash'] ?? '')));
         $packetId = trim((string) ($options['packet'] ?? ''));
-        $query = \App\Models\AtlasSelfConstructionAgentDispatchReceipt::query()
+        $query = AtlasSelfConstructionAgentDispatchReceipt::query()
             ->where('decision', 'approve_dispatch_once')
             ->where('status', 'signed_pending_dispatch')
             ->whereNull('used_at')
@@ -43176,7 +43188,7 @@ final class AtlasSelfConstructionReadinessService
             ->orderByDesc('signed_at')
             ->first();
 
-        if (! $receipt instanceof \App\Models\AtlasSelfConstructionAgentDispatchReceipt) {
+        if (! $receipt instanceof AtlasSelfConstructionAgentDispatchReceipt) {
             $preflight = [
                 'status' => 'blocked',
                 'blocking_reasons' => ['no_valid_signed_dispatch_receipt'],
@@ -43672,11 +43684,11 @@ final class AtlasSelfConstructionReadinessService
     {
         $contractPayload = $this->agentDispatchExecutorReceiptUseWriterContractTemplate($options);
         $contract = (array) data_get($contractPayload, 'dispatch_executor_receipt_use_writer_contract_template', []);
-        $writerClass = \App\Services\Ai\SelfConstruction\AgentDispatchExecutorReceiptUseWriter::class;
-        $receiptTableReady = \Illuminate\Support\Facades\Schema::hasTable('atlas_self_construction_agent_dispatch_receipts');
-        $receiptModelReady = class_exists(\App\Models\AtlasSelfConstructionAgentDispatchReceipt::class);
+        $writerClass = AgentDispatchExecutorReceiptUseWriter::class;
+        $receiptTableReady = Schema::hasTable('atlas_self_construction_agent_dispatch_receipts');
+        $receiptModelReady = class_exists(AtlasSelfConstructionAgentDispatchReceipt::class);
         $writerReady = class_exists($writerClass);
-        $ledgerReady = \Illuminate\Support\Facades\Schema::hasTable('atlas_ledger_events');
+        $ledgerReady = Schema::hasTable('atlas_ledger_events');
 
         $blockingReasons = array_values(array_filter([
             $receiptTableReady ? null : 'dispatch_receipts_table_missing',
@@ -44014,11 +44026,11 @@ final class AtlasSelfConstructionReadinessService
     {
         $contractPayload = $this->agentDispatchExecutorSandboxBindingContractTemplate($options);
         $contract = (array) data_get($contractPayload, 'dispatch_executor_sandbox_binding_contract_template', []);
-        $bindingTableReady = \Illuminate\Support\Facades\Schema::hasTable('atlas_self_construction_agent_sandbox_bindings');
-        $bindingModelReady = class_exists(\App\Models\AtlasSelfConstructionAgentSandboxBinding::class);
-        $bindingWriterClass = \App\Services\Ai\SelfConstruction\AgentDispatchExecutorSandboxBindingWriter::class;
+        $bindingTableReady = Schema::hasTable('atlas_self_construction_agent_sandbox_bindings');
+        $bindingModelReady = class_exists(AtlasSelfConstructionAgentSandboxBinding::class);
+        $bindingWriterClass = AgentDispatchExecutorSandboxBindingWriter::class;
         $bindingWriterReady = class_exists($bindingWriterClass);
-        $ledgerReady = \Illuminate\Support\Facades\Schema::hasTable('atlas_ledger_events');
+        $ledgerReady = Schema::hasTable('atlas_ledger_events');
 
         $blockingReasons = array_values(array_filter([
             $bindingTableReady ? null : 'sandbox_bindings_table_missing',
@@ -44354,13 +44366,13 @@ final class AtlasSelfConstructionReadinessService
     {
         $contractPayload = $this->agentDispatchExecutorProviderStartDriverContractTemplate($options);
         $contract = (array) data_get($contractPayload, 'dispatch_executor_provider_start_driver_contract_template', []);
-        $driverClass = \App\Services\Ai\SelfConstruction\AgentDispatchExecutorProviderStartDriver::class;
+        $driverClass = AgentDispatchExecutorProviderStartDriver::class;
         $driverReady = class_exists($driverClass);
-        $runsTableReady = \Illuminate\Support\Facades\Schema::hasTable('atlas_self_construction_agent_runs');
-        $heartbeatTableReady = \Illuminate\Support\Facades\Schema::hasTable('atlas_self_construction_agent_heartbeats');
-        $costTableReady = \Illuminate\Support\Facades\Schema::hasTable('atlas_self_construction_agent_cost_events');
-        $workProductTableReady = \Illuminate\Support\Facades\Schema::hasTable('atlas_self_construction_agent_work_products');
-        $ledgerReady = \Illuminate\Support\Facades\Schema::hasTable('atlas_ledger_events');
+        $runsTableReady = Schema::hasTable('atlas_self_construction_agent_runs');
+        $heartbeatTableReady = Schema::hasTable('atlas_self_construction_agent_heartbeats');
+        $costTableReady = Schema::hasTable('atlas_self_construction_agent_cost_events');
+        $workProductTableReady = Schema::hasTable('atlas_self_construction_agent_work_products');
+        $ledgerReady = Schema::hasTable('atlas_ledger_events');
 
         $blockingReasons = array_values(array_filter([
             $driverReady ? null : 'provider_start_driver_missing',
@@ -44562,7 +44574,7 @@ final class AtlasSelfConstructionReadinessService
     public function agentProviderAdapterRegistryContractTemplate(array $options = []): array
     {
         $adapterContractPayload = $this->agentAdapterContract($options);
-        $registryClass = \App\Services\Ai\SelfConstruction\AgentProviderAdapterRegistry::class;
+        $registryClass = AgentProviderAdapterRegistry::class;
         $projection = class_exists($registryClass)
             ? app($registryClass)->projection()
             : [
@@ -44660,7 +44672,7 @@ final class AtlasSelfConstructionReadinessService
     {
         $contractPayload = $this->agentProviderAdapterRegistryContractTemplate($options);
         $contract = (array) data_get($contractPayload, 'provider_adapter_registry_contract_template', []);
-        $registryClass = \App\Services\Ai\SelfConstruction\AgentProviderAdapterRegistry::class;
+        $registryClass = AgentProviderAdapterRegistry::class;
         $registryReady = class_exists($registryClass);
         $providers = (array) data_get($contract, 'providers', []);
         $providersByName = array_values(array_filter(array_map(
@@ -44968,10 +44980,10 @@ final class AtlasSelfConstructionReadinessService
     {
         $contractPayload = $this->agentProviderAdapterExecutionGuardContractTemplate($options);
         $contract = (array) data_get($contractPayload, 'provider_adapter_execution_guard_contract_template', []);
-        $guardClass = \App\Services\Ai\SelfConstruction\AgentProviderAdapterExecutionGuard::class;
+        $guardClass = AgentProviderAdapterExecutionGuard::class;
         $guardReady = class_exists($guardClass);
-        $runsTableReady = \Illuminate\Support\Facades\Schema::hasTable('atlas_self_construction_agent_runs');
-        $ledgerReady = \Illuminate\Support\Facades\Schema::hasTable('atlas_ledger_events');
+        $runsTableReady = Schema::hasTable('atlas_self_construction_agent_runs');
+        $ledgerReady = Schema::hasTable('atlas_ledger_events');
 
         $blockingReasons = array_values(array_filter([
             $guardReady ? null : 'provider_adapter_execution_guard_missing',
@@ -45289,14 +45301,14 @@ final class AtlasSelfConstructionReadinessService
     {
         $contractPayload = $this->agentCodexProviderExecutionContractTemplate($options);
         $contract = (array) data_get($contractPayload, 'codex_provider_execution_contract_template', []);
-        $driverClass = \App\Services\Ai\SelfConstruction\AgentCodexProviderExecutionDriver::class;
-        $registryClass = \App\Services\Ai\SelfConstruction\AgentProviderAdapterRegistry::class;
-        $guardClass = \App\Services\Ai\SelfConstruction\AgentProviderAdapterExecutionGuard::class;
+        $driverClass = AgentCodexProviderExecutionDriver::class;
+        $registryClass = AgentProviderAdapterRegistry::class;
+        $guardClass = AgentProviderAdapterExecutionGuard::class;
         $driverReady = class_exists($driverClass);
         $registryReady = class_exists($registryClass);
         $guardReady = class_exists($guardClass);
-        $runsTableReady = \Illuminate\Support\Facades\Schema::hasTable('atlas_self_construction_agent_runs');
-        $ledgerReady = \Illuminate\Support\Facades\Schema::hasTable('atlas_ledger_events');
+        $runsTableReady = Schema::hasTable('atlas_self_construction_agent_runs');
+        $ledgerReady = Schema::hasTable('atlas_ledger_events');
 
         $blockingReasons = array_values(array_filter([
             $driverReady ? null : 'codex_provider_execution_driver_missing',
@@ -45604,12 +45616,12 @@ final class AtlasSelfConstructionReadinessService
     {
         $contractPayload = $this->agentCodexProcessStartReleaseContractTemplate($options);
         $contract = (array) data_get($contractPayload, 'codex_process_start_release_contract_template', []);
-        $gateClass = \App\Services\Ai\SelfConstruction\AgentCodexProcessStartReleaseGate::class;
-        $driverClass = \App\Services\Ai\SelfConstruction\AgentCodexProviderExecutionDriver::class;
+        $gateClass = AgentCodexProcessStartReleaseGate::class;
+        $driverClass = AgentCodexProviderExecutionDriver::class;
         $gateReady = class_exists($gateClass);
         $driverReady = class_exists($driverClass);
-        $runsTableReady = \Illuminate\Support\Facades\Schema::hasTable('atlas_self_construction_agent_runs');
-        $ledgerReady = \Illuminate\Support\Facades\Schema::hasTable('atlas_ledger_events');
+        $runsTableReady = Schema::hasTable('atlas_self_construction_agent_runs');
+        $ledgerReady = Schema::hasTable('atlas_ledger_events');
 
         $blockingReasons = array_values(array_filter([
             $gateReady ? null : 'codex_process_start_release_gate_missing',
@@ -45913,12 +45925,12 @@ final class AtlasSelfConstructionReadinessService
     {
         $contractPayload = $this->agentCodexSupervisedStartExecutorContractTemplate($options);
         $contract = (array) data_get($contractPayload, 'codex_supervised_start_executor_contract_template', []);
-        $executorClass = \App\Services\Ai\SelfConstruction\AgentCodexSupervisedStartExecutor::class;
-        $releaseGateClass = \App\Services\Ai\SelfConstruction\AgentCodexProcessStartReleaseGate::class;
+        $executorClass = AgentCodexSupervisedStartExecutor::class;
+        $releaseGateClass = AgentCodexProcessStartReleaseGate::class;
         $executorReady = class_exists($executorClass);
         $releaseGateReady = class_exists($releaseGateClass);
-        $runsTableReady = \Illuminate\Support\Facades\Schema::hasTable('atlas_self_construction_agent_runs');
-        $ledgerReady = \Illuminate\Support\Facades\Schema::hasTable('atlas_ledger_events');
+        $runsTableReady = Schema::hasTable('atlas_self_construction_agent_runs');
+        $ledgerReady = Schema::hasTable('atlas_ledger_events');
 
         $blockingReasons = array_values(array_filter([
             $executorReady ? null : 'codex_supervised_start_executor_missing',
@@ -46219,12 +46231,12 @@ final class AtlasSelfConstructionReadinessService
     {
         $contractPayload = $this->agentCodexProcessSpawnEnablementContractTemplate($options);
         $contract = (array) data_get($contractPayload, 'codex_process_spawn_enablement_contract_template', []);
-        $gateClass = \App\Services\Ai\SelfConstruction\AgentCodexProcessSpawnEnablementGate::class;
-        $supervisedExecutorClass = \App\Services\Ai\SelfConstruction\AgentCodexSupervisedStartExecutor::class;
+        $gateClass = AgentCodexProcessSpawnEnablementGate::class;
+        $supervisedExecutorClass = AgentCodexSupervisedStartExecutor::class;
         $gateReady = class_exists($gateClass);
         $supervisedExecutorReady = class_exists($supervisedExecutorClass);
-        $runsTableReady = \Illuminate\Support\Facades\Schema::hasTable('atlas_self_construction_agent_runs');
-        $ledgerReady = \Illuminate\Support\Facades\Schema::hasTable('atlas_ledger_events');
+        $runsTableReady = Schema::hasTable('atlas_self_construction_agent_runs');
+        $ledgerReady = Schema::hasTable('atlas_ledger_events');
 
         $blockingReasons = array_values(array_filter([
             $gateReady ? null : 'codex_process_spawn_enablement_gate_missing',
@@ -46529,12 +46541,12 @@ final class AtlasSelfConstructionReadinessService
     {
         $contractPayload = $this->agentCodexProcessSpawnExecutorContractTemplate($options);
         $contract = (array) data_get($contractPayload, 'codex_process_spawn_executor_contract_template', []);
-        $executorClass = \App\Services\Ai\SelfConstruction\AgentCodexProcessSpawnExecutor::class;
-        $enablementGateClass = \App\Services\Ai\SelfConstruction\AgentCodexProcessSpawnEnablementGate::class;
+        $executorClass = AgentCodexProcessSpawnExecutor::class;
+        $enablementGateClass = AgentCodexProcessSpawnEnablementGate::class;
         $executorReady = class_exists($executorClass);
         $enablementGateReady = class_exists($enablementGateClass);
-        $runsTableReady = \Illuminate\Support\Facades\Schema::hasTable('atlas_self_construction_agent_runs');
-        $ledgerReady = \Illuminate\Support\Facades\Schema::hasTable('atlas_ledger_events');
+        $runsTableReady = Schema::hasTable('atlas_self_construction_agent_runs');
+        $ledgerReady = Schema::hasTable('atlas_ledger_events');
 
         $blockingReasons = array_values(array_filter([
             $executorReady ? null : 'codex_process_spawn_executor_missing',
@@ -46838,12 +46850,12 @@ final class AtlasSelfConstructionReadinessService
     {
         $contractPayload = $this->agentCodexExternalProcessRuntimeDriverContractTemplate($options);
         $contract = (array) data_get($contractPayload, 'codex_external_process_runtime_driver_contract_template', []);
-        $driverClass = \App\Services\Ai\SelfConstruction\AgentCodexExternalProcessRuntimeDriver::class;
-        $spawnExecutorClass = \App\Services\Ai\SelfConstruction\AgentCodexProcessSpawnExecutor::class;
+        $driverClass = AgentCodexExternalProcessRuntimeDriver::class;
+        $spawnExecutorClass = AgentCodexProcessSpawnExecutor::class;
         $driverReady = class_exists($driverClass);
         $spawnExecutorReady = class_exists($spawnExecutorClass);
-        $runsTableReady = \Illuminate\Support\Facades\Schema::hasTable('atlas_self_construction_agent_runs');
-        $ledgerReady = \Illuminate\Support\Facades\Schema::hasTable('atlas_ledger_events');
+        $runsTableReady = Schema::hasTable('atlas_self_construction_agent_runs');
+        $ledgerReady = Schema::hasTable('atlas_ledger_events');
 
         $blockingReasons = array_values(array_filter([
             $driverReady ? null : 'codex_external_process_runtime_driver_missing',
@@ -47152,12 +47164,12 @@ final class AtlasSelfConstructionReadinessService
     {
         $contractPayload = $this->agentCodexExternalProcessInvocationAuthorizationContractTemplate($options);
         $contract = (array) data_get($contractPayload, 'codex_external_process_invocation_authorization_contract_template', []);
-        $authorizationClass = \App\Services\Ai\SelfConstruction\AgentCodexExternalProcessInvocationAuthorizationGate::class;
-        $runtimeDriverClass = \App\Services\Ai\SelfConstruction\AgentCodexExternalProcessRuntimeDriver::class;
+        $authorizationClass = AgentCodexExternalProcessInvocationAuthorizationGate::class;
+        $runtimeDriverClass = AgentCodexExternalProcessRuntimeDriver::class;
         $authorizationReady = class_exists($authorizationClass);
         $runtimeDriverReady = class_exists($runtimeDriverClass);
-        $runsTableReady = \Illuminate\Support\Facades\Schema::hasTable('atlas_self_construction_agent_runs');
-        $ledgerReady = \Illuminate\Support\Facades\Schema::hasTable('atlas_ledger_events');
+        $runsTableReady = Schema::hasTable('atlas_self_construction_agent_runs');
+        $ledgerReady = Schema::hasTable('atlas_ledger_events');
 
         $blockingReasons = array_values(array_filter([
             $authorizationReady ? null : 'codex_external_process_invocation_authorization_gate_missing',
@@ -47471,12 +47483,12 @@ final class AtlasSelfConstructionReadinessService
     {
         $contractPayload = $this->agentCodexExternalProcessInvokerDryRunContractTemplate($options);
         $contract = (array) data_get($contractPayload, 'codex_external_process_invoker_dry_run_contract_template', []);
-        $dryRunClass = \App\Services\Ai\SelfConstruction\AgentCodexExternalProcessInvokerDryRun::class;
-        $authorizationClass = \App\Services\Ai\SelfConstruction\AgentCodexExternalProcessInvocationAuthorizationGate::class;
+        $dryRunClass = AgentCodexExternalProcessInvokerDryRun::class;
+        $authorizationClass = AgentCodexExternalProcessInvocationAuthorizationGate::class;
         $dryRunReady = class_exists($dryRunClass);
         $authorizationReady = class_exists($authorizationClass);
-        $runsTableReady = \Illuminate\Support\Facades\Schema::hasTable('atlas_self_construction_agent_runs');
-        $ledgerReady = \Illuminate\Support\Facades\Schema::hasTable('atlas_ledger_events');
+        $runsTableReady = Schema::hasTable('atlas_self_construction_agent_runs');
+        $ledgerReady = Schema::hasTable('atlas_ledger_events');
 
         $blockingReasons = array_values(array_filter([
             $dryRunReady ? null : 'codex_external_process_invoker_dry_run_missing',
@@ -47796,12 +47808,12 @@ final class AtlasSelfConstructionReadinessService
     {
         $contractPayload = $this->agentCodexRealInvokerReleasePreflightContractTemplate($options);
         $contract = (array) data_get($contractPayload, 'codex_real_invoker_release_preflight_contract_template', []);
-        $preflightClass = \App\Services\Ai\SelfConstruction\AgentCodexRealInvokerReleasePreflight::class;
-        $dryRunClass = \App\Services\Ai\SelfConstruction\AgentCodexExternalProcessInvokerDryRun::class;
+        $preflightClass = AgentCodexRealInvokerReleasePreflight::class;
+        $dryRunClass = AgentCodexExternalProcessInvokerDryRun::class;
         $preflightReady = class_exists($preflightClass);
         $dryRunReady = class_exists($dryRunClass);
-        $runsTableReady = \Illuminate\Support\Facades\Schema::hasTable('atlas_self_construction_agent_runs');
-        $ledgerReady = \Illuminate\Support\Facades\Schema::hasTable('atlas_ledger_events');
+        $runsTableReady = Schema::hasTable('atlas_self_construction_agent_runs');
+        $ledgerReady = Schema::hasTable('atlas_ledger_events');
 
         $blockingReasons = array_values(array_filter([
             $preflightReady ? null : 'codex_real_invoker_release_preflight_missing',
@@ -48119,12 +48131,12 @@ final class AtlasSelfConstructionReadinessService
     {
         $contractPayload = $this->agentCodexSignedRealInvokerReleaseGateContractTemplate($options);
         $contract = (array) data_get($contractPayload, 'codex_signed_real_invoker_release_gate_contract_template', []);
-        $gateClass = \App\Services\Ai\SelfConstruction\AgentCodexSignedRealInvokerReleaseGate::class;
-        $preflightClass = \App\Services\Ai\SelfConstruction\AgentCodexRealInvokerReleasePreflight::class;
+        $gateClass = AgentCodexSignedRealInvokerReleaseGate::class;
+        $preflightClass = AgentCodexRealInvokerReleasePreflight::class;
         $gateReady = class_exists($gateClass);
         $preflightReady = class_exists($preflightClass);
-        $runsTableReady = \Illuminate\Support\Facades\Schema::hasTable('atlas_self_construction_agent_runs');
-        $ledgerReady = \Illuminate\Support\Facades\Schema::hasTable('atlas_ledger_events');
+        $runsTableReady = Schema::hasTable('atlas_self_construction_agent_runs');
+        $ledgerReady = Schema::hasTable('atlas_ledger_events');
 
         $blockingReasons = array_values(array_filter([
             $gateReady ? null : 'codex_signed_real_invoker_release_gate_missing',
@@ -48444,12 +48456,12 @@ final class AtlasSelfConstructionReadinessService
     {
         $contractPayload = $this->agentCodexRealInvokerImplementationBoundaryContractTemplate($options);
         $contract = (array) data_get($contractPayload, 'codex_real_invoker_implementation_boundary_contract_template', []);
-        $boundaryClass = \App\Services\Ai\SelfConstruction\AgentCodexRealInvokerImplementationBoundary::class;
-        $signedGateClass = \App\Services\Ai\SelfConstruction\AgentCodexSignedRealInvokerReleaseGate::class;
+        $boundaryClass = AgentCodexRealInvokerImplementationBoundary::class;
+        $signedGateClass = AgentCodexSignedRealInvokerReleaseGate::class;
         $boundaryReady = class_exists($boundaryClass);
         $signedGateReady = class_exists($signedGateClass);
-        $runsTableReady = \Illuminate\Support\Facades\Schema::hasTable('atlas_self_construction_agent_runs');
-        $ledgerReady = \Illuminate\Support\Facades\Schema::hasTable('atlas_ledger_events');
+        $runsTableReady = Schema::hasTable('atlas_self_construction_agent_runs');
+        $ledgerReady = Schema::hasTable('atlas_ledger_events');
 
         $blockingReasons = array_values(array_filter([
             $boundaryReady ? null : 'codex_real_invoker_implementation_boundary_missing',
@@ -48644,6 +48656,6936 @@ final class AtlasSelfConstructionReadinessService
      * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
      * @return array<string, mixed>
      */
+    public function agentCodexRealInvokerExecutorPlanContractTemplate(array $options = []): array
+    {
+        $boundaryPayload = $this->agentCodexRealInvokerImplementationBoundaryPreflight($options);
+
+        $template = [
+            'status' => 'codex_real_invoker_executor_plan_contract_template_ready',
+            'contract_id' => 'CODEX-REAL-INVOKER-EXECUTOR-PLAN-'.strtoupper(substr($this->stableHash([
+                'codex_real_invoker_implementation_boundary_preflight_hash' => data_get($boundaryPayload, 'codex_real_invoker_implementation_boundary_preflight_hash'),
+                'provider' => 'codex',
+                'adapter' => 'codex',
+            ]), 0, 24)),
+            'source_codex_real_invoker_implementation_boundary_status' => data_get($boundaryPayload, 'status'),
+            'source_codex_real_invoker_implementation_boundary_preflight_hash' => data_get($boundaryPayload, 'codex_real_invoker_implementation_boundary_preflight_hash'),
+            'provider' => 'codex',
+            'adapter' => 'codex',
+            'contract' => [
+                'service' => 'App\\Services\\Ai\\SelfConstruction\\AgentCodexRealInvokerExecutorPlan',
+                'method' => 'prepareExecutorPlan',
+                'input_contract' => [
+                    'run_key',
+                    'codex_execution_id',
+                    'process_start_release_id',
+                    'supervised_start_id',
+                    'spawn_enablement_id',
+                    'spawn_executor_id',
+                    'runtime_driver_id',
+                    'invocation_authorization_id',
+                    'dry_run_id',
+                    'real_invoker_release_preflight_id',
+                    'signed_real_invoker_release_id',
+                    'real_invoker_implementation_boundary_id',
+                    'real_invoker_executor_plan_id',
+                    'operator_executor_plan_receipt_hash',
+                    'real_invoker_contract_hash',
+                    'release_policy_hash',
+                    'implementation_plan_hash',
+                    'executor_binary_contract_hash',
+                    'executor_observability_contract_hash',
+                    'process_command_hash',
+                    'environment_contract_hash',
+                    'termination_policy_hash',
+                    'stdout_stderr_sink_hash',
+                    'liveness_probe_hash',
+                    'rollback_plan_hash',
+                    'max_runtime_policy_hash',
+                    'actor',
+                    'session',
+                    'reason',
+                ],
+                'result_contract' => [
+                    'real_invoker_executor_plan_id',
+                    'real_invoker_implementation_boundary_id',
+                    'signed_real_invoker_release_id',
+                    'real_invoker_release_preflight_id',
+                    'dry_run_id',
+                    'codex_execution_id',
+                    'agent_run_id',
+                    'run_key',
+                    'provider',
+                    'adapter',
+                    'real_invoker_executor_plan_prepared',
+                    'executor_enabled',
+                    'fresh_release_required_before_start',
+                    'external_process_started',
+                    'token_spend_allowed',
+                    'provider_started',
+                    'dispatch_allowed',
+                ],
+            ],
+            'real_invoker_executor_plan_must' => [
+                'require_codex_real_invoker_implementation_boundary_prepared',
+                'require_operator_executor_plan_receipt_hash',
+                'require_executor_binary_contract_hash',
+                'require_executor_observability_contract_hash',
+                'require_fresh_release_before_any_future_start',
+                'record_append_only_real_invoker_executor_plan_event_before_any_real_invocation',
+            ],
+            'real_invoker_executor_plan_must_not' => [
+                'enable_executor_from_contract_template',
+                'start_codex_process_from_contract_template',
+                'spawn_shell_or_subprocess',
+                'call_codex_cli_or_codex_app',
+                'spend_provider_tokens',
+                'mark_run_running_or_terminal',
+                'complete_or_merge_packet',
+            ],
+            'implementation_files_allowed_future' => [
+                'app/Services/Ai/SelfConstruction/AgentCodexRealInvokerExecutorPlan.php',
+                'tests/Feature/Ai/AtlasAiSelfConstructionAgentCodexRealInvokerExecutorPlanTest.php',
+            ],
+            'contract_policy' => [
+                'template_is_read_only' => true,
+                'real_invoker_executor_plan_allowed_here' => false,
+                'executor_enablement_allowed_here' => false,
+                'provider_process_start_allowed_here' => false,
+                'codex_invocation_allowed_here' => false,
+                'token_spend_allowed_here' => false,
+                'requires_separate_implementation_packet' => true,
+            ],
+            'next_required_command' => 'php artisan atlas:ai:self-construction --agent-codex-real-invoker-executor-plan-preflight --json',
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_codex_real_invoker_executor_plan_contract_template.v1',
+            'status' => 'codex_real_invoker_executor_plan_contract_template_ready',
+            'mode' => 'read_only_agent_codex_real_invoker_executor_plan_contract_template',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'codex_real_invoker_executor_plan_contract_template' => $template,
+            'codex_real_invoker_executor_plan_contract_template_hash' => $this->stableHash($template),
+            'non_execution_guarantees' => [
+                'agent_codex_real_invoker_executor_plan_contract_template_does_not_start_codex',
+                'agent_codex_real_invoker_executor_plan_contract_template_does_not_call_codex',
+                'agent_codex_real_invoker_executor_plan_contract_template_does_not_spend_tokens',
+                'agent_codex_real_invoker_executor_plan_contract_template_does_not_enable_executor',
+                'agent_codex_real_invoker_executor_plan_contract_template_does_not_dispatch_work',
+            ],
+            'human_summary' => 'Codex real invoker executor plan contract template defines the disabled executor plan without starting Codex or spending tokens.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentCodexRealInvokerExecutorPlanPreflight(array $options = []): array
+    {
+        $contractPayload = $this->agentCodexRealInvokerExecutorPlanContractTemplate($options);
+        $contract = (array) data_get($contractPayload, 'codex_real_invoker_executor_plan_contract_template', []);
+        $executorPlanClass = AgentCodexRealInvokerExecutorPlan::class;
+        $boundaryClass = AgentCodexRealInvokerImplementationBoundary::class;
+        $executorPlanReady = class_exists($executorPlanClass);
+        $boundaryReady = class_exists($boundaryClass);
+        $runsTableReady = Schema::hasTable('atlas_self_construction_agent_runs');
+        $ledgerReady = Schema::hasTable('atlas_ledger_events');
+
+        $blockingReasons = array_values(array_filter([
+            $executorPlanReady ? null : 'codex_real_invoker_executor_plan_missing',
+            $boundaryReady ? null : 'codex_real_invoker_implementation_boundary_missing',
+            $runsTableReady ? null : 'agent_runs_table_missing',
+            $ledgerReady ? null : 'ledger_table_missing',
+        ]));
+
+        $preflight = [
+            'status' => $blockingReasons === [] ? 'codex_real_invoker_executor_plan_ready' : 'blocked',
+            'contract_template_hash' => data_get($contractPayload, 'codex_real_invoker_executor_plan_contract_template_hash'),
+            'source_codex_real_invoker_implementation_boundary_status' => data_get($contract, 'source_codex_real_invoker_implementation_boundary_status'),
+            'provider' => 'codex',
+            'adapter' => 'codex',
+            'storage' => [
+                'codex_real_invoker_executor_plan_ready' => $executorPlanReady,
+                'codex_real_invoker_implementation_boundary_ready' => $boundaryReady,
+                'agent_runs_table_ready' => $runsTableReady,
+                'ledger_table_ready' => $ledgerReady,
+            ],
+            'blocking_count' => count($blockingReasons),
+            'blocking_reasons' => $blockingReasons,
+            'real_invoker_executor_plan_ready_for_future_use' => $blockingReasons === [],
+            'allowed_future_files' => data_get($contract, 'implementation_files_allowed_future', []),
+            'required_first_changes' => [
+                'create_codex_real_invoker_executor_plan',
+                'require_codex_real_invoker_implementation_boundary_metadata',
+                'require_operator_executor_plan_receipt_hash',
+                'require_executor_binary_and_observability_contract_hashes',
+                'record_real_invoker_executor_plan_event_without_enabling_executor',
+            ],
+            'required_gates' => [
+                'php -l app/Services/Ai/SelfConstruction/AgentCodexRealInvokerExecutorPlan.php',
+                'php artisan test tests/Feature/Ai/AtlasAiSelfConstructionAgentCodexRealInvokerExecutorPlanTest.php',
+                'php artisan test tests/Feature/Ai/AtlasAiSelfConstructionCommandTest.php --filter=agent_codex_real_invoker_executor_plan',
+                'php artisan atlas:engineering:knowledge docs-health --json',
+                'php artisan atlas:ai:architecture-validate --json',
+                'git diff --check',
+            ],
+            'preflight_policy' => [
+                'preflight_is_read_only' => true,
+                'real_invoker_executor_plan_file_creation_allowed_here' => false,
+                'executor_enablement_allowed_here' => false,
+                'provider_process_start_allowed_here' => false,
+                'codex_invocation_allowed_here' => false,
+                'token_spend_allowed_here' => false,
+                'requires_separate_implementation_packet' => true,
+            ],
+            'next_required_command' => 'php artisan atlas:ai:self-construction --agent-codex-real-invoker-executor-plan-implementation-packet --json',
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_codex_real_invoker_executor_plan_preflight.v1',
+            'status' => (string) $preflight['status'],
+            'mode' => 'read_only_agent_codex_real_invoker_executor_plan_preflight',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'codex_real_invoker_executor_plan_preflight' => $preflight,
+            'codex_real_invoker_executor_plan_preflight_hash' => $this->stableHash($preflight),
+            'non_execution_guarantees' => [
+                'agent_codex_real_invoker_executor_plan_preflight_does_not_start_codex',
+                'agent_codex_real_invoker_executor_plan_preflight_does_not_call_codex',
+                'agent_codex_real_invoker_executor_plan_preflight_does_not_spend_tokens',
+                'agent_codex_real_invoker_executor_plan_preflight_does_not_enable_executor',
+                'agent_codex_real_invoker_executor_plan_preflight_does_not_dispatch_work',
+            ],
+            'human_summary' => $blockingReasons === []
+                ? 'Codex real invoker executor plan is ready; executor remains disabled and requires a later fresh release before any start.'
+                : 'Codex real invoker executor plan is blocked until the executor plan service and boundary prerequisites exist.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentCodexRealInvokerExecutorPlanImplementationPacket(array $options = []): array
+    {
+        $preflightPayload = $this->agentCodexRealInvokerExecutorPlanPreflight($options);
+        $preflight = (array) data_get($preflightPayload, 'codex_real_invoker_executor_plan_preflight', []);
+        $preflightHash = (string) data_get($preflightPayload, 'codex_real_invoker_executor_plan_preflight_hash');
+        $allowedFiles = (array) data_get($preflight, 'allowed_future_files', []);
+
+        $tasks = [
+            [
+                'id' => 'T1',
+                'title' => 'Create Codex real invoker executor plan',
+                'type' => 'service',
+                'allowed_files' => ['app/Services/Ai/SelfConstruction/AgentCodexRealInvokerExecutorPlan.php'],
+                'acceptance' => 'Executor plan records disabled executor metadata and never starts Codex, shell or subprocesses.',
+            ],
+            [
+                'id' => 'T2',
+                'title' => 'Enforce boundary and executor contracts',
+                'type' => 'service_logic',
+                'allowed_files' => ['app/Services/Ai/SelfConstruction/AgentCodexRealInvokerExecutorPlan.php'],
+                'acceptance' => 'Executor plan requires implementation boundary metadata, executor receipt hash, binary contract hash and observability contract hash.',
+            ],
+            [
+                'id' => 'T3',
+                'title' => 'Add real invoker executor plan tests',
+                'type' => 'test',
+                'allowed_files' => ['tests/Feature/Ai/AtlasAiSelfConstructionAgentCodexRealInvokerExecutorPlanTest.php'],
+                'acceptance' => 'Tests prove missing boundary rejection, duplicate plan rejection, rollback and no executor/process/token side effects.',
+            ],
+            [
+                'id' => 'T4',
+                'title' => 'Expose real invoker executor plan readiness commands',
+                'type' => 'command_surface',
+                'allowed_files' => [
+                    'app/Services/Ai/SelfConstruction/AtlasSelfConstructionReadinessService.php',
+                    'app/Console/Commands/AtlasAiSelfConstructionCommand.php',
+                    'tests/Feature/Ai/AtlasAiSelfConstructionCommandTest.php',
+                ],
+                'acceptance' => 'Contract, preflight and implementation packet commands remain read-only and declare executor disabled.',
+            ],
+        ];
+
+        $packet = [
+            'status' => 'ready_for_scoped_codex_real_invoker_executor_plan_implementation',
+            'implementation_packet_id' => 'AGENT-CODEX-REAL-INVOKER-EXECUTOR-PLAN-IMPLEMENTATION-SELF-CONSTRUCTION-0001',
+            'source_preflight_hash' => $preflightHash,
+            'objective' => 'Implement the disabled Codex real invoker executor plan that prepares executor contracts while still refusing to enable or start Codex.',
+            'non_goals' => [
+                'do_not_call_codex_cli_or_codex_app',
+                'do_not_spawn_processes_or_shell_commands',
+                'do_not_spend_provider_tokens',
+                'do_not_enable_executor',
+                'do_not_mark_runs_running_or_terminal',
+                'do_not_change_packet_claim_completion_or_merge_state',
+            ],
+            'allowed_files' => $allowedFiles,
+            'forbidden_scopes' => [
+                'actual_codex_process_invocation',
+                'provider_token_spend',
+                'executor_enablement',
+                'merge_runtime',
+                'packet_claim_or_completion_state',
+                'hot_kernel_runtime',
+                'voice_runtime',
+                'policy_mutation',
+            ],
+            'tasks' => $tasks,
+            'task_count' => count($tasks),
+            'acceptance_criteria' => [
+                'real_invoker_executor_plan_requires_implementation_boundary_metadata',
+                'real_invoker_executor_plan_requires_operator_executor_plan_receipt_hash',
+                'real_invoker_executor_plan_requires_executor_binary_contract_hash',
+                'real_invoker_executor_plan_is_idempotent_for_same_plan_id',
+                'real_invoker_executor_plan_records_disabled_executor_event_without_starting_codex',
+            ],
+            'required_gates' => data_get($preflight, 'required_gates', []),
+            'stop_conditions' => [
+                'need_to_start_codex_or_spawn_process',
+                'need_to_enable_executor',
+                'need_to_modify_file_outside_allowed_files',
+                'need_to_allow_provider_token_spend',
+                'need_to_change_packet_claim_completion_or_merge_state',
+                'test_requires_hot_runtime_or_voice_scope_change',
+            ],
+            'implementation_policy' => [
+                'packet_is_read_only' => true,
+                'implementation_allowed_by_packet' => true,
+                'executor_enablement_allowed_by_packet' => false,
+                'provider_process_start_allowed_by_packet' => false,
+                'codex_invocation_allowed_by_packet' => false,
+                'token_spend_allowed_by_packet' => false,
+                'dispatch_allowed_by_packet' => false,
+            ],
+            'next_required_action' => 'Implement only the allowed files, then run the required gates and report evidence.',
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_codex_real_invoker_executor_plan_implementation_packet.v1',
+            'status' => 'ready_for_scoped_codex_real_invoker_executor_plan_implementation',
+            'mode' => 'read_only_agent_codex_real_invoker_executor_plan_implementation_packet',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'codex_real_invoker_executor_plan_implementation_packet' => $packet,
+            'codex_real_invoker_executor_plan_implementation_packet_hash' => $this->stableHash($packet),
+            'non_execution_guarantees' => [
+                'agent_codex_real_invoker_executor_plan_implementation_packet_does_not_start_codex',
+                'agent_codex_real_invoker_executor_plan_implementation_packet_does_not_call_codex',
+                'agent_codex_real_invoker_executor_plan_implementation_packet_does_not_spend_tokens',
+                'agent_codex_real_invoker_executor_plan_implementation_packet_does_not_enable_executor',
+                'agent_codex_real_invoker_executor_plan_implementation_packet_does_not_dispatch_work',
+            ],
+            'human_summary' => 'Codex real invoker executor plan implementation packet is ready; it defines scoped disabled-executor work but does not start Codex or spend tokens.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentCodexRealInvokerExecutorFreshReleaseGateContractTemplate(array $options = []): array
+    {
+        $executorPlanPayload = $this->agentCodexRealInvokerExecutorPlanPreflight($options);
+
+        $template = [
+            'status' => 'codex_real_invoker_executor_fresh_release_gate_contract_template_ready',
+            'contract_id' => 'CODEX-REAL-INVOKER-EXECUTOR-FRESH-RELEASE-'.strtoupper(substr($this->stableHash([
+                'codex_real_invoker_executor_plan_preflight_hash' => data_get($executorPlanPayload, 'codex_real_invoker_executor_plan_preflight_hash'),
+                'provider' => 'codex',
+                'adapter' => 'codex',
+            ]), 0, 24)),
+            'source_codex_real_invoker_executor_plan_status' => data_get($executorPlanPayload, 'status'),
+            'source_codex_real_invoker_executor_plan_preflight_hash' => data_get($executorPlanPayload, 'codex_real_invoker_executor_plan_preflight_hash'),
+            'provider' => 'codex',
+            'adapter' => 'codex',
+            'contract' => [
+                'service' => 'App\\Services\\Ai\\SelfConstruction\\AgentCodexRealInvokerExecutorFreshReleaseGate',
+                'method' => 'authorizeFreshRelease',
+                'input_contract' => [
+                    'run_key',
+                    'codex_execution_id',
+                    'process_start_release_id',
+                    'supervised_start_id',
+                    'spawn_enablement_id',
+                    'spawn_executor_id',
+                    'runtime_driver_id',
+                    'invocation_authorization_id',
+                    'dry_run_id',
+                    'real_invoker_release_preflight_id',
+                    'signed_real_invoker_release_id',
+                    'real_invoker_implementation_boundary_id',
+                    'real_invoker_executor_plan_id',
+                    'real_invoker_executor_fresh_release_id',
+                    'operator_fresh_release_receipt_hash',
+                    'plan_revalidation_report_hash',
+                    'freshness_window_hash',
+                    'final_human_signature_hash',
+                    'real_invoker_contract_hash',
+                    'release_policy_hash',
+                    'implementation_plan_hash',
+                    'executor_binary_contract_hash',
+                    'executor_observability_contract_hash',
+                    'process_command_hash',
+                    'environment_contract_hash',
+                    'termination_policy_hash',
+                    'stdout_stderr_sink_hash',
+                    'liveness_probe_hash',
+                    'rollback_plan_hash',
+                    'max_runtime_policy_hash',
+                    'actor',
+                    'session',
+                    'reason',
+                ],
+                'result_contract' => [
+                    'real_invoker_executor_fresh_release_id',
+                    'real_invoker_executor_plan_id',
+                    'real_invoker_implementation_boundary_id',
+                    'signed_real_invoker_release_id',
+                    'codex_execution_id',
+                    'agent_run_id',
+                    'run_key',
+                    'provider',
+                    'adapter',
+                    'real_invoker_executor_fresh_release_authorized',
+                    'executor_enabled',
+                    'external_process_started',
+                    'token_spend_allowed',
+                    'provider_started',
+                    'dispatch_allowed',
+                ],
+            ],
+            'real_invoker_executor_fresh_release_must' => [
+                'require_codex_real_invoker_executor_plan_prepared',
+                'require_operator_fresh_release_receipt_hash',
+                'require_plan_revalidation_report_hash',
+                'require_freshness_window_hash',
+                'require_final_human_signature_hash',
+                'record_append_only_real_invoker_executor_fresh_release_event_before_any_enablement',
+            ],
+            'real_invoker_executor_fresh_release_must_not' => [
+                'enable_executor_from_contract_template',
+                'start_codex_process_from_contract_template',
+                'spawn_shell_or_subprocess',
+                'call_codex_cli_or_codex_app',
+                'spend_provider_tokens',
+                'mark_run_running_or_terminal',
+                'complete_or_merge_packet',
+            ],
+            'implementation_files_allowed_future' => [
+                'app/Services/Ai/SelfConstruction/AgentCodexRealInvokerExecutorFreshReleaseGate.php',
+                'tests/Feature/Ai/AtlasAiSelfConstructionAgentCodexRealInvokerExecutorFreshReleaseGateTest.php',
+            ],
+            'contract_policy' => [
+                'template_is_read_only' => true,
+                'fresh_release_authorization_allowed_here' => false,
+                'executor_enablement_allowed_here' => false,
+                'provider_process_start_allowed_here' => false,
+                'codex_invocation_allowed_here' => false,
+                'token_spend_allowed_here' => false,
+                'requires_separate_implementation_packet' => true,
+            ],
+            'next_required_command' => 'php artisan atlas:ai:self-construction --agent-codex-real-invoker-executor-fresh-release-gate-preflight --json',
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_codex_real_invoker_executor_fresh_release_gate_contract_template.v1',
+            'status' => 'codex_real_invoker_executor_fresh_release_gate_contract_template_ready',
+            'mode' => 'read_only_agent_codex_real_invoker_executor_fresh_release_gate_contract_template',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'codex_real_invoker_executor_fresh_release_gate_contract_template' => $template,
+            'codex_real_invoker_executor_fresh_release_gate_contract_template_hash' => $this->stableHash($template),
+            'non_execution_guarantees' => [
+                'agent_codex_real_invoker_executor_fresh_release_gate_contract_template_does_not_start_codex',
+                'agent_codex_real_invoker_executor_fresh_release_gate_contract_template_does_not_call_codex',
+                'agent_codex_real_invoker_executor_fresh_release_gate_contract_template_does_not_spend_tokens',
+                'agent_codex_real_invoker_executor_fresh_release_gate_contract_template_does_not_enable_executor',
+                'agent_codex_real_invoker_executor_fresh_release_gate_contract_template_does_not_dispatch_work',
+            ],
+            'human_summary' => 'Codex real invoker executor fresh release gate contract template defines a final freshness authorization without enabling the executor.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentCodexRealInvokerExecutorFreshReleaseGatePreflight(array $options = []): array
+    {
+        $contractPayload = $this->agentCodexRealInvokerExecutorFreshReleaseGateContractTemplate($options);
+        $contract = (array) data_get($contractPayload, 'codex_real_invoker_executor_fresh_release_gate_contract_template', []);
+        $freshReleaseClass = AgentCodexRealInvokerExecutorFreshReleaseGate::class;
+        $executorPlanClass = AgentCodexRealInvokerExecutorPlan::class;
+        $freshReleaseReady = class_exists($freshReleaseClass);
+        $executorPlanReady = class_exists($executorPlanClass);
+        $runsTableReady = Schema::hasTable('atlas_self_construction_agent_runs');
+        $ledgerReady = Schema::hasTable('atlas_ledger_events');
+
+        $blockingReasons = array_values(array_filter([
+            $freshReleaseReady ? null : 'codex_real_invoker_executor_fresh_release_gate_missing',
+            $executorPlanReady ? null : 'codex_real_invoker_executor_plan_missing',
+            $runsTableReady ? null : 'agent_runs_table_missing',
+            $ledgerReady ? null : 'ledger_table_missing',
+        ]));
+
+        $preflight = [
+            'status' => $blockingReasons === [] ? 'codex_real_invoker_executor_fresh_release_gate_ready' : 'blocked',
+            'contract_template_hash' => data_get($contractPayload, 'codex_real_invoker_executor_fresh_release_gate_contract_template_hash'),
+            'source_codex_real_invoker_executor_plan_status' => data_get($contract, 'source_codex_real_invoker_executor_plan_status'),
+            'provider' => 'codex',
+            'adapter' => 'codex',
+            'storage' => [
+                'codex_real_invoker_executor_fresh_release_gate_ready' => $freshReleaseReady,
+                'codex_real_invoker_executor_plan_ready' => $executorPlanReady,
+                'agent_runs_table_ready' => $runsTableReady,
+                'ledger_table_ready' => $ledgerReady,
+            ],
+            'blocking_count' => count($blockingReasons),
+            'blocking_reasons' => $blockingReasons,
+            'fresh_release_gate_ready_for_future_use' => $blockingReasons === [],
+            'allowed_future_files' => data_get($contract, 'implementation_files_allowed_future', []),
+            'required_first_changes' => [
+                'create_codex_real_invoker_executor_fresh_release_gate',
+                'require_codex_real_invoker_executor_plan_metadata',
+                'require_operator_fresh_release_receipt_hash',
+                'require_plan_revalidation_and_freshness_hashes',
+                'record_fresh_release_event_without_enabling_executor',
+            ],
+            'required_gates' => [
+                'php -l app/Services/Ai/SelfConstruction/AgentCodexRealInvokerExecutorFreshReleaseGate.php',
+                'php artisan test tests/Feature/Ai/AtlasAiSelfConstructionAgentCodexRealInvokerExecutorFreshReleaseGateTest.php',
+                'php artisan test tests/Feature/Ai/AtlasAiSelfConstructionCommandTest.php --filter=agent_codex_real_invoker_executor_fresh_release_gate',
+                'php artisan atlas:engineering:knowledge docs-health --json',
+                'php artisan atlas:ai:architecture-validate --json',
+                'git diff --check',
+            ],
+            'preflight_policy' => [
+                'preflight_is_read_only' => true,
+                'fresh_release_gate_file_creation_allowed_here' => false,
+                'executor_enablement_allowed_here' => false,
+                'provider_process_start_allowed_here' => false,
+                'codex_invocation_allowed_here' => false,
+                'token_spend_allowed_here' => false,
+                'requires_separate_implementation_packet' => true,
+            ],
+            'next_required_command' => 'php artisan atlas:ai:self-construction --agent-codex-real-invoker-executor-fresh-release-gate-implementation-packet --json',
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_codex_real_invoker_executor_fresh_release_gate_preflight.v1',
+            'status' => (string) $preflight['status'],
+            'mode' => 'read_only_agent_codex_real_invoker_executor_fresh_release_gate_preflight',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'codex_real_invoker_executor_fresh_release_gate_preflight' => $preflight,
+            'codex_real_invoker_executor_fresh_release_gate_preflight_hash' => $this->stableHash($preflight),
+            'non_execution_guarantees' => [
+                'agent_codex_real_invoker_executor_fresh_release_gate_preflight_does_not_start_codex',
+                'agent_codex_real_invoker_executor_fresh_release_gate_preflight_does_not_call_codex',
+                'agent_codex_real_invoker_executor_fresh_release_gate_preflight_does_not_spend_tokens',
+                'agent_codex_real_invoker_executor_fresh_release_gate_preflight_does_not_enable_executor',
+                'agent_codex_real_invoker_executor_fresh_release_gate_preflight_does_not_dispatch_work',
+            ],
+            'human_summary' => $blockingReasons === []
+                ? 'Codex real invoker executor fresh release gate is ready; executor remains disabled until a later enablement stage.'
+                : 'Codex real invoker executor fresh release gate is blocked until the gate service and executor plan prerequisites exist.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentCodexRealInvokerExecutorFreshReleaseGateImplementationPacket(array $options = []): array
+    {
+        $preflightPayload = $this->agentCodexRealInvokerExecutorFreshReleaseGatePreflight($options);
+        $preflight = (array) data_get($preflightPayload, 'codex_real_invoker_executor_fresh_release_gate_preflight', []);
+        $preflightHash = (string) data_get($preflightPayload, 'codex_real_invoker_executor_fresh_release_gate_preflight_hash');
+        $allowedFiles = (array) data_get($preflight, 'allowed_future_files', []);
+
+        $tasks = [
+            [
+                'id' => 'T1',
+                'title' => 'Create Codex real invoker executor fresh release gate',
+                'type' => 'service',
+                'allowed_files' => ['app/Services/Ai/SelfConstruction/AgentCodexRealInvokerExecutorFreshReleaseGate.php'],
+                'acceptance' => 'Fresh release records authorization metadata and never enables executor or starts Codex.',
+            ],
+            [
+                'id' => 'T2',
+                'title' => 'Enforce freshness and human signature contracts',
+                'type' => 'service_logic',
+                'allowed_files' => ['app/Services/Ai/SelfConstruction/AgentCodexRealInvokerExecutorFreshReleaseGate.php'],
+                'acceptance' => 'Fresh release requires executor plan metadata, revalidation report hash, freshness window hash and final human signature hash.',
+            ],
+            [
+                'id' => 'T3',
+                'title' => 'Add real invoker executor fresh release tests',
+                'type' => 'test',
+                'allowed_files' => ['tests/Feature/Ai/AtlasAiSelfConstructionAgentCodexRealInvokerExecutorFreshReleaseGateTest.php'],
+                'acceptance' => 'Tests prove missing executor plan rejection, duplicate release rejection, rollback and no executor/process/token side effects.',
+            ],
+            [
+                'id' => 'T4',
+                'title' => 'Expose fresh release readiness commands',
+                'type' => 'command_surface',
+                'allowed_files' => [
+                    'app/Services/Ai/SelfConstruction/AtlasSelfConstructionReadinessService.php',
+                    'app/Console/Commands/AtlasAiSelfConstructionCommand.php',
+                    'tests/Feature/Ai/AtlasAiSelfConstructionCommandTest.php',
+                ],
+                'acceptance' => 'Contract, preflight and implementation packet commands remain read-only and declare executor disabled.',
+            ],
+        ];
+
+        $packet = [
+            'status' => 'ready_for_scoped_codex_real_invoker_executor_fresh_release_gate_implementation',
+            'implementation_packet_id' => 'AGENT-CODEX-REAL-INVOKER-EXECUTOR-FRESH-RELEASE-GATE-IMPLEMENTATION-SELF-CONSTRUCTION-0001',
+            'source_preflight_hash' => $preflightHash,
+            'objective' => 'Implement the Codex real invoker executor fresh release gate that authorizes a fresh future enablement while still refusing to enable or start Codex.',
+            'non_goals' => [
+                'do_not_call_codex_cli_or_codex_app',
+                'do_not_spawn_processes_or_shell_commands',
+                'do_not_spend_provider_tokens',
+                'do_not_enable_executor',
+                'do_not_mark_runs_running_or_terminal',
+                'do_not_change_packet_claim_completion_or_merge_state',
+            ],
+            'allowed_files' => $allowedFiles,
+            'forbidden_scopes' => [
+                'actual_codex_process_invocation',
+                'provider_token_spend',
+                'executor_enablement',
+                'merge_runtime',
+                'packet_claim_or_completion_state',
+                'hot_kernel_runtime',
+                'voice_runtime',
+                'policy_mutation',
+            ],
+            'tasks' => $tasks,
+            'task_count' => count($tasks),
+            'acceptance_criteria' => [
+                'fresh_release_gate_requires_executor_plan_metadata',
+                'fresh_release_gate_requires_operator_fresh_release_receipt_hash',
+                'fresh_release_gate_requires_plan_revalidation_report_hash',
+                'fresh_release_gate_is_idempotent_for_same_release_id',
+                'fresh_release_gate_records_authorized_event_without_enabling_executor',
+            ],
+            'required_gates' => data_get($preflight, 'required_gates', []),
+            'stop_conditions' => [
+                'need_to_start_codex_or_spawn_process',
+                'need_to_enable_executor',
+                'need_to_modify_file_outside_allowed_files',
+                'need_to_allow_provider_token_spend',
+                'need_to_change_packet_claim_completion_or_merge_state',
+                'test_requires_hot_runtime_or_voice_scope_change',
+            ],
+            'implementation_policy' => [
+                'packet_is_read_only' => true,
+                'implementation_allowed_by_packet' => true,
+                'fresh_release_authorization_allowed_by_packet' => false,
+                'executor_enablement_allowed_by_packet' => false,
+                'provider_process_start_allowed_by_packet' => false,
+                'codex_invocation_allowed_by_packet' => false,
+                'token_spend_allowed_by_packet' => false,
+                'dispatch_allowed_by_packet' => false,
+            ],
+            'next_required_action' => 'Implement only the allowed files, then run the required gates and report evidence.',
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_codex_real_invoker_executor_fresh_release_gate_implementation_packet.v1',
+            'status' => 'ready_for_scoped_codex_real_invoker_executor_fresh_release_gate_implementation',
+            'mode' => 'read_only_agent_codex_real_invoker_executor_fresh_release_gate_implementation_packet',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'codex_real_invoker_executor_fresh_release_gate_implementation_packet' => $packet,
+            'codex_real_invoker_executor_fresh_release_gate_implementation_packet_hash' => $this->stableHash($packet),
+            'non_execution_guarantees' => [
+                'agent_codex_real_invoker_executor_fresh_release_gate_implementation_packet_does_not_start_codex',
+                'agent_codex_real_invoker_executor_fresh_release_gate_implementation_packet_does_not_call_codex',
+                'agent_codex_real_invoker_executor_fresh_release_gate_implementation_packet_does_not_spend_tokens',
+                'agent_codex_real_invoker_executor_fresh_release_gate_implementation_packet_does_not_enable_executor',
+                'agent_codex_real_invoker_executor_fresh_release_gate_implementation_packet_does_not_dispatch_work',
+            ],
+            'human_summary' => 'Codex real invoker executor fresh release gate implementation packet is ready; it defines scoped fresh-release work but does not enable or start Codex.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentCodexRealInvokerExecutorEnablementGateContractTemplate(array $options = []): array
+    {
+        $freshReleasePayload = $this->agentCodexRealInvokerExecutorFreshReleaseGatePreflight($options);
+
+        $template = [
+            'status' => 'codex_real_invoker_executor_enablement_gate_contract_template_ready',
+            'contract_id' => 'CODEX-REAL-INVOKER-EXECUTOR-ENABLEMENT-'.strtoupper(substr($this->stableHash([
+                'codex_real_invoker_executor_fresh_release_gate_preflight_hash' => data_get($freshReleasePayload, 'codex_real_invoker_executor_fresh_release_gate_preflight_hash'),
+                'provider' => 'codex',
+                'adapter' => 'codex',
+            ]), 0, 24)),
+            'source_codex_real_invoker_executor_fresh_release_gate_status' => data_get($freshReleasePayload, 'status'),
+            'source_codex_real_invoker_executor_fresh_release_gate_preflight_hash' => data_get($freshReleasePayload, 'codex_real_invoker_executor_fresh_release_gate_preflight_hash'),
+            'provider' => 'codex',
+            'adapter' => 'codex',
+            'contract' => [
+                'service' => 'App\\Services\\Ai\\SelfConstruction\\AgentCodexRealInvokerExecutorEnablementGate',
+                'method' => 'enableExecutor',
+                'input_contract' => [
+                    'run_key',
+                    'codex_execution_id',
+                    'process_start_release_id',
+                    'supervised_start_id',
+                    'spawn_enablement_id',
+                    'spawn_executor_id',
+                    'runtime_driver_id',
+                    'invocation_authorization_id',
+                    'dry_run_id',
+                    'real_invoker_release_preflight_id',
+                    'signed_real_invoker_release_id',
+                    'real_invoker_implementation_boundary_id',
+                    'real_invoker_executor_plan_id',
+                    'real_invoker_executor_fresh_release_id',
+                    'real_invoker_executor_enablement_id',
+                    'operator_enablement_receipt_hash',
+                    'enablement_policy_hash',
+                    'pre_start_checklist_hash',
+                    'disable_switch_hash',
+                    'operator_fresh_release_receipt_hash',
+                    'plan_revalidation_report_hash',
+                    'freshness_window_hash',
+                    'final_human_signature_hash',
+                    'real_invoker_contract_hash',
+                    'release_policy_hash',
+                    'implementation_plan_hash',
+                    'executor_binary_contract_hash',
+                    'executor_observability_contract_hash',
+                    'process_command_hash',
+                    'environment_contract_hash',
+                    'termination_policy_hash',
+                    'stdout_stderr_sink_hash',
+                    'liveness_probe_hash',
+                    'rollback_plan_hash',
+                    'max_runtime_policy_hash',
+                    'actor',
+                    'session',
+                    'reason',
+                ],
+                'result_contract' => [
+                    'real_invoker_executor_enablement_id',
+                    'real_invoker_executor_fresh_release_id',
+                    'real_invoker_executor_plan_id',
+                    'real_invoker_implementation_boundary_id',
+                    'signed_real_invoker_release_id',
+                    'codex_execution_id',
+                    'agent_run_id',
+                    'run_key',
+                    'provider',
+                    'adapter',
+                    'real_invoker_executor_enabled',
+                    'executor_enabled',
+                    'external_process_started',
+                    'token_spend_allowed',
+                    'provider_started',
+                    'dispatch_allowed',
+                ],
+            ],
+            'real_invoker_executor_enablement_must' => [
+                'require_codex_real_invoker_executor_fresh_release_authorized',
+                'require_operator_enablement_receipt_hash',
+                'require_enablement_policy_hash',
+                'require_pre_start_checklist_hash',
+                'require_disable_switch_hash',
+                'record_append_only_real_invoker_executor_enablement_event_before_any_process_start',
+            ],
+            'real_invoker_executor_enablement_must_not' => [
+                'start_codex_process_from_contract_template',
+                'spawn_shell_or_subprocess',
+                'call_codex_cli_or_codex_app',
+                'spend_provider_tokens',
+                'mark_run_running_or_terminal',
+                'dispatch_work_to_provider',
+                'complete_or_merge_packet',
+            ],
+            'implementation_files_allowed_future' => [
+                'app/Services/Ai/SelfConstruction/AgentCodexRealInvokerExecutorEnablementGate.php',
+                'tests/Feature/Ai/AtlasAiSelfConstructionAgentCodexRealInvokerExecutorEnablementGateTest.php',
+            ],
+            'contract_policy' => [
+                'template_is_read_only' => true,
+                'executor_enablement_allowed_here' => false,
+                'provider_process_start_allowed_here' => false,
+                'codex_invocation_allowed_here' => false,
+                'token_spend_allowed_here' => false,
+                'dispatch_allowed_here' => false,
+                'requires_separate_implementation_packet' => true,
+            ],
+            'next_required_command' => 'php artisan atlas:ai:self-construction --agent-codex-real-invoker-executor-enablement-gate-preflight --json',
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_codex_real_invoker_executor_enablement_gate_contract_template.v1',
+            'status' => 'codex_real_invoker_executor_enablement_gate_contract_template_ready',
+            'mode' => 'read_only_agent_codex_real_invoker_executor_enablement_gate_contract_template',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'codex_real_invoker_executor_enablement_gate_contract_template' => $template,
+            'codex_real_invoker_executor_enablement_gate_contract_template_hash' => $this->stableHash($template),
+            'non_execution_guarantees' => [
+                'agent_codex_real_invoker_executor_enablement_gate_contract_template_does_not_start_codex',
+                'agent_codex_real_invoker_executor_enablement_gate_contract_template_does_not_call_codex',
+                'agent_codex_real_invoker_executor_enablement_gate_contract_template_does_not_spend_tokens',
+                'agent_codex_real_invoker_executor_enablement_gate_contract_template_does_not_dispatch_work',
+            ],
+            'human_summary' => 'Codex real invoker executor enablement gate contract template defines executor enablement while keeping process start disabled.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentCodexRealInvokerExecutorEnablementGatePreflight(array $options = []): array
+    {
+        $contractPayload = $this->agentCodexRealInvokerExecutorEnablementGateContractTemplate($options);
+        $contract = (array) data_get($contractPayload, 'codex_real_invoker_executor_enablement_gate_contract_template', []);
+        $enablementClass = AgentCodexRealInvokerExecutorEnablementGate::class;
+        $freshReleaseClass = AgentCodexRealInvokerExecutorFreshReleaseGate::class;
+        $enablementReady = class_exists($enablementClass);
+        $freshReleaseReady = class_exists($freshReleaseClass);
+        $runsTableReady = Schema::hasTable('atlas_self_construction_agent_runs');
+        $ledgerReady = Schema::hasTable('atlas_ledger_events');
+
+        $blockingReasons = array_values(array_filter([
+            $enablementReady ? null : 'codex_real_invoker_executor_enablement_gate_missing',
+            $freshReleaseReady ? null : 'codex_real_invoker_executor_fresh_release_gate_missing',
+            $runsTableReady ? null : 'agent_runs_table_missing',
+            $ledgerReady ? null : 'ledger_table_missing',
+        ]));
+
+        $preflight = [
+            'status' => $blockingReasons === [] ? 'codex_real_invoker_executor_enablement_gate_ready' : 'blocked',
+            'contract_template_hash' => data_get($contractPayload, 'codex_real_invoker_executor_enablement_gate_contract_template_hash'),
+            'source_codex_real_invoker_executor_fresh_release_gate_status' => data_get($contract, 'source_codex_real_invoker_executor_fresh_release_gate_status'),
+            'provider' => 'codex',
+            'adapter' => 'codex',
+            'storage' => [
+                'codex_real_invoker_executor_enablement_gate_ready' => $enablementReady,
+                'codex_real_invoker_executor_fresh_release_gate_ready' => $freshReleaseReady,
+                'agent_runs_table_ready' => $runsTableReady,
+                'ledger_table_ready' => $ledgerReady,
+            ],
+            'blocking_count' => count($blockingReasons),
+            'blocking_reasons' => $blockingReasons,
+            'enablement_gate_ready_for_future_use' => $blockingReasons === [],
+            'allowed_future_files' => data_get($contract, 'implementation_files_allowed_future', []),
+            'required_first_changes' => [
+                'create_codex_real_invoker_executor_enablement_gate',
+                'require_codex_real_invoker_executor_fresh_release_metadata',
+                'require_operator_enablement_receipt_hash',
+                'require_enablement_policy_and_pre_start_checklist_hashes',
+                'record_enablement_event_without_starting_codex',
+            ],
+            'required_gates' => [
+                'php -l app/Services/Ai/SelfConstruction/AgentCodexRealInvokerExecutorEnablementGate.php',
+                'php artisan test tests/Feature/Ai/AtlasAiSelfConstructionAgentCodexRealInvokerExecutorEnablementGateTest.php',
+                'php artisan test tests/Feature/Ai/AtlasAiSelfConstructionCommandTest.php --filter=agent_codex_real_invoker_executor_enablement_gate',
+                'php artisan atlas:engineering:knowledge docs-health --json',
+                'php artisan atlas:ai:architecture-validate --json',
+                'git diff --check',
+            ],
+            'preflight_policy' => [
+                'preflight_is_read_only' => true,
+                'enablement_gate_file_creation_allowed_here' => false,
+                'provider_process_start_allowed_here' => false,
+                'codex_invocation_allowed_here' => false,
+                'token_spend_allowed_here' => false,
+                'dispatch_allowed_here' => false,
+                'requires_separate_implementation_packet' => true,
+            ],
+            'next_required_command' => 'php artisan atlas:ai:self-construction --agent-codex-real-invoker-executor-enablement-gate-implementation-packet --json',
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_codex_real_invoker_executor_enablement_gate_preflight.v1',
+            'status' => (string) $preflight['status'],
+            'mode' => 'read_only_agent_codex_real_invoker_executor_enablement_gate_preflight',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'codex_real_invoker_executor_enablement_gate_preflight' => $preflight,
+            'codex_real_invoker_executor_enablement_gate_preflight_hash' => $this->stableHash($preflight),
+            'non_execution_guarantees' => [
+                'agent_codex_real_invoker_executor_enablement_gate_preflight_does_not_start_codex',
+                'agent_codex_real_invoker_executor_enablement_gate_preflight_does_not_call_codex',
+                'agent_codex_real_invoker_executor_enablement_gate_preflight_does_not_spend_tokens',
+                'agent_codex_real_invoker_executor_enablement_gate_preflight_does_not_dispatch_work',
+            ],
+            'human_summary' => $blockingReasons === []
+                ? 'Codex real invoker executor enablement gate is ready; process start remains disabled until a later supervised-start activation stage.'
+                : 'Codex real invoker executor enablement gate is blocked until the gate service and fresh release prerequisites exist.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentCodexRealInvokerExecutorEnablementGateImplementationPacket(array $options = []): array
+    {
+        $preflightPayload = $this->agentCodexRealInvokerExecutorEnablementGatePreflight($options);
+        $preflight = (array) data_get($preflightPayload, 'codex_real_invoker_executor_enablement_gate_preflight', []);
+        $preflightHash = (string) data_get($preflightPayload, 'codex_real_invoker_executor_enablement_gate_preflight_hash');
+        $allowedFiles = (array) data_get($preflight, 'allowed_future_files', []);
+
+        $tasks = [
+            [
+                'id' => 'T1',
+                'title' => 'Create Codex real invoker executor enablement gate',
+                'type' => 'service',
+                'allowed_files' => ['app/Services/Ai/SelfConstruction/AgentCodexRealInvokerExecutorEnablementGate.php'],
+                'acceptance' => 'Enablement records executor-enabled metadata and never starts Codex or permits token spend.',
+            ],
+            [
+                'id' => 'T2',
+                'title' => 'Enforce fresh-release and pre-start contracts',
+                'type' => 'service_logic',
+                'allowed_files' => ['app/Services/Ai/SelfConstruction/AgentCodexRealInvokerExecutorEnablementGate.php'],
+                'acceptance' => 'Enablement requires fresh release metadata, operator enablement receipt, enablement policy, pre-start checklist and disable switch hashes.',
+            ],
+            [
+                'id' => 'T3',
+                'title' => 'Add real invoker executor enablement tests',
+                'type' => 'test',
+                'allowed_files' => ['tests/Feature/Ai/AtlasAiSelfConstructionAgentCodexRealInvokerExecutorEnablementGateTest.php'],
+                'acceptance' => 'Tests prove missing fresh release rejection, duplicate enablement rejection, rollback and no process/token/dispatch side effects.',
+            ],
+            [
+                'id' => 'T4',
+                'title' => 'Expose enablement readiness commands',
+                'type' => 'command_surface',
+                'allowed_files' => [
+                    'app/Services/Ai/SelfConstruction/AtlasSelfConstructionReadinessService.php',
+                    'app/Console/Commands/AtlasAiSelfConstructionCommand.php',
+                    'tests/Feature/Ai/AtlasAiSelfConstructionCommandTest.php',
+                ],
+                'acceptance' => 'Contract, preflight and implementation packet commands remain read-only and declare process start disabled.',
+            ],
+        ];
+
+        $packet = [
+            'status' => 'ready_for_scoped_codex_real_invoker_executor_enablement_gate_implementation',
+            'implementation_packet_id' => 'AGENT-CODEX-REAL-INVOKER-EXECUTOR-ENABLEMENT-GATE-IMPLEMENTATION-SELF-CONSTRUCTION-0001',
+            'source_preflight_hash' => $preflightHash,
+            'objective' => 'Implement the Codex real invoker executor enablement gate that enables the executor contract while still refusing to start Codex, spend tokens or dispatch work.',
+            'non_goals' => [
+                'do_not_call_codex_cli_or_codex_app',
+                'do_not_spawn_processes_or_shell_commands',
+                'do_not_spend_provider_tokens',
+                'do_not_start_codex_process',
+                'do_not_mark_runs_running_or_terminal',
+                'do_not_change_packet_claim_completion_or_merge_state',
+            ],
+            'allowed_files' => $allowedFiles,
+            'forbidden_scopes' => [
+                'actual_codex_process_invocation',
+                'provider_token_spend',
+                'process_start',
+                'merge_runtime',
+                'packet_claim_or_completion_state',
+                'hot_kernel_runtime',
+                'voice_runtime',
+                'policy_mutation',
+            ],
+            'tasks' => $tasks,
+            'task_count' => count($tasks),
+            'acceptance_criteria' => [
+                'enablement_gate_requires_fresh_release_metadata',
+                'enablement_gate_requires_operator_enablement_receipt_hash',
+                'enablement_gate_requires_pre_start_checklist_hash',
+                'enablement_gate_is_idempotent_for_same_enablement_id',
+                'enablement_gate_records_enabled_event_without_starting_codex',
+            ],
+            'required_gates' => data_get($preflight, 'required_gates', []),
+            'stop_conditions' => [
+                'need_to_start_codex_or_spawn_process',
+                'need_to_allow_provider_token_spend',
+                'need_to_dispatch_work_to_provider',
+                'need_to_modify_file_outside_allowed_files',
+                'need_to_change_packet_claim_completion_or_merge_state',
+                'test_requires_hot_runtime_or_voice_scope_change',
+            ],
+            'implementation_policy' => [
+                'packet_is_read_only' => true,
+                'implementation_allowed_by_packet' => true,
+                'executor_enablement_allowed_by_packet' => false,
+                'provider_process_start_allowed_by_packet' => false,
+                'codex_invocation_allowed_by_packet' => false,
+                'token_spend_allowed_by_packet' => false,
+                'dispatch_allowed_by_packet' => false,
+            ],
+            'next_required_action' => 'Implement only the allowed files, then run the required gates and report evidence.',
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_codex_real_invoker_executor_enablement_gate_implementation_packet.v1',
+            'status' => 'ready_for_scoped_codex_real_invoker_executor_enablement_gate_implementation',
+            'mode' => 'read_only_agent_codex_real_invoker_executor_enablement_gate_implementation_packet',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'codex_real_invoker_executor_enablement_gate_implementation_packet' => $packet,
+            'codex_real_invoker_executor_enablement_gate_implementation_packet_hash' => $this->stableHash($packet),
+            'non_execution_guarantees' => [
+                'agent_codex_real_invoker_executor_enablement_gate_implementation_packet_does_not_start_codex',
+                'agent_codex_real_invoker_executor_enablement_gate_implementation_packet_does_not_call_codex',
+                'agent_codex_real_invoker_executor_enablement_gate_implementation_packet_does_not_spend_tokens',
+                'agent_codex_real_invoker_executor_enablement_gate_implementation_packet_does_not_dispatch_work',
+            ],
+            'human_summary' => 'Codex real invoker executor enablement gate implementation packet is ready; it enables the executor contract only and does not start Codex.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentCodexRealInvokerSupervisedStartActivationGateContractTemplate(array $options = []): array
+    {
+        $enablementPayload = $this->agentCodexRealInvokerExecutorEnablementGatePreflight($options);
+
+        $template = [
+            'status' => 'codex_real_invoker_supervised_start_activation_gate_contract_template_ready',
+            'contract_id' => 'CODEX-REAL-INVOKER-SUPERVISED-START-ACTIVATION-'.strtoupper(substr($this->stableHash([
+                'codex_real_invoker_executor_enablement_gate_preflight_hash' => data_get($enablementPayload, 'codex_real_invoker_executor_enablement_gate_preflight_hash'),
+                'provider' => 'codex',
+                'adapter' => 'codex',
+            ]), 0, 24)),
+            'source_codex_real_invoker_executor_enablement_gate_status' => data_get($enablementPayload, 'status'),
+            'source_codex_real_invoker_executor_enablement_gate_preflight_hash' => data_get($enablementPayload, 'codex_real_invoker_executor_enablement_gate_preflight_hash'),
+            'provider' => 'codex',
+            'adapter' => 'codex',
+            'contract' => [
+                'service' => 'App\\Services\\Ai\\SelfConstruction\\AgentCodexRealInvokerSupervisedStartActivationGate',
+                'method' => 'prepareActivation',
+                'input_contract' => [
+                    'run_key',
+                    'codex_execution_id',
+                    'process_start_release_id',
+                    'supervised_start_id',
+                    'spawn_enablement_id',
+                    'spawn_executor_id',
+                    'runtime_driver_id',
+                    'invocation_authorization_id',
+                    'dry_run_id',
+                    'real_invoker_release_preflight_id',
+                    'signed_real_invoker_release_id',
+                    'real_invoker_implementation_boundary_id',
+                    'real_invoker_executor_plan_id',
+                    'real_invoker_executor_fresh_release_id',
+                    'real_invoker_executor_enablement_id',
+                    'real_invoker_supervised_start_activation_id',
+                    'operator_start_activation_receipt_hash',
+                    'start_window_hash',
+                    'process_start_guard_hash',
+                    'supervisor_observer_hash',
+                    'pid_guard_hash',
+                    'cwd_integrity_hash',
+                    'operator_enablement_receipt_hash',
+                    'enablement_policy_hash',
+                    'pre_start_checklist_hash',
+                    'disable_switch_hash',
+                    'operator_fresh_release_receipt_hash',
+                    'plan_revalidation_report_hash',
+                    'freshness_window_hash',
+                    'final_human_signature_hash',
+                    'real_invoker_contract_hash',
+                    'release_policy_hash',
+                    'implementation_plan_hash',
+                    'executor_binary_contract_hash',
+                    'executor_observability_contract_hash',
+                    'process_command_hash',
+                    'environment_contract_hash',
+                    'termination_policy_hash',
+                    'stdout_stderr_sink_hash',
+                    'liveness_probe_hash',
+                    'rollback_plan_hash',
+                    'max_runtime_policy_hash',
+                    'actor',
+                    'session',
+                    'reason',
+                ],
+                'result_contract' => [
+                    'real_invoker_supervised_start_activation_id',
+                    'real_invoker_executor_enablement_id',
+                    'real_invoker_executor_fresh_release_id',
+                    'real_invoker_executor_plan_id',
+                    'codex_execution_id',
+                    'agent_run_id',
+                    'run_key',
+                    'provider',
+                    'adapter',
+                    'real_invoker_supervised_start_activation_prepared',
+                    'executor_enabled',
+                    'process_start_armed',
+                    'external_process_started',
+                    'token_spend_allowed',
+                    'provider_started',
+                    'dispatch_allowed',
+                ],
+            ],
+            'real_invoker_supervised_start_activation_must' => [
+                'require_codex_real_invoker_executor_enabled',
+                'require_operator_start_activation_receipt_hash',
+                'require_start_window_hash',
+                'require_process_start_guard_hash',
+                'require_supervisor_observer_hash',
+                'record_append_only_supervised_start_activation_event_before_any_process_start',
+            ],
+            'real_invoker_supervised_start_activation_must_not' => [
+                'start_codex_process_from_contract_template',
+                'spawn_shell_or_subprocess',
+                'call_codex_cli_or_codex_app',
+                'spend_provider_tokens',
+                'mark_run_running_or_terminal',
+                'dispatch_work_to_provider',
+                'complete_or_merge_packet',
+            ],
+            'implementation_files_allowed_future' => [
+                'app/Services/Ai/SelfConstruction/AgentCodexRealInvokerSupervisedStartActivationGate.php',
+                'tests/Feature/Ai/AtlasAiSelfConstructionAgentCodexRealInvokerSupervisedStartActivationGateTest.php',
+            ],
+            'contract_policy' => [
+                'template_is_read_only' => true,
+                'supervised_start_activation_allowed_here' => false,
+                'provider_process_start_allowed_here' => false,
+                'codex_invocation_allowed_here' => false,
+                'token_spend_allowed_here' => false,
+                'dispatch_allowed_here' => false,
+                'requires_separate_implementation_packet' => true,
+            ],
+            'next_required_command' => 'php artisan atlas:ai:self-construction --agent-codex-real-invoker-supervised-start-activation-gate-preflight --json',
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_codex_real_invoker_supervised_start_activation_gate_contract_template.v1',
+            'status' => 'codex_real_invoker_supervised_start_activation_gate_contract_template_ready',
+            'mode' => 'read_only_agent_codex_real_invoker_supervised_start_activation_gate_contract_template',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'codex_real_invoker_supervised_start_activation_gate_contract_template' => $template,
+            'codex_real_invoker_supervised_start_activation_gate_contract_template_hash' => $this->stableHash($template),
+            'non_execution_guarantees' => [
+                'agent_codex_real_invoker_supervised_start_activation_gate_contract_template_does_not_start_codex',
+                'agent_codex_real_invoker_supervised_start_activation_gate_contract_template_does_not_call_codex',
+                'agent_codex_real_invoker_supervised_start_activation_gate_contract_template_does_not_spend_tokens',
+                'agent_codex_real_invoker_supervised_start_activation_gate_contract_template_does_not_dispatch_work',
+            ],
+            'human_summary' => 'Codex real invoker supervised start activation gate contract template arms supervised start metadata while keeping process start disabled.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentCodexRealInvokerSupervisedStartActivationGatePreflight(array $options = []): array
+    {
+        $contractPayload = $this->agentCodexRealInvokerSupervisedStartActivationGateContractTemplate($options);
+        $contract = (array) data_get($contractPayload, 'codex_real_invoker_supervised_start_activation_gate_contract_template', []);
+        $activationClass = AgentCodexRealInvokerSupervisedStartActivationGate::class;
+        $enablementClass = AgentCodexRealInvokerExecutorEnablementGate::class;
+        $activationReady = class_exists($activationClass);
+        $enablementReady = class_exists($enablementClass);
+        $runsTableReady = Schema::hasTable('atlas_self_construction_agent_runs');
+        $ledgerReady = Schema::hasTable('atlas_ledger_events');
+
+        $blockingReasons = array_values(array_filter([
+            $activationReady ? null : 'codex_real_invoker_supervised_start_activation_gate_missing',
+            $enablementReady ? null : 'codex_real_invoker_executor_enablement_gate_missing',
+            $runsTableReady ? null : 'agent_runs_table_missing',
+            $ledgerReady ? null : 'ledger_table_missing',
+        ]));
+
+        $preflight = [
+            'status' => $blockingReasons === [] ? 'codex_real_invoker_supervised_start_activation_gate_ready' : 'blocked',
+            'contract_template_hash' => data_get($contractPayload, 'codex_real_invoker_supervised_start_activation_gate_contract_template_hash'),
+            'source_codex_real_invoker_executor_enablement_gate_status' => data_get($contract, 'source_codex_real_invoker_executor_enablement_gate_status'),
+            'provider' => 'codex',
+            'adapter' => 'codex',
+            'storage' => [
+                'codex_real_invoker_supervised_start_activation_gate_ready' => $activationReady,
+                'codex_real_invoker_executor_enablement_gate_ready' => $enablementReady,
+                'agent_runs_table_ready' => $runsTableReady,
+                'ledger_table_ready' => $ledgerReady,
+            ],
+            'blocking_count' => count($blockingReasons),
+            'blocking_reasons' => $blockingReasons,
+            'activation_gate_ready_for_future_use' => $blockingReasons === [],
+            'allowed_future_files' => data_get($contract, 'implementation_files_allowed_future', []),
+            'required_first_changes' => [
+                'create_codex_real_invoker_supervised_start_activation_gate',
+                'require_codex_real_invoker_executor_enablement_metadata',
+                'require_operator_start_activation_receipt_hash',
+                'require_process_start_guard_and_supervisor_observer_hashes',
+                'record_activation_event_without_starting_codex',
+            ],
+            'required_gates' => [
+                'php -l app/Services/Ai/SelfConstruction/AgentCodexRealInvokerSupervisedStartActivationGate.php',
+                'php artisan test tests/Feature/Ai/AtlasAiSelfConstructionAgentCodexRealInvokerSupervisedStartActivationGateTest.php',
+                'php artisan test tests/Feature/Ai/AtlasAiSelfConstructionCommandTest.php --filter=agent_codex_real_invoker_supervised_start_activation_gate',
+                'php artisan atlas:engineering:knowledge docs-health --json',
+                'php artisan atlas:ai:architecture-validate --json',
+                'git diff --check',
+            ],
+            'preflight_policy' => [
+                'preflight_is_read_only' => true,
+                'activation_gate_file_creation_allowed_here' => false,
+                'provider_process_start_allowed_here' => false,
+                'codex_invocation_allowed_here' => false,
+                'token_spend_allowed_here' => false,
+                'dispatch_allowed_here' => false,
+                'requires_separate_implementation_packet' => true,
+            ],
+            'next_required_command' => 'php artisan atlas:ai:self-construction --agent-codex-real-invoker-supervised-start-activation-gate-implementation-packet --json',
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_codex_real_invoker_supervised_start_activation_gate_preflight.v1',
+            'status' => (string) $preflight['status'],
+            'mode' => 'read_only_agent_codex_real_invoker_supervised_start_activation_gate_preflight',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'codex_real_invoker_supervised_start_activation_gate_preflight' => $preflight,
+            'codex_real_invoker_supervised_start_activation_gate_preflight_hash' => $this->stableHash($preflight),
+            'non_execution_guarantees' => [
+                'agent_codex_real_invoker_supervised_start_activation_gate_preflight_does_not_start_codex',
+                'agent_codex_real_invoker_supervised_start_activation_gate_preflight_does_not_call_codex',
+                'agent_codex_real_invoker_supervised_start_activation_gate_preflight_does_not_spend_tokens',
+                'agent_codex_real_invoker_supervised_start_activation_gate_preflight_does_not_dispatch_work',
+            ],
+            'human_summary' => $blockingReasons === []
+                ? 'Codex real invoker supervised start activation gate is ready; the actual process start still requires a later guarded process-start executor.'
+                : 'Codex real invoker supervised start activation gate is blocked until the activation service and enablement prerequisites exist.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentCodexRealInvokerSupervisedStartActivationGateImplementationPacket(array $options = []): array
+    {
+        $preflightPayload = $this->agentCodexRealInvokerSupervisedStartActivationGatePreflight($options);
+        $preflight = (array) data_get($preflightPayload, 'codex_real_invoker_supervised_start_activation_gate_preflight', []);
+        $preflightHash = (string) data_get($preflightPayload, 'codex_real_invoker_supervised_start_activation_gate_preflight_hash');
+        $allowedFiles = (array) data_get($preflight, 'allowed_future_files', []);
+
+        $tasks = [
+            [
+                'id' => 'T1',
+                'title' => 'Create Codex real invoker supervised start activation gate',
+                'type' => 'service',
+                'allowed_files' => ['app/Services/Ai/SelfConstruction/AgentCodexRealInvokerSupervisedStartActivationGate.php'],
+                'acceptance' => 'Activation records process-start-armed metadata and never starts Codex or permits token spend.',
+            ],
+            [
+                'id' => 'T2',
+                'title' => 'Enforce executor enablement and start guard contracts',
+                'type' => 'service_logic',
+                'allowed_files' => ['app/Services/Ai/SelfConstruction/AgentCodexRealInvokerSupervisedStartActivationGate.php'],
+                'acceptance' => 'Activation requires executor enablement metadata, operator start receipt, start window, process guard, supervisor observer, PID guard and cwd integrity hashes.',
+            ],
+            [
+                'id' => 'T3',
+                'title' => 'Add supervised start activation tests',
+                'type' => 'test',
+                'allowed_files' => ['tests/Feature/Ai/AtlasAiSelfConstructionAgentCodexRealInvokerSupervisedStartActivationGateTest.php'],
+                'acceptance' => 'Tests prove missing enablement rejection, duplicate activation rejection, rollback and no process/token/dispatch side effects.',
+            ],
+            [
+                'id' => 'T4',
+                'title' => 'Expose activation readiness commands',
+                'type' => 'command_surface',
+                'allowed_files' => [
+                    'app/Services/Ai/SelfConstruction/AtlasSelfConstructionReadinessService.php',
+                    'app/Console/Commands/AtlasAiSelfConstructionCommand.php',
+                    'tests/Feature/Ai/AtlasAiSelfConstructionCommandTest.php',
+                ],
+                'acceptance' => 'Contract, preflight and implementation packet commands remain read-only and declare actual process start disabled.',
+            ],
+        ];
+
+        $packet = [
+            'status' => 'ready_for_scoped_codex_real_invoker_supervised_start_activation_gate_implementation',
+            'implementation_packet_id' => 'AGENT-CODEX-REAL-INVOKER-SUPERVISED-START-ACTIVATION-GATE-IMPLEMENTATION-SELF-CONSTRUCTION-0001',
+            'source_preflight_hash' => $preflightHash,
+            'objective' => 'Implement the Codex real invoker supervised start activation gate that arms a future guarded process start while still refusing to start Codex, spend tokens or dispatch work.',
+            'non_goals' => [
+                'do_not_call_codex_cli_or_codex_app',
+                'do_not_spawn_processes_or_shell_commands',
+                'do_not_spend_provider_tokens',
+                'do_not_start_codex_process',
+                'do_not_mark_runs_running_or_terminal',
+                'do_not_change_packet_claim_completion_or_merge_state',
+            ],
+            'allowed_files' => $allowedFiles,
+            'forbidden_scopes' => [
+                'actual_codex_process_invocation',
+                'provider_token_spend',
+                'process_start',
+                'merge_runtime',
+                'packet_claim_or_completion_state',
+                'hot_kernel_runtime',
+                'voice_runtime',
+                'policy_mutation',
+            ],
+            'tasks' => $tasks,
+            'task_count' => count($tasks),
+            'acceptance_criteria' => [
+                'activation_gate_requires_executor_enablement_metadata',
+                'activation_gate_requires_operator_start_activation_receipt_hash',
+                'activation_gate_requires_process_start_guard_hash',
+                'activation_gate_is_idempotent_for_same_activation_id',
+                'activation_gate_records_armed_event_without_starting_codex',
+            ],
+            'required_gates' => data_get($preflight, 'required_gates', []),
+            'stop_conditions' => [
+                'need_to_start_codex_or_spawn_process',
+                'need_to_allow_provider_token_spend',
+                'need_to_dispatch_work_to_provider',
+                'need_to_modify_file_outside_allowed_files',
+                'need_to_change_packet_claim_completion_or_merge_state',
+                'test_requires_hot_runtime_or_voice_scope_change',
+            ],
+            'implementation_policy' => [
+                'packet_is_read_only' => true,
+                'implementation_allowed_by_packet' => true,
+                'supervised_start_activation_allowed_by_packet' => false,
+                'provider_process_start_allowed_by_packet' => false,
+                'codex_invocation_allowed_by_packet' => false,
+                'token_spend_allowed_by_packet' => false,
+                'dispatch_allowed_by_packet' => false,
+            ],
+            'next_required_action' => 'Implement only the allowed files, then run the required gates and report evidence.',
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_codex_real_invoker_supervised_start_activation_gate_implementation_packet.v1',
+            'status' => 'ready_for_scoped_codex_real_invoker_supervised_start_activation_gate_implementation',
+            'mode' => 'read_only_agent_codex_real_invoker_supervised_start_activation_gate_implementation_packet',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'codex_real_invoker_supervised_start_activation_gate_implementation_packet' => $packet,
+            'codex_real_invoker_supervised_start_activation_gate_implementation_packet_hash' => $this->stableHash($packet),
+            'non_execution_guarantees' => [
+                'agent_codex_real_invoker_supervised_start_activation_gate_implementation_packet_does_not_start_codex',
+                'agent_codex_real_invoker_supervised_start_activation_gate_implementation_packet_does_not_call_codex',
+                'agent_codex_real_invoker_supervised_start_activation_gate_implementation_packet_does_not_spend_tokens',
+                'agent_codex_real_invoker_supervised_start_activation_gate_implementation_packet_does_not_dispatch_work',
+            ],
+            'human_summary' => 'Codex real invoker supervised start activation gate implementation packet is ready; it arms a future start contract only and does not start Codex.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentCodexRealInvokerGuardedProcessStartExecutorContractTemplate(array $options = []): array
+    {
+        $activationPayload = $this->agentCodexRealInvokerSupervisedStartActivationGatePreflight($options);
+
+        $template = [
+            'status' => 'codex_real_invoker_guarded_process_start_executor_contract_template_ready',
+            'contract_id' => 'CODEX-REAL-INVOKER-GUARDED-PROCESS-START-'.strtoupper(substr($this->stableHash([
+                'codex_real_invoker_supervised_start_activation_gate_preflight_hash' => data_get($activationPayload, 'codex_real_invoker_supervised_start_activation_gate_preflight_hash'),
+                'provider' => 'codex',
+                'adapter' => 'codex',
+            ]), 0, 24)),
+            'source_codex_real_invoker_supervised_start_activation_gate_status' => data_get($activationPayload, 'status'),
+            'source_codex_real_invoker_supervised_start_activation_gate_preflight_hash' => data_get($activationPayload, 'codex_real_invoker_supervised_start_activation_gate_preflight_hash'),
+            'provider' => 'codex',
+            'adapter' => 'codex',
+            'contract' => [
+                'service' => 'App\\Services\\Ai\\SelfConstruction\\AgentCodexRealInvokerGuardedProcessStartExecutor',
+                'method' => 'prepareGuardedStart',
+                'input_contract' => [
+                    'run_key',
+                    'codex_execution_id',
+                    'process_start_release_id',
+                    'supervised_start_id',
+                    'spawn_enablement_id',
+                    'spawn_executor_id',
+                    'runtime_driver_id',
+                    'invocation_authorization_id',
+                    'dry_run_id',
+                    'real_invoker_release_preflight_id',
+                    'signed_real_invoker_release_id',
+                    'real_invoker_implementation_boundary_id',
+                    'real_invoker_executor_plan_id',
+                    'real_invoker_executor_fresh_release_id',
+                    'real_invoker_executor_enablement_id',
+                    'real_invoker_supervised_start_activation_id',
+                    'real_invoker_guarded_process_start_id',
+                    'operator_guarded_start_receipt_hash',
+                    'process_runner_contract_hash',
+                    'dry_run_rehearsal_hash',
+                    'launch_invocation_contract_hash',
+                    'post_start_observability_hash',
+                    'revoke_guard_hash',
+                    'actor',
+                    'session',
+                    'reason',
+                ],
+                'result_contract' => [
+                    'real_invoker_guarded_process_start_id',
+                    'real_invoker_supervised_start_activation_id',
+                    'agent_run_id',
+                    'run_key',
+                    'provider',
+                    'adapter',
+                    'real_invoker_guarded_process_start_prepared',
+                    'executor_enabled',
+                    'process_start_armed',
+                    'actual_process_start_allowed',
+                    'external_process_started',
+                    'token_spend_allowed',
+                    'provider_started',
+                    'dispatch_allowed',
+                ],
+            ],
+            'real_invoker_guarded_process_start_must' => [
+                'require_codex_real_invoker_supervised_start_activation',
+                'require_operator_guarded_start_receipt_hash',
+                'require_process_runner_contract_hash',
+                'require_dry_run_rehearsal_hash',
+                'require_launch_invocation_contract_hash',
+                'record_append_only_guarded_process_start_event_before_any_actual_start',
+            ],
+            'real_invoker_guarded_process_start_must_not' => [
+                'start_codex_process_from_contract_template',
+                'spawn_shell_or_subprocess',
+                'call_codex_cli_or_codex_app',
+                'spend_provider_tokens',
+                'mark_run_running_or_terminal',
+                'dispatch_work_to_provider',
+                'complete_or_merge_packet',
+            ],
+            'implementation_files_allowed_future' => [
+                'app/Services/Ai/SelfConstruction/AgentCodexRealInvokerGuardedProcessStartExecutor.php',
+                'tests/Feature/Ai/AtlasAiSelfConstructionAgentCodexRealInvokerGuardedProcessStartExecutorTest.php',
+            ],
+            'contract_policy' => [
+                'template_is_read_only' => true,
+                'guarded_process_start_preparation_allowed_here' => false,
+                'actual_process_start_allowed_here' => false,
+                'provider_process_start_allowed_here' => false,
+                'codex_invocation_allowed_here' => false,
+                'token_spend_allowed_here' => false,
+                'dispatch_allowed_here' => false,
+                'requires_separate_implementation_packet' => true,
+            ],
+            'next_required_command' => 'php artisan atlas:ai:self-construction --agent-codex-real-invoker-guarded-process-start-executor-preflight --json',
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_codex_real_invoker_guarded_process_start_executor_contract_template.v1',
+            'status' => 'codex_real_invoker_guarded_process_start_executor_contract_template_ready',
+            'mode' => 'read_only_agent_codex_real_invoker_guarded_process_start_executor_contract_template',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'codex_real_invoker_guarded_process_start_executor_contract_template' => $template,
+            'codex_real_invoker_guarded_process_start_executor_contract_template_hash' => $this->stableHash($template),
+            'non_execution_guarantees' => [
+                'agent_codex_real_invoker_guarded_process_start_executor_contract_template_does_not_start_codex',
+                'agent_codex_real_invoker_guarded_process_start_executor_contract_template_does_not_call_codex',
+                'agent_codex_real_invoker_guarded_process_start_executor_contract_template_does_not_spend_tokens',
+                'agent_codex_real_invoker_guarded_process_start_executor_contract_template_does_not_dispatch_work',
+            ],
+            'human_summary' => 'Codex real invoker guarded process start executor contract template prepares the last guarded start envelope while keeping actual start disabled.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentCodexRealInvokerGuardedProcessStartExecutorPreflight(array $options = []): array
+    {
+        $contractPayload = $this->agentCodexRealInvokerGuardedProcessStartExecutorContractTemplate($options);
+        $contract = (array) data_get($contractPayload, 'codex_real_invoker_guarded_process_start_executor_contract_template', []);
+        $guardedStartClass = AgentCodexRealInvokerGuardedProcessStartExecutor::class;
+        $activationClass = AgentCodexRealInvokerSupervisedStartActivationGate::class;
+        $guardedStartReady = class_exists($guardedStartClass);
+        $activationReady = class_exists($activationClass);
+        $runsTableReady = Schema::hasTable('atlas_self_construction_agent_runs');
+        $ledgerReady = Schema::hasTable('atlas_ledger_events');
+
+        $blockingReasons = array_values(array_filter([
+            $guardedStartReady ? null : 'codex_real_invoker_guarded_process_start_executor_missing',
+            $activationReady ? null : 'codex_real_invoker_supervised_start_activation_gate_missing',
+            $runsTableReady ? null : 'agent_runs_table_missing',
+            $ledgerReady ? null : 'ledger_table_missing',
+        ]));
+
+        $preflight = [
+            'status' => $blockingReasons === [] ? 'codex_real_invoker_guarded_process_start_executor_ready' : 'blocked',
+            'contract_template_hash' => data_get($contractPayload, 'codex_real_invoker_guarded_process_start_executor_contract_template_hash'),
+            'source_codex_real_invoker_supervised_start_activation_gate_status' => data_get($contract, 'source_codex_real_invoker_supervised_start_activation_gate_status'),
+            'provider' => 'codex',
+            'adapter' => 'codex',
+            'storage' => [
+                'codex_real_invoker_guarded_process_start_executor_ready' => $guardedStartReady,
+                'codex_real_invoker_supervised_start_activation_gate_ready' => $activationReady,
+                'agent_runs_table_ready' => $runsTableReady,
+                'ledger_table_ready' => $ledgerReady,
+            ],
+            'blocking_count' => count($blockingReasons),
+            'blocking_reasons' => $blockingReasons,
+            'guarded_process_start_ready_for_future_use' => $blockingReasons === [],
+            'allowed_future_files' => data_get($contract, 'implementation_files_allowed_future', []),
+            'required_first_changes' => [
+                'create_codex_real_invoker_guarded_process_start_executor',
+                'require_codex_real_invoker_supervised_start_activation_metadata',
+                'require_operator_guarded_start_receipt_hash',
+                'require_dry_run_rehearsal_and_process_runner_contract_hashes',
+                'record_guarded_process_start_event_without_starting_codex',
+            ],
+            'required_gates' => [
+                'php -l app/Services/Ai/SelfConstruction/AgentCodexRealInvokerGuardedProcessStartExecutor.php',
+                'php artisan test tests/Feature/Ai/AtlasAiSelfConstructionAgentCodexRealInvokerGuardedProcessStartExecutorTest.php',
+                'php artisan test tests/Feature/Ai/AtlasAiSelfConstructionCommandTest.php --filter=agent_codex_real_invoker_guarded_process_start_executor',
+                'php artisan atlas:engineering:knowledge docs-health --json',
+                'php artisan atlas:ai:architecture-validate --json',
+                'git diff --check',
+            ],
+            'preflight_policy' => [
+                'preflight_is_read_only' => true,
+                'guarded_process_start_executor_file_creation_allowed_here' => false,
+                'actual_process_start_allowed_here' => false,
+                'provider_process_start_allowed_here' => false,
+                'codex_invocation_allowed_here' => false,
+                'token_spend_allowed_here' => false,
+                'dispatch_allowed_here' => false,
+                'requires_separate_implementation_packet' => true,
+            ],
+            'next_required_command' => 'php artisan atlas:ai:self-construction --agent-codex-real-invoker-guarded-process-start-executor-implementation-packet --json',
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_codex_real_invoker_guarded_process_start_executor_preflight.v1',
+            'status' => (string) $preflight['status'],
+            'mode' => 'read_only_agent_codex_real_invoker_guarded_process_start_executor_preflight',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'codex_real_invoker_guarded_process_start_executor_preflight' => $preflight,
+            'codex_real_invoker_guarded_process_start_executor_preflight_hash' => $this->stableHash($preflight),
+            'non_execution_guarantees' => [
+                'agent_codex_real_invoker_guarded_process_start_executor_preflight_does_not_start_codex',
+                'agent_codex_real_invoker_guarded_process_start_executor_preflight_does_not_call_codex',
+                'agent_codex_real_invoker_guarded_process_start_executor_preflight_does_not_spend_tokens',
+                'agent_codex_real_invoker_guarded_process_start_executor_preflight_does_not_dispatch_work',
+            ],
+            'human_summary' => $blockingReasons === []
+                ? 'Codex real invoker guarded process start executor is ready; actual process start still requires a later explicit final start authorization.'
+                : 'Codex real invoker guarded process start executor is blocked until the executor and activation prerequisites exist.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentCodexRealInvokerGuardedProcessStartExecutorImplementationPacket(array $options = []): array
+    {
+        $preflightPayload = $this->agentCodexRealInvokerGuardedProcessStartExecutorPreflight($options);
+        $preflight = (array) data_get($preflightPayload, 'codex_real_invoker_guarded_process_start_executor_preflight', []);
+        $preflightHash = (string) data_get($preflightPayload, 'codex_real_invoker_guarded_process_start_executor_preflight_hash');
+        $allowedFiles = (array) data_get($preflight, 'allowed_future_files', []);
+
+        $tasks = [
+            [
+                'id' => 'T1',
+                'title' => 'Create Codex real invoker guarded process start executor',
+                'type' => 'service',
+                'allowed_files' => ['app/Services/Ai/SelfConstruction/AgentCodexRealInvokerGuardedProcessStartExecutor.php'],
+                'acceptance' => 'Executor records guarded process-start metadata and never starts Codex or permits token spend.',
+            ],
+            [
+                'id' => 'T2',
+                'title' => 'Enforce supervised activation and guarded start contracts',
+                'type' => 'service_logic',
+                'allowed_files' => ['app/Services/Ai/SelfConstruction/AgentCodexRealInvokerGuardedProcessStartExecutor.php'],
+                'acceptance' => 'Executor requires supervised activation metadata, guarded receipt, process runner contract, dry-run rehearsal, launch contract and revoke guard hashes.',
+            ],
+            [
+                'id' => 'T3',
+                'title' => 'Add guarded process start tests',
+                'type' => 'test',
+                'allowed_files' => ['tests/Feature/Ai/AtlasAiSelfConstructionAgentCodexRealInvokerGuardedProcessStartExecutorTest.php'],
+                'acceptance' => 'Tests prove missing activation rejection, duplicate guarded start rejection, rollback and no process/token/dispatch side effects.',
+            ],
+            [
+                'id' => 'T4',
+                'title' => 'Expose guarded process start readiness commands',
+                'type' => 'command_surface',
+                'allowed_files' => [
+                    'app/Services/Ai/SelfConstruction/AtlasSelfConstructionReadinessService.php',
+                    'app/Console/Commands/AtlasAiSelfConstructionCommand.php',
+                    'tests/Feature/Ai/AtlasAiSelfConstructionCommandTest.php',
+                ],
+                'acceptance' => 'Contract, preflight and implementation packet commands remain read-only and declare actual process start disabled.',
+            ],
+        ];
+
+        $packet = [
+            'status' => 'ready_for_scoped_codex_real_invoker_guarded_process_start_executor_implementation',
+            'implementation_packet_id' => 'AGENT-CODEX-REAL-INVOKER-GUARDED-PROCESS-START-EXECUTOR-IMPLEMENTATION-SELF-CONSTRUCTION-0001',
+            'source_preflight_hash' => $preflightHash,
+            'objective' => 'Implement the Codex real invoker guarded process start executor that prepares a future final process start while still refusing to start Codex, spend tokens or dispatch work.',
+            'non_goals' => [
+                'do_not_call_codex_cli_or_codex_app',
+                'do_not_spawn_processes_or_shell_commands',
+                'do_not_spend_provider_tokens',
+                'do_not_start_codex_process',
+                'do_not_mark_runs_running_or_terminal',
+                'do_not_change_packet_claim_completion_or_merge_state',
+            ],
+            'allowed_files' => $allowedFiles,
+            'forbidden_scopes' => [
+                'actual_codex_process_invocation',
+                'provider_token_spend',
+                'process_start',
+                'merge_runtime',
+                'packet_claim_or_completion_state',
+                'hot_kernel_runtime',
+                'voice_runtime',
+                'policy_mutation',
+            ],
+            'tasks' => $tasks,
+            'task_count' => count($tasks),
+            'acceptance_criteria' => [
+                'guarded_start_executor_requires_supervised_activation_metadata',
+                'guarded_start_executor_requires_operator_guarded_start_receipt_hash',
+                'guarded_start_executor_requires_dry_run_rehearsal_hash',
+                'guarded_start_executor_is_idempotent_for_same_guarded_start_id',
+                'guarded_start_executor_records_guarded_event_without_starting_codex',
+            ],
+            'required_gates' => data_get($preflight, 'required_gates', []),
+            'stop_conditions' => [
+                'need_to_start_codex_or_spawn_process',
+                'need_to_allow_provider_token_spend',
+                'need_to_dispatch_work_to_provider',
+                'need_to_modify_file_outside_allowed_files',
+                'need_to_change_packet_claim_completion_or_merge_state',
+                'test_requires_hot_runtime_or_voice_scope_change',
+            ],
+            'implementation_policy' => [
+                'packet_is_read_only' => true,
+                'implementation_allowed_by_packet' => true,
+                'guarded_process_start_preparation_allowed_by_packet' => false,
+                'actual_process_start_allowed_by_packet' => false,
+                'provider_process_start_allowed_by_packet' => false,
+                'codex_invocation_allowed_by_packet' => false,
+                'token_spend_allowed_by_packet' => false,
+                'dispatch_allowed_by_packet' => false,
+            ],
+            'next_required_action' => 'Implement only the allowed files, then run the required gates and report evidence.',
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_codex_real_invoker_guarded_process_start_executor_implementation_packet.v1',
+            'status' => 'ready_for_scoped_codex_real_invoker_guarded_process_start_executor_implementation',
+            'mode' => 'read_only_agent_codex_real_invoker_guarded_process_start_executor_implementation_packet',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'codex_real_invoker_guarded_process_start_executor_implementation_packet' => $packet,
+            'codex_real_invoker_guarded_process_start_executor_implementation_packet_hash' => $this->stableHash($packet),
+            'non_execution_guarantees' => [
+                'agent_codex_real_invoker_guarded_process_start_executor_implementation_packet_does_not_start_codex',
+                'agent_codex_real_invoker_guarded_process_start_executor_implementation_packet_does_not_call_codex',
+                'agent_codex_real_invoker_guarded_process_start_executor_implementation_packet_does_not_spend_tokens',
+                'agent_codex_real_invoker_guarded_process_start_executor_implementation_packet_does_not_dispatch_work',
+            ],
+            'human_summary' => 'Codex real invoker guarded process start executor implementation packet is ready; it prepares a future final start only and does not start Codex.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentCodexRealInvokerFinalProcessStartAuthorizationGateContractTemplate(array $options = []): array
+    {
+        $guardedPayload = $this->agentCodexRealInvokerGuardedProcessStartExecutorPreflight($options);
+
+        $template = [
+            'status' => 'codex_real_invoker_final_process_start_authorization_gate_contract_template_ready',
+            'contract_id' => 'CODEX-REAL-INVOKER-FINAL-PROCESS-START-AUTH-'.strtoupper(substr($this->stableHash([
+                'codex_real_invoker_guarded_process_start_executor_preflight_hash' => data_get($guardedPayload, 'codex_real_invoker_guarded_process_start_executor_preflight_hash'),
+                'provider' => 'codex',
+                'adapter' => 'codex',
+            ]), 0, 24)),
+            'source_codex_real_invoker_guarded_process_start_executor_status' => data_get($guardedPayload, 'status'),
+            'source_codex_real_invoker_guarded_process_start_executor_preflight_hash' => data_get($guardedPayload, 'codex_real_invoker_guarded_process_start_executor_preflight_hash'),
+            'provider' => 'codex',
+            'adapter' => 'codex',
+            'contract' => [
+                'service' => 'App\\Services\\Ai\\SelfConstruction\\AgentCodexRealInvokerFinalProcessStartAuthorizationGate',
+                'method' => 'authorizeFinalStart',
+                'input_contract' => [
+                    'run_key',
+                    'codex_execution_id',
+                    'real_invoker_executor_plan_id',
+                    'real_invoker_executor_fresh_release_id',
+                    'real_invoker_executor_enablement_id',
+                    'real_invoker_supervised_start_activation_id',
+                    'real_invoker_guarded_process_start_id',
+                    'real_invoker_final_process_start_authorization_id',
+                    'operator_final_start_receipt_hash',
+                    'final_start_signature_hash',
+                    'final_start_policy_hash',
+                    'final_start_window_hash',
+                    'final_start_replay_guard_hash',
+                    'final_start_kill_switch_hash',
+                    'actor',
+                    'session',
+                    'reason',
+                ],
+                'result_contract' => [
+                    'real_invoker_final_process_start_authorization_id',
+                    'real_invoker_guarded_process_start_id',
+                    'agent_run_id',
+                    'run_key',
+                    'provider',
+                    'adapter',
+                    'real_invoker_final_process_start_authorization_prepared',
+                    'final_process_start_authorized',
+                    'actual_process_start_allowed',
+                    'external_process_started',
+                    'token_spend_allowed',
+                    'provider_started',
+                    'dispatch_allowed',
+                ],
+            ],
+            'real_invoker_final_process_start_authorization_must' => [
+                'require_codex_real_invoker_guarded_process_start',
+                'require_operator_final_start_receipt_hash',
+                'require_final_start_signature_hash',
+                'require_final_start_policy_hash',
+                'require_final_start_window_hash',
+                'require_final_start_replay_guard_hash',
+                'record_append_only_final_start_authorization_event_before_any_actual_start',
+            ],
+            'real_invoker_final_process_start_authorization_must_not' => [
+                'start_codex_process_from_contract_template',
+                'spawn_shell_or_subprocess',
+                'call_codex_cli_or_codex_app',
+                'spend_provider_tokens',
+                'mark_run_running_or_terminal',
+                'dispatch_work_to_provider',
+                'complete_or_merge_packet',
+            ],
+            'implementation_files_allowed_future' => [
+                'app/Services/Ai/SelfConstruction/AgentCodexRealInvokerFinalProcessStartAuthorizationGate.php',
+                'tests/Feature/Ai/AtlasAiSelfConstructionAgentCodexRealInvokerFinalProcessStartAuthorizationGateTest.php',
+            ],
+            'contract_policy' => [
+                'template_is_read_only' => true,
+                'final_process_start_authorization_allowed_here' => false,
+                'actual_process_start_allowed_here' => false,
+                'provider_process_start_allowed_here' => false,
+                'codex_invocation_allowed_here' => false,
+                'token_spend_allowed_here' => false,
+                'dispatch_allowed_here' => false,
+                'requires_separate_implementation_packet' => true,
+            ],
+            'next_required_command' => 'php artisan atlas:ai:self-construction --agent-codex-real-invoker-final-process-start-authorization-gate-preflight --json',
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_codex_real_invoker_final_process_start_authorization_gate_contract_template.v1',
+            'status' => 'codex_real_invoker_final_process_start_authorization_gate_contract_template_ready',
+            'mode' => 'read_only_agent_codex_real_invoker_final_process_start_authorization_gate_contract_template',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'codex_real_invoker_final_process_start_authorization_gate_contract_template' => $template,
+            'codex_real_invoker_final_process_start_authorization_gate_contract_template_hash' => $this->stableHash($template),
+            'non_execution_guarantees' => [
+                'agent_codex_real_invoker_final_process_start_authorization_gate_contract_template_does_not_start_codex',
+                'agent_codex_real_invoker_final_process_start_authorization_gate_contract_template_does_not_call_codex',
+                'agent_codex_real_invoker_final_process_start_authorization_gate_contract_template_does_not_spend_tokens',
+                'agent_codex_real_invoker_final_process_start_authorization_gate_contract_template_does_not_dispatch_work',
+            ],
+            'human_summary' => 'Codex real invoker final process start authorization gate contract template records the final signed authorization but still separates authorization from actual process start.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentCodexRealInvokerFinalProcessStartAuthorizationGatePreflight(array $options = []): array
+    {
+        $contractPayload = $this->agentCodexRealInvokerFinalProcessStartAuthorizationGateContractTemplate($options);
+        $contract = (array) data_get($contractPayload, 'codex_real_invoker_final_process_start_authorization_gate_contract_template', []);
+        $authorizationClass = AgentCodexRealInvokerFinalProcessStartAuthorizationGate::class;
+        $guardedStartClass = AgentCodexRealInvokerGuardedProcessStartExecutor::class;
+        $authorizationReady = class_exists($authorizationClass);
+        $guardedStartReady = class_exists($guardedStartClass);
+        $runsTableReady = Schema::hasTable('atlas_self_construction_agent_runs');
+        $ledgerReady = Schema::hasTable('atlas_ledger_events');
+
+        $blockingReasons = array_values(array_filter([
+            $authorizationReady ? null : 'codex_real_invoker_final_process_start_authorization_gate_missing',
+            $guardedStartReady ? null : 'codex_real_invoker_guarded_process_start_executor_missing',
+            $runsTableReady ? null : 'agent_runs_table_missing',
+            $ledgerReady ? null : 'ledger_table_missing',
+        ]));
+
+        $preflight = [
+            'status' => $blockingReasons === [] ? 'codex_real_invoker_final_process_start_authorization_gate_ready' : 'blocked',
+            'contract_template_hash' => data_get($contractPayload, 'codex_real_invoker_final_process_start_authorization_gate_contract_template_hash'),
+            'source_codex_real_invoker_guarded_process_start_executor_status' => data_get($contract, 'source_codex_real_invoker_guarded_process_start_executor_status'),
+            'provider' => 'codex',
+            'adapter' => 'codex',
+            'storage' => [
+                'codex_real_invoker_final_process_start_authorization_gate_ready' => $authorizationReady,
+                'codex_real_invoker_guarded_process_start_executor_ready' => $guardedStartReady,
+                'agent_runs_table_ready' => $runsTableReady,
+                'ledger_table_ready' => $ledgerReady,
+            ],
+            'blocking_count' => count($blockingReasons),
+            'blocking_reasons' => $blockingReasons,
+            'final_process_start_authorization_ready_for_future_use' => $blockingReasons === [],
+            'allowed_future_files' => data_get($contract, 'implementation_files_allowed_future', []),
+            'required_first_changes' => [
+                'create_codex_real_invoker_final_process_start_authorization_gate',
+                'require_codex_real_invoker_guarded_process_start_metadata',
+                'require_operator_final_start_receipt_hash',
+                'require_final_start_signature_policy_window_and_replay_guard_hashes',
+                'record_final_start_authorization_event_without_starting_codex',
+            ],
+            'required_gates' => [
+                'php -l app/Services/Ai/SelfConstruction/AgentCodexRealInvokerFinalProcessStartAuthorizationGate.php',
+                'php artisan test tests/Feature/Ai/AtlasAiSelfConstructionAgentCodexRealInvokerFinalProcessStartAuthorizationGateTest.php',
+                'php artisan test tests/Feature/Ai/AtlasAiSelfConstructionCommandTest.php --filter=agent_codex_real_invoker_final_process_start_authorization_gate',
+                'php artisan atlas:engineering:knowledge docs-health --json',
+                'php artisan atlas:ai:architecture-validate --json',
+                'git diff --check',
+            ],
+            'preflight_policy' => [
+                'preflight_is_read_only' => true,
+                'final_process_start_authorization_file_creation_allowed_here' => false,
+                'actual_process_start_allowed_here' => false,
+                'provider_process_start_allowed_here' => false,
+                'codex_invocation_allowed_here' => false,
+                'token_spend_allowed_here' => false,
+                'dispatch_allowed_here' => false,
+                'requires_separate_implementation_packet' => true,
+            ],
+            'next_required_command' => 'php artisan atlas:ai:self-construction --agent-codex-real-invoker-final-process-start-authorization-gate-implementation-packet --json',
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_codex_real_invoker_final_process_start_authorization_gate_preflight.v1',
+            'status' => (string) $preflight['status'],
+            'mode' => 'read_only_agent_codex_real_invoker_final_process_start_authorization_gate_preflight',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'codex_real_invoker_final_process_start_authorization_gate_preflight' => $preflight,
+            'codex_real_invoker_final_process_start_authorization_gate_preflight_hash' => $this->stableHash($preflight),
+            'non_execution_guarantees' => [
+                'agent_codex_real_invoker_final_process_start_authorization_gate_preflight_does_not_start_codex',
+                'agent_codex_real_invoker_final_process_start_authorization_gate_preflight_does_not_call_codex',
+                'agent_codex_real_invoker_final_process_start_authorization_gate_preflight_does_not_spend_tokens',
+                'agent_codex_real_invoker_final_process_start_authorization_gate_preflight_does_not_dispatch_work',
+            ],
+            'human_summary' => $blockingReasons === []
+                ? 'Codex real invoker final process start authorization gate is ready; actual process start still requires a separate start executor.'
+                : 'Codex real invoker final process start authorization gate is blocked until the authorization gate and guarded start prerequisites exist.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentCodexRealInvokerFinalProcessStartAuthorizationGateImplementationPacket(array $options = []): array
+    {
+        $preflightPayload = $this->agentCodexRealInvokerFinalProcessStartAuthorizationGatePreflight($options);
+        $preflight = (array) data_get($preflightPayload, 'codex_real_invoker_final_process_start_authorization_gate_preflight', []);
+        $preflightHash = (string) data_get($preflightPayload, 'codex_real_invoker_final_process_start_authorization_gate_preflight_hash');
+        $allowedFiles = (array) data_get($preflight, 'allowed_future_files', []);
+
+        $tasks = [
+            [
+                'id' => 'T1',
+                'title' => 'Create Codex real invoker final process start authorization gate',
+                'type' => 'service',
+                'allowed_files' => ['app/Services/Ai/SelfConstruction/AgentCodexRealInvokerFinalProcessStartAuthorizationGate.php'],
+                'acceptance' => 'Gate records final signed start authorization and never starts Codex or permits token spend.',
+            ],
+            [
+                'id' => 'T2',
+                'title' => 'Enforce guarded start and final authorization contracts',
+                'type' => 'service_logic',
+                'allowed_files' => ['app/Services/Ai/SelfConstruction/AgentCodexRealInvokerFinalProcessStartAuthorizationGate.php'],
+                'acceptance' => 'Gate requires guarded start metadata, final receipt, final signature, final policy, final window, replay guard and kill switch hashes.',
+            ],
+            [
+                'id' => 'T3',
+                'title' => 'Add final process start authorization tests',
+                'type' => 'test',
+                'allowed_files' => ['tests/Feature/Ai/AtlasAiSelfConstructionAgentCodexRealInvokerFinalProcessStartAuthorizationGateTest.php'],
+                'acceptance' => 'Tests prove missing guarded start rejection, duplicate authorization rejection, rollback and no process/token/dispatch side effects.',
+            ],
+            [
+                'id' => 'T4',
+                'title' => 'Expose final start authorization readiness commands',
+                'type' => 'command_surface',
+                'allowed_files' => [
+                    'app/Services/Ai/SelfConstruction/AtlasSelfConstructionReadinessService.php',
+                    'app/Console/Commands/AtlasAiSelfConstructionCommand.php',
+                    'tests/Feature/Ai/AtlasAiSelfConstructionCommandTest.php',
+                ],
+                'acceptance' => 'Contract, preflight and implementation packet commands remain read-only and declare actual process start disabled.',
+            ],
+        ];
+
+        $packet = [
+            'status' => 'ready_for_scoped_codex_real_invoker_final_process_start_authorization_gate_implementation',
+            'implementation_packet_id' => 'AGENT-CODEX-REAL-INVOKER-FINAL-PROCESS-START-AUTHORIZATION-GATE-IMPLEMENTATION-SELF-CONSTRUCTION-0001',
+            'source_preflight_hash' => $preflightHash,
+            'objective' => 'Implement the Codex real invoker final process start authorization gate that records explicit final authorization while still refusing to start Codex, spend tokens or dispatch work.',
+            'non_goals' => [
+                'do_not_call_codex_cli_or_codex_app',
+                'do_not_spawn_processes_or_shell_commands',
+                'do_not_spend_provider_tokens',
+                'do_not_start_codex_process',
+                'do_not_mark_runs_running_or_terminal',
+                'do_not_change_packet_claim_completion_or_merge_state',
+            ],
+            'allowed_files' => $allowedFiles,
+            'forbidden_scopes' => [
+                'actual_codex_process_invocation',
+                'provider_token_spend',
+                'process_start',
+                'merge_runtime',
+                'packet_claim_or_completion_state',
+                'hot_kernel_runtime',
+                'voice_runtime',
+                'policy_mutation',
+            ],
+            'tasks' => $tasks,
+            'task_count' => count($tasks),
+            'acceptance_criteria' => [
+                'final_start_authorization_requires_guarded_process_start_metadata',
+                'final_start_authorization_requires_operator_final_start_receipt_hash',
+                'final_start_authorization_requires_final_start_signature_hash',
+                'final_start_authorization_is_idempotent_for_same_authorization_id',
+                'final_start_authorization_records_event_without_starting_codex',
+            ],
+            'required_gates' => data_get($preflight, 'required_gates', []),
+            'stop_conditions' => [
+                'need_to_start_codex_or_spawn_process',
+                'need_to_allow_provider_token_spend',
+                'need_to_dispatch_work_to_provider',
+                'need_to_modify_file_outside_allowed_files',
+                'need_to_change_packet_claim_completion_or_merge_state',
+                'test_requires_hot_runtime_or_voice_scope_change',
+            ],
+            'implementation_policy' => [
+                'packet_is_read_only' => true,
+                'implementation_allowed_by_packet' => true,
+                'final_process_start_authorization_allowed_by_packet' => false,
+                'actual_process_start_allowed_by_packet' => false,
+                'provider_process_start_allowed_by_packet' => false,
+                'codex_invocation_allowed_by_packet' => false,
+                'token_spend_allowed_by_packet' => false,
+                'dispatch_allowed_by_packet' => false,
+            ],
+            'next_required_action' => 'Implement only the allowed files, then run the required gates and report evidence.',
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_codex_real_invoker_final_process_start_authorization_gate_implementation_packet.v1',
+            'status' => 'ready_for_scoped_codex_real_invoker_final_process_start_authorization_gate_implementation',
+            'mode' => 'read_only_agent_codex_real_invoker_final_process_start_authorization_gate_implementation_packet',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'codex_real_invoker_final_process_start_authorization_gate_implementation_packet' => $packet,
+            'codex_real_invoker_final_process_start_authorization_gate_implementation_packet_hash' => $this->stableHash($packet),
+            'non_execution_guarantees' => [
+                'agent_codex_real_invoker_final_process_start_authorization_gate_implementation_packet_does_not_start_codex',
+                'agent_codex_real_invoker_final_process_start_authorization_gate_implementation_packet_does_not_call_codex',
+                'agent_codex_real_invoker_final_process_start_authorization_gate_implementation_packet_does_not_spend_tokens',
+                'agent_codex_real_invoker_final_process_start_authorization_gate_implementation_packet_does_not_dispatch_work',
+            ],
+            'human_summary' => 'Codex real invoker final process start authorization gate implementation packet is ready; it records final authorization only and does not start Codex.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentCodexRealInvokerActualProcessStartRehearsalExecutorContractTemplate(array $options = []): array
+    {
+        $authorizationPayload = $this->agentCodexRealInvokerFinalProcessStartAuthorizationGatePreflight($options);
+
+        $template = [
+            'status' => 'codex_real_invoker_actual_process_start_rehearsal_executor_contract_template_ready',
+            'contract_id' => 'CODEX-REAL-INVOKER-ACTUAL-PROCESS-START-REHEARSAL-'.strtoupper(substr($this->stableHash([
+                'codex_real_invoker_final_process_start_authorization_gate_preflight_hash' => data_get($authorizationPayload, 'codex_real_invoker_final_process_start_authorization_gate_preflight_hash'),
+                'provider' => 'codex',
+                'adapter' => 'codex',
+            ]), 0, 24)),
+            'source_codex_real_invoker_final_process_start_authorization_gate_status' => data_get($authorizationPayload, 'status'),
+            'source_codex_real_invoker_final_process_start_authorization_gate_preflight_hash' => data_get($authorizationPayload, 'codex_real_invoker_final_process_start_authorization_gate_preflight_hash'),
+            'provider' => 'codex',
+            'adapter' => 'codex',
+            'contract' => [
+                'service' => 'App\\Services\\Ai\\SelfConstruction\\AgentCodexRealInvokerActualProcessStartRehearsalExecutor',
+                'method' => 'rehearseActualStart',
+                'input_contract' => [
+                    'run_key',
+                    'codex_execution_id',
+                    'real_invoker_executor_plan_id',
+                    'real_invoker_executor_fresh_release_id',
+                    'real_invoker_executor_enablement_id',
+                    'real_invoker_supervised_start_activation_id',
+                    'real_invoker_guarded_process_start_id',
+                    'real_invoker_final_process_start_authorization_id',
+                    'real_invoker_actual_process_start_rehearsal_id',
+                    'process_start_rehearsal_hash',
+                    'command_resolution_hash',
+                    'environment_resolution_hash',
+                    'cwd_verification_hash',
+                    'supervisor_dry_run_hash',
+                    'liveness_probe_rehearsal_hash',
+                    'operator_final_start_receipt_hash',
+                    'final_start_signature_hash',
+                    'final_start_policy_hash',
+                    'final_start_window_hash',
+                    'final_start_replay_guard_hash',
+                    'final_start_kill_switch_hash',
+                    'actor',
+                    'session',
+                    'reason',
+                ],
+                'result_contract' => [
+                    'real_invoker_actual_process_start_rehearsal_id',
+                    'real_invoker_final_process_start_authorization_id',
+                    'agent_run_id',
+                    'run_key',
+                    'provider',
+                    'adapter',
+                    'real_invoker_actual_process_start_rehearsal_prepared',
+                    'process_start_rehearsed',
+                    'actual_process_start_allowed',
+                    'external_process_started',
+                    'token_spend_allowed',
+                    'provider_started',
+                    'dispatch_allowed',
+                ],
+            ],
+            'real_invoker_actual_process_start_rehearsal_must' => [
+                'require_codex_real_invoker_final_process_start_authorization',
+                'require_process_start_rehearsal_hash',
+                'require_command_resolution_hash',
+                'require_environment_resolution_hash',
+                'require_cwd_verification_hash',
+                'require_supervisor_dry_run_hash',
+                'require_liveness_probe_rehearsal_hash',
+                'record_append_only_actual_process_start_rehearsal_event_before_any_actual_start',
+            ],
+            'real_invoker_actual_process_start_rehearsal_must_not' => [
+                'start_codex_process_from_contract_template',
+                'spawn_shell_or_subprocess',
+                'call_codex_cli_or_codex_app',
+                'spend_provider_tokens',
+                'mark_run_running_or_terminal',
+                'dispatch_work_to_provider',
+                'complete_or_merge_packet',
+            ],
+            'implementation_files_allowed_future' => [
+                'app/Services/Ai/SelfConstruction/AgentCodexRealInvokerActualProcessStartRehearsalExecutor.php',
+                'tests/Feature/Ai/AtlasAiSelfConstructionAgentCodexRealInvokerActualProcessStartRehearsalExecutorTest.php',
+            ],
+            'contract_policy' => [
+                'template_is_read_only' => true,
+                'actual_process_start_rehearsal_allowed_here' => false,
+                'actual_process_start_allowed_here' => false,
+                'provider_process_start_allowed_here' => false,
+                'codex_invocation_allowed_here' => false,
+                'token_spend_allowed_here' => false,
+                'dispatch_allowed_here' => false,
+                'requires_separate_implementation_packet' => true,
+            ],
+            'next_required_command' => 'php artisan atlas:ai:self-construction --agent-codex-real-invoker-actual-process-start-rehearsal-executor-preflight --json',
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_codex_real_invoker_actual_process_start_rehearsal_executor_contract_template.v1',
+            'status' => 'codex_real_invoker_actual_process_start_rehearsal_executor_contract_template_ready',
+            'mode' => 'read_only_agent_codex_real_invoker_actual_process_start_rehearsal_executor_contract_template',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'codex_real_invoker_actual_process_start_rehearsal_executor_contract_template' => $template,
+            'codex_real_invoker_actual_process_start_rehearsal_executor_contract_template_hash' => $this->stableHash($template),
+            'non_execution_guarantees' => [
+                'agent_codex_real_invoker_actual_process_start_rehearsal_executor_contract_template_does_not_start_codex',
+                'agent_codex_real_invoker_actual_process_start_rehearsal_executor_contract_template_does_not_call_codex',
+                'agent_codex_real_invoker_actual_process_start_rehearsal_executor_contract_template_does_not_spend_tokens',
+                'agent_codex_real_invoker_actual_process_start_rehearsal_executor_contract_template_does_not_dispatch_work',
+            ],
+            'human_summary' => 'Codex real invoker actual process start rehearsal executor contract template rehearses the final start path but does not start Codex.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentCodexRealInvokerActualProcessStartRehearsalExecutorPreflight(array $options = []): array
+    {
+        $contractPayload = $this->agentCodexRealInvokerActualProcessStartRehearsalExecutorContractTemplate($options);
+        $contract = (array) data_get($contractPayload, 'codex_real_invoker_actual_process_start_rehearsal_executor_contract_template', []);
+        $rehearsalClass = AgentCodexRealInvokerActualProcessStartRehearsalExecutor::class;
+        $authorizationClass = AgentCodexRealInvokerFinalProcessStartAuthorizationGate::class;
+        $rehearsalReady = class_exists($rehearsalClass);
+        $authorizationReady = class_exists($authorizationClass);
+        $runsTableReady = Schema::hasTable('atlas_self_construction_agent_runs');
+        $ledgerReady = Schema::hasTable('atlas_ledger_events');
+
+        $blockingReasons = array_values(array_filter([
+            $rehearsalReady ? null : 'codex_real_invoker_actual_process_start_rehearsal_executor_missing',
+            $authorizationReady ? null : 'codex_real_invoker_final_process_start_authorization_gate_missing',
+            $runsTableReady ? null : 'agent_runs_table_missing',
+            $ledgerReady ? null : 'ledger_table_missing',
+        ]));
+
+        $preflight = [
+            'status' => $blockingReasons === [] ? 'codex_real_invoker_actual_process_start_rehearsal_executor_ready' : 'blocked',
+            'contract_template_hash' => data_get($contractPayload, 'codex_real_invoker_actual_process_start_rehearsal_executor_contract_template_hash'),
+            'source_codex_real_invoker_final_process_start_authorization_gate_status' => data_get($contract, 'source_codex_real_invoker_final_process_start_authorization_gate_status'),
+            'provider' => 'codex',
+            'adapter' => 'codex',
+            'storage' => [
+                'codex_real_invoker_actual_process_start_rehearsal_executor_ready' => $rehearsalReady,
+                'codex_real_invoker_final_process_start_authorization_gate_ready' => $authorizationReady,
+                'agent_runs_table_ready' => $runsTableReady,
+                'ledger_table_ready' => $ledgerReady,
+            ],
+            'blocking_count' => count($blockingReasons),
+            'blocking_reasons' => $blockingReasons,
+            'actual_process_start_rehearsal_ready_for_future_use' => $blockingReasons === [],
+            'allowed_future_files' => data_get($contract, 'implementation_files_allowed_future', []),
+            'required_first_changes' => [
+                'create_codex_real_invoker_actual_process_start_rehearsal_executor',
+                'require_codex_real_invoker_final_process_start_authorization_metadata',
+                'require_process_start_rehearsal_hash',
+                'require_command_environment_cwd_supervisor_and_liveness_rehearsal_hashes',
+                'record_actual_process_start_rehearsal_event_without_starting_codex',
+            ],
+            'required_gates' => [
+                'php -l app/Services/Ai/SelfConstruction/AgentCodexRealInvokerActualProcessStartRehearsalExecutor.php',
+                'php artisan test tests/Feature/Ai/AtlasAiSelfConstructionAgentCodexRealInvokerActualProcessStartRehearsalExecutorTest.php',
+                'php artisan test tests/Feature/Ai/AtlasAiSelfConstructionCommandTest.php --filter=agent_codex_real_invoker_actual_process_start_rehearsal_executor',
+                'php artisan atlas:engineering:knowledge docs-health --json',
+                'php artisan atlas:ai:architecture-validate --json',
+                'git diff --check',
+            ],
+            'preflight_policy' => [
+                'preflight_is_read_only' => true,
+                'actual_process_start_rehearsal_file_creation_allowed_here' => false,
+                'actual_process_start_allowed_here' => false,
+                'provider_process_start_allowed_here' => false,
+                'codex_invocation_allowed_here' => false,
+                'token_spend_allowed_here' => false,
+                'dispatch_allowed_here' => false,
+                'requires_separate_implementation_packet' => true,
+            ],
+            'next_required_command' => 'php artisan atlas:ai:self-construction --agent-codex-real-invoker-actual-process-start-rehearsal-executor-implementation-packet --json',
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_codex_real_invoker_actual_process_start_rehearsal_executor_preflight.v1',
+            'status' => (string) $preflight['status'],
+            'mode' => 'read_only_agent_codex_real_invoker_actual_process_start_rehearsal_executor_preflight',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'codex_real_invoker_actual_process_start_rehearsal_executor_preflight' => $preflight,
+            'codex_real_invoker_actual_process_start_rehearsal_executor_preflight_hash' => $this->stableHash($preflight),
+            'non_execution_guarantees' => [
+                'agent_codex_real_invoker_actual_process_start_rehearsal_executor_preflight_does_not_start_codex',
+                'agent_codex_real_invoker_actual_process_start_rehearsal_executor_preflight_does_not_call_codex',
+                'agent_codex_real_invoker_actual_process_start_rehearsal_executor_preflight_does_not_spend_tokens',
+                'agent_codex_real_invoker_actual_process_start_rehearsal_executor_preflight_does_not_dispatch_work',
+            ],
+            'human_summary' => $blockingReasons === []
+                ? 'Codex real invoker actual process start rehearsal executor is ready; actual process start still requires a separate executor.'
+                : 'Codex real invoker actual process start rehearsal executor is blocked until the rehearsal executor and final authorization prerequisites exist.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentCodexRealInvokerActualProcessStartRehearsalExecutorImplementationPacket(array $options = []): array
+    {
+        $preflightPayload = $this->agentCodexRealInvokerActualProcessStartRehearsalExecutorPreflight($options);
+        $preflight = (array) data_get($preflightPayload, 'codex_real_invoker_actual_process_start_rehearsal_executor_preflight', []);
+        $preflightHash = (string) data_get($preflightPayload, 'codex_real_invoker_actual_process_start_rehearsal_executor_preflight_hash');
+        $allowedFiles = (array) data_get($preflight, 'allowed_future_files', []);
+
+        $tasks = [
+            [
+                'id' => 'T1',
+                'title' => 'Create Codex real invoker actual process start rehearsal executor',
+                'type' => 'service',
+                'allowed_files' => ['app/Services/Ai/SelfConstruction/AgentCodexRealInvokerActualProcessStartRehearsalExecutor.php'],
+                'acceptance' => 'Executor records start rehearsal metadata and never starts Codex or permits token spend.',
+            ],
+            [
+                'id' => 'T2',
+                'title' => 'Enforce final authorization and start rehearsal contracts',
+                'type' => 'service_logic',
+                'allowed_files' => ['app/Services/Ai/SelfConstruction/AgentCodexRealInvokerActualProcessStartRehearsalExecutor.php'],
+                'acceptance' => 'Executor requires final authorization metadata, process start rehearsal, command, environment, cwd, supervisor and liveness rehearsal hashes.',
+            ],
+            [
+                'id' => 'T3',
+                'title' => 'Add actual process start rehearsal tests',
+                'type' => 'test',
+                'allowed_files' => ['tests/Feature/Ai/AtlasAiSelfConstructionAgentCodexRealInvokerActualProcessStartRehearsalExecutorTest.php'],
+                'acceptance' => 'Tests prove missing final authorization rejection, duplicate rehearsal rejection, rollback and no process/token/dispatch side effects.',
+            ],
+            [
+                'id' => 'T4',
+                'title' => 'Expose actual process start rehearsal readiness commands',
+                'type' => 'command_surface',
+                'allowed_files' => [
+                    'app/Services/Ai/SelfConstruction/AtlasSelfConstructionReadinessService.php',
+                    'app/Console/Commands/AtlasAiSelfConstructionCommand.php',
+                    'tests/Feature/Ai/AtlasAiSelfConstructionCommandTest.php',
+                ],
+                'acceptance' => 'Contract, preflight and implementation packet commands remain read-only and declare actual process start disabled.',
+            ],
+        ];
+
+        $packet = [
+            'status' => 'ready_for_scoped_codex_real_invoker_actual_process_start_rehearsal_executor_implementation',
+            'implementation_packet_id' => 'AGENT-CODEX-REAL-INVOKER-ACTUAL-PROCESS-START-REHEARSAL-EXECUTOR-IMPLEMENTATION-SELF-CONSTRUCTION-0001',
+            'source_preflight_hash' => $preflightHash,
+            'objective' => 'Implement the Codex real invoker actual process start rehearsal executor that rehearses the final process start path while still refusing to start Codex, spend tokens or dispatch work.',
+            'non_goals' => [
+                'do_not_call_codex_cli_or_codex_app',
+                'do_not_spawn_processes_or_shell_commands',
+                'do_not_spend_provider_tokens',
+                'do_not_start_codex_process',
+                'do_not_mark_runs_running_or_terminal',
+                'do_not_change_packet_claim_completion_or_merge_state',
+            ],
+            'allowed_files' => $allowedFiles,
+            'forbidden_scopes' => [
+                'actual_codex_process_invocation',
+                'provider_token_spend',
+                'process_start',
+                'merge_runtime',
+                'packet_claim_or_completion_state',
+                'hot_kernel_runtime',
+                'voice_runtime',
+                'policy_mutation',
+            ],
+            'tasks' => $tasks,
+            'task_count' => count($tasks),
+            'acceptance_criteria' => [
+                'actual_start_rehearsal_requires_final_authorization_metadata',
+                'actual_start_rehearsal_requires_final_process_start_authorization_metadata',
+                'actual_start_rehearsal_requires_command_resolution_hash',
+                'actual_start_rehearsal_requires_liveness_probe_rehearsal_hash',
+                'actual_start_rehearsal_is_idempotent_for_same_rehearsal_id',
+                'actual_start_rehearsal_records_event_without_starting_codex',
+            ],
+            'required_gates' => data_get($preflight, 'required_gates', []),
+            'stop_conditions' => [
+                'need_to_start_codex_or_spawn_process',
+                'need_to_allow_provider_token_spend',
+                'need_to_dispatch_work_to_provider',
+                'need_to_modify_file_outside_allowed_files',
+                'need_to_change_packet_claim_completion_or_merge_state',
+                'test_requires_hot_runtime_or_voice_scope_change',
+            ],
+            'implementation_policy' => [
+                'packet_is_read_only' => true,
+                'implementation_allowed_by_packet' => true,
+                'actual_process_start_rehearsal_allowed_by_packet' => false,
+                'actual_process_start_allowed_by_packet' => false,
+                'provider_process_start_allowed_by_packet' => false,
+                'codex_invocation_allowed_by_packet' => false,
+                'token_spend_allowed_by_packet' => false,
+                'dispatch_allowed_by_packet' => false,
+            ],
+            'next_required_action' => 'Implement only the allowed files, then run the required gates and report evidence.',
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_codex_real_invoker_actual_process_start_rehearsal_executor_implementation_packet.v1',
+            'status' => 'ready_for_scoped_codex_real_invoker_actual_process_start_rehearsal_executor_implementation',
+            'mode' => 'read_only_agent_codex_real_invoker_actual_process_start_rehearsal_executor_implementation_packet',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'codex_real_invoker_actual_process_start_rehearsal_executor_implementation_packet' => $packet,
+            'codex_real_invoker_actual_process_start_rehearsal_executor_implementation_packet_hash' => $this->stableHash($packet),
+            'non_execution_guarantees' => [
+                'agent_codex_real_invoker_actual_process_start_rehearsal_executor_implementation_packet_does_not_start_codex',
+                'agent_codex_real_invoker_actual_process_start_rehearsal_executor_implementation_packet_does_not_call_codex',
+                'agent_codex_real_invoker_actual_process_start_rehearsal_executor_implementation_packet_does_not_spend_tokens',
+                'agent_codex_real_invoker_actual_process_start_rehearsal_executor_implementation_packet_does_not_dispatch_work',
+            ],
+            'human_summary' => 'Codex real invoker actual process start rehearsal executor implementation packet is ready; it rehearses final start only and does not start Codex.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentCodexRealInvokerProcessStartEnvelopeBuilderContractTemplate(array $options = []): array
+    {
+        $rehearsalPayload = $this->agentCodexRealInvokerActualProcessStartRehearsalExecutorPreflight($options);
+
+        $template = [
+            'status' => 'codex_real_invoker_process_start_envelope_builder_contract_template_ready',
+            'contract_id' => 'CODEX-REAL-INVOKER-PROCESS-START-ENVELOPE-'.strtoupper(substr($this->stableHash([
+                'codex_real_invoker_actual_process_start_rehearsal_executor_preflight_hash' => data_get($rehearsalPayload, 'codex_real_invoker_actual_process_start_rehearsal_executor_preflight_hash'),
+                'provider' => 'codex',
+                'adapter' => 'codex',
+            ]), 0, 24)),
+            'source_codex_real_invoker_actual_process_start_rehearsal_executor_status' => data_get($rehearsalPayload, 'status'),
+            'source_codex_real_invoker_actual_process_start_rehearsal_executor_preflight_hash' => data_get($rehearsalPayload, 'codex_real_invoker_actual_process_start_rehearsal_executor_preflight_hash'),
+            'provider' => 'codex',
+            'adapter' => 'codex',
+            'contract' => [
+                'service' => 'App\\Services\\Ai\\SelfConstruction\\AgentCodexRealInvokerProcessStartEnvelopeBuilder',
+                'method' => 'buildStartEnvelope',
+                'input_contract' => [
+                    'run_key',
+                    'codex_execution_id',
+                    'real_invoker_executor_plan_id',
+                    'real_invoker_executor_fresh_release_id',
+                    'real_invoker_executor_enablement_id',
+                    'real_invoker_supervised_start_activation_id',
+                    'real_invoker_guarded_process_start_id',
+                    'real_invoker_final_process_start_authorization_id',
+                    'real_invoker_actual_process_start_rehearsal_id',
+                    'real_invoker_process_start_envelope_id',
+                    'process_start_rehearsal_hash',
+                    'command_resolution_hash',
+                    'environment_resolution_hash',
+                    'cwd_verification_hash',
+                    'supervisor_dry_run_hash',
+                    'liveness_probe_rehearsal_hash',
+                    'operator_final_start_receipt_hash',
+                    'final_start_signature_hash',
+                    'final_start_policy_hash',
+                    'final_start_window_hash',
+                    'final_start_replay_guard_hash',
+                    'final_start_kill_switch_hash',
+                    'process_start_envelope_hash',
+                    'start_command_hash',
+                    'start_environment_hash',
+                    'start_cwd_hash',
+                    'start_supervisor_hash',
+                    'start_liveness_contract_hash',
+                    'actor',
+                    'session',
+                    'reason',
+                ],
+                'result_contract' => [
+                    'real_invoker_process_start_envelope_id',
+                    'real_invoker_actual_process_start_rehearsal_id',
+                    'agent_run_id',
+                    'run_key',
+                    'provider',
+                    'adapter',
+                    'real_invoker_process_start_envelope_built',
+                    'start_envelope_ready',
+                    'actual_process_start_allowed',
+                    'external_process_started',
+                    'token_spend_allowed',
+                    'provider_started',
+                    'dispatch_allowed',
+                ],
+            ],
+            'real_invoker_process_start_envelope_must' => [
+                'require_codex_real_invoker_actual_process_start_rehearsal',
+                'require_process_start_envelope_hash',
+                'require_start_command_hash',
+                'require_start_environment_hash',
+                'require_start_cwd_hash',
+                'require_start_supervisor_hash',
+                'require_start_liveness_contract_hash',
+                'record_append_only_process_start_envelope_event_before_any_actual_start',
+            ],
+            'real_invoker_process_start_envelope_must_not' => [
+                'start_codex_process_from_contract_template',
+                'spawn_shell_or_subprocess',
+                'call_codex_cli_or_codex_app',
+                'spend_provider_tokens',
+                'mark_run_running_or_terminal',
+                'dispatch_work_to_provider',
+                'complete_or_merge_packet',
+            ],
+            'implementation_files_allowed_future' => [
+                'app/Services/Ai/SelfConstruction/AgentCodexRealInvokerProcessStartEnvelopeBuilder.php',
+                'tests/Feature/Ai/AtlasAiSelfConstructionAgentCodexRealInvokerProcessStartEnvelopeBuilderTest.php',
+            ],
+            'contract_policy' => [
+                'template_is_read_only' => true,
+                'process_start_envelope_build_allowed_here' => false,
+                'actual_process_start_allowed_here' => false,
+                'provider_process_start_allowed_here' => false,
+                'codex_invocation_allowed_here' => false,
+                'token_spend_allowed_here' => false,
+                'dispatch_allowed_here' => false,
+                'requires_separate_implementation_packet' => true,
+            ],
+            'next_required_command' => 'php artisan atlas:ai:self-construction --agent-codex-real-invoker-process-start-envelope-builder-preflight --json',
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_codex_real_invoker_process_start_envelope_builder_contract_template.v1',
+            'status' => 'codex_real_invoker_process_start_envelope_builder_contract_template_ready',
+            'mode' => 'read_only_agent_codex_real_invoker_process_start_envelope_builder_contract_template',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'codex_real_invoker_process_start_envelope_builder_contract_template' => $template,
+            'codex_real_invoker_process_start_envelope_builder_contract_template_hash' => $this->stableHash($template),
+            'non_execution_guarantees' => [
+                'agent_codex_real_invoker_process_start_envelope_builder_contract_template_does_not_start_codex',
+                'agent_codex_real_invoker_process_start_envelope_builder_contract_template_does_not_call_codex',
+                'agent_codex_real_invoker_process_start_envelope_builder_contract_template_does_not_spend_tokens',
+                'agent_codex_real_invoker_process_start_envelope_builder_contract_template_does_not_dispatch_work',
+            ],
+            'human_summary' => 'Codex real invoker process start envelope builder contract template defines the future start envelope but does not start Codex.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentCodexRealInvokerProcessStartEnvelopeBuilderPreflight(array $options = []): array
+    {
+        $contractPayload = $this->agentCodexRealInvokerProcessStartEnvelopeBuilderContractTemplate($options);
+        $contract = (array) data_get($contractPayload, 'codex_real_invoker_process_start_envelope_builder_contract_template', []);
+        $envelopeClass = AgentCodexRealInvokerProcessStartEnvelopeBuilder::class;
+        $rehearsalClass = AgentCodexRealInvokerActualProcessStartRehearsalExecutor::class;
+        $envelopeReady = class_exists($envelopeClass);
+        $rehearsalReady = class_exists($rehearsalClass);
+        $runsTableReady = Schema::hasTable('atlas_self_construction_agent_runs');
+        $ledgerReady = Schema::hasTable('atlas_ledger_events');
+
+        $blockingReasons = array_values(array_filter([
+            $envelopeReady ? null : 'codex_real_invoker_process_start_envelope_builder_missing',
+            $rehearsalReady ? null : 'codex_real_invoker_actual_process_start_rehearsal_executor_missing',
+            $runsTableReady ? null : 'agent_runs_table_missing',
+            $ledgerReady ? null : 'ledger_table_missing',
+        ]));
+
+        $preflight = [
+            'status' => $blockingReasons === [] ? 'codex_real_invoker_process_start_envelope_builder_ready' : 'blocked',
+            'contract_template_hash' => data_get($contractPayload, 'codex_real_invoker_process_start_envelope_builder_contract_template_hash'),
+            'source_codex_real_invoker_actual_process_start_rehearsal_executor_status' => data_get($contract, 'source_codex_real_invoker_actual_process_start_rehearsal_executor_status'),
+            'provider' => 'codex',
+            'adapter' => 'codex',
+            'storage' => [
+                'codex_real_invoker_process_start_envelope_builder_ready' => $envelopeReady,
+                'codex_real_invoker_actual_process_start_rehearsal_executor_ready' => $rehearsalReady,
+                'agent_runs_table_ready' => $runsTableReady,
+                'ledger_table_ready' => $ledgerReady,
+            ],
+            'blocking_count' => count($blockingReasons),
+            'blocking_reasons' => $blockingReasons,
+            'process_start_envelope_ready_for_future_use' => $blockingReasons === [],
+            'allowed_future_files' => data_get($contract, 'implementation_files_allowed_future', []),
+            'required_first_changes' => [
+                'create_codex_real_invoker_process_start_envelope_builder',
+                'require_codex_real_invoker_actual_process_start_rehearsal_metadata',
+                'require_process_start_envelope_hash',
+                'require_start_command_environment_cwd_supervisor_and_liveness_hashes',
+                'record_process_start_envelope_event_without_starting_codex',
+            ],
+            'required_gates' => [
+                'php -l app/Services/Ai/SelfConstruction/AgentCodexRealInvokerProcessStartEnvelopeBuilder.php',
+                'php artisan test tests/Feature/Ai/AtlasAiSelfConstructionAgentCodexRealInvokerProcessStartEnvelopeBuilderTest.php',
+                'php artisan test tests/Feature/Ai/AtlasAiSelfConstructionCommandTest.php --filter=agent_codex_real_invoker_process_start_envelope_builder',
+                'php artisan atlas:engineering:knowledge docs-health --json',
+                'php artisan atlas:ai:architecture-validate --json',
+                'git diff --check',
+            ],
+            'preflight_policy' => [
+                'preflight_is_read_only' => true,
+                'process_start_envelope_file_creation_allowed_here' => false,
+                'actual_process_start_allowed_here' => false,
+                'provider_process_start_allowed_here' => false,
+                'codex_invocation_allowed_here' => false,
+                'token_spend_allowed_here' => false,
+                'dispatch_allowed_here' => false,
+                'requires_separate_implementation_packet' => true,
+            ],
+            'next_required_command' => 'php artisan atlas:ai:self-construction --agent-codex-real-invoker-process-start-envelope-builder-implementation-packet --json',
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_codex_real_invoker_process_start_envelope_builder_preflight.v1',
+            'status' => (string) $preflight['status'],
+            'mode' => 'read_only_agent_codex_real_invoker_process_start_envelope_builder_preflight',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'codex_real_invoker_process_start_envelope_builder_preflight' => $preflight,
+            'codex_real_invoker_process_start_envelope_builder_preflight_hash' => $this->stableHash($preflight),
+            'non_execution_guarantees' => [
+                'agent_codex_real_invoker_process_start_envelope_builder_preflight_does_not_start_codex',
+                'agent_codex_real_invoker_process_start_envelope_builder_preflight_does_not_call_codex',
+                'agent_codex_real_invoker_process_start_envelope_builder_preflight_does_not_spend_tokens',
+                'agent_codex_real_invoker_process_start_envelope_builder_preflight_does_not_dispatch_work',
+            ],
+            'human_summary' => $blockingReasons === []
+                ? 'Codex real invoker process start envelope builder is ready; actual process start still requires a separate execution gate.'
+                : 'Codex real invoker process start envelope builder is blocked until the builder and rehearsal prerequisites exist.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentCodexRealInvokerProcessStartEnvelopeBuilderImplementationPacket(array $options = []): array
+    {
+        $preflightPayload = $this->agentCodexRealInvokerProcessStartEnvelopeBuilderPreflight($options);
+        $preflight = (array) data_get($preflightPayload, 'codex_real_invoker_process_start_envelope_builder_preflight', []);
+        $preflightHash = (string) data_get($preflightPayload, 'codex_real_invoker_process_start_envelope_builder_preflight_hash');
+        $allowedFiles = (array) data_get($preflight, 'allowed_future_files', []);
+
+        $tasks = [
+            [
+                'id' => 'T1',
+                'title' => 'Create Codex real invoker process start envelope builder',
+                'type' => 'service',
+                'allowed_files' => ['app/Services/Ai/SelfConstruction/AgentCodexRealInvokerProcessStartEnvelopeBuilder.php'],
+                'acceptance' => 'Builder records the future start envelope and never starts Codex or permits token spend.',
+            ],
+            [
+                'id' => 'T2',
+                'title' => 'Enforce rehearsal and start envelope contracts',
+                'type' => 'service_logic',
+                'allowed_files' => ['app/Services/Ai/SelfConstruction/AgentCodexRealInvokerProcessStartEnvelopeBuilder.php'],
+                'acceptance' => 'Builder requires rehearsal metadata plus process start envelope, command, environment, cwd, supervisor and liveness hashes.',
+            ],
+            [
+                'id' => 'T3',
+                'title' => 'Add process start envelope builder tests',
+                'type' => 'test',
+                'allowed_files' => ['tests/Feature/Ai/AtlasAiSelfConstructionAgentCodexRealInvokerProcessStartEnvelopeBuilderTest.php'],
+                'acceptance' => 'Tests prove missing rehearsal rejection, duplicate envelope rejection, rollback and no process/token/dispatch side effects.',
+            ],
+            [
+                'id' => 'T4',
+                'title' => 'Expose process start envelope readiness commands',
+                'type' => 'command_surface',
+                'allowed_files' => [
+                    'app/Services/Ai/SelfConstruction/AtlasSelfConstructionReadinessService.php',
+                    'app/Console/Commands/AtlasAiSelfConstructionCommand.php',
+                    'tests/Feature/Ai/AtlasAiSelfConstructionCommandTest.php',
+                ],
+                'acceptance' => 'Contract, preflight and implementation packet commands remain read-only and declare actual process start disabled.',
+            ],
+        ];
+
+        $packet = [
+            'status' => 'ready_for_scoped_codex_real_invoker_process_start_envelope_builder_implementation',
+            'implementation_packet_id' => 'AGENT-CODEX-REAL-INVOKER-PROCESS-START-ENVELOPE-BUILDER-IMPLEMENTATION-SELF-CONSTRUCTION-0001',
+            'source_preflight_hash' => $preflightHash,
+            'objective' => 'Implement the Codex real invoker process start envelope builder that materializes the future start envelope while still refusing to start Codex, spend tokens or dispatch work.',
+            'non_goals' => [
+                'do_not_call_codex_cli_or_codex_app',
+                'do_not_spawn_processes_or_shell_commands',
+                'do_not_spend_provider_tokens',
+                'do_not_start_codex_process',
+                'do_not_mark_runs_running_or_terminal',
+                'do_not_change_packet_claim_completion_or_merge_state',
+            ],
+            'allowed_files' => $allowedFiles,
+            'forbidden_scopes' => [
+                'actual_codex_process_invocation',
+                'provider_token_spend',
+                'process_start',
+                'merge_runtime',
+                'packet_claim_or_completion_state',
+                'hot_kernel_runtime',
+                'voice_runtime',
+                'policy_mutation',
+            ],
+            'tasks' => $tasks,
+            'task_count' => count($tasks),
+            'acceptance_criteria' => [
+                'process_start_envelope_requires_actual_process_start_rehearsal_metadata',
+                'process_start_envelope_requires_process_start_envelope_hash',
+                'process_start_envelope_requires_start_command_hash',
+                'process_start_envelope_is_idempotent_for_same_envelope_id',
+                'process_start_envelope_records_event_without_starting_codex',
+            ],
+            'required_gates' => data_get($preflight, 'required_gates', []),
+            'stop_conditions' => [
+                'need_to_start_codex_or_spawn_process',
+                'need_to_allow_provider_token_spend',
+                'need_to_dispatch_work_to_provider',
+                'need_to_modify_file_outside_allowed_files',
+                'need_to_change_packet_claim_completion_or_merge_state',
+                'test_requires_hot_runtime_or_voice_scope_change',
+            ],
+            'implementation_policy' => [
+                'packet_is_read_only' => true,
+                'implementation_allowed_by_packet' => true,
+                'process_start_envelope_build_allowed_by_packet' => false,
+                'actual_process_start_allowed_by_packet' => false,
+                'provider_process_start_allowed_by_packet' => false,
+                'codex_invocation_allowed_by_packet' => false,
+                'token_spend_allowed_by_packet' => false,
+                'dispatch_allowed_by_packet' => false,
+            ],
+            'next_required_action' => 'Implement only the allowed files, then run the required gates and report evidence.',
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_codex_real_invoker_process_start_envelope_builder_implementation_packet.v1',
+            'status' => 'ready_for_scoped_codex_real_invoker_process_start_envelope_builder_implementation',
+            'mode' => 'read_only_agent_codex_real_invoker_process_start_envelope_builder_implementation_packet',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'codex_real_invoker_process_start_envelope_builder_implementation_packet' => $packet,
+            'codex_real_invoker_process_start_envelope_builder_implementation_packet_hash' => $this->stableHash($packet),
+            'non_execution_guarantees' => [
+                'agent_codex_real_invoker_process_start_envelope_builder_implementation_packet_does_not_start_codex',
+                'agent_codex_real_invoker_process_start_envelope_builder_implementation_packet_does_not_call_codex',
+                'agent_codex_real_invoker_process_start_envelope_builder_implementation_packet_does_not_spend_tokens',
+                'agent_codex_real_invoker_process_start_envelope_builder_implementation_packet_does_not_dispatch_work',
+            ],
+            'human_summary' => 'Codex real invoker process start envelope builder implementation packet is ready; it builds the future start envelope only and does not start Codex.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentCodexRealInvokerStartExecutionGateContractTemplate(array $options = []): array
+    {
+        $envelopePayload = $this->agentCodexRealInvokerProcessStartEnvelopeBuilderPreflight($options);
+
+        $template = [
+            'status' => 'codex_real_invoker_start_execution_gate_contract_template_ready',
+            'contract_id' => 'CODEX-REAL-INVOKER-START-EXECUTION-GATE-'.strtoupper(substr($this->stableHash([
+                'codex_real_invoker_process_start_envelope_builder_preflight_hash' => data_get($envelopePayload, 'codex_real_invoker_process_start_envelope_builder_preflight_hash'),
+                'provider' => 'codex',
+                'adapter' => 'codex',
+            ]), 0, 24)),
+            'source_codex_real_invoker_process_start_envelope_builder_status' => data_get($envelopePayload, 'status'),
+            'source_codex_real_invoker_process_start_envelope_builder_preflight_hash' => data_get($envelopePayload, 'codex_real_invoker_process_start_envelope_builder_preflight_hash'),
+            'provider' => 'codex',
+            'adapter' => 'codex',
+            'contract' => [
+                'service' => 'App\\Services\\Ai\\SelfConstruction\\AgentCodexRealInvokerStartExecutionGate',
+                'method' => 'authorizeStartExecution',
+                'input_contract' => [
+                    'run_key',
+                    'codex_execution_id',
+                    'real_invoker_executor_plan_id',
+                    'real_invoker_executor_fresh_release_id',
+                    'real_invoker_executor_enablement_id',
+                    'real_invoker_supervised_start_activation_id',
+                    'real_invoker_guarded_process_start_id',
+                    'real_invoker_final_process_start_authorization_id',
+                    'real_invoker_actual_process_start_rehearsal_id',
+                    'real_invoker_process_start_envelope_id',
+                    'real_invoker_start_execution_gate_id',
+                    'process_start_envelope_hash',
+                    'start_command_hash',
+                    'start_environment_hash',
+                    'start_cwd_hash',
+                    'start_supervisor_hash',
+                    'start_liveness_contract_hash',
+                    'operator_execution_gate_receipt_hash',
+                    'execution_gate_policy_hash',
+                    'execution_window_hash',
+                    'preflight_snapshot_hash',
+                    'rollback_readiness_hash',
+                    'human_start_signature_hash',
+                    'actor',
+                    'session',
+                    'reason',
+                ],
+                'result_contract' => [
+                    'real_invoker_start_execution_gate_id',
+                    'real_invoker_process_start_envelope_id',
+                    'agent_run_id',
+                    'run_key',
+                    'provider',
+                    'adapter',
+                    'real_invoker_start_execution_gate_authorized',
+                    'start_execution_authorized',
+                    'actual_process_start_allowed',
+                    'external_process_started',
+                    'token_spend_allowed',
+                    'provider_started',
+                    'dispatch_allowed',
+                ],
+            ],
+            'real_invoker_start_execution_gate_must' => [
+                'require_codex_real_invoker_process_start_envelope',
+                'require_operator_execution_gate_receipt_hash',
+                'require_execution_gate_policy_hash',
+                'require_execution_window_hash',
+                'require_preflight_snapshot_hash',
+                'require_rollback_readiness_hash',
+                'require_human_start_signature_hash',
+                'record_append_only_start_execution_gate_event_before_any_actual_start',
+            ],
+            'real_invoker_start_execution_gate_must_not' => [
+                'start_codex_process_from_contract_template',
+                'spawn_shell_or_subprocess',
+                'call_codex_cli_or_codex_app',
+                'spend_provider_tokens',
+                'mark_run_running_or_terminal',
+                'dispatch_work_to_provider',
+                'complete_or_merge_packet',
+            ],
+            'implementation_files_allowed_future' => [
+                'app/Services/Ai/SelfConstruction/AgentCodexRealInvokerStartExecutionGate.php',
+                'tests/Feature/Ai/AtlasAiSelfConstructionAgentCodexRealInvokerStartExecutionGateTest.php',
+            ],
+            'contract_policy' => [
+                'template_is_read_only' => true,
+                'start_execution_gate_authorization_allowed_here' => false,
+                'actual_process_start_allowed_here' => false,
+                'provider_process_start_allowed_here' => false,
+                'codex_invocation_allowed_here' => false,
+                'token_spend_allowed_here' => false,
+                'dispatch_allowed_here' => false,
+                'requires_separate_implementation_packet' => true,
+            ],
+            'next_required_command' => 'php artisan atlas:ai:self-construction --agent-codex-real-invoker-start-execution-gate-preflight --json',
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_codex_real_invoker_start_execution_gate_contract_template.v1',
+            'status' => 'codex_real_invoker_start_execution_gate_contract_template_ready',
+            'mode' => 'read_only_agent_codex_real_invoker_start_execution_gate_contract_template',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'codex_real_invoker_start_execution_gate_contract_template' => $template,
+            'codex_real_invoker_start_execution_gate_contract_template_hash' => $this->stableHash($template),
+            'non_execution_guarantees' => [
+                'agent_codex_real_invoker_start_execution_gate_contract_template_does_not_start_codex',
+                'agent_codex_real_invoker_start_execution_gate_contract_template_does_not_call_codex',
+                'agent_codex_real_invoker_start_execution_gate_contract_template_does_not_spend_tokens',
+                'agent_codex_real_invoker_start_execution_gate_contract_template_does_not_dispatch_work',
+            ],
+            'human_summary' => 'Codex real invoker start execution gate contract template authorizes the next guarded layer only; it does not start Codex.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentCodexRealInvokerStartExecutionGatePreflight(array $options = []): array
+    {
+        $contractPayload = $this->agentCodexRealInvokerStartExecutionGateContractTemplate($options);
+        $contract = (array) data_get($contractPayload, 'codex_real_invoker_start_execution_gate_contract_template', []);
+        $gateClass = AgentCodexRealInvokerStartExecutionGate::class;
+        $envelopeClass = AgentCodexRealInvokerProcessStartEnvelopeBuilder::class;
+        $gateReady = class_exists($gateClass);
+        $envelopeReady = class_exists($envelopeClass);
+        $runsTableReady = Schema::hasTable('atlas_self_construction_agent_runs');
+        $ledgerReady = Schema::hasTable('atlas_ledger_events');
+
+        $blockingReasons = array_values(array_filter([
+            $gateReady ? null : 'codex_real_invoker_start_execution_gate_missing',
+            $envelopeReady ? null : 'codex_real_invoker_process_start_envelope_builder_missing',
+            $runsTableReady ? null : 'agent_runs_table_missing',
+            $ledgerReady ? null : 'ledger_table_missing',
+        ]));
+
+        $preflight = [
+            'status' => $blockingReasons === [] ? 'codex_real_invoker_start_execution_gate_ready' : 'blocked',
+            'contract_template_hash' => data_get($contractPayload, 'codex_real_invoker_start_execution_gate_contract_template_hash'),
+            'source_codex_real_invoker_process_start_envelope_builder_status' => data_get($contract, 'source_codex_real_invoker_process_start_envelope_builder_status'),
+            'provider' => 'codex',
+            'adapter' => 'codex',
+            'storage' => [
+                'codex_real_invoker_start_execution_gate_ready' => $gateReady,
+                'codex_real_invoker_process_start_envelope_builder_ready' => $envelopeReady,
+                'agent_runs_table_ready' => $runsTableReady,
+                'ledger_table_ready' => $ledgerReady,
+            ],
+            'blocking_count' => count($blockingReasons),
+            'blocking_reasons' => $blockingReasons,
+            'start_execution_gate_ready_for_future_use' => $blockingReasons === [],
+            'allowed_future_files' => data_get($contract, 'implementation_files_allowed_future', []),
+            'required_first_changes' => [
+                'create_codex_real_invoker_start_execution_gate',
+                'require_codex_real_invoker_process_start_envelope_metadata',
+                'require_operator_execution_gate_receipt_hash',
+                'require_human_start_signature_hash',
+                'record_start_execution_gate_event_without_starting_codex',
+            ],
+            'required_gates' => [
+                'php -l app/Services/Ai/SelfConstruction/AgentCodexRealInvokerStartExecutionGate.php',
+                'php artisan test tests/Feature/Ai/AtlasAiSelfConstructionAgentCodexRealInvokerStartExecutionGateTest.php',
+                'php artisan test tests/Feature/Ai/AtlasAiSelfConstructionCommandTest.php --filter=agent_codex_real_invoker_start_execution_gate',
+                'php artisan atlas:engineering:knowledge docs-health --json',
+                'php artisan atlas:ai:architecture-validate --json',
+                'git diff --check',
+            ],
+            'preflight_policy' => [
+                'preflight_is_read_only' => true,
+                'start_execution_gate_file_creation_allowed_here' => false,
+                'actual_process_start_allowed_here' => false,
+                'provider_process_start_allowed_here' => false,
+                'codex_invocation_allowed_here' => false,
+                'token_spend_allowed_here' => false,
+                'dispatch_allowed_here' => false,
+                'requires_separate_implementation_packet' => true,
+            ],
+            'next_required_command' => 'php artisan atlas:ai:self-construction --agent-codex-real-invoker-start-execution-gate-implementation-packet --json',
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_codex_real_invoker_start_execution_gate_preflight.v1',
+            'status' => (string) $preflight['status'],
+            'mode' => 'read_only_agent_codex_real_invoker_start_execution_gate_preflight',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'codex_real_invoker_start_execution_gate_preflight' => $preflight,
+            'codex_real_invoker_start_execution_gate_preflight_hash' => $this->stableHash($preflight),
+            'non_execution_guarantees' => [
+                'agent_codex_real_invoker_start_execution_gate_preflight_does_not_start_codex',
+                'agent_codex_real_invoker_start_execution_gate_preflight_does_not_call_codex',
+                'agent_codex_real_invoker_start_execution_gate_preflight_does_not_spend_tokens',
+                'agent_codex_real_invoker_start_execution_gate_preflight_does_not_dispatch_work',
+            ],
+            'human_summary' => $blockingReasons === []
+                ? 'Codex real invoker start execution gate is ready; actual process start still requires the separate process starter layer.'
+                : 'Codex real invoker start execution gate is blocked until the gate and envelope prerequisites exist.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentCodexRealInvokerStartExecutionGateImplementationPacket(array $options = []): array
+    {
+        $preflightPayload = $this->agentCodexRealInvokerStartExecutionGatePreflight($options);
+        $preflight = (array) data_get($preflightPayload, 'codex_real_invoker_start_execution_gate_preflight', []);
+        $preflightHash = (string) data_get($preflightPayload, 'codex_real_invoker_start_execution_gate_preflight_hash');
+        $allowedFiles = (array) data_get($preflight, 'allowed_future_files', []);
+
+        $tasks = [
+            [
+                'id' => 'T1',
+                'title' => 'Create Codex real invoker start execution gate',
+                'type' => 'service',
+                'allowed_files' => ['app/Services/Ai/SelfConstruction/AgentCodexRealInvokerStartExecutionGate.php'],
+                'acceptance' => 'Gate authorizes start execution metadata and never starts Codex, spends tokens or dispatches work.',
+            ],
+            [
+                'id' => 'T2',
+                'title' => 'Enforce envelope and execution gate contracts',
+                'type' => 'service_logic',
+                'allowed_files' => ['app/Services/Ai/SelfConstruction/AgentCodexRealInvokerStartExecutionGate.php'],
+                'acceptance' => 'Gate requires process start envelope metadata plus operator, policy, window, preflight, rollback and human signature hashes.',
+            ],
+            [
+                'id' => 'T3',
+                'title' => 'Add start execution gate tests',
+                'type' => 'test',
+                'allowed_files' => ['tests/Feature/Ai/AtlasAiSelfConstructionAgentCodexRealInvokerStartExecutionGateTest.php'],
+                'acceptance' => 'Tests prove missing envelope rejection, missing human signature rejection, duplicate gate rejection, rollback and no process/token/dispatch side effects.',
+            ],
+            [
+                'id' => 'T4',
+                'title' => 'Expose start execution gate readiness commands',
+                'type' => 'command_surface',
+                'allowed_files' => [
+                    'app/Services/Ai/SelfConstruction/AtlasSelfConstructionReadinessService.php',
+                    'app/Console/Commands/AtlasAiSelfConstructionCommand.php',
+                    'tests/Feature/Ai/AtlasAiSelfConstructionCommandTest.php',
+                ],
+                'acceptance' => 'Contract, preflight and implementation packet commands remain read-only and declare actual process start disabled.',
+            ],
+        ];
+
+        $packet = [
+            'status' => 'ready_for_scoped_codex_real_invoker_start_execution_gate_implementation',
+            'implementation_packet_id' => 'AGENT-CODEX-REAL-INVOKER-START-EXECUTION-GATE-IMPLEMENTATION-SELF-CONSTRUCTION-0001',
+            'source_preflight_hash' => $preflightHash,
+            'objective' => 'Implement the Codex real invoker start execution gate that records a final governed execution authorization while still refusing to start Codex, spend tokens or dispatch work.',
+            'non_goals' => [
+                'do_not_call_codex_cli_or_codex_app',
+                'do_not_spawn_processes_or_shell_commands',
+                'do_not_spend_provider_tokens',
+                'do_not_start_codex_process',
+                'do_not_mark_runs_running_or_terminal',
+                'do_not_change_packet_claim_completion_or_merge_state',
+            ],
+            'allowed_files' => $allowedFiles,
+            'forbidden_scopes' => [
+                'actual_codex_process_invocation',
+                'provider_token_spend',
+                'process_start',
+                'merge_runtime',
+                'packet_claim_or_completion_state',
+                'hot_kernel_runtime',
+                'voice_runtime',
+                'policy_mutation',
+            ],
+            'tasks' => $tasks,
+            'task_count' => count($tasks),
+            'acceptance_criteria' => [
+                'start_execution_gate_requires_process_start_envelope_metadata',
+                'start_execution_gate_requires_human_start_signature_hash',
+                'start_execution_gate_requires_execution_gate_policy_hash',
+                'start_execution_gate_is_idempotent_for_same_gate_id',
+                'start_execution_gate_records_event_without_starting_codex',
+            ],
+            'required_gates' => data_get($preflight, 'required_gates', []),
+            'stop_conditions' => [
+                'need_to_start_codex_or_spawn_process',
+                'need_to_allow_provider_token_spend',
+                'need_to_dispatch_work_to_provider',
+                'need_to_modify_file_outside_allowed_files',
+                'need_to_change_packet_claim_completion_or_merge_state',
+                'test_requires_hot_runtime_or_voice_scope_change',
+            ],
+            'implementation_policy' => [
+                'packet_is_read_only' => true,
+                'implementation_allowed_by_packet' => true,
+                'start_execution_gate_authorization_allowed_by_packet' => false,
+                'actual_process_start_allowed_by_packet' => false,
+                'provider_process_start_allowed_by_packet' => false,
+                'codex_invocation_allowed_by_packet' => false,
+                'token_spend_allowed_by_packet' => false,
+                'dispatch_allowed_by_packet' => false,
+            ],
+            'next_required_action' => 'Implement only the allowed files, then run the required gates and report evidence.',
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_codex_real_invoker_start_execution_gate_implementation_packet.v1',
+            'status' => 'ready_for_scoped_codex_real_invoker_start_execution_gate_implementation',
+            'mode' => 'read_only_agent_codex_real_invoker_start_execution_gate_implementation_packet',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'codex_real_invoker_start_execution_gate_implementation_packet' => $packet,
+            'codex_real_invoker_start_execution_gate_implementation_packet_hash' => $this->stableHash($packet),
+            'non_execution_guarantees' => [
+                'agent_codex_real_invoker_start_execution_gate_implementation_packet_does_not_start_codex',
+                'agent_codex_real_invoker_start_execution_gate_implementation_packet_does_not_call_codex',
+                'agent_codex_real_invoker_start_execution_gate_implementation_packet_does_not_spend_tokens',
+                'agent_codex_real_invoker_start_execution_gate_implementation_packet_does_not_dispatch_work',
+            ],
+            'human_summary' => 'Codex real invoker start execution gate implementation packet is ready; it authorizes the next guarded layer only and does not start Codex.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentCodexRealInvokerProcessStarterReadinessGateContractTemplate(array $options = []): array
+    {
+        $startGatePayload = $this->agentCodexRealInvokerStartExecutionGatePreflight($options);
+
+        $template = [
+            'status' => 'codex_real_invoker_process_starter_readiness_gate_contract_template_ready',
+            'contract_id' => 'CODEX-REAL-INVOKER-PROCESS-STARTER-READINESS-'.strtoupper(substr($this->stableHash([
+                'codex_real_invoker_start_execution_gate_preflight_hash' => data_get($startGatePayload, 'codex_real_invoker_start_execution_gate_preflight_hash'),
+                'provider' => 'codex',
+                'adapter' => 'codex',
+            ]), 0, 24)),
+            'source_codex_real_invoker_start_execution_gate_status' => data_get($startGatePayload, 'status'),
+            'source_codex_real_invoker_start_execution_gate_preflight_hash' => data_get($startGatePayload, 'codex_real_invoker_start_execution_gate_preflight_hash'),
+            'provider' => 'codex',
+            'adapter' => 'codex',
+            'contract' => [
+                'service' => 'App\\Services\\Ai\\SelfConstruction\\AgentCodexRealInvokerProcessStarterReadinessGate',
+                'method' => 'prepareProcessStarter',
+                'input_contract' => [
+                    'run_key',
+                    'codex_execution_id',
+                    'real_invoker_executor_plan_id',
+                    'real_invoker_executor_fresh_release_id',
+                    'real_invoker_executor_enablement_id',
+                    'real_invoker_supervised_start_activation_id',
+                    'real_invoker_guarded_process_start_id',
+                    'real_invoker_final_process_start_authorization_id',
+                    'real_invoker_actual_process_start_rehearsal_id',
+                    'real_invoker_process_start_envelope_id',
+                    'real_invoker_start_execution_gate_id',
+                    'real_invoker_process_starter_readiness_gate_id',
+                    'operator_execution_gate_receipt_hash',
+                    'execution_gate_policy_hash',
+                    'execution_window_hash',
+                    'preflight_snapshot_hash',
+                    'rollback_readiness_hash',
+                    'human_start_signature_hash',
+                    'process_starter_manifest_hash',
+                    'supervisor_binding_hash',
+                    'liveness_monitor_binding_hash',
+                    'cancellation_contract_hash',
+                    'output_capture_contract_hash',
+                    'cost_meter_contract_hash',
+                    'start_replay_guard_hash',
+                    'operator_process_starter_signature_hash',
+                    'actor',
+                    'session',
+                    'reason',
+                ],
+                'result_contract' => [
+                    'real_invoker_process_starter_readiness_gate_id',
+                    'real_invoker_start_execution_gate_id',
+                    'agent_run_id',
+                    'run_key',
+                    'provider',
+                    'adapter',
+                    'real_invoker_process_starter_readiness_gate_prepared',
+                    'process_starter_ready',
+                    'actual_process_start_allowed',
+                    'external_process_started',
+                    'token_spend_allowed',
+                    'provider_started',
+                    'dispatch_allowed',
+                ],
+            ],
+            'real_invoker_process_starter_readiness_gate_must' => [
+                'require_codex_real_invoker_start_execution_gate',
+                'require_process_starter_manifest_hash',
+                'require_supervisor_binding_hash',
+                'require_liveness_monitor_binding_hash',
+                'require_cancellation_contract_hash',
+                'require_output_capture_contract_hash',
+                'require_cost_meter_contract_hash',
+                'require_operator_process_starter_signature_hash',
+                'record_append_only_process_starter_readiness_event_before_any_actual_start',
+            ],
+            'real_invoker_process_starter_readiness_gate_must_not' => [
+                'start_codex_process_from_contract_template',
+                'spawn_shell_or_subprocess',
+                'call_codex_cli_or_codex_app',
+                'spend_provider_tokens',
+                'mark_run_running_or_terminal',
+                'dispatch_work_to_provider',
+                'complete_or_merge_packet',
+            ],
+            'implementation_files_allowed_future' => [
+                'app/Services/Ai/SelfConstruction/AgentCodexRealInvokerProcessStarterReadinessGate.php',
+                'tests/Feature/Ai/AtlasAiSelfConstructionAgentCodexRealInvokerProcessStarterReadinessGateTest.php',
+            ],
+            'contract_policy' => [
+                'template_is_read_only' => true,
+                'process_starter_readiness_allowed_here' => false,
+                'actual_process_start_allowed_here' => false,
+                'provider_process_start_allowed_here' => false,
+                'codex_invocation_allowed_here' => false,
+                'token_spend_allowed_here' => false,
+                'dispatch_allowed_here' => false,
+                'requires_separate_implementation_packet' => true,
+            ],
+            'next_required_command' => 'php artisan atlas:ai:self-construction --agent-codex-real-invoker-process-starter-readiness-gate-preflight --json',
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_codex_real_invoker_process_starter_readiness_gate_contract_template.v1',
+            'status' => 'codex_real_invoker_process_starter_readiness_gate_contract_template_ready',
+            'mode' => 'read_only_agent_codex_real_invoker_process_starter_readiness_gate_contract_template',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'codex_real_invoker_process_starter_readiness_gate_contract_template' => $template,
+            'codex_real_invoker_process_starter_readiness_gate_contract_template_hash' => $this->stableHash($template),
+            'non_execution_guarantees' => [
+                'agent_codex_real_invoker_process_starter_readiness_gate_contract_template_does_not_start_codex',
+                'agent_codex_real_invoker_process_starter_readiness_gate_contract_template_does_not_call_codex',
+                'agent_codex_real_invoker_process_starter_readiness_gate_contract_template_does_not_spend_tokens',
+                'agent_codex_real_invoker_process_starter_readiness_gate_contract_template_does_not_dispatch_work',
+            ],
+            'human_summary' => 'Codex real invoker process starter readiness contract template prepares the starter boundary only; it does not start Codex.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentCodexRealInvokerProcessStarterReadinessGatePreflight(array $options = []): array
+    {
+        $contractPayload = $this->agentCodexRealInvokerProcessStarterReadinessGateContractTemplate($options);
+        $contract = (array) data_get($contractPayload, 'codex_real_invoker_process_starter_readiness_gate_contract_template', []);
+        $readinessClass = AgentCodexRealInvokerProcessStarterReadinessGate::class;
+        $startGateClass = AgentCodexRealInvokerStartExecutionGate::class;
+        $readinessReady = class_exists($readinessClass);
+        $startGateReady = class_exists($startGateClass);
+        $runsTableReady = Schema::hasTable('atlas_self_construction_agent_runs');
+        $ledgerReady = Schema::hasTable('atlas_ledger_events');
+
+        $blockingReasons = array_values(array_filter([
+            $readinessReady ? null : 'codex_real_invoker_process_starter_readiness_gate_missing',
+            $startGateReady ? null : 'codex_real_invoker_start_execution_gate_missing',
+            $runsTableReady ? null : 'agent_runs_table_missing',
+            $ledgerReady ? null : 'ledger_table_missing',
+        ]));
+
+        $preflight = [
+            'status' => $blockingReasons === [] ? 'codex_real_invoker_process_starter_readiness_gate_ready' : 'blocked',
+            'contract_template_hash' => data_get($contractPayload, 'codex_real_invoker_process_starter_readiness_gate_contract_template_hash'),
+            'source_codex_real_invoker_start_execution_gate_status' => data_get($contract, 'source_codex_real_invoker_start_execution_gate_status'),
+            'provider' => 'codex',
+            'adapter' => 'codex',
+            'storage' => [
+                'codex_real_invoker_process_starter_readiness_gate_ready' => $readinessReady,
+                'codex_real_invoker_start_execution_gate_ready' => $startGateReady,
+                'agent_runs_table_ready' => $runsTableReady,
+                'ledger_table_ready' => $ledgerReady,
+            ],
+            'blocking_count' => count($blockingReasons),
+            'blocking_reasons' => $blockingReasons,
+            'process_starter_readiness_ready_for_future_use' => $blockingReasons === [],
+            'allowed_future_files' => data_get($contract, 'implementation_files_allowed_future', []),
+            'required_first_changes' => [
+                'create_codex_real_invoker_process_starter_readiness_gate',
+                'require_codex_real_invoker_start_execution_gate_metadata',
+                'require_process_starter_manifest_hash',
+                'require_supervisor_liveness_cancellation_output_and_cost_hashes',
+                'record_process_starter_readiness_event_without_starting_codex',
+            ],
+            'required_gates' => [
+                'php -l app/Services/Ai/SelfConstruction/AgentCodexRealInvokerProcessStarterReadinessGate.php',
+                'php artisan test tests/Feature/Ai/AtlasAiSelfConstructionAgentCodexRealInvokerProcessStarterReadinessGateTest.php',
+                'php artisan test tests/Feature/Ai/AtlasAiSelfConstructionCommandTest.php --filter=agent_codex_real_invoker_process_starter_readiness_gate',
+                'php artisan atlas:engineering:knowledge docs-health --json',
+                'php artisan atlas:ai:architecture-validate --json',
+                'git diff --check',
+            ],
+            'preflight_policy' => [
+                'preflight_is_read_only' => true,
+                'process_starter_readiness_file_creation_allowed_here' => false,
+                'actual_process_start_allowed_here' => false,
+                'provider_process_start_allowed_here' => false,
+                'codex_invocation_allowed_here' => false,
+                'token_spend_allowed_here' => false,
+                'dispatch_allowed_here' => false,
+                'requires_separate_implementation_packet' => true,
+            ],
+            'next_required_command' => 'php artisan atlas:ai:self-construction --agent-codex-real-invoker-process-starter-readiness-gate-implementation-packet --json',
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_codex_real_invoker_process_starter_readiness_gate_preflight.v1',
+            'status' => (string) $preflight['status'],
+            'mode' => 'read_only_agent_codex_real_invoker_process_starter_readiness_gate_preflight',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'codex_real_invoker_process_starter_readiness_gate_preflight' => $preflight,
+            'codex_real_invoker_process_starter_readiness_gate_preflight_hash' => $this->stableHash($preflight),
+            'non_execution_guarantees' => [
+                'agent_codex_real_invoker_process_starter_readiness_gate_preflight_does_not_start_codex',
+                'agent_codex_real_invoker_process_starter_readiness_gate_preflight_does_not_call_codex',
+                'agent_codex_real_invoker_process_starter_readiness_gate_preflight_does_not_spend_tokens',
+                'agent_codex_real_invoker_process_starter_readiness_gate_preflight_does_not_dispatch_work',
+            ],
+            'human_summary' => $blockingReasons === []
+                ? 'Codex real invoker process starter readiness gate is ready; actual process start still requires a separate manually governed executor.'
+                : 'Codex real invoker process starter readiness gate is blocked until the readiness and start gate prerequisites exist.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentCodexRealInvokerProcessStarterReadinessGateImplementationPacket(array $options = []): array
+    {
+        $preflightPayload = $this->agentCodexRealInvokerProcessStarterReadinessGatePreflight($options);
+        $preflight = (array) data_get($preflightPayload, 'codex_real_invoker_process_starter_readiness_gate_preflight', []);
+        $preflightHash = (string) data_get($preflightPayload, 'codex_real_invoker_process_starter_readiness_gate_preflight_hash');
+        $allowedFiles = (array) data_get($preflight, 'allowed_future_files', []);
+
+        $tasks = [
+            [
+                'id' => 'T1',
+                'title' => 'Create Codex real invoker process starter readiness gate',
+                'type' => 'service',
+                'allowed_files' => ['app/Services/Ai/SelfConstruction/AgentCodexRealInvokerProcessStarterReadinessGate.php'],
+                'acceptance' => 'Gate prepares process starter readiness and never starts Codex, spends tokens or dispatches work.',
+            ],
+            [
+                'id' => 'T2',
+                'title' => 'Enforce start execution and process starter contracts',
+                'type' => 'service_logic',
+                'allowed_files' => ['app/Services/Ai/SelfConstruction/AgentCodexRealInvokerProcessStarterReadinessGate.php'],
+                'acceptance' => 'Gate requires start execution metadata plus starter manifest, supervisor, liveness, cancellation, output, cost and signature hashes.',
+            ],
+            [
+                'id' => 'T3',
+                'title' => 'Add process starter readiness tests',
+                'type' => 'test',
+                'allowed_files' => ['tests/Feature/Ai/AtlasAiSelfConstructionAgentCodexRealInvokerProcessStarterReadinessGateTest.php'],
+                'acceptance' => 'Tests prove missing start gate rejection, missing starter signature rejection, duplicate readiness rejection, rollback and no process/token/dispatch side effects.',
+            ],
+            [
+                'id' => 'T4',
+                'title' => 'Expose process starter readiness commands',
+                'type' => 'command_surface',
+                'allowed_files' => [
+                    'app/Services/Ai/SelfConstruction/AtlasSelfConstructionReadinessService.php',
+                    'app/Console/Commands/AtlasAiSelfConstructionCommand.php',
+                    'tests/Feature/Ai/AtlasAiSelfConstructionCommandTest.php',
+                ],
+                'acceptance' => 'Contract, preflight and implementation packet commands remain read-only and declare actual process start disabled.',
+            ],
+        ];
+
+        $packet = [
+            'status' => 'ready_for_scoped_codex_real_invoker_process_starter_readiness_gate_implementation',
+            'implementation_packet_id' => 'AGENT-CODEX-REAL-INVOKER-PROCESS-STARTER-READINESS-GATE-IMPLEMENTATION-SELF-CONSTRUCTION-0001',
+            'source_preflight_hash' => $preflightHash,
+            'objective' => 'Implement the Codex real invoker process starter readiness gate that validates the final starter boundary while still refusing to start Codex, spend tokens or dispatch work.',
+            'non_goals' => [
+                'do_not_call_codex_cli_or_codex_app',
+                'do_not_spawn_processes_or_shell_commands',
+                'do_not_spend_provider_tokens',
+                'do_not_start_codex_process',
+                'do_not_mark_runs_running_or_terminal',
+                'do_not_change_packet_claim_completion_or_merge_state',
+            ],
+            'allowed_files' => $allowedFiles,
+            'forbidden_scopes' => [
+                'actual_codex_process_invocation',
+                'provider_token_spend',
+                'process_start',
+                'merge_runtime',
+                'packet_claim_or_completion_state',
+                'hot_kernel_runtime',
+                'voice_runtime',
+                'policy_mutation',
+            ],
+            'tasks' => $tasks,
+            'task_count' => count($tasks),
+            'acceptance_criteria' => [
+                'process_starter_readiness_requires_start_execution_gate_metadata',
+                'process_starter_readiness_requires_operator_process_starter_signature_hash',
+                'process_starter_readiness_requires_supervisor_binding_hash',
+                'process_starter_readiness_is_idempotent_for_same_readiness_id',
+                'process_starter_readiness_records_event_without_starting_codex',
+            ],
+            'required_gates' => data_get($preflight, 'required_gates', []),
+            'stop_conditions' => [
+                'need_to_start_codex_or_spawn_process',
+                'need_to_allow_provider_token_spend',
+                'need_to_dispatch_work_to_provider',
+                'need_to_modify_file_outside_allowed_files',
+                'need_to_change_packet_claim_completion_or_merge_state',
+                'test_requires_hot_runtime_or_voice_scope_change',
+            ],
+            'implementation_policy' => [
+                'packet_is_read_only' => true,
+                'implementation_allowed_by_packet' => true,
+                'process_starter_readiness_allowed_by_packet' => false,
+                'actual_process_start_allowed_by_packet' => false,
+                'provider_process_start_allowed_by_packet' => false,
+                'codex_invocation_allowed_by_packet' => false,
+                'token_spend_allowed_by_packet' => false,
+                'dispatch_allowed_by_packet' => false,
+            ],
+            'next_required_action' => 'Implement only the allowed files, then run the required gates and report evidence.',
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_codex_real_invoker_process_starter_readiness_gate_implementation_packet.v1',
+            'status' => 'ready_for_scoped_codex_real_invoker_process_starter_readiness_gate_implementation',
+            'mode' => 'read_only_agent_codex_real_invoker_process_starter_readiness_gate_implementation_packet',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'codex_real_invoker_process_starter_readiness_gate_implementation_packet' => $packet,
+            'codex_real_invoker_process_starter_readiness_gate_implementation_packet_hash' => $this->stableHash($packet),
+            'non_execution_guarantees' => [
+                'agent_codex_real_invoker_process_starter_readiness_gate_implementation_packet_does_not_start_codex',
+                'agent_codex_real_invoker_process_starter_readiness_gate_implementation_packet_does_not_call_codex',
+                'agent_codex_real_invoker_process_starter_readiness_gate_implementation_packet_does_not_spend_tokens',
+                'agent_codex_real_invoker_process_starter_readiness_gate_implementation_packet_does_not_dispatch_work',
+            ],
+            'human_summary' => 'Codex real invoker process starter readiness implementation packet is ready; it prepares the final starter boundary only and does not start Codex.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentCodexRealInvokerManualStartExecutorReceiptWriterContractTemplate(array $options = []): array
+    {
+        $readinessPayload = $this->agentCodexRealInvokerProcessStarterReadinessGatePreflight($options);
+
+        $template = [
+            'status' => 'codex_real_invoker_manual_start_executor_receipt_writer_contract_template_ready',
+            'contract_id' => 'CODEX-REAL-INVOKER-MANUAL-START-RECEIPT-'.strtoupper(substr($this->stableHash([
+                'codex_real_invoker_process_starter_readiness_gate_preflight_hash' => data_get($readinessPayload, 'codex_real_invoker_process_starter_readiness_gate_preflight_hash'),
+                'provider' => 'codex',
+                'adapter' => 'codex',
+            ]), 0, 24)),
+            'source_codex_real_invoker_process_starter_readiness_gate_status' => data_get($readinessPayload, 'status'),
+            'source_codex_real_invoker_process_starter_readiness_gate_preflight_hash' => data_get($readinessPayload, 'codex_real_invoker_process_starter_readiness_gate_preflight_hash'),
+            'provider' => 'codex',
+            'adapter' => 'codex',
+            'contract' => [
+                'service' => 'App\\Services\\Ai\\SelfConstruction\\AgentCodexRealInvokerManualStartExecutorReceiptWriter',
+                'method' => 'writeManualStartExecutorReceipt',
+                'input_contract' => [
+                    'run_key',
+                    'codex_execution_id',
+                    'real_invoker_executor_plan_id',
+                    'real_invoker_executor_fresh_release_id',
+                    'real_invoker_executor_enablement_id',
+                    'real_invoker_supervised_start_activation_id',
+                    'real_invoker_guarded_process_start_id',
+                    'real_invoker_final_process_start_authorization_id',
+                    'real_invoker_actual_process_start_rehearsal_id',
+                    'real_invoker_process_start_envelope_id',
+                    'real_invoker_start_execution_gate_id',
+                    'real_invoker_process_starter_readiness_gate_id',
+                    'manual_start_executor_receipt_id',
+                    'process_starter_manifest_hash',
+                    'supervisor_binding_hash',
+                    'liveness_monitor_binding_hash',
+                    'cancellation_contract_hash',
+                    'output_capture_contract_hash',
+                    'cost_meter_contract_hash',
+                    'start_replay_guard_hash',
+                    'operator_process_starter_signature_hash',
+                    'manual_start_command_hash',
+                    'terminal_session_binding_hash',
+                    'operator_presence_hash',
+                    'live_supervisor_ack_hash',
+                    'initial_liveness_probe_hash',
+                    'kill_switch_ack_hash',
+                    'output_stream_capture_hash',
+                    'cost_meter_initial_hash',
+                    'no_autostart_attestation_hash',
+                    'actor',
+                    'session',
+                    'reason',
+                ],
+                'result_contract' => [
+                    'manual_start_executor_receipt_id',
+                    'real_invoker_process_starter_readiness_gate_id',
+                    'agent_run_id',
+                    'run_key',
+                    'provider',
+                    'adapter',
+                    'manual_start_executor_receipt_written',
+                    'manual_operator_start_required',
+                    'actual_process_start_allowed',
+                    'external_process_started',
+                    'token_spend_allowed',
+                    'provider_started',
+                    'dispatch_allowed',
+                ],
+            ],
+            'real_invoker_manual_start_executor_receipt_must' => [
+                'require_codex_real_invoker_process_starter_readiness_gate',
+                'require_manual_start_command_hash',
+                'require_terminal_session_binding_hash',
+                'require_operator_presence_hash',
+                'require_live_supervisor_ack_hash',
+                'require_initial_liveness_probe_hash',
+                'require_kill_switch_ack_hash',
+                'require_no_autostart_attestation_hash',
+                'record_append_only_manual_start_executor_receipt_before_any_actual_start',
+            ],
+            'real_invoker_manual_start_executor_receipt_must_not' => [
+                'start_codex_process_from_contract_template',
+                'spawn_shell_or_subprocess',
+                'call_codex_cli_or_codex_app',
+                'spend_provider_tokens',
+                'mark_run_running_or_terminal',
+                'dispatch_work_to_provider',
+                'complete_or_merge_packet',
+            ],
+            'implementation_files_allowed_future' => [
+                'app/Services/Ai/SelfConstruction/AgentCodexRealInvokerManualStartExecutorReceiptWriter.php',
+                'tests/Feature/Ai/AtlasAiSelfConstructionAgentCodexRealInvokerManualStartExecutorReceiptWriterTest.php',
+            ],
+            'contract_policy' => [
+                'template_is_read_only' => true,
+                'manual_start_executor_receipt_write_allowed_here' => false,
+                'actual_process_start_allowed_here' => false,
+                'provider_process_start_allowed_here' => false,
+                'codex_invocation_allowed_here' => false,
+                'token_spend_allowed_here' => false,
+                'dispatch_allowed_here' => false,
+                'requires_separate_implementation_packet' => true,
+            ],
+            'next_required_command' => 'php artisan atlas:ai:self-construction --agent-codex-real-invoker-manual-start-executor-receipt-writer-preflight --json',
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_codex_real_invoker_manual_start_executor_receipt_writer_contract_template.v1',
+            'status' => 'codex_real_invoker_manual_start_executor_receipt_writer_contract_template_ready',
+            'mode' => 'read_only_agent_codex_real_invoker_manual_start_executor_receipt_writer_contract_template',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'codex_real_invoker_manual_start_executor_receipt_writer_contract_template' => $template,
+            'codex_real_invoker_manual_start_executor_receipt_writer_contract_template_hash' => $this->stableHash($template),
+            'non_execution_guarantees' => [
+                'agent_codex_real_invoker_manual_start_executor_receipt_writer_contract_template_does_not_start_codex',
+                'agent_codex_real_invoker_manual_start_executor_receipt_writer_contract_template_does_not_call_codex',
+                'agent_codex_real_invoker_manual_start_executor_receipt_writer_contract_template_does_not_spend_tokens',
+                'agent_codex_real_invoker_manual_start_executor_receipt_writer_contract_template_does_not_dispatch_work',
+            ],
+            'human_summary' => 'Codex real invoker manual start executor receipt writer contract template records a manual start contract only; it does not start Codex.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentCodexRealInvokerManualStartExecutorReceiptWriterPreflight(array $options = []): array
+    {
+        $contractPayload = $this->agentCodexRealInvokerManualStartExecutorReceiptWriterContractTemplate($options);
+        $contract = (array) data_get($contractPayload, 'codex_real_invoker_manual_start_executor_receipt_writer_contract_template', []);
+        $writerClass = AgentCodexRealInvokerManualStartExecutorReceiptWriter::class;
+        $readinessClass = AgentCodexRealInvokerProcessStarterReadinessGate::class;
+        $writerReady = class_exists($writerClass);
+        $readinessReady = class_exists($readinessClass);
+        $runsTableReady = Schema::hasTable('atlas_self_construction_agent_runs');
+        $ledgerReady = Schema::hasTable('atlas_ledger_events');
+
+        $blockingReasons = array_values(array_filter([
+            $writerReady ? null : 'codex_real_invoker_manual_start_executor_receipt_writer_missing',
+            $readinessReady ? null : 'codex_real_invoker_process_starter_readiness_gate_missing',
+            $runsTableReady ? null : 'agent_runs_table_missing',
+            $ledgerReady ? null : 'ledger_table_missing',
+        ]));
+
+        $preflight = [
+            'status' => $blockingReasons === [] ? 'codex_real_invoker_manual_start_executor_receipt_writer_ready' : 'blocked',
+            'contract_template_hash' => data_get($contractPayload, 'codex_real_invoker_manual_start_executor_receipt_writer_contract_template_hash'),
+            'source_codex_real_invoker_process_starter_readiness_gate_status' => data_get($contract, 'source_codex_real_invoker_process_starter_readiness_gate_status'),
+            'provider' => 'codex',
+            'adapter' => 'codex',
+            'storage' => [
+                'codex_real_invoker_manual_start_executor_receipt_writer_ready' => $writerReady,
+                'codex_real_invoker_process_starter_readiness_gate_ready' => $readinessReady,
+                'agent_runs_table_ready' => $runsTableReady,
+                'ledger_table_ready' => $ledgerReady,
+            ],
+            'blocking_count' => count($blockingReasons),
+            'blocking_reasons' => $blockingReasons,
+            'manual_start_executor_receipt_writer_ready_for_future_use' => $blockingReasons === [],
+            'allowed_future_files' => data_get($contract, 'implementation_files_allowed_future', []),
+            'required_first_changes' => [
+                'create_codex_real_invoker_manual_start_executor_receipt_writer',
+                'require_codex_real_invoker_process_starter_readiness_gate_metadata',
+                'require_manual_start_command_hash',
+                'require_operator_presence_and_supervisor_ack_hashes',
+                'record_manual_start_executor_receipt_without_starting_codex',
+            ],
+            'required_gates' => [
+                'php -l app/Services/Ai/SelfConstruction/AgentCodexRealInvokerManualStartExecutorReceiptWriter.php',
+                'php artisan test tests/Feature/Ai/AtlasAiSelfConstructionAgentCodexRealInvokerManualStartExecutorReceiptWriterTest.php',
+                'php artisan test tests/Feature/Ai/AtlasAiSelfConstructionCommandTest.php --filter=agent_codex_real_invoker_manual_start_executor_receipt_writer',
+                'php artisan atlas:engineering:knowledge docs-health --json',
+                'php artisan atlas:ai:architecture-validate --json',
+                'git diff --check',
+            ],
+            'preflight_policy' => [
+                'preflight_is_read_only' => true,
+                'manual_start_executor_receipt_writer_file_creation_allowed_here' => false,
+                'actual_process_start_allowed_here' => false,
+                'provider_process_start_allowed_here' => false,
+                'codex_invocation_allowed_here' => false,
+                'token_spend_allowed_here' => false,
+                'dispatch_allowed_here' => false,
+                'requires_separate_implementation_packet' => true,
+            ],
+            'next_required_command' => 'php artisan atlas:ai:self-construction --agent-codex-real-invoker-manual-start-executor-receipt-writer-implementation-packet --json',
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_codex_real_invoker_manual_start_executor_receipt_writer_preflight.v1',
+            'status' => (string) $preflight['status'],
+            'mode' => 'read_only_agent_codex_real_invoker_manual_start_executor_receipt_writer_preflight',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'codex_real_invoker_manual_start_executor_receipt_writer_preflight' => $preflight,
+            'codex_real_invoker_manual_start_executor_receipt_writer_preflight_hash' => $this->stableHash($preflight),
+            'non_execution_guarantees' => [
+                'agent_codex_real_invoker_manual_start_executor_receipt_writer_preflight_does_not_start_codex',
+                'agent_codex_real_invoker_manual_start_executor_receipt_writer_preflight_does_not_call_codex',
+                'agent_codex_real_invoker_manual_start_executor_receipt_writer_preflight_does_not_spend_tokens',
+                'agent_codex_real_invoker_manual_start_executor_receipt_writer_preflight_does_not_dispatch_work',
+            ],
+            'human_summary' => $blockingReasons === []
+                ? 'Codex real invoker manual start executor receipt writer is ready; actual Codex start still requires a manual external operator action.'
+                : 'Codex real invoker manual start executor receipt writer is blocked until the writer and readiness prerequisites exist.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentCodexRealInvokerManualStartExecutorReceiptWriterImplementationPacket(array $options = []): array
+    {
+        $preflightPayload = $this->agentCodexRealInvokerManualStartExecutorReceiptWriterPreflight($options);
+        $preflight = (array) data_get($preflightPayload, 'codex_real_invoker_manual_start_executor_receipt_writer_preflight', []);
+        $preflightHash = (string) data_get($preflightPayload, 'codex_real_invoker_manual_start_executor_receipt_writer_preflight_hash');
+        $allowedFiles = (array) data_get($preflight, 'allowed_future_files', []);
+
+        $tasks = [
+            [
+                'id' => 'T1',
+                'title' => 'Create Codex real invoker manual start executor receipt writer',
+                'type' => 'service',
+                'allowed_files' => ['app/Services/Ai/SelfConstruction/AgentCodexRealInvokerManualStartExecutorReceiptWriter.php'],
+                'acceptance' => 'Writer records a manual start executor receipt and never starts Codex, spends tokens or dispatches work.',
+            ],
+            [
+                'id' => 'T2',
+                'title' => 'Enforce readiness and manual start receipt contracts',
+                'type' => 'service_logic',
+                'allowed_files' => ['app/Services/Ai/SelfConstruction/AgentCodexRealInvokerManualStartExecutorReceiptWriter.php'],
+                'acceptance' => 'Writer requires process starter readiness metadata plus manual command, terminal, operator, supervisor, liveness, kill switch, output and no-autostart hashes.',
+            ],
+            [
+                'id' => 'T3',
+                'title' => 'Add manual start executor receipt tests',
+                'type' => 'test',
+                'allowed_files' => ['tests/Feature/Ai/AtlasAiSelfConstructionAgentCodexRealInvokerManualStartExecutorReceiptWriterTest.php'],
+                'acceptance' => 'Tests prove missing readiness rejection, no-autostart attestation rejection, duplicate receipt rejection, rollback and no process/token/dispatch side effects.',
+            ],
+            [
+                'id' => 'T4',
+                'title' => 'Expose manual start receipt readiness commands',
+                'type' => 'command_surface',
+                'allowed_files' => [
+                    'app/Services/Ai/SelfConstruction/AtlasSelfConstructionReadinessService.php',
+                    'app/Console/Commands/AtlasAiSelfConstructionCommand.php',
+                    'tests/Feature/Ai/AtlasAiSelfConstructionCommandTest.php',
+                ],
+                'acceptance' => 'Contract, preflight and implementation packet commands remain read-only and declare actual process start disabled.',
+            ],
+        ];
+
+        $packet = [
+            'status' => 'ready_for_scoped_codex_real_invoker_manual_start_executor_receipt_writer_implementation',
+            'implementation_packet_id' => 'AGENT-CODEX-REAL-INVOKER-MANUAL-START-EXECUTOR-RECEIPT-WRITER-IMPLEMENTATION-SELF-CONSTRUCTION-0001',
+            'source_preflight_hash' => $preflightHash,
+            'objective' => 'Implement the Codex real invoker manual start executor receipt writer that records a governed manual external start contract while still refusing to start Codex, spend tokens or dispatch work.',
+            'non_goals' => [
+                'do_not_call_codex_cli_or_codex_app',
+                'do_not_spawn_processes_or_shell_commands',
+                'do_not_spend_provider_tokens',
+                'do_not_start_codex_process',
+                'do_not_mark_runs_running_or_terminal',
+                'do_not_change_packet_claim_completion_or_merge_state',
+            ],
+            'allowed_files' => $allowedFiles,
+            'forbidden_scopes' => [
+                'actual_codex_process_invocation',
+                'provider_token_spend',
+                'process_start',
+                'merge_runtime',
+                'packet_claim_or_completion_state',
+                'hot_kernel_runtime',
+                'voice_runtime',
+                'policy_mutation',
+            ],
+            'tasks' => $tasks,
+            'task_count' => count($tasks),
+            'acceptance_criteria' => [
+                'manual_start_executor_receipt_requires_process_starter_readiness_metadata',
+                'manual_start_executor_receipt_requires_no_autostart_attestation_hash',
+                'manual_start_executor_receipt_requires_operator_presence_hash',
+                'manual_start_executor_receipt_is_idempotent_for_same_receipt_id',
+                'manual_start_executor_receipt_records_event_without_starting_codex',
+            ],
+            'required_gates' => data_get($preflight, 'required_gates', []),
+            'stop_conditions' => [
+                'need_to_start_codex_or_spawn_process',
+                'need_to_allow_provider_token_spend',
+                'need_to_dispatch_work_to_provider',
+                'need_to_modify_file_outside_allowed_files',
+                'need_to_change_packet_claim_completion_or_merge_state',
+                'test_requires_hot_runtime_or_voice_scope_change',
+            ],
+            'implementation_policy' => [
+                'packet_is_read_only' => true,
+                'implementation_allowed_by_packet' => true,
+                'manual_start_executor_receipt_write_allowed_by_packet' => false,
+                'actual_process_start_allowed_by_packet' => false,
+                'provider_process_start_allowed_by_packet' => false,
+                'codex_invocation_allowed_by_packet' => false,
+                'token_spend_allowed_by_packet' => false,
+                'dispatch_allowed_by_packet' => false,
+            ],
+            'next_required_action' => 'Implement only the allowed files, then run the required gates and report evidence.',
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_codex_real_invoker_manual_start_executor_receipt_writer_implementation_packet.v1',
+            'status' => 'ready_for_scoped_codex_real_invoker_manual_start_executor_receipt_writer_implementation',
+            'mode' => 'read_only_agent_codex_real_invoker_manual_start_executor_receipt_writer_implementation_packet',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'codex_real_invoker_manual_start_executor_receipt_writer_implementation_packet' => $packet,
+            'codex_real_invoker_manual_start_executor_receipt_writer_implementation_packet_hash' => $this->stableHash($packet),
+            'non_execution_guarantees' => [
+                'agent_codex_real_invoker_manual_start_executor_receipt_writer_implementation_packet_does_not_start_codex',
+                'agent_codex_real_invoker_manual_start_executor_receipt_writer_implementation_packet_does_not_call_codex',
+                'agent_codex_real_invoker_manual_start_executor_receipt_writer_implementation_packet_does_not_spend_tokens',
+                'agent_codex_real_invoker_manual_start_executor_receipt_writer_implementation_packet_does_not_dispatch_work',
+            ],
+            'human_summary' => 'Codex real invoker manual start executor receipt writer implementation packet is ready; it records a manual external start receipt only and does not start Codex.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentCodexRealInvokerOperatorStartHandoffBuilderContractTemplate(array $options = []): array
+    {
+        $receiptPayload = $this->agentCodexRealInvokerManualStartExecutorReceiptWriterPreflight($options);
+
+        $template = [
+            'status' => 'codex_real_invoker_operator_start_handoff_builder_contract_template_ready',
+            'contract_id' => 'CODEX-REAL-INVOKER-OPERATOR-START-HANDOFF-'.strtoupper(substr($this->stableHash([
+                'codex_real_invoker_manual_start_executor_receipt_writer_preflight_hash' => data_get($receiptPayload, 'codex_real_invoker_manual_start_executor_receipt_writer_preflight_hash'),
+                'provider' => 'codex',
+                'adapter' => 'codex',
+            ]), 0, 24)),
+            'source_codex_real_invoker_manual_start_executor_receipt_writer_status' => data_get($receiptPayload, 'status'),
+            'source_codex_real_invoker_manual_start_executor_receipt_writer_preflight_hash' => data_get($receiptPayload, 'codex_real_invoker_manual_start_executor_receipt_writer_preflight_hash'),
+            'provider' => 'codex',
+            'adapter' => 'codex',
+            'contract' => [
+                'service' => 'App\\Services\\Ai\\SelfConstruction\\AgentCodexRealInvokerOperatorStartHandoffBuilder',
+                'method' => 'buildOperatorStartHandoff',
+                'input_contract' => [
+                    'run_key',
+                    'codex_execution_id',
+                    'real_invoker_executor_plan_id',
+                    'real_invoker_executor_fresh_release_id',
+                    'real_invoker_executor_enablement_id',
+                    'real_invoker_supervised_start_activation_id',
+                    'real_invoker_guarded_process_start_id',
+                    'real_invoker_final_process_start_authorization_id',
+                    'real_invoker_actual_process_start_rehearsal_id',
+                    'real_invoker_process_start_envelope_id',
+                    'real_invoker_start_execution_gate_id',
+                    'real_invoker_process_starter_readiness_gate_id',
+                    'manual_start_executor_receipt_id',
+                    'operator_start_handoff_id',
+                    'manual_start_command_hash',
+                    'terminal_session_binding_hash',
+                    'operator_presence_hash',
+                    'live_supervisor_ack_hash',
+                    'initial_liveness_probe_hash',
+                    'kill_switch_ack_hash',
+                    'output_stream_capture_hash',
+                    'cost_meter_initial_hash',
+                    'no_autostart_attestation_hash',
+                    'handoff_packet_hash',
+                    'operator_runbook_hash',
+                    'external_terminal_handoff_hash',
+                    'post_start_liveness_probe_contract_hash',
+                    'post_start_receipt_contract_hash',
+                    'failure_escalation_contract_hash',
+                    'actor',
+                    'session',
+                    'reason',
+                ],
+                'result_contract' => [
+                    'operator_start_handoff_id',
+                    'manual_start_executor_receipt_id',
+                    'agent_run_id',
+                    'run_key',
+                    'provider',
+                    'adapter',
+                    'operator_start_handoff_built',
+                    'manual_operator_start_required',
+                    'actual_process_start_allowed',
+                    'external_process_started',
+                    'token_spend_allowed',
+                    'provider_started',
+                    'dispatch_allowed',
+                ],
+            ],
+            'real_invoker_operator_start_handoff_must' => [
+                'require_codex_real_invoker_manual_start_executor_receipt',
+                'require_handoff_packet_hash',
+                'require_operator_runbook_hash',
+                'require_external_terminal_handoff_hash',
+                'require_post_start_liveness_probe_contract_hash',
+                'require_post_start_receipt_contract_hash',
+                'require_failure_escalation_contract_hash',
+                'record_append_only_operator_start_handoff_before_any_actual_start',
+            ],
+            'real_invoker_operator_start_handoff_must_not' => [
+                'start_codex_process_from_contract_template',
+                'spawn_shell_or_subprocess',
+                'call_codex_cli_or_codex_app',
+                'spend_provider_tokens',
+                'mark_run_running_or_terminal',
+                'dispatch_work_to_provider',
+                'complete_or_merge_packet',
+            ],
+            'implementation_files_allowed_future' => [
+                'app/Services/Ai/SelfConstruction/AgentCodexRealInvokerOperatorStartHandoffBuilder.php',
+                'tests/Feature/Ai/AtlasAiSelfConstructionAgentCodexRealInvokerOperatorStartHandoffBuilderTest.php',
+            ],
+            'contract_policy' => [
+                'template_is_read_only' => true,
+                'operator_start_handoff_write_allowed_here' => false,
+                'actual_process_start_allowed_here' => false,
+                'provider_process_start_allowed_here' => false,
+                'codex_invocation_allowed_here' => false,
+                'token_spend_allowed_here' => false,
+                'dispatch_allowed_here' => false,
+                'requires_separate_implementation_packet' => true,
+            ],
+            'next_required_command' => 'php artisan atlas:ai:self-construction --agent-codex-real-invoker-operator-start-handoff-builder-preflight --json',
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_codex_real_invoker_operator_start_handoff_builder_contract_template.v1',
+            'status' => 'codex_real_invoker_operator_start_handoff_builder_contract_template_ready',
+            'mode' => 'read_only_agent_codex_real_invoker_operator_start_handoff_builder_contract_template',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'codex_real_invoker_operator_start_handoff_builder_contract_template' => $template,
+            'codex_real_invoker_operator_start_handoff_builder_contract_template_hash' => $this->stableHash($template),
+            'non_execution_guarantees' => [
+                'agent_codex_real_invoker_operator_start_handoff_builder_contract_template_does_not_start_codex',
+                'agent_codex_real_invoker_operator_start_handoff_builder_contract_template_does_not_call_codex',
+                'agent_codex_real_invoker_operator_start_handoff_builder_contract_template_does_not_spend_tokens',
+                'agent_codex_real_invoker_operator_start_handoff_builder_contract_template_does_not_dispatch_work',
+            ],
+            'human_summary' => 'Codex real invoker operator start handoff builder contract template prepares a manual operator handoff only; it does not start Codex.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentCodexRealInvokerOperatorStartHandoffBuilderPreflight(array $options = []): array
+    {
+        $contractPayload = $this->agentCodexRealInvokerOperatorStartHandoffBuilderContractTemplate($options);
+        $contract = (array) data_get($contractPayload, 'codex_real_invoker_operator_start_handoff_builder_contract_template', []);
+        $builderClass = AgentCodexRealInvokerOperatorStartHandoffBuilder::class;
+        $receiptWriterClass = AgentCodexRealInvokerManualStartExecutorReceiptWriter::class;
+        $builderReady = class_exists($builderClass);
+        $receiptWriterReady = class_exists($receiptWriterClass);
+        $runsTableReady = Schema::hasTable('atlas_self_construction_agent_runs');
+        $ledgerReady = Schema::hasTable('atlas_ledger_events');
+
+        $blockingReasons = array_values(array_filter([
+            $builderReady ? null : 'codex_real_invoker_operator_start_handoff_builder_missing',
+            $receiptWriterReady ? null : 'codex_real_invoker_manual_start_executor_receipt_writer_missing',
+            $runsTableReady ? null : 'agent_runs_table_missing',
+            $ledgerReady ? null : 'ledger_table_missing',
+        ]));
+
+        $preflight = [
+            'status' => $blockingReasons === [] ? 'codex_real_invoker_operator_start_handoff_builder_ready' : 'blocked',
+            'contract_template_hash' => data_get($contractPayload, 'codex_real_invoker_operator_start_handoff_builder_contract_template_hash'),
+            'source_codex_real_invoker_manual_start_executor_receipt_writer_status' => data_get($contract, 'source_codex_real_invoker_manual_start_executor_receipt_writer_status'),
+            'provider' => 'codex',
+            'adapter' => 'codex',
+            'storage' => [
+                'codex_real_invoker_operator_start_handoff_builder_ready' => $builderReady,
+                'codex_real_invoker_manual_start_executor_receipt_writer_ready' => $receiptWriterReady,
+                'agent_runs_table_ready' => $runsTableReady,
+                'ledger_table_ready' => $ledgerReady,
+            ],
+            'blocking_count' => count($blockingReasons),
+            'blocking_reasons' => $blockingReasons,
+            'operator_start_handoff_builder_ready_for_future_use' => $blockingReasons === [],
+            'allowed_future_files' => data_get($contract, 'implementation_files_allowed_future', []),
+            'required_first_changes' => [
+                'create_codex_real_invoker_operator_start_handoff_builder',
+                'require_codex_real_invoker_manual_start_executor_receipt_metadata',
+                'require_operator_runbook_and_handoff_hashes',
+                'require_post_start_liveness_and_receipt_contract_hashes',
+                'record_operator_start_handoff_without_starting_codex',
+            ],
+            'required_gates' => [
+                'php -l app/Services/Ai/SelfConstruction/AgentCodexRealInvokerOperatorStartHandoffBuilder.php',
+                'php artisan test tests/Feature/Ai/AtlasAiSelfConstructionAgentCodexRealInvokerOperatorStartHandoffBuilderTest.php',
+                'php artisan test tests/Feature/Ai/AtlasAiSelfConstructionCommandTest.php --filter=agent_codex_real_invoker_operator_start_handoff_builder',
+                'php artisan atlas:engineering:knowledge docs-health --json',
+                'php artisan atlas:ai:architecture-validate --json',
+                'git diff --check',
+            ],
+            'preflight_policy' => [
+                'preflight_is_read_only' => true,
+                'operator_start_handoff_builder_file_creation_allowed_here' => false,
+                'actual_process_start_allowed_here' => false,
+                'provider_process_start_allowed_here' => false,
+                'codex_invocation_allowed_here' => false,
+                'token_spend_allowed_here' => false,
+                'dispatch_allowed_here' => false,
+                'requires_separate_implementation_packet' => true,
+            ],
+            'next_required_command' => 'php artisan atlas:ai:self-construction --agent-codex-real-invoker-operator-start-handoff-builder-implementation-packet --json',
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_codex_real_invoker_operator_start_handoff_builder_preflight.v1',
+            'status' => (string) $preflight['status'],
+            'mode' => 'read_only_agent_codex_real_invoker_operator_start_handoff_builder_preflight',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'codex_real_invoker_operator_start_handoff_builder_preflight' => $preflight,
+            'codex_real_invoker_operator_start_handoff_builder_preflight_hash' => $this->stableHash($preflight),
+            'non_execution_guarantees' => [
+                'agent_codex_real_invoker_operator_start_handoff_builder_preflight_does_not_start_codex',
+                'agent_codex_real_invoker_operator_start_handoff_builder_preflight_does_not_call_codex',
+                'agent_codex_real_invoker_operator_start_handoff_builder_preflight_does_not_spend_tokens',
+                'agent_codex_real_invoker_operator_start_handoff_builder_preflight_does_not_dispatch_work',
+            ],
+            'human_summary' => $blockingReasons === []
+                ? 'Codex real invoker operator start handoff builder is ready; the actual Codex start still remains a manual external operator action.'
+                : 'Codex real invoker operator start handoff builder is blocked until the builder and receipt writer prerequisites exist.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentCodexRealInvokerOperatorStartHandoffBuilderImplementationPacket(array $options = []): array
+    {
+        $preflightPayload = $this->agentCodexRealInvokerOperatorStartHandoffBuilderPreflight($options);
+        $preflight = (array) data_get($preflightPayload, 'codex_real_invoker_operator_start_handoff_builder_preflight', []);
+        $preflightHash = (string) data_get($preflightPayload, 'codex_real_invoker_operator_start_handoff_builder_preflight_hash');
+        $allowedFiles = (array) data_get($preflight, 'allowed_future_files', []);
+
+        $tasks = [
+            [
+                'id' => 'T1',
+                'title' => 'Create Codex real invoker operator start handoff builder',
+                'type' => 'service',
+                'allowed_files' => ['app/Services/Ai/SelfConstruction/AgentCodexRealInvokerOperatorStartHandoffBuilder.php'],
+                'acceptance' => 'Builder records an operator start handoff and never starts Codex, spends tokens or dispatches work.',
+            ],
+            [
+                'id' => 'T2',
+                'title' => 'Enforce manual receipt and handoff contracts',
+                'type' => 'service_logic',
+                'allowed_files' => ['app/Services/Ai/SelfConstruction/AgentCodexRealInvokerOperatorStartHandoffBuilder.php'],
+                'acceptance' => 'Builder requires manual start executor receipt metadata plus handoff packet, operator runbook, terminal handoff, post-start liveness, post-start receipt and escalation hashes.',
+            ],
+            [
+                'id' => 'T3',
+                'title' => 'Add operator start handoff tests',
+                'type' => 'test',
+                'allowed_files' => ['tests/Feature/Ai/AtlasAiSelfConstructionAgentCodexRealInvokerOperatorStartHandoffBuilderTest.php'],
+                'acceptance' => 'Tests prove missing manual receipt rejection, handoff hash rejection, duplicate handoff rejection, rollback and no process/token/dispatch side effects.',
+            ],
+            [
+                'id' => 'T4',
+                'title' => 'Expose operator start handoff readiness commands',
+                'type' => 'command_surface',
+                'allowed_files' => [
+                    'app/Services/Ai/SelfConstruction/AtlasSelfConstructionReadinessService.php',
+                    'app/Console/Commands/AtlasAiSelfConstructionCommand.php',
+                    'tests/Feature/Ai/AtlasAiSelfConstructionCommandTest.php',
+                ],
+                'acceptance' => 'Contract, preflight and implementation packet commands remain read-only and declare actual process start disabled.',
+            ],
+        ];
+
+        $packet = [
+            'status' => 'ready_for_scoped_codex_real_invoker_operator_start_handoff_builder_implementation',
+            'implementation_packet_id' => 'AGENT-CODEX-REAL-INVOKER-OPERATOR-START-HANDOFF-BUILDER-IMPLEMENTATION-SELF-CONSTRUCTION-0001',
+            'source_preflight_hash' => $preflightHash,
+            'objective' => 'Implement the Codex real invoker operator start handoff builder that prepares the manual external start package while still refusing to start Codex, spend tokens or dispatch work.',
+            'non_goals' => [
+                'do_not_call_codex_cli_or_codex_app',
+                'do_not_spawn_processes_or_shell_commands',
+                'do_not_spend_provider_tokens',
+                'do_not_start_codex_process',
+                'do_not_mark_runs_running_or_terminal',
+                'do_not_change_packet_claim_completion_or_merge_state',
+            ],
+            'allowed_files' => $allowedFiles,
+            'forbidden_scopes' => [
+                'actual_codex_process_invocation',
+                'provider_token_spend',
+                'process_start',
+                'merge_runtime',
+                'packet_claim_or_completion_state',
+                'hot_kernel_runtime',
+                'voice_runtime',
+                'policy_mutation',
+            ],
+            'tasks' => $tasks,
+            'task_count' => count($tasks),
+            'acceptance_criteria' => [
+                'operator_start_handoff_requires_manual_start_executor_receipt_metadata',
+                'operator_start_handoff_requires_handoff_packet_hash',
+                'operator_start_handoff_requires_post_start_liveness_contract_hash',
+                'operator_start_handoff_is_idempotent_for_same_handoff_id',
+                'operator_start_handoff_records_event_without_starting_codex',
+            ],
+            'required_gates' => data_get($preflight, 'required_gates', []),
+            'stop_conditions' => [
+                'need_to_start_codex_or_spawn_process',
+                'need_to_allow_provider_token_spend',
+                'need_to_dispatch_work_to_provider',
+                'need_to_modify_file_outside_allowed_files',
+                'need_to_change_packet_claim_completion_or_merge_state',
+                'test_requires_hot_runtime_or_voice_scope_change',
+            ],
+            'implementation_policy' => [
+                'packet_is_read_only' => true,
+                'implementation_allowed_by_packet' => true,
+                'operator_start_handoff_write_allowed_by_packet' => false,
+                'actual_process_start_allowed_by_packet' => false,
+                'provider_process_start_allowed_by_packet' => false,
+                'codex_invocation_allowed_by_packet' => false,
+                'token_spend_allowed_by_packet' => false,
+                'dispatch_allowed_by_packet' => false,
+            ],
+            'next_required_action' => 'Implement only the allowed files, then run the required gates and report evidence.',
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_codex_real_invoker_operator_start_handoff_builder_implementation_packet.v1',
+            'status' => 'ready_for_scoped_codex_real_invoker_operator_start_handoff_builder_implementation',
+            'mode' => 'read_only_agent_codex_real_invoker_operator_start_handoff_builder_implementation_packet',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'codex_real_invoker_operator_start_handoff_builder_implementation_packet' => $packet,
+            'codex_real_invoker_operator_start_handoff_builder_implementation_packet_hash' => $this->stableHash($packet),
+            'non_execution_guarantees' => [
+                'agent_codex_real_invoker_operator_start_handoff_builder_implementation_packet_does_not_start_codex',
+                'agent_codex_real_invoker_operator_start_handoff_builder_implementation_packet_does_not_call_codex',
+                'agent_codex_real_invoker_operator_start_handoff_builder_implementation_packet_does_not_spend_tokens',
+                'agent_codex_real_invoker_operator_start_handoff_builder_implementation_packet_does_not_dispatch_work',
+            ],
+            'human_summary' => 'Codex real invoker operator start handoff builder implementation packet is ready; it prepares a manual external start handoff only and does not start Codex.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentCodexRealInvokerPostStartReceiptContractBuilderContractTemplate(array $options = []): array
+    {
+        $handoffPayload = $this->agentCodexRealInvokerOperatorStartHandoffBuilderPreflight($options);
+
+        $template = [
+            'status' => 'codex_real_invoker_post_start_receipt_contract_builder_contract_template_ready',
+            'contract_id' => 'CODEX-REAL-INVOKER-POST-START-RECEIPT-CONTRACT-'.strtoupper(substr($this->stableHash([
+                'codex_real_invoker_operator_start_handoff_builder_preflight_hash' => data_get($handoffPayload, 'codex_real_invoker_operator_start_handoff_builder_preflight_hash'),
+                'provider' => 'codex',
+                'adapter' => 'codex',
+            ]), 0, 24)),
+            'source_codex_real_invoker_operator_start_handoff_builder_status' => data_get($handoffPayload, 'status'),
+            'source_codex_real_invoker_operator_start_handoff_builder_preflight_hash' => data_get($handoffPayload, 'codex_real_invoker_operator_start_handoff_builder_preflight_hash'),
+            'provider' => 'codex',
+            'adapter' => 'codex',
+            'contract' => [
+                'service' => 'App\\Services\\Ai\\SelfConstruction\\AgentCodexRealInvokerPostStartReceiptContractBuilder',
+                'method' => 'buildPostStartReceiptContract',
+                'input_contract' => [
+                    'run_key',
+                    'codex_execution_id',
+                    'real_invoker_process_starter_readiness_gate_id',
+                    'real_invoker_start_execution_gate_id',
+                    'manual_start_executor_receipt_id',
+                    'operator_start_handoff_id',
+                    'post_start_receipt_contract_id',
+                    'handoff_packet_hash',
+                    'operator_runbook_hash',
+                    'external_terminal_handoff_hash',
+                    'post_start_liveness_probe_contract_hash',
+                    'post_start_receipt_contract_hash',
+                    'failure_escalation_contract_hash',
+                    'external_process_identity_contract_hash',
+                    'startup_evidence_contract_hash',
+                    'terminal_pid_capture_contract_hash',
+                    'post_start_cost_meter_contract_hash',
+                    'actor',
+                    'session',
+                    'reason',
+                ],
+                'result_contract' => [
+                    'post_start_receipt_contract_id',
+                    'operator_start_handoff_id',
+                    'manual_start_executor_receipt_id',
+                    'agent_run_id',
+                    'run_key',
+                    'provider',
+                    'adapter',
+                    'post_start_receipt_contract_built',
+                    'actual_process_start_allowed',
+                    'external_process_started',
+                    'token_spend_allowed',
+                    'provider_started',
+                    'dispatch_allowed',
+                ],
+            ],
+            'real_invoker_post_start_receipt_contract_must' => [
+                'require_codex_real_invoker_operator_start_handoff',
+                'require_external_process_identity_contract_hash',
+                'require_startup_evidence_contract_hash',
+                'require_terminal_pid_capture_contract_hash',
+                'require_post_start_cost_meter_contract_hash',
+                'record_append_only_post_start_receipt_contract_before_accepting_external_process_evidence',
+            ],
+            'real_invoker_post_start_receipt_contract_must_not' => [
+                'start_codex_process_from_contract_template',
+                'spawn_shell_or_subprocess',
+                'call_codex_cli_or_codex_app',
+                'spend_provider_tokens',
+                'mark_run_running_or_terminal',
+                'accept_external_process_started_evidence',
+                'dispatch_work_to_provider',
+            ],
+            'implementation_files_allowed_future' => [
+                'app/Services/Ai/SelfConstruction/AgentCodexRealInvokerPostStartReceiptContractBuilder.php',
+                'tests/Feature/Ai/AtlasAiSelfConstructionAgentCodexRealInvokerPostStartReceiptContractBuilderTest.php',
+            ],
+            'contract_policy' => [
+                'template_is_read_only' => true,
+                'post_start_receipt_contract_write_allowed_here' => false,
+                'actual_process_start_allowed_here' => false,
+                'external_process_evidence_acceptance_allowed_here' => false,
+                'provider_process_start_allowed_here' => false,
+                'codex_invocation_allowed_here' => false,
+                'token_spend_allowed_here' => false,
+                'dispatch_allowed_here' => false,
+                'requires_separate_implementation_packet' => true,
+            ],
+            'next_required_command' => 'php artisan atlas:ai:self-construction --agent-codex-real-invoker-post-start-receipt-contract-builder-preflight --json',
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_codex_real_invoker_post_start_receipt_contract_builder_contract_template.v1',
+            'status' => 'codex_real_invoker_post_start_receipt_contract_builder_contract_template_ready',
+            'mode' => 'read_only_agent_codex_real_invoker_post_start_receipt_contract_builder_contract_template',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'codex_real_invoker_post_start_receipt_contract_builder_contract_template' => $template,
+            'codex_real_invoker_post_start_receipt_contract_builder_contract_template_hash' => $this->stableHash($template),
+            'non_execution_guarantees' => [
+                'agent_codex_real_invoker_post_start_receipt_contract_builder_contract_template_does_not_start_codex',
+                'agent_codex_real_invoker_post_start_receipt_contract_builder_contract_template_does_not_call_codex',
+                'agent_codex_real_invoker_post_start_receipt_contract_builder_contract_template_does_not_spend_tokens',
+                'agent_codex_real_invoker_post_start_receipt_contract_builder_contract_template_does_not_dispatch_work',
+            ],
+            'human_summary' => 'Codex real invoker post-start receipt contract builder contract template prepares future external-start evidence acceptance only; it does not start Codex.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentCodexRealInvokerPostStartReceiptContractBuilderPreflight(array $options = []): array
+    {
+        $contractPayload = $this->agentCodexRealInvokerPostStartReceiptContractBuilderContractTemplate($options);
+        $contract = (array) data_get($contractPayload, 'codex_real_invoker_post_start_receipt_contract_builder_contract_template', []);
+        $builderClass = AgentCodexRealInvokerPostStartReceiptContractBuilder::class;
+        $handoffClass = AgentCodexRealInvokerOperatorStartHandoffBuilder::class;
+        $builderReady = class_exists($builderClass);
+        $handoffReady = class_exists($handoffClass);
+        $runsTableReady = Schema::hasTable('atlas_self_construction_agent_runs');
+        $ledgerReady = Schema::hasTable('atlas_ledger_events');
+
+        $blockingReasons = array_values(array_filter([
+            $builderReady ? null : 'codex_real_invoker_post_start_receipt_contract_builder_missing',
+            $handoffReady ? null : 'codex_real_invoker_operator_start_handoff_builder_missing',
+            $runsTableReady ? null : 'agent_runs_table_missing',
+            $ledgerReady ? null : 'ledger_table_missing',
+        ]));
+
+        $preflight = [
+            'status' => $blockingReasons === [] ? 'codex_real_invoker_post_start_receipt_contract_builder_ready' : 'blocked',
+            'contract_template_hash' => data_get($contractPayload, 'codex_real_invoker_post_start_receipt_contract_builder_contract_template_hash'),
+            'source_codex_real_invoker_operator_start_handoff_builder_status' => data_get($contract, 'source_codex_real_invoker_operator_start_handoff_builder_status'),
+            'provider' => 'codex',
+            'adapter' => 'codex',
+            'storage' => [
+                'codex_real_invoker_post_start_receipt_contract_builder_ready' => $builderReady,
+                'codex_real_invoker_operator_start_handoff_builder_ready' => $handoffReady,
+                'agent_runs_table_ready' => $runsTableReady,
+                'ledger_table_ready' => $ledgerReady,
+            ],
+            'blocking_count' => count($blockingReasons),
+            'blocking_reasons' => $blockingReasons,
+            'post_start_receipt_contract_builder_ready_for_future_use' => $blockingReasons === [],
+            'allowed_future_files' => data_get($contract, 'implementation_files_allowed_future', []),
+            'required_first_changes' => [
+                'create_codex_real_invoker_post_start_receipt_contract_builder',
+                'require_codex_real_invoker_operator_start_handoff_metadata',
+                'require_external_process_identity_contract_hash',
+                'require_startup_evidence_and_pid_capture_contract_hashes',
+                'record_post_start_receipt_contract_without_accepting_external_process_evidence',
+            ],
+            'required_gates' => [
+                'php -l app/Services/Ai/SelfConstruction/AgentCodexRealInvokerPostStartReceiptContractBuilder.php',
+                'php artisan test tests/Feature/Ai/AtlasAiSelfConstructionAgentCodexRealInvokerPostStartReceiptContractBuilderTest.php',
+                'php artisan test tests/Feature/Ai/AtlasAiSelfConstructionCommandTest.php --filter=agent_codex_real_invoker_post_start_receipt_contract_builder',
+                'php artisan atlas:engineering:knowledge docs-health --json',
+                'php artisan atlas:ai:architecture-validate --json',
+                'git diff --check',
+            ],
+            'preflight_policy' => [
+                'preflight_is_read_only' => true,
+                'post_start_receipt_contract_builder_file_creation_allowed_here' => false,
+                'actual_process_start_allowed_here' => false,
+                'external_process_evidence_acceptance_allowed_here' => false,
+                'provider_process_start_allowed_here' => false,
+                'codex_invocation_allowed_here' => false,
+                'token_spend_allowed_here' => false,
+                'dispatch_allowed_here' => false,
+                'requires_separate_implementation_packet' => true,
+            ],
+            'next_required_command' => 'php artisan atlas:ai:self-construction --agent-codex-real-invoker-post-start-receipt-contract-builder-implementation-packet --json',
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_codex_real_invoker_post_start_receipt_contract_builder_preflight.v1',
+            'status' => (string) $preflight['status'],
+            'mode' => 'read_only_agent_codex_real_invoker_post_start_receipt_contract_builder_preflight',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'codex_real_invoker_post_start_receipt_contract_builder_preflight' => $preflight,
+            'codex_real_invoker_post_start_receipt_contract_builder_preflight_hash' => $this->stableHash($preflight),
+            'non_execution_guarantees' => [
+                'agent_codex_real_invoker_post_start_receipt_contract_builder_preflight_does_not_start_codex',
+                'agent_codex_real_invoker_post_start_receipt_contract_builder_preflight_does_not_call_codex',
+                'agent_codex_real_invoker_post_start_receipt_contract_builder_preflight_does_not_spend_tokens',
+                'agent_codex_real_invoker_post_start_receipt_contract_builder_preflight_does_not_dispatch_work',
+            ],
+            'human_summary' => $blockingReasons === []
+                ? 'Codex real invoker post-start receipt contract builder is ready; it still does not accept external process evidence or start Codex.'
+                : 'Codex real invoker post-start receipt contract builder is blocked until the builder and handoff prerequisites exist.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentCodexRealInvokerPostStartReceiptContractBuilderImplementationPacket(array $options = []): array
+    {
+        $preflightPayload = $this->agentCodexRealInvokerPostStartReceiptContractBuilderPreflight($options);
+        $preflight = (array) data_get($preflightPayload, 'codex_real_invoker_post_start_receipt_contract_builder_preflight', []);
+        $preflightHash = (string) data_get($preflightPayload, 'codex_real_invoker_post_start_receipt_contract_builder_preflight_hash');
+
+        $tasks = [
+            [
+                'id' => 'T1',
+                'title' => 'Create Codex real invoker post-start receipt contract builder',
+                'type' => 'service',
+                'allowed_files' => ['app/Services/Ai/SelfConstruction/AgentCodexRealInvokerPostStartReceiptContractBuilder.php'],
+                'acceptance' => 'Builder records a post-start receipt contract and never starts Codex, accepts external process evidence, spends tokens or dispatches work.',
+            ],
+            [
+                'id' => 'T2',
+                'title' => 'Enforce operator handoff and external evidence contracts',
+                'type' => 'service_logic',
+                'allowed_files' => ['app/Services/Ai/SelfConstruction/AgentCodexRealInvokerPostStartReceiptContractBuilder.php'],
+                'acceptance' => 'Builder requires operator handoff metadata plus external process identity, startup evidence, PID capture and cost meter contract hashes.',
+            ],
+            [
+                'id' => 'T3',
+                'title' => 'Add post-start receipt contract tests',
+                'type' => 'test',
+                'allowed_files' => ['tests/Feature/Ai/AtlasAiSelfConstructionAgentCodexRealInvokerPostStartReceiptContractBuilderTest.php'],
+                'acceptance' => 'Tests prove missing handoff rejection, external identity contract rejection, duplicate contract rejection, rollback and no process/token/dispatch side effects.',
+            ],
+            [
+                'id' => 'T4',
+                'title' => 'Expose post-start receipt contract readiness commands',
+                'type' => 'command_surface',
+                'allowed_files' => [
+                    'app/Services/Ai/SelfConstruction/AtlasSelfConstructionReadinessService.php',
+                    'app/Console/Commands/AtlasAiSelfConstructionCommand.php',
+                    'tests/Feature/Ai/AtlasAiSelfConstructionCommandTest.php',
+                ],
+                'acceptance' => 'Contract, preflight and implementation packet commands remain read-only and declare actual process start disabled.',
+            ],
+        ];
+
+        $packet = [
+            'status' => 'ready_for_scoped_codex_real_invoker_post_start_receipt_contract_builder_implementation',
+            'implementation_packet_id' => 'AGENT-CODEX-REAL-INVOKER-POST-START-RECEIPT-CONTRACT-BUILDER-IMPLEMENTATION-SELF-CONSTRUCTION-0001',
+            'source_preflight_hash' => $preflightHash,
+            'objective' => 'Implement the Codex real invoker post-start receipt contract builder that prepares future external process evidence acceptance while still refusing to start Codex, accept start evidence, spend tokens or dispatch work.',
+            'non_goals' => [
+                'do_not_call_codex_cli_or_codex_app',
+                'do_not_spawn_processes_or_shell_commands',
+                'do_not_accept_external_process_started_evidence',
+                'do_not_spend_provider_tokens',
+                'do_not_start_codex_process',
+                'do_not_mark_runs_running_or_terminal',
+            ],
+            'allowed_files' => data_get($preflight, 'allowed_future_files', []),
+            'forbidden_scopes' => [
+                'actual_codex_process_invocation',
+                'external_process_evidence_acceptance',
+                'provider_token_spend',
+                'process_start',
+                'merge_runtime',
+                'hot_kernel_runtime',
+                'policy_mutation',
+            ],
+            'tasks' => $tasks,
+            'task_count' => count($tasks),
+            'acceptance_criteria' => [
+                'post_start_receipt_contract_requires_operator_start_handoff_metadata',
+                'post_start_receipt_contract_requires_external_process_identity_contract_hash',
+                'post_start_receipt_contract_requires_startup_evidence_contract_hash',
+                'post_start_receipt_contract_is_idempotent_for_same_contract_id',
+                'post_start_receipt_contract_records_event_without_starting_codex',
+            ],
+            'required_gates' => data_get($preflight, 'required_gates', []),
+            'implementation_policy' => [
+                'packet_is_read_only' => true,
+                'implementation_allowed_by_packet' => true,
+                'post_start_receipt_contract_write_allowed_by_packet' => false,
+                'actual_process_start_allowed_by_packet' => false,
+                'external_process_evidence_acceptance_allowed_by_packet' => false,
+                'provider_process_start_allowed_by_packet' => false,
+                'codex_invocation_allowed_by_packet' => false,
+                'token_spend_allowed_by_packet' => false,
+                'dispatch_allowed_by_packet' => false,
+            ],
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_codex_real_invoker_post_start_receipt_contract_builder_implementation_packet.v1',
+            'status' => 'ready_for_scoped_codex_real_invoker_post_start_receipt_contract_builder_implementation',
+            'mode' => 'read_only_agent_codex_real_invoker_post_start_receipt_contract_builder_implementation_packet',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'codex_real_invoker_post_start_receipt_contract_builder_implementation_packet' => $packet,
+            'codex_real_invoker_post_start_receipt_contract_builder_implementation_packet_hash' => $this->stableHash($packet),
+            'non_execution_guarantees' => [
+                'agent_codex_real_invoker_post_start_receipt_contract_builder_implementation_packet_does_not_start_codex',
+                'agent_codex_real_invoker_post_start_receipt_contract_builder_implementation_packet_does_not_call_codex',
+                'agent_codex_real_invoker_post_start_receipt_contract_builder_implementation_packet_does_not_spend_tokens',
+                'agent_codex_real_invoker_post_start_receipt_contract_builder_implementation_packet_does_not_dispatch_work',
+            ],
+            'human_summary' => 'Codex real invoker post-start receipt contract builder implementation packet is ready; it prepares a future evidence contract only and does not start Codex.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentCodexRealInvokerPostStartEvidenceReceiptWriterContractTemplate(array $options = []): array
+    {
+        $contractPayload = $this->agentCodexRealInvokerPostStartReceiptContractBuilderPreflight($options);
+        $contract = (array) data_get($contractPayload, 'codex_real_invoker_post_start_receipt_contract_builder_preflight', []);
+
+        $template = [
+            'status' => 'codex_real_invoker_post_start_evidence_receipt_writer_contract_template_ready',
+            'contract_id' => 'CODEX-REAL-INVOKER-POST-START-EVIDENCE-RECEIPT-WRITER-'.strtoupper(substr($this->stableHash([
+                'post_start_receipt_contract_builder_preflight_hash' => data_get($contractPayload, 'codex_real_invoker_post_start_receipt_contract_builder_preflight_hash'),
+                'provider' => 'codex',
+                'adapter' => 'codex',
+            ]), 0, 24)),
+            'source_codex_real_invoker_post_start_receipt_contract_builder_status' => data_get($contractPayload, 'status'),
+            'provider' => 'codex',
+            'adapter' => 'codex',
+            'contract' => [
+                'service' => 'App\\Services\\Ai\\SelfConstruction\\AgentCodexRealInvokerPostStartEvidenceReceiptWriter',
+                'method' => 'writePostStartEvidenceReceipt',
+                'input_contract' => [
+                    'run_key',
+                    'codex_execution_id',
+                    'real_invoker_process_starter_readiness_gate_id',
+                    'real_invoker_start_execution_gate_id',
+                    'manual_start_executor_receipt_id',
+                    'operator_start_handoff_id',
+                    'post_start_receipt_contract_id',
+                    'post_start_evidence_receipt_id',
+                    'external_process_identity_contract_hash',
+                    'startup_evidence_contract_hash',
+                    'terminal_pid_capture_contract_hash',
+                    'post_start_cost_meter_contract_hash',
+                    'external_process_identity_evidence_hash',
+                    'startup_evidence_hash',
+                    'terminal_pid_capture_hash',
+                    'post_start_liveness_probe_hash',
+                    'post_start_cost_meter_evidence_hash',
+                    'operator_external_start_attestation_hash',
+                    'no_atlas_process_spawn_attestation_hash',
+                    'actor',
+                    'session',
+                    'reason',
+                ],
+                'result_contract' => [
+                    'post_start_evidence_receipt_id',
+                    'agent_run_id',
+                    'run_key',
+                    'run_status',
+                    'external_process_started',
+                    'token_spend_allowed',
+                    'provider_started',
+                    'dispatch_allowed',
+                ],
+            ],
+            'real_invoker_post_start_evidence_receipt_must' => [
+                'require_codex_real_invoker_post_start_receipt_contract',
+                'require_external_process_identity_evidence_hash',
+                'require_startup_evidence_hash',
+                'require_terminal_pid_capture_hash',
+                'require_post_start_liveness_probe_hash',
+                'require_post_start_cost_meter_evidence_hash',
+                'require_operator_external_start_attestation_hash',
+                'require_no_atlas_process_spawn_attestation_hash',
+                'record_append_only_evidence_event',
+            ],
+            'real_invoker_post_start_evidence_receipt_must_not' => [
+                'call_codex_cli_or_codex_app',
+                'spawn_process_or_shell_command',
+                'spend_provider_tokens',
+                'dispatch_work_to_provider',
+                'mark_run_running_or_terminal',
+            ],
+            'implementation_files_allowed_future' => [
+                'app/Services/Ai/SelfConstruction/AgentCodexRealInvokerPostStartEvidenceReceiptWriter.php',
+                'tests/Feature/Ai/AtlasAiSelfConstructionAgentCodexRealInvokerPostStartEvidenceReceiptWriterTest.php',
+            ],
+            'contract_policy' => [
+                'template_is_read_only' => true,
+                'post_start_evidence_receipt_write_allowed_here' => false,
+                'actual_process_start_allowed_here' => false,
+                'external_process_evidence_acceptance_allowed_by_future_writer' => true,
+                'provider_process_start_allowed_here' => false,
+                'codex_invocation_allowed_here' => false,
+                'token_spend_allowed_here' => false,
+                'dispatch_allowed_here' => false,
+                'requires_separate_implementation_packet' => true,
+            ],
+            'next_required_command' => 'php artisan atlas:ai:self-construction --agent-codex-real-invoker-post-start-evidence-receipt-writer-preflight --json',
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_codex_real_invoker_post_start_evidence_receipt_writer_contract_template.v1',
+            'status' => 'codex_real_invoker_post_start_evidence_receipt_writer_contract_template_ready',
+            'mode' => 'read_only_agent_codex_real_invoker_post_start_evidence_receipt_writer_contract_template',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'codex_real_invoker_post_start_evidence_receipt_writer_contract_template' => $template,
+            'codex_real_invoker_post_start_evidence_receipt_writer_contract_template_hash' => $this->stableHash($template),
+            'non_execution_guarantees' => [
+                'agent_codex_real_invoker_post_start_evidence_receipt_writer_contract_template_does_not_start_codex',
+                'agent_codex_real_invoker_post_start_evidence_receipt_writer_contract_template_does_not_call_codex',
+                'agent_codex_real_invoker_post_start_evidence_receipt_writer_contract_template_does_not_spend_tokens',
+                'agent_codex_real_invoker_post_start_evidence_receipt_writer_contract_template_does_not_dispatch_work',
+            ],
+            'human_summary' => 'Codex real invoker post-start evidence receipt writer contract template defines external-start evidence acceptance only; it does not start Codex.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentCodexRealInvokerPostStartEvidenceReceiptWriterPreflight(array $options = []): array
+    {
+        $contractPayload = $this->agentCodexRealInvokerPostStartEvidenceReceiptWriterContractTemplate($options);
+        $contract = (array) data_get($contractPayload, 'codex_real_invoker_post_start_evidence_receipt_writer_contract_template', []);
+        $writerClass = AgentCodexRealInvokerPostStartEvidenceReceiptWriter::class;
+        $builderClass = AgentCodexRealInvokerPostStartReceiptContractBuilder::class;
+        $writerReady = class_exists($writerClass);
+        $builderReady = class_exists($builderClass);
+        $runsTableReady = Schema::hasTable('atlas_self_construction_agent_runs');
+        $ledgerReady = Schema::hasTable('atlas_ledger_events');
+
+        $blockingReasons = array_values(array_filter([
+            $writerReady ? null : 'codex_real_invoker_post_start_evidence_receipt_writer_missing',
+            $builderReady ? null : 'codex_real_invoker_post_start_receipt_contract_builder_missing',
+            $runsTableReady ? null : 'agent_runs_table_missing',
+            $ledgerReady ? null : 'ledger_table_missing',
+        ]));
+
+        $preflight = [
+            'status' => $blockingReasons === [] ? 'codex_real_invoker_post_start_evidence_receipt_writer_ready' : 'blocked',
+            'contract_template_hash' => data_get($contractPayload, 'codex_real_invoker_post_start_evidence_receipt_writer_contract_template_hash'),
+            'source_codex_real_invoker_post_start_receipt_contract_builder_status' => data_get($contract, 'source_codex_real_invoker_post_start_receipt_contract_builder_status'),
+            'provider' => 'codex',
+            'adapter' => 'codex',
+            'storage' => [
+                'codex_real_invoker_post_start_evidence_receipt_writer_ready' => $writerReady,
+                'codex_real_invoker_post_start_receipt_contract_builder_ready' => $builderReady,
+                'agent_runs_table_ready' => $runsTableReady,
+                'ledger_table_ready' => $ledgerReady,
+            ],
+            'blocking_count' => count($blockingReasons),
+            'blocking_reasons' => $blockingReasons,
+            'post_start_evidence_receipt_writer_ready_for_future_use' => $blockingReasons === [],
+            'allowed_future_files' => data_get($contract, 'implementation_files_allowed_future', []),
+            'required_first_changes' => [
+                'create_codex_real_invoker_post_start_evidence_receipt_writer',
+                'require_codex_real_invoker_post_start_receipt_contract_metadata',
+                'require_external_start_evidence_hashes',
+                'require_no_atlas_process_spawn_attestation_hash',
+                'record_post_start_evidence_receipt_without_calling_codex',
+            ],
+            'required_gates' => [
+                'php -l app/Services/Ai/SelfConstruction/AgentCodexRealInvokerPostStartEvidenceReceiptWriter.php',
+                'php artisan test tests/Feature/Ai/AtlasAiSelfConstructionAgentCodexRealInvokerPostStartEvidenceReceiptWriterTest.php',
+                'php artisan test tests/Feature/Ai/AtlasAiSelfConstructionCommandTest.php --filter=agent_codex_real_invoker_post_start_evidence_receipt_writer',
+                'php artisan atlas:engineering:knowledge docs-health --json',
+                'php artisan atlas:ai:architecture-validate --json',
+                'git diff --check',
+            ],
+            'preflight_policy' => [
+                'preflight_is_read_only' => true,
+                'post_start_evidence_receipt_writer_file_creation_allowed_here' => false,
+                'actual_process_start_allowed_here' => false,
+                'provider_process_start_allowed_here' => false,
+                'codex_invocation_allowed_here' => false,
+                'token_spend_allowed_here' => false,
+                'dispatch_allowed_here' => false,
+                'requires_separate_implementation_packet' => true,
+            ],
+            'next_required_command' => 'php artisan atlas:ai:self-construction --agent-codex-real-invoker-post-start-evidence-receipt-writer-implementation-packet --json',
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_codex_real_invoker_post_start_evidence_receipt_writer_preflight.v1',
+            'status' => (string) $preflight['status'],
+            'mode' => 'read_only_agent_codex_real_invoker_post_start_evidence_receipt_writer_preflight',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'codex_real_invoker_post_start_evidence_receipt_writer_preflight' => $preflight,
+            'codex_real_invoker_post_start_evidence_receipt_writer_preflight_hash' => $this->stableHash($preflight),
+            'non_execution_guarantees' => [
+                'agent_codex_real_invoker_post_start_evidence_receipt_writer_preflight_does_not_start_codex',
+                'agent_codex_real_invoker_post_start_evidence_receipt_writer_preflight_does_not_call_codex',
+                'agent_codex_real_invoker_post_start_evidence_receipt_writer_preflight_does_not_spend_tokens',
+                'agent_codex_real_invoker_post_start_evidence_receipt_writer_preflight_does_not_dispatch_work',
+            ],
+            'human_summary' => $blockingReasons === []
+                ? 'Codex real invoker post-start evidence receipt writer is ready; it accepts operator evidence but still does not call Codex or dispatch work.'
+                : 'Codex real invoker post-start evidence receipt writer is blocked until writer and contract prerequisites exist.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentCodexRealInvokerPostStartEvidenceReceiptWriterImplementationPacket(array $options = []): array
+    {
+        $preflightPayload = $this->agentCodexRealInvokerPostStartEvidenceReceiptWriterPreflight($options);
+        $preflight = (array) data_get($preflightPayload, 'codex_real_invoker_post_start_evidence_receipt_writer_preflight', []);
+        $preflightHash = (string) data_get($preflightPayload, 'codex_real_invoker_post_start_evidence_receipt_writer_preflight_hash');
+
+        $tasks = [
+            [
+                'id' => 'T1',
+                'title' => 'Create Codex real invoker post-start evidence receipt writer',
+                'type' => 'service',
+                'allowed_files' => ['app/Services/Ai/SelfConstruction/AgentCodexRealInvokerPostStartEvidenceReceiptWriter.php'],
+                'acceptance' => 'Writer records operator-provided external-start evidence and never starts Codex, spends tokens or dispatches work.',
+            ],
+            [
+                'id' => 'T2',
+                'title' => 'Enforce post-start contract and no-spawn attestation',
+                'type' => 'service_logic',
+                'allowed_files' => ['app/Services/Ai/SelfConstruction/AgentCodexRealInvokerPostStartEvidenceReceiptWriter.php'],
+                'acceptance' => 'Writer requires post-start receipt contract metadata plus external identity, startup, PID, liveness, cost and no-spawn evidence hashes.',
+            ],
+            [
+                'id' => 'T3',
+                'title' => 'Add post-start evidence receipt tests',
+                'type' => 'test',
+                'allowed_files' => ['tests/Feature/Ai/AtlasAiSelfConstructionAgentCodexRealInvokerPostStartEvidenceReceiptWriterTest.php'],
+                'acceptance' => 'Tests prove missing contract rejection, no-spawn hash rejection, duplicate rejection, rollback and no process/token/dispatch side effects.',
+            ],
+            [
+                'id' => 'T4',
+                'title' => 'Expose post-start evidence receipt readiness commands',
+                'type' => 'command_surface',
+                'allowed_files' => [
+                    'app/Services/Ai/SelfConstruction/AtlasSelfConstructionReadinessService.php',
+                    'app/Console/Commands/AtlasAiSelfConstructionCommand.php',
+                    'tests/Feature/Ai/AtlasAiSelfConstructionCommandTest.php',
+                ],
+                'acceptance' => 'Contract, preflight and implementation packet commands remain read-only and declare Codex invocation disabled.',
+            ],
+        ];
+
+        $packet = [
+            'status' => 'ready_for_scoped_codex_real_invoker_post_start_evidence_receipt_writer_implementation',
+            'implementation_packet_id' => 'AGENT-CODEX-REAL-INVOKER-POST-START-EVIDENCE-RECEIPT-WRITER-IMPLEMENTATION-SELF-CONSTRUCTION-0001',
+            'source_preflight_hash' => $preflightHash,
+            'objective' => 'Implement the Codex real invoker post-start evidence receipt writer that accepts operator external-start evidence without allowing Atlas to start Codex, spend tokens or dispatch work.',
+            'non_goals' => [
+                'do_not_call_codex_cli_or_codex_app',
+                'do_not_spawn_processes_or_shell_commands',
+                'do_not_spend_provider_tokens',
+                'do_not_start_codex_process',
+                'do_not_dispatch_work_to_codex',
+                'do_not_mark_runs_running_or_terminal',
+            ],
+            'allowed_files' => data_get($preflight, 'allowed_future_files', []),
+            'forbidden_scopes' => [
+                'actual_codex_process_invocation',
+                'provider_token_spend',
+                'process_start',
+                'dispatch_runtime',
+                'merge_runtime',
+                'hot_kernel_runtime',
+                'policy_mutation',
+            ],
+            'tasks' => $tasks,
+            'task_count' => count($tasks),
+            'acceptance_criteria' => [
+                'post_start_evidence_receipt_requires_post_start_receipt_contract_metadata',
+                'post_start_evidence_receipt_requires_no_atlas_process_spawn_attestation_hash',
+                'post_start_evidence_receipt_records_external_process_started_as_external_evidence_only',
+                'post_start_evidence_receipt_is_idempotent_for_same_receipt_id',
+                'post_start_evidence_receipt_records_event_without_starting_codex',
+            ],
+            'required_gates' => data_get($preflight, 'required_gates', []),
+            'implementation_policy' => [
+                'packet_is_read_only' => true,
+                'implementation_allowed_by_packet' => true,
+                'post_start_evidence_receipt_write_allowed_by_packet' => false,
+                'actual_process_start_allowed_by_packet' => false,
+                'provider_process_start_allowed_by_packet' => false,
+                'codex_invocation_allowed_by_packet' => false,
+                'token_spend_allowed_by_packet' => false,
+                'dispatch_allowed_by_packet' => false,
+            ],
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_codex_real_invoker_post_start_evidence_receipt_writer_implementation_packet.v1',
+            'status' => 'ready_for_scoped_codex_real_invoker_post_start_evidence_receipt_writer_implementation',
+            'mode' => 'read_only_agent_codex_real_invoker_post_start_evidence_receipt_writer_implementation_packet',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'codex_real_invoker_post_start_evidence_receipt_writer_implementation_packet' => $packet,
+            'codex_real_invoker_post_start_evidence_receipt_writer_implementation_packet_hash' => $this->stableHash($packet),
+            'non_execution_guarantees' => [
+                'agent_codex_real_invoker_post_start_evidence_receipt_writer_implementation_packet_does_not_start_codex',
+                'agent_codex_real_invoker_post_start_evidence_receipt_writer_implementation_packet_does_not_call_codex',
+                'agent_codex_real_invoker_post_start_evidence_receipt_writer_implementation_packet_does_not_spend_tokens',
+                'agent_codex_real_invoker_post_start_evidence_receipt_writer_implementation_packet_does_not_dispatch_work',
+            ],
+            'human_summary' => 'Codex real invoker post-start evidence receipt writer implementation packet is ready; it records external evidence only and does not start Codex.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentCodexRealInvokerPostStartLivenessMonitorContractTemplate(array $options = []): array
+    {
+        $receiptPayload = $this->agentCodexRealInvokerPostStartEvidenceReceiptWriterPreflight($options);
+        $receipt = (array) data_get($receiptPayload, 'codex_real_invoker_post_start_evidence_receipt_writer_preflight', []);
+
+        $template = [
+            'status' => 'codex_real_invoker_post_start_liveness_monitor_contract_template_ready',
+            'contract_id' => 'CODEX-REAL-INVOKER-POST-START-LIVENESS-MONITOR-'.strtoupper(substr($this->stableHash([
+                'post_start_evidence_receipt_writer_preflight_hash' => data_get($receiptPayload, 'codex_real_invoker_post_start_evidence_receipt_writer_preflight_hash'),
+                'provider' => 'codex',
+                'adapter' => 'codex',
+            ]), 0, 24)),
+            'source_codex_real_invoker_post_start_evidence_receipt_writer_status' => data_get($receiptPayload, 'status'),
+            'provider' => 'codex',
+            'adapter' => 'codex',
+            'contract' => [
+                'service' => 'App\\Services\\Ai\\SelfConstruction\\AgentCodexRealInvokerPostStartLivenessMonitor',
+                'method' => 'recordPostStartLiveness',
+                'input_contract' => [
+                    'run_key',
+                    'codex_execution_id',
+                    'manual_start_executor_receipt_id',
+                    'operator_start_handoff_id',
+                    'post_start_receipt_contract_id',
+                    'post_start_evidence_receipt_id',
+                    'post_start_liveness_monitor_id',
+                    'observed_liveness_state',
+                    'liveness_observation_hash',
+                    'heartbeat_observation_hash',
+                    'progress_observation_hash',
+                    'operator_visibility_attestation_hash',
+                    'no_provider_call_attestation_hash',
+                    'actor',
+                    'session',
+                    'reason',
+                ],
+                'result_contract' => [
+                    'post_start_liveness_monitor_id',
+                    'agent_run_id',
+                    'run_key',
+                    'run_status',
+                    'observed_liveness_state',
+                    'external_process_started',
+                    'provider_started',
+                    'dispatch_allowed',
+                ],
+            ],
+            'real_invoker_post_start_liveness_must' => [
+                'require_codex_real_invoker_post_start_evidence_receipt',
+                'require_observed_liveness_state_alive_silent_stale_or_orphaned',
+                'require_liveness_observation_hash',
+                'require_heartbeat_observation_hash',
+                'require_progress_observation_hash',
+                'require_operator_visibility_attestation_hash',
+                'require_no_provider_call_attestation_hash',
+                'record_append_only_liveness_event',
+            ],
+            'real_invoker_post_start_liveness_must_not' => [
+                'call_codex_cli_or_codex_app',
+                'probe_provider_process_directly',
+                'spawn_process_or_shell_command',
+                'spend_provider_tokens',
+                'dispatch_work_to_provider',
+                'mark_run_terminal',
+            ],
+            'implementation_files_allowed_future' => [
+                'app/Services/Ai/SelfConstruction/AgentCodexRealInvokerPostStartLivenessMonitor.php',
+                'tests/Feature/Ai/AtlasAiSelfConstructionAgentCodexRealInvokerPostStartLivenessMonitorTest.php',
+            ],
+            'contract_policy' => [
+                'template_is_read_only' => true,
+                'post_start_liveness_write_allowed_here' => false,
+                'actual_process_start_allowed_here' => false,
+                'provider_process_start_allowed_here' => false,
+                'codex_invocation_allowed_here' => false,
+                'token_spend_allowed_here' => false,
+                'dispatch_allowed_here' => false,
+                'requires_separate_implementation_packet' => true,
+            ],
+            'next_required_command' => 'php artisan atlas:ai:self-construction --agent-codex-real-invoker-post-start-liveness-monitor-preflight --json',
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_codex_real_invoker_post_start_liveness_monitor_contract_template.v1',
+            'status' => 'codex_real_invoker_post_start_liveness_monitor_contract_template_ready',
+            'mode' => 'read_only_agent_codex_real_invoker_post_start_liveness_monitor_contract_template',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'codex_real_invoker_post_start_liveness_monitor_contract_template' => $template,
+            'codex_real_invoker_post_start_liveness_monitor_contract_template_hash' => $this->stableHash($template),
+            'non_execution_guarantees' => [
+                'agent_codex_real_invoker_post_start_liveness_monitor_contract_template_does_not_start_codex',
+                'agent_codex_real_invoker_post_start_liveness_monitor_contract_template_does_not_call_codex',
+                'agent_codex_real_invoker_post_start_liveness_monitor_contract_template_does_not_spend_tokens',
+                'agent_codex_real_invoker_post_start_liveness_monitor_contract_template_does_not_dispatch_work',
+            ],
+            'human_summary' => 'Codex real invoker post-start liveness monitor contract template defines external observation only; it does not call Codex.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentCodexRealInvokerPostStartLivenessMonitorPreflight(array $options = []): array
+    {
+        $contractPayload = $this->agentCodexRealInvokerPostStartLivenessMonitorContractTemplate($options);
+        $contract = (array) data_get($contractPayload, 'codex_real_invoker_post_start_liveness_monitor_contract_template', []);
+        $monitorClass = AgentCodexRealInvokerPostStartLivenessMonitor::class;
+        $receiptWriterClass = AgentCodexRealInvokerPostStartEvidenceReceiptWriter::class;
+        $monitorReady = class_exists($monitorClass);
+        $receiptWriterReady = class_exists($receiptWriterClass);
+        $runsTableReady = Schema::hasTable('atlas_self_construction_agent_runs');
+        $ledgerReady = Schema::hasTable('atlas_ledger_events');
+
+        $blockingReasons = array_values(array_filter([
+            $monitorReady ? null : 'codex_real_invoker_post_start_liveness_monitor_missing',
+            $receiptWriterReady ? null : 'codex_real_invoker_post_start_evidence_receipt_writer_missing',
+            $runsTableReady ? null : 'agent_runs_table_missing',
+            $ledgerReady ? null : 'ledger_table_missing',
+        ]));
+
+        $preflight = [
+            'status' => $blockingReasons === [] ? 'codex_real_invoker_post_start_liveness_monitor_ready' : 'blocked',
+            'contract_template_hash' => data_get($contractPayload, 'codex_real_invoker_post_start_liveness_monitor_contract_template_hash'),
+            'source_codex_real_invoker_post_start_evidence_receipt_writer_status' => data_get($contract, 'source_codex_real_invoker_post_start_evidence_receipt_writer_status'),
+            'provider' => 'codex',
+            'adapter' => 'codex',
+            'storage' => [
+                'codex_real_invoker_post_start_liveness_monitor_ready' => $monitorReady,
+                'codex_real_invoker_post_start_evidence_receipt_writer_ready' => $receiptWriterReady,
+                'agent_runs_table_ready' => $runsTableReady,
+                'ledger_table_ready' => $ledgerReady,
+            ],
+            'blocking_count' => count($blockingReasons),
+            'blocking_reasons' => $blockingReasons,
+            'post_start_liveness_monitor_ready_for_future_use' => $blockingReasons === [],
+            'allowed_future_files' => data_get($contract, 'implementation_files_allowed_future', []),
+            'required_first_changes' => [
+                'create_codex_real_invoker_post_start_liveness_monitor',
+                'require_codex_real_invoker_post_start_evidence_receipt_metadata',
+                'classify_alive_silent_stale_or_orphaned_from_external_observation',
+                'record_liveness_without_calling_codex',
+            ],
+            'required_gates' => [
+                'php -l app/Services/Ai/SelfConstruction/AgentCodexRealInvokerPostStartLivenessMonitor.php',
+                'php artisan test tests/Feature/Ai/AtlasAiSelfConstructionAgentCodexRealInvokerPostStartLivenessMonitorTest.php',
+                'php artisan test tests/Feature/Ai/AtlasAiSelfConstructionCommandTest.php --filter=agent_codex_real_invoker_post_start_liveness_monitor',
+                'php artisan atlas:engineering:knowledge docs-health --json',
+                'php artisan atlas:ai:architecture-validate --json',
+                'git diff --check',
+            ],
+            'preflight_policy' => [
+                'preflight_is_read_only' => true,
+                'post_start_liveness_monitor_file_creation_allowed_here' => false,
+                'actual_process_start_allowed_here' => false,
+                'provider_process_start_allowed_here' => false,
+                'codex_invocation_allowed_here' => false,
+                'token_spend_allowed_here' => false,
+                'dispatch_allowed_here' => false,
+                'requires_separate_implementation_packet' => true,
+            ],
+            'next_required_command' => 'php artisan atlas:ai:self-construction --agent-codex-real-invoker-post-start-liveness-monitor-implementation-packet --json',
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_codex_real_invoker_post_start_liveness_monitor_preflight.v1',
+            'status' => (string) $preflight['status'],
+            'mode' => 'read_only_agent_codex_real_invoker_post_start_liveness_monitor_preflight',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'codex_real_invoker_post_start_liveness_monitor_preflight' => $preflight,
+            'codex_real_invoker_post_start_liveness_monitor_preflight_hash' => $this->stableHash($preflight),
+            'non_execution_guarantees' => [
+                'agent_codex_real_invoker_post_start_liveness_monitor_preflight_does_not_start_codex',
+                'agent_codex_real_invoker_post_start_liveness_monitor_preflight_does_not_call_codex',
+                'agent_codex_real_invoker_post_start_liveness_monitor_preflight_does_not_spend_tokens',
+                'agent_codex_real_invoker_post_start_liveness_monitor_preflight_does_not_dispatch_work',
+            ],
+            'human_summary' => $blockingReasons === []
+                ? 'Codex real invoker post-start liveness monitor is ready; it records external observation but still does not call Codex or dispatch work.'
+                : 'Codex real invoker post-start liveness monitor is blocked until monitor and receipt prerequisites exist.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentCodexRealInvokerPostStartLivenessMonitorImplementationPacket(array $options = []): array
+    {
+        $preflightPayload = $this->agentCodexRealInvokerPostStartLivenessMonitorPreflight($options);
+        $preflight = (array) data_get($preflightPayload, 'codex_real_invoker_post_start_liveness_monitor_preflight', []);
+        $preflightHash = (string) data_get($preflightPayload, 'codex_real_invoker_post_start_liveness_monitor_preflight_hash');
+
+        $tasks = [
+            ['id' => 'T1', 'title' => 'Create Codex real invoker post-start liveness monitor', 'type' => 'service', 'allowed_files' => ['app/Services/Ai/SelfConstruction/AgentCodexRealInvokerPostStartLivenessMonitor.php'], 'acceptance' => 'Monitor records external liveness observation and never calls Codex, probes a process directly, spends tokens or dispatches work.'],
+            ['id' => 'T2', 'title' => 'Enforce liveness observation contract', 'type' => 'service_logic', 'allowed_files' => ['app/Services/Ai/SelfConstruction/AgentCodexRealInvokerPostStartLivenessMonitor.php'], 'acceptance' => 'Monitor requires post-start evidence receipt metadata and accepts only alive, silent, stale or orphaned liveness states.'],
+            ['id' => 'T3', 'title' => 'Add post-start liveness monitor tests', 'type' => 'test', 'allowed_files' => ['tests/Feature/Ai/AtlasAiSelfConstructionAgentCodexRealInvokerPostStartLivenessMonitorTest.php'], 'acceptance' => 'Tests prove missing receipt rejection, invalid liveness rejection, duplicate rejection, rollback and no process/token/dispatch side effects.'],
+            ['id' => 'T4', 'title' => 'Expose post-start liveness readiness commands', 'type' => 'command_surface', 'allowed_files' => ['app/Services/Ai/SelfConstruction/AtlasSelfConstructionReadinessService.php', 'app/Console/Commands/AtlasAiSelfConstructionCommand.php', 'tests/Feature/Ai/AtlasAiSelfConstructionCommandTest.php'], 'acceptance' => 'Contract, preflight and implementation packet commands remain read-only and declare Codex invocation disabled.'],
+        ];
+
+        $packet = [
+            'status' => 'ready_for_scoped_codex_real_invoker_post_start_liveness_monitor_implementation',
+            'implementation_packet_id' => 'AGENT-CODEX-REAL-INVOKER-POST-START-LIVENESS-MONITOR-IMPLEMENTATION-SELF-CONSTRUCTION-0001',
+            'source_preflight_hash' => $preflightHash,
+            'objective' => 'Implement the Codex real invoker post-start liveness monitor that records external alive/silent/stale/orphaned observations without allowing Atlas to call Codex, spend tokens or dispatch work.',
+            'non_goals' => ['do_not_call_codex_cli_or_codex_app', 'do_not_spawn_processes_or_shell_commands', 'do_not_probe_provider_process_directly', 'do_not_spend_provider_tokens', 'do_not_start_codex_process', 'do_not_dispatch_work_to_codex', 'do_not_mark_runs_terminal'],
+            'allowed_files' => data_get($preflight, 'allowed_future_files', []),
+            'forbidden_scopes' => ['actual_codex_process_invocation', 'provider_token_spend', 'process_start', 'direct_process_probe', 'dispatch_runtime', 'merge_runtime', 'hot_kernel_runtime', 'policy_mutation'],
+            'tasks' => $tasks,
+            'task_count' => count($tasks),
+            'acceptance_criteria' => ['post_start_liveness_requires_post_start_evidence_receipt_metadata', 'post_start_liveness_accepts_only_alive_silent_stale_or_orphaned', 'post_start_liveness_records_observation_without_calling_codex', 'post_start_liveness_is_idempotent_for_same_monitor_id'],
+            'required_gates' => data_get($preflight, 'required_gates', []),
+            'implementation_policy' => ['packet_is_read_only' => true, 'implementation_allowed_by_packet' => true, 'post_start_liveness_write_allowed_by_packet' => false, 'actual_process_start_allowed_by_packet' => false, 'provider_process_start_allowed_by_packet' => false, 'codex_invocation_allowed_by_packet' => false, 'token_spend_allowed_by_packet' => false, 'dispatch_allowed_by_packet' => false],
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_codex_real_invoker_post_start_liveness_monitor_implementation_packet.v1',
+            'status' => 'ready_for_scoped_codex_real_invoker_post_start_liveness_monitor_implementation',
+            'mode' => 'read_only_agent_codex_real_invoker_post_start_liveness_monitor_implementation_packet',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'codex_real_invoker_post_start_liveness_monitor_implementation_packet' => $packet,
+            'codex_real_invoker_post_start_liveness_monitor_implementation_packet_hash' => $this->stableHash($packet),
+            'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_liveness_monitor_implementation_packet_does_not_start_codex', 'agent_codex_real_invoker_post_start_liveness_monitor_implementation_packet_does_not_call_codex', 'agent_codex_real_invoker_post_start_liveness_monitor_implementation_packet_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_liveness_monitor_implementation_packet_does_not_dispatch_work'],
+            'human_summary' => 'Codex real invoker post-start liveness monitor implementation packet is ready; it records external liveness only and does not call Codex.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentCodexRealInvokerPostStartDispatchReleaseGateContractTemplate(array $options = []): array
+    {
+        $livenessPayload = $this->agentCodexRealInvokerPostStartLivenessMonitorPreflight($options);
+        $liveness = (array) data_get($livenessPayload, 'codex_real_invoker_post_start_liveness_monitor_preflight', []);
+
+        $template = [
+            'status' => 'codex_real_invoker_post_start_dispatch_release_gate_contract_template_ready',
+            'contract_id' => 'CODEX-REAL-INVOKER-POST-START-DISPATCH-RELEASE-GATE-'.strtoupper(substr($this->stableHash([
+                'post_start_liveness_monitor_preflight_hash' => data_get($livenessPayload, 'codex_real_invoker_post_start_liveness_monitor_preflight_hash'),
+                'provider' => 'codex',
+                'adapter' => 'codex',
+            ]), 0, 24)),
+            'source_codex_real_invoker_post_start_liveness_monitor_status' => data_get($livenessPayload, 'status'),
+            'provider' => 'codex',
+            'adapter' => 'codex',
+            'contract' => [
+                'service' => 'App\\Services\\Ai\\SelfConstruction\\AgentCodexRealInvokerPostStartDispatchReleaseGate',
+                'method' => 'preparePostStartDispatchRelease',
+                'input_contract' => [
+                    'run_key',
+                    'codex_execution_id',
+                    'manual_start_executor_receipt_id',
+                    'operator_start_handoff_id',
+                    'post_start_receipt_contract_id',
+                    'post_start_evidence_receipt_id',
+                    'post_start_liveness_monitor_id',
+                    'dispatch_release_gate_id',
+                    'dispatch_scope_hash',
+                    'continuation_summary_hash',
+                    'context_pack_hash',
+                    'signed_dispatch_policy_hash',
+                    'no_direct_provider_call_attestation_hash',
+                    'actor',
+                    'session',
+                    'reason',
+                ],
+                'result_contract' => [
+                    'dispatch_release_gate_id',
+                    'post_start_liveness_monitor_id',
+                    'agent_run_id',
+                    'run_key',
+                    'run_status',
+                    'dispatch_release_gate_ready',
+                    'future_dispatch_release_candidate',
+                    'dispatch_allowed',
+                ],
+            ],
+            'real_invoker_post_start_dispatch_release_must' => [
+                'require_codex_real_invoker_post_start_liveness_monitor',
+                'require_liveness_state_alive',
+                'require_dispatch_scope_hash',
+                'require_continuation_summary_hash',
+                'require_context_pack_hash',
+                'require_signed_dispatch_policy_hash',
+                'require_no_direct_provider_call_attestation_hash',
+                'record_append_only_dispatch_release_gate_event',
+            ],
+            'real_invoker_post_start_dispatch_release_must_not' => [
+                'call_codex_cli_or_codex_app',
+                'spawn_process_or_shell_command',
+                'spend_provider_tokens',
+                'dispatch_work_to_provider',
+                'call_provider_process',
+                'mark_run_running_or_terminal',
+            ],
+            'implementation_files_allowed_future' => [
+                'app/Services/Ai/SelfConstruction/AgentCodexRealInvokerPostStartDispatchReleaseGate.php',
+                'tests/Feature/Ai/AtlasAiSelfConstructionAgentCodexRealInvokerPostStartDispatchReleaseGateTest.php',
+            ],
+            'contract_policy' => [
+                'template_is_read_only' => true,
+                'post_start_dispatch_release_gate_write_allowed_here' => false,
+                'actual_process_start_allowed_here' => false,
+                'provider_process_start_allowed_here' => false,
+                'codex_invocation_allowed_here' => false,
+                'token_spend_allowed_here' => false,
+                'dispatch_allowed_here' => false,
+                'requires_separate_signed_dispatch_authorization' => true,
+            ],
+            'next_required_command' => 'php artisan atlas:ai:self-construction --agent-codex-real-invoker-post-start-dispatch-release-gate-preflight --json',
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_codex_real_invoker_post_start_dispatch_release_gate_contract_template.v1',
+            'status' => 'codex_real_invoker_post_start_dispatch_release_gate_contract_template_ready',
+            'mode' => 'read_only_agent_codex_real_invoker_post_start_dispatch_release_gate_contract_template',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'codex_real_invoker_post_start_dispatch_release_gate_contract_template' => $template,
+            'codex_real_invoker_post_start_dispatch_release_gate_contract_template_hash' => $this->stableHash($template),
+            'non_execution_guarantees' => [
+                'agent_codex_real_invoker_post_start_dispatch_release_gate_contract_template_does_not_start_codex',
+                'agent_codex_real_invoker_post_start_dispatch_release_gate_contract_template_does_not_call_codex',
+                'agent_codex_real_invoker_post_start_dispatch_release_gate_contract_template_does_not_spend_tokens',
+                'agent_codex_real_invoker_post_start_dispatch_release_gate_contract_template_does_not_dispatch_work',
+            ],
+            'human_summary' => 'Codex real invoker post-start dispatch release gate contract template defines a future dispatch release guard only; it does not dispatch work.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentCodexRealInvokerPostStartDispatchReleaseGatePreflight(array $options = []): array
+    {
+        $contractPayload = $this->agentCodexRealInvokerPostStartDispatchReleaseGateContractTemplate($options);
+        $contract = (array) data_get($contractPayload, 'codex_real_invoker_post_start_dispatch_release_gate_contract_template', []);
+        $gateClass = AgentCodexRealInvokerPostStartDispatchReleaseGate::class;
+        $monitorClass = AgentCodexRealInvokerPostStartLivenessMonitor::class;
+        $gateReady = class_exists($gateClass);
+        $monitorReady = class_exists($monitorClass);
+        $runsTableReady = Schema::hasTable('atlas_self_construction_agent_runs');
+        $ledgerReady = Schema::hasTable('atlas_ledger_events');
+
+        $blockingReasons = array_values(array_filter([
+            $gateReady ? null : 'codex_real_invoker_post_start_dispatch_release_gate_missing',
+            $monitorReady ? null : 'codex_real_invoker_post_start_liveness_monitor_missing',
+            $runsTableReady ? null : 'agent_runs_table_missing',
+            $ledgerReady ? null : 'ledger_table_missing',
+        ]));
+
+        $preflight = [
+            'status' => $blockingReasons === [] ? 'codex_real_invoker_post_start_dispatch_release_gate_ready' : 'blocked',
+            'contract_template_hash' => data_get($contractPayload, 'codex_real_invoker_post_start_dispatch_release_gate_contract_template_hash'),
+            'source_codex_real_invoker_post_start_liveness_monitor_status' => data_get($contract, 'source_codex_real_invoker_post_start_liveness_monitor_status'),
+            'provider' => 'codex',
+            'adapter' => 'codex',
+            'storage' => [
+                'codex_real_invoker_post_start_dispatch_release_gate_ready' => $gateReady,
+                'codex_real_invoker_post_start_liveness_monitor_ready' => $monitorReady,
+                'agent_runs_table_ready' => $runsTableReady,
+                'ledger_table_ready' => $ledgerReady,
+            ],
+            'blocking_count' => count($blockingReasons),
+            'blocking_reasons' => $blockingReasons,
+            'post_start_dispatch_release_gate_ready_for_future_use' => $blockingReasons === [],
+            'allowed_future_files' => data_get($contract, 'implementation_files_allowed_future', []),
+            'required_first_changes' => [
+                'create_codex_real_invoker_post_start_dispatch_release_gate',
+                'require_codex_real_invoker_post_start_liveness_monitor_metadata',
+                'require_liveness_state_alive_before_future_dispatch_release',
+                'record_dispatch_release_gate_without_dispatching_codex',
+            ],
+            'required_gates' => [
+                'php -l app/Services/Ai/SelfConstruction/AgentCodexRealInvokerPostStartDispatchReleaseGate.php',
+                'php artisan test tests/Feature/Ai/AtlasAiSelfConstructionAgentCodexRealInvokerPostStartDispatchReleaseGateTest.php',
+                'php artisan test tests/Feature/Ai/AtlasAiSelfConstructionCommandTest.php --filter=agent_codex_real_invoker_post_start_dispatch_release_gate',
+                'php artisan atlas:engineering:knowledge docs-health --json',
+                'php artisan atlas:ai:architecture-validate --json',
+                'git diff --check',
+            ],
+            'preflight_policy' => [
+                'preflight_is_read_only' => true,
+                'post_start_dispatch_release_gate_file_creation_allowed_here' => false,
+                'actual_process_start_allowed_here' => false,
+                'provider_process_start_allowed_here' => false,
+                'codex_invocation_allowed_here' => false,
+                'token_spend_allowed_here' => false,
+                'dispatch_allowed_here' => false,
+                'requires_separate_signed_dispatch_authorization' => true,
+            ],
+            'next_required_command' => 'php artisan atlas:ai:self-construction --agent-codex-real-invoker-post-start-dispatch-release-gate-implementation-packet --json',
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_codex_real_invoker_post_start_dispatch_release_gate_preflight.v1',
+            'status' => (string) $preflight['status'],
+            'mode' => 'read_only_agent_codex_real_invoker_post_start_dispatch_release_gate_preflight',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'codex_real_invoker_post_start_dispatch_release_gate_preflight' => $preflight,
+            'codex_real_invoker_post_start_dispatch_release_gate_preflight_hash' => $this->stableHash($preflight),
+            'non_execution_guarantees' => [
+                'agent_codex_real_invoker_post_start_dispatch_release_gate_preflight_does_not_start_codex',
+                'agent_codex_real_invoker_post_start_dispatch_release_gate_preflight_does_not_call_codex',
+                'agent_codex_real_invoker_post_start_dispatch_release_gate_preflight_does_not_spend_tokens',
+                'agent_codex_real_invoker_post_start_dispatch_release_gate_preflight_does_not_dispatch_work',
+            ],
+            'human_summary' => $blockingReasons === []
+                ? 'Codex real invoker post-start dispatch release gate is ready; it gates future dispatch but still does not dispatch work.'
+                : 'Codex real invoker post-start dispatch release gate is blocked until gate and liveness prerequisites exist.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentCodexRealInvokerPostStartDispatchReleaseGateImplementationPacket(array $options = []): array
+    {
+        $preflightPayload = $this->agentCodexRealInvokerPostStartDispatchReleaseGatePreflight($options);
+        $preflight = (array) data_get($preflightPayload, 'codex_real_invoker_post_start_dispatch_release_gate_preflight', []);
+        $preflightHash = (string) data_get($preflightPayload, 'codex_real_invoker_post_start_dispatch_release_gate_preflight_hash');
+
+        $tasks = [
+            ['id' => 'T1', 'title' => 'Create Codex real invoker post-start dispatch release gate', 'type' => 'service', 'allowed_files' => ['app/Services/Ai/SelfConstruction/AgentCodexRealInvokerPostStartDispatchReleaseGate.php'], 'acceptance' => 'Gate prepares future dispatch release only when post-start liveness is alive and never dispatches work.'],
+            ['id' => 'T2', 'title' => 'Enforce dispatch release input and liveness contract', 'type' => 'service_logic', 'allowed_files' => ['app/Services/Ai/SelfConstruction/AgentCodexRealInvokerPostStartDispatchReleaseGate.php'], 'acceptance' => 'Gate requires liveness metadata, context pack hash, continuation summary hash, dispatch scope hash, signed policy hash and provider-call attestation.'],
+            ['id' => 'T3', 'title' => 'Add post-start dispatch release gate tests', 'type' => 'test', 'allowed_files' => ['tests/Feature/Ai/AtlasAiSelfConstructionAgentCodexRealInvokerPostStartDispatchReleaseGateTest.php'], 'acceptance' => 'Tests prove missing liveness rejection, non-alive rejection, duplicate rejection, rollback and no process/token/dispatch side effects.'],
+            ['id' => 'T4', 'title' => 'Expose post-start dispatch release readiness commands', 'type' => 'command_surface', 'allowed_files' => ['app/Services/Ai/SelfConstruction/AtlasSelfConstructionReadinessService.php', 'app/Console/Commands/AtlasAiSelfConstructionCommand.php', 'tests/Feature/Ai/AtlasAiSelfConstructionCommandTest.php'], 'acceptance' => 'Contract, preflight and implementation packet commands remain read-only and declare dispatch disabled.'],
+        ];
+
+        $packet = [
+            'status' => 'ready_for_scoped_codex_real_invoker_post_start_dispatch_release_gate_implementation',
+            'implementation_packet_id' => 'AGENT-CODEX-REAL-INVOKER-POST-START-DISPATCH-RELEASE-GATE-IMPLEMENTATION-SELF-CONSTRUCTION-0001',
+            'source_preflight_hash' => $preflightHash,
+            'objective' => 'Implement the Codex real invoker post-start dispatch release gate that prepares future dispatch only after alive liveness, while forbidding Atlas from calling Codex, spending tokens or dispatching work.',
+            'non_goals' => ['do_not_call_codex_cli_or_codex_app', 'do_not_spawn_processes_or_shell_commands', 'do_not_spend_provider_tokens', 'do_not_start_codex_process', 'do_not_dispatch_work_to_codex', 'do_not_mark_runs_running_or_terminal'],
+            'allowed_files' => data_get($preflight, 'allowed_future_files', []),
+            'forbidden_scopes' => ['actual_codex_process_invocation', 'provider_token_spend', 'process_start', 'provider_process_call', 'dispatch_runtime', 'merge_runtime', 'hot_kernel_runtime', 'policy_mutation'],
+            'tasks' => $tasks,
+            'task_count' => count($tasks),
+            'acceptance_criteria' => ['post_start_dispatch_release_gate_requires_liveness_monitor_metadata', 'post_start_dispatch_release_gate_requires_liveness_alive', 'post_start_dispatch_release_gate_requires_context_and_continuation_hashes', 'post_start_dispatch_release_gate_does_not_dispatch_codex'],
+            'required_gates' => data_get($preflight, 'required_gates', []),
+            'implementation_policy' => ['packet_is_read_only' => true, 'implementation_allowed_by_packet' => true, 'post_start_dispatch_release_gate_write_allowed_by_packet' => false, 'actual_process_start_allowed_by_packet' => false, 'provider_process_start_allowed_by_packet' => false, 'codex_invocation_allowed_by_packet' => false, 'token_spend_allowed_by_packet' => false, 'dispatch_allowed_by_packet' => false],
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_codex_real_invoker_post_start_dispatch_release_gate_implementation_packet.v1',
+            'status' => 'ready_for_scoped_codex_real_invoker_post_start_dispatch_release_gate_implementation',
+            'mode' => 'read_only_agent_codex_real_invoker_post_start_dispatch_release_gate_implementation_packet',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'codex_real_invoker_post_start_dispatch_release_gate_implementation_packet' => $packet,
+            'codex_real_invoker_post_start_dispatch_release_gate_implementation_packet_hash' => $this->stableHash($packet),
+            'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_dispatch_release_gate_implementation_packet_does_not_start_codex', 'agent_codex_real_invoker_post_start_dispatch_release_gate_implementation_packet_does_not_call_codex', 'agent_codex_real_invoker_post_start_dispatch_release_gate_implementation_packet_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_dispatch_release_gate_implementation_packet_does_not_dispatch_work'],
+            'human_summary' => 'Codex real invoker post-start dispatch release gate implementation packet is ready; it prepares a future dispatch release guard and does not dispatch work.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentCodexRealInvokerPostStartSignedDispatchAuthorizationGateContractTemplate(array $options = []): array
+    {
+        $releasePayload = $this->agentCodexRealInvokerPostStartDispatchReleaseGatePreflight($options);
+        $release = (array) data_get($releasePayload, 'codex_real_invoker_post_start_dispatch_release_gate_preflight', []);
+
+        $template = [
+            'status' => 'codex_real_invoker_post_start_signed_dispatch_authorization_gate_contract_template_ready',
+            'contract_id' => 'CODEX-REAL-INVOKER-POST-START-SIGNED-DISPATCH-AUTHORIZATION-GATE-'.strtoupper(substr($this->stableHash([
+                'post_start_dispatch_release_gate_preflight_hash' => data_get($releasePayload, 'codex_real_invoker_post_start_dispatch_release_gate_preflight_hash'),
+                'provider' => 'codex',
+                'adapter' => 'codex',
+            ]), 0, 24)),
+            'source_codex_real_invoker_post_start_dispatch_release_gate_status' => data_get($releasePayload, 'status'),
+            'provider' => 'codex',
+            'adapter' => 'codex',
+            'contract' => [
+                'service' => 'App\\Services\\Ai\\SelfConstruction\\AgentCodexRealInvokerPostStartSignedDispatchAuthorizationGate',
+                'method' => 'authorizePostStartSignedDispatch',
+                'input_contract' => [
+                    'run_key',
+                    'codex_execution_id',
+                    'manual_start_executor_receipt_id',
+                    'operator_start_handoff_id',
+                    'post_start_receipt_contract_id',
+                    'post_start_evidence_receipt_id',
+                    'post_start_liveness_monitor_id',
+                    'dispatch_release_gate_id',
+                    'signed_dispatch_authorization_id',
+                    'signed_dispatch_receipt_hash',
+                    'human_dispatch_signature_hash',
+                    'signed_dispatch_policy_hash',
+                    'dispatch_window_hash',
+                    'dispatch_scope_hash',
+                    'continuation_summary_hash',
+                    'context_pack_hash',
+                    'dispatch_replay_guard_hash',
+                    'dispatch_kill_switch_hash',
+                    'no_direct_provider_call_attestation_hash',
+                    'actor',
+                    'session',
+                    'reason',
+                ],
+                'result_contract' => [
+                    'signed_dispatch_authorization_id',
+                    'dispatch_release_gate_id',
+                    'agent_run_id',
+                    'run_key',
+                    'run_status',
+                    'signed_dispatch_authorization_recorded',
+                    'future_dispatch_authorized',
+                    'dispatch_allowed',
+                ],
+            ],
+            'real_invoker_post_start_signed_dispatch_authorization_must' => [
+                'require_codex_real_invoker_post_start_dispatch_release_gate',
+                'require_liveness_state_alive',
+                'require_signed_dispatch_receipt_hash',
+                'require_human_dispatch_signature_hash',
+                'require_signed_dispatch_policy_hash',
+                'require_dispatch_window_hash',
+                'require_context_pack_hash',
+                'require_continuation_summary_hash',
+                'record_append_only_signed_dispatch_authorization_event',
+            ],
+            'real_invoker_post_start_signed_dispatch_authorization_must_not' => [
+                'call_codex_cli_or_codex_app',
+                'spawn_process_or_shell_command',
+                'spend_provider_tokens',
+                'dispatch_work_to_provider',
+                'call_provider_process',
+                'mark_run_running_or_terminal',
+            ],
+            'implementation_files_allowed_future' => [
+                'app/Services/Ai/SelfConstruction/AgentCodexRealInvokerPostStartSignedDispatchAuthorizationGate.php',
+                'tests/Feature/Ai/AtlasAiSelfConstructionAgentCodexRealInvokerPostStartSignedDispatchAuthorizationGateTest.php',
+            ],
+            'contract_policy' => [
+                'template_is_read_only' => true,
+                'post_start_signed_dispatch_authorization_write_allowed_here' => false,
+                'actual_process_start_allowed_here' => false,
+                'provider_process_start_allowed_here' => false,
+                'codex_invocation_allowed_here' => false,
+                'token_spend_allowed_here' => false,
+                'dispatch_allowed_here' => false,
+                'requires_separate_dispatch_executor_handoff' => true,
+            ],
+            'next_required_command' => 'php artisan atlas:ai:self-construction --agent-codex-real-invoker-post-start-signed-dispatch-authorization-gate-preflight --json',
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_codex_real_invoker_post_start_signed_dispatch_authorization_gate_contract_template.v1',
+            'status' => 'codex_real_invoker_post_start_signed_dispatch_authorization_gate_contract_template_ready',
+            'mode' => 'read_only_agent_codex_real_invoker_post_start_signed_dispatch_authorization_gate_contract_template',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'codex_real_invoker_post_start_signed_dispatch_authorization_gate_contract_template' => $template,
+            'codex_real_invoker_post_start_signed_dispatch_authorization_gate_contract_template_hash' => $this->stableHash($template),
+            'non_execution_guarantees' => [
+                'agent_codex_real_invoker_post_start_signed_dispatch_authorization_gate_contract_template_does_not_start_codex',
+                'agent_codex_real_invoker_post_start_signed_dispatch_authorization_gate_contract_template_does_not_call_codex',
+                'agent_codex_real_invoker_post_start_signed_dispatch_authorization_gate_contract_template_does_not_spend_tokens',
+                'agent_codex_real_invoker_post_start_signed_dispatch_authorization_gate_contract_template_does_not_dispatch_work',
+            ],
+            'human_summary' => 'Codex real invoker post-start signed dispatch authorization gate contract template records authorization only; it does not dispatch work.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentCodexRealInvokerPostStartSignedDispatchAuthorizationGatePreflight(array $options = []): array
+    {
+        $contractPayload = $this->agentCodexRealInvokerPostStartSignedDispatchAuthorizationGateContractTemplate($options);
+        $contract = (array) data_get($contractPayload, 'codex_real_invoker_post_start_signed_dispatch_authorization_gate_contract_template', []);
+        $authorizationClass = AgentCodexRealInvokerPostStartSignedDispatchAuthorizationGate::class;
+        $releaseClass = AgentCodexRealInvokerPostStartDispatchReleaseGate::class;
+        $authorizationReady = class_exists($authorizationClass);
+        $releaseReady = class_exists($releaseClass);
+        $runsTableReady = Schema::hasTable('atlas_self_construction_agent_runs');
+        $ledgerReady = Schema::hasTable('atlas_ledger_events');
+
+        $blockingReasons = array_values(array_filter([
+            $authorizationReady ? null : 'codex_real_invoker_post_start_signed_dispatch_authorization_gate_missing',
+            $releaseReady ? null : 'codex_real_invoker_post_start_dispatch_release_gate_missing',
+            $runsTableReady ? null : 'agent_runs_table_missing',
+            $ledgerReady ? null : 'ledger_table_missing',
+        ]));
+
+        $preflight = [
+            'status' => $blockingReasons === [] ? 'codex_real_invoker_post_start_signed_dispatch_authorization_gate_ready' : 'blocked',
+            'contract_template_hash' => data_get($contractPayload, 'codex_real_invoker_post_start_signed_dispatch_authorization_gate_contract_template_hash'),
+            'source_codex_real_invoker_post_start_dispatch_release_gate_status' => data_get($contract, 'source_codex_real_invoker_post_start_dispatch_release_gate_status'),
+            'provider' => 'codex',
+            'adapter' => 'codex',
+            'storage' => [
+                'codex_real_invoker_post_start_signed_dispatch_authorization_gate_ready' => $authorizationReady,
+                'codex_real_invoker_post_start_dispatch_release_gate_ready' => $releaseReady,
+                'agent_runs_table_ready' => $runsTableReady,
+                'ledger_table_ready' => $ledgerReady,
+            ],
+            'blocking_count' => count($blockingReasons),
+            'blocking_reasons' => $blockingReasons,
+            'post_start_signed_dispatch_authorization_gate_ready_for_future_use' => $blockingReasons === [],
+            'allowed_future_files' => data_get($contract, 'implementation_files_allowed_future', []),
+            'required_first_changes' => [
+                'create_codex_real_invoker_post_start_signed_dispatch_authorization_gate',
+                'require_codex_real_invoker_post_start_dispatch_release_gate_metadata',
+                'require_signed_dispatch_receipt_and_human_signature_hashes',
+                'record_signed_dispatch_authorization_without_dispatching_codex',
+            ],
+            'required_gates' => [
+                'php -l app/Services/Ai/SelfConstruction/AgentCodexRealInvokerPostStartSignedDispatchAuthorizationGate.php',
+                'php artisan test tests/Feature/Ai/AtlasAiSelfConstructionAgentCodexRealInvokerPostStartSignedDispatchAuthorizationGateTest.php',
+                'php artisan test tests/Feature/Ai/AtlasAiSelfConstructionCommandTest.php --filter=agent_codex_real_invoker_post_start_signed_dispatch_authorization_gate',
+                'php artisan atlas:engineering:knowledge docs-health --json',
+                'php artisan atlas:ai:architecture-validate --json',
+                'git diff --check',
+            ],
+            'preflight_policy' => [
+                'preflight_is_read_only' => true,
+                'post_start_signed_dispatch_authorization_gate_file_creation_allowed_here' => false,
+                'actual_process_start_allowed_here' => false,
+                'provider_process_start_allowed_here' => false,
+                'codex_invocation_allowed_here' => false,
+                'token_spend_allowed_here' => false,
+                'dispatch_allowed_here' => false,
+                'requires_separate_dispatch_executor_handoff' => true,
+            ],
+            'next_required_command' => 'php artisan atlas:ai:self-construction --agent-codex-real-invoker-post-start-signed-dispatch-authorization-gate-implementation-packet --json',
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_codex_real_invoker_post_start_signed_dispatch_authorization_gate_preflight.v1',
+            'status' => (string) $preflight['status'],
+            'mode' => 'read_only_agent_codex_real_invoker_post_start_signed_dispatch_authorization_gate_preflight',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'codex_real_invoker_post_start_signed_dispatch_authorization_gate_preflight' => $preflight,
+            'codex_real_invoker_post_start_signed_dispatch_authorization_gate_preflight_hash' => $this->stableHash($preflight),
+            'non_execution_guarantees' => [
+                'agent_codex_real_invoker_post_start_signed_dispatch_authorization_gate_preflight_does_not_start_codex',
+                'agent_codex_real_invoker_post_start_signed_dispatch_authorization_gate_preflight_does_not_call_codex',
+                'agent_codex_real_invoker_post_start_signed_dispatch_authorization_gate_preflight_does_not_spend_tokens',
+                'agent_codex_real_invoker_post_start_signed_dispatch_authorization_gate_preflight_does_not_dispatch_work',
+            ],
+            'human_summary' => $blockingReasons === []
+                ? 'Codex real invoker post-start signed dispatch authorization gate is ready; it records authorization but still does not dispatch work.'
+                : 'Codex real invoker post-start signed dispatch authorization gate is blocked until authorization and release prerequisites exist.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentCodexRealInvokerPostStartSignedDispatchAuthorizationGateImplementationPacket(array $options = []): array
+    {
+        $preflightPayload = $this->agentCodexRealInvokerPostStartSignedDispatchAuthorizationGatePreflight($options);
+        $preflight = (array) data_get($preflightPayload, 'codex_real_invoker_post_start_signed_dispatch_authorization_gate_preflight', []);
+        $preflightHash = (string) data_get($preflightPayload, 'codex_real_invoker_post_start_signed_dispatch_authorization_gate_preflight_hash');
+
+        $tasks = [
+            ['id' => 'T1', 'title' => 'Create Codex real invoker post-start signed dispatch authorization gate', 'type' => 'service', 'allowed_files' => ['app/Services/Ai/SelfConstruction/AgentCodexRealInvokerPostStartSignedDispatchAuthorizationGate.php'], 'acceptance' => 'Gate records signed dispatch authorization after release gate and never dispatches work.'],
+            ['id' => 'T2', 'title' => 'Enforce signed dispatch authorization contract', 'type' => 'service_logic', 'allowed_files' => ['app/Services/Ai/SelfConstruction/AgentCodexRealInvokerPostStartSignedDispatchAuthorizationGate.php'], 'acceptance' => 'Gate requires dispatch release metadata, alive liveness, signed receipt hash, human signature hash, window hash, policy hash and no-provider-call attestation.'],
+            ['id' => 'T3', 'title' => 'Add post-start signed dispatch authorization tests', 'type' => 'test', 'allowed_files' => ['tests/Feature/Ai/AtlasAiSelfConstructionAgentCodexRealInvokerPostStartSignedDispatchAuthorizationGateTest.php'], 'acceptance' => 'Tests prove missing release gate rejection, non-alive rejection, missing signature rejection, duplicate rejection, rollback and no process/token/dispatch side effects.'],
+            ['id' => 'T4', 'title' => 'Expose post-start signed dispatch authorization readiness commands', 'type' => 'command_surface', 'allowed_files' => ['app/Services/Ai/SelfConstruction/AtlasSelfConstructionReadinessService.php', 'app/Console/Commands/AtlasAiSelfConstructionCommand.php', 'tests/Feature/Ai/AtlasAiSelfConstructionCommandTest.php'], 'acceptance' => 'Contract, preflight and implementation packet commands remain read-only and declare dispatch disabled.'],
+        ];
+
+        $packet = [
+            'status' => 'ready_for_scoped_codex_real_invoker_post_start_signed_dispatch_authorization_gate_implementation',
+            'implementation_packet_id' => 'AGENT-CODEX-REAL-INVOKER-POST-START-SIGNED-DISPATCH-AUTHORIZATION-GATE-IMPLEMENTATION-SELF-CONSTRUCTION-0001',
+            'source_preflight_hash' => $preflightHash,
+            'objective' => 'Implement the Codex real invoker post-start signed dispatch authorization gate that records a human/policy signed authorization for a future executor handoff while forbidding Atlas from dispatching work.',
+            'non_goals' => ['do_not_call_codex_cli_or_codex_app', 'do_not_spawn_processes_or_shell_commands', 'do_not_spend_provider_tokens', 'do_not_start_codex_process', 'do_not_dispatch_work_to_codex', 'do_not_mark_runs_running_or_terminal'],
+            'allowed_files' => data_get($preflight, 'allowed_future_files', []),
+            'forbidden_scopes' => ['actual_codex_process_invocation', 'provider_token_spend', 'process_start', 'provider_process_call', 'dispatch_runtime', 'merge_runtime', 'hot_kernel_runtime', 'policy_mutation'],
+            'tasks' => $tasks,
+            'task_count' => count($tasks),
+            'acceptance_criteria' => ['post_start_signed_dispatch_authorization_requires_dispatch_release_gate_metadata', 'post_start_signed_dispatch_authorization_requires_liveness_alive', 'post_start_signed_dispatch_authorization_requires_signature_and_receipt_hashes', 'post_start_signed_dispatch_authorization_does_not_dispatch_codex'],
+            'required_gates' => data_get($preflight, 'required_gates', []),
+            'implementation_policy' => ['packet_is_read_only' => true, 'implementation_allowed_by_packet' => true, 'post_start_signed_dispatch_authorization_write_allowed_by_packet' => false, 'actual_process_start_allowed_by_packet' => false, 'provider_process_start_allowed_by_packet' => false, 'codex_invocation_allowed_by_packet' => false, 'token_spend_allowed_by_packet' => false, 'dispatch_allowed_by_packet' => false],
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_codex_real_invoker_post_start_signed_dispatch_authorization_gate_implementation_packet.v1',
+            'status' => 'ready_for_scoped_codex_real_invoker_post_start_signed_dispatch_authorization_gate_implementation',
+            'mode' => 'read_only_agent_codex_real_invoker_post_start_signed_dispatch_authorization_gate_implementation_packet',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'codex_real_invoker_post_start_signed_dispatch_authorization_gate_implementation_packet' => $packet,
+            'codex_real_invoker_post_start_signed_dispatch_authorization_gate_implementation_packet_hash' => $this->stableHash($packet),
+            'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_signed_dispatch_authorization_gate_implementation_packet_does_not_start_codex', 'agent_codex_real_invoker_post_start_signed_dispatch_authorization_gate_implementation_packet_does_not_call_codex', 'agent_codex_real_invoker_post_start_signed_dispatch_authorization_gate_implementation_packet_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_signed_dispatch_authorization_gate_implementation_packet_does_not_dispatch_work'],
+            'human_summary' => 'Codex real invoker post-start signed dispatch authorization gate implementation packet is ready; it records authorization and does not dispatch work.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentCodexRealInvokerPostStartDispatchExecutorHandoffContractTemplate(array $options = []): array
+    {
+        $authorizationPayload = $this->agentCodexRealInvokerPostStartSignedDispatchAuthorizationGatePreflight($options);
+        $authorization = (array) data_get($authorizationPayload, 'codex_real_invoker_post_start_signed_dispatch_authorization_gate_preflight', []);
+
+        $template = [
+            'status' => 'codex_real_invoker_post_start_dispatch_executor_handoff_contract_template_ready',
+            'contract_id' => 'CODEX-REAL-INVOKER-POST-START-DISPATCH-EXECUTOR-HANDOFF-'.strtoupper(substr($this->stableHash([
+                'post_start_signed_dispatch_authorization_gate_preflight_hash' => data_get($authorizationPayload, 'codex_real_invoker_post_start_signed_dispatch_authorization_gate_preflight_hash'),
+                'provider' => 'codex',
+                'adapter' => 'codex',
+            ]), 0, 24)),
+            'source_codex_real_invoker_post_start_signed_dispatch_authorization_gate_status' => data_get($authorizationPayload, 'status'),
+            'provider' => 'codex',
+            'adapter' => 'codex',
+            'contract' => [
+                'service' => 'App\\Services\\Ai\\SelfConstruction\\AgentCodexRealInvokerPostStartDispatchExecutorHandoff',
+                'method' => 'preparePostStartDispatchExecutorHandoff',
+                'input_contract' => [
+                    'run_key',
+                    'codex_execution_id',
+                    'manual_start_executor_receipt_id',
+                    'operator_start_handoff_id',
+                    'post_start_receipt_contract_id',
+                    'post_start_evidence_receipt_id',
+                    'post_start_liveness_monitor_id',
+                    'dispatch_release_gate_id',
+                    'signed_dispatch_authorization_id',
+                    'dispatch_executor_handoff_id',
+                    'signed_dispatch_receipt_hash',
+                    'human_dispatch_signature_hash',
+                    'signed_dispatch_policy_hash',
+                    'dispatch_window_hash',
+                    'dispatch_scope_hash',
+                    'continuation_summary_hash',
+                    'context_pack_hash',
+                    'dispatch_replay_guard_hash',
+                    'dispatch_kill_switch_hash',
+                    'executor_handoff_packet_hash',
+                    'executor_workspace_hash',
+                    'executor_scope_lock_hash',
+                    'no_direct_provider_call_attestation_hash',
+                    'actor',
+                    'session',
+                    'reason',
+                ],
+                'result_contract' => [
+                    'dispatch_executor_handoff_id',
+                    'signed_dispatch_authorization_id',
+                    'agent_run_id',
+                    'run_key',
+                    'run_status',
+                    'dispatch_executor_handoff_prepared',
+                    'future_dispatch_authorized',
+                    'dispatch_allowed',
+                ],
+            ],
+            'real_invoker_post_start_dispatch_executor_handoff_must' => [
+                'require_codex_real_invoker_post_start_signed_dispatch_authorization',
+                'require_liveness_state_alive',
+                'require_signed_dispatch_authorization_recorded',
+                'require_future_dispatch_authorized',
+                'require_executor_handoff_packet_hash',
+                'require_executor_workspace_hash',
+                'require_executor_scope_lock_hash',
+                'record_append_only_dispatch_executor_handoff_event',
+            ],
+            'real_invoker_post_start_dispatch_executor_handoff_must_not' => [
+                'call_codex_cli_or_codex_app',
+                'spawn_process_or_shell_command',
+                'spend_provider_tokens',
+                'dispatch_work_to_provider',
+                'call_provider_process',
+                'mark_run_running_or_terminal',
+                'mark_signed_dispatch_receipt_used',
+            ],
+            'implementation_files_allowed_future' => [
+                'app/Services/Ai/SelfConstruction/AgentCodexRealInvokerPostStartDispatchExecutorHandoff.php',
+                'tests/Feature/Ai/AtlasAiSelfConstructionAgentCodexRealInvokerPostStartDispatchExecutorHandoffTest.php',
+            ],
+            'contract_policy' => [
+                'template_is_read_only' => true,
+                'post_start_dispatch_executor_handoff_write_allowed_here' => false,
+                'actual_process_start_allowed_here' => false,
+                'provider_process_start_allowed_here' => false,
+                'codex_invocation_allowed_here' => false,
+                'token_spend_allowed_here' => false,
+                'dispatch_allowed_here' => false,
+                'requires_separate_dispatch_use_receipt_executor' => true,
+            ],
+            'next_required_command' => 'php artisan atlas:ai:self-construction --agent-codex-real-invoker-post-start-dispatch-executor-handoff-preflight --json',
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_codex_real_invoker_post_start_dispatch_executor_handoff_contract_template.v1',
+            'status' => 'codex_real_invoker_post_start_dispatch_executor_handoff_contract_template_ready',
+            'mode' => 'read_only_agent_codex_real_invoker_post_start_dispatch_executor_handoff_contract_template',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'codex_real_invoker_post_start_dispatch_executor_handoff_contract_template' => $template,
+            'codex_real_invoker_post_start_dispatch_executor_handoff_contract_template_hash' => $this->stableHash($template),
+            'source_authorization_preflight' => $authorization,
+            'non_execution_guarantees' => [
+                'agent_codex_real_invoker_post_start_dispatch_executor_handoff_contract_template_does_not_start_codex',
+                'agent_codex_real_invoker_post_start_dispatch_executor_handoff_contract_template_does_not_call_codex',
+                'agent_codex_real_invoker_post_start_dispatch_executor_handoff_contract_template_does_not_spend_tokens',
+                'agent_codex_real_invoker_post_start_dispatch_executor_handoff_contract_template_does_not_dispatch_work',
+            ],
+            'human_summary' => 'Codex real invoker post-start dispatch executor handoff contract template prepares the future executor handoff only; it does not dispatch work.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentCodexRealInvokerPostStartDispatchExecutorHandoffPreflight(array $options = []): array
+    {
+        $contractPayload = $this->agentCodexRealInvokerPostStartDispatchExecutorHandoffContractTemplate($options);
+        $contract = (array) data_get($contractPayload, 'codex_real_invoker_post_start_dispatch_executor_handoff_contract_template', []);
+        $handoffClass = AgentCodexRealInvokerPostStartDispatchExecutorHandoff::class;
+        $authorizationClass = AgentCodexRealInvokerPostStartSignedDispatchAuthorizationGate::class;
+        $handoffReady = class_exists($handoffClass);
+        $authorizationReady = class_exists($authorizationClass);
+        $runsTableReady = Schema::hasTable('atlas_self_construction_agent_runs');
+        $ledgerReady = Schema::hasTable('atlas_ledger_events');
+
+        $blockingReasons = array_values(array_filter([
+            $handoffReady ? null : 'codex_real_invoker_post_start_dispatch_executor_handoff_missing',
+            $authorizationReady ? null : 'codex_real_invoker_post_start_signed_dispatch_authorization_gate_missing',
+            $runsTableReady ? null : 'agent_runs_table_missing',
+            $ledgerReady ? null : 'ledger_table_missing',
+        ]));
+
+        $preflight = [
+            'status' => $blockingReasons === [] ? 'codex_real_invoker_post_start_dispatch_executor_handoff_ready' : 'blocked',
+            'contract_template_hash' => data_get($contractPayload, 'codex_real_invoker_post_start_dispatch_executor_handoff_contract_template_hash'),
+            'source_codex_real_invoker_post_start_signed_dispatch_authorization_gate_status' => data_get($contract, 'source_codex_real_invoker_post_start_signed_dispatch_authorization_gate_status'),
+            'provider' => 'codex',
+            'adapter' => 'codex',
+            'storage' => [
+                'codex_real_invoker_post_start_dispatch_executor_handoff_ready' => $handoffReady,
+                'codex_real_invoker_post_start_signed_dispatch_authorization_gate_ready' => $authorizationReady,
+                'agent_runs_table_ready' => $runsTableReady,
+                'ledger_table_ready' => $ledgerReady,
+            ],
+            'blocking_count' => count($blockingReasons),
+            'blocking_reasons' => $blockingReasons,
+            'post_start_dispatch_executor_handoff_ready_for_future_use' => $blockingReasons === [],
+            'allowed_future_files' => data_get($contract, 'implementation_files_allowed_future', []),
+            'required_first_changes' => [
+                'create_codex_real_invoker_post_start_dispatch_executor_handoff',
+                'require_codex_real_invoker_post_start_signed_dispatch_authorization_metadata',
+                'require_executor_handoff_packet_workspace_and_scope_hashes',
+                'record_dispatch_executor_handoff_without_dispatching_codex',
+            ],
+            'required_gates' => [
+                'php -l app/Services/Ai/SelfConstruction/AgentCodexRealInvokerPostStartDispatchExecutorHandoff.php',
+                'php artisan test tests/Feature/Ai/AtlasAiSelfConstructionAgentCodexRealInvokerPostStartDispatchExecutorHandoffTest.php',
+                'php artisan test tests/Feature/Ai/AtlasAiSelfConstructionCommandTest.php --filter=agent_codex_real_invoker_post_start_dispatch_executor_handoff',
+                'php artisan atlas:engineering:knowledge docs-health --json',
+                'php artisan atlas:ai:architecture-validate --json',
+                'git diff --check',
+            ],
+            'preflight_policy' => [
+                'preflight_is_read_only' => true,
+                'post_start_dispatch_executor_handoff_file_creation_allowed_here' => false,
+                'actual_process_start_allowed_here' => false,
+                'provider_process_start_allowed_here' => false,
+                'codex_invocation_allowed_here' => false,
+                'token_spend_allowed_here' => false,
+                'dispatch_allowed_here' => false,
+                'requires_separate_dispatch_use_receipt_executor' => true,
+            ],
+            'next_required_command' => 'php artisan atlas:ai:self-construction --agent-codex-real-invoker-post-start-dispatch-executor-handoff-implementation-packet --json',
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_codex_real_invoker_post_start_dispatch_executor_handoff_preflight.v1',
+            'status' => (string) $preflight['status'],
+            'mode' => 'read_only_agent_codex_real_invoker_post_start_dispatch_executor_handoff_preflight',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'codex_real_invoker_post_start_dispatch_executor_handoff_preflight' => $preflight,
+            'codex_real_invoker_post_start_dispatch_executor_handoff_preflight_hash' => $this->stableHash($preflight),
+            'non_execution_guarantees' => [
+                'agent_codex_real_invoker_post_start_dispatch_executor_handoff_preflight_does_not_start_codex',
+                'agent_codex_real_invoker_post_start_dispatch_executor_handoff_preflight_does_not_call_codex',
+                'agent_codex_real_invoker_post_start_dispatch_executor_handoff_preflight_does_not_spend_tokens',
+                'agent_codex_real_invoker_post_start_dispatch_executor_handoff_preflight_does_not_dispatch_work',
+            ],
+            'human_summary' => $blockingReasons === []
+                ? 'Codex real invoker post-start dispatch executor handoff is ready; it prepares executor handoff but still does not dispatch work.'
+                : 'Codex real invoker post-start dispatch executor handoff is blocked until signed authorization and handoff prerequisites exist.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentCodexRealInvokerPostStartDispatchExecutorHandoffImplementationPacket(array $options = []): array
+    {
+        $preflightPayload = $this->agentCodexRealInvokerPostStartDispatchExecutorHandoffPreflight($options);
+        $preflight = (array) data_get($preflightPayload, 'codex_real_invoker_post_start_dispatch_executor_handoff_preflight', []);
+        $preflightHash = (string) data_get($preflightPayload, 'codex_real_invoker_post_start_dispatch_executor_handoff_preflight_hash');
+
+        $tasks = [
+            ['id' => 'T1', 'title' => 'Create Codex real invoker post-start dispatch executor handoff', 'type' => 'service', 'allowed_files' => ['app/Services/Ai/SelfConstruction/AgentCodexRealInvokerPostStartDispatchExecutorHandoff.php'], 'acceptance' => 'Handoff records executor-ready metadata after signed dispatch authorization and never dispatches work.'],
+            ['id' => 'T2', 'title' => 'Enforce executor handoff contract', 'type' => 'service_logic', 'allowed_files' => ['app/Services/Ai/SelfConstruction/AgentCodexRealInvokerPostStartDispatchExecutorHandoff.php'], 'acceptance' => 'Handoff requires signed authorization metadata, alive liveness, executor packet, workspace, scope lock, receipt hashes and no-provider-call attestation.'],
+            ['id' => 'T3', 'title' => 'Add post-start dispatch executor handoff tests', 'type' => 'test', 'allowed_files' => ['tests/Feature/Ai/AtlasAiSelfConstructionAgentCodexRealInvokerPostStartDispatchExecutorHandoffTest.php'], 'acceptance' => 'Tests prove missing authorization rejection, non-alive rejection, missing executor workspace rejection, duplicate rejection, rollback and no process/token/dispatch side effects.'],
+            ['id' => 'T4', 'title' => 'Expose post-start dispatch executor handoff readiness commands', 'type' => 'command_surface', 'allowed_files' => ['app/Services/Ai/SelfConstruction/AtlasSelfConstructionReadinessService.php', 'app/Console/Commands/AtlasAiSelfConstructionCommand.php', 'tests/Feature/Ai/AtlasAiSelfConstructionCommandTest.php'], 'acceptance' => 'Contract, preflight and implementation packet commands remain read-only and declare dispatch disabled.'],
+        ];
+
+        $packet = [
+            'status' => 'ready_for_scoped_codex_real_invoker_post_start_dispatch_executor_handoff_implementation',
+            'implementation_packet_id' => 'AGENT-CODEX-REAL-INVOKER-POST-START-DISPATCH-EXECUTOR-HANDOFF-IMPLEMENTATION-SELF-CONSTRUCTION-0001',
+            'source_preflight_hash' => $preflightHash,
+            'objective' => 'Implement the Codex real invoker post-start dispatch executor handoff that prepares a future receipt-use executor handoff while forbidding Atlas from dispatching work.',
+            'non_goals' => ['do_not_call_codex_cli_or_codex_app', 'do_not_spawn_processes_or_shell_commands', 'do_not_spend_provider_tokens', 'do_not_start_codex_process', 'do_not_dispatch_work_to_codex', 'do_not_mark_signed_dispatch_receipt_used', 'do_not_mark_runs_running_or_terminal'],
+            'allowed_files' => data_get($preflight, 'allowed_future_files', []),
+            'forbidden_scopes' => ['actual_codex_process_invocation', 'provider_token_spend', 'process_start', 'provider_process_call', 'dispatch_runtime', 'receipt_use_runtime', 'merge_runtime', 'hot_kernel_runtime', 'policy_mutation'],
+            'tasks' => $tasks,
+            'task_count' => count($tasks),
+            'acceptance_criteria' => ['post_start_dispatch_executor_handoff_requires_signed_dispatch_authorization_metadata', 'post_start_dispatch_executor_handoff_requires_liveness_alive', 'post_start_dispatch_executor_handoff_requires_executor_packet_workspace_and_scope_hashes', 'post_start_dispatch_executor_handoff_does_not_dispatch_codex'],
+            'required_gates' => data_get($preflight, 'required_gates', []),
+            'implementation_policy' => ['packet_is_read_only' => true, 'implementation_allowed_by_packet' => true, 'post_start_dispatch_executor_handoff_write_allowed_by_packet' => false, 'actual_process_start_allowed_by_packet' => false, 'provider_process_start_allowed_by_packet' => false, 'codex_invocation_allowed_by_packet' => false, 'token_spend_allowed_by_packet' => false, 'dispatch_allowed_by_packet' => false],
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_codex_real_invoker_post_start_dispatch_executor_handoff_implementation_packet.v1',
+            'status' => 'ready_for_scoped_codex_real_invoker_post_start_dispatch_executor_handoff_implementation',
+            'mode' => 'read_only_agent_codex_real_invoker_post_start_dispatch_executor_handoff_implementation_packet',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'codex_real_invoker_post_start_dispatch_executor_handoff_implementation_packet' => $packet,
+            'codex_real_invoker_post_start_dispatch_executor_handoff_implementation_packet_hash' => $this->stableHash($packet),
+            'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_dispatch_executor_handoff_implementation_packet_does_not_start_codex', 'agent_codex_real_invoker_post_start_dispatch_executor_handoff_implementation_packet_does_not_call_codex', 'agent_codex_real_invoker_post_start_dispatch_executor_handoff_implementation_packet_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_dispatch_executor_handoff_implementation_packet_does_not_dispatch_work'],
+            'human_summary' => 'Codex real invoker post-start dispatch executor handoff implementation packet is ready; it prepares executor handoff and does not dispatch work.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentCodexRealInvokerPostStartDispatchReceiptUseExecutorContractTemplate(array $options = []): array
+    {
+        $handoffPayload = $this->agentCodexRealInvokerPostStartDispatchExecutorHandoffPreflight($options);
+        $handoff = (array) data_get($handoffPayload, 'codex_real_invoker_post_start_dispatch_executor_handoff_preflight', []);
+
+        $template = [
+            'status' => 'codex_real_invoker_post_start_dispatch_receipt_use_executor_contract_template_ready',
+            'contract_id' => 'CODEX-REAL-INVOKER-POST-START-DISPATCH-RECEIPT-USE-EXECUTOR-'.strtoupper(substr($this->stableHash([
+                'post_start_dispatch_executor_handoff_preflight_hash' => data_get($handoffPayload, 'codex_real_invoker_post_start_dispatch_executor_handoff_preflight_hash'),
+                'provider' => 'codex',
+                'adapter' => 'codex',
+            ]), 0, 24)),
+            'source_codex_real_invoker_post_start_dispatch_executor_handoff_status' => data_get($handoffPayload, 'status'),
+            'provider' => 'codex',
+            'adapter' => 'codex',
+            'contract' => [
+                'service' => 'App\\Services\\Ai\\SelfConstruction\\AgentCodexRealInvokerPostStartDispatchReceiptUseExecutor',
+                'method' => 'executePostStartDispatchReceiptUse',
+                'input_contract' => [
+                    'run_key',
+                    'dispatch_executor_handoff_id',
+                    'signed_dispatch_authorization_id',
+                    'signed_dispatch_receipt_hash',
+                    'executor_contract_hash',
+                    'executor_release_authorization_hash',
+                    'executor_handoff_packet_hash',
+                    'executor_workspace_hash',
+                    'executor_scope_lock_hash',
+                    'provider_start_attempt_id',
+                    'actor',
+                    'session',
+                    'reason',
+                ],
+                'result_contract' => [
+                    'provider_start_attempt_id',
+                    'dispatch_executor_handoff_id',
+                    'signed_dispatch_receipt_hash',
+                    'dispatch_receipt_used',
+                    'provider_start_allowed_after_mark',
+                    'dispatch_allowed',
+                ],
+            ],
+            'real_invoker_post_start_dispatch_receipt_use_must' => [
+                'require_codex_real_invoker_post_start_dispatch_executor_handoff',
+                'require_signed_dispatch_receipt_hash',
+                'require_executor_contract_hash',
+                'require_executor_release_authorization_hash',
+                'call_atomic_receipt_use_writer',
+                'keep_provider_start_disabled_after_mark',
+            ],
+            'real_invoker_post_start_dispatch_receipt_use_must_not' => [
+                'call_codex_cli_or_codex_app',
+                'spawn_process_or_shell_command',
+                'spend_provider_tokens',
+                'dispatch_work_to_provider',
+                'call_provider_process',
+                'mark_run_running_or_terminal',
+            ],
+            'implementation_files_allowed_future' => [
+                'app/Services/Ai/SelfConstruction/AgentCodexRealInvokerPostStartDispatchReceiptUseExecutor.php',
+                'tests/Feature/Ai/AtlasAiSelfConstructionAgentCodexRealInvokerPostStartDispatchReceiptUseExecutorTest.php',
+            ],
+            'contract_policy' => [
+                'template_is_read_only' => true,
+                'receipt_use_execution_allowed_by_service' => true,
+                'actual_process_start_allowed_here' => false,
+                'provider_process_start_allowed_here' => false,
+                'codex_invocation_allowed_here' => false,
+                'token_spend_allowed_here' => false,
+                'dispatch_allowed_here' => false,
+                'requires_separate_provider_start_driver' => true,
+            ],
+            'next_required_command' => 'php artisan atlas:ai:self-construction --agent-codex-real-invoker-post-start-dispatch-receipt-use-executor-preflight --json',
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_codex_real_invoker_post_start_dispatch_receipt_use_executor_contract_template.v1',
+            'status' => 'codex_real_invoker_post_start_dispatch_receipt_use_executor_contract_template_ready',
+            'mode' => 'read_only_agent_codex_real_invoker_post_start_dispatch_receipt_use_executor_contract_template',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'codex_real_invoker_post_start_dispatch_receipt_use_executor_contract_template' => $template,
+            'codex_real_invoker_post_start_dispatch_receipt_use_executor_contract_template_hash' => $this->stableHash($template),
+            'source_handoff_preflight' => $handoff,
+            'non_execution_guarantees' => [
+                'agent_codex_real_invoker_post_start_dispatch_receipt_use_executor_contract_template_does_not_start_codex',
+                'agent_codex_real_invoker_post_start_dispatch_receipt_use_executor_contract_template_does_not_call_codex',
+                'agent_codex_real_invoker_post_start_dispatch_receipt_use_executor_contract_template_does_not_spend_tokens',
+                'agent_codex_real_invoker_post_start_dispatch_receipt_use_executor_contract_template_does_not_dispatch_work',
+            ],
+            'human_summary' => 'Codex real invoker post-start dispatch receipt-use executor contract template permits only atomic receipt-use marking; it does not start Codex.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentCodexRealInvokerPostStartDispatchReceiptUseExecutorPreflight(array $options = []): array
+    {
+        $contractPayload = $this->agentCodexRealInvokerPostStartDispatchReceiptUseExecutorContractTemplate($options);
+        $contract = (array) data_get($contractPayload, 'codex_real_invoker_post_start_dispatch_receipt_use_executor_contract_template', []);
+        $executorClass = AgentCodexRealInvokerPostStartDispatchReceiptUseExecutor::class;
+        $handoffClass = AgentCodexRealInvokerPostStartDispatchExecutorHandoff::class;
+        $receiptUseWriterClass = AgentDispatchExecutorReceiptUseWriter::class;
+        $executorReady = class_exists($executorClass);
+        $handoffReady = class_exists($handoffClass);
+        $receiptUseWriterReady = class_exists($receiptUseWriterClass);
+        $runsTableReady = Schema::hasTable('atlas_self_construction_agent_runs');
+        $dispatchReceiptsTableReady = Schema::hasTable('atlas_self_construction_agent_dispatch_receipts');
+        $ledgerReady = Schema::hasTable('atlas_ledger_events');
+
+        $blockingReasons = array_values(array_filter([
+            $executorReady ? null : 'codex_real_invoker_post_start_dispatch_receipt_use_executor_missing',
+            $handoffReady ? null : 'codex_real_invoker_post_start_dispatch_executor_handoff_missing',
+            $receiptUseWriterReady ? null : 'dispatch_executor_receipt_use_writer_missing',
+            $runsTableReady ? null : 'agent_runs_table_missing',
+            $dispatchReceiptsTableReady ? null : 'dispatch_receipts_table_missing',
+            $ledgerReady ? null : 'ledger_table_missing',
+        ]));
+
+        $preflight = [
+            'status' => $blockingReasons === [] ? 'codex_real_invoker_post_start_dispatch_receipt_use_executor_ready' : 'blocked',
+            'contract_template_hash' => data_get($contractPayload, 'codex_real_invoker_post_start_dispatch_receipt_use_executor_contract_template_hash'),
+            'source_codex_real_invoker_post_start_dispatch_executor_handoff_status' => data_get($contract, 'source_codex_real_invoker_post_start_dispatch_executor_handoff_status'),
+            'provider' => 'codex',
+            'adapter' => 'codex',
+            'storage' => [
+                'codex_real_invoker_post_start_dispatch_receipt_use_executor_ready' => $executorReady,
+                'codex_real_invoker_post_start_dispatch_executor_handoff_ready' => $handoffReady,
+                'dispatch_executor_receipt_use_writer_ready' => $receiptUseWriterReady,
+                'agent_runs_table_ready' => $runsTableReady,
+                'dispatch_receipts_table_ready' => $dispatchReceiptsTableReady,
+                'ledger_table_ready' => $ledgerReady,
+            ],
+            'blocking_count' => count($blockingReasons),
+            'blocking_reasons' => $blockingReasons,
+            'post_start_dispatch_receipt_use_executor_ready_for_future_use' => $blockingReasons === [],
+            'allowed_future_files' => data_get($contract, 'implementation_files_allowed_future', []),
+            'required_first_changes' => [
+                'create_codex_real_invoker_post_start_dispatch_receipt_use_executor',
+                'require_codex_real_invoker_post_start_dispatch_executor_handoff_metadata',
+                'call_atomic_receipt_use_writer_without_starting_codex',
+                'record_run_metadata_after_receipt_use',
+            ],
+            'required_gates' => [
+                'php -l app/Services/Ai/SelfConstruction/AgentCodexRealInvokerPostStartDispatchReceiptUseExecutor.php',
+                'php artisan test tests/Feature/Ai/AtlasAiSelfConstructionAgentCodexRealInvokerPostStartDispatchReceiptUseExecutorTest.php',
+                'php artisan test tests/Feature/Ai/AtlasAiSelfConstructionCommandTest.php --filter=agent_codex_real_invoker_post_start_dispatch_receipt_use_executor',
+                'php artisan atlas:engineering:knowledge docs-health --json',
+                'php artisan atlas:ai:architecture-validate --json',
+                'git diff --check',
+            ],
+            'preflight_policy' => [
+                'preflight_is_read_only' => true,
+                'post_start_dispatch_receipt_use_executor_file_creation_allowed_here' => false,
+                'receipt_use_mark_allowed_by_executor' => true,
+                'actual_process_start_allowed_here' => false,
+                'provider_process_start_allowed_here' => false,
+                'codex_invocation_allowed_here' => false,
+                'token_spend_allowed_here' => false,
+                'dispatch_allowed_here' => false,
+                'requires_separate_provider_start_driver' => true,
+            ],
+            'next_required_command' => 'php artisan atlas:ai:self-construction --agent-codex-real-invoker-post-start-dispatch-receipt-use-executor-implementation-packet --json',
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_codex_real_invoker_post_start_dispatch_receipt_use_executor_preflight.v1',
+            'status' => (string) $preflight['status'],
+            'mode' => 'read_only_agent_codex_real_invoker_post_start_dispatch_receipt_use_executor_preflight',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'codex_real_invoker_post_start_dispatch_receipt_use_executor_preflight' => $preflight,
+            'codex_real_invoker_post_start_dispatch_receipt_use_executor_preflight_hash' => $this->stableHash($preflight),
+            'non_execution_guarantees' => [
+                'agent_codex_real_invoker_post_start_dispatch_receipt_use_executor_preflight_does_not_start_codex',
+                'agent_codex_real_invoker_post_start_dispatch_receipt_use_executor_preflight_does_not_call_codex',
+                'agent_codex_real_invoker_post_start_dispatch_receipt_use_executor_preflight_does_not_spend_tokens',
+                'agent_codex_real_invoker_post_start_dispatch_receipt_use_executor_preflight_does_not_dispatch_work',
+            ],
+            'human_summary' => $blockingReasons === []
+                ? 'Codex real invoker post-start dispatch receipt-use executor is ready; it marks receipt use but still does not start Codex.'
+                : 'Codex real invoker post-start dispatch receipt-use executor is blocked until handoff, writer and storage prerequisites exist.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentCodexRealInvokerPostStartDispatchReceiptUseExecutorImplementationPacket(array $options = []): array
+    {
+        $preflightPayload = $this->agentCodexRealInvokerPostStartDispatchReceiptUseExecutorPreflight($options);
+        $preflight = (array) data_get($preflightPayload, 'codex_real_invoker_post_start_dispatch_receipt_use_executor_preflight', []);
+        $preflightHash = (string) data_get($preflightPayload, 'codex_real_invoker_post_start_dispatch_receipt_use_executor_preflight_hash');
+
+        $tasks = [
+            ['id' => 'T1', 'title' => 'Create Codex real invoker post-start dispatch receipt-use executor', 'type' => 'service', 'allowed_files' => ['app/Services/Ai/SelfConstruction/AgentCodexRealInvokerPostStartDispatchReceiptUseExecutor.php'], 'acceptance' => 'Executor consumes post-start handoff and marks one signed dispatch receipt used via the atomic writer.'],
+            ['id' => 'T2', 'title' => 'Enforce receipt-use executor contract', 'type' => 'service_logic', 'allowed_files' => ['app/Services/Ai/SelfConstruction/AgentCodexRealInvokerPostStartDispatchReceiptUseExecutor.php'], 'acceptance' => 'Executor requires handoff metadata, receipt hash, executor contract hash and release authorization hash while keeping provider start disabled.'],
+            ['id' => 'T3', 'title' => 'Add post-start dispatch receipt-use executor tests', 'type' => 'test', 'allowed_files' => ['tests/Feature/Ai/AtlasAiSelfConstructionAgentCodexRealInvokerPostStartDispatchReceiptUseExecutorTest.php'], 'acceptance' => 'Tests prove receipt use, idempotency, duplicate attempt rejection, missing handoff rejection, packet mismatch rejection and rollback.'],
+            ['id' => 'T4', 'title' => 'Expose post-start dispatch receipt-use executor readiness commands', 'type' => 'command_surface', 'allowed_files' => ['app/Services/Ai/SelfConstruction/AtlasSelfConstructionReadinessService.php', 'app/Console/Commands/AtlasAiSelfConstructionCommand.php', 'tests/Feature/Ai/AtlasAiSelfConstructionCommandTest.php'], 'acceptance' => 'Contract, preflight and implementation packet commands remain read-only and declare provider start and dispatch disabled.'],
+        ];
+
+        $packet = [
+            'status' => 'ready_for_scoped_codex_real_invoker_post_start_dispatch_receipt_use_executor_implementation',
+            'implementation_packet_id' => 'AGENT-CODEX-REAL-INVOKER-POST-START-DISPATCH-RECEIPT-USE-EXECUTOR-IMPLEMENTATION-SELF-CONSTRUCTION-0001',
+            'source_preflight_hash' => $preflightHash,
+            'objective' => 'Implement the Codex real invoker post-start dispatch receipt-use executor that marks a signed dispatch receipt used after handoff while forbidding provider start.',
+            'non_goals' => ['do_not_call_codex_cli_or_codex_app', 'do_not_spawn_processes_or_shell_commands', 'do_not_spend_provider_tokens', 'do_not_start_codex_process', 'do_not_dispatch_work_to_codex', 'do_not_mark_runs_running_or_terminal'],
+            'allowed_files' => data_get($preflight, 'allowed_future_files', []),
+            'forbidden_scopes' => ['actual_codex_process_invocation', 'provider_token_spend', 'process_start', 'provider_process_call', 'dispatch_runtime', 'merge_runtime', 'hot_kernel_runtime', 'policy_mutation'],
+            'tasks' => $tasks,
+            'task_count' => count($tasks),
+            'acceptance_criteria' => ['post_start_dispatch_receipt_use_executor_requires_handoff_metadata', 'post_start_dispatch_receipt_use_executor_marks_signed_receipt_used_once', 'post_start_dispatch_receipt_use_executor_keeps_provider_start_disabled', 'post_start_dispatch_receipt_use_executor_does_not_dispatch_codex'],
+            'required_gates' => data_get($preflight, 'required_gates', []),
+            'implementation_policy' => ['packet_is_read_only' => true, 'implementation_allowed_by_packet' => true, 'receipt_use_mark_allowed_by_executor' => true, 'actual_process_start_allowed_by_packet' => false, 'provider_process_start_allowed_by_packet' => false, 'codex_invocation_allowed_by_packet' => false, 'token_spend_allowed_by_packet' => false, 'dispatch_allowed_by_packet' => false],
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_codex_real_invoker_post_start_dispatch_receipt_use_executor_implementation_packet.v1',
+            'status' => 'ready_for_scoped_codex_real_invoker_post_start_dispatch_receipt_use_executor_implementation',
+            'mode' => 'read_only_agent_codex_real_invoker_post_start_dispatch_receipt_use_executor_implementation_packet',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'codex_real_invoker_post_start_dispatch_receipt_use_executor_implementation_packet' => $packet,
+            'codex_real_invoker_post_start_dispatch_receipt_use_executor_implementation_packet_hash' => $this->stableHash($packet),
+            'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_dispatch_receipt_use_executor_implementation_packet_does_not_start_codex', 'agent_codex_real_invoker_post_start_dispatch_receipt_use_executor_implementation_packet_does_not_call_codex', 'agent_codex_real_invoker_post_start_dispatch_receipt_use_executor_implementation_packet_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_dispatch_receipt_use_executor_implementation_packet_does_not_dispatch_work'],
+            'human_summary' => 'Codex real invoker post-start dispatch receipt-use executor implementation packet is ready; it marks receipt use but does not start Codex.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentCodexRealInvokerPostStartProviderStartDriverGateContractTemplate(array $options = []): array
+    {
+        $receiptUsePayload = $this->agentCodexRealInvokerPostStartDispatchReceiptUseExecutorPreflight($options);
+        $receiptUse = (array) data_get($receiptUsePayload, 'codex_real_invoker_post_start_dispatch_receipt_use_executor_preflight', []);
+
+        $template = [
+            'status' => 'codex_real_invoker_post_start_provider_start_driver_gate_contract_template_ready',
+            'contract_id' => 'CODEX-REAL-INVOKER-POST-START-PROVIDER-START-DRIVER-GATE-'.strtoupper(substr($this->stableHash([
+                'receipt_use_preflight_hash' => data_get($receiptUsePayload, 'codex_real_invoker_post_start_dispatch_receipt_use_executor_preflight_hash'),
+                'provider' => 'codex',
+                'adapter' => 'codex',
+            ]), 0, 24)),
+            'source_codex_real_invoker_post_start_dispatch_receipt_use_status' => data_get($receiptUsePayload, 'status'),
+            'provider' => 'codex',
+            'adapter' => 'codex',
+            'contract' => [
+                'service' => 'App\\Services\\Ai\\SelfConstruction\\AgentCodexRealInvokerPostStartProviderStartDriverGate',
+                'method' => 'preparePostStartProviderStartDriver',
+                'input_contract' => ['run_key', 'provider_start_driver_gate_id', 'provider_start_attempt_id', 'dispatch_executor_handoff_id', 'signed_dispatch_authorization_id', 'signed_dispatch_receipt_hash', 'executor_contract_hash', 'executor_release_authorization_hash', 'executor_handoff_packet_hash', 'executor_workspace_hash', 'executor_scope_lock_hash', 'sandbox_binding_key', 'command', 'cwd', 'actor', 'session', 'max_runtime_minutes', 'max_cost_usd', 'reason'],
+                'result_contract' => ['provider_start_driver_gate_id', 'provider_start_attempt_id', 'provider_start_result', 'adapter_invocation_allowed', 'dispatch_allowed'],
+            ],
+            'real_invoker_post_start_provider_start_driver_gate_must' => [
+                'require_codex_real_invoker_post_start_dispatch_receipt_use_metadata',
+                'require_dispatch_receipt_used_pending_provider_start',
+                'require_active_sandbox_binding',
+                'delegate_to_agent_dispatch_executor_provider_start_driver',
+                'record_bridge_metadata_on_observed_post_start_run',
+            ],
+            'real_invoker_post_start_provider_start_driver_gate_must_not' => [
+                'call_codex_cli_or_codex_app',
+                'spawn_process_or_shell_command',
+                'spend_provider_tokens',
+                'dispatch_work_to_provider',
+                'enable_adapter_invocation',
+                'mark_observed_run_running_or_terminal',
+            ],
+            'implementation_files_allowed_future' => [
+                'app/Services/Ai/SelfConstruction/AgentCodexRealInvokerPostStartProviderStartDriverGate.php',
+                'tests/Feature/Ai/AtlasAiSelfConstructionAgentCodexRealInvokerPostStartProviderStartDriverGateTest.php',
+            ],
+            'contract_policy' => [
+                'template_is_read_only' => true,
+                'provider_start_driver_gate_execution_allowed_by_service' => true,
+                'actual_process_start_allowed_here' => false,
+                'provider_process_start_allowed_here' => false,
+                'adapter_invocation_allowed_here' => false,
+                'codex_invocation_allowed_here' => false,
+                'token_spend_allowed_here' => false,
+                'dispatch_allowed_here' => false,
+                'requires_separate_adapter_invocation_boundary' => true,
+            ],
+            'next_required_command' => 'php artisan atlas:ai:self-construction --agent-codex-real-invoker-post-start-provider-start-driver-gate-preflight --json',
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_codex_real_invoker_post_start_provider_start_driver_gate_contract_template.v1',
+            'status' => 'codex_real_invoker_post_start_provider_start_driver_gate_contract_template_ready',
+            'mode' => 'read_only_agent_codex_real_invoker_post_start_provider_start_driver_gate_contract_template',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'codex_real_invoker_post_start_provider_start_driver_gate_contract_template' => $template,
+            'codex_real_invoker_post_start_provider_start_driver_gate_contract_template_hash' => $this->stableHash($template),
+            'source_receipt_use_preflight' => $receiptUse,
+            'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_provider_start_driver_gate_contract_template_does_not_start_codex', 'agent_codex_real_invoker_post_start_provider_start_driver_gate_contract_template_does_not_call_codex', 'agent_codex_real_invoker_post_start_provider_start_driver_gate_contract_template_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_provider_start_driver_gate_contract_template_does_not_dispatch_work'],
+            'human_summary' => 'Codex real invoker post-start provider start driver gate contract template bridges receipt-use to the generic provider start driver without calling Codex.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentCodexRealInvokerPostStartProviderStartDriverGatePreflight(array $options = []): array
+    {
+        $contractPayload = $this->agentCodexRealInvokerPostStartProviderStartDriverGateContractTemplate($options);
+        $contract = (array) data_get($contractPayload, 'codex_real_invoker_post_start_provider_start_driver_gate_contract_template', []);
+        $gateReady = class_exists(AgentCodexRealInvokerPostStartProviderStartDriverGate::class);
+        $receiptUseReady = class_exists(AgentCodexRealInvokerPostStartDispatchReceiptUseExecutor::class);
+        $driverReady = class_exists(AgentDispatchExecutorProviderStartDriver::class);
+        $runsTableReady = Schema::hasTable('atlas_self_construction_agent_runs');
+        $dispatchReceiptsTableReady = Schema::hasTable('atlas_self_construction_agent_dispatch_receipts');
+        $releaseAuthorizationsTableReady = Schema::hasTable('atlas_self_construction_agent_dispatch_executor_release_authorizations');
+        $sandboxBindingsTableReady = Schema::hasTable('atlas_self_construction_agent_sandbox_bindings');
+        $heartbeatsTableReady = Schema::hasTable('atlas_self_construction_agent_heartbeats');
+        $ledgerReady = Schema::hasTable('atlas_ledger_events');
+
+        $blockingReasons = array_values(array_filter([
+            $gateReady ? null : 'codex_real_invoker_post_start_provider_start_driver_gate_missing',
+            $receiptUseReady ? null : 'codex_real_invoker_post_start_dispatch_receipt_use_executor_missing',
+            $driverReady ? null : 'dispatch_executor_provider_start_driver_missing',
+            $runsTableReady ? null : 'agent_runs_table_missing',
+            $dispatchReceiptsTableReady ? null : 'dispatch_receipts_table_missing',
+            $releaseAuthorizationsTableReady ? null : 'dispatch_executor_release_authorizations_table_missing',
+            $sandboxBindingsTableReady ? null : 'sandbox_bindings_table_missing',
+            $heartbeatsTableReady ? null : 'agent_heartbeats_table_missing',
+            $ledgerReady ? null : 'ledger_table_missing',
+        ]));
+
+        $preflight = [
+            'status' => $blockingReasons === [] ? 'codex_real_invoker_post_start_provider_start_driver_gate_ready' : 'blocked',
+            'contract_template_hash' => data_get($contractPayload, 'codex_real_invoker_post_start_provider_start_driver_gate_contract_template_hash'),
+            'source_codex_real_invoker_post_start_dispatch_receipt_use_status' => data_get($contract, 'source_codex_real_invoker_post_start_dispatch_receipt_use_status'),
+            'provider' => 'codex',
+            'adapter' => 'codex',
+            'storage' => [
+                'codex_real_invoker_post_start_provider_start_driver_gate_ready' => $gateReady,
+                'codex_real_invoker_post_start_dispatch_receipt_use_executor_ready' => $receiptUseReady,
+                'dispatch_executor_provider_start_driver_ready' => $driverReady,
+                'agent_runs_table_ready' => $runsTableReady,
+                'dispatch_receipts_table_ready' => $dispatchReceiptsTableReady,
+                'dispatch_executor_release_authorizations_table_ready' => $releaseAuthorizationsTableReady,
+                'sandbox_bindings_table_ready' => $sandboxBindingsTableReady,
+                'agent_heartbeats_table_ready' => $heartbeatsTableReady,
+                'ledger_table_ready' => $ledgerReady,
+            ],
+            'blocking_count' => count($blockingReasons),
+            'blocking_reasons' => $blockingReasons,
+            'post_start_provider_start_driver_gate_ready_for_future_use' => $blockingReasons === [],
+            'allowed_future_files' => data_get($contract, 'implementation_files_allowed_future', []),
+            'required_first_changes' => ['create_codex_real_invoker_post_start_provider_start_driver_gate', 'require_post_start_dispatch_receipt_use_metadata', 'delegate_to_generic_provider_start_driver_without_calling_codex', 'record_provider_start_driver_bridge_on_observed_run'],
+            'required_gates' => [
+                'php -l app/Services/Ai/SelfConstruction/AgentCodexRealInvokerPostStartProviderStartDriverGate.php',
+                'php artisan test tests/Feature/Ai/AtlasAiSelfConstructionAgentCodexRealInvokerPostStartProviderStartDriverGateTest.php',
+                'php artisan test tests/Feature/Ai/AtlasAiSelfConstructionCommandTest.php --filter=agent_codex_real_invoker_post_start_provider_start_driver_gate',
+                'php artisan atlas:engineering:knowledge docs-health --json',
+                'php artisan atlas:ai:architecture-validate --json',
+                'git diff --check',
+            ],
+            'preflight_policy' => [
+                'preflight_is_read_only' => true,
+                'post_start_provider_start_driver_gate_file_creation_allowed_here' => false,
+                'provider_start_driver_bridge_allowed_by_service' => true,
+                'actual_process_start_allowed_here' => false,
+                'provider_process_start_allowed_here' => false,
+                'adapter_invocation_allowed_here' => false,
+                'codex_invocation_allowed_here' => false,
+                'token_spend_allowed_here' => false,
+                'dispatch_allowed_here' => false,
+                'requires_separate_adapter_invocation_boundary' => true,
+            ],
+            'next_required_command' => 'php artisan atlas:ai:self-construction --agent-codex-real-invoker-post-start-provider-start-driver-gate-implementation-packet --json',
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_codex_real_invoker_post_start_provider_start_driver_gate_preflight.v1',
+            'status' => (string) $preflight['status'],
+            'mode' => 'read_only_agent_codex_real_invoker_post_start_provider_start_driver_gate_preflight',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'codex_real_invoker_post_start_provider_start_driver_gate_preflight' => $preflight,
+            'codex_real_invoker_post_start_provider_start_driver_gate_preflight_hash' => $this->stableHash($preflight),
+            'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_provider_start_driver_gate_preflight_does_not_start_codex', 'agent_codex_real_invoker_post_start_provider_start_driver_gate_preflight_does_not_call_codex', 'agent_codex_real_invoker_post_start_provider_start_driver_gate_preflight_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_provider_start_driver_gate_preflight_does_not_dispatch_work'],
+            'human_summary' => $blockingReasons === []
+                ? 'Codex real invoker post-start provider start driver gate is ready; it prepares the driver bridge but still does not call Codex.'
+                : 'Codex real invoker post-start provider start driver gate is blocked until receipt-use, driver, sandbox and storage prerequisites exist.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentCodexRealInvokerPostStartProviderStartDriverGateImplementationPacket(array $options = []): array
+    {
+        $preflightPayload = $this->agentCodexRealInvokerPostStartProviderStartDriverGatePreflight($options);
+        $preflight = (array) data_get($preflightPayload, 'codex_real_invoker_post_start_provider_start_driver_gate_preflight', []);
+        $preflightHash = (string) data_get($preflightPayload, 'codex_real_invoker_post_start_provider_start_driver_gate_preflight_hash');
+
+        $tasks = [
+            ['id' => 'T1', 'title' => 'Create Codex real invoker post-start provider start driver gate', 'type' => 'service', 'allowed_files' => ['app/Services/Ai/SelfConstruction/AgentCodexRealInvokerPostStartProviderStartDriverGate.php'], 'acceptance' => 'Gate consumes post-start receipt-use metadata and delegates to the generic provider start driver without calling Codex.'],
+            ['id' => 'T2', 'title' => 'Enforce provider start bridge contract', 'type' => 'service_logic', 'allowed_files' => ['app/Services/Ai/SelfConstruction/AgentCodexRealInvokerPostStartProviderStartDriverGate.php'], 'acceptance' => 'Gate requires used receipt, active sandbox binding, release authorization hashes and keeps adapter invocation disabled.'],
+            ['id' => 'T3', 'title' => 'Add post-start provider start driver gate tests', 'type' => 'test', 'allowed_files' => ['tests/Feature/Ai/AtlasAiSelfConstructionAgentCodexRealInvokerPostStartProviderStartDriverGateTest.php'], 'acceptance' => 'Tests prove bridge preparation, idempotency, duplicate attempt rejection, missing receipt-use rejection, sandbox rejection and rollback.'],
+            ['id' => 'T4', 'title' => 'Expose post-start provider start driver gate readiness commands', 'type' => 'command_surface', 'allowed_files' => ['app/Services/Ai/SelfConstruction/AtlasSelfConstructionReadinessService.php', 'app/Console/Commands/AtlasAiSelfConstructionCommand.php', 'tests/Feature/Ai/AtlasAiSelfConstructionCommandTest.php'], 'acceptance' => 'Contract, preflight and implementation packet commands remain read-only and declare adapter invocation and dispatch disabled.'],
+        ];
+
+        $packet = [
+            'status' => 'ready_for_scoped_codex_real_invoker_post_start_provider_start_driver_gate_implementation',
+            'implementation_packet_id' => 'AGENT-CODEX-REAL-INVOKER-POST-START-PROVIDER-START-DRIVER-GATE-IMPLEMENTATION-SELF-CONSTRUCTION-0001',
+            'source_preflight_hash' => $preflightHash,
+            'objective' => 'Implement the Codex real invoker post-start provider start driver gate that bridges receipt-use to the generic provider start driver while forbidding Codex invocation.',
+            'non_goals' => ['do_not_call_codex_cli_or_codex_app', 'do_not_spawn_processes_or_shell_commands', 'do_not_spend_provider_tokens', 'do_not_start_codex_process', 'do_not_dispatch_work_to_codex', 'do_not_enable_adapter_invocation'],
+            'allowed_files' => data_get($preflight, 'allowed_future_files', []),
+            'forbidden_scopes' => ['actual_codex_process_invocation', 'provider_token_spend', 'process_start', 'provider_process_call', 'adapter_invocation_runtime', 'dispatch_runtime', 'merge_runtime', 'hot_kernel_runtime', 'policy_mutation'],
+            'tasks' => $tasks,
+            'task_count' => count($tasks),
+            'acceptance_criteria' => ['post_start_provider_start_driver_gate_requires_receipt_use_metadata', 'post_start_provider_start_driver_gate_requires_active_sandbox_binding', 'post_start_provider_start_driver_gate_delegates_to_generic_provider_start_driver', 'post_start_provider_start_driver_gate_does_not_call_codex'],
+            'required_gates' => data_get($preflight, 'required_gates', []),
+            'implementation_policy' => ['packet_is_read_only' => true, 'implementation_allowed_by_packet' => true, 'provider_start_driver_bridge_allowed_by_service' => true, 'actual_process_start_allowed_by_packet' => false, 'provider_process_start_allowed_by_packet' => false, 'adapter_invocation_allowed_by_packet' => false, 'codex_invocation_allowed_by_packet' => false, 'token_spend_allowed_by_packet' => false, 'dispatch_allowed_by_packet' => false],
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_codex_real_invoker_post_start_provider_start_driver_gate_implementation_packet.v1',
+            'status' => 'ready_for_scoped_codex_real_invoker_post_start_provider_start_driver_gate_implementation',
+            'mode' => 'read_only_agent_codex_real_invoker_post_start_provider_start_driver_gate_implementation_packet',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'codex_real_invoker_post_start_provider_start_driver_gate_implementation_packet' => $packet,
+            'codex_real_invoker_post_start_provider_start_driver_gate_implementation_packet_hash' => $this->stableHash($packet),
+            'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_provider_start_driver_gate_implementation_packet_does_not_start_codex', 'agent_codex_real_invoker_post_start_provider_start_driver_gate_implementation_packet_does_not_call_codex', 'agent_codex_real_invoker_post_start_provider_start_driver_gate_implementation_packet_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_provider_start_driver_gate_implementation_packet_does_not_dispatch_work'],
+            'human_summary' => 'Codex real invoker post-start provider start driver gate implementation packet is ready; it prepares the driver bridge but does not call Codex.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentCodexRealInvokerPostStartAdapterInvocationBoundaryGateContractTemplate(array $options = []): array
+    {
+        $providerStartPayload = $this->agentCodexRealInvokerPostStartProviderStartDriverGatePreflight($options);
+        $providerStart = (array) data_get($providerStartPayload, 'codex_real_invoker_post_start_provider_start_driver_gate_preflight', []);
+
+        $template = [
+            'status' => 'codex_real_invoker_post_start_adapter_invocation_boundary_gate_contract_template_ready',
+            'contract_id' => 'CODEX-REAL-INVOKER-POST-START-ADAPTER-INVOCATION-BOUNDARY-GATE-'.strtoupper(substr($this->stableHash([
+                'provider_start_driver_preflight_hash' => data_get($providerStartPayload, 'codex_real_invoker_post_start_provider_start_driver_gate_preflight_hash'),
+                'provider' => 'codex',
+                'adapter' => 'codex',
+            ]), 0, 24)),
+            'source_codex_real_invoker_post_start_provider_start_driver_status' => data_get($providerStartPayload, 'status'),
+            'provider' => 'codex',
+            'adapter' => 'codex',
+            'contract' => [
+                'service' => 'App\\Services\\Ai\\SelfConstruction\\AgentCodexRealInvokerPostStartAdapterInvocationBoundaryGate',
+                'method' => 'preparePostStartAdapterInvocationBoundary',
+                'input_contract' => ['run_key', 'adapter_invocation_boundary_gate_id', 'adapter_invocation_boundary_id', 'provider_start_driver_gate_id', 'provider_start_attempt_id', 'dispatch_executor_handoff_id', 'signed_dispatch_authorization_id', 'signed_dispatch_receipt_hash', 'context_pack_hash', 'continuation_summary_hash', 'command', 'cwd', 'actor', 'session', 'reason'],
+                'result_contract' => ['adapter_invocation_boundary_gate_id', 'adapter_invocation_boundary_id', 'adapter_invocation_boundary_result', 'adapter_invocation_allowed', 'dispatch_allowed'],
+            ],
+            'real_invoker_post_start_adapter_invocation_boundary_gate_must' => [
+                'require_codex_real_invoker_post_start_provider_start_driver_metadata',
+                'require_provider_start_projection_run',
+                'require_pre_start_heartbeat',
+                'delegate_to_agent_dispatch_executor_adapter_invocation_boundary',
+                'record_bridge_metadata_on_observed_post_start_run',
+            ],
+            'real_invoker_post_start_adapter_invocation_boundary_gate_must_not' => [
+                'call_codex_cli_or_codex_app',
+                'spawn_process_or_shell_command',
+                'spend_provider_tokens',
+                'dispatch_work_to_provider',
+                'enable_adapter_execution',
+                'mark_observed_run_running_or_terminal',
+            ],
+            'implementation_files_allowed_future' => [
+                'app/Services/Ai/SelfConstruction/AgentCodexRealInvokerPostStartAdapterInvocationBoundaryGate.php',
+                'tests/Feature/Ai/AtlasAiSelfConstructionAgentCodexRealInvokerPostStartAdapterInvocationBoundaryGateTest.php',
+            ],
+            'contract_policy' => [
+                'template_is_read_only' => true,
+                'adapter_invocation_boundary_bridge_allowed_by_service' => true,
+                'actual_process_start_allowed_here' => false,
+                'provider_process_start_allowed_here' => false,
+                'adapter_invocation_allowed_here' => false,
+                'codex_invocation_allowed_here' => false,
+                'token_spend_allowed_here' => false,
+                'dispatch_allowed_here' => false,
+                'requires_separate_adapter_execution_guard' => true,
+            ],
+            'next_required_command' => 'php artisan atlas:ai:self-construction --agent-codex-real-invoker-post-start-adapter-invocation-boundary-gate-preflight --json',
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_codex_real_invoker_post_start_adapter_invocation_boundary_gate_contract_template.v1',
+            'status' => 'codex_real_invoker_post_start_adapter_invocation_boundary_gate_contract_template_ready',
+            'mode' => 'read_only_agent_codex_real_invoker_post_start_adapter_invocation_boundary_gate_contract_template',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'codex_real_invoker_post_start_adapter_invocation_boundary_gate_contract_template' => $template,
+            'codex_real_invoker_post_start_adapter_invocation_boundary_gate_contract_template_hash' => $this->stableHash($template),
+            'source_provider_start_driver_preflight' => $providerStart,
+            'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_adapter_invocation_boundary_gate_contract_template_does_not_start_codex', 'agent_codex_real_invoker_post_start_adapter_invocation_boundary_gate_contract_template_does_not_call_codex', 'agent_codex_real_invoker_post_start_adapter_invocation_boundary_gate_contract_template_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_adapter_invocation_boundary_gate_contract_template_does_not_dispatch_work'],
+            'human_summary' => 'Codex real invoker post-start adapter invocation boundary gate contract template bridges provider start driver metadata to the generic adapter invocation boundary without calling Codex.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentCodexRealInvokerPostStartAdapterInvocationBoundaryGatePreflight(array $options = []): array
+    {
+        $contractPayload = $this->agentCodexRealInvokerPostStartAdapterInvocationBoundaryGateContractTemplate($options);
+        $contract = (array) data_get($contractPayload, 'codex_real_invoker_post_start_adapter_invocation_boundary_gate_contract_template', []);
+        $gateReady = class_exists(AgentCodexRealInvokerPostStartAdapterInvocationBoundaryGate::class);
+        $providerStartGateReady = class_exists(AgentCodexRealInvokerPostStartProviderStartDriverGate::class);
+        $boundaryReady = class_exists(AgentDispatchExecutorAdapterInvocationBoundary::class);
+        $registryReady = class_exists(AgentProviderAdapterRegistry::class);
+        $runsTableReady = Schema::hasTable('atlas_self_construction_agent_runs');
+        $heartbeatsTableReady = Schema::hasTable('atlas_self_construction_agent_heartbeats');
+        $ledgerReady = Schema::hasTable('atlas_ledger_events');
+
+        $blockingReasons = array_values(array_filter([
+            $gateReady ? null : 'codex_real_invoker_post_start_adapter_invocation_boundary_gate_missing',
+            $providerStartGateReady ? null : 'codex_real_invoker_post_start_provider_start_driver_gate_missing',
+            $boundaryReady ? null : 'dispatch_executor_adapter_invocation_boundary_missing',
+            $registryReady ? null : 'provider_adapter_registry_missing',
+            $runsTableReady ? null : 'agent_runs_table_missing',
+            $heartbeatsTableReady ? null : 'agent_heartbeats_table_missing',
+            $ledgerReady ? null : 'ledger_table_missing',
+        ]));
+
+        $preflight = [
+            'status' => $blockingReasons === [] ? 'codex_real_invoker_post_start_adapter_invocation_boundary_gate_ready' : 'blocked',
+            'contract_template_hash' => data_get($contractPayload, 'codex_real_invoker_post_start_adapter_invocation_boundary_gate_contract_template_hash'),
+            'source_codex_real_invoker_post_start_provider_start_driver_status' => data_get($contract, 'source_codex_real_invoker_post_start_provider_start_driver_status'),
+            'provider' => 'codex',
+            'adapter' => 'codex',
+            'storage' => [
+                'codex_real_invoker_post_start_adapter_invocation_boundary_gate_ready' => $gateReady,
+                'codex_real_invoker_post_start_provider_start_driver_gate_ready' => $providerStartGateReady,
+                'dispatch_executor_adapter_invocation_boundary_ready' => $boundaryReady,
+                'provider_adapter_registry_ready' => $registryReady,
+                'agent_runs_table_ready' => $runsTableReady,
+                'agent_heartbeats_table_ready' => $heartbeatsTableReady,
+                'ledger_table_ready' => $ledgerReady,
+            ],
+            'blocking_count' => count($blockingReasons),
+            'blocking_reasons' => $blockingReasons,
+            'post_start_adapter_invocation_boundary_gate_ready_for_future_use' => $blockingReasons === [],
+            'allowed_future_files' => data_get($contract, 'implementation_files_allowed_future', []),
+            'required_first_changes' => ['create_codex_real_invoker_post_start_adapter_invocation_boundary_gate', 'require_post_start_provider_start_driver_metadata', 'delegate_to_generic_adapter_invocation_boundary_without_calling_codex', 'record_adapter_invocation_boundary_bridge_on_observed_run'],
+            'required_gates' => [
+                'php -l app/Services/Ai/SelfConstruction/AgentCodexRealInvokerPostStartAdapterInvocationBoundaryGate.php',
+                'php artisan test tests/Feature/Ai/AtlasAiSelfConstructionAgentCodexRealInvokerPostStartAdapterInvocationBoundaryGateTest.php',
+                'php artisan test tests/Feature/Ai/AtlasAiSelfConstructionCommandTest.php --filter=agent_codex_real_invoker_post_start_adapter_invocation_boundary_gate',
+                'php artisan atlas:engineering:knowledge docs-health --json',
+                'php artisan atlas:ai:architecture-validate --json',
+                'git diff --check',
+            ],
+            'preflight_policy' => [
+                'preflight_is_read_only' => true,
+                'post_start_adapter_invocation_boundary_gate_file_creation_allowed_here' => false,
+                'adapter_invocation_boundary_bridge_allowed_by_service' => true,
+                'actual_process_start_allowed_here' => false,
+                'provider_process_start_allowed_here' => false,
+                'adapter_invocation_allowed_here' => false,
+                'codex_invocation_allowed_here' => false,
+                'token_spend_allowed_here' => false,
+                'dispatch_allowed_here' => false,
+                'requires_separate_adapter_execution_guard' => true,
+            ],
+            'next_required_command' => 'php artisan atlas:ai:self-construction --agent-codex-real-invoker-post-start-adapter-invocation-boundary-gate-implementation-packet --json',
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_codex_real_invoker_post_start_adapter_invocation_boundary_gate_preflight.v1',
+            'status' => (string) $preflight['status'],
+            'mode' => 'read_only_agent_codex_real_invoker_post_start_adapter_invocation_boundary_gate_preflight',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'codex_real_invoker_post_start_adapter_invocation_boundary_gate_preflight' => $preflight,
+            'codex_real_invoker_post_start_adapter_invocation_boundary_gate_preflight_hash' => $this->stableHash($preflight),
+            'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_adapter_invocation_boundary_gate_preflight_does_not_start_codex', 'agent_codex_real_invoker_post_start_adapter_invocation_boundary_gate_preflight_does_not_call_codex', 'agent_codex_real_invoker_post_start_adapter_invocation_boundary_gate_preflight_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_adapter_invocation_boundary_gate_preflight_does_not_dispatch_work'],
+            'human_summary' => $blockingReasons === []
+                ? 'Codex real invoker post-start adapter invocation boundary gate is ready; it prepares the boundary bridge but still does not call Codex.'
+                : 'Codex real invoker post-start adapter invocation boundary gate is blocked until provider start metadata, boundary, registry and storage prerequisites exist.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentCodexRealInvokerPostStartAdapterInvocationBoundaryGateImplementationPacket(array $options = []): array
+    {
+        $preflightPayload = $this->agentCodexRealInvokerPostStartAdapterInvocationBoundaryGatePreflight($options);
+        $preflight = (array) data_get($preflightPayload, 'codex_real_invoker_post_start_adapter_invocation_boundary_gate_preflight', []);
+        $preflightHash = (string) data_get($preflightPayload, 'codex_real_invoker_post_start_adapter_invocation_boundary_gate_preflight_hash');
+
+        $tasks = [
+            ['id' => 'T1', 'title' => 'Create Codex real invoker post-start adapter invocation boundary gate', 'type' => 'service', 'allowed_files' => ['app/Services/Ai/SelfConstruction/AgentCodexRealInvokerPostStartAdapterInvocationBoundaryGate.php'], 'acceptance' => 'Gate consumes post-start provider start driver metadata and delegates to the generic adapter invocation boundary without calling Codex.'],
+            ['id' => 'T2', 'title' => 'Enforce adapter invocation boundary bridge contract', 'type' => 'service_logic', 'allowed_files' => ['app/Services/Ai/SelfConstruction/AgentCodexRealInvokerPostStartAdapterInvocationBoundaryGate.php'], 'acceptance' => 'Gate requires provider start projection run, pre-start heartbeat, context hashes and keeps adapter execution disabled.'],
+            ['id' => 'T3', 'title' => 'Add post-start adapter invocation boundary gate tests', 'type' => 'test', 'allowed_files' => ['tests/Feature/Ai/AtlasAiSelfConstructionAgentCodexRealInvokerPostStartAdapterInvocationBoundaryGateTest.php'], 'acceptance' => 'Tests prove boundary preparation, idempotency, duplicate attempt rejection, missing provider start metadata rejection, forbidden adapter flag rejection and rollback.'],
+            ['id' => 'T4', 'title' => 'Expose post-start adapter invocation boundary gate readiness commands', 'type' => 'command_surface', 'allowed_files' => ['app/Services/Ai/SelfConstruction/AtlasSelfConstructionReadinessService.php', 'app/Console/Commands/AtlasAiSelfConstructionCommand.php', 'tests/Feature/Ai/AtlasAiSelfConstructionCommandTest.php'], 'acceptance' => 'Contract, preflight and implementation packet commands remain read-only and declare adapter execution and dispatch disabled.'],
+        ];
+
+        $packet = [
+            'status' => 'ready_for_scoped_codex_real_invoker_post_start_adapter_invocation_boundary_gate_implementation',
+            'implementation_packet_id' => 'AGENT-CODEX-REAL-INVOKER-POST-START-ADAPTER-INVOCATION-BOUNDARY-GATE-IMPLEMENTATION-SELF-CONSTRUCTION-0001',
+            'source_preflight_hash' => $preflightHash,
+            'objective' => 'Implement the Codex real invoker post-start adapter invocation boundary gate that bridges provider start driver metadata to the generic adapter invocation boundary while forbidding Codex invocation.',
+            'non_goals' => ['do_not_call_codex_cli_or_codex_app', 'do_not_spawn_processes_or_shell_commands', 'do_not_spend_provider_tokens', 'do_not_start_codex_process', 'do_not_dispatch_work_to_codex', 'do_not_enable_adapter_execution'],
+            'allowed_files' => data_get($preflight, 'allowed_future_files', []),
+            'forbidden_scopes' => ['actual_codex_process_invocation', 'provider_token_spend', 'process_start', 'provider_process_call', 'adapter_execution_runtime', 'dispatch_runtime', 'merge_runtime', 'hot_kernel_runtime', 'policy_mutation'],
+            'tasks' => $tasks,
+            'task_count' => count($tasks),
+            'acceptance_criteria' => ['post_start_adapter_invocation_boundary_gate_requires_provider_start_driver_metadata', 'post_start_adapter_invocation_boundary_gate_requires_provider_start_projection_run', 'post_start_adapter_invocation_boundary_gate_delegates_to_generic_adapter_invocation_boundary', 'post_start_adapter_invocation_boundary_gate_does_not_call_codex'],
+            'required_gates' => data_get($preflight, 'required_gates', []),
+            'implementation_policy' => ['packet_is_read_only' => true, 'implementation_allowed_by_packet' => true, 'adapter_invocation_boundary_bridge_allowed_by_service' => true, 'actual_process_start_allowed_by_packet' => false, 'provider_process_start_allowed_by_packet' => false, 'adapter_invocation_allowed_by_packet' => false, 'codex_invocation_allowed_by_packet' => false, 'token_spend_allowed_by_packet' => false, 'dispatch_allowed_by_packet' => false],
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_codex_real_invoker_post_start_adapter_invocation_boundary_gate_implementation_packet.v1',
+            'status' => 'ready_for_scoped_codex_real_invoker_post_start_adapter_invocation_boundary_gate_implementation',
+            'mode' => 'read_only_agent_codex_real_invoker_post_start_adapter_invocation_boundary_gate_implementation_packet',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'codex_real_invoker_post_start_adapter_invocation_boundary_gate_implementation_packet' => $packet,
+            'codex_real_invoker_post_start_adapter_invocation_boundary_gate_implementation_packet_hash' => $this->stableHash($packet),
+            'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_adapter_invocation_boundary_gate_implementation_packet_does_not_start_codex', 'agent_codex_real_invoker_post_start_adapter_invocation_boundary_gate_implementation_packet_does_not_call_codex', 'agent_codex_real_invoker_post_start_adapter_invocation_boundary_gate_implementation_packet_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_adapter_invocation_boundary_gate_implementation_packet_does_not_dispatch_work'],
+            'human_summary' => 'Codex real invoker post-start adapter invocation boundary gate implementation packet is ready; it prepares the boundary bridge but does not call Codex.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentCodexRealInvokerPostStartAdapterExecutionGuardGateContractTemplate(array $options = []): array
+    {
+        $boundaryPayload = $this->agentCodexRealInvokerPostStartAdapterInvocationBoundaryGatePreflight($options);
+        $boundary = (array) data_get($boundaryPayload, 'codex_real_invoker_post_start_adapter_invocation_boundary_gate_preflight', []);
+
+        $template = [
+            'status' => 'codex_real_invoker_post_start_adapter_execution_guard_gate_contract_template_ready',
+            'contract_id' => 'CODEX-REAL-INVOKER-POST-START-ADAPTER-EXECUTION-GUARD-GATE-'.strtoupper(substr($this->stableHash([
+                'adapter_invocation_boundary_preflight_hash' => data_get($boundaryPayload, 'codex_real_invoker_post_start_adapter_invocation_boundary_gate_preflight_hash'),
+                'provider' => 'codex',
+                'adapter' => 'codex',
+            ]), 0, 24)),
+            'source_codex_real_invoker_post_start_adapter_invocation_boundary_status' => data_get($boundaryPayload, 'status'),
+            'provider' => 'codex',
+            'adapter' => 'codex',
+            'contract' => [
+                'service' => 'App\\Services\\Ai\\SelfConstruction\\AgentCodexRealInvokerPostStartAdapterExecutionGuardGate',
+                'method' => 'blockPostStartAdapterExecution',
+                'input_contract' => ['run_key', 'adapter_execution_guard_gate_id', 'execution_guard_id', 'adapter_invocation_boundary_gate_id', 'adapter_invocation_id', 'provider_start_driver_gate_id', 'provider_start_attempt_id', 'dispatch_executor_handoff_id', 'signed_dispatch_authorization_id', 'signed_dispatch_receipt_hash', 'actor', 'session', 'reason'],
+                'result_contract' => ['adapter_execution_guard_gate_id', 'execution_guard_id', 'adapter_invocation_id', 'provider_adapter_execution_guard_result', 'adapter_execution_allowed', 'dispatch_allowed'],
+            ],
+            'real_invoker_post_start_adapter_execution_guard_gate_must' => [
+                'require_codex_real_invoker_post_start_adapter_invocation_boundary_metadata',
+                'require_provider_start_projection_run_with_adapter_invocation',
+                'delegate_to_agent_provider_adapter_execution_guard',
+                'record_bridge_metadata_on_observed_post_start_run',
+                'require_provider_specific_execution_contract_before_any_later_execution',
+            ],
+            'real_invoker_post_start_adapter_execution_guard_gate_must_not' => [
+                'call_codex_cli_or_codex_app',
+                'spawn_process_or_shell_command',
+                'spend_provider_tokens',
+                'dispatch_work_to_provider',
+                'enable_adapter_execution',
+                'create_provider_specific_execution_contract',
+                'mark_observed_run_running_or_terminal',
+            ],
+            'implementation_files_allowed_future' => [
+                'app/Services/Ai/SelfConstruction/AgentCodexRealInvokerPostStartAdapterExecutionGuardGate.php',
+                'tests/Feature/Ai/AtlasAiSelfConstructionAgentCodexRealInvokerPostStartAdapterExecutionGuardGateTest.php',
+            ],
+            'contract_policy' => [
+                'template_is_read_only' => true,
+                'adapter_execution_guard_bridge_allowed_by_service' => true,
+                'actual_process_start_allowed_here' => false,
+                'provider_process_start_allowed_here' => false,
+                'adapter_invocation_allowed_here' => false,
+                'adapter_execution_allowed_here' => false,
+                'codex_invocation_allowed_here' => false,
+                'token_spend_allowed_here' => false,
+                'dispatch_allowed_here' => false,
+                'requires_separate_codex_provider_execution_contract' => true,
+            ],
+            'next_required_command' => 'php artisan atlas:ai:self-construction --agent-codex-real-invoker-post-start-adapter-execution-guard-gate-preflight --json',
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_codex_real_invoker_post_start_adapter_execution_guard_gate_contract_template.v1',
+            'status' => 'codex_real_invoker_post_start_adapter_execution_guard_gate_contract_template_ready',
+            'mode' => 'read_only_agent_codex_real_invoker_post_start_adapter_execution_guard_gate_contract_template',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'codex_real_invoker_post_start_adapter_execution_guard_gate_contract_template' => $template,
+            'codex_real_invoker_post_start_adapter_execution_guard_gate_contract_template_hash' => $this->stableHash($template),
+            'source_adapter_invocation_boundary_preflight' => $boundary,
+            'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_adapter_execution_guard_gate_contract_template_does_not_start_codex', 'agent_codex_real_invoker_post_start_adapter_execution_guard_gate_contract_template_does_not_call_codex', 'agent_codex_real_invoker_post_start_adapter_execution_guard_gate_contract_template_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_adapter_execution_guard_gate_contract_template_does_not_dispatch_work'],
+            'human_summary' => 'Codex real invoker post-start adapter execution guard gate contract template bridges the adapter boundary to the provider adapter execution guard without calling Codex.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentCodexRealInvokerPostStartAdapterExecutionGuardGatePreflight(array $options = []): array
+    {
+        $contractPayload = $this->agentCodexRealInvokerPostStartAdapterExecutionGuardGateContractTemplate($options);
+        $contract = (array) data_get($contractPayload, 'codex_real_invoker_post_start_adapter_execution_guard_gate_contract_template', []);
+        $gateReady = class_exists(AgentCodexRealInvokerPostStartAdapterExecutionGuardGate::class);
+        $boundaryGateReady = class_exists(AgentCodexRealInvokerPostStartAdapterInvocationBoundaryGate::class);
+        $guardReady = class_exists(AgentProviderAdapterExecutionGuard::class);
+        $registryReady = class_exists(AgentProviderAdapterRegistry::class);
+        $runsTableReady = Schema::hasTable('atlas_self_construction_agent_runs');
+        $ledgerReady = Schema::hasTable('atlas_ledger_events');
+
+        $blockingReasons = array_values(array_filter([
+            $gateReady ? null : 'codex_real_invoker_post_start_adapter_execution_guard_gate_missing',
+            $boundaryGateReady ? null : 'codex_real_invoker_post_start_adapter_invocation_boundary_gate_missing',
+            $guardReady ? null : 'provider_adapter_execution_guard_missing',
+            $registryReady ? null : 'provider_adapter_registry_missing',
+            $runsTableReady ? null : 'agent_runs_table_missing',
+            $ledgerReady ? null : 'ledger_table_missing',
+        ]));
+
+        $preflight = [
+            'status' => $blockingReasons === [] ? 'codex_real_invoker_post_start_adapter_execution_guard_gate_ready' : 'blocked',
+            'contract_template_hash' => data_get($contractPayload, 'codex_real_invoker_post_start_adapter_execution_guard_gate_contract_template_hash'),
+            'source_codex_real_invoker_post_start_adapter_invocation_boundary_status' => data_get($contract, 'source_codex_real_invoker_post_start_adapter_invocation_boundary_status'),
+            'provider' => 'codex',
+            'adapter' => 'codex',
+            'storage' => [
+                'codex_real_invoker_post_start_adapter_execution_guard_gate_ready' => $gateReady,
+                'codex_real_invoker_post_start_adapter_invocation_boundary_gate_ready' => $boundaryGateReady,
+                'provider_adapter_execution_guard_ready' => $guardReady,
+                'provider_adapter_registry_ready' => $registryReady,
+                'agent_runs_table_ready' => $runsTableReady,
+                'ledger_table_ready' => $ledgerReady,
+            ],
+            'blocking_count' => count($blockingReasons),
+            'blocking_reasons' => $blockingReasons,
+            'post_start_adapter_execution_guard_gate_ready_for_future_use' => $blockingReasons === [],
+            'allowed_future_files' => data_get($contract, 'implementation_files_allowed_future', []),
+            'required_first_changes' => ['create_codex_real_invoker_post_start_adapter_execution_guard_gate', 'require_post_start_adapter_invocation_boundary_metadata', 'delegate_to_provider_adapter_execution_guard_without_calling_codex', 'record_adapter_execution_guard_bridge_on_observed_run'],
+            'required_gates' => [
+                'php -l app/Services/Ai/SelfConstruction/AgentCodexRealInvokerPostStartAdapterExecutionGuardGate.php',
+                'php artisan test tests/Feature/Ai/AtlasAiSelfConstructionAgentCodexRealInvokerPostStartAdapterExecutionGuardGateTest.php',
+                'php artisan test tests/Feature/Ai/AtlasAiSelfConstructionCommandTest.php --filter=agent_codex_real_invoker_post_start_adapter_execution_guard_gate',
+                'php artisan atlas:engineering:knowledge docs-health --json',
+                'php artisan atlas:ai:architecture-validate --json',
+                'git diff --check',
+            ],
+            'preflight_policy' => [
+                'preflight_is_read_only' => true,
+                'post_start_adapter_execution_guard_gate_file_creation_allowed_here' => false,
+                'adapter_execution_guard_bridge_allowed_by_service' => true,
+                'actual_process_start_allowed_here' => false,
+                'provider_process_start_allowed_here' => false,
+                'adapter_invocation_allowed_here' => false,
+                'adapter_execution_allowed_here' => false,
+                'codex_invocation_allowed_here' => false,
+                'token_spend_allowed_here' => false,
+                'dispatch_allowed_here' => false,
+                'requires_separate_codex_provider_execution_contract' => true,
+            ],
+            'next_required_command' => 'php artisan atlas:ai:self-construction --agent-codex-real-invoker-post-start-adapter-execution-guard-gate-implementation-packet --json',
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_codex_real_invoker_post_start_adapter_execution_guard_gate_preflight.v1',
+            'status' => (string) $preflight['status'],
+            'mode' => 'read_only_agent_codex_real_invoker_post_start_adapter_execution_guard_gate_preflight',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'codex_real_invoker_post_start_adapter_execution_guard_gate_preflight' => $preflight,
+            'codex_real_invoker_post_start_adapter_execution_guard_gate_preflight_hash' => $this->stableHash($preflight),
+            'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_adapter_execution_guard_gate_preflight_does_not_start_codex', 'agent_codex_real_invoker_post_start_adapter_execution_guard_gate_preflight_does_not_call_codex', 'agent_codex_real_invoker_post_start_adapter_execution_guard_gate_preflight_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_adapter_execution_guard_gate_preflight_does_not_dispatch_work'],
+            'human_summary' => $blockingReasons === []
+                ? 'Codex real invoker post-start adapter execution guard gate is ready; it records the execution block but still does not call Codex.'
+                : 'Codex real invoker post-start adapter execution guard gate is blocked until boundary, guard, registry and storage prerequisites exist.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentCodexRealInvokerPostStartAdapterExecutionGuardGateImplementationPacket(array $options = []): array
+    {
+        $preflightPayload = $this->agentCodexRealInvokerPostStartAdapterExecutionGuardGatePreflight($options);
+        $preflight = (array) data_get($preflightPayload, 'codex_real_invoker_post_start_adapter_execution_guard_gate_preflight', []);
+        $preflightHash = (string) data_get($preflightPayload, 'codex_real_invoker_post_start_adapter_execution_guard_gate_preflight_hash');
+
+        $tasks = [
+            ['id' => 'T1', 'title' => 'Create Codex real invoker post-start adapter execution guard gate', 'type' => 'service', 'allowed_files' => ['app/Services/Ai/SelfConstruction/AgentCodexRealInvokerPostStartAdapterExecutionGuardGate.php'], 'acceptance' => 'Gate consumes post-start adapter invocation boundary metadata and delegates to the generic provider adapter execution guard without calling Codex.'],
+            ['id' => 'T2', 'title' => 'Enforce adapter execution guard bridge contract', 'type' => 'service_logic', 'allowed_files' => ['app/Services/Ai/SelfConstruction/AgentCodexRealInvokerPostStartAdapterExecutionGuardGate.php'], 'acceptance' => 'Gate requires provider start projection adapter invocation metadata and keeps provider-specific execution blocked.'],
+            ['id' => 'T3', 'title' => 'Add post-start adapter execution guard gate tests', 'type' => 'test', 'allowed_files' => ['tests/Feature/Ai/AtlasAiSelfConstructionAgentCodexRealInvokerPostStartAdapterExecutionGuardGateTest.php'], 'acceptance' => 'Tests prove blocking, idempotency, duplicate guard rejection, missing boundary rejection, forbidden dispatch rejection and rollback.'],
+            ['id' => 'T4', 'title' => 'Expose post-start adapter execution guard gate readiness commands', 'type' => 'command_surface', 'allowed_files' => ['app/Services/Ai/SelfConstruction/AtlasSelfConstructionReadinessService.php', 'app/Console/Commands/AtlasAiSelfConstructionCommand.php', 'tests/Feature/Ai/AtlasAiSelfConstructionCommandTest.php'], 'acceptance' => 'Contract, preflight and implementation packet commands remain read-only and declare adapter execution and dispatch disabled.'],
+        ];
+
+        $packet = [
+            'status' => 'ready_for_scoped_codex_real_invoker_post_start_adapter_execution_guard_gate_implementation',
+            'implementation_packet_id' => 'AGENT-CODEX-REAL-INVOKER-POST-START-ADAPTER-EXECUTION-GUARD-GATE-IMPLEMENTATION-SELF-CONSTRUCTION-0001',
+            'source_preflight_hash' => $preflightHash,
+            'objective' => 'Implement the Codex real invoker post-start adapter execution guard gate that bridges adapter invocation boundary metadata to the generic provider adapter execution guard while forbidding Codex invocation.',
+            'non_goals' => ['do_not_call_codex_cli_or_codex_app', 'do_not_spawn_processes_or_shell_commands', 'do_not_spend_provider_tokens', 'do_not_start_codex_process', 'do_not_dispatch_work_to_codex', 'do_not_enable_adapter_execution', 'do_not_create_codex_provider_execution_contract'],
+            'allowed_files' => data_get($preflight, 'allowed_future_files', []),
+            'forbidden_scopes' => ['actual_codex_process_invocation', 'provider_token_spend', 'process_start', 'provider_process_call', 'adapter_execution_runtime', 'provider_specific_execution_contract', 'dispatch_runtime', 'merge_runtime', 'hot_kernel_runtime', 'policy_mutation'],
+            'tasks' => $tasks,
+            'task_count' => count($tasks),
+            'acceptance_criteria' => ['post_start_adapter_execution_guard_gate_requires_adapter_invocation_boundary_metadata', 'post_start_adapter_execution_guard_gate_requires_provider_start_projection_run_with_adapter_invocation', 'post_start_adapter_execution_guard_gate_delegates_to_provider_adapter_execution_guard', 'post_start_adapter_execution_guard_gate_does_not_call_codex'],
+            'required_gates' => data_get($preflight, 'required_gates', []),
+            'implementation_policy' => ['packet_is_read_only' => true, 'implementation_allowed_by_packet' => true, 'adapter_execution_guard_bridge_allowed_by_service' => true, 'actual_process_start_allowed_by_packet' => false, 'provider_process_start_allowed_by_packet' => false, 'adapter_invocation_allowed_by_packet' => false, 'adapter_execution_allowed_by_packet' => false, 'codex_invocation_allowed_by_packet' => false, 'token_spend_allowed_by_packet' => false, 'dispatch_allowed_by_packet' => false],
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_codex_real_invoker_post_start_adapter_execution_guard_gate_implementation_packet.v1',
+            'status' => 'ready_for_scoped_codex_real_invoker_post_start_adapter_execution_guard_gate_implementation',
+            'mode' => 'read_only_agent_codex_real_invoker_post_start_adapter_execution_guard_gate_implementation_packet',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'codex_real_invoker_post_start_adapter_execution_guard_gate_implementation_packet' => $packet,
+            'codex_real_invoker_post_start_adapter_execution_guard_gate_implementation_packet_hash' => $this->stableHash($packet),
+            'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_adapter_execution_guard_gate_implementation_packet_does_not_start_codex', 'agent_codex_real_invoker_post_start_adapter_execution_guard_gate_implementation_packet_does_not_call_codex', 'agent_codex_real_invoker_post_start_adapter_execution_guard_gate_implementation_packet_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_adapter_execution_guard_gate_implementation_packet_does_not_dispatch_work'],
+            'human_summary' => 'Codex real invoker post-start adapter execution guard gate implementation packet is ready; it records the guard bridge but does not call Codex.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentCodexRealInvokerPostStartProviderExecutionContractGateContractTemplate(array $options = []): array
+    {
+        $guardPayload = $this->agentCodexRealInvokerPostStartAdapterExecutionGuardGatePreflight($options);
+        $guard = (array) data_get($guardPayload, 'codex_real_invoker_post_start_adapter_execution_guard_gate_preflight', []);
+        $codexPayload = $this->agentCodexProviderExecutionPreflight($options);
+
+        $template = [
+            'status' => 'codex_real_invoker_post_start_provider_execution_contract_gate_contract_template_ready',
+            'contract_id' => 'CODEX-REAL-INVOKER-POST-START-PROVIDER-EXECUTION-CONTRACT-GATE-'.strtoupper(substr($this->stableHash([
+                'adapter_execution_guard_preflight_hash' => data_get($guardPayload, 'codex_real_invoker_post_start_adapter_execution_guard_gate_preflight_hash'),
+                'codex_provider_execution_preflight_hash' => data_get($codexPayload, 'codex_provider_execution_preflight_hash'),
+                'provider' => 'codex',
+                'adapter' => 'codex',
+            ]), 0, 24)),
+            'source_codex_real_invoker_post_start_adapter_execution_guard_status' => data_get($guardPayload, 'status'),
+            'source_codex_provider_execution_status' => data_get($codexPayload, 'status'),
+            'provider' => 'codex',
+            'adapter' => 'codex',
+            'contract' => [
+                'service' => 'App\\Services\\Ai\\SelfConstruction\\AgentCodexRealInvokerPostStartProviderExecutionContractGate',
+                'method' => 'preparePostStartProviderExecutionContract',
+                'input_contract' => ['run_key', 'provider_execution_contract_gate_id', 'codex_execution_id', 'adapter_execution_guard_gate_id', 'execution_guard_id', 'adapter_invocation_boundary_gate_id', 'adapter_invocation_id', 'provider_start_driver_gate_id', 'provider_start_attempt_id', 'dispatch_executor_handoff_id', 'signed_dispatch_authorization_id', 'signed_dispatch_receipt_hash', 'command', 'cwd', 'context_pack_hash', 'continuation_summary_hash', 'actor', 'session', 'max_runtime_minutes', 'max_cost_usd', 'reason'],
+                'result_contract' => ['provider_execution_contract_gate_id', 'codex_execution_id', 'codex_provider_execution_result', 'provider_specific_execution_contract_ready', 'actual_process_start_allowed', 'dispatch_allowed'],
+            ],
+            'real_invoker_post_start_provider_execution_contract_gate_must' => [
+                'require_codex_real_invoker_post_start_adapter_execution_guard_metadata',
+                'require_provider_adapter_execution_guard_result_blocking',
+                'require_context_pack_hash_and_continuation_summary_hash_from_boundary',
+                'delegate_to_codex_provider_execution_driver',
+                'record_bridge_metadata_on_observed_post_start_run',
+                'keep_process_start_release_as_separate_later_contract',
+            ],
+            'real_invoker_post_start_provider_execution_contract_gate_must_not' => [
+                'call_codex_cli_or_codex_app',
+                'spawn_process_or_shell_command',
+                'spend_provider_tokens',
+                'dispatch_work_to_provider',
+                'enable_adapter_execution',
+                'authorize_process_start',
+                'mark_observed_run_running_or_terminal',
+            ],
+            'implementation_files_allowed_future' => [
+                'app/Services/Ai/SelfConstruction/AgentCodexRealInvokerPostStartProviderExecutionContractGate.php',
+                'tests/Feature/Ai/AtlasAiSelfConstructionAgentCodexRealInvokerPostStartProviderExecutionContractGateTest.php',
+            ],
+            'contract_policy' => [
+                'template_is_read_only' => true,
+                'provider_execution_contract_bridge_allowed_by_service' => true,
+                'codex_provider_execution_driver_allowed_by_service' => true,
+                'actual_process_start_allowed_here' => false,
+                'provider_process_start_allowed_here' => false,
+                'adapter_invocation_allowed_here' => false,
+                'adapter_execution_allowed_here' => false,
+                'codex_invocation_allowed_here' => false,
+                'token_spend_allowed_here' => false,
+                'dispatch_allowed_here' => false,
+                'requires_separate_codex_process_start_release_contract' => true,
+            ],
+            'source_adapter_execution_guard_preflight' => $guard,
+            'next_required_command' => 'php artisan atlas:ai:self-construction --agent-codex-real-invoker-post-start-provider-execution-contract-gate-preflight --json',
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_codex_real_invoker_post_start_provider_execution_contract_gate_contract_template.v1',
+            'status' => 'codex_real_invoker_post_start_provider_execution_contract_gate_contract_template_ready',
+            'mode' => 'read_only_agent_codex_real_invoker_post_start_provider_execution_contract_gate_contract_template',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'codex_real_invoker_post_start_provider_execution_contract_gate_contract_template' => $template,
+            'codex_real_invoker_post_start_provider_execution_contract_gate_contract_template_hash' => $this->stableHash($template),
+            'source_adapter_execution_guard_preflight' => $guard,
+            'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_provider_execution_contract_gate_contract_template_does_not_start_codex', 'agent_codex_real_invoker_post_start_provider_execution_contract_gate_contract_template_does_not_call_codex', 'agent_codex_real_invoker_post_start_provider_execution_contract_gate_contract_template_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_provider_execution_contract_gate_contract_template_does_not_dispatch_work'],
+            'human_summary' => 'Codex real invoker post-start provider execution contract gate template bridges the post-start adapter execution guard to the Codex provider execution driver without starting Codex.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentCodexRealInvokerPostStartProviderExecutionContractGatePreflight(array $options = []): array
+    {
+        $contractPayload = $this->agentCodexRealInvokerPostStartProviderExecutionContractGateContractTemplate($options);
+        $contract = (array) data_get($contractPayload, 'codex_real_invoker_post_start_provider_execution_contract_gate_contract_template', []);
+        $gateReady = class_exists(AgentCodexRealInvokerPostStartProviderExecutionContractGate::class);
+        $guardGateReady = class_exists(AgentCodexRealInvokerPostStartAdapterExecutionGuardGate::class);
+        $codexDriverReady = class_exists(AgentCodexProviderExecutionDriver::class);
+        $registryReady = class_exists(AgentProviderAdapterRegistry::class);
+        $runsTableReady = Schema::hasTable('atlas_self_construction_agent_runs');
+        $sandboxBindingTableReady = Schema::hasTable('atlas_self_construction_agent_sandbox_bindings');
+        $ledgerReady = Schema::hasTable('atlas_ledger_events');
+
+        $blockingReasons = array_values(array_filter([
+            $gateReady ? null : 'codex_real_invoker_post_start_provider_execution_contract_gate_missing',
+            $guardGateReady ? null : 'codex_real_invoker_post_start_adapter_execution_guard_gate_missing',
+            $codexDriverReady ? null : 'codex_provider_execution_driver_missing',
+            $registryReady ? null : 'provider_adapter_registry_missing',
+            $runsTableReady ? null : 'agent_runs_table_missing',
+            $sandboxBindingTableReady ? null : 'agent_sandbox_bindings_table_missing',
+            $ledgerReady ? null : 'ledger_table_missing',
+        ]));
+
+        $preflight = [
+            'status' => $blockingReasons === [] ? 'codex_real_invoker_post_start_provider_execution_contract_gate_ready' : 'blocked',
+            'contract_template_hash' => data_get($contractPayload, 'codex_real_invoker_post_start_provider_execution_contract_gate_contract_template_hash'),
+            'source_codex_real_invoker_post_start_adapter_execution_guard_status' => data_get($contract, 'source_codex_real_invoker_post_start_adapter_execution_guard_status'),
+            'source_codex_provider_execution_status' => data_get($contract, 'source_codex_provider_execution_status'),
+            'provider' => 'codex',
+            'adapter' => 'codex',
+            'storage' => [
+                'codex_real_invoker_post_start_provider_execution_contract_gate_ready' => $gateReady,
+                'codex_real_invoker_post_start_adapter_execution_guard_gate_ready' => $guardGateReady,
+                'codex_provider_execution_driver_ready' => $codexDriverReady,
+                'provider_adapter_registry_ready' => $registryReady,
+                'agent_runs_table_ready' => $runsTableReady,
+                'agent_sandbox_bindings_table_ready' => $sandboxBindingTableReady,
+                'ledger_table_ready' => $ledgerReady,
+            ],
+            'blocking_count' => count($blockingReasons),
+            'blocking_reasons' => $blockingReasons,
+            'post_start_provider_execution_contract_gate_ready_for_future_use' => $blockingReasons === [],
+            'allowed_future_files' => data_get($contract, 'implementation_files_allowed_future', []),
+            'required_first_changes' => ['create_codex_real_invoker_post_start_provider_execution_contract_gate', 'require_post_start_adapter_execution_guard_metadata', 'delegate_to_codex_provider_execution_driver_without_starting_codex', 'record_provider_execution_contract_bridge_on_observed_run'],
+            'required_gates' => [
+                'php -l app/Services/Ai/SelfConstruction/AgentCodexRealInvokerPostStartProviderExecutionContractGate.php',
+                'php artisan test tests/Feature/Ai/AtlasAiSelfConstructionAgentCodexRealInvokerPostStartProviderExecutionContractGateTest.php',
+                'php artisan test tests/Feature/Ai/AtlasAiSelfConstructionCommandTest.php --filter=agent_codex_real_invoker_post_start_provider_execution_contract_gate',
+                'php artisan atlas:engineering:knowledge docs-health --json',
+                'php artisan atlas:ai:architecture-validate --json',
+                'git diff --check',
+            ],
+            'preflight_policy' => [
+                'preflight_is_read_only' => true,
+                'post_start_provider_execution_contract_gate_file_creation_allowed_here' => false,
+                'provider_execution_contract_bridge_allowed_by_service' => true,
+                'codex_provider_execution_driver_allowed_by_service' => true,
+                'actual_process_start_allowed_here' => false,
+                'provider_process_start_allowed_here' => false,
+                'adapter_invocation_allowed_here' => false,
+                'adapter_execution_allowed_here' => false,
+                'codex_invocation_allowed_here' => false,
+                'token_spend_allowed_here' => false,
+                'dispatch_allowed_here' => false,
+                'requires_separate_codex_process_start_release_contract' => true,
+            ],
+            'next_required_command' => 'php artisan atlas:ai:self-construction --agent-codex-real-invoker-post-start-provider-execution-contract-gate-implementation-packet --json',
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_codex_real_invoker_post_start_provider_execution_contract_gate_preflight.v1',
+            'status' => (string) $preflight['status'],
+            'mode' => 'read_only_agent_codex_real_invoker_post_start_provider_execution_contract_gate_preflight',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'codex_real_invoker_post_start_provider_execution_contract_gate_preflight' => $preflight,
+            'codex_real_invoker_post_start_provider_execution_contract_gate_preflight_hash' => $this->stableHash($preflight),
+            'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_provider_execution_contract_gate_preflight_does_not_start_codex', 'agent_codex_real_invoker_post_start_provider_execution_contract_gate_preflight_does_not_call_codex', 'agent_codex_real_invoker_post_start_provider_execution_contract_gate_preflight_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_provider_execution_contract_gate_preflight_does_not_dispatch_work'],
+            'human_summary' => $blockingReasons === []
+                ? 'Codex real invoker post-start provider execution contract gate is ready; it prepares the Codex-specific execution contract but still does not start Codex.'
+                : 'Codex real invoker post-start provider execution contract gate is blocked until guard, Codex driver, sandbox binding and ledger prerequisites exist.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentCodexRealInvokerPostStartProviderExecutionContractGateImplementationPacket(array $options = []): array
+    {
+        $preflightPayload = $this->agentCodexRealInvokerPostStartProviderExecutionContractGatePreflight($options);
+        $preflight = (array) data_get($preflightPayload, 'codex_real_invoker_post_start_provider_execution_contract_gate_preflight', []);
+        $preflightHash = (string) data_get($preflightPayload, 'codex_real_invoker_post_start_provider_execution_contract_gate_preflight_hash');
+
+        $tasks = [
+            ['id' => 'T1', 'title' => 'Create Codex real invoker post-start provider execution contract gate', 'type' => 'service', 'allowed_files' => ['app/Services/Ai/SelfConstruction/AgentCodexRealInvokerPostStartProviderExecutionContractGate.php'], 'acceptance' => 'Gate consumes post-start adapter execution guard metadata and delegates to the Codex provider execution driver without starting Codex.'],
+            ['id' => 'T2', 'title' => 'Enforce provider execution contract bridge policy', 'type' => 'service_logic', 'allowed_files' => ['app/Services/Ai/SelfConstruction/AgentCodexRealInvokerPostStartProviderExecutionContractGate.php'], 'acceptance' => 'Gate requires blocking guard result, context hashes, active sandbox binding through the driver and keeps process start release separate.'],
+            ['id' => 'T3', 'title' => 'Add post-start provider execution contract gate tests', 'type' => 'test', 'allowed_files' => ['tests/Feature/Ai/AtlasAiSelfConstructionAgentCodexRealInvokerPostStartProviderExecutionContractGateTest.php'], 'acceptance' => 'Tests prove contract preparation, idempotency, duplicate rejection, missing guard rejection, forbidden dispatch rejection, missing sandbox rejection and rollback.'],
+            ['id' => 'T4', 'title' => 'Expose post-start provider execution contract gate readiness commands', 'type' => 'command_surface', 'allowed_files' => ['app/Services/Ai/SelfConstruction/AtlasSelfConstructionReadinessService.php', 'app/Console/Commands/AtlasAiSelfConstructionCommand.php', 'tests/Feature/Ai/AtlasAiSelfConstructionCommandTest.php'], 'acceptance' => 'Contract, preflight and implementation packet commands remain read-only and declare Codex start, token spend and dispatch disabled.'],
+        ];
+
+        $packet = [
+            'status' => 'ready_for_scoped_codex_real_invoker_post_start_provider_execution_contract_gate_implementation',
+            'implementation_packet_id' => 'AGENT-CODEX-REAL-INVOKER-POST-START-PROVIDER-EXECUTION-CONTRACT-GATE-IMPLEMENTATION-SELF-CONSTRUCTION-0001',
+            'source_preflight_hash' => $preflightHash,
+            'objective' => 'Implement the Codex real invoker post-start provider execution contract gate that bridges the post-start adapter execution guard to the Codex provider execution driver while forbidding process start.',
+            'non_goals' => ['do_not_call_codex_cli_or_codex_app', 'do_not_spawn_processes_or_shell_commands', 'do_not_spend_provider_tokens', 'do_not_start_codex_process', 'do_not_dispatch_work_to_codex', 'do_not_enable_adapter_execution', 'do_not_authorize_process_start_release'],
+            'allowed_files' => data_get($preflight, 'allowed_future_files', []),
+            'forbidden_scopes' => ['actual_codex_process_invocation', 'provider_token_spend', 'process_start', 'provider_process_call', 'adapter_execution_runtime', 'process_start_release', 'dispatch_runtime', 'merge_runtime', 'hot_kernel_runtime', 'policy_mutation'],
+            'tasks' => $tasks,
+            'task_count' => count($tasks),
+            'acceptance_criteria' => ['post_start_provider_execution_contract_gate_requires_adapter_execution_guard_metadata', 'post_start_provider_execution_contract_gate_delegates_to_codex_provider_execution_driver', 'post_start_provider_execution_contract_gate_records_observed_bridge_metadata', 'post_start_provider_execution_contract_gate_does_not_start_codex'],
+            'required_gates' => data_get($preflight, 'required_gates', []),
+            'implementation_policy' => ['packet_is_read_only' => true, 'implementation_allowed_by_packet' => true, 'provider_execution_contract_bridge_allowed_by_service' => true, 'actual_process_start_allowed_by_packet' => false, 'provider_process_start_allowed_by_packet' => false, 'adapter_invocation_allowed_by_packet' => false, 'adapter_execution_allowed_by_packet' => false, 'codex_invocation_allowed_by_packet' => false, 'token_spend_allowed_by_packet' => false, 'dispatch_allowed_by_packet' => false],
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_codex_real_invoker_post_start_provider_execution_contract_gate_implementation_packet.v1',
+            'status' => 'ready_for_scoped_codex_real_invoker_post_start_provider_execution_contract_gate_implementation',
+            'mode' => 'read_only_agent_codex_real_invoker_post_start_provider_execution_contract_gate_implementation_packet',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'codex_real_invoker_post_start_provider_execution_contract_gate_implementation_packet' => $packet,
+            'codex_real_invoker_post_start_provider_execution_contract_gate_implementation_packet_hash' => $this->stableHash($packet),
+            'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_provider_execution_contract_gate_implementation_packet_does_not_start_codex', 'agent_codex_real_invoker_post_start_provider_execution_contract_gate_implementation_packet_does_not_call_codex', 'agent_codex_real_invoker_post_start_provider_execution_contract_gate_implementation_packet_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_provider_execution_contract_gate_implementation_packet_does_not_dispatch_work'],
+            'human_summary' => 'Codex real invoker post-start provider execution contract gate implementation packet is ready; it prepares the Codex-specific contract bridge but does not start Codex.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentCodexRealInvokerPostStartProcessStartReleaseGateContractTemplate(array $options = []): array
+    {
+        $providerExecutionPayload = $this->agentCodexRealInvokerPostStartProviderExecutionContractGatePreflight($options);
+        $providerExecution = (array) data_get($providerExecutionPayload, 'codex_real_invoker_post_start_provider_execution_contract_gate_preflight', []);
+        $releasePayload = $this->agentCodexProcessStartReleasePreflight($options);
+        $release = (array) data_get($releasePayload, 'codex_process_start_release_preflight', []);
+
+        $template = [
+            'status' => 'codex_real_invoker_post_start_process_start_release_gate_contract_template_ready',
+            'contract_id' => 'CODEX-REAL-INVOKER-POST-START-PROCESS-START-RELEASE-GATE-'.strtoupper(substr($this->stableHash([
+                'provider_execution_contract_gate_preflight_hash' => data_get($providerExecutionPayload, 'codex_real_invoker_post_start_provider_execution_contract_gate_preflight_hash'),
+                'codex_process_start_release_preflight_hash' => data_get($releasePayload, 'codex_process_start_release_preflight_hash'),
+                'provider' => 'codex',
+                'adapter' => 'codex',
+            ]), 0, 24)),
+            'source_codex_real_invoker_post_start_provider_execution_contract_gate_status' => data_get($providerExecutionPayload, 'status'),
+            'source_codex_process_start_release_status' => data_get($releasePayload, 'status'),
+            'provider' => 'codex',
+            'adapter' => 'codex',
+            'contract' => [
+                'service' => 'App\\Services\\Ai\\SelfConstruction\\AgentCodexRealInvokerPostStartProcessStartReleaseGate',
+                'method' => 'authorizePostStartProcessStartRelease',
+                'input_contract' => ['run_key', 'post_start_process_start_release_gate_id', 'process_start_release_id', 'provider_execution_contract_gate_id', 'codex_execution_id', 'adapter_execution_guard_gate_id', 'execution_guard_id', 'adapter_invocation_boundary_gate_id', 'adapter_invocation_id', 'provider_start_driver_gate_id', 'provider_start_attempt_id', 'signed_dispatch_receipt_hash', 'operator_release_receipt_hash', 'codex_execution_contract_hash', 'actor', 'session', 'reason'],
+                'result_contract' => ['post_start_process_start_release_gate_id', 'process_start_release_id', 'provider_execution_contract_gate_id', 'codex_execution_id', 'process_start_release_authorized', 'supervised_start_executor_required', 'actual_process_start_allowed', 'dispatch_allowed'],
+            ],
+            'real_invoker_post_start_process_start_release_gate_must' => [
+                'require_codex_real_invoker_post_start_provider_execution_contract_metadata',
+                'require_provider_execution_contract_flags_blocking_start_token_dispatch',
+                'delegate_to_codex_process_start_release_gate',
+                'record_process_start_release_bridge_on_observed_post_start_run',
+                'require_supervised_start_executor_as_separate_later_contract',
+            ],
+            'real_invoker_post_start_process_start_release_gate_must_not' => [
+                'call_codex_cli_or_codex_app',
+                'spawn_process_or_shell_command',
+                'spend_provider_tokens',
+                'start_codex_process',
+                'dispatch_work_to_codex',
+                'enable_adapter_execution',
+                'run_supervised_start_executor',
+                'mark_observed_run_running_or_terminal',
+            ],
+            'implementation_files_allowed_future' => [
+                'app/Services/Ai/SelfConstruction/AgentCodexRealInvokerPostStartProcessStartReleaseGate.php',
+                'tests/Feature/Ai/AtlasAiSelfConstructionAgentCodexRealInvokerPostStartProcessStartReleaseGateTest.php',
+            ],
+            'contract_policy' => [
+                'template_is_read_only' => true,
+                'post_start_process_start_release_bridge_allowed_by_service' => true,
+                'codex_process_start_release_gate_allowed_by_service' => true,
+                'actual_process_start_allowed_here' => false,
+                'provider_process_start_allowed_here' => false,
+                'adapter_invocation_allowed_here' => false,
+                'adapter_execution_allowed_here' => false,
+                'codex_invocation_allowed_here' => false,
+                'token_spend_allowed_here' => false,
+                'dispatch_allowed_here' => false,
+                'requires_separate_supervised_start_executor_contract' => true,
+            ],
+            'source_post_start_provider_execution_contract_gate_preflight' => $providerExecution,
+            'source_codex_process_start_release_preflight' => $release,
+            'next_required_command' => 'php artisan atlas:ai:self-construction --agent-codex-real-invoker-post-start-process-start-release-gate-preflight --json',
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_codex_real_invoker_post_start_process_start_release_gate_contract_template.v1',
+            'status' => 'codex_real_invoker_post_start_process_start_release_gate_contract_template_ready',
+            'mode' => 'read_only_agent_codex_real_invoker_post_start_process_start_release_gate_contract_template',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'codex_real_invoker_post_start_process_start_release_gate_contract_template' => $template,
+            'codex_real_invoker_post_start_process_start_release_gate_contract_template_hash' => $this->stableHash($template),
+            'source_post_start_provider_execution_contract_gate_preflight' => $providerExecution,
+            'source_codex_process_start_release_preflight' => $release,
+            'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_process_start_release_gate_contract_template_does_not_start_codex', 'agent_codex_real_invoker_post_start_process_start_release_gate_contract_template_does_not_call_codex', 'agent_codex_real_invoker_post_start_process_start_release_gate_contract_template_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_process_start_release_gate_contract_template_does_not_dispatch_work'],
+            'human_summary' => 'Codex real invoker post-start process start release gate template bridges the post-start provider execution contract to the Codex process start release gate without starting Codex.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentCodexRealInvokerPostStartProcessStartReleaseGatePreflight(array $options = []): array
+    {
+        $contractPayload = $this->agentCodexRealInvokerPostStartProcessStartReleaseGateContractTemplate($options);
+        $contract = (array) data_get($contractPayload, 'codex_real_invoker_post_start_process_start_release_gate_contract_template', []);
+        $gateReady = class_exists(AgentCodexRealInvokerPostStartProcessStartReleaseGate::class);
+        $providerExecutionGateReady = class_exists(AgentCodexRealInvokerPostStartProviderExecutionContractGate::class);
+        $releaseGateReady = class_exists(AgentCodexProcessStartReleaseGate::class);
+        $runsTableReady = Schema::hasTable('atlas_self_construction_agent_runs');
+        $ledgerReady = Schema::hasTable('atlas_ledger_events');
+
+        $blockingReasons = array_values(array_filter([
+            $gateReady ? null : 'codex_real_invoker_post_start_process_start_release_gate_missing',
+            $providerExecutionGateReady ? null : 'codex_real_invoker_post_start_provider_execution_contract_gate_missing',
+            $releaseGateReady ? null : 'codex_process_start_release_gate_missing',
+            $runsTableReady ? null : 'agent_runs_table_missing',
+            $ledgerReady ? null : 'ledger_table_missing',
+        ]));
+
+        $preflight = [
+            'status' => $blockingReasons === [] ? 'codex_real_invoker_post_start_process_start_release_gate_ready' : 'blocked',
+            'contract_template_hash' => data_get($contractPayload, 'codex_real_invoker_post_start_process_start_release_gate_contract_template_hash'),
+            'source_codex_real_invoker_post_start_provider_execution_contract_gate_status' => data_get($contract, 'source_codex_real_invoker_post_start_provider_execution_contract_gate_status'),
+            'source_codex_process_start_release_status' => data_get($contract, 'source_codex_process_start_release_status'),
+            'provider' => 'codex',
+            'adapter' => 'codex',
+            'storage' => [
+                'codex_real_invoker_post_start_process_start_release_gate_ready' => $gateReady,
+                'codex_real_invoker_post_start_provider_execution_contract_gate_ready' => $providerExecutionGateReady,
+                'codex_process_start_release_gate_ready' => $releaseGateReady,
+                'agent_runs_table_ready' => $runsTableReady,
+                'ledger_table_ready' => $ledgerReady,
+            ],
+            'blocking_count' => count($blockingReasons),
+            'blocking_reasons' => $blockingReasons,
+            'post_start_process_start_release_gate_ready_for_future_use' => $blockingReasons === [],
+            'allowed_future_files' => data_get($contract, 'implementation_files_allowed_future', []),
+            'required_first_changes' => ['create_codex_real_invoker_post_start_process_start_release_gate', 'require_post_start_provider_execution_contract_metadata', 'delegate_to_codex_process_start_release_gate_without_starting_codex', 'record_process_start_release_bridge_on_observed_run'],
+            'required_gates' => [
+                'php -l app/Services/Ai/SelfConstruction/AgentCodexRealInvokerPostStartProcessStartReleaseGate.php',
+                'php artisan test tests/Feature/Ai/AtlasAiSelfConstructionAgentCodexRealInvokerPostStartProcessStartReleaseGateTest.php',
+                'php artisan test tests/Feature/Ai/AtlasAiSelfConstructionCommandTest.php --filter=agent_codex_real_invoker_post_start_process_start_release_gate',
+                'php artisan atlas:engineering:knowledge docs-health --json',
+                'php artisan atlas:ai:architecture-validate --json',
+                'git diff --check',
+            ],
+            'preflight_policy' => [
+                'preflight_is_read_only' => true,
+                'post_start_process_start_release_gate_file_creation_allowed_here' => false,
+                'post_start_process_start_release_bridge_allowed_by_service' => true,
+                'codex_process_start_release_gate_allowed_by_service' => true,
+                'actual_process_start_allowed_here' => false,
+                'provider_process_start_allowed_here' => false,
+                'adapter_invocation_allowed_here' => false,
+                'adapter_execution_allowed_here' => false,
+                'codex_invocation_allowed_here' => false,
+                'token_spend_allowed_here' => false,
+                'dispatch_allowed_here' => false,
+                'requires_separate_supervised_start_executor_contract' => true,
+            ],
+            'next_required_command' => 'php artisan atlas:ai:self-construction --agent-codex-real-invoker-post-start-process-start-release-gate-implementation-packet --json',
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_codex_real_invoker_post_start_process_start_release_gate_preflight.v1',
+            'status' => (string) $preflight['status'],
+            'mode' => 'read_only_agent_codex_real_invoker_post_start_process_start_release_gate_preflight',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'codex_real_invoker_post_start_process_start_release_gate_preflight' => $preflight,
+            'codex_real_invoker_post_start_process_start_release_gate_preflight_hash' => $this->stableHash($preflight),
+            'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_process_start_release_gate_preflight_does_not_start_codex', 'agent_codex_real_invoker_post_start_process_start_release_gate_preflight_does_not_call_codex', 'agent_codex_real_invoker_post_start_process_start_release_gate_preflight_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_process_start_release_gate_preflight_does_not_dispatch_work'],
+            'human_summary' => $blockingReasons === []
+                ? 'Codex real invoker post-start process start release gate is ready; it authorizes only the release bridge and still requires a separate supervised start executor.'
+                : 'Codex real invoker post-start process start release gate is blocked until provider execution contract, release gate and ledger prerequisites exist.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentCodexRealInvokerPostStartProcessStartReleaseGateImplementationPacket(array $options = []): array
+    {
+        $preflightPayload = $this->agentCodexRealInvokerPostStartProcessStartReleaseGatePreflight($options);
+        $preflight = (array) data_get($preflightPayload, 'codex_real_invoker_post_start_process_start_release_gate_preflight', []);
+        $preflightHash = (string) data_get($preflightPayload, 'codex_real_invoker_post_start_process_start_release_gate_preflight_hash');
+
+        $tasks = [
+            ['id' => 'T1', 'title' => 'Create Codex real invoker post-start process start release gate', 'type' => 'service', 'allowed_files' => ['app/Services/Ai/SelfConstruction/AgentCodexRealInvokerPostStartProcessStartReleaseGate.php'], 'acceptance' => 'Gate consumes post-start provider execution contract metadata and delegates to the Codex process start release gate without starting Codex.'],
+            ['id' => 'T2', 'title' => 'Enforce post-start release bridge policy', 'type' => 'service_logic', 'allowed_files' => ['app/Services/Ai/SelfConstruction/AgentCodexRealInvokerPostStartProcessStartReleaseGate.php'], 'acceptance' => 'Gate requires blocking provider execution flags, matching hashes and a separate supervised start executor before any real process start.'],
+            ['id' => 'T3', 'title' => 'Add post-start process start release gate tests', 'type' => 'test', 'allowed_files' => ['tests/Feature/Ai/AtlasAiSelfConstructionAgentCodexRealInvokerPostStartProcessStartReleaseGateTest.php'], 'acceptance' => 'Tests prove release authorization, idempotency, duplicate rejection, missing contract rejection, forbidden dispatch rejection and rollback.'],
+            ['id' => 'T4', 'title' => 'Expose post-start process start release gate readiness commands', 'type' => 'command_surface', 'allowed_files' => ['app/Services/Ai/SelfConstruction/AtlasSelfConstructionReadinessService.php', 'app/Console/Commands/AtlasAiSelfConstructionCommand.php', 'tests/Feature/Ai/AtlasAiSelfConstructionCommandTest.php'], 'acceptance' => 'Contract, preflight and implementation packet commands remain read-only and declare supervised start executor still separate.'],
+        ];
+
+        $packet = [
+            'status' => 'ready_for_scoped_codex_real_invoker_post_start_process_start_release_gate_implementation',
+            'implementation_packet_id' => 'AGENT-CODEX-REAL-INVOKER-POST-START-PROCESS-START-RELEASE-GATE-IMPLEMENTATION-SELF-CONSTRUCTION-0001',
+            'source_preflight_hash' => $preflightHash,
+            'objective' => 'Implement the Codex real invoker post-start process start release gate that bridges the post-start provider execution contract to the Codex process start release gate while forbidding real process start.',
+            'non_goals' => ['do_not_call_codex_cli_or_codex_app', 'do_not_spawn_processes_or_shell_commands', 'do_not_spend_provider_tokens', 'do_not_start_codex_process', 'do_not_dispatch_work_to_codex', 'do_not_enable_adapter_execution', 'do_not_run_supervised_start_executor'],
+            'allowed_files' => data_get($preflight, 'allowed_future_files', []),
+            'forbidden_scopes' => ['actual_codex_process_invocation', 'provider_token_spend', 'process_start', 'provider_process_call', 'adapter_execution_runtime', 'supervised_start_executor_runtime', 'dispatch_runtime', 'merge_runtime', 'hot_kernel_runtime', 'policy_mutation'],
+            'tasks' => $tasks,
+            'task_count' => count($tasks),
+            'acceptance_criteria' => ['post_start_process_start_release_gate_requires_provider_execution_contract_metadata', 'post_start_process_start_release_gate_delegates_to_codex_process_start_release_gate', 'post_start_process_start_release_gate_records_observed_bridge_metadata', 'post_start_process_start_release_gate_does_not_start_codex'],
+            'required_gates' => data_get($preflight, 'required_gates', []),
+            'implementation_policy' => ['packet_is_read_only' => true, 'implementation_allowed_by_packet' => true, 'post_start_process_start_release_bridge_allowed_by_service' => true, 'actual_process_start_allowed_by_packet' => false, 'provider_process_start_allowed_by_packet' => false, 'adapter_invocation_allowed_by_packet' => false, 'adapter_execution_allowed_by_packet' => false, 'codex_invocation_allowed_by_packet' => false, 'token_spend_allowed_by_packet' => false, 'dispatch_allowed_by_packet' => false],
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_codex_real_invoker_post_start_process_start_release_gate_implementation_packet.v1',
+            'status' => 'ready_for_scoped_codex_real_invoker_post_start_process_start_release_gate_implementation',
+            'mode' => 'read_only_agent_codex_real_invoker_post_start_process_start_release_gate_implementation_packet',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'codex_real_invoker_post_start_process_start_release_gate_implementation_packet' => $packet,
+            'codex_real_invoker_post_start_process_start_release_gate_implementation_packet_hash' => $this->stableHash($packet),
+            'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_process_start_release_gate_implementation_packet_does_not_start_codex', 'agent_codex_real_invoker_post_start_process_start_release_gate_implementation_packet_does_not_call_codex', 'agent_codex_real_invoker_post_start_process_start_release_gate_implementation_packet_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_process_start_release_gate_implementation_packet_does_not_dispatch_work'],
+            'human_summary' => 'Codex real invoker post-start process start release gate implementation packet is ready; it authorizes only the release bridge and does not run the supervised start executor.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
     public function agentDispatchExecutorAdapterInvocationBoundaryContractTemplate(array $options = []): array
     {
         $providerStartPayload = $this->agentDispatchExecutorProviderStartDriverPreflight($options);
@@ -48777,11 +55719,11 @@ final class AtlasSelfConstructionReadinessService
     {
         $contractPayload = $this->agentDispatchExecutorAdapterInvocationBoundaryContractTemplate($options);
         $contract = (array) data_get($contractPayload, 'dispatch_executor_adapter_invocation_boundary_contract_template', []);
-        $boundaryClass = \App\Services\Ai\SelfConstruction\AgentDispatchExecutorAdapterInvocationBoundary::class;
+        $boundaryClass = AgentDispatchExecutorAdapterInvocationBoundary::class;
         $boundaryReady = class_exists($boundaryClass);
-        $runsTableReady = \Illuminate\Support\Facades\Schema::hasTable('atlas_self_construction_agent_runs');
-        $heartbeatTableReady = \Illuminate\Support\Facades\Schema::hasTable('atlas_self_construction_agent_heartbeats');
-        $ledgerReady = \Illuminate\Support\Facades\Schema::hasTable('atlas_ledger_events');
+        $runsTableReady = Schema::hasTable('atlas_self_construction_agent_runs');
+        $heartbeatTableReady = Schema::hasTable('atlas_self_construction_agent_heartbeats');
+        $ledgerReady = Schema::hasTable('atlas_ledger_events');
 
         $blockingReasons = array_values(array_filter([
             $boundaryReady ? null : 'adapter_invocation_boundary_missing',
@@ -49567,8 +56509,8 @@ final class AtlasSelfConstructionReadinessService
         $targetTable = (string) data_get($template, 'persistence_target.table');
 
         $migrationExists = file_exists(database_path('migrations/2026_05_12_020000_create_atlas_self_construction_agent_dispatch_executor_release_authorizations_table.php'));
-        $modelExists = class_exists(\App\Models\AtlasSelfConstructionAgentDispatchExecutorReleaseAuthorization::class);
-        $schemaExists = $targetTable !== '' && \Illuminate\Support\Facades\Schema::hasTable($targetTable);
+        $modelExists = class_exists(AtlasSelfConstructionAgentDispatchExecutorReleaseAuthorization::class);
+        $schemaExists = $targetTable !== '' && Schema::hasTable($targetTable);
 
         $blockingReasons = array_values(array_filter([
             $migrationExists ? null : 'authorization_persistence_migration_missing',
@@ -49965,18 +56907,18 @@ final class AtlasSelfConstructionReadinessService
      */
     public function agentDispatchExecutorReleaseAuthorizationPersistenceStatus(array $options = []): array
     {
-        $authorizationModel = \App\Models\AtlasSelfConstructionAgentDispatchExecutorReleaseAuthorization::class;
-        $writerService = \App\Services\Ai\SelfConstruction\AgentDispatchExecutorReleaseAuthorizationPersistenceWriter::class;
+        $authorizationModel = AtlasSelfConstructionAgentDispatchExecutorReleaseAuthorization::class;
+        $writerService = AgentDispatchExecutorReleaseAuthorizationPersistenceWriter::class;
         $authorizationTable = 'atlas_self_construction_agent_dispatch_executor_release_authorizations';
         $receiptHash = strtolower(trim((string) ($options['receipt_hash'] ?? '')));
         $receiptHashIsValid = preg_match('/^[a-f0-9]{64}$/', $receiptHash) === 1;
 
         $storage = [
             'authorization_table' => $authorizationTable,
-            'authorization_table_ready' => \Illuminate\Support\Facades\Schema::hasTable($authorizationTable),
+            'authorization_table_ready' => Schema::hasTable($authorizationTable),
             'authorization_model_ready' => class_exists($authorizationModel),
             'persistence_writer_ready' => class_exists($writerService),
-            'ledger_table_ready' => \Illuminate\Support\Facades\Schema::hasTable('atlas_ledger_events'),
+            'ledger_table_ready' => Schema::hasTable('atlas_ledger_events'),
             'receipt_hash_filter' => $receiptHashIsValid ? $receiptHash : null,
             'receipt_hash_filter_valid' => $receiptHash === '' || $receiptHashIsValid,
         ];
@@ -49985,7 +56927,7 @@ final class AtlasSelfConstructionReadinessService
         $persistedAuthorizationCount = 0;
 
         if ($storage['authorization_table_ready'] && $storage['authorization_model_ready']) {
-            /** @var class-string<\Illuminate\Database\Eloquent\Model> $authorizationModel */
+            /** @var class-string<Model> $authorizationModel */
             $persistedAuthorizationCount = $authorizationModel::query()->count();
             $query = $authorizationModel::query()->latest('created_at');
 
@@ -50017,7 +56959,7 @@ final class AtlasSelfConstructionReadinessService
         $selectedStatus = (string) data_get($selectedAuthorization, 'status', '');
         $selectedDecision = (string) data_get($selectedAuthorization, 'decision', '');
         $selectedExpiresAt = (string) data_get($selectedAuthorization, 'expires_at', '');
-        $selectedNotExpired = $selectedExpiresAt !== '' && now()->lessThan(\Carbon\CarbonImmutable::parse($selectedExpiresAt));
+        $selectedNotExpired = $selectedExpiresAt !== '' && now()->lessThan(CarbonImmutable::parse($selectedExpiresAt));
         $selectedUsableForFutureReleasePreflight = $selectedAuthorization !== null
             && $selectedStatus === 'persisted_pending_executor_release'
             && $selectedDecision === 'approve_release_once'
@@ -50388,33 +57330,6 @@ final class AtlasSelfConstructionReadinessService
                 'git diff --check',
             ],
         ];
-        $checkpointReceipt = [
-            'id' => 'CHECKPOINT-RECEIPT-SELF-CONSTRUCTION-PHASE-5',
-            'receipt_type' => 'read_only_long_running_checkpoint',
-            'source_digest_id' => $digest['id'],
-            'source_phase' => $digest['current_phase'],
-            'next_action_id' => $digest['next_action_id'],
-            'blocker_count' => $digest['blocker_count'],
-            'operator_checklist_count' => $digest['operator_checklist_count'],
-            'required_next_commands' => $digest['required_next_commands'],
-            'lineage' => [
-                'phase_ledger_hash' => data_get($phaseLedger, 'phase_ledger_hash'),
-                'surface_matrix_hash' => data_get($surfaceMatrix, 'matrix_hash'),
-                'promotion_blocker_hash' => data_get($promotionBlockers, 'blocker_hash'),
-                'operator_checklist_hash' => data_get($operatorChecklist, 'checklist_hash'),
-            ],
-            'authority' => [
-                'execution_allowed' => false,
-                'promotion_allowed' => false,
-                'completion_allowed' => false,
-                'signature_status' => 'unsigned_checkpoint_only',
-            ],
-            'audit_trail' => [
-                'append_only_required' => true,
-                'ledger_write_allowed_here' => false,
-                'resume_requires_fresh_git_status' => true,
-            ],
-        ];
 
         return [
             'schema_version' => 'atlas.self_construction_readiness_digest.v1',
@@ -50425,13 +57340,10 @@ final class AtlasSelfConstructionReadinessService
             'completion_allowed' => false,
             'digest' => $digest,
             'digest_hash' => $this->stableHash($digest),
-            'checkpoint_receipt' => $checkpointReceipt,
-            'checkpoint_receipt_hash' => $this->stableHash($checkpointReceipt),
             'non_execution_guarantees' => [
                 'readiness_digest_does_not_edit_hot_files',
                 'readiness_digest_does_not_apply_patch',
                 'readiness_digest_does_not_sign_receipt',
-                'readiness_digest_checkpoint_receipt_does_not_write_ledger',
                 'readiness_digest_does_not_enable_execution',
             ],
             'human_summary' => 'Readiness digest is ready: compact handoff state is available without execution, signing or hot-file edits.',
@@ -50599,7 +57511,6 @@ final class AtlasSelfConstructionReadinessService
             'next_action_id' => data_get($digest, 'digest.next_action_id'),
             'manifest_hash' => data_get($manifest, 'manifest_hash'),
             'digest_hash' => data_get($digest, 'digest_hash'),
-            'checkpoint_receipt_hash' => data_get($digest, 'checkpoint_receipt_hash'),
             'must_run_first' => [
                 'git status --short',
                 'git diff --stat',
@@ -50951,8 +57862,8 @@ final class AtlasSelfConstructionReadinessService
 
     private function agentControlPlaneRuntimeSchemaReady(): bool
     {
-        return \Illuminate\Support\Facades\Schema::hasTable('atlas_self_construction_agent_runs')
-            && \Illuminate\Support\Facades\Schema::hasTable('atlas_self_construction_agent_heartbeats');
+        return Schema::hasTable('atlas_self_construction_agent_runs')
+            && Schema::hasTable('atlas_self_construction_agent_heartbeats');
     }
 
     /**
@@ -50982,7 +57893,7 @@ final class AtlasSelfConstructionReadinessService
         $packetId = (string) data_get($reservation, 'packet_id');
         $runKey = 'SELF-CONSTRUCTION-RUN-'.strtoupper(substr(hash('sha256', $reservationId.'|'.$packetId), 0, 24));
 
-        $run = \App\Models\AtlasSelfConstructionAgentRun::query()->updateOrCreate(
+        $run = AtlasSelfConstructionAgentRun::query()->updateOrCreate(
             ['run_key' => $runKey],
             [
                 'packet_id' => $packetId,

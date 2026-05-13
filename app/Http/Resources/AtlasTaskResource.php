@@ -67,9 +67,34 @@ class AtlasTaskResource extends JsonResource
             'attempt_count' => $this->attempt_count,
             'recovery_count' => $this->recovery_count,
             'metadata' => Metadata::forResponse($this->metadata),
+            'safety' => $this->safetySummary(),
             'created_at' => $this->created_at?->toJSON(),
             'updated_at' => $this->updated_at?->toJSON(),
             'deleted_at' => $this->deleted_at?->toJSON(),
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function safetySummary(): array
+    {
+        $metadata = is_array($this->metadata) ? $this->metadata : [];
+
+        return [
+            'schema_version' => 'atlas.task_orchestration.task_safety.v1',
+            'read_model_only' => true,
+            'provider_dispatch_allowed' => false,
+            'runtime_execution_allowed' => false,
+            'policy_mutation_allowed' => false,
+            'auto_complete_allowed' => false,
+            'source_capture_linked' => $this->source_capture_id !== null,
+            'has_engineering_contract' => data_get($metadata, 'engineering_contract') !== null,
+            'has_latest_engineering_run' => data_get($metadata, 'latest_engineering_run') !== null,
+            'has_schedule' => $this->planned_for_date !== null || $this->planned_start_at !== null || $this->due_at !== null,
+            'status' => $this->status,
+            'planning_status' => $this->planning_status,
+            'priority' => $this->priority,
         ];
     }
 }

@@ -66,6 +66,9 @@ For API/app captures, this is persisted as `captures.metadata.cognitive_quaranti
 with source lineage and a content hash. The capture can feed review and curation,
 but cannot enter provider context, memory registry, embeddings or constellation
 surfaces until an explicit promotion path changes those flags.
+Duplicate capture ingest by `client_id` must remain idempotent and emit
+`atlas.capture.ingest_replay_receipt.v1` audit evidence with content/client
+hashes, quarantine flags and `raw_content_exposed=false`.
 
 Semantic curation proposals inherit that quarantine as
 `atlas.capture.curation_proposal_quarantine.v1`. A proposal may preserve the raw
@@ -89,6 +92,30 @@ reject a delta; promotion into Memory Registry remains a separate operation and
 must fail closed unless the delta is accepted or an explicit force override is
 used by a governed operator path.
 
+Memory Delta API payloads must expose `safety` as
+`atlas.memory_delta.safety.v1`. Pending/rejected deltas are not memory eligible,
+accepted deltas are promotion candidates only, and Open Brain/context eligibility
+stays closed until a governed promotion creates a Memory Registry entry. Safety
+metadata may include hashes/counts, not raw review reasons.
+
+Memory Registry API payloads must expose `safety` as
+`atlas.memory_entry.safety.v1`, derived from status, privacy class,
+`external_ai_allowed`, redaction state and content hash. This is a response
+contract for HTTP and CLI consumers; canonical provider filtering still stays in
+the Memory Privacy service before recall or projection.
+
+Verbatim Store API payloads must expose `safety` as
+`atlas.verbatim_memory.safety.v1`, including whether exact local text was
+requested via `include_verbatim`, provider/Open Brain eligibility derived from
+redaction and `external_ai_allowed`, plus content/redacted hashes. This lets
+review UIs distinguish local exact evidence from provider-safe redacted context.
+The same safety contract is emitted by `atlas:memory:verbatim --json`.
+
+Open Brain context pack exports must expose `safety` as
+`atlas.open_brain.context_pack_safety.v1`, declaring provider-safe-only export,
+raw-content exposure/persistence closed, audit persistence state and safe counts
+for refs/recall/registry/verbatim/semantic inputs.
+
 Accepting a curation proposal can also promote exact reviewed local text to
 Verbatim Store with `promote_to_verbatim=true`. That path must write
 `atlas.verbatim_memory.promotion_receipt.v1`, link proposal, capture, semantic
@@ -98,7 +125,10 @@ operator explicitly overrides the provider-safe redaction policy.
 Capture and Inbox responses expose `review_workflow` as the UI contract for this
 stage. It lists only IDs, receipt summaries and action descriptors for proposal
 ratification, Memory Registry promotion, Verbatim Store promotion and memory
-delta review. It must not include raw capture evidence.
+delta review. It also exposes `review_workflow.safety` and
+`SemanticCurationProposalResource.safety` from cognitive quarantine so UI/API
+consumers can fail closed for provider export, Open Brain context and raw
+content exposure. It must not include raw capture evidence.
 
 Promotion is earned by evidence, scope, privacy, utility, outcome and review.
 Delete/archive/manual cleanup are helpful hygiene, but they are not the primary
@@ -210,6 +240,17 @@ failures return stable JSON errors and must not become SQL/runtime exceptions.
 CLI JSON failures should use exit code `1` with stable `{ok:false,error}`
 payloads for missing files, unsafe paths, missing entities, invalid filters and
 ambiguous dry-run/write modes.
+
+CLI JSON success payloads for `atlas:memory:add`, `atlas:memory:list` and
+`atlas:memory:privacy review` carry `atlas.memory_entry.safety.v1`.
+`atlas:memory:seed-core --json` carries `atlas.memory_entry.safety.v1` for each
+seeded core memory.
+`atlas:memory:verbatim` carries `atlas.verbatim_memory.safety.v1`.
+`/ai/memory/review-queue` and `atlas:memory:review-queue --json` carry safety
+on memory/verbatim review items and relation memory summaries.
+`/ai/memory/relations` and `atlas:memory:relations --json` carry safety on
+source/target memory summaries so conflict/duplicate review never requires raw
+content exposure.
 
 ## AtlasVault Boundary
 
