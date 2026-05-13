@@ -501,6 +501,12 @@ final class AtlasAiVoiceRealtimeApiTest extends TestCase
             ->assertJsonPath('callback_payload_schemas.transcript_final.required.2', 'transcript')
             ->assertJsonPath('callback_payload_schemas.tts_synthesized.prohibited.0', 'response_text')
             ->assertJsonPath('callback_payload_schemas.barge_in.optional.2', 'played_duration_ms')
+            ->assertJsonPath('callback_payload_schemas.runtime_failed.required.2', 'error_message_hash')
+            ->assertJsonPath('callback_payload_schemas.runtime_failed.prohibited.4', 'error_message')
+            ->assertJsonPath('enterprise_mobile_loop.schema_version', 'atlas.voice_realtime.enterprise_mobile_loop.v1')
+            ->assertJsonPath('enterprise_mobile_loop.promotion_required_events.4', LedgerEventType::VoiceTurnInterrupted->value)
+            ->assertJsonPath('enterprise_mobile_loop.promotion_required_events.5', LedgerEventType::VoiceRuntimeFailed->value)
+            ->assertJsonPath('enterprise_mobile_loop.privacy_invariants.runtime_errors_require_error_message_hash', true)
             ->assertJsonPath('callback_payload_schemas.provider_health_degraded.required.2', 'provider')
             ->assertJsonPath('production_loop_smoke.schema_version', 'atlas.voice_realtime.production_loop_smoke_contract.v1')
             ->assertJsonPath('production_loop_smoke.status', 'available_without_daemon')
@@ -1695,6 +1701,11 @@ final class AtlasAiVoiceRealtimeApiTest extends TestCase
             'failure_code' => 'raw_error_message_rejected',
             'error_message' => 'provider timed out before first audio',
         ], $this->headers)->assertUnprocessable();
+
+        $this->postJson('/ai/voice/runtime/failed', $base + [
+            'failure_code' => 'missing_redacted_error_hash',
+            'error_class' => 'AtlasVoiceMissingHash',
+        ], $this->headers)->assertUnprocessable();
     }
 
     public function test_voice_runtime_callbacks_fail_closed_without_accepted_kernel_turn(): void
@@ -1733,6 +1744,7 @@ final class AtlasAiVoiceRealtimeApiTest extends TestCase
         $this->assertSame('kernel_turn_not_accepted', data_get($failure->payload, 'voice.failure_code'));
         $this->assertSame(LedgerEventType::VoiceTurnSynthesized->value, data_get($failure->payload, 'voice.rejected_callback_event_type'));
         $this->assertTrue(data_get($failure->payload, 'voice.requires_voice_turn_decided'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) data_get($failure->payload, 'voice.error_message_hash'));
 
         $this->postJson('/ai/voice/runtime/failed', [
             'session_id' => 'voice_session_orphan_runtime_failed',
@@ -1741,6 +1753,7 @@ final class AtlasAiVoiceRealtimeApiTest extends TestCase
             'turn_id' => 'voice_turn_orphan_runtime_failed',
             'runtime' => 'livekit_agents_sdk',
             'failure_code' => 'sdk_reported_without_kernel_turn',
+            'error_message_hash' => hash('sha256', 'sdk reported without kernel turn'),
         ], $this->headers)
             ->assertOk()
             ->assertJsonPath('status', 'callback_rejected_missing_kernel_turn')
@@ -1763,6 +1776,7 @@ final class AtlasAiVoiceRealtimeApiTest extends TestCase
 
         $this->assertSame('kernel_turn_not_accepted', data_get($orphanRuntimeFailure->payload, 'voice.failure_code'));
         $this->assertSame(LedgerEventType::VoiceRuntimeFailed->value, data_get($orphanRuntimeFailure->payload, 'voice.rejected_callback_event_type'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) data_get($orphanRuntimeFailure->payload, 'voice.error_message_hash'));
     }
 
     public function test_voice_runtime_callbacks_fail_closed_when_payload_contract_is_invalid(): void
@@ -1898,6 +1912,140 @@ final class AtlasAiVoiceRealtimeApiTest extends TestCase
             ->assertJsonPath('product_loop_check.auto_promotion_allowed', false)
             ->assertJsonPath('product_loop_check.daemon_started', false)
             ->assertJsonPath('product_loop_check.required_gates.4', 'sdk_probe_import_safe')
+            ->assertJsonPath('enterprise_mobile_loop.schema_version', 'atlas.voice_realtime.enterprise_mobile_loop.v1')
+            ->assertJsonPath('enterprise_mobile_loop.status', 'needs_promotion_evidence')
+            ->assertJsonPath('enterprise_mobile_loop.gates.healthy_loop_ready', true)
+            ->assertJsonPath('enterprise_mobile_loop.gates.interruption_drill_recorded', false)
+            ->assertJsonPath('enterprise_mobile_loop.gates.redacted_failure_drill_recorded', false)
+            ->assertJsonPath('enterprise_mobile_loop.missing_promotion_events.0', LedgerEventType::VoiceTurnInterrupted->value)
+            ->assertJsonPath('review_signal.recommended_action', 'voice_readiness_can_enter_rivals_voice');
+    }
+
+    public function test_voice_readiness_reports_enterprise_mobile_loop_promotion_evidence(): void
+    {
+        $base = [
+            'session_id' => 'voice_session_enterprise_ready',
+            'envelope_id' => 'env_voice_enterprise_ready',
+            'receipt_id' => 'receipt_voice_enterprise_ready',
+            'turn_id' => 'voice_turn_enterprise_ready',
+        ];
+
+        $this->postJson('/ai/voice/session/start', $base, $this->headers)->assertOk();
+        $turn = $this->postJson('/ai/voice/turn', $base + [
+            'audio_hash' => hash('sha256', 'enterprise-ready-audio'),
+            'transcript' => 'teste enterprise readiness',
+            'turn_to_first_audio_ms' => 280,
+        ], $this->headers)->assertOk();
+        $envelopeId = (string) $turn->json('turn.operation_envelope.envelope_id');
+        $receiptId = (string) $turn->json('turn.decision_receipt.receipt_id');
+
+        $runtimeBase = $base + [
+            'envelope_id' => $envelopeId,
+            'receipt_id' => $receiptId,
+            'runtime' => 'livekit_agents_sdk',
+        ];
+        $this->postJson('/ai/voice/turn/synthesized', $runtimeBase + [
+            'response_text_hash' => hash('sha256', 'ok enterprise'),
+            'latency_ms' => 40,
+        ], $this->headers)->assertOk();
+        $this->postJson('/ai/voice/turn/played', $runtimeBase + [
+            'played_duration_ms' => 500,
+            'latency_ms' => 20,
+        ], $this->headers)->assertOk();
+        $this->postJson('/ai/voice/turn/interrupted', $runtimeBase + [
+            'interruption_source' => 'runtime_callback',
+            'reason' => 'barge_in',
+            'interrupted_stage' => 'tts_streaming',
+            'played_duration_ms' => 250,
+            'latency_ms' => 30,
+        ], $this->headers)->assertOk();
+        $this->postJson('/ai/voice/runtime/failed', $runtimeBase + [
+            'failure_code' => 'enterprise_failure_drill',
+            'error_class' => 'AtlasVoiceFailureDrill',
+            'error_message_hash' => hash('sha256', 'failure drill redacted'),
+            'latency_ms' => 50,
+        ], $this->headers)->assertOk();
+
+        $this->getJson('/ai/voice/readiness?hours=1', $this->headers)
+            ->assertOk()
+            ->assertJsonPath('status', 'ready')
+            ->assertJsonPath('enterprise_mobile_loop.status', 'promotion_evidence_ready')
+            ->assertJsonPath('enterprise_mobile_loop.missing_promotion_events', [])
+            ->assertJsonPath('enterprise_mobile_loop.gates.healthy_loop_ready', true)
+            ->assertJsonPath('enterprise_mobile_loop.gates.interruption_drill_recorded', true)
+            ->assertJsonPath('enterprise_mobile_loop.gates.redacted_failure_drill_recorded', true)
+            ->assertJsonPath('enterprise_mobile_loop.gates.latency_slo_clean', true)
+            ->assertJsonPath('review_signal.recommended_action', 'voice_enterprise_loop_ready_for_promotion_review');
+    }
+
+    public function test_voice_readiness_requires_redacted_runtime_failure_hash_for_enterprise_promotion(): void
+    {
+        $base = [
+            'session_id' => 'voice_session_enterprise_unredacted_failure',
+            'envelope_id' => 'env_voice_enterprise_unredacted_failure',
+            'receipt_id' => 'receipt_voice_enterprise_unredacted_failure',
+            'turn_id' => 'voice_turn_enterprise_unredacted_failure',
+            'runtime' => 'livekit_agents_sdk',
+        ];
+
+        $this->postJson('/ai/voice/session/start', $base, $this->headers)->assertOk();
+        $turn = $this->postJson('/ai/voice/turn', $base + [
+            'audio_hash' => hash('sha256', 'enterprise-unredacted-failure-audio'),
+            'transcript' => 'teste readiness sem hash redigido',
+            'turn_to_first_audio_ms' => 280,
+        ], $this->headers)->assertOk();
+        $runtimeBase = $base + [
+            'envelope_id' => (string) $turn->json('turn.operation_envelope.envelope_id'),
+            'receipt_id' => (string) $turn->json('turn.decision_receipt.receipt_id'),
+        ];
+
+        $this->postJson('/ai/voice/turn/synthesized', $runtimeBase + [
+            'response_text_hash' => hash('sha256', 'ok enterprise unredacted failure'),
+            'latency_ms' => 40,
+        ], $this->headers)->assertOk();
+        $this->postJson('/ai/voice/turn/played', $runtimeBase + [
+            'played_duration_ms' => 500,
+            'latency_ms' => 20,
+        ], $this->headers)->assertOk();
+        $this->postJson('/ai/voice/turn/interrupted', $runtimeBase + [
+            'interruption_source' => 'runtime_callback',
+            'reason' => 'barge_in',
+            'interrupted_stage' => 'tts_streaming',
+            'played_duration_ms' => 250,
+            'latency_ms' => 30,
+        ], $this->headers)->assertOk();
+
+        AtlasLedgerEvent::query()->create([
+            'event_id' => (string) Str::uuid(),
+            'tenant_id' => 'default',
+            'operator_id' => 'system',
+            'event_type' => LedgerEventType::VoiceRuntimeFailed->value,
+            'emitter_stage' => 'atlas.voice_realtime',
+            'emitter_version' => 'test',
+            'correlation_id' => $base['session_id'],
+            'envelope_id' => $runtimeBase['envelope_id'],
+            'receipt_id' => $runtimeBase['receipt_id'],
+            'payload_hash' => hash('sha256', 'legacy runtime failure without hash'),
+            'payload' => [
+                'voice' => [
+                    'session_id' => $base['session_id'],
+                    'turn_id' => $base['turn_id'],
+                    'failure_code' => 'legacy_runtime_failed_without_redacted_hash',
+                    'raw_audio_persisted' => false,
+                    'raw_text_persisted' => false,
+                ],
+            ],
+            'occurred_at' => now(),
+        ]);
+
+        $this->getJson('/ai/voice/readiness?hours=1', $this->headers)
+            ->assertOk()
+            ->assertJsonPath('status', 'ready')
+            ->assertJsonPath('enterprise_mobile_loop.status', 'needs_promotion_evidence')
+            ->assertJsonPath('enterprise_mobile_loop.gates.healthy_loop_ready', true)
+            ->assertJsonPath('enterprise_mobile_loop.gates.interruption_drill_recorded', true)
+            ->assertJsonPath('enterprise_mobile_loop.gates.redacted_failure_drill_recorded', false)
+            ->assertJsonPath('enterprise_mobile_loop.missing_promotion_events.0', LedgerEventType::VoiceRuntimeFailed->value)
             ->assertJsonPath('review_signal.recommended_action', 'voice_readiness_can_enter_rivals_voice');
     }
 

@@ -115,6 +115,13 @@ final class CartographyCanon
     /**
      * Lateral lanes that feed/receive from the pipeline.
      *
+     * Each lane carries an explicit `nodes` array — the canonical pieces that
+     * compose the lane. The graph_ids mirror the canon HTML mockup
+     * (atlas-server/public/atlas-vault-cockpit-mockup.html); each node uses
+     * `lookup_ids` to point at a real .md file when one already exists.
+     * Pieces without a real source surface as `missing_source: true`, never
+     * as fake content — that is the canon.
+     *
      * @return list<array<string, mixed>>
      */
     public function lanes(): array
@@ -124,32 +131,133 @@ final class CartographyCanon
                 'deck' => 'conecta domain/profile/flow',
                 'expected_path' => 'docs/engineering-knowledge-base/system-graph/domain-plane.md',
                 'lookup_ids' => ['atlas-ai-cognitive-development-plane'],
-                'nodes' => []],
+                'nodes' => [
+                    $this->laneNode('dom-prog', 'Programming', 'dev · forge · fix · review · QA',
+                        'docs/engineering-knowledge-base/domains/atlas-ai-programming-domain.md',
+                        ['atlas-ai-programming-domain']),
+                    $this->laneNode('dom-fin', 'Finance', 'análise · risco · compliance',
+                        'docs/engineering-knowledge-base/domains/atlas-ai-finance-domain.md', []),
+                    $this->laneNode('dom-pd', 'Personal Development', 'hábitos · performance',
+                        'docs/engineering-knowledge-base/domains/atlas-ai-personal-dev-domain.md', []),
+                    $this->laneNode('dom-mkt', 'Marketing', 'campanha · criativos · brand',
+                        'docs/engineering-knowledge-base/domains/atlas-ai-marketing-domain.md', []),
+                    $this->laneNode('dom-strat', 'Strategic Decision', 'trade-offs operacionais',
+                        'docs/engineering-knowledge-base/domains/atlas-ai-strategic-domain.md', []),
+                    $this->laneNode('dom-research', 'Research / Learning', 'papers · docs · síntese',
+                        'docs/engineering-knowledge-base/domains/atlas-ai-research-domain.md',
+                        ['atlas-ai-research-self-improvement-runtime']),
+                    $this->laneNode('dom-self', 'Self-Improvement', 'audita Atlas · acha gaps',
+                        'docs/engineering-knowledge-base/atlas-ai-self-construction-os.md',
+                        ['atlas-ai-self-construction-os']),
+                    $this->laneNode('dom-health', 'Health / Writing', 'safety · escrita',
+                        'docs/engineering-knowledge-base/domains/atlas-ai-health-domain.md', []),
+                ]],
             ['graph_id' => 'capabilities', 'side' => 'left', 'name' => 'Capabilities / Harnesses',
                 'deck' => 'não são domínio · capacidades chamadas pelo Runtime',
                 'expected_path' => 'docs/engineering-knowledge-base/system-graph/capabilities.md',
                 'lookup_ids' => ['atlas-ai-cognitive-runtime'],
-                'nodes' => []],
+                'nodes' => [
+                    $this->laneNode('cap-prog', 'Programming Harness', 'execução técnica · forge',
+                        'docs/engineering-knowledge-base/atlas-ai-self-construction-os.md',
+                        ['atlas-ai-self-construction-os']),
+                    $this->laneNode('cap-frontend', 'Frontend Design Harness', 'UI · visual QA',
+                        'docs/engineering-knowledge-base/atlas-desktop-code-surface.md',
+                        ['atlas-desktop-code-surface']),
+                    $this->laneNode('cap-scenario', 'Scenario Simulation', 'simulação de fluxos',
+                        'docs/engineering-knowledge-base/atlas-ai-scenario-simulation-harness.md',
+                        ['atlas-ai-scenario-simulation-harness']),
+                    $this->laneNode('cap-content', 'Content Intelligence', 'curadoria · escrita',
+                        'docs/engineering-knowledge-base/atlas-ai-content-intelligence-curation.md',
+                        ['atlas-ai-content-intelligence-curation']),
+                    $this->laneNode('cap-sandbox', 'Tool Synthesis Sandbox', 'ferramentas novas',
+                        'docs/engineering-knowledge-base/atlas-ai-cognitive-runtime.md',
+                        ['atlas-ai-cognitive-runtime']),
+                    $this->laneNode('cap-market', 'Dynamic Compute Market', 'roteamento de custo',
+                        'docs/engineering-knowledge-base/atlas-ai-aggregator-versions.md',
+                        ['atlas-ai-aggregator-versions']),
+                    $this->laneNode('cap-multimodal', 'Continuous Multimodal Context', 'streams contínuos',
+                        'docs/engineering-knowledge-base/atlas-ai-cli-multimodal.md',
+                        ['atlas-ai-cli-multimodal']),
+                ]],
             ['graph_id' => 'business-context-side', 'side' => 'mid', 'name' => 'Business / Product',
                 'deck' => 'fonte contextual única',
                 'expected_path' => 'docs/engineering-knowledge-base/atlas-ai-business-contexts.md',
                 'lookup_ids' => ['atlas-ai-business-contexts'],
-                'nodes' => []],
+                'nodes' => [
+                    $this->laneNode('biz-ctx', 'Business Context', 'projeto · ambiente · empresa · cliente',
+                        'docs/engineering-knowledge-base/atlas-ai-business-contexts.md',
+                        ['atlas-ai-business-contexts']),
+                ]],
             ['graph_id' => 'hks', 'side' => 'right', 'name' => 'Human Knowledge Surface',
                 'deck' => 'AtlasVault como contexto curado · nunca fonte crua',
                 'expected_path' => 'docs/engineering-knowledge-base/vault/contracts.md',
                 'lookup_ids' => ['atlas-vault-contracts'],
-                'nodes' => []],
+                'nodes' => [
+                    $this->laneNode('hks-vault', 'AtlasVault / Obsidian', 'segundo cérebro compartilhado',
+                        'docs/engineering-knowledge-base/obsidian-atlas-vault.md',
+                        ['obsidian-atlas-vault', 'atlas-vault-cartography-schema']),
+                    $this->laneNode('hks-pkw', 'Personal Knowledge', 'livros · filosofia · histórias',
+                        'docs/engineering-knowledge-base/atlas-ai-cognitive-development-plane.md',
+                        ['atlas-ai-cognitive-development-plane']),
+                    $this->laneNode('hks-sync', 'Managed Sync · Review', 'curadoria humana',
+                        'docs/engineering-knowledge-base/vault/contracts.md',
+                        ['atlas-vault-contracts']),
+                    $this->laneNode('hks-raw', 'Não-fonte operacional crua', 'entra via contexto revisado',
+                        'docs/engineering-knowledge-base/atlas-ai-knowledge-governance-system.md',
+                        ['atlas-ai-knowledge-governance-system']),
+                ]],
             ['graph_id' => 'evidence-loop', 'side' => 'right', 'name' => 'Evidence + Learning Loop',
                 'deck' => 'tudo que executa volta como evidência ou proposta',
                 'expected_path' => 'docs/engineering-knowledge-base/system-graph/evidence-loop.md',
                 'lookup_ids' => ['atlas-ai-telemetry-evidence-performance'],
-                'nodes' => []],
+                'nodes' => [
+                    $this->laneNode('evi-ledger', 'Evidence Ledger', 'append-only · replay · audit',
+                        'docs/engineering-knowledge-base/atlas-ai-telemetry-evidence-performance.md',
+                        ['atlas-ai-telemetry-evidence-performance']),
+                    $this->laneNode('evi-tele', 'Read Models / Telemetry', 'SLO · custo · repair',
+                        'docs/engineering-knowledge-base/atlas-ai-performance-reports.md',
+                        ['atlas-ai-performance-reports']),
+                    $this->laneNode('evi-learn', 'Learning Signals', 'memória · métrica · outcome',
+                        'docs/engineering-knowledge-base/atlas-ai-research-self-improvement-runtime.md',
+                        ['atlas-ai-research-self-improvement-runtime']),
+                    $this->laneNode('evi-self', 'Self-Improvement / Curator', 'proposal · gaps · drift',
+                        'docs/engineering-knowledge-base/atlas-ai-self-construction-os.md',
+                        ['atlas-ai-self-construction-os']),
+                    $this->laneNode('evi-inbox', 'Proposal Inbox / Human Review', 'humano confirma o crítico',
+                        'docs/engineering-knowledge-base/atlas-ai-governed-backlog.md',
+                        ['atlas-ai-governed-backlog']),
+                ]],
             ['graph_id' => 'doc-os', 'side' => 'right', 'name' => 'Documentation OS',
                 'deck' => 'orienta humanos e IAs · impede duplicação',
                 'expected_path' => 'docs/engineering-knowledge-base/atlas-ai-documentation-operating-system.md',
                 'lookup_ids' => ['atlas-ai-documentation-operating-system'],
-                'nodes' => []],
+                'nodes' => [
+                    $this->laneNode('doc-canonical', 'START_HERE + Canonical Index', 'impede duplicação e escopo errado',
+                        'docs/engineering-knowledge-base/atlas-ai-canonical-architecture-index.md',
+                        ['atlas-ai-canonical-architecture-index']),
+                ]],
+        ];
+    }
+
+    /**
+     * Build a canonical lane child node entry. Same shape as a pipeline step
+     * but tagged with `graph_kind=lateral` so the cartography frontend knows
+     * to render it as a lateral atom (not a numbered pipeline step).
+     *
+     * @param  list<string>  $lookupIds
+     * @return array<string, mixed>
+     */
+    private function laneNode(string $graphId, string $name, string $deck, string $expectedPath, array $lookupIds): array
+    {
+        return [
+            'graph_id' => $graphId,
+            'graph_kind' => 'lateral',
+            'graph_layer' => 'module',
+            'graph_source' => 'repo',
+            'name' => $name,
+            'deck' => $deck,
+            'expected_path' => $expectedPath,
+            'lookup_ids' => $lookupIds,
         ];
     }
 

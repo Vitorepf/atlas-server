@@ -72,6 +72,7 @@
         "turn_id": "turn_01HYSAFE000000000000000001",
         "failure_code": "provider_timeout",
         "error_class": "recoverable",
+        "error_message_hash": "d1f6a04e293dc906d724f9f124c24f581f893ea8e025f171b9e915f7c706ce88",
         "latency_ms": 1200
       }
     },

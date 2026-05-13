@@ -2,10 +2,10 @@
 id: atlas-programming-governance-system
 type: engineering_knowledge
 title: Atlas Programming Governance System
-status: future
+status: building
 category: programming-governance
 priority: 100
-summary: Contrato canonico que transforma programacao por IA em fluxo governado por placement, spec antes do codigo, contratos de tarefa, Code Intelligence, evidence, learning e cartografia.
+summary: Indice canonico dos gates que transformam programacao por IA em fluxo governado por placement, spec antes do codigo, contratos de tarefa, Code Intelligence, evidence, learning e cartografia.
 tags:
   - atlas
   - programming
@@ -28,11 +28,13 @@ decisions:
   - Spec antes do codigo e lei para qualquer alteracao estrutural, arriscada, multiarquivo, multiagente ou de arquitetura.
   - Code Intelligence e parte obrigatoria do fluxo; ele informa onde mexer, o que existe, quais simbolos/docs/testes se relacionam e onde ha risco.
   - Evidence obrigatorio separa implementacao real de opiniao do agente.
-  - Cartografia da programacao deve permitir que humano e IA vejam onde cada engrenagem de software fica, o que faz, quais docs a governam e qual evidence prova seu estado.
+  - Cartografia da programacao deve mostrar onde cada engrenagem de software fica, o que faz, quais docs a governam e qual evidence prova seu estado.
 maintenance:
-  - Atualize este documento quando os gates de programacao, SDD, Engineering Blueprint, Code Intelligence, Forge Workspace, Self-Construction OS ou cartografia de codigo mudarem.
-  - Leia junto de Programming Domain, Spec Operating System, Engineering Blueprint, Code Intelligence e Forge Operating System antes de alterar fluxos de programacao.
+  - Atualize este indice quando os gates de programacao, SDD, Engineering Blueprint, Code Intelligence, Forge Workspace, Self-Construction OS ou cartografia de codigo mudarem.
+  - Mantenha este arquivo como indice curto; detalhes vivem nos child docs de contratos e runbook.
 related_paths:
+  - docs/engineering-knowledge-base/atlas-programming-governance-system-contracts.md
+  - docs/engineering-knowledge-base/atlas-programming-governance-system-runbook.md
   - docs/engineering-knowledge-base/domains/programming.md
   - docs/engineering-knowledge-base/atlas-ai-spec-operating-system.md
   - docs/engineering-knowledge-base/engineering-blueprint.md
@@ -47,6 +49,14 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-epistemic-operating-system.md
   - docs/engineering-knowledge-base/atlas-sovereign-operating-system.md
   - docs/engineering-knowledge-base/atlas-cartographic-knowledge-os.md
+  - ../../../dissecar/spec/ATLAS-SPEC-KIT-DISSECTION.md
+  - ../../../dissecar/spec/ATLAS-OPENSPEC-DISSECTION.md
+  - ../../../dissecar/spec/ATLAS-BMAD-METHOD-DISSECTION.md
+  - ../../../dissecar/spec/ATLAS-GOOSE-DISSECTION.md
+  - ../../../dissecar/spec/ATLAS-AIDER-DISSECTION.md
+  - ../../../dissecar/spec/ATLAS-TESSL-SDD-TILE-DISSECTION.md
+  - ../../../dissecar/spec/ATLAS-REQNROLL-DISSECTION.md
+  - ../../../dissecar/spec/ATLAS-GAUGE-DISSECTION.md
 doc_schema: atlas_canonical_module_doc.v1
 
 graph_id: atlas-programming-governance-system
@@ -61,7 +71,7 @@ graph_kind: module
 
 graph_parent: atlas-ai-programming-domain
 
-graph_status: future
+graph_status: building
 
 graph_source: repo
 
@@ -69,12 +79,16 @@ owner: programming
 
 repo_paths:
   - docs/engineering-knowledge-base/atlas-programming-governance-system.md
+  - docs/engineering-knowledge-base/atlas-programming-governance-system-contracts.md
+  - docs/engineering-knowledge-base/atlas-programming-governance-system-runbook.md
 
 allowed_changes:
-  - Atualizar este doc quando codigo, arquitetura, fluxo, evidencia ou decisao canonica mudar.
+  - Atualizar este indice quando codigo, arquitetura, fluxo, evidencia ou decisao canonica mudar.
+  - Atualizar child docs quando contratos ou runbook de programacao mudarem.
 
 forbidden_changes:
   - Declarar runtime, maturidade ou prontidao sem evidencia verificavel e gates verdes.
+  - Expandir este indice com detalhes que pertencem aos child docs.
 
 depends_on:
   - atlas-ai-programming-domain
@@ -102,6 +116,8 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/atlas-programming-governance-system.md
+  - docs/engineering-knowledge-base/atlas-programming-governance-system-contracts.md
+  - docs/engineering-knowledge-base/atlas-programming-governance-system-runbook.md
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
@@ -120,6 +136,7 @@ visual_tags:
 
 ai_entrypoints:
   - Leia Resumo, Contratos, Fluxo, Regras para IA e Evidencias antes de implementar qualquer fluxo de programacao.
+  - Para detalhes, leia atlas-programming-governance-system-contracts.md e atlas-programming-governance-system-runbook.md.
 
 ai_usage_notes:
   - Se uma tarefa pedir codigo estrutural, use este doc como checklist de governanca antes de escrever.
@@ -154,38 +171,30 @@ next_actions:
 ## Resumo
 
 Atlas Programming Governance System e o sistema que governa programacao por IA
-no Atlas. Ele nao e um editor de codigo, um prompt ou uma ferramenta isolada.
-Ele e o contrato que diz como uma IA deve transformar uma intencao em codigo
-seguro: descobrir onde a feature pertence, escrever spec antes do codigo,
-criar contratos de tarefa, usar Code Intelligence, executar com evidence,
-aprender com o resultado e atualizar a cartografia.
+no Atlas. Ele nao e um editor, prompt ou ferramenta isolada. Ele define como uma
+IA transforma intencao em codigo seguro: placement, contexto, spec, contrato,
+execucao, evidence, learning e cartografia.
 
-Este sistema existe porque o Atlas e construido, corrigido, gerenciado,
-organizado e evoluido por IA. Sem governanca de programacao, cada agente pode
-programar com contexto parcial. Com governanca, qualquer IA entende a ordem,
-os limites, as provas exigidas e as conexoes entre docs, codigo e runtime.
+Este arquivo e o indice canonico. Os detalhes foram separados para reduzir
+drift documental:
+
+| Documento | Papel |
+|---|---|
+| `atlas-programming-governance-system-contracts.md` | Contratos de placement, spec, task, Code Intelligence, evidence, learning e cartografia. |
+| `atlas-programming-governance-system-runbook.md` | Fluxo operacional, arquitetura alvo, DoD, gaps e evidence de programacao governada. |
 
 ## Papel no Atlas
 
-O papel deste sistema e transformar programacao em uma linha de producao
-governada:
+Transformar programacao em uma linha de producao governada:
 
 - impedir implementacao solta;
 - impedir duplicacao de arquitetura;
-- impedir que uma IA mexa em arquivos sem saber dono, risco e contrato;
-- obrigar spec antes do codigo;
-- ligar cada mudanca a docs canonicos, simbolos, testes e evidence;
+- obrigar spec antes do codigo quando o risco justificar;
+- ligar mudancas a docs canonicos, simbolos, testes e evidence;
 - permitir que Forge OS use varios agentes sem perder controle;
 - alimentar Cartografia para humanos e IAs navegarem pelo software real.
 
-Ele fica abaixo do Sovereign OS e do Epistemic OS. Sovereign OS decide se a
-direcao, autonomia e prioridade fazem sentido. Epistemic OS decide confianca,
-verdade, maturidade e drift. Programming Governance System decide como
-programar quando a mudanca ja e permitida.
-
 ## Onde Se Encaixa
-
-Hierarquia operacional:
 
 ```text
 Sovereign OS
@@ -198,268 +207,144 @@ Sovereign OS
 -> Cartographic Knowledge OS
 ```
 
-Programming Governance System nao substitui Programming Domain. O dominio
-Programming executa fluxos `programming.*`. Este sistema define os gates que
-todo fluxo de programacao precisa obedecer.
-
-Programming Governance System tambem nao substitui Forge OS. Forge OS e a
-fabrica que opera trabalho pesado, longo, multiagente ou multiprovider. Este
-documento e a lei que Forge OS deve aplicar.
+Programming Governance nao substitui Programming Domain. O dominio executa
+fluxos `programming.*`; este sistema define os gates que todo fluxo de
+programacao deve obedecer. Forge OS e a fabrica que aplica estes gates em
+trabalho pesado, longo, multiagente ou multiprovider.
 
 ## Contratos
 
-### Contrato 1: Feature Placement
+Contratos detalhados vivem em
+`docs/engineering-knowledge-base/atlas-programming-governance-system-contracts.md`.
 
-Antes de qualquer implementacao estrutural, a IA deve descobrir onde a feature
-pertence. O placement responde:
+Invariantes:
 
-- qual dominio governa a mudanca;
-- qual modulo ou servico deve receber a mudanca;
-- quais docs canonicos ja existem;
-- quais arquivos provavelmente sao dono do comportamento;
-- quais arquivos sao proibidos ou perigosos;
-- se a mudanca pertence a Programming, Kernel, Memory, Surface, Domain,
-  Cartography, Obras, Self-Construction ou outro sistema.
-
-Comando esperado quando aplicavel:
-
-```bash
-php artisan atlas:ai:place-feature "<feature>" --json
-```
-
-### Contrato 2: Spec Antes Do Codigo
-
-Toda mudanca estrutural deve ter spec antes de codigo. Spec nao e texto
-decorativo; e contrato operacional. Ela deve declarar:
-
-- objetivo;
-- contexto canonico;
-- comportamento esperado;
-- arquivos e modulos provaveis;
-- entradas e saidas;
-- riscos;
-- testes;
-- evidence exigido;
-- rollback ou contencao;
-- criterios de conclusao.
-
-Se a IA escreve codigo primeiro e so depois inventa a spec, o fluxo falhou.
-
-### Contrato 3: Task Contracts
-
-Cada pacote de trabalho deve ter contrato explicito:
-
-- `allowed_files`;
-- `forbidden_files`;
-- owner;
-- escopo;
-- dependencias;
-- comandos de validacao;
-- criterios de aceite;
-- riscos;
-- rollback;
-- evidence esperado;
-- relacao com docs canonicos.
-
-Em trabalho multiagente, os contratos tambem precisam de reservation, claim,
-scope/collision map e integration queue.
-
-### Contrato 4: Code Intelligence Obrigatorio
-
-Code Intelligence e a ponte entre documentacao e codigo real. Ele deve informar:
-
-- simbolos existentes;
-- arquivos relacionados;
-- comandos Artisan;
-- rotas;
-- migrations;
-- testes;
-- links doc-codigo;
-- gaps entre documentacao e implementacao;
-- candidatos de grafo externo quando usados de forma read-only.
-
-Uma IA nao deve decidir arquitetura apenas pela memoria da conversa se Code
-Intelligence pode responder onde o comportamento vive.
-
-### Contrato 5: Evidence Obrigatorio
-
-Toda implementacao precisa provar o que aconteceu. Evidence valido inclui:
-
-- comandos executados;
-- testes e resultado;
-- docs-health;
-- sync/index quando docs mudam;
-- diffs relevantes;
-- receipts;
-- logs;
-- capturas visuais quando UI/Cartografia estiver envolvida;
-- risco residual e rollback.
-
-Resumo subjetivo do agente nao e evidence suficiente.
-
-### Contrato 6: Learning Pos-Execucao
-
-Depois da execucao, o Atlas deve capturar aprendizado:
-
-- o que foi corrigido;
-- qual gate falhou ou faltou;
-- qual doc precisa atualizar;
-- qual prompt ou spec deve melhorar;
-- qual teste ou check deve virar padrao;
-- qual relacao doc-codigo deve ser publicada;
-- qual risco virou regra.
-
-Learning nao pode escrever codigo por conta propria sem passar de novo pelos
-gates apropriados.
-
-### Contrato 7: Cartografia Da Programacao
-
-A cartografia deve representar a programacao como mapa visual navegavel:
-
-- sistema;
-- dominio;
-- modulo;
-- arquivo;
-- simbolo;
-- teste;
-- evidence;
-- spec;
-- task contract;
-- gate;
-- status.
-
-Ao dar zoom em uma engrenagem, o resto do mapa pode desaparecer e o fluxo
-interno daquela engrenagem deve aparecer. Esse e o criterio humano: entender o
-software por mapa, nao por texto solto.
+- feature estrutural passa por placement;
+- spec vem antes do codigo quando ha risco estrutural;
+- task contract limita arquivos, risco, testes, rollback e evidence;
+- Code Intelligence orienta contexto real;
+- evidence separa implementacao real de narrativa;
+- learning volta para docs, specs, prompts, gates ou cartografia.
 
 ## Fluxo
 
-Fluxo canonico de programacao governada:
+Runbook detalhado vive em
+`docs/engineering-knowledge-base/atlas-programming-governance-system-runbook.md`.
+
+Fluxo resumido:
 
 ```text
-1. Intake
-2. Session Bootstrap
-3. Feature Placement
-4. Knowledge + Code Intelligence Context
-5. Spec antes do codigo
-6. Task Contract
-7. Execution Plan / Decision Receipt
-8. Implementacao
-9. Quality Gates
-10. Evidence Ledger
-11. Learning Proposal
-12. Docs / Code Intelligence / Cartography Update
-13. Completion Gate
+intake
+-> placement
+-> code intelligence
+-> spec/delta
+-> task contract
+-> agent role
+-> execution
+-> acceptance/tests
+-> evidence
+-> docs/index/cartography
+-> learning
+-> completion gate
 ```
-
-Nenhuma etapa e decorativa. Em mudancas pequenas, algumas etapas podem ser
-compactas, mas a ordem conceitual permanece.
 
 ## Regras para IA
 
-- Nao implemente feature estrutural sem placement.
-- Nao implemente mudanca arriscada sem spec antes do codigo.
-- Nao altere arquivos fora do task contract.
-- Nao ignore Code Intelligence quando a pergunta for "onde isso vive?".
-- Nao declare conclusao sem evidence.
-- Nao use cartografia como desenho bonito; ela deve refletir verdade
-  operacional.
-- Nao confunda Programming Governance System com Forge OS. Governanca define
-  regras; Forge opera a fabrica.
-- Quando houver conflito entre velocidade e governanca, use o menor contrato
-  suficiente, mas preserve evidence e limites.
-- Quando houver conflito sobre proposito, autonomia ou prioridade, escale para
-  Sovereign OS.
-- Quando houver conflito sobre verdade, maturidade, drift ou confianca, escale
-  para Epistemic OS.
+- Nao escrever codigo estrutural antes de placement/contexto.
+- Nao criar spec retroativa para justificar diff pronto.
+- Nao mexer em arquivo sem entender dono, risco e teste proporcional.
+- Nao chamar evidence um resumo sem comando, diff, teste, log ou receipt.
+- Nao declarar gate implementado quando ainda e roadmap.
+- Nao expandir este indice; detalhes pertencem aos child docs.
 
 ## Escopo de Implementacao
 
-Para considerar este sistema concluido, o Atlas precisa ter:
+Este sistema governa:
 
-| Item | Estado alvo |
-|---|---|
-| Feature Placement Gate | Obrigatorio em CLI/API/UI para mudancas estruturais |
-| Spec Before Code | Spec criada antes de diff arriscado |
-| Task Contract Engine | `allowed_files`, `forbidden_files`, owner, tests, rollback e evidence |
-| Code Intelligence Context | Simbolos/docs/testes/rotas/comandos ligados ao plano |
-| Quality Gate Router | Gates proporcionais a risco, dominio e tipo de mudanca |
-| Evidence Ledger Integration | Receipts e logs verificaveis por execucao |
-| Learning Extractor | Propostas pos-execucao para docs, tests, prompts e gates |
-| Cartography Publisher | Mapa visual de sistemas, modulos, simbolos, specs e evidence |
-| Forge Integration | Contratos consumiveis por agentes paralelos |
-| Completion Gate | Nao concluir sem spec, diff, tests/evidence e docs quando necessario |
+- feature placement;
+- spec-before-code;
+- change delta;
+- task contracts;
+- Code Intelligence context;
+- runner/tool gateway;
+- executable acceptance;
+- evidence ledger;
+- repair/refactor governance;
+- docs/code intelligence/cartography refresh;
+- completion gate.
 
 ## Dependencias
 
-Dependencias canonicas:
-
 - Programming Domain;
-- Atlas AI Spec Operating System;
+- Spec Operating System;
 - Engineering Blueprint;
 - Code Intelligence;
-- Knowledge Governance System;
-- Epistemic OS;
-- Sovereign OS;
-- Evidence Ledger;
-- Obras Shared Workspace / Forge Workspace;
-- Cartographic Knowledge OS;
-- Self-Construction OS.
+- Forge Operating System;
+- Self-Construction OS;
+- Knowledge Governance;
+- Cartographic Knowledge OS.
 
 ## Evidencias
 
-Evidencias minimas para evoluir este sistema:
+Evidencia minima para mudanca governada:
 
-- `docs-health` verde;
-- Knowledge sync executado apos docs novas;
-- Code Intelligence index atualizado apos mudancas relevantes;
-- comandos de placement funcionando;
-- exemplos reais de spec antes do codigo;
-- task contracts com arquivos permitidos/proibidos;
-- evidence por implementacao;
-- cartografia refletindo docs e codigo.
+- placement ou justificativa de escopo pequeno;
+- context pack quando estrutural;
+- spec/delta quando necessario;
+- task contract;
+- diff dentro de escopo;
+- testes/gates proporcionais;
+- docs/cartografia quando afetadas;
+- receipt ou log verificavel;
+- risco residual.
 
 ## Riscos
 
-- Criar governanca pesada demais e travar mudancas pequenas.
-- Criar governanca leve demais e permitir autoevolucao insegura por IA.
-- Documentar gates que nao estao conectados a CLI/API/UI.
-- Deixar Code Intelligence desatualizado e induzir agentes a erro.
-- Ter evidence textual sem prova executavel.
-- Atualizar codigo sem atualizar cartografia, tornando o mapa falso.
-- Permitir Forge OS executar varios agentes sem contratos de escopo.
+- IA programar por memoria e alterar modulo errado;
+- governanca virar burocracia sem prova;
+- Code Intelligence stale orientar contexto falso;
+- repair virar loop sem learning;
+- cartografia atrasar e deixar humanos/IA cegos.
 
 ## Exemplos
 
-Exemplo de mudanca pequena:
+Use governanca completa para mudanca multiarquivo, arquitetura, schema,
+provider/runtime, security/privacy, self-construction ou cartografia.
+
+Use governanca compacta para patch pequeno, typo, ajuste local ou teste focado,
+preservando ownership, prova e limite.
+
+## Implementacao Atual
+
+Status `building`: thin slice runtime publicada em
+`app/Services/Ai/Programming/Governance/` e sob a superficie
+`atlas:programming:*`. Detalhes operacionais e gaps explicitos vivem em
+`atlas-programming-governance-system-runbook.md` (secao "Implementacao Atual").
+
+CLI canonica:
 
 ```text
-Task: corrigir bug isolado em comando existente.
-Governanca: placement rapido, contexto minimo, diff pequeno, teste/command
-e evidence no final.
+atlas:programming:intake
+atlas:programming:spec
+atlas:programming:plan
+atlas:programming:receipt
+atlas:programming:verify
+atlas:programming:complete
+atlas:programming:status
 ```
 
-Exemplo de mudanca estrutural:
-
-```text
-Task: adicionar novo gate ao Programming Domain.
-Governanca: placement, spec antes do codigo, Code Intelligence, task contract,
-implementacao, tests, docs-health, sync/index, evidence e cartografia.
-```
-
-Exemplo de trabalho Forge:
-
-```text
-Task: refatorar fluxo multiagente de self-construction.
-Governanca: mother spec, packets, allowed_files, reservation ledger, scope map,
-agents, integration queue, gates, evidence e learning.
-```
+Tabelas vivas (Postgres read model do fluxo):
+`atlas_programming_work_items`, `atlas_programming_gate_runs`,
+`atlas_programming_reviews`. Evidence verificavel reutiliza
+`atlas_engineering_evidence`. Stage receipts pre-existentes (`atlas_programming_stage_receipts`)
+permanecem para encadeamento com `AtlasProgrammingOrchestrator` quando o fluxo
+delegar execucao para o Engineering Harness.
 
 ## Proximas Acoes
 
-1. Criar enforcement automatico para impedir execucao estrutural sem placement.
-2. Promover spec antes do codigo para gate verificavel em Programming.
-3. Fazer Code Intelligence alimentar context packs de Programming e Forge.
-4. Normalizar task contracts para CLI, API, UI e agentes.
-5. Publicar cartografia de programacao com zoom sistema -> modulo -> arquivo -> simbolo -> evidence.
-6. Integrar Learning pos-execucao com docs, tests, prompts e proposals.
+1. Manter este indice abaixo do limite de documentacao ativa.
+2. Evoluir contratos em `atlas-programming-governance-system-contracts.md`.
+3. Evoluir fluxo em `atlas-programming-governance-system-runbook.md`.
+4. Rodar docs-health, sync e index-code apos alteracoes canonicas.
+5. Promover plan/tasks autogeneration, cartografia automatizada e learning
+   loop quando saírem do estado de gap registrado nos work items.

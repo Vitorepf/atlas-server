@@ -10,14 +10,14 @@
             "ok": true,
             "status_code": 200,
             "content_type": "application/json",
-            "body_hash": "caf24503db794aa295f2b48ee87afafdd63545ecc324408649d2b2518fa54195",
+            "body_hash": "6b59967eb65015a04644c8c207bc75af1a05fc1c318b38adc510e1a213c1299e",
             "bytes": 2870,
-            "duration_ms": 53,
+            "duration_ms": 46,
             "slug": "health",
             "artifact": "routes/health.html",
             "headers_artifact": "routes/health.headers.json",
             "baseline": {
-                "current_hash": "caf24503db794aa295f2b48ee87afafdd63545ecc324408649d2b2518fa54195",
+                "current_hash": "6b59967eb65015a04644c8c207bc75af1a05fc1c318b38adc510e1a213c1299e",
                 "baseline_file_hash": "f5296f2a318aacb8d1659d5a46c23ca1862951244301fca40c39492e0b1a0d4b",
                 "baseline_root_hash": "46a2e48c97ef7c331b29877b8ee97cb87dd117cfde464dc9ee3b62cff316371e",
                 "status": "changed",
@@ -80,10 +80,10 @@
     },
     "artifact_dir": "atlas-visual-report",
     "started_command": "'/opt/homebrew/bin/php' artisan serve --host='127.0.0.1' --port='51298'",
-    "duration_ms": 473,
+    "duration_ms": 425,
     "process": {
         "exit_code": 0,
-        "stdout_excerpt": "\n   INFO  Server running on [http://127.0.0.1:51298].  \n\n  Press Ctrl+C to stop the server\n\n  2026-05-13 17:50:26 / ............................................ ~ 0.02ms\n  2026-05-13 17:50:26 /health ...................................... ~ 0.01ms\n",
+        "stdout_excerpt": "\n   INFO  Server running on [http://127.0.0.1:51298].  \n\n  Press Ctrl+C to stop the server\n\n  2026-05-13 18:11:04 / ............................................ ~ 0.02ms\n  2026-05-13 18:11:04 /health ...................................... ~ 0.01ms\n",
         "stderr_excerpt": ""
     }
 }

@@ -16,7 +16,7 @@ use Symfony\Component\Process\Process;
 class AtlasEngineeringBenchmarkFairCommand extends Command
 {
     protected $signature = 'atlas:engineering:benchmark:claude-fair
-        {action=run : prepare, run, run-atlas, run-claude-code, report, readiness, runbook, replay or verify}
+        {action=run : prepare, run, run-atlas, run-claude-code, report, readiness, runbook, replay, verify or triage-invalid-battery}
         {run? : Benchmark run id for replay}
         {--suite=atlas-core-smoke : Suite slug or id}
         {--workspace= : Workspace path for benchmark execution}
@@ -39,11 +39,14 @@ class AtlasEngineeringBenchmarkFairCommand extends Command
         {--permission=auto : auto, read, write or danger}
         {--sandbox=workspace : workspace, worktree or docker}
         {--provider-runtime=host : host, docker or auto for atlas:cli:dev execution}
+        {--provider-timeout=600 : Seconds to wait for Atlas provider execution before aborting}
         {--gate-profile=strict : Release gate profile: release, smoke, strict, advisory or off}
         {--keep-workspace : Keep isolated execution workspace after the run for debugging}
         {--no-auto-test : Disable auto-test for run and run-atlas}
         {--confirm-runbook-reviewed : Confirm the Fair Claude runbook/preflight was reviewed before provider execution}
         {--confirm-provider-cost : Confirm external provider cost/token usage before provider execution}
+        {--confirm-invalid-battery-quarantine : Confirm invalid historical battery should be quarantined without admitting score}
+        {--reason= : Human triage reason for triage-invalid-battery}
         {--run-id= : Benchmark run id for replay; alias for the positional run argument}
         {--output-dir= : Write or verify report.json, evidence.json, claim.md and manifest.json for report/readiness/verify}
         {--markdown : Print audit-ready Markdown for report/readiness}
@@ -76,6 +79,7 @@ class AtlasEngineeringBenchmarkFairCommand extends Command
             'run-claude-code' => $this->callForwarded('atlas:engineering:benchmark', $this->runArgs('run', noProvider: true)),
             'report', 'readiness' => $this->report($benchmarks),
             'verify', 'verify-export' => $this->verifyExport($benchmarks),
+            'triage-invalid-battery', 'quarantine-invalid-battery' => $this->triageInvalidBattery($benchmarks),
             'runbook', 'doctor' => $this->runbook($benchmarks),
             'replay' => $this->replay($benchmarks),
             default => $this->unknownAction($action),
@@ -235,6 +239,103 @@ class AtlasEngineeringBenchmarkFairCommand extends Command
         return ($payload['verified'] ?? false) === true ? self::SUCCESS : self::FAILURE;
     }
 
+    private function triageInvalidBattery(EngineeringBenchmarkService $benchmarks): int
+    {
+        $suite = $this->findSuite();
+        if (! $suite) {
+            return $this->jsonError('benchmark_suite_not_found', "Benchmark suite nao encontrada: {$this->suite()}", [
+                'suite' => $this->suite(),
+                'safety' => [
+                    'no_provider_call' => true,
+                    'no_score_admitted' => true,
+                    'no_history_deleted' => true,
+                ],
+            ]);
+        }
+
+        $report = $benchmarks->fairClaudeReportPayload($suite, [
+            'limit' => $this->intOption('limit') ?: 20,
+        ]);
+        $fingerprint = (string) data_get($report, 'scope.invalid_battery_fingerprint', '');
+        $status = (string) data_get($report, 'result_integrity.status', 'unknown');
+        $reason = trim((string) ($this->option('reason') ?? ''));
+        $confirmed = (bool) $this->option('confirm-invalid-battery-quarantine');
+
+        if ($status !== 'invalid_battery_no_comparable_score') {
+            return $this->jsonError('no_invalid_battery_to_quarantine', 'Nao existe bateria invalida ativa para quarentena.', [
+                'suite' => data_get($report, 'suite'),
+                'result_integrity' => data_get($report, 'result_integrity'),
+                'safety' => [
+                    'no_provider_call' => true,
+                    'no_score_admitted' => true,
+                    'no_history_deleted' => true,
+                ],
+            ]);
+        }
+
+        if (! $confirmed || $reason === '') {
+            return $this->jsonError('invalid_battery_quarantine_confirmation_required', 'Confirme a quarentena e informe --reason.', [
+                'suite' => data_get($report, 'suite'),
+                'required_flags' => [
+                    '--confirm-invalid-battery-quarantine',
+                    '--reason=<human-triage-reason>',
+                ],
+                'invalid_battery_fingerprint' => $fingerprint,
+                'result_integrity' => data_get($report, 'result_integrity'),
+                'safety' => [
+                    'no_provider_call' => true,
+                    'no_score_admitted' => true,
+                    'no_history_deleted' => true,
+                ],
+            ]);
+        }
+
+        $metadata = is_array($suite->metadata) ? $suite->metadata : [];
+        $metadata['rivals_invalid_battery_triage'] = [
+            'schema_version' => 'atlas.fair_claude.invalid_battery_triage.v1',
+            'status' => 'triaged_quarantined',
+            'invalid_battery_fingerprint' => $fingerprint,
+            'reason' => $reason,
+            'triaged_at' => now()->toJSON(),
+            'triaged_by' => 'engineering_operator',
+            'policy' => [
+                'history_deleted' => false,
+                'score_admitted' => false,
+                'claim_winner_admitted' => false,
+                'provider_dispatch_performed' => false,
+                'invalid_cases_count_as_losses' => false,
+                'next_run_still_requires_clean_workspaces_and_cost_confirmation' => true,
+            ],
+            'counts' => data_get($report, 'result_integrity.counts', []),
+            'blocking_reason_counts' => data_get($report, 'result_integrity.blocking_reason_counts', []),
+            'run_ids' => collect((array) data_get($report, 'runs', []))
+                ->pluck('id')
+                ->filter()
+                ->values()
+                ->all(),
+        ];
+        $suite->forceFill(['metadata' => $metadata])->save();
+
+        $payload = [
+            'schema_version' => 'atlas.fair_claude.invalid_battery_triage_result.v1',
+            'status' => 'triaged_quarantined',
+            'suite' => data_get($report, 'suite'),
+            'invalid_battery_fingerprint' => $fingerprint,
+            'record' => $metadata['rivals_invalid_battery_triage'],
+            'safety' => [
+                'no_provider_call' => true,
+                'no_score_admitted' => true,
+                'no_history_deleted' => true,
+                'invalid_cases_stay_out_of_win_loss_math' => true,
+            ],
+            'next_action' => 'Create clean Atlas and baseline worktrees, review runbook, then request an explicit provider run.',
+        ];
+
+        $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+
+        return self::SUCCESS;
+    }
+
     private function runbook(EngineeringBenchmarkService $benchmarks): int
     {
         $suite = $this->findSuite();
@@ -327,6 +428,8 @@ class AtlasEngineeringBenchmarkFairCommand extends Command
             && realpath($workspace) !== realpath($baselineWorkspace);
         $workspaceGit = $workspaceOk ? $this->gitWorkspaceState((string) $workspace) : ['is_git' => false, 'clean' => null, 'dirty_files' => []];
         $baselineGit = $baselineWorkspaceOk ? $this->gitWorkspaceState((string) $baselineWorkspace) : ['is_git' => false, 'clean' => null, 'dirty_files' => []];
+        $workspaceRuntime = $workspaceOk ? $this->workspaceRuntimeState((string) $workspace) : $this->emptyWorkspaceRuntimeState();
+        $baselineRuntime = $baselineWorkspaceOk ? $this->workspaceRuntimeState((string) $baselineWorkspace) : $this->emptyWorkspaceRuntimeState();
         $releaseCorpusCount = (int) data_get($report, 'readiness.release_corpus_case_count', 0);
         $resultIntegrityStatus = (string) data_get($report, 'result_integrity.status', 'unknown');
         $historicalInvalidBatteryRequiresTriage = $this->historicalInvalidBatteryRequiresTriage($report);
@@ -362,6 +465,18 @@ class AtlasEngineeringBenchmarkFairCommand extends Command
         if (($baselineGit['is_git'] ?? false) && ($baselineGit['clean'] ?? null) !== true) {
             $blocking[] = 'claude_code_baseline_workspace_dirty';
         }
+        if (($workspaceRuntime['laravel_runtime_detected'] ?? false) && ($workspaceRuntime['vendor_autoload_exists'] ?? false) !== true) {
+            $blocking[] = 'atlas_workspace_vendor_autoload_missing';
+        }
+        if (($baselineRuntime['laravel_runtime_detected'] ?? false) && ($baselineRuntime['vendor_autoload_exists'] ?? false) !== true) {
+            $blocking[] = 'claude_code_baseline_vendor_autoload_missing';
+        }
+        if (($workspaceRuntime['laravel_runtime_detected'] ?? false) && ($workspaceRuntime['env_file_exists'] ?? false) !== true) {
+            $blocking[] = 'atlas_workspace_env_missing';
+        }
+        if (($baselineRuntime['laravel_runtime_detected'] ?? false) && ($baselineRuntime['env_file_exists'] ?? false) !== true) {
+            $blocking[] = 'claude_code_baseline_env_missing';
+        }
         if (! $baselineBinaryFound) {
             $blocking[] = 'claude_code_binary_not_found';
         }
@@ -386,6 +501,7 @@ class AtlasEngineeringBenchmarkFairCommand extends Command
         $commonRunArgs = "{$suiteArg}{$workspaceArg}{$baselineWorkspaceArg}{$binaryArg}{$filterArgs}"
             .' --model='.$this->fairModelOption()
             .' --model-policy='.($this->stringOption('model-policy') ?: 'fixed')
+            .' --provider-timeout='.($this->intOption('provider-timeout') ?: 600)
             .' --gate-profile='.$this->shellArg($this->stringOption('gate-profile') ?: 'strict')
             .' --quality-changed-only'
             .' --confirm-runbook-reviewed --confirm-provider-cost';
@@ -409,9 +525,11 @@ class AtlasEngineeringBenchmarkFairCommand extends Command
                 'minimum_release_corpus_case_count' => 6,
                 'workspace_exists' => $workspaceOk,
                 'workspace_git' => $workspaceGit,
+                'workspace_runtime' => $workspaceRuntime,
                 'baseline_workspace_exists' => $baselineWorkspaceOk,
                 'baseline_workspace_separate' => $baselineSeparate,
                 'baseline_workspace_git' => $baselineGit,
+                'baseline_workspace_runtime' => $baselineRuntime,
                 'claude_code_binary' => $baselineBinary,
                 'claude_code_binary_found' => $baselineBinaryFound,
                 'report_readiness_status' => data_get($report, 'readiness.status'),
@@ -448,6 +566,7 @@ class AtlasEngineeringBenchmarkFairCommand extends Command
                 'ready_runbook_required' => true,
                 'git_worktree_required' => true,
                 'invalid_battery_triage_required_before_rerun' => true,
+                'laravel_runtime_preflight_required' => true,
                 'clean_atlas_workspace_required' => true,
                 'clean_baseline_workspace_required' => true,
                 'blocking_error' => 'fair_claude_provider_execution_confirmation_required',
@@ -457,8 +576,15 @@ class AtlasEngineeringBenchmarkFairCommand extends Command
 
     private function binaryExists(string $binary, ExecutableFinder $finder): bool
     {
+        $binary = trim($binary);
+        if ($binary === '') {
+            return false;
+        }
+
         if (str_contains($binary, DIRECTORY_SEPARATOR)) {
-            return is_file($binary) && is_executable($binary);
+            $resolved = realpath($binary) ?: $binary;
+
+            return is_file($resolved) && is_executable($resolved);
         }
 
         return $finder->find($binary) !== null;
@@ -470,6 +596,11 @@ class AtlasEngineeringBenchmarkFairCommand extends Command
     private function historicalInvalidBatteryRequiresTriage(?array $report): bool
     {
         if ($report === null) {
+            return false;
+        }
+
+        if ((bool) data_get($report, 'result_integrity.triage_required_before_rerun', false) === false
+            && (string) data_get($report, 'result_integrity.invalid_battery_triage.status') === 'triaged_quarantined') {
             return false;
         }
 
@@ -491,10 +622,10 @@ class AtlasEngineeringBenchmarkFairCommand extends Command
         $comparableCount = (int) data_get($report, 'readiness.comparable_count', 0);
         $invalidCaseCount = (int) data_get($report, 'paired_scorecard.invalid_case_count', 0);
 
-        return $pairedRunCount > 0
+        return ($pairedRunCount > 0
             && $caseComparisonCount > 0
             && $comparableCount === 0
-            && $invalidCaseCount > 0
+            && $invalidCaseCount > 0)
             || $this->suiteHasHistoricalInvalidFairBattery($report);
     }
 
@@ -536,7 +667,8 @@ class AtlasEngineeringBenchmarkFairCommand extends Command
             }
         }
 
-        return $hasInvalidFairCase && ! $hasComparableFairCase;
+        return $hasInvalidFairCase && ! $hasComparableFairCase
+            && (string) data_get($report, 'result_integrity.invalid_battery_triage.status') !== 'triaged_quarantined';
     }
 
     private function shellArg(string $value): string
@@ -574,6 +706,7 @@ class AtlasEngineeringBenchmarkFairCommand extends Command
             '--permission' => $this->stringOption('permission') ?: 'auto',
             '--sandbox' => $this->stringOption('sandbox') ?: 'workspace',
             '--provider-runtime' => $this->stringOption('provider-runtime') ?: 'host',
+            '--provider-timeout' => $this->intOption('provider-timeout') ?: 600,
             '--max-attempts' => $this->intOption('max-attempts') ?: 3,
             '--test-command' => $this->stringOption('test-command'),
             '--complete' => ! $noProvider,
@@ -684,6 +817,41 @@ class AtlasEngineeringBenchmarkFairCommand extends Command
     }
 
     /**
+     * @return array{laravel_runtime_detected:bool,artisan_exists:bool,composer_json_exists:bool,vendor_autoload_exists:bool,env_file_exists:bool,pint_exists:bool,pint_command:string}
+     */
+    private function emptyWorkspaceRuntimeState(): array
+    {
+        return [
+            'laravel_runtime_detected' => false,
+            'artisan_exists' => false,
+            'composer_json_exists' => false,
+            'vendor_autoload_exists' => false,
+            'env_file_exists' => false,
+            'pint_exists' => false,
+            'pint_command' => 'php -d memory_limit=1024M vendor/bin/pint --test',
+        ];
+    }
+
+    /**
+     * @return array{laravel_runtime_detected:bool,artisan_exists:bool,composer_json_exists:bool,vendor_autoload_exists:bool,env_file_exists:bool,pint_exists:bool,pint_command:string}
+     */
+    private function workspaceRuntimeState(string $workspace): array
+    {
+        $artisanExists = is_file($workspace.DIRECTORY_SEPARATOR.'artisan');
+        $composerJsonExists = is_file($workspace.DIRECTORY_SEPARATOR.'composer.json');
+
+        return [
+            'laravel_runtime_detected' => $artisanExists && $composerJsonExists,
+            'artisan_exists' => $artisanExists,
+            'composer_json_exists' => $composerJsonExists,
+            'vendor_autoload_exists' => is_file($workspace.DIRECTORY_SEPARATOR.'vendor/autoload.php'),
+            'env_file_exists' => is_file($workspace.DIRECTORY_SEPARATOR.'.env') || is_file($workspace.DIRECTORY_SEPARATOR.'.env.testing'),
+            'pint_exists' => is_file($workspace.DIRECTORY_SEPARATOR.'vendor/bin/pint'),
+            'pint_command' => 'php -d memory_limit=1024M vendor/bin/pint --test',
+        ];
+    }
+
+    /**
      * @return array{is_git:bool,clean:?bool,dirty_files:array<int,string>,status:string}
      */
     private function gitWorkspaceState(string $workspace): array
@@ -783,7 +951,7 @@ class AtlasEngineeringBenchmarkFairCommand extends Command
         }
 
         $this->error("Acao Fair Claude desconhecida: {$action}");
-        $this->line('Use: prepare, run, run-atlas, run-claude-code, report, readiness, runbook, doctor, replay ou verify.');
+        $this->line('Use: prepare, run, run-atlas, run-claude-code, report, readiness, runbook, doctor, replay, verify ou triage-invalid-battery.');
 
         return self::FAILURE;
     }

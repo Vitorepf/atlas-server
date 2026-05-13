@@ -332,6 +332,9 @@ class AtlasProgrammingOrchestratorTest extends TestCase
         $this->assertSame('RepairRequestFactory', data_get($contract, 'kernel_repair_contract.request_factory'));
         $this->assertTrue((bool) data_get($contract, 'kernel_repair_contract.decision_required_before_enqueue'));
         $this->assertTrue((bool) data_get($contract, 'kernel_repair_contract.blocks_when_kernel_blocks'));
+        $this->assertSame('atlas.programming.repair_capsule.v1', data_get($contract, 'repair_capsule_contract.schema_version'));
+        $this->assertTrue((bool) data_get($contract, 'repair_capsule_contract.required_before_patch_repair'));
+        $this->assertFalse((bool) data_get($contract, 'repair_capsule_contract.fallback_allowed'));
         $this->assertContains('collect_evidence', data_get($contract, 'allowed_strategies'));
         $this->assertContains('rerun_harness', data_get($contract, 'heavy_strategies'));
         $this->assertTrue((bool) data_get($contract, 'requires_evidence_for_heavy_repair'));
@@ -341,9 +344,33 @@ class AtlasProgrammingOrchestratorTest extends TestCase
 
     public function test_repair_prompt_contains_quality_gate_summary(): void
     {
+        $repair = app(AtlasProgrammingOrchestrator::class)->repair([
+            'failure_hash' => 'failure-a',
+            'primary_error' => 'PHPUnit assertion failed',
+            'command' => 'php artisan test',
+        ], [
+            'task' => 'implementar recurso',
+            'attempt' => 2,
+            'max_attempts' => 4,
+            'agentic_rag_plan' => [
+                'retrieval_receipt' => ['receipt_id' => 'rag-1'],
+            ],
+        ]);
+
+        $this->assertSame('planned', data_get($repair, 'status'));
+        $this->assertSame('atlas.programming.repair_attempt.plan.v1', data_get($repair, 'repair_plan.schema_version'));
+        $this->assertSame('atlas.programming.repair_capsule.v1', data_get($repair, 'repair_capsule.schema_version'));
+        $this->assertSame('test_failure', data_get($repair, 'repair_capsule.failure_taxonomy.category'));
+        $this->assertFalse((bool) data_get($repair, 'repair_capsule.provider_policy.fallback_allowed'));
+        $this->assertStringContainsString('repair_capsule', $repair['repair_prompt']);
+
         $prompt = app(AtlasProgrammingOrchestrator::class)->repairPrompt('implementar recurso', [
             'status' => 'failed',
             'changed_files' => ['app/Foo.php'],
+            'repair_capsule' => [
+                'schema_version' => 'atlas.programming.repair_capsule.v1',
+                'failure_taxonomy' => ['category' => 'test_failure'],
+            ],
             'completion_packet' => [
                 'tests' => [
                     ['command' => 'phpunit', 'ok' => false],
@@ -356,5 +383,6 @@ class AtlasProgrammingOrchestratorTest extends TestCase
         $this->assertStringContainsString('implementar recurso', $prompt);
         $this->assertStringContainsString('app/Foo.php', $prompt);
         $this->assertStringContainsString('phpunit', $prompt);
+        $this->assertStringContainsString('repair_capsule', $prompt);
     }
 }

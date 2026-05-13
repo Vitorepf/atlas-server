@@ -26,6 +26,7 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md
   - docs/engineering-knowledge-base/atlas-ai-core-vs-domain.md
   - docs/engineering-knowledge-base/domains/programming-specialist-profiles.md
+  - docs/engineering-knowledge-base/domains/programming-professional-rag-operating-standard.md
   - docs/engineering-knowledge-base/domains/programming-enterprise-implementation-plan.md
   - docs/engineering-knowledge-base/domains/programming-frontend-superpower.md
 doc_schema: atlas_canonical_module_doc.v1
@@ -119,7 +120,7 @@ Master Architecture:
 
 | Domain | Spec | Status | Observacao |
 |---|---|---|---|
-| `programming` | `programming.md` + `programming-specialist-profiles.md` + `programming-frontend-superpower.md` | implemented/ready | Dev, repair, review, refactor, QA, security, database, visual, forge e specialist profiles internos. |
+| `programming` | `programming.md` + `programming-professional-rag-operating-standard.md` + `programming-agentic-rag-professional-spec.md` + `programming-enterprise-implementation-plan.md` + `programming-specialist-profiles.md` + `programming-frontend-superpower.md` | implemented/ready | Dev, repair, review, refactor, QA, security, database, visual, forge, RAG/Agentic RAG profissional e specialist profiles internos. |
 | `finance` | `finance.md` | implemented/ready | Analysis/review-only; sem ordens, broker execution, rebalanceamento ou transferencia. |
 | `personal_development` | `personal-development.md` | implemented/ready | Privado, non-clinical, plan-only e sem mutacao automatica de calendario/tarefas. |
 | `self_improvement` | `self-improvement.md` | implemented/ready | Auditoria, docs drift, capability gaps, benchmark review, memory quality, provider performance e proposals. |

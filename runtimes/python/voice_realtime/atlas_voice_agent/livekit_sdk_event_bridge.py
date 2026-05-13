@@ -37,7 +37,7 @@ class LiveKitSdkEventBridge:
         "tts_synthesized": ["session_id", "turn_id"],
         "audio_played": ["session_id", "turn_id"],
         "barge_in": ["session_id", "turn_id"],
-        "runtime_failed": ["session_id", "turn_id"],
+        "runtime_failed": ["session_id", "turn_id", "error_message_hash"],
         "provider_health_degraded": ["session_id", "turn_id", "provider"],
         "participant_left": ["session_id"],
     }

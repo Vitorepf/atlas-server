@@ -25,6 +25,7 @@ capabilities:
   - continuity_session_ui
 decisions:
   - Atlas Code materializes the Engineering Operations System category: the MES of software construction.
+  - A primeira versao enterprise do Atlas Code se chama Atlas Code SCOR-1, Software Construction Operating Room v1.
   - The Code surface is a window into the Kernel, not an editor. Vitor directs; Atlas programs.
   - All 11 canonical axes must be honored; no axis-invariant is skipped for UI simplicity.
   - Atlas Decide owns provider routing. The surface displays the decision; it never lets the user pick provider by dropdown without `manual_override` audit.
@@ -39,6 +40,8 @@ maintenance:
   - Keep ≤ 360 lines; if it grows, split per zone of the surface into child specs.
   - Bidirectional `related_paths` must stay in sync with each axis owner doc.
 related_paths:
+  - docs/engineering-knowledge-base/atlas-code-scor-1-implementation-contract.md
+  - docs/engineering-knowledge-base/atlas-code-long-session-programming-cockpit.md
   - docs/engineering-knowledge-base/atlas-desktop-backend-contract.md
   - docs/engineering-knowledge-base/atlas-code-category-evolution.md
   - docs/engineering-knowledge-base/atlas-ai-master-architecture.md
@@ -165,6 +168,13 @@ como editor tradicional. A tela deve permitir declarar intencao, acompanhar SDD,
 assinar contrato, observar execucao, validar gates, ler evidencia e operar
 terminal real.
 
+Nome canonico da primeira versao enterprise:
+
+```text
+Atlas Code SCOR-1
+Software Construction Operating Room v1
+```
+
 ## Papel no Atlas
 
 Atlas Code materializa o Engineering Operations System: humano dirige,
@@ -182,6 +192,28 @@ real do `atlas-server`.
 Sem receipt, nao executa. Sem spec, nao planeja. Sem evidence, nao promove.
 Sem fonte real, mostra vazio honesto. O usuario nao escolhe provider por gosto;
 Atlas Decide escolhe e qualquer override precisa auditoria.
+
+Para sessoes longas e dificeis, Atlas Code deve cumprir tambem
+`atlas-code-long-session-programming-cockpit.md`: contexto visivel, spec/plan/tasks
+como objetos vivos, task contracts, checkpoint/resume, diff/scope guard, gates
+reais, evidence ledger detalhado, repair loop e cartografia de execucao.
+
+A primeira fatia implementavel de SCOR-1 esta fixada em
+`atlas-code-scor-1-implementation-contract.md`. Qualquer IA que implemente a
+surface deve seguir esse contrato antes de tentar Forge OS, streaming completo,
+Scope Guard avancado ou DSL.
+
+Obras ja e a primitiva de producao do Atlas. Atlas Code nao deve se
+reposicionar como "workspace em vez de chat" de forma generica: `Obra` e a
+unidade/production graph que transforma intencao em delivery/asset; `Obras
+Shared Workspace` e o escritorio compartilhado para trabalho longo ou
+multi-provider; chat, terminal, SDD, artifacts, gates e cartografia sao
+interfaces/projecoes que precisam estar vinculadas a `obra_id`, node, contexto,
+output e evidence. Conversa sem esse vinculo continua rascunho/loose chat.
+
+Streaming UI de artefatos operacionais e obrigatorio em SCOR-1: spec, plan,
+tasks, gates, evidence, diffs e cartografia devem atualizar em tempo real a
+partir de eventos/artefatos, nao apenas aparecer como resposta textual final.
 
 ## Fluxo
 
@@ -231,6 +263,10 @@ criar conversas, receipts ou outputs ficticios para preencher a tela.
 
 Conectar Obras, conversas, terminal PTY, receipts, gates e evidence reais; todo
 painel sem backend deve mostrar estado vazio honesto.
+
+Implementar o modo de sessao longa definido em
+`atlas-code-long-session-programming-cockpit.md` antes de declarar Atlas Code
+pronto para programacao assistida por IA em trabalho dificil.
 
 ## 1. Definition
 

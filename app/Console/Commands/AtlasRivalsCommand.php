@@ -12,7 +12,7 @@ use Symfony\Component\Console\Output\BufferedOutput;
 class AtlasRivalsCommand extends Command
 {
     protected $signature = 'atlas:engineering:benchmark:rivals
-        {action=readiness : readiness, run, quick, medium, full, run-atlas, run-claude-code, prepare, report, runbook, replay or verify}
+        {action=readiness : readiness, run, quick, medium, full, run-atlas, run-claude-code, prepare, report, runbook, replay, verify or triage-invalid-battery}
         {run? : Benchmark run id for replay}
         {--profile=fair-claude : Rivals benchmark profile. Only fair-claude is supported.}
         {--preset= : Battery size: quick, medium or full}
@@ -45,6 +45,8 @@ class AtlasRivalsCommand extends Command
         {--no-auto-test : Disable auto-test for run and run-atlas}
         {--confirm-runbook-reviewed : Confirm the Rivals runbook/preflight was reviewed before provider execution}
         {--confirm-provider-cost : Confirm external provider cost/token usage before provider execution}
+        {--confirm-invalid-battery-quarantine : Confirm invalid historical battery should be quarantined without admitting score}
+        {--reason= : Human triage reason for triage-invalid-battery}
         {--run-id= : Benchmark run id for replay; alias for the positional run argument}
         {--output-dir= : Write or verify report.json, evidence.json, claim.md and manifest.json for report/readiness/verify}
         {--markdown : Print audit-ready Markdown for report/readiness}
@@ -177,6 +179,8 @@ class AtlasRivalsCommand extends Command
             '--no-auto-test' => (bool) $this->option('no-auto-test') ?: null,
             '--confirm-runbook-reviewed' => (bool) $this->option('confirm-runbook-reviewed') ?: null,
             '--confirm-provider-cost' => (bool) $this->option('confirm-provider-cost') ?: null,
+            '--confirm-invalid-battery-quarantine' => (bool) $this->option('confirm-invalid-battery-quarantine') ?: null,
+            '--reason' => $this->stringOption('reason'),
             '--run-id' => $this->stringOption('run-id'),
             '--output-dir' => $this->stringOption('output-dir'),
             '--markdown' => (bool) $this->option('markdown') ?: null,

@@ -9,6 +9,7 @@ use App\Models\AtlasEngineeringRun;
 use App\Models\AtlasEngineeringRunAttempt;
 use App\Models\AtlasTask;
 use App\Services\Ai\Runtime\WorkspaceProfiler;
+use App\Support\AtlasPhpBinary;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
@@ -139,8 +140,8 @@ class EngineeringControlRegistryService
                     timing: 'pre_commit',
                     required: false,
                     failurePolicy: 'advisory',
-                    command: './vendor/bin/pint --test',
-                    metadata: ['profile' => $profile],
+                    command: escapeshellarg(AtlasPhpBinary::path()).' -d memory_limit=1024M vendor/bin/pint --test',
+                    metadata: ['profile' => $profile, 'memory_limit' => '1024M'],
                 );
             }
 

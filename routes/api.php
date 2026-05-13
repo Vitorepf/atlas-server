@@ -504,6 +504,10 @@ Route::prefix('atlas-cartography')->group(function () {
     Route::get('/graph', [AtlasCartographyController::class, 'graph']);
     Route::get('/note/{graph_id}', [AtlasCartographyController::class, 'note'])->where('graph_id', '.*');
     Route::get('/recent-changes', [AtlasCartographyController::class, 'recentChanges']);
+    // SSE · live-doc stream. Heartbeat every 15s + emit `graph_changed` when
+    // the assembler's checksum moves. Connections close after 25s so the
+    // `php artisan serve` single-thread worker recycles; client reconnects.
+    Route::get('/stream', [AtlasCartographyController::class, 'stream']);
 });
 
 /*
@@ -545,4 +549,12 @@ Route::prefix('atlas-code')->group(function () {
 
     // 12 · apply diff · NEW
     Route::post('/diffs/{patch}/apply', [AtlasCodeDiffController::class, 'apply']);
+
+    // PROGRAMMING GOVERNANCE · WorkItem timeline as live objects (SCOR-1 cockpit feed)
+    Route::middleware('atlas.token')->group(function (): void {
+        Route::get('/programming/work-items', [\App\Http\Controllers\AtlasProgrammingGovernanceController::class, 'index']);
+        Route::get('/programming/work-items/{code}', [\App\Http\Controllers\AtlasProgrammingGovernanceController::class, 'show']);
+        Route::get('/programming/work-items/{code}/gate-runs', [\App\Http\Controllers\AtlasProgrammingGovernanceController::class, 'gateRuns']);
+        Route::get('/programming/work-items/{code}/spec-compile', [\App\Http\Controllers\AtlasProgrammingGovernanceController::class, 'compileSpec']);
+    });
 });

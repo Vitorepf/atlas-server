@@ -40,6 +40,7 @@ related_paths:
   - app/Services/Ai/AtlasOpenBrainContextInjectionService.php
   - app/Services/Engineering/EngineeringCodeIntelligenceService.php
   - docs/engineering-knowledge-base/domains/programming-enterprise-implementation-plan.md
+  - docs/engineering-knowledge-base/domains/programming-professional-rag-operating-standard.md
   - docs/engineering-knowledge-base/domains/programming.md
   - docs/engineering-knowledge-base/memory/retrieval-and-context.md
   - docs/engineering-knowledge-base/evolution/context-builder-roadmap.md

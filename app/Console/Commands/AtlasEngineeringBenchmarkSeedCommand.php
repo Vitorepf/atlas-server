@@ -220,7 +220,13 @@ class AtlasEngineeringBenchmarkSeedCommand extends Command
                         'Artifact path is redacted from API/CLI JSON responses.',
                         'Final packet does not depend on Claude self-evaluation.',
                     ],
-                    'allowed_files' => ['app/Services/Engineering/**', 'app/Console/Commands/AtlasEngineeringBenchmark*', 'tests/**'],
+                    'allowed_files' => [
+                        'app/Services/Engineering/EngineeringBenchmarkService.php',
+                        'app/Console/Commands/AtlasEngineeringBenchmarkFairCommand.php',
+                        'app/Console/Commands/AtlasRivalsCommand.php',
+                        'tests/Feature/EngineeringHarnessRunnerTest.php',
+                    ],
+                    'strict_file_scope' => true,
                     'forbidden_files' => ['app/Services/Ai/CodexCliProvider.php', 'app/Services/Ai/GeminiCliProvider.php'],
                     'test_commands' => [
                         '/opt/homebrew/bin/php artisan test tests/Feature/EngineeringHarnessRunnerTest.php --filter=replay',

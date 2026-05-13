@@ -34,9 +34,13 @@ class AtlasProgrammingRivalsReadinessCommand extends Command
             $this->components->twoColumnDetail('Programming Rivals triage', (string) ($triage['status'] ?? 'unknown'));
             $this->components->twoColumnDetail('Provider dispatch', data_get($triage, 'safety.provider_dispatches_now') ? 'allowed' : 'blocked');
             $this->components->twoColumnDetail('Spend provider tokens', data_get($triage, 'safety.spend_provider_tokens_now') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Provider budget reason', (string) data_get($triage, 'provider_budget_policy.reason', 'unknown'));
             $this->components->twoColumnDetail('Score admitted', data_get($triage, 'result_integrity.score_admitted') ? 'yes' : 'no');
             $this->components->twoColumnDetail('Claim winner admitted', data_get($triage, 'result_integrity.claim_winner_admitted') ? 'yes' : 'no');
             $this->components->twoColumnDetail('Current workspace', (string) data_get($triage, 'current_workspace.status', 'unknown'));
+            $this->components->twoColumnDetail('Current local rechecks', (string) data_get($triage, 'current_local_rechecks.status', 'unknown'));
+            $this->components->twoColumnDetail('Quality changed-only', (string) data_get($triage, 'current_local_rechecks.quality_changed_only.status', 'unknown'));
+            $this->components->twoColumnDetail('Visual smoke', (string) data_get($triage, 'current_local_rechecks.visual_smoke.status', 'unknown'));
             $this->newLine();
             foreach ((array) data_get($triage, 'blocking_reasons', []) as $reason) {
                 $this->warn((string) $reason);
@@ -83,9 +87,14 @@ class AtlasProgrammingRivalsReadinessCommand extends Command
         $this->components->twoColumnDetail('Current workspace preflight', (string) data_get($report, 'current_workspace_preflight.status', 'unknown'));
         $this->components->twoColumnDetail('Current dirty files', (string) data_get($report, 'current_workspace_preflight.git.dirty_count', 0));
         $this->components->twoColumnDetail('Provider dispatch now', data_get($report, 'operator_execution_packet.provider_dispatches_now') ? 'yes' : 'no');
+        $this->components->twoColumnDetail('Spend provider tokens now', data_get($report, 'invalid_battery_triage_packet.provider_budget_policy.spend_more_provider_tokens_now') ? 'yes' : 'no');
+        $this->components->twoColumnDetail('Provider budget reason', (string) data_get($report, 'invalid_battery_triage_packet.provider_budget_policy.reason', 'unknown'));
         $this->components->twoColumnDetail('Rerun allowed now', data_get($report, 'operator_execution_packet.rerun_provider_battery_allowed_now') ? 'yes' : 'no');
         $this->components->twoColumnDetail('Current rerun preconditions', (string) data_get($report, 'invalid_battery_triage_packet.current_rerun_preconditions.current_workspace_status', 'unknown'));
         $this->components->twoColumnDetail('Rerun precondition dispatch', data_get($report, 'invalid_battery_triage_packet.current_rerun_preconditions.provider_dispatch_allowed_now') ? 'allowed' : 'blocked');
+        $this->components->twoColumnDetail('Current local rechecks', (string) data_get($report, 'current_local_recheck_evidence.status', 'unknown'));
+        $this->components->twoColumnDetail('Quality changed-only', (string) data_get($report, 'current_local_recheck_evidence.quality_changed_only.status', 'unknown'));
+        $this->components->twoColumnDetail('Visual smoke', (string) data_get($report, 'current_local_recheck_evidence.visual_smoke.status', 'unknown'));
         $this->components->twoColumnDetail('Synthetic scores', data_get($report, 'summary.synthetic_scores_allowed') ? 'allowed' : 'blocked');
         $this->components->twoColumnDetail('Local benchmark cache', data_get($report, 'local_benchmark_cache.hit') ? 'hit' : 'fresh');
         $this->newLine();
@@ -159,6 +168,7 @@ class AtlasProgrammingRivalsReadinessCommand extends Command
                 'dirty_count' => (int) data_get($report, 'current_workspace_preflight.git.dirty_count', 0),
                 'dirty_files_sample' => data_get($report, 'current_workspace_preflight.git.dirty_files_sample', []),
             ],
+            'provider_budget_policy' => data_get($report, 'invalid_battery_triage_packet.provider_budget_policy', []),
             'current_local_rechecks' => data_get($report, 'current_local_recheck_evidence', []),
             'blocking_reasons' => data_get($report, 'invalid_battery_triage_packet.current_rerun_preconditions.why_provider_dispatch_is_blocked', []),
             'triage_checklist' => data_get($report, 'invalid_battery_triage_packet.triage_checklist', []),

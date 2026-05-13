@@ -285,7 +285,7 @@ final class AtlasAiVoiceRealtimeController extends Controller
         $data = $this->validateRuntimeCallbackPayload($request) + $request->validate([
             'failure_code' => ['nullable', 'string', 'max:160'],
             'error_class' => ['nullable', 'string', 'max:160'],
-            'error_message_hash' => ['nullable', 'string', 'regex:/^[a-f0-9]{64}$/i'],
+            'error_message_hash' => ['required', 'string', 'regex:/^[a-f0-9]{64}$/i'],
             'latency_ms' => ['nullable', 'integer', 'min:0'],
             'error_message' => ['prohibited'],
             'message' => ['prohibited'],

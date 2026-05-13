@@ -168,6 +168,7 @@ return [
             'api_key' => env('LIVEKIT_API_KEY'),
             'api_secret' => env('LIVEKIT_API_SECRET'),
             'token_ttl_seconds' => (int) env('ATLAS_VOICE_LIVEKIT_TOKEN_TTL_SECONDS', 900),
+            'agent_name' => env('ATLAS_VOICE_LIVEKIT_AGENT_NAME', 'atlas-voice-agent'),
         ],
     ],
 

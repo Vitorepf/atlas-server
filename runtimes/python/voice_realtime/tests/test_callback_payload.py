@@ -125,6 +125,14 @@ class AtlasVoiceCallbackPayloadTest(unittest.TestCase):
                 "error_message_hash": "provider timed out",
             })
 
+    def test_failure_payload_requires_redacted_error_message_hash(self) -> None:
+        with self.assertRaises(UnsafeVoicePayload):
+            AtlasVoiceFailurePayload.from_runtime_output({
+                "session_id": "voice_session",
+                "turn_id": "voice_turn",
+                "failure_code": "tts_timeout",
+            })
+
     def test_interrupted_payload_reports_barge_in_safely(self) -> None:
         payload = AtlasVoiceInterruptedPayload.from_runtime_output({
             "session_id": "voice_session",

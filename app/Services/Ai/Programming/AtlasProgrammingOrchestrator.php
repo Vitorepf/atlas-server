@@ -24,6 +24,7 @@ class AtlasProgrammingOrchestrator implements AtlasDomainOrchestrator
         private readonly ProgrammingTestImpactAnalyzer $testImpactAnalyzer,
         private readonly ProgrammingPatchVerifier $patchVerifier,
         private readonly ProgrammingLearningCandidateProjector $learningCandidates,
+        private readonly ProgrammingRepairExecutor $repairExecutor,
     ) {}
 
     /**
@@ -244,11 +245,23 @@ class AtlasProgrammingOrchestrator implements AtlasDomainOrchestrator
 
     public function repair(array $failure, array $context = []): array
     {
+        $attempt = max(1, (int) ($context['attempt'] ?? data_get($context, 'repair.attempt', 1)));
+        $maxAttempts = max($attempt, (int) ($context['max_attempts'] ?? data_get($context, 'repair.max_attempts', 3)));
+        $retrievalPlan = (array) ($context['agentic_rag_plan'] ?? $context['retrieval_plan'] ?? []);
+        $repairPlan = $this->repairExecutor->attemptPlan($failure, $retrievalPlan, $attempt, $maxAttempts);
+
         return [
             'schema_version' => 1,
             'orchestrator' => $this->orchestratorId(),
-            'status' => 'planned',
-            'repair_prompt' => $this->repairPrompt($failure),
+            'status' => data_get($repairPlan, 'status', 'planned'),
+            'repair_plan' => $repairPlan,
+            'repair_capsule' => data_get($repairPlan, 'repair_capsule'),
+            'repair_prompt' => $this->repairPrompt(
+                (string) ($context['task'] ?? data_get($context, 'objective', 'programming repair')),
+                array_merge($failure, ['repair_capsule' => data_get($repairPlan, 'repair_capsule')]),
+                $attempt,
+                $maxAttempts,
+            ),
             'failure' => $failure,
             'context' => $context,
         ];
@@ -577,6 +590,16 @@ class AtlasProgrammingOrchestrator implements AtlasDomainOrchestrator
                 RepairStrategy::RerunHarness->value,
             ],
             'requires_evidence_for_heavy_repair' => true,
+            'repair_capsule_contract' => [
+                'schema_version' => 'atlas.programming.repair_capsule.v1',
+                'required_before_patch_repair' => true,
+                'must_include_failure_taxonomy' => true,
+                'must_include_provider_policy' => true,
+                'must_preserve_original_provider_and_model' => true,
+                'fallback_allowed' => false,
+                'must_include_verification_plan' => true,
+                'must_include_stop_rule' => true,
+            ],
             'gate_contract' => data_get($contracts, 'gates'),
             'tool_contract' => data_get($contracts, 'tools'),
             'created_at' => now()->toJSON(),
@@ -598,6 +621,7 @@ class AtlasProgrammingOrchestrator implements AtlasDomainOrchestrator
                 'tests' => data_get($completion, 'completion_packet.tests', []),
                 'quality_gates' => data_get($completion, 'quality_gates', data_get($completion, 'completion_packet.quality_gates', [])),
                 'risks' => data_get($completion, 'completion_packet.risks', []),
+                'repair_capsule' => data_get($completion, 'repair_capsule'),
             ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}',
             'Aplique a menor correcao que faca os gates passarem. Preserve mudancas nao relacionadas e explique qualquer gate que ainda nao possa ser verificado.',
         ]);

@@ -131,6 +131,18 @@ Programming specialization:
 Forge Workspace = Obras Shared Workspace for Programming / Atlas Forge.
 ```
 
+Boundary:
+
+```text
+Obra = operational production unit / production graph.
+Obras Shared Workspace = shared office inside an Obra for long or multi-agent work.
+Forge Workspace = programming specialization of that shared office.
+```
+
+Do not collapse these concepts. A chat, terminal, SDD pane or provider session
+is not an Obra by itself; it becomes governed production work only when linked
+to `obra_id`, node/context, artifact/output and evidence.
+
 Do not create competing names such as "provider office", "AI room",
 "Forge memory" or "multi-agent project space". Those may be metaphors, not
 architecture.
@@ -247,6 +259,15 @@ Models must exchange artifacts, not vague conversation:
 
 Each artifact should have an id, source, timestamp, owning provider/session,
 input hash, output hash and status.
+
+For Atlas Code SCOR-1, artifacts are not optional UI decorations. They are the
+basic persistent units of an Obra. Specs, plans, task contracts, receipts, gate
+runs, diffs, evidence, checkpoints, repair decisions and cartography updates
+must survive chat history, reload, provider changes and session resume.
+
+Atlas Code may stream partial artifact updates while a provider works, but the
+Obra is not updated as trusted state until the artifact validates against its
+schema and evidence policy.
 
 ## Minimum Workspace Contract For Heavy Programming
 

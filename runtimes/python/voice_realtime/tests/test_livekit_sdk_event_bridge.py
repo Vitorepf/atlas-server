@@ -177,6 +177,14 @@ class LiveKitSdkEventBridgeTest(unittest.TestCase):
                 "metadata": {"direct_provider_call": {"provider": "claude"}},
             })
 
+        with self.assertRaises(UnsafeVoicePayload):
+            LiveKitSdkEventBridge.to_callback_event({
+                "event_kind": "runtime_failed",
+                "session_id": "voice_session",
+                "turn_id": "voice_turn",
+                "failure_code": "runtime_failed_without_redacted_hash",
+            })
+
 
 if __name__ == "__main__":
     unittest.main()

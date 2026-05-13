@@ -48,6 +48,10 @@ class ProgrammingSurfaceContractFactoryTest extends TestCase
             'trace_id' => 'trace_123',
             'programming_profile' => 'forge',
             'model' => 'gpt-5.5',
+            'continuation_packet' => [
+                'schema_version' => 'atlas.programming.continuation_packet.v1',
+                'next_stage' => 'test',
+            ],
         ], [
             'provider' => 'codex_cli',
             'programming_intent' => 'repair',
@@ -77,6 +81,8 @@ class ProgrammingSurfaceContractFactoryTest extends TestCase
         $this->assertSame('repair', $contract['programming_intent']);
         $this->assertSame('codex_cli', $contract['provider']);
         $this->assertSame('gpt-5.5', $contract['model']);
+        $this->assertSame('atlas.programming.continuation_packet.v1', data_get($contract, 'continuation_packet.schema_version'));
+        $this->assertSame('test', data_get($contract, 'continuation_packet.next_stage'));
         $this->assertSame('required', $contract['open_brain']['mode']);
         $this->assertTrue($contract['dev_flags']['resume']);
         $this->assertTrue($contract['dev_flags']['forge']);

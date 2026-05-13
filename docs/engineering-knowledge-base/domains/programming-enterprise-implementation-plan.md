@@ -25,13 +25,14 @@ capabilities:
   - programming_learning_loop
 decisions:
   - Programming Agentic RAG e a camada de inteligencia antes de plan/patch/test/repair.
+  - O standard operacional de nivel profissional vive em programming-professional-rag-operating-standard.md e deve ser lido antes de mudar RAG/Agentic RAG.
   - O alvo de RAG/Agentic RAG profissional e governado por programming-agentic-rag-professional-spec.md; MVP fraco nao e criterio de conclusao.
   - Semantic Code Graph e Test Impact Analysis alimentam o Retrieval Plan.
   - Stage receipts, action manifests e resume sao obrigatorios para runtime enterprise.
   - Patch Verifier e Repair Loop executor bloqueiam claims quando evidencia estiver fraca.
-- Learning Loop promove apenas candidatos curados, com evidencia e reversibilidade.
-- Rivals-Programming nao pode gastar nova bateria paga quando a ultima execucao real esta invalida; primeiro corrigir protocolo, gates e escopo.
-- Fair Claude/Rivals provider execution exige runbook pronto, workspace Atlas limpo e baseline workspace separado/limpo antes de gastar provider.
+  - Learning Loop promove apenas candidatos curados, com evidencia e reversibilidade.
+  - Rivals-Programming nao pode gastar nova bateria paga quando a ultima execucao real esta invalida; primeiro corrigir protocolo, gates e escopo.
+  - Fair Claude/Rivals provider execution exige runbook pronto, workspace Atlas limpo e baseline workspace separado/limpo antes de gastar provider.
 maintenance:
   - Atualize este documento quando qualquer um dos oito itens ganhar codigo, comando, API, teste ou gate.
   - Nao declare item concluido sem DoD, comando de evidencia e teste verde cobrindo o requisito.
@@ -49,6 +50,7 @@ related_paths:
   - app/Services/Engineering/EngineeringHarnessExecutionService.php
   - app/Services/Engineering/EngineeringHarnessRunnerService.php
   - docs/engineering-knowledge-base/domains/programming.md
+  - docs/engineering-knowledge-base/domains/programming-professional-rag-operating-standard.md
   - docs/engineering-knowledge-base/domains/programming-agentic-rag-professional-spec.md
   - docs/engineering-knowledge-base/domains/programming-repair-contract.md
   - docs/engineering-knowledge-base/domains/programming-frontend-superpower.md

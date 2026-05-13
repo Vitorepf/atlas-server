@@ -256,6 +256,12 @@ class EngineeringBenchmarkController extends Controller
             'same_model' => 'atlas_fixed_provider_model',
             default => 'not_paired',
         };
+        $primaryBlocker = $blockers[0] ?? null;
+        $operatorHeadline = $blockers === []
+            ? 'Battery plan ready for operator review.'
+            : $this->rivalsBatteryPlanBlockerHeadline($primaryBlocker);
+        $workspaceDirtyFiles = array_values((array) ($workspaceGit['dirty_files'] ?? []));
+        $baselineDirtyFiles = array_values((array) ($baselineGit['dirty_files'] ?? []));
         $plan = [
             'schema_version' => 'atlas.rivals.battery_plan.v1',
             'suite' => [
@@ -267,6 +273,26 @@ class EngineeringBenchmarkController extends Controller
             'status' => $blockers === [] ? 'ready_for_operator_confirmation' : 'blocked',
             'ready' => $blockers === [],
             'blockers' => $blockers,
+            'operator_report' => [
+                'schema_version' => 'atlas.rivals.battery_plan_operator_report.v1',
+                'status_label' => $blockers === [] ? 'Ready for review' : 'Blocked',
+                'headline' => $operatorHeadline,
+                'primary_blocker' => $primaryBlocker,
+                'blocker_count' => count($blockers),
+                'workspace_status' => (string) ($workspaceGit['status'] ?? 'unknown'),
+                'workspace_dirty_count' => count($workspaceDirtyFiles),
+                'workspace_dirty_files_sample' => array_slice($workspaceDirtyFiles, 0, 20),
+                'baseline_workspace_status' => (string) ($baselineGit['status'] ?? 'unknown'),
+                'baseline_workspace_dirty_count' => count($baselineDirtyFiles),
+                'baseline_workspace_dirty_files_sample' => array_slice($baselineDirtyFiles, 0, 20),
+                'result_integrity_status' => data_get($fairClaudeReport, 'result_integrity.status'),
+                'invalid_battery_triage_status' => data_get($fairClaudeReport, 'result_integrity.invalid_battery_triage.status'),
+                'score_admitted' => (bool) data_get($fairClaudeReport, 'result_integrity.score_admitted', false),
+                'claim_winner_admitted' => (bool) data_get($fairClaudeReport, 'result_integrity.claim_winner_admitted', false),
+                'next_action' => $blockers === []
+                    ? 'Review the plan hash and explicitly acknowledge provider cost before running the battery.'
+                    : 'Resolve the primary blocker before provider execution.',
+            ],
             'operator_required' => true,
             'cost_acknowledgement_required' => true,
             'agent_auto_execution_allowed' => false,
@@ -294,9 +320,15 @@ class EngineeringBenchmarkController extends Controller
             ],
             'preflight' => [
                 'workspace_exists' => $workspaceExists,
+                'workspace_status' => (string) ($workspaceGit['status'] ?? 'unknown'),
+                'workspace_dirty_count' => count($workspaceDirtyFiles),
+                'workspace_dirty_files_sample' => array_slice($workspaceDirtyFiles, 0, 20),
                 'workspace_git' => $workspaceGit,
                 'baseline_workspace_exists' => $baselineWorkspaceExists,
                 'baseline_workspace_separate' => $baselineSeparate,
+                'baseline_workspace_status' => (string) ($baselineGit['status'] ?? 'unknown'),
+                'baseline_workspace_dirty_count' => count($baselineDirtyFiles),
+                'baseline_workspace_dirty_files_sample' => array_slice($baselineDirtyFiles, 0, 20),
                 'baseline_workspace_git' => $baselineGit,
             ],
             'corpus' => [
@@ -310,6 +342,7 @@ class EngineeringBenchmarkController extends Controller
                 'claim_winner_admitted' => (bool) data_get($fairClaudeReport, 'result_integrity.claim_winner_admitted', false),
                 'winner_for_claim' => data_get($fairClaudeReport, 'result_integrity.winner_for_claim'),
                 'triage_required_before_rerun' => $triageRequiredBeforeRerun,
+                'invalid_battery_triage' => data_get($fairClaudeReport, 'result_integrity.invalid_battery_triage'),
             ],
             'safety' => [
                 'read_only_plan' => true,
@@ -335,6 +368,11 @@ class EngineeringBenchmarkController extends Controller
             return false;
         }
 
+        if ((bool) data_get($report, 'result_integrity.triage_required_before_rerun', false) === false
+            && (string) data_get($report, 'result_integrity.invalid_battery_triage.status') === 'triaged_quarantined') {
+            return false;
+        }
+
         if ((string) data_get($report, 'result_integrity.status') === 'invalid_battery_no_comparable_score') {
             return true;
         }
@@ -346,6 +384,26 @@ class EngineeringBenchmarkController extends Controller
             ->all();
 
         return in_array('triage_invalid_battery_before_provider_rerun', $nextActionIds, true);
+    }
+
+    private function rivalsBatteryPlanBlockerHeadline(?string $blocker): string
+    {
+        return match ($blocker) {
+            'workspace_required' => 'Choose an Atlas workspace before planning the battery.',
+            'workspace_missing_or_unreadable' => 'Atlas workspace is missing or unreadable.',
+            'atlas_workspace_not_git_worktree' => 'Atlas workspace must be a Git worktree.',
+            'atlas_workspace_dirty' => 'Atlas workspace has uncommitted changes and would contaminate the comparison.',
+            'release_corpus_below_minimum' => 'Release corpus is below the minimum required case count.',
+            'historical_invalid_battery_requires_triage' => 'Historical invalid battery must be triaged before another paid run.',
+            'separate_baseline_workspace_required' => 'A separate clean baseline workspace is required for official fair mode.',
+            'claude_code_baseline_workspace_missing_or_unreadable' => 'Claude Code baseline workspace is missing or unreadable.',
+            'baseline_workspace_must_be_separate' => 'Atlas and baseline workspaces must be separate.',
+            'claude_code_baseline_workspace_not_git_worktree' => 'Claude Code baseline workspace must be a Git worktree.',
+            'claude_code_baseline_workspace_dirty' => 'Claude Code baseline workspace has uncommitted changes.',
+            'provider_required' => 'Choose a provider for this battery mode.',
+            'model_required' => 'Choose a model for this battery mode.',
+            default => 'Battery plan is blocked by unresolved preflight requirements.',
+        };
     }
 
     /**
@@ -427,7 +485,11 @@ class EngineeringBenchmarkController extends Controller
             }
         }
 
-        return $hasInvalidFairCase && ! $hasComparableFairCase;
+        $triage = (array) data_get($suite->metadata ?? [], 'rivals_invalid_battery_triage', []);
+
+        return $hasInvalidFairCase
+            && ! $hasComparableFairCase
+            && (string) ($triage['status'] ?? '') !== 'triaged_quarantined';
     }
 
     /**

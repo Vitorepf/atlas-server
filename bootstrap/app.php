@@ -88,6 +88,7 @@ use App\Console\Commands\AtlasOpenBrainMcpCommand;
 use App\Console\Commands\AtlasProductiveFailureCommand;
 use App\Console\Commands\AtlasProgrammingCompletionAuditCommand;
 use App\Console\Commands\AtlasProgrammingPatchVerifierBenchmarkCommand;
+use App\Console\Commands\AtlasProgrammingRepairLoopBenchmarkCommand;
 use App\Console\Commands\AtlasProgrammingResumeCommand;
 use App\Console\Commands\AtlasProgrammingRetrievalBenchmarkCommand;
 use App\Console\Commands\AtlasProgrammingRivalsReadinessCommand;
@@ -180,6 +181,7 @@ return Application::configure(basePath: dirname(__DIR__))
         AtlasProposalScanCommand::class,
         AtlasProgrammingCompletionAuditCommand::class,
         AtlasProgrammingPatchVerifierBenchmarkCommand::class,
+        AtlasProgrammingRepairLoopBenchmarkCommand::class,
         AtlasProgrammingRetrievalBenchmarkCommand::class,
         AtlasProgrammingRivalsReadinessCommand::class,
         AtlasProgrammingResumeCommand::class,

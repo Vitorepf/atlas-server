@@ -112,6 +112,14 @@ class AtlasVoiceCallbackBase:
 
         return parsed
 
+    @classmethod
+    def required_sha256(cls, value: Any, field: str) -> str:
+        parsed = cls.optional_sha256(value, field)
+        if parsed is None:
+            raise UnsafeVoicePayload(f"{field} is required")
+
+        return parsed
+
 
 @dataclass(frozen=True)
 class AtlasVoiceSynthesizedPayload(AtlasVoiceCallbackBase):
@@ -237,12 +245,12 @@ class AtlasVoiceInterruptedPayload(AtlasVoiceCallbackBase):
 class AtlasVoiceFailurePayload(AtlasVoiceCallbackBase):
     failure_code: str = "runtime_failed"
     error_class: str | None = None
-    error_message_hash: str | None = None
+    error_message_hash: str = ""
 
     @classmethod
     def from_runtime_output(cls, payload: Mapping[str, Any]) -> "AtlasVoiceFailurePayload":
         cls.assert_no_forbidden_keys(payload)
-        error_message_hash = cls.optional_sha256(payload.get("error_message_hash"), "error_message_hash")
+        error_message_hash = cls.required_sha256(payload.get("error_message_hash"), "error_message_hash")
 
         return cls(
             session_id=cls.require_string(payload, "session_id"),
@@ -264,8 +272,7 @@ class AtlasVoiceFailurePayload(AtlasVoiceCallbackBase):
         payload["failure_code"] = self.failure_code
         if self.error_class is not None:
             payload["error_class"] = self.error_class
-        if self.error_message_hash is not None:
-            payload["error_message_hash"] = self.error_message_hash
+        payload["error_message_hash"] = self.error_message_hash
 
         self.assert_no_forbidden_keys(payload)
 

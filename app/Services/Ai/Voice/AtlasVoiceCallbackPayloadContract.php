@@ -40,8 +40,8 @@ final class AtlasVoiceCallbackPayloadContract
             'prohibited' => ['raw_audio', 'audio_bytes', 'pcm', 'wav'],
         ],
         'runtime_failed' => [
-            'required' => ['session_id', 'turn_id'],
-            'optional' => ['failure_code', 'error_class', 'error_message_hash', 'latency_ms'],
+            'required' => ['session_id', 'turn_id', 'error_message_hash'],
+            'optional' => ['failure_code', 'error_class', 'latency_ms'],
             'prohibited' => ['raw_audio', 'audio_bytes', 'response_text', 'raw_response_text', 'error_message', 'message', 'tool_call', 'tool_args'],
         ],
         'provider_health_degraded' => [

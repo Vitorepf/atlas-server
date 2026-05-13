@@ -29,6 +29,7 @@ maintenance:
   - Qualquer mock HTML e apenas referencia visual; este arquivo governa o backend real.
 related_paths:
   - docs/atlas-vault-cartografia.md
+  - docs/engineering-knowledge-base/atlas-code-scor-1-implementation-contract.md
   - docs/engineering-knowledge-base/atlas-desktop-code-surface.md
   - docs/engineering-knowledge-base/atlas-code-category-evolution.md
   - docs/engineering-knowledge-base/atlas-ai-memory-context-core-open-brain.md
@@ -92,7 +93,7 @@ required_tests:
 requires_evidence: true
 risk_level: critical
 next_actions:
-  - Conectar Atlas Desktop apenas em endpoints reais e remover qualquer fallback mockado.
+  - Expor Programming Governance no /atlas-code/works/{id}/state conforme atlas-code-scor-1-implementation-contract.md.
 visual_tags:
   - module
   - contract

@@ -20,7 +20,9 @@ final class AtlasVoiceCallbackPayloadContractTest extends TestCase
         $this->assertFalse(data_get($payload, 'guardrails.raw_response_text_persistence_allowed'));
         $this->assertTrue(data_get($payload, 'guardrails.kernel_decision_required_per_turn'));
         $this->assertSame(['session_id', 'turn_id', 'transcript'], data_get($payload, 'callback_schemas.transcript_final.required'));
+        $this->assertSame(['session_id', 'turn_id', 'error_message_hash'], data_get($payload, 'callback_schemas.runtime_failed.required'));
         $this->assertContains('response_text', data_get($payload, 'callback_schemas.tts_synthesized.prohibited'));
+        $this->assertContains('error_message', data_get($payload, 'callback_schemas.runtime_failed.prohibited'));
         $this->assertContains('provider_api_key', data_get($payload, 'callback_schemas.provider_health_degraded.prohibited'));
     }
 
@@ -100,6 +102,7 @@ final class AtlasVoiceCallbackPayloadContractTest extends TestCase
         ]);
 
         $this->assertFalse($result['valid']);
+        $this->assertContains('missing_required:error_message_hash', $result['errors']);
         $this->assertContains('unknown_field:diagnostics', $result['errors']);
         $this->assertContains('prohibited_field:diagnostics.nested.raw_audio', $result['errors']);
         $this->assertContains('prohibited_field:diagnostics.nested.provider_api_key', $result['errors']);

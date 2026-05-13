@@ -24,6 +24,7 @@ decisions:
   - Engineering Operations System is the canonical category name for Atlas Code.
   - Atlas Code is the product/surface inside Atlas that materializes the EOS category.
   - Software Construction Operating Room is the first operational experience inside the EOS, not the final category name.
+  - Atlas Code SCOR-1, Software Construction Operating Room v1, is the canonical name for the first enterprise MVP of Atlas Code.
   - Software Evolution Operating System is the next maturity target after governed construction works reliably.
   - Autonomous Software Organism is the long-term horizon and remains governed by policy, evidence, budget and human authority.
 maintenance:
@@ -132,6 +133,7 @@ System governs production on a factory floor.
 |---|---|---|
 | Category | Engineering Operations System | The new class of product. |
 | Product surface | Atlas Code | The Atlas implementation of that category. |
+| First enterprise MVP | Atlas Code SCOR-1 | Software Construction Operating Room v1: governed AI-assisted programming with Obras, SDD, contracts, terminal, gates and evidence. |
 | Initial experience | Software Construction Operating Room | The governed room where software work is planned, signed, executed, verified and learned. |
 | Next maturity | Software Evolution Operating System | The system observes software health and proposes/evolves improvements continuously. |
 | Long-term horizon | Autonomous Software Organism | The software self-preserves and self-evolves inside governance. |

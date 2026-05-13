@@ -286,6 +286,7 @@ class EngineeringHarnessRunnerService
                 'max_attempts' => $maxAttempts,
                 'critical' => (bool) ($options['critical'] ?? false),
                 'fair_mode' => $fairModeOptions,
+                'timeout_seconds' => $options['provider_timeout_seconds'] ?? null,
             ], $workspacePlan, $providerRuntimePlan);
 
             $attempt = $this->syncProviderAttempts($run->refresh(), $attempt, $providerRun, $provider);

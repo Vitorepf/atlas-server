@@ -58,6 +58,7 @@ final class ProgrammingSurfaceContractFactory
             'programming_intent' => $operatorOptions['programming_intent'] ?? ($operatorOptions['intent'] ?? null),
             'provider' => $operatorOptions['provider'] ?? null,
             'model' => $resume['model'] ?? null,
+            'continuation_packet' => $resume['continuation_packet'] ?? data_get($resume, 'resume_state.continuation_packet'),
             'open_brain' => $openBrain,
             'dev_flags' => [
                 'resume' => in_array('--resume='.(string) ($resume['plan_id'] ?? ''), $command, true),

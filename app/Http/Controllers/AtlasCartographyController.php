@@ -9,6 +9,7 @@ use App\Services\Vault\ObsidianVaultReader;
 use App\Services\Vault\RepoVaultReader;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Cache;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * Read-only HTTP surface of the Atlas Truth Cartography.
@@ -79,6 +80,89 @@ final class AtlasCartographyController extends Controller
             'body' => $found['body'],
             'modified_at' => $found['mtime'] ? gmdate('Y-m-d\TH:i:s\Z', $found['mtime']) : null,
         ]);
+    }
+
+    /**
+     * Server-Sent Events stream that signals the client when the canonical
+     * graph mutates. Strategy: every 2s, read the current assembler checksum
+     * from cache (or recompute) and compare to the last broadcast value. When
+     * it moves, emit `event: graph_changed` with the new checksum. Otherwise
+     * a heartbeat goes out every 15s so the client knows the channel is alive.
+     *
+     * The connection is bounded to ~25s so `php artisan serve` (single-thread
+     * worker) recycles cleanly; the EventSource on the client auto-reconnects.
+     * In production behind php-fpm this bound becomes unnecessary.
+     */
+    public function stream(): StreamedResponse
+    {
+        @set_time_limit(30);
+        @ini_set('output_buffering', 'off');
+        @ini_set('zlib.output_compression', '0');
+
+        $response = new StreamedResponse(function (): void {
+            $deadline = microtime(true) + 25.0;
+            $lastChecksum = null;
+            $lastHeartbeat = 0.0;
+
+            // Initial emit: send current checksum so the client aligns its state
+            // immediately on connect (no need to wait for the first mutation).
+            $initial = $this->currentChecksum();
+            if ($initial !== null) {
+                $this->emitSse('graph_changed', ['checksum' => $initial, 'reason' => 'connect']);
+                $lastChecksum = $initial;
+            }
+
+            while (microtime(true) < $deadline) {
+                if (connection_aborted()) {
+                    return;
+                }
+                $now = microtime(true);
+                $checksum = $this->currentChecksum();
+                if ($checksum !== null && $checksum !== $lastChecksum) {
+                    $this->emitSse('graph_changed', ['checksum' => $checksum, 'reason' => 'mutation']);
+                    $lastChecksum = $checksum;
+                }
+                if ($now - $lastHeartbeat >= 15.0) {
+                    $this->emitSse('heartbeat', ['at' => gmdate('Y-m-d\TH:i:s\Z')]);
+                    $lastHeartbeat = $now;
+                }
+                usleep(2_000_000); // 2s
+            }
+            // Polite close so the client knows the bound was reached and reconnects.
+            $this->emitSse('reconnect', ['reason' => 'worker_cycle']);
+        });
+
+        $response->headers->set('Content-Type', 'text/event-stream');
+        $response->headers->set('Cache-Control', 'no-cache, no-store, must-revalidate');
+        $response->headers->set('X-Accel-Buffering', 'no'); // disables nginx buffering
+        $response->headers->set('Connection', 'keep-alive');
+
+        return $response;
+    }
+
+    /**
+     * Read the cached checksum or compute it. Cheaper than `assemble()` on
+     * each tick because Laravel's cache TTL absorbs the repeat reads.
+     */
+    private function currentChecksum(): ?string
+    {
+        $ttl = (int) config('atlas_vault.cache_seconds', 2);
+        if ($ttl < 30) $ttl = 30;
+        $graph = Cache::remember('atlas-cartography:graph', $ttl, fn () => $this->assembler->assemble());
+        return is_array($graph) && isset($graph['checksum']) ? (string) $graph['checksum'] : null;
+    }
+
+    /**
+     * SSE frame · `event: <name>\ndata: <json>\n\n` + flush.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    private function emitSse(string $event, array $data): void
+    {
+        echo 'event: ' . $event . "\n";
+        echo 'data: ' . json_encode($data) . "\n\n";
+        @ob_flush();
+        @flush();
     }
 
     public function recentChanges(): JsonResponse

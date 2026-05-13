@@ -5,6 +5,7 @@ namespace Tests\Unit\Ai\Programming;
 use App\Models\AtlasEngineeringCodeModule;
 use App\Models\AtlasEngineeringCodeSymbol;
 use App\Models\AtlasEngineeringDocLink;
+use App\Models\AtlasToolRun;
 use App\Services\Ai\Programming\ProgrammingContextPackStore;
 use App\Services\Ai\Programming\ProgrammingLearningCandidateProjector;
 use App\Services\Ai\Programming\ProgrammingLearningCandidateStore;
@@ -17,6 +18,7 @@ use App\Services\Ai\Programming\ProgrammingPythonRuntimeExecutor;
 use App\Services\Ai\Programming\ProgrammingPythonRuntimeGraphProjector;
 use App\Services\Ai\Programming\ProgrammingRepairAttemptStore;
 use App\Services\Ai\Programming\ProgrammingRepairExecutor;
+use App\Services\Ai\Programming\ProgrammingRepairLoopBenchmarkService;
 use App\Services\Ai\Programming\ProgrammingResumeService;
 use App\Services\Ai\Programming\ProgrammingRetrievalBenchmarkService;
 use App\Services\Ai\Programming\ProgrammingRetrievalPlanner;
@@ -248,6 +250,34 @@ class ProgrammingEnterpriseRuntimeTest extends TestCase
         $this->assertSame(3, data_get($payload, 'golden_set.case_count'));
     }
 
+    public function test_programming_repair_loop_benchmark_runs_golden_set_and_exposes_promotion_gate(): void
+    {
+        $report = app(ProgrammingRepairLoopBenchmarkService::class)->run();
+
+        $this->assertSame('atlas.programming.repair_loop_benchmark.v1', $report['schema_version']);
+        $this->assertSame('passed', $report['status']);
+        $this->assertSame('programming_repair_loop_golden_set_v1', data_get($report, 'golden_set.name'));
+        $this->assertSame(4, data_get($report, 'golden_set.case_count'));
+        $this->assertSame(1.0, data_get($report, 'metrics.repair_planning_pass_rate'));
+        $this->assertSame(1.0, data_get($report, 'metrics.guard_case_pass_rate'));
+        $this->assertTrue(data_get($report, 'metrics.receipt_integrity_passed'));
+        $this->assertTrue(data_get($report, 'promotion_gate.repair_loop_promotion_allowed'));
+        $this->assertTrue(data_get($report, 'promotion_gate.requires_rivals_programming'));
+    }
+
+    public function test_programming_repair_loop_benchmark_command_returns_json_report(): void
+    {
+        $exitCode = Artisan::call('atlas:programming:repair-loop-benchmark', [
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true);
+
+        $this->assertSame(0, $exitCode);
+        $this->assertSame('atlas.programming.repair_loop_benchmark.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('passed', data_get($payload, 'status'));
+        $this->assertSame(4, data_get($payload, 'golden_set.case_count'));
+    }
+
     public function test_programming_rivals_readiness_separates_local_benchmarks_from_real_provider_battery(): void
     {
         $report = app(ProgrammingRivalsReadinessService::class)->report(base_path());
@@ -267,6 +297,8 @@ class ProgrammingEnterpriseRuntimeTest extends TestCase
         $this->assertSame('atlas.programming.retrieval_benchmark_runtime_cache.v1', data_get($report, 'local_benchmarks.retrieval.runtime_cache.schema_version'));
         $this->assertFalse(data_get($report, 'local_benchmarks.retrieval.runtime_cache.persistent_cache'));
         $this->assertFalse(data_get($report, 'local_benchmarks.retrieval.runtime_cache.provider_state_cached'));
+        $this->assertSame('passed', data_get($report, 'local_benchmarks.repair_loop.status'));
+        $this->assertSame(1.0, data_get($report, 'local_benchmarks.repair_loop.metrics.repair_planning_pass_rate'));
         $this->assertContains(data_get($report, 'fair_claude_rivals.status'), ['suite_not_prepared', 'unavailable', 'not_ready']);
         $this->assertSame('atlas.programming.rivals_contract.v1', data_get($report, 'rivals_programming_contract.schema_version'));
         $this->assertSame('atlas.programming.rivals_integrity_assurance.v1', data_get($report, 'integrity_assurance.schema_version'));
@@ -285,6 +317,11 @@ class ProgrammingEnterpriseRuntimeTest extends TestCase
         $this->assertSame('atlas.programming.invalid_battery_triage_packet.v1', data_get($report, 'invalid_battery_triage_packet.schema_version'));
         $this->assertIsBool(data_get($report, 'invalid_battery_triage_packet.rerun_provider_battery_allowed_now'));
         $this->assertIsBool(data_get($report, 'invalid_battery_triage_packet.provider_budget_policy.spend_more_provider_tokens_now'));
+        if (! data_get($report, 'current_workspace_preflight.ready_for_provider_battery')) {
+            $this->assertFalse(data_get($report, 'invalid_battery_triage_packet.provider_budget_policy.spend_more_provider_tokens_now'));
+            $this->assertStringContainsString('workspace', data_get($report, 'invalid_battery_triage_packet.provider_budget_policy.reason'));
+            $this->assertContains('current_workspace_not_provider_battery_ready', data_get($report, 'invalid_battery_triage_packet.current_rerun_preconditions.why_provider_dispatch_is_blocked'));
+        }
         $this->assertSame('atlas.programming.rivals_historical_failure_policy.v1', data_get($report, 'invalid_battery_triage_packet.historical_failure_policy.schema_version'));
         $this->assertTrue(data_get($report, 'invalid_battery_triage_packet.historical_failure_policy.historical_failed_gates_are_diagnostic'));
         $this->assertTrue(data_get($report, 'invalid_battery_triage_packet.historical_failure_policy.current_preconditions_must_be_green_before_rerun'));
@@ -292,13 +329,24 @@ class ProgrammingEnterpriseRuntimeTest extends TestCase
         $this->assertTrue(data_get($report, 'invalid_battery_triage_packet.current_rerun_preconditions.local_programming_benchmarks_passed'));
         $this->assertSame('atlas.programming.current_local_recheck_evidence.v1', data_get($report, 'current_local_recheck_evidence.schema_version'));
         $this->assertFalse(data_get($report, 'current_local_recheck_evidence.provider_dispatches'));
+        $this->assertContains(data_get($report, 'current_local_recheck_evidence.status'), ['passed', 'incomplete', 'unknown']);
+        $this->assertIsBool(data_get($report, 'current_local_recheck_evidence.all_required_rechecks_known'));
+        $this->assertIsBool(data_get($report, 'current_local_recheck_evidence.all_known_rechecks_passed'));
+        if (data_get($report, 'current_local_recheck_evidence.all_required_rechecks_known') === false) {
+            $this->assertFalse(data_get($report, 'current_local_recheck_evidence.all_known_rechecks_passed'));
+        }
         $this->assertSame('atlas.programming.current_local_recheck_evidence.v1', data_get($report, 'invalid_battery_triage_packet.current_rerun_preconditions.current_local_rechecks.schema_version'));
         $this->assertTrue(data_get($report, 'invalid_battery_triage_packet.current_rerun_preconditions.current_local_rechecks.historical_rivals_failures_still_authoritative_for_external_claim'));
         $this->assertFalse(data_get($report, 'invalid_battery_triage_packet.current_rerun_preconditions.provider_dispatch_allowed_now'));
         $this->assertContains('programming_readiness', array_keys(data_get($report, 'invalid_battery_triage_packet.current_rerun_preconditions.diagnostic_commands_without_provider_spend')));
         $this->assertSame('atlas.programming.current_workspace_provider_preflight.v1', data_get($report, 'current_workspace_preflight.schema_version'));
         $this->assertIsBool(data_get($report, 'current_workspace_preflight.ready_for_provider_battery'));
+        $this->assertIsInt(data_get($report, 'current_workspace_preflight.dirty_count'));
         $this->assertIsInt(data_get($report, 'current_workspace_preflight.git.dirty_count'));
+        $this->assertSame(
+            data_get($report, 'current_workspace_preflight.git.dirty_count'),
+            data_get($report, 'current_workspace_preflight.dirty_count'),
+        );
         $this->assertFalse(data_get($report, 'current_workspace_preflight.operator_guidance.use_current_dirty_workspace_for_provider_battery'));
         $this->assertStringContainsString('git worktree add', data_get($report, 'current_workspace_preflight.operator_guidance.create_clean_atlas_worktree'));
         if (data_get($report, 'summary.real_battery_invalid')) {
@@ -324,9 +372,13 @@ class ProgrammingEnterpriseRuntimeTest extends TestCase
         $this->assertTrue(data_get($report, 'operator_execution_packet.operator_approval_required'));
         $this->assertIsBool(data_get($report, 'operator_execution_packet.rerun_provider_battery_allowed_now'));
         $this->assertStringContainsString('--confirm-runbook-reviewed', data_get($report, 'operator_execution_packet.recommended_first_run.command'));
-        $this->assertStringContainsString('--workspace=<clean-atlas-workspace>', data_get($report, 'operator_execution_packet.recommended_first_run.command'));
+        if (data_get($report, 'operator_execution_packet.recommended_first_run.workspace_placeholder_used')) {
+            $this->assertStringContainsString('--workspace=<clean-atlas-workspace>', data_get($report, 'operator_execution_packet.recommended_first_run.command'));
+        } else {
+            $this->assertStringContainsString('--workspace='.base_path(), data_get($report, 'operator_execution_packet.recommended_first_run.command'));
+        }
         $this->assertStringContainsString('--claude-code-baseline-workspace=<separate-clean-baseline-workspace>', data_get($report, 'operator_execution_packet.recommended_first_run.command'));
-        $this->assertTrue(data_get($report, 'operator_execution_packet.recommended_first_run.workspace_placeholder_used'));
+        $this->assertIsBool(data_get($report, 'operator_execution_packet.recommended_first_run.workspace_placeholder_used'));
         $this->assertTrue(data_get($report, 'operator_execution_packet.required_preflight.provider_execution_blocks_on_dirty_workspace_even_after_cost_confirmation'));
         $this->assertFalse(data_get($report, 'safety.readiness_command_dispatches_provider'));
         $this->assertTrue(data_get($report, 'safety.real_provider_execution_requires_explicit_cost_confirmation'));
@@ -359,8 +411,13 @@ class ProgrammingEnterpriseRuntimeTest extends TestCase
         $this->assertStringContainsString('Current workspace preflight', $humanOutput);
         $this->assertStringContainsString('Current rerun preconditions', $humanOutput);
         $this->assertStringContainsString('Rerun precondition dispatch', $humanOutput);
+        $this->assertStringContainsString('Current local rechecks', $humanOutput);
+        $this->assertStringContainsString('Quality changed-only', $humanOutput);
+        $this->assertStringContainsString('Visual smoke', $humanOutput);
         $this->assertStringContainsString('Rerun allowed now', $humanOutput);
         $this->assertStringContainsString('Provider dispatch now', $humanOutput);
+        $this->assertStringContainsString('Spend provider tokens now', $humanOutput);
+        $this->assertStringContainsString('Provider budget reason', $humanOutput);
         $this->assertStringContainsString('Benchmark retrieval', $humanOutput);
         $this->assertStringContainsString('Provider rerun blocked', $humanOutput);
         $this->assertStringContainsString('Blocked run template', $humanOutput);
@@ -381,7 +438,14 @@ class ProgrammingEnterpriseRuntimeTest extends TestCase
         $this->assertFalse(data_get($triagePayload, 'result_integrity.score_admitted'));
         $this->assertFalse(data_get($triagePayload, 'result_integrity.claim_winner_admitted'));
         $this->assertTrue(data_get($triagePayload, 'result_integrity.must_not_render_winner'));
+        $this->assertFalse(data_get($triagePayload, 'provider_budget_policy.spend_more_provider_tokens_now'));
+        $this->assertIsString(data_get($triagePayload, 'provider_budget_policy.reason'));
         $this->assertIsArray(data_get($triagePayload, 'triage_checklist'));
+        if (data_get($triagePayload, 'status') === 'triaged_quarantined_pending_fresh_battery') {
+            $this->assertContains('quarantined_diagnostic', collect(data_get($triagePayload, 'triage_checklist'))->pluck('status')->all());
+            $this->assertContains('historical_quarantined_diagnostic', collect(data_get($triagePayload, 'triage_checklist'))->pluck('scope')->all());
+            $this->assertNotContains('current_rerun_blocker', collect(data_get($triagePayload, 'triage_checklist'))->pluck('scope')->all());
+        }
         $this->assertIsArray(data_get($triagePayload, 'diagnostic_commands'));
         $this->assertStringContainsString('--confirm-provider-cost', (string) data_get($triagePayload, 'blocked_run_template'));
 
@@ -395,8 +459,98 @@ class ProgrammingEnterpriseRuntimeTest extends TestCase
         $this->assertStringContainsString('Programming Rivals triage', $triageHumanOutput);
         $this->assertStringContainsString('Provider dispatch', $triageHumanOutput);
         $this->assertStringContainsString('Spend provider tokens', $triageHumanOutput);
+        $this->assertStringContainsString('Provider budget reason', $triageHumanOutput);
         $this->assertStringContainsString('Score admitted', $triageHumanOutput);
+        $this->assertStringContainsString('Current local rechecks', $triageHumanOutput);
+        $this->assertStringContainsString('Quality changed-only', $triageHumanOutput);
+        $this->assertStringContainsString('Visual smoke', $triageHumanOutput);
         $this->assertStringContainsString('Next:', $triageHumanOutput);
+    }
+
+    public function test_programming_rivals_readiness_uses_tool_runtime_quality_evidence_when_scan_manifest_is_gone(): void
+    {
+        if (! Schema::hasTable('atlas_tool_runs')) {
+            Schema::create('atlas_tool_runs', function (Blueprint $table): void {
+                $table->uuid('id')->primary();
+                $table->uuid('tool_definition_id')->nullable();
+                $table->string('tool_slug');
+                $table->string('surface');
+                $table->string('workspace_hash')->nullable();
+                $table->text('workspace')->nullable();
+                $table->string('run_context_type')->nullable();
+                $table->string('run_context_id')->nullable();
+                $table->string('status');
+                $table->boolean('required')->default(false);
+                $table->string('failure_policy')->default('advisory');
+                $table->string('policy_decision')->default('allowed');
+                $table->string('command_hash')->nullable();
+                $table->integer('exit_code')->nullable();
+                $table->timestamp('started_at')->nullable();
+                $table->timestamp('finished_at')->nullable();
+                $table->integer('duration_ms')->default(0);
+                $table->uuid('stdout_artifact_id')->nullable();
+                $table->uuid('stderr_artifact_id')->nullable();
+                $table->json('summary_json')->nullable();
+                $table->json('normalized_result_json')->nullable();
+                $table->json('policy_decision_json')->nullable();
+                $table->json('metadata_json')->nullable();
+                $table->timestamps();
+            });
+        }
+
+        $workspace = storage_path('framework/testing/programming-readiness-'.Str::uuid());
+        File::ensureDirectoryExists($workspace.'/atlas-visual-report');
+        File::put($workspace.'/atlas-visual-report/manifest.json', json_encode([
+            'status' => 'passed',
+            'workspace_hash' => hash('sha256', $workspace),
+            'artifact_dir' => 'atlas-visual-report',
+            'strict_failure_summary' => [
+                'route_failed_count' => 0,
+                'screenshot_required_failed_count' => 0,
+            ],
+            'screenshot' => ['status' => 'skipped'],
+            'screenshot_driver' => ['status' => 'missing'],
+        ], JSON_THROW_ON_ERROR));
+
+        $scanHash = hash('sha256', $workspace.'|quality-scan-tool-runtime-fallback');
+        foreach (['composer_validate', 'laravel_pint'] as $tool) {
+            AtlasToolRun::query()->create([
+                'tool_slug' => $tool,
+                'surface' => 'engineering_quality_scan',
+                'workspace_hash' => hash('sha256', $workspace),
+                'workspace' => $workspace,
+                'status' => 'passed',
+                'required' => false,
+                'failure_policy' => 'advisory',
+                'policy_decision' => 'allowed',
+                'started_at' => now(),
+                'finished_at' => now(),
+                'duration_ms' => 1,
+                'summary_json' => [],
+                'normalized_result_json' => [],
+                'policy_decision_json' => [],
+                'metadata_json' => [
+                    'source' => 'engineering_quality_scan_service',
+                    'scan_artifact_root_hash' => $scanHash,
+                    'changed_only' => true,
+                ],
+            ]);
+        }
+
+        try {
+            $report = app(ProgrammingRivalsReadinessService::class)->report($workspace);
+
+            $this->assertSame('passed', data_get($report, 'current_local_recheck_evidence.status'));
+            $this->assertSame('tool_runtime_evidence', data_get($report, 'current_local_recheck_evidence.quality_changed_only.source'));
+            $this->assertSame($scanHash, data_get($report, 'current_local_recheck_evidence.quality_changed_only.artifact_root_hash'));
+            $this->assertSame(2, data_get($report, 'current_local_recheck_evidence.quality_changed_only.tool_run_count'));
+            $this->assertFalse(data_get($report, 'current_local_recheck_evidence.quality_changed_only.artifact_manifest_available'));
+            $this->assertTrue(data_get($report, 'current_local_recheck_evidence.all_required_rechecks_known'));
+            $this->assertTrue(data_get($report, 'current_local_recheck_evidence.all_known_rechecks_passed'));
+            $this->assertFalse(data_get($report, 'current_local_recheck_evidence.provider_dispatches'));
+        } finally {
+            File::deleteDirectory($workspace);
+        }
     }
 
     public function test_programming_completion_audit_blocks_complete_until_real_rivals_claim_is_ready(): void
@@ -410,17 +564,34 @@ class ProgrammingEnterpriseRuntimeTest extends TestCase
         $this->assertFalse(data_get($report, 'rivals_readiness.local_benchmark_cache.persistent_cache'));
         $this->assertFalse(data_get($report, 'rivals_readiness.local_benchmark_cache.provider_state_cached'));
         $this->assertSame('atlas.programming.professional_completion_audit_protocol.v1', data_get($report, 'audit_protocol.schema_version'));
+        $this->assertContains('professional_operating_standard_exists_and_blocks_weak_rag_mvp', data_get($report, 'audit_protocol.success_criteria'));
+        $this->assertContains('local_retrieval_test_impact_patch_verifier_and_repair_loop_benchmarks_pass', data_get($report, 'audit_protocol.success_criteria'));
         $this->assertContains('rivals_integrity_blocks_unfair_or_synthetic_ab_test_scores', data_get($report, 'audit_protocol.success_criteria'));
         $this->assertContains('programming_cli_commands_are_registered_for_operator_execution', data_get($report, 'audit_protocol.success_criteria'));
         $this->assertContains('structure_mother_blocks_paid_rivals_commands_from_dirty_workspace', data_get($report, 'audit_protocol.success_criteria'));
         $this->assertContains('rivals_rerun_preconditions_prevent_token_spend_on_invalid_battery', data_get($report, 'audit_protocol.success_criteria'));
         $this->assertContains('mobile_api_battery_plan_blocks_dirty_non_git_and_invalid_historical_runs', data_get($report, 'audit_protocol.success_criteria'));
+        $this->assertContains('operator_triage_command_explains_invalid_battery_without_provider_dispatch', data_get($report, 'audit_protocol.success_criteria'));
         $this->assertTrue(data_get($report, 'audit_protocol.proxy_signal_policy.tests_alone_are_insufficient'));
         $this->assertTrue(data_get($report, 'audit_protocol.proxy_signal_policy.local_benchmarks_do_not_replace_provider_battery'));
+        $docsRequirement = collect(data_get($report, 'audit_protocol.prompt_to_artifact_map'))
+            ->firstWhere('prompt_requirement', 'documentacao profissional de programacao');
+        $this->assertContains('docs/engineering-knowledge-base/domains/programming-professional-rag-operating-standard.md', $docsRequirement['primary_artifacts'] ?? []);
         $this->assertContains(
             'integridade profissional do Rivals',
             collect(data_get($report, 'audit_protocol.prompt_to_artifact_map'))->pluck('prompt_requirement')->all(),
         );
+        $this->assertTrue(data_get($report, 'artifact_coverage.professional_operating_standard.covered'));
+        $this->assertTrue(data_get($report, 'artifact_coverage.professional_operating_standard.checks.rejects_weak_mvp'));
+        $this->assertTrue(data_get($report, 'artifact_coverage.professional_operating_standard.checks.requires_replayable_context_pack'));
+        $this->assertTrue(data_get($report, 'artifact_coverage.professional_operating_standard.checks.requires_agentic_gap_critic'));
+        $this->assertTrue(data_get($report, 'artifact_coverage.professional_operating_standard.checks.requires_semantic_code_graph'));
+        $this->assertTrue(data_get($report, 'artifact_coverage.professional_operating_standard.checks.requires_stage_receipts_and_action_manifests'));
+        $this->assertTrue(data_get($report, 'artifact_coverage.professional_operating_standard.checks.requires_patch_verifier_and_test_impact'));
+        $this->assertTrue(data_get($report, 'artifact_coverage.professional_operating_standard.checks.requires_sandbox_repair_learning'));
+        $this->assertTrue(data_get($report, 'artifact_coverage.professional_operating_standard.checks.blocks_synthetic_rivals_scores'));
+        $this->assertTrue(data_get($report, 'artifact_coverage.professional_operating_standard.checks.requires_clean_rivals_workspaces_and_cost_approval'));
+        $this->assertTrue(data_get($report, 'artifact_coverage.professional_operating_standard.checks.declares_runtime_boundaries'));
         $this->assertTrue(data_get($report, 'artifact_coverage.professional_spec.covered'));
         $this->assertTrue(data_get($report, 'artifact_coverage.agentic_rag_context_pack.covered'));
         $this->assertContains('database/migrations/2026_05_13_050000_create_atlas_programming_context_packs_table.php', data_get($report, 'artifact_coverage.agentic_rag_context_pack.required_files'));
@@ -436,6 +607,7 @@ class ProgrammingEnterpriseRuntimeTest extends TestCase
         $this->assertContains('database/migrations/2026_05_13_040000_create_atlas_programming_learning_candidates_table.php', data_get($report, 'artifact_coverage.sandbox_repair_learning.required_files'));
         $this->assertTrue(data_get($report, 'artifact_coverage.programming_cli_commands.covered'));
         $this->assertTrue(data_get($report, 'artifact_coverage.programming_cli_commands.checks.AtlasProgrammingCompletionAuditCommand.registered_in_bootstrap'));
+        $this->assertTrue(data_get($report, 'artifact_coverage.programming_cli_commands.checks.AtlasProgrammingRepairLoopBenchmarkCommand.registered_in_bootstrap'));
         $this->assertTrue(data_get($report, 'artifact_coverage.programming_cli_commands.checks.AtlasProgrammingRivalsReadinessCommand.class_exists'));
         $this->assertTrue(data_get($report, 'artifact_coverage.structure_mother_safe_rivals_commands.covered'));
         $this->assertTrue(data_get($report, 'artifact_coverage.structure_mother_safe_rivals_commands.checks.uses_clean_atlas_workspace_placeholder'));
@@ -447,7 +619,40 @@ class ProgrammingEnterpriseRuntimeTest extends TestCase
         $this->assertTrue(data_get($report, 'artifact_coverage.api_rivals_battery_guard.checks.blocks_historical_invalid_battery'));
         $this->assertTrue(data_get($report, 'artifact_coverage.api_rivals_battery_guard.checks.blocks_dirty_atlas_workspace'));
         $this->assertTrue(data_get($report, 'artifact_coverage.api_rivals_battery_guard.checks.blocks_non_git_baseline_workspace'));
+        $this->assertTrue(data_get($report, 'artifact_coverage.api_rivals_battery_guard.checks.exposes_operator_report'));
+        $this->assertTrue(data_get($report, 'artifact_coverage.api_rivals_battery_guard.checks.exposes_primary_blocker'));
+        $this->assertTrue(data_get($report, 'artifact_coverage.api_rivals_battery_guard.checks.exposes_workspace_dirty_count'));
+        $this->assertTrue(data_get($report, 'artifact_coverage.api_rivals_battery_guard.checks.exposes_invalid_battery_triage_status'));
         $this->assertTrue(data_get($report, 'artifact_coverage.api_rivals_battery_guard.checks.exposes_no_provider_call_safety'));
+        $this->assertTrue(data_get($report, 'artifact_coverage.rivals_operator_triage_command.covered'));
+        $this->assertTrue(data_get($report, 'artifact_coverage.rivals_operator_triage_command.checks.triage_option_registered'));
+        $this->assertTrue(data_get($report, 'artifact_coverage.rivals_operator_triage_command.checks.triage_blocks_provider_dispatch'));
+        $this->assertTrue(data_get($report, 'artifact_coverage.rivals_operator_triage_command.checks.triage_blocks_token_spend'));
+        $this->assertTrue(data_get($report, 'artifact_coverage.rivals_operator_triage_command.checks.triage_exposes_diagnostic_commands'));
+        $this->assertTrue(data_get($report, 'artifact_coverage.rivals_invalid_battery_quarantine.covered'));
+        $this->assertTrue(data_get($report, 'artifact_coverage.rivals_invalid_battery_quarantine.checks.canonical_action_registered'));
+        $this->assertTrue(data_get($report, 'artifact_coverage.rivals_invalid_battery_quarantine.checks.wrapper_action_registered'));
+        $this->assertTrue(data_get($report, 'artifact_coverage.rivals_invalid_battery_quarantine.checks.declares_no_provider_call'));
+        $this->assertTrue(data_get($report, 'artifact_coverage.rivals_invalid_battery_quarantine.checks.declares_no_score_admitted'));
+        $this->assertTrue(data_get($report, 'artifact_coverage.rivals_invalid_battery_quarantine.checks.feature_test_covers_wrapper_command'));
+        $this->assertTrue(data_get($report, 'artifact_coverage.rivals_history_timeline.covered'));
+        $this->assertTrue(data_get($report, 'artifact_coverage.rivals_history_timeline.checks.history_timeline_schema_declared'));
+        $this->assertTrue(data_get($report, 'artifact_coverage.rivals_history_timeline.checks.timeline_exposes_result_integrity_status'));
+        $this->assertTrue(data_get($report, 'artifact_coverage.rivals_history_timeline.checks.timeline_exposes_score_admission'));
+        $this->assertTrue(data_get($report, 'artifact_coverage.rivals_history_timeline.checks.feature_test_covers_timeline_schema'));
+        $this->assertTrue(data_get($report, 'artifact_coverage.rivals_history_timeline.checks.export_bundle_writes_history_timeline_file'));
+        $this->assertTrue(data_get($report, 'artifact_coverage.rivals_history_timeline.checks.export_verifier_requires_history_timeline_file'));
+        $this->assertTrue(data_get($report, 'artifact_coverage.rivals_history_timeline.checks.feature_test_covers_history_timeline_export'));
+        $this->assertTrue(data_get($report, 'artifact_coverage.rivals_experiment_validity_contract.covered'));
+        $this->assertTrue(data_get($report, 'artifact_coverage.rivals_experiment_validity_contract.checks.experiment_validity_schema_declared'));
+        $this->assertTrue(data_get($report, 'artifact_coverage.rivals_experiment_validity_contract.checks.external_variables_cannot_decide_winner'));
+        $this->assertTrue(data_get($report, 'artifact_coverage.rivals_experiment_validity_contract.checks.external_variables_only_block_comparability'));
+        $this->assertTrue(data_get($report, 'artifact_coverage.rivals_experiment_validity_contract.checks.export_verifier_requires_experiment_validity'));
+        $this->assertTrue(data_get($report, 'artifact_coverage.rivals_provider_runtime_preflight.covered'));
+        $this->assertTrue(data_get($report, 'artifact_coverage.rivals_provider_runtime_preflight.checks.base_command_accepts_provider_timeout'));
+        $this->assertTrue(data_get($report, 'artifact_coverage.rivals_provider_runtime_preflight.checks.blocks_missing_vendor_autoload'));
+        $this->assertTrue(data_get($report, 'artifact_coverage.rivals_provider_runtime_preflight.checks.pint_uses_high_memory'));
+        $this->assertTrue(data_get($report, 'artifact_coverage.rivals_provider_runtime_preflight.checks.fair_replay_case_has_strict_scope'));
         $this->assertSame([], data_get($report, 'artifact_coverage.local_benchmarks.missing_classes'));
         $this->assertSame('atlas.programming.professional_completion_verification_evidence.v1', data_get($report, 'verification_evidence.schema_version'));
         $this->assertSame('passed', data_get($report, 'verification_evidence.local_benchmarks.retrieval.status'));
@@ -455,7 +660,15 @@ class ProgrammingEnterpriseRuntimeTest extends TestCase
         $this->assertSame('atlas.programming.retrieval_benchmark_runtime_cache.v1', data_get($report, 'verification_evidence.local_benchmarks.retrieval.runtime_cache.schema_version'));
         $this->assertFalse(data_get($report, 'verification_evidence.local_benchmarks.retrieval.runtime_cache.persistent_cache'));
         $this->assertFalse(data_get($report, 'verification_evidence.local_benchmarks.retrieval.runtime_cache.provider_state_cached'));
+        $this->assertSame('passed', data_get($report, 'verification_evidence.local_benchmarks.repair_loop.status'));
+        $this->assertSame(1.0, data_get($report, 'verification_evidence.local_benchmarks.repair_loop.metrics.repair_planning_pass_rate'));
         $this->assertContains(data_get($report, 'verification_evidence.rivals_external_claim.status'), ['external_battery_required', 'external_battery_invalid']);
+        $this->assertSame('atlas.programming.power_scorecard.v1', data_get($report, 'power_scorecard.schema_version'));
+        $this->assertSame('target_not_met', data_get($report, 'power_scorecard.status'));
+        $this->assertGreaterThanOrEqual(7.0, data_get($report, 'power_scorecard.score_out_of_10'));
+        $this->assertLessThan(9.0, data_get($report, 'power_scorecard.score_out_of_10'));
+        $this->assertContains('graph_rag_runtime', collect(data_get($report, 'power_scorecard.blocking_items'))->pluck('id')->all());
+        $this->assertContains('real_rivals_execution_proof', collect(data_get($report, 'power_scorecard.blocking_items'))->pluck('id')->all());
         $this->assertFalse(data_get($report, 'verification_evidence.rivals_external_claim.synthetic_scores_allowed'));
         $this->assertSame('atlas.programming.rivals_result_integrity_diagnostics.v1', data_get($report, 'verification_evidence.result_integrity_diagnostics.schema_version'));
         $this->assertFalse(data_get($report, 'verification_evidence.result_integrity_diagnostics.score_admission_policy.invalid_cases_count_as_losses'));
@@ -474,6 +687,8 @@ class ProgrammingEnterpriseRuntimeTest extends TestCase
         $this->assertSame('blocked', data_get($report, 'executive_report.primary_state.external_rivals_claim'));
         $this->assertSame('rivals_programming_real', data_get($report, 'executive_report.current_blocker.id'));
         $this->assertFalse(data_get($report, 'executive_report.safety_summary.provider_dispatches_now'));
+        $this->assertFalse(data_get($report, 'executive_report.safety_summary.spend_provider_tokens_now'));
+        $this->assertIsString(data_get($report, 'executive_report.safety_summary.provider_budget_reason'));
         $this->assertFalse(data_get($report, 'executive_report.safety_summary.synthetic_scores_allowed'));
         $this->assertContains('Retrieval recall', collect(data_get($report, 'executive_report.key_metrics'))->pluck('label')->all());
         $this->assertTrue(data_get($report, 'summary.local_programming_foundation_ready'));
@@ -485,13 +700,25 @@ class ProgrammingEnterpriseRuntimeTest extends TestCase
         $this->assertContains('programming_cli_commands', collect($report['checklist'])->pluck('id')->all());
         $this->assertContains('rivals_rerun_preconditions', collect($report['checklist'])->pluck('id')->all());
         $this->assertContains('api_rivals_battery_guard', collect($report['checklist'])->pluck('id')->all());
+        $this->assertContains('rivals_operator_triage_command', collect($report['checklist'])->pluck('id')->all());
+        $this->assertContains('rivals_invalid_battery_quarantine', collect($report['checklist'])->pluck('id')->all());
+        $this->assertContains('rivals_history_timeline', collect($report['checklist'])->pluck('id')->all());
+        $this->assertContains('rivals_experiment_validity_contract', collect($report['checklist'])->pluck('id')->all());
+        $this->assertContains('rivals_provider_runtime_preflight', collect($report['checklist'])->pluck('id')->all());
+        $this->assertSame('passed', collect($report['checklist'])->firstWhere('id', 'professional_operating_standard')['status'] ?? null);
         $this->assertSame('passed', collect($report['checklist'])->firstWhere('id', 'operator_execution_packet')['status'] ?? null);
         $this->assertSame('passed', collect($report['checklist'])->firstWhere('id', 'rivals_integrity_assurance')['status'] ?? null);
         $this->assertSame('passed', collect($report['checklist'])->firstWhere('id', 'structure_mother_safe_rivals_commands')['status'] ?? null);
         $this->assertSame('passed', collect($report['checklist'])->firstWhere('id', 'programming_cli_commands')['status'] ?? null);
         $this->assertSame('passed', collect($report['checklist'])->firstWhere('id', 'rivals_rerun_preconditions')['status'] ?? null);
         $this->assertSame('passed', collect($report['checklist'])->firstWhere('id', 'api_rivals_battery_guard')['status'] ?? null);
+        $this->assertSame('passed', collect($report['checklist'])->firstWhere('id', 'rivals_operator_triage_command')['status'] ?? null);
+        $this->assertSame('passed', collect($report['checklist'])->firstWhere('id', 'rivals_invalid_battery_quarantine')['status'] ?? null);
+        $this->assertSame('passed', collect($report['checklist'])->firstWhere('id', 'rivals_history_timeline')['status'] ?? null);
+        $this->assertSame('passed', collect($report['checklist'])->firstWhere('id', 'rivals_experiment_validity_contract')['status'] ?? null);
+        $this->assertSame('passed', collect($report['checklist'])->firstWhere('id', 'rivals_provider_runtime_preflight')['status'] ?? null);
         $this->assertContains(data_get($report, 'blocking_items.0.blocker'), ['external_battery_required', 'external_battery_invalid']);
+        $this->assertTrue(data_get($report, 'rules.power_score_is_not_completion_without_external_rivals_claim'));
         $this->assertFalse(data_get($report, 'rules.synthetic_scores_allowed'));
         $this->assertSame('atlas.programming.rivals_operator_execution_packet.v1', data_get($report, 'rivals_readiness.operator_execution_packet.schema_version'));
         $this->assertSame('atlas.programming.rivals_integrity_assurance.v1', data_get($report, 'rivals_readiness.integrity_assurance.schema_version'));
@@ -535,19 +762,38 @@ class ProgrammingEnterpriseRuntimeTest extends TestCase
         $this->assertSame(1, $humanExitCode);
         $this->assertStringContainsString('Programming completion audit', $humanOutput);
         $this->assertStringContainsString('Programming foundation ready locally', $humanOutput);
+        $this->assertStringContainsString('Power score', $humanOutput);
+        $this->assertStringContainsString('Power target', $humanOutput);
+        $this->assertStringContainsString('Professional RAG standard', $humanOutput);
+        $this->assertStringContainsString('Anti-MVP gate', $humanOutput);
+        $this->assertStringContainsString('Replayable context pack', $humanOutput);
+        $this->assertStringContainsString('Semantic code graph', $humanOutput);
+        $this->assertStringContainsString('Verifier/Test Impact', $humanOutput);
+        $this->assertStringContainsString('Repair Loop benchmark', $humanOutput);
         $this->assertStringContainsString('Retrieval recall', $humanOutput);
         $this->assertStringContainsString('Comparable real Rivals cases', $humanOutput);
         $this->assertStringContainsString('Fair Claude result', $humanOutput);
         $this->assertStringContainsString('Claim winner admitted', $humanOutput);
         $this->assertStringContainsString('Render winner in UI', $humanOutput);
+        $this->assertStringContainsString('Spend provider tokens now', $humanOutput);
+        $this->assertStringContainsString('provider budget', $humanOutput);
         $this->assertStringContainsString('API battery guard', $humanOutput);
         $this->assertStringContainsString('API blocks dirty/non-Git', $humanOutput);
         $this->assertStringContainsString('API blocks invalid rerun', $humanOutput);
+        $this->assertStringContainsString('Invalid battery quarantine', $humanOutput);
+        $this->assertStringContainsString('Quarantine admits score', $humanOutput);
+        $this->assertStringContainsString('Quarantine deletes history', $humanOutput);
+        $this->assertStringContainsString('Current workspace', $humanOutput);
+        $this->assertStringContainsString('Workspace ready for Rivals', $humanOutput);
+        $this->assertStringContainsString('Workspace dirty files', $humanOutput);
         if (data_get($report, 'verification_evidence.invalid_battery_triage_packet.status') === 'triage_required_before_rerun') {
             $this->assertStringContainsString('Invalid battery triage', $humanOutput);
             $this->assertStringContainsString('Spend provider tokens now', $humanOutput);
             $this->assertStringContainsString('Current rerun preconditions', $humanOutput);
             $this->assertStringContainsString('Rerun precondition dispatch', $humanOutput);
+            $this->assertStringContainsString('Current local rechecks', $humanOutput);
+            $this->assertStringContainsString('Quality changed-only', $humanOutput);
+            $this->assertStringContainsString('Visual smoke', $humanOutput);
             $this->assertStringContainsString('triage fix_failed_tests', $humanOutput);
         }
         $this->assertStringContainsString('rivals_programming_real:', $humanOutput);
@@ -724,6 +970,11 @@ class ProgrammingEnterpriseRuntimeTest extends TestCase
         $this->assertSame(1, $resume['previous_stage_receipt_count']);
         $this->assertSame('patch', $resume['latest_stage']);
         $this->assertTrue($resume['resume_allowed']);
+        $this->assertSame('atlas.programming.continuation_packet.v1', data_get($resume, 'continuation_packet.schema_version'));
+        $this->assertSame('ready', data_get($resume, 'continuation_packet.status'));
+        $this->assertSame('plan', data_get($resume, 'continuation_packet.next_stage'));
+        $this->assertContains('load_stage_receipts', data_get($resume, 'continuation_packet.required_before_next_provider_call'));
+        $this->assertTrue(data_get($resume, 'continuation_packet.stop_rules.missing_prior_decision_blocks_write'));
     }
 
     public function test_patch_verifier_test_impact_sandbox_repair_and_learning_contracts(): void
@@ -780,6 +1031,11 @@ class ProgrammingEnterpriseRuntimeTest extends TestCase
         );
         $this->assertSame('atlas.programming.repair_attempt.plan.v1', $repair['schema_version']);
         $this->assertSame('planned', $repair['status']);
+        $this->assertSame('atlas.programming.repair_capsule.v1', data_get($repair, 'repair_capsule.schema_version'));
+        $this->assertSame('unknown_failure', data_get($repair, 'repair_capsule.failure_taxonomy.category'));
+        $this->assertFalse(data_get($repair, 'repair_capsule.provider_policy.fallback_allowed'));
+        $this->assertTrue(data_get($repair, 'repair_capsule.verification_plan.patch_verifier_required'));
+        $this->assertFalse(data_get($repair, 'repair_capsule.scope.allow_scope_expansion'));
 
         $repairReceipt = app(ProgrammingRepairAttemptStore::class)->receipt(
             planId: 'plan-1',
@@ -901,6 +1157,9 @@ class ProgrammingEnterpriseRuntimeTest extends TestCase
         $this->assertSame('atlas.programming.resume_state.v1', data_get($payload, 'resume_state.schema_version'));
         $this->assertSame('stage_receipt_store', data_get($payload, 'resume_state.previous_stage_receipt_source'));
         $this->assertSame('test', data_get($payload, 'resume_state.latest_stage'));
+        $this->assertSame('atlas.programming.continuation_packet.v1', data_get($payload, 'resume_state.continuation_packet.schema_version'));
+        $this->assertSame('plan', data_get($payload, 'resume_state.continuation_packet.next_stage'));
+        $this->assertStringContainsString('parent-plan-command', data_get($payload, 'resume_state.continuation_packet.resume_command'));
         $this->assertSame('continue_from_latest_stage', $payload['next_action']);
     }
 

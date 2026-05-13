@@ -2628,6 +2628,19 @@ class EngineeringHarnessRunnerTest extends TestCase
             ->assertJsonPath('runs.0.history_summary.atlas_win_count', 1)
             ->assertJsonPath('runs.0.history_summary.claude_code_baseline_win_count', 0)
             ->assertJsonPath('runs.0.history_summary.comparable_count', 1)
+            ->assertJsonPath('runs.0.history_summary.invalid_case_count', 0)
+            ->assertJsonPath('runs.0.history_summary.result_integrity_status', 'comparable_score_blocked')
+            ->assertJsonPath('runs.0.history_summary.score_admitted', true)
+            ->assertJsonPath('runs.0.history_summary.claim_winner_admitted', false)
+            ->assertJsonPath('history_timeline.schema_version', 'atlas.fair_claude.history_timeline.v1')
+            ->assertJsonPath('history_timeline.summary.run_count', 1)
+            ->assertJsonPath('history_timeline.summary.comparable_case_count', 1)
+            ->assertJsonPath('history_timeline.summary.invalid_case_count', 0)
+            ->assertJsonPath('history_timeline.entries.0.run_id', $fairRun->id)
+            ->assertJsonPath('history_timeline.entries.0.health_status', 'blocked')
+            ->assertJsonPath('history_timeline.entries.0.result_integrity_status', 'comparable_score_blocked')
+            ->assertJsonPath('history_timeline.entries.0.score_admitted', true)
+            ->assertJsonPath('history_timeline.entries.0.claim_winner_admitted', false)
             ->assertJsonPath('runs.0.history_summary.baseline_executed_count', 1)
             ->assertJsonPath('runs.0.history_summary.replay_packet_count', 0)
             ->assertJsonPath('runs.0.history_summary.replay_integrity_failed_count', 0)
@@ -2864,7 +2877,7 @@ class EngineeringHarnessRunnerTest extends TestCase
 
             $this->assertSame(0, $exitCode);
             $this->assertSame($directory, data_get($payload, 'written_export_bundle.directory'));
-            foreach (['report.json', 'evidence.json', 'claim.md', 'case-comparisons.json', 'manifest.json'] as $filename) {
+            foreach (['report.json', 'evidence.json', 'claim.md', 'case-comparisons.json', 'history-timeline.json', 'manifest.json'] as $filename) {
                 $path = $directory.DIRECTORY_SEPARATOR.$filename;
                 $this->assertFileExists($path);
                 $this->assertSame(
@@ -2873,6 +2886,10 @@ class EngineeringHarnessRunnerTest extends TestCase
                 );
             }
             $this->assertStringContainsString('# Atlas Rivals Fair Claude Report', File::get($directory.DIRECTORY_SEPARATOR.'claim.md'));
+            $this->assertSame('atlas.fair_claude.history_timeline.v1', data_get(
+                json_decode(File::get($directory.DIRECTORY_SEPARATOR.'history-timeline.json'), true),
+                'schema_version',
+            ));
         } finally {
             File::deleteDirectory($directory);
         }
@@ -2907,11 +2924,19 @@ class EngineeringHarnessRunnerTest extends TestCase
             $this->assertSame(0, $verifyExitCode);
             $this->assertSame('passed', $verification['status'] ?? null);
             $this->assertTrue($verification['verified'] ?? false);
-            $this->assertSame(5, $verification['file_count'] ?? null);
+            $this->assertSame(6, $verification['file_count'] ?? null);
             $this->assertSame('passed', $verification['files']['claim.md']['status'] ?? null);
+            $this->assertSame('passed', $verification['files']['history-timeline.json']['status'] ?? null);
             $this->assertTrue($verification['files']['claim.md']['hash_matches'] ?? false);
             $this->assertSame('passed', data_get($verification, 'semantic_checks.status'));
             $this->assertTrue(data_get($verification, 'semantic_checks.claim_markdown_contains_result_integrity'));
+            $this->assertTrue(data_get($verification, 'semantic_checks.claim_markdown_contains_experiment_validity'));
+            $this->assertContains(data_get($verification, 'semantic_checks.experiment_validity_status'), [
+                'not_enough_comparable_data',
+                'limited_valid_comparable_sample',
+                'blocked_by_confounders',
+                'valid_for_claim',
+            ]);
 
             $evidencePath = $directory.DIRECTORY_SEPARATOR.'evidence.json';
             $manifestPath = $directory.DIRECTORY_SEPARATOR.'manifest.json';
@@ -2969,7 +2994,7 @@ class EngineeringHarnessRunnerTest extends TestCase
             $this->assertSame(0, $exportExitCode);
             $manifestPath = $directory.DIRECTORY_SEPARATOR.'manifest.json';
             $manifest = json_decode(File::get($manifestPath), true);
-            unset($manifest['files']['claim.md']);
+            unset($manifest['files']['history-timeline.json']);
             File::put($manifestPath, json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
 
             $missingManifestEntryExitCode = Artisan::call('atlas:engineering:benchmark:rivals', [
@@ -2983,8 +3008,8 @@ class EngineeringHarnessRunnerTest extends TestCase
             $this->assertSame('failed', $missingManifestEntry['status'] ?? null);
             $this->assertFalse($missingManifestEntry['verified'] ?? true);
             $this->assertContains('manifest_required_file_missing', $missingManifestEntry['blocking_reasons'] ?? []);
-            $this->assertSame('failed', $missingManifestEntry['files']['claim.md']['status'] ?? null);
-            $this->assertSame('manifest_required_file_missing', $missingManifestEntry['files']['claim.md']['blocking_reason'] ?? null);
+            $this->assertSame('failed', $missingManifestEntry['files']['history-timeline.json']['status'] ?? null);
+            $this->assertSame('manifest_required_file_missing', $missingManifestEntry['files']['history-timeline.json']['blocking_reason'] ?? null);
         } finally {
             File::deleteDirectory($directory);
         }
@@ -3091,6 +3116,13 @@ class EngineeringHarnessRunnerTest extends TestCase
         $this->assertSame('context_pack', data_get($cases->get('fair_context_pack_budget_pressure'), 'domain_slug'));
         $this->assertSame('candidate', data_get($cases->get('fair_paired_baseline_workspace_isolation'), 'curation_status'));
         $this->assertSame('curated', data_get($cases->get('fair_benchmark_replay_packet_integrity'), 'curation_status'));
+        $this->assertTrue((bool) data_get($cases->get('fair_benchmark_replay_packet_integrity'), 'task_contract.strict_file_scope'));
+        $this->assertSame([
+            'app/Services/Engineering/EngineeringBenchmarkService.php',
+            'app/Console/Commands/AtlasEngineeringBenchmarkFairCommand.php',
+            'app/Console/Commands/AtlasRivalsCommand.php',
+            'tests/Feature/EngineeringHarnessRunnerTest.php',
+        ], data_get($cases->get('fair_benchmark_replay_packet_integrity'), 'task_contract.allowed_files'));
         $this->assertTrue((bool) data_get($cases->get('fair_cli_provider_lock_drift'), 'metadata.fair_claude_official'));
 
         $exitCode = Artisan::call('atlas:engineering:benchmark:claude-fair', [
@@ -3233,9 +3265,25 @@ class EngineeringHarnessRunnerTest extends TestCase
             ->assertJsonPath('result_integrity.provisional_leader', null)
             ->assertJsonPath('result_integrity.policy.invalid_cases_count_as_losses', false)
             ->assertJsonPath('result_integrity.policy.only_comparable_cases_enter_win_loss_math', true)
+            ->assertJsonPath('result_integrity.experiment_validity.schema_version', 'atlas.fair_claude.experiment_validity.v1')
+            ->assertJsonPath('result_integrity.experiment_validity.status', 'blocked_by_confounders')
+            ->assertJsonPath('result_integrity.experiment_validity.ab_test_validity_model.same_case_snapshot_required', true)
+            ->assertJsonPath('result_integrity.experiment_validity.ab_test_validity_model.equivalent_initial_state_required', true)
+            ->assertJsonPath('result_integrity.experiment_validity.ab_test_validity_model.no_provider_specific_case_filtering', true)
+            ->assertJsonPath('result_integrity.experiment_validity.external_variable_policy.non_evaluated_variables_cannot_decide_winner', true)
+            ->assertJsonPath('result_integrity.experiment_validity.external_variable_policy.non_evaluated_variables_can_only_block_comparability', true)
+            ->assertJsonPath('result_integrity.experiment_validity.score_policy.invalid_cases_excluded_from_win_loss_math', true)
+            ->assertJsonPath('result_integrity.experiment_validity.observed.observed_confounders.0', 'fair_protocol_not_valid')
             ->assertJsonPath('result_integrity.ui_contract.must_not_render_winner', true)
             ->assertJsonPath('result_integrity.counts.comparable_count', 0)
             ->assertJsonPath('result_integrity.counts.invalid_case_count', 1)
+            ->assertJsonPath('history_timeline.schema_version', 'atlas.fair_claude.history_timeline.v1')
+            ->assertJsonPath('history_timeline.summary.run_count', 1)
+            ->assertJsonPath('history_timeline.summary.comparable_case_count', 0)
+            ->assertJsonPath('history_timeline.summary.invalid_case_count', 1)
+            ->assertJsonPath('history_timeline.entries.0.result_integrity_status', 'invalid_battery_no_comparable_score')
+            ->assertJsonPath('history_timeline.entries.0.score_admitted', false)
+            ->assertJsonPath('history_timeline.entries.0.claim_winner_admitted', false)
             ->assertJsonPath('paired_scorecard.claude_code_baseline_win_count', 0)
             ->assertJsonPath('case_comparisons.0.comparison_status', 'atlas_protocol_invalid')
             ->assertJsonPath('case_comparisons.0.winner', null)
@@ -3244,6 +3292,7 @@ class EngineeringHarnessRunnerTest extends TestCase
             ->assertJsonPath('evidence_packet.claim.winner', null)
             ->assertJsonPath('evidence_packet.claim.claim_winner_admitted', false)
             ->assertJsonPath('evidence_packet.result_integrity.ui_contract.must_not_render_winner', true)
+            ->assertJsonPath('evidence_packet.result_integrity.experiment_validity.external_variable_policy.non_evaluated_variables_cannot_decide_winner', true)
             ->assertJsonFragment([
                 'id' => 'triage_invalid_battery_before_provider_rerun',
                 'severity' => 'critical',
@@ -3254,6 +3303,7 @@ class EngineeringHarnessRunnerTest extends TestCase
             ->json();
         $this->assertNotContains('run_paired_battery', collect(data_get($payload, 'next_actions', []))->pluck('id')->all());
         $this->assertStringContainsString('## Result Integrity', (string) data_get($payload, 'claim_markdown'));
+        $this->assertStringContainsString('## Experiment Validity', (string) data_get($payload, 'claim_markdown'));
         $this->assertStringContainsString('Score admitted: `false`', (string) data_get($payload, 'claim_markdown'));
         $this->assertStringContainsString('Winner for claim: `none`', (string) data_get($payload, 'claim_markdown'));
     }
@@ -3276,6 +3326,11 @@ class EngineeringHarnessRunnerTest extends TestCase
             ->assertJsonPath('battery_plan.schema_version', 'atlas.rivals.battery_plan.v1')
             ->assertJsonPath('battery_plan.status', 'ready_for_operator_confirmation')
             ->assertJsonPath('battery_plan.ready', true)
+            ->assertJsonPath('battery_plan.operator_report.schema_version', 'atlas.rivals.battery_plan_operator_report.v1')
+            ->assertJsonPath('battery_plan.operator_report.status_label', 'Ready for review')
+            ->assertJsonPath('battery_plan.operator_report.primary_blocker', null)
+            ->assertJsonPath('battery_plan.operator_report.score_admitted', false)
+            ->assertJsonPath('battery_plan.operator_report.claim_winner_admitted', false)
             ->assertJsonPath('battery_plan.operator_required', true)
             ->assertJsonPath('battery_plan.cost_acknowledgement_required', true)
             ->assertJsonPath('battery_plan.agent_auto_execution_allowed', false)
@@ -3284,7 +3339,11 @@ class EngineeringHarnessRunnerTest extends TestCase
             ->assertJsonPath('battery_plan.execution_intent.baseline', 'paired')
             ->assertJsonPath('battery_plan.execution_intent.fair_claim_eligible', true)
             ->assertJsonPath('battery_plan.preflight.workspace_git.status', 'clean')
+            ->assertJsonPath('battery_plan.preflight.workspace_status', 'clean')
+            ->assertJsonPath('battery_plan.preflight.workspace_dirty_count', 0)
             ->assertJsonPath('battery_plan.preflight.baseline_workspace_git.status', 'clean')
+            ->assertJsonPath('battery_plan.preflight.baseline_workspace_status', 'clean')
+            ->assertJsonPath('battery_plan.preflight.baseline_workspace_dirty_count', 0)
             ->assertJsonPath('battery_plan.safety.clean_git_workspaces_required', true)
             ->assertJsonPath('battery_plan.selection_contract.schema_version', 'atlas.rivals.battery_selection_contract.v1')
             ->assertJsonPath('battery_plan.selection_contract.allowed_modes.0.id', 'official_fair')
@@ -3326,7 +3385,12 @@ class EngineeringHarnessRunnerTest extends TestCase
             ->assertOk()
             ->assertJsonPath('battery_plan.status', 'blocked')
             ->assertJsonPath('battery_plan.ready', false)
+            ->assertJsonPath('battery_plan.operator_report.status_label', 'Blocked')
+            ->assertJsonPath('battery_plan.operator_report.primary_blocker', 'atlas_workspace_dirty')
+            ->assertJsonPath('battery_plan.operator_report.workspace_status', 'dirty')
+            ->assertJsonPath('battery_plan.operator_report.workspace_dirty_count', 1)
             ->assertJsonPath('battery_plan.preflight.workspace_git.status', 'dirty')
+            ->assertJsonPath('battery_plan.preflight.workspace_dirty_count', 1)
             ->assertJsonPath('battery_plan.safety.no_provider_call', true)
             ->assertJsonFragment(['atlas_workspace_dirty']);
 
@@ -3486,6 +3550,100 @@ class EngineeringHarnessRunnerTest extends TestCase
         $this->deleteDirectoryQuietly($baselineWorkspace);
     }
 
+    public function test_invalid_fair_battery_can_be_quarantined_without_admitting_score_or_deleting_history(): void
+    {
+        $suite = $this->seedInvalidFairClaudeBattery('fair-invalid-battery-quarantine');
+        $baselineWorkspace = $this->createWorkspace();
+
+        $beforeRuns = AtlasEngineeringBenchmarkRun::query()->count();
+        $exitCode = Artisan::call('atlas:engineering:benchmark:claude-fair', [
+            'action' => 'triage-invalid-battery',
+            '--suite' => $suite->slug,
+            '--reason' => 'Historical Atlas protocol failure was reviewed; exclude it from rerun blocking, not from audit history.',
+            '--confirm-invalid-battery-quarantine' => true,
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true);
+
+        $this->assertSame(0, $exitCode, Artisan::output());
+        $this->assertSame('triaged_quarantined', data_get($payload, 'status'));
+        $this->assertTrue((bool) data_get($payload, 'safety.no_provider_call'));
+        $this->assertTrue((bool) data_get($payload, 'safety.no_score_admitted'));
+        $this->assertTrue((bool) data_get($payload, 'safety.no_history_deleted'));
+        $this->assertSame($beforeRuns, AtlasEngineeringBenchmarkRun::query()->count());
+
+        $report = app(EngineeringBenchmarkService::class)->fairClaudeReportPayload($suite->refresh(), ['limit' => 20]);
+        $this->assertSame('invalid_battery_no_comparable_score', data_get($report, 'result_integrity.status'));
+        $this->assertSame('triaged_quarantined', data_get($report, 'result_integrity.invalid_battery_triage.status'));
+        $this->assertFalse((bool) data_get($report, 'result_integrity.triage_required_before_rerun'));
+        $this->assertFalse((bool) data_get($report, 'result_integrity.score_admitted'));
+        $this->assertFalse((bool) data_get($report, 'result_integrity.claim_winner_admitted'));
+        $this->assertSame(1, AtlasEngineeringBenchmarkRun::query()->where('suite_id', $suite->id)->count());
+
+        $plan = $this->postJson("/engineering/benchmarks/suites/{$suite->slug}/rivals/battery-plan", [
+            'mode' => 'official_fair',
+            'workspace' => $this->workspace,
+            'baseline_workspace' => $baselineWorkspace,
+            'provider' => 'claude_cli',
+            'model' => 'opus',
+            'limit' => 6,
+        ], $this->headers)
+            ->assertOk()
+            ->assertJsonPath('battery_plan.safety.no_provider_call', true)
+            ->json('battery_plan');
+
+        $this->assertNotContains('historical_invalid_battery_requires_triage', data_get($plan, 'blocking_reasons', []));
+        $this->assertFalse((bool) data_get($plan, 'result_integrity.triage_required_before_rerun'));
+        $this->assertSame('triaged_quarantined', data_get($plan, 'operator_report.invalid_battery_triage_status'));
+        $this->assertFalse((bool) data_get($plan, 'operator_report.score_admitted'));
+        $this->assertFalse((bool) data_get($plan, 'operator_report.claim_winner_admitted'));
+
+        $exitCode = Artisan::call('atlas:engineering:benchmark:claude-fair', [
+            'action' => 'runbook',
+            '--suite' => $suite->slug,
+            '--workspace' => $this->workspace,
+            '--claude-code-baseline-workspace' => $baselineWorkspace,
+            '--claude-code-baseline-binary' => '/bin/echo',
+            '--json' => true,
+        ]);
+        $runbook = json_decode(Artisan::output(), true);
+
+        $this->assertSame(0, $exitCode, Artisan::output());
+        $this->assertFalse((bool) data_get($runbook, 'preflight.historical_invalid_battery_requires_triage'));
+        $this->assertNotContains('historical_invalid_battery_requires_triage', data_get($runbook, 'start_blocking_reasons', []));
+
+        $this->deleteDirectoryQuietly($baselineWorkspace);
+    }
+
+    public function test_atlas_rivals_wrapper_can_quarantine_invalid_battery_without_provider_call(): void
+    {
+        $suite = $this->seedInvalidFairClaudeBattery('fair-rivals-wrapper-invalid-battery-quarantine');
+        $beforeRuns = AtlasEngineeringBenchmarkRun::query()->count();
+
+        $exitCode = Artisan::call('atlas:engineering:benchmark:rivals', [
+            'action' => 'triage-invalid-battery',
+            '--suite' => $suite->slug,
+            '--reason' => 'Reviewed through Atlas Rivals wrapper; quarantine invalid battery without admitting score.',
+            '--confirm-invalid-battery-quarantine' => true,
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true);
+
+        $this->assertSame(0, $exitCode, Artisan::output());
+        $this->assertSame('triaged_quarantined', data_get($payload, 'status'));
+        $this->assertTrue((bool) data_get($payload, 'safety.no_provider_call'));
+        $this->assertTrue((bool) data_get($payload, 'safety.no_score_admitted'));
+        $this->assertTrue((bool) data_get($payload, 'safety.no_history_deleted'));
+        $this->assertSame($beforeRuns, AtlasEngineeringBenchmarkRun::query()->count());
+
+        $report = app(EngineeringBenchmarkService::class)->fairClaudeReportPayload($suite->refresh(), ['limit' => 20]);
+
+        $this->assertSame('triaged_quarantined', data_get($report, 'result_integrity.invalid_battery_triage.status'));
+        $this->assertFalse((bool) data_get($report, 'result_integrity.triage_required_before_rerun'));
+        $this->assertFalse((bool) data_get($report, 'result_integrity.score_admitted'));
+        $this->assertFalse((bool) data_get($report, 'result_integrity.claim_winner_admitted'));
+    }
+
     public function test_fair_claude_runbook_reports_real_battery_commands_and_start_blockers(): void
     {
         Artisan::call('atlas:engineering:benchmark:claude-fair', [
@@ -3522,6 +3680,7 @@ class EngineeringHarnessRunnerTest extends TestCase
         $this->assertStringContainsString('--model-policy=fixed', (string) data_get($payload, 'commands.doctor'));
         $this->assertStringContainsString('--model=opus', (string) data_get($payload, 'commands.run_full_paired_battery'));
         $this->assertStringContainsString('--quality-changed-only', (string) data_get($payload, 'commands.run_full_paired_battery'));
+        $this->assertStringContainsString('--provider-timeout=600', (string) data_get($payload, 'commands.run_full_paired_battery'));
         $this->assertStringContainsString('--quality-changed-only', (string) data_get($payload, 'commands.run_atlas_arm_only'));
         $this->assertStringContainsString('--confirm-runbook-reviewed', (string) data_get($payload, 'commands.run_full_paired_battery'));
         $this->assertStringContainsString('--confirm-provider-cost', (string) data_get($payload, 'commands.run_full_paired_battery'));
@@ -3544,6 +3703,71 @@ class EngineeringHarnessRunnerTest extends TestCase
         $this->assertSame(1, $exitCode);
         $this->assertSame('blocked', data_get($blockedPayload, 'start_status'));
         $this->assertContains('claude_code_baseline_workspace_missing_or_unreadable', data_get($blockedPayload, 'start_blocking_reasons', []));
+    }
+
+    public function test_fair_claude_runbook_blocks_laravel_workspaces_without_runtime_artifacts_before_provider_spend(): void
+    {
+        Artisan::call('atlas:engineering:benchmark:claude-fair', [
+            'action' => 'prepare',
+            '--suite' => 'fair-runbook-runtime-preflight',
+            '--json' => true,
+        ]);
+
+        $atlasWorkspace = $this->createWorkspace();
+        $baselineWorkspace = $this->createWorkspace();
+
+        try {
+            foreach ([$atlasWorkspace, $baselineWorkspace] as $workspace) {
+                File::put($workspace.'/artisan', "<?php // laravel marker\n");
+                File::put($workspace.'/composer.json', json_encode(['require' => ['laravel/framework' => '^12.0']]));
+                (new Process(['git', 'add', 'artisan', 'composer.json'], $workspace))->run();
+                (new Process(['git', 'commit', '-m', 'Add laravel markers'], $workspace))->run();
+            }
+
+            $exitCode = Artisan::call('atlas:engineering:benchmark:claude-fair', [
+                'action' => 'runbook',
+                '--suite' => 'fair-runbook-runtime-preflight',
+                '--workspace' => $atlasWorkspace,
+                '--claude-code-baseline-workspace' => $baselineWorkspace,
+                '--claude-code-baseline-binary' => '/bin/echo',
+                '--json' => true,
+            ]);
+            $payload = json_decode(Artisan::output(), true);
+
+            $this->assertSame(1, $exitCode, Artisan::output());
+            $this->assertSame('blocked', data_get($payload, 'start_status'));
+            $this->assertContains('atlas_workspace_vendor_autoload_missing', data_get($payload, 'start_blocking_reasons', []));
+            $this->assertContains('claude_code_baseline_vendor_autoload_missing', data_get($payload, 'start_blocking_reasons', []));
+            $this->assertContains('atlas_workspace_env_missing', data_get($payload, 'start_blocking_reasons', []));
+            $this->assertContains('claude_code_baseline_env_missing', data_get($payload, 'start_blocking_reasons', []));
+            $this->assertTrue((bool) data_get($payload, 'preflight.workspace_runtime.laravel_runtime_detected'));
+            $this->assertFalse((bool) data_get($payload, 'preflight.workspace_runtime.vendor_autoload_exists'));
+            $this->assertTrue((bool) data_get($payload, 'provider_execution_guard.laravel_runtime_preflight_required'));
+        } finally {
+            $this->deleteDirectoryQuietly($atlasWorkspace);
+            $this->deleteDirectoryQuietly($baselineWorkspace);
+        }
+    }
+
+    public function test_laravel_pint_control_uses_high_memory_php_invocation(): void
+    {
+        File::put($this->workspace.'/artisan', "<?php // laravel marker\n");
+        File::put($this->workspace.'/composer.json', json_encode(['require' => ['laravel/framework' => '^12.0']]));
+        File::ensureDirectoryExists($this->workspace.'/vendor/bin');
+        File::put($this->workspace.'/vendor/bin/pint', "#!/usr/bin/env php\n<?php\n");
+
+        $controls = app(EngineeringControlRegistryService::class)->applicableControls(
+            $this->task(),
+            $this->workspace,
+            [],
+            [],
+        );
+        $pint = collect($controls)->firstWhere('slug', 'laravel_pint_check');
+
+        $this->assertIsArray($pint);
+        $this->assertStringContainsString('-d memory_limit=1024M', (string) ($pint['command'] ?? ''));
+        $this->assertStringContainsString('vendor/bin/pint --test', (string) ($pint['command'] ?? ''));
+        $this->assertSame('1024M', data_get($pint, 'metadata.memory_limit'));
     }
 
     public function test_fair_claude_provider_run_requires_explicit_runbook_and_cost_confirmation(): void
@@ -3673,7 +3897,16 @@ class EngineeringHarnessRunnerTest extends TestCase
             'passed_cases' => 0,
             'failed_cases' => 1,
             'runner_options_json' => ['claude_only' => true],
-            'summary_json' => [],
+            'summary_json' => [
+                'paired_scorecard' => [
+                    'enabled' => true,
+                    'case_count' => 1,
+                    'fair_mode_count' => 1,
+                    'comparable_count' => 1,
+                    'winners' => ['claude_code_baseline' => 1],
+                    'claude_code_baseline_win_count' => 1,
+                ],
+            ],
             'started_at' => now()->subMinute(),
             'finished_at' => now()->subMinute(),
             'created_at' => now()->subMinute(),
@@ -4142,7 +4375,16 @@ class EngineeringHarnessRunnerTest extends TestCase
             'cost_microusd' => 600_000,
             'quality_metrics_json' => [],
             'runner_options_json' => [],
-            'summary_json' => [],
+            'summary_json' => [
+                'paired_scorecard' => [
+                    'enabled' => true,
+                    'case_count' => 1,
+                    'fair_mode_count' => 1,
+                    'comparable_count' => 1,
+                    'winners' => ['claude_code_baseline' => 1],
+                    'claude_code_baseline_win_count' => 1,
+                ],
+            ],
             'started_at' => now()->subMinutes(10),
             'finished_at' => now()->subMinutes(9),
             'metadata' => [],
@@ -5189,7 +5431,16 @@ class EngineeringHarnessRunnerTest extends TestCase
             'passed_cases' => 0,
             'failed_cases' => 1,
             'runner_options_json' => ['claude_only' => true],
-            'summary_json' => [],
+            'summary_json' => [
+                'paired_scorecard' => [
+                    'enabled' => true,
+                    'case_count' => 1,
+                    'fair_mode_count' => 1,
+                    'comparable_count' => 1,
+                    'winners' => ['claude_code_baseline' => 1],
+                    'claude_code_baseline_win_count' => 1,
+                ],
+            ],
             'started_at' => now()->subMinute(),
             'finished_at' => now()->subMinute(),
             'created_at' => now()->subMinute(),

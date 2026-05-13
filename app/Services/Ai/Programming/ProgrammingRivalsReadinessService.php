@@ -3,7 +3,9 @@
 namespace App\Services\Ai\Programming;
 
 use App\Models\AtlasEngineeringBenchmarkSuite;
+use App\Models\AtlasToolRun;
 use App\Services\Engineering\EngineeringBenchmarkService;
+use Illuminate\Support\Facades\Schema;
 use Symfony\Component\Process\Process;
 use Throwable;
 
@@ -18,6 +20,7 @@ class ProgrammingRivalsReadinessService
         private readonly ProgrammingRetrievalBenchmarkService $retrievalBenchmark,
         private readonly ProgrammingTestImpactBenchmarkService $testImpactBenchmark,
         private readonly ProgrammingPatchVerifierBenchmarkService $patchVerifierBenchmark,
+        private readonly ProgrammingRepairLoopBenchmarkService $repairLoopBenchmark,
         private readonly EngineeringBenchmarkService $engineeringBenchmarks,
     ) {}
 
@@ -35,6 +38,8 @@ class ProgrammingRivalsReadinessService
             || (int) data_get($fairClaude, 'report.scope.fair_run_count', 0) > 0;
         $invalidCaseCount = (int) data_get($fairClaude, 'report.paired_scorecard.invalid_case_count', 0);
         $realBatteryInvalid = $realBatteryAttempted && $invalidCaseCount > 0 && $comparableCases === 0;
+        $invalidBatteryRequiresTriage = $realBatteryInvalid
+            && (bool) data_get($fairClaude, 'report.result_integrity.triage_required_before_rerun', true);
         $readyForExternalBattery = $localPassed;
         $claimReady = $readyForExternalBattery
             && $comparableCases > 0
@@ -48,6 +53,7 @@ class ProgrammingRivalsReadinessService
         $invalidBatteryTriagePacket = $this->invalidBatteryTriagePacket(
             $latestRealBatteryEvidence,
             $realBatteryInvalid,
+            $invalidBatteryRequiresTriage,
             $localPassed,
             $currentWorkspacePreflight,
             $currentLocalRecheckEvidence,
@@ -68,6 +74,7 @@ class ProgrammingRivalsReadinessService
                 'valid_comparable_cases_generated' => $comparableCases > 0,
                 'invalid_case_count' => $invalidCaseCount,
                 'real_battery_invalid' => $realBatteryInvalid,
+                'invalid_battery_requires_triage_before_rerun' => $invalidBatteryRequiresTriage,
                 'claim_ready' => $claimReady,
                 'synthetic_scores_allowed' => false,
             ],
@@ -89,6 +96,7 @@ class ProgrammingRivalsReadinessService
                     'agentic_rag_retrieves_expected_programming_context',
                     'test_impact_selects_expected_tests',
                     'patch_verifier_blocks_ungrounded_patches',
+                    'repair_loop_plans_repair_or_human_review_with_receipts',
                 ],
                 'what_real_rivals_must_prove' => [
                     'Atlas arm and rival arm solve the same case from equivalent initial state',
@@ -114,6 +122,7 @@ class ProgrammingRivalsReadinessService
                 'local_retrieval' => 'php artisan atlas:programming:retrieval-benchmark --json',
                 'local_test_impact' => 'php artisan atlas:programming:test-impact-benchmark --json',
                 'local_patch_verifier' => 'php artisan atlas:programming:patch-verifier-benchmark --json',
+                'local_repair_loop' => 'php artisan atlas:programming:repair-loop-benchmark --json',
                 'real_rivals_runbook' => 'php artisan atlas:engineering:benchmark:rivals runbook --suite=atlas-fair-claude-v1 --workspace=<clean-atlas-workspace> --claude-code-baseline-workspace=<separate-clean-baseline-workspace> --json',
                 'real_rivals_quick' => 'php artisan atlas:engineering:benchmark:rivals run --quick --suite=atlas-fair-claude-v1 --workspace=<clean-atlas-workspace> --claude-code-baseline-workspace=<separate-clean-baseline-workspace> --confirm-runbook-reviewed --confirm-provider-cost --json',
                 'real_rivals_medium' => 'php artisan atlas:engineering:benchmark:rivals run --medium --suite=atlas-fair-claude-v1 --workspace=<clean-atlas-workspace> --claude-code-baseline-workspace=<separate-clean-baseline-workspace> --confirm-runbook-reviewed --confirm-provider-cost --json',
@@ -152,11 +161,13 @@ class ProgrammingRivalsReadinessService
         $retrieval = $this->retrievalBenchmark->run($workspace, $refresh);
         $testImpact = $this->testImpactBenchmark->run();
         $patchVerifier = $this->patchVerifierBenchmark->run();
+        $repairLoop = $this->repairLoopBenchmark->run();
 
         self::$localBenchmarkRuntimeCache[$cacheKey] = [
             'retrieval' => $this->benchmarkSummary($retrieval),
             'test_impact' => $this->benchmarkSummary($testImpact),
             'patch_verifier' => $this->benchmarkSummary($patchVerifier),
+            'repair_loop' => $this->benchmarkSummary($repairLoop),
         ];
 
         return [
@@ -443,7 +454,11 @@ class ProgrammingRivalsReadinessService
         $invalidCaseCount = (int) ($scorecard['invalid_case_count'] ?? 0);
         $realBatteryAttempted = (int) data_get($fairClaude, 'report.scope.paired_run_count', 0) > 0
             || (int) data_get($fairClaude, 'report.scope.fair_run_count', 0) > 0;
-        $blockedByInvalidAttempt = $realBatteryAttempted && $invalidCaseCount > 0 && ! $claimReady;
+        $invalidBatteryRequiresTriage = $realBatteryAttempted
+            && $invalidCaseCount > 0
+            && ! $claimReady
+            && (bool) data_get($fairClaude, 'report.result_integrity.triage_required_before_rerun', true);
+        $blockedByInvalidAttempt = $invalidBatteryRequiresTriage;
         $readyToRequestOperator = $localPassed && ! $claimReady && $corpusPrepared && ! $blockedByInvalidAttempt;
         $providerWorkspace = (bool) data_get($currentWorkspacePreflight, 'ready_for_provider_battery', false)
             ? $workspace
@@ -579,6 +594,7 @@ class ProgrammingRivalsReadinessService
     private function invalidBatteryTriagePacket(
         array $latestEvidence,
         bool $realBatteryInvalid,
+        bool $invalidBatteryRequiresTriage,
         bool $localPassed,
         array $currentWorkspacePreflight,
         array $currentLocalRecheckEvidence,
@@ -594,23 +610,36 @@ class ProgrammingRivalsReadinessService
             && (bool) ($artifactIntegrity['exists'] ?? false)
             && (bool) ($artifactIntegrity['hash_matches'] ?? false)
         );
+        $historicalFailureStatus = $invalidBatteryRequiresTriage ? 'blocked' : 'quarantined_diagnostic';
+        $currentWorkspaceReady = (bool) data_get($currentWorkspacePreflight, 'ready_for_provider_battery', false);
+        $currentLocalRechecksPassed = (bool) data_get($currentLocalRecheckEvidence, 'all_known_rechecks_passed', false);
+        $spendMoreProviderTokensNow = ! $invalidBatteryRequiresTriage
+            && $localPassed
+            && $currentLocalRechecksPassed
+            && $currentWorkspaceReady;
 
         return [
             'schema_version' => 'atlas.programming.invalid_battery_triage_packet.v1',
-            'status' => $realBatteryInvalid ? 'triage_required_before_rerun' : 'not_required',
-            'rerun_provider_battery_allowed_now' => ! $realBatteryInvalid,
+            'status' => $invalidBatteryRequiresTriage
+                ? 'triage_required_before_rerun'
+                : ($realBatteryInvalid ? 'triaged_quarantined_pending_fresh_battery' : 'not_required'),
+            'rerun_provider_battery_allowed_now' => ! $invalidBatteryRequiresTriage,
             'historical_failure_policy' => [
                 'schema_version' => 'atlas.programming.rivals_historical_failure_policy.v1',
                 'historical_failed_gates_are_diagnostic' => true,
                 'historical_failed_gates_do_not_authorize_new_provider_spend' => true,
                 'current_preconditions_must_be_green_before_rerun' => true,
                 'clean_worktree_required_even_if_local_rechecks_pass' => true,
+                'triaged_invalid_batteries_do_not_enter_score_or_block_forever' => true,
             ],
             'provider_budget_policy' => [
-                'spend_more_provider_tokens_now' => ! $realBatteryInvalid,
-                'reason' => $realBatteryInvalid
-                    ? 'The latest real battery has zero comparable cases and invalid Atlas protocol evidence.'
-                    : 'No invalid real battery is currently blocking provider execution.',
+                'spend_more_provider_tokens_now' => $spendMoreProviderTokensNow,
+                'reason' => $this->providerBudgetPolicyReason(
+                    $invalidBatteryRequiresTriage,
+                    $localPassed,
+                    $currentLocalRechecksPassed,
+                    $currentWorkspaceReady,
+                ),
             ],
             'root_cause_summary' => [
                 'protocol_valid' => (bool) data_get($latestEvidence, 'final_packet.protocol_valid', false),
@@ -626,14 +655,15 @@ class ProgrammingRivalsReadinessService
                 'schema_version' => 'atlas.programming.current_rivals_rerun_preconditions.v1',
                 'local_programming_benchmarks_passed' => $localPassed,
                 'current_local_rechecks' => $currentLocalRecheckEvidence,
-                'current_workspace_ready_for_provider_battery' => (bool) data_get($currentWorkspacePreflight, 'ready_for_provider_battery', false),
+                'current_workspace_ready_for_provider_battery' => $currentWorkspaceReady,
                 'current_workspace_status' => data_get($currentWorkspacePreflight, 'status'),
                 'current_workspace_blocking_reasons' => data_get($currentWorkspacePreflight, 'blocking_reasons', []),
                 'provider_dispatch_allowed_now' => false,
                 'why_provider_dispatch_is_blocked' => array_values(array_filter([
-                    $realBatteryInvalid ? 'historical_real_battery_invalid_requires_triage' : null,
+                    $invalidBatteryRequiresTriage ? 'historical_real_battery_invalid_requires_triage' : null,
                     $localPassed ? null : 'local_programming_benchmarks_not_passed',
-                    data_get($currentWorkspacePreflight, 'ready_for_provider_battery') ? null : 'current_workspace_not_provider_battery_ready',
+                    $currentLocalRechecksPassed ? null : 'current_local_rechecks_not_passed',
+                    $currentWorkspaceReady ? null : 'current_workspace_not_provider_battery_ready',
                 ])),
                 'diagnostic_commands_without_provider_spend' => [
                     'programming_readiness' => 'php artisan atlas:programming:rivals-readiness --json',
@@ -651,34 +681,72 @@ class ProgrammingRivalsReadinessService
             'triage_checklist' => [
                 [
                     'id' => 'fix_failed_tests',
-                    'status' => $failedTestCount === 0 ? 'passed' : 'blocked',
+                    'status' => $failedTestCount === 0 ? 'passed' : $historicalFailureStatus,
                     'evidence' => 'final_packet.tests.failed_test_count',
+                    'scope' => $invalidBatteryRequiresTriage ? 'current_rerun_blocker' : 'historical_quarantined_diagnostic',
                 ],
                 [
                     'id' => 'clear_release_gate_failures',
-                    'status' => $failedControlCount === 0 && $releaseGateFailures === [] ? 'passed' : 'blocked',
+                    'status' => $failedControlCount === 0 && $releaseGateFailures === [] ? 'passed' : $historicalFailureStatus,
                     'evidence' => 'final_packet.gates',
+                    'scope' => $invalidBatteryRequiresTriage ? 'current_rerun_blocker' : 'historical_quarantined_diagnostic',
                 ],
                 [
                     'id' => 'clear_risk_flags',
-                    'status' => $riskFlags === [] ? 'passed' : 'blocked',
+                    'status' => $riskFlags === [] ? 'passed' : $historicalFailureStatus,
                     'evidence' => 'final_packet.risks.risk_flags',
+                    'scope' => $invalidBatteryRequiresTriage ? 'current_rerun_blocker' : 'historical_quarantined_diagnostic',
                 ],
                 [
                     'id' => 'verify_replay_artifact_integrity',
-                    'status' => $artifactIntegrityOk ? 'passed' : 'blocked',
+                    'status' => $artifactIntegrityOk ? 'passed' : $historicalFailureStatus,
                     'evidence' => 'replay_manifest.artifact.integrity',
+                    'scope' => $invalidBatteryRequiresTriage ? 'current_rerun_blocker' : 'historical_quarantined_diagnostic',
                 ],
                 [
                     'id' => 'produce_protocol_valid_final_packet',
-                    'status' => (bool) data_get($latestEvidence, 'final_packet.protocol_valid', false) ? 'passed' : 'blocked',
+                    'status' => (bool) data_get($latestEvidence, 'final_packet.protocol_valid', false) ? 'passed' : $historicalFailureStatus,
                     'evidence' => 'final_packet.protocol_valid',
+                    'scope' => $invalidBatteryRequiresTriage ? 'current_rerun_blocker' : 'historical_quarantined_diagnostic',
                 ],
             ],
             'next_action' => $realBatteryInvalid
-                ? 'Fix the local Atlas protocol failure and rerun local deterministic gates before authorizing another paid Rivals battery.'
+                ? ($invalidBatteryRequiresTriage
+                    ? 'Fix the local Atlas protocol failure and rerun local deterministic gates before authorizing another paid Rivals battery.'
+                    : 'Historical invalid battery is quarantined; use a clean Atlas workspace and separate clean baseline workspace before requesting a fresh paid battery.')
                 : 'No invalid-battery triage is required.',
         ];
+    }
+
+    private function providerBudgetPolicyReason(
+        bool $invalidBatteryRequiresTriage,
+        bool $localPassed,
+        bool $currentLocalRechecksPassed,
+        bool $currentWorkspaceReady,
+    ): string {
+        if ($invalidBatteryRequiresTriage) {
+            return 'The latest real battery has zero comparable cases and invalid Atlas protocol evidence.';
+        }
+
+        $reasons = [];
+
+        if (! $localPassed) {
+            $reasons[] = 'local programming benchmarks are not green';
+        }
+
+        if (! $currentLocalRechecksPassed) {
+            $reasons[] = 'current local deterministic rechecks are not fully green';
+        }
+
+        if (! $currentWorkspaceReady) {
+            $reasons[] = 'current workspace is not clean and auditable for a provider battery';
+        }
+
+        if ($reasons !== []) {
+            return 'Do not spend provider tokens: '.implode('; ', $reasons).'.';
+        }
+
+        return 'Current no-provider preconditions are green; provider spend still requires explicit operator approval and clean separate baseline workspace.';
     }
 
     /**
@@ -686,18 +754,23 @@ class ProgrammingRivalsReadinessService
      */
     private function currentLocalRecheckEvidence(string $workspace): array
     {
-        $quality = $this->latestQualityScanEvidence();
+        $quality = $this->latestQualityScanEvidence($workspace);
         $visual = $this->visualSmokeEvidence($workspace);
+        $checks = collect([$quality, $visual]);
+        $knownChecks = $checks->filter(fn (array $check): bool => ($check['status'] ?? 'unknown') !== 'unknown');
+        $allRequiredChecksKnown = $knownChecks->count() === $checks->count();
+        $allKnownRechecksPassed = $allRequiredChecksKnown
+            && $knownChecks->every(fn (array $check): bool => ($check['status'] ?? null) === 'passed');
 
         return [
             'schema_version' => 'atlas.programming.current_local_recheck_evidence.v1',
             'purpose' => 'Separate current no-provider local deterministic rechecks from historical invalid Rivals battery failures.',
+            'status' => $allKnownRechecksPassed ? 'passed' : ($knownChecks->isEmpty() ? 'unknown' : 'incomplete'),
             'provider_dispatches' => false,
             'quality_changed_only' => $quality,
             'visual_smoke' => $visual,
-            'all_known_rechecks_passed' => collect([$quality, $visual])
-                ->filter(fn (array $check): bool => ($check['status'] ?? 'unknown') !== 'unknown')
-                ->every(fn (array $check): bool => ($check['status'] ?? null) === 'passed'),
+            'all_required_rechecks_known' => $allRequiredChecksKnown,
+            'all_known_rechecks_passed' => $allKnownRechecksPassed,
             'historical_rivals_failures_still_authoritative_for_external_claim' => true,
         ];
     }
@@ -705,13 +778,14 @@ class ProgrammingRivalsReadinessService
     /**
      * @return array<string,mixed>
      */
-    private function latestQualityScanEvidence(): array
+    private function latestQualityScanEvidence(string $workspace): array
     {
         $root = storage_path('app/engineering-quality-scans');
         $dirs = is_dir($root) ? glob($root.'/*', GLOB_ONLYDIR) : false;
+        $workspaceHash = hash('sha256', $workspace);
 
         if (! is_array($dirs) || $dirs === []) {
-            return [
+            return $this->latestQualityScanToolRuntimeEvidence($workspaceHash) ?? [
                 'status' => 'unknown',
                 'reason' => 'quality_scan_artifact_not_found',
                 'changed_only' => null,
@@ -719,26 +793,88 @@ class ProgrammingRivalsReadinessService
         }
 
         rsort($dirs, SORT_STRING);
-        $path = $dirs[0].'/scan.json';
-        $payload = $this->jsonFile($path);
+        $selectedDir = null;
+        $payload = null;
+
+        foreach ($dirs as $dir) {
+            $candidate = $this->jsonFile($dir.'/scan.json');
+
+            if ($candidate !== null && ($candidate['workspace_hash'] ?? null) === $workspaceHash) {
+                $selectedDir = $dir;
+                $payload = $candidate;
+                break;
+            }
+        }
 
         if ($payload === null) {
-            return [
+            return $this->latestQualityScanToolRuntimeEvidence($workspaceHash) ?? [
                 'status' => 'unknown',
-                'reason' => 'quality_scan_artifact_unreadable',
-                'artifact_root_hash' => hash('sha256', $dirs[0]),
+                'reason' => 'quality_scan_artifact_for_workspace_not_found',
+                'workspace_hash' => $workspaceHash,
                 'changed_only' => null,
             ];
         }
+
+        $selectedDir ??= $dirs[0];
 
         return [
             'status' => (string) ($payload['status'] ?? 'unknown'),
             'changed_only' => (bool) ($payload['changed_only'] ?? false),
             'workspace_hash' => $payload['workspace_hash'] ?? null,
-            'artifact_root_hash' => $payload['artifact_root_hash'] ?? hash('sha256', $dirs[0]),
+            'artifact_root_hash' => $payload['artifact_root_hash'] ?? hash('sha256', $selectedDir),
+            'artifact_dir_name' => basename($selectedDir),
             'finding_count' => (int) data_get($payload, 'summary.finding_count', 0),
             'blocking_finding_count' => (int) data_get($payload, 'summary.blocking_finding_count', 0),
             'paid_tool_required' => (bool) ($payload['paid_tool_required'] ?? false),
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>|null
+     */
+    private function latestQualityScanToolRuntimeEvidence(string $workspaceHash): ?array
+    {
+        if (! Schema::hasTable('atlas_tool_runs')) {
+            return null;
+        }
+
+        $runs = AtlasToolRun::query()
+            ->where('surface', 'engineering_quality_scan')
+            ->where('workspace_hash', $workspaceHash)
+            ->orderByDesc('created_at')
+            ->limit(200)
+            ->get()
+            ->filter(fn (AtlasToolRun $run): bool => (bool) data_get($run->metadata_json, 'changed_only', false));
+
+        if ($runs->isEmpty()) {
+            return null;
+        }
+
+        $groups = $runs
+            ->groupBy(fn (AtlasToolRun $run): string => (string) (data_get($run->metadata_json, 'scan_artifact_root_hash') ?: 'unknown'))
+            ->sortByDesc(fn ($group) => $group->max('created_at'));
+        $latest = $groups->first();
+
+        if (! $latest) {
+            return null;
+        }
+
+        $failedCount = $latest
+            ->filter(fn (AtlasToolRun $run): bool => in_array($run->status, ['failed', 'timeout'], true))
+            ->count();
+        $passedCount = $latest->where('status', 'passed')->count();
+
+        return [
+            'status' => $failedCount === 0 ? 'passed' : 'failed',
+            'source' => 'tool_runtime_evidence',
+            'changed_only' => true,
+            'workspace_hash' => $workspaceHash,
+            'artifact_root_hash' => (string) ($latest->first()?->metadata_json['scan_artifact_root_hash'] ?? 'unknown'),
+            'tool_run_count' => $latest->count(),
+            'passed_count' => $passedCount,
+            'failed_count' => $failedCount,
+            'paid_tool_required' => false,
+            'artifact_manifest_available' => false,
         ];
     }
 
@@ -804,6 +940,9 @@ class ProgrammingRivalsReadinessService
                 ($git['is_git'] ?? false) ? null : 'workspace_is_not_git_worktree',
                 ($git['is_git'] ?? false) && ! ($git['clean'] ?? false) ? 'workspace_dirty' : null,
             ])),
+            'dirty_count' => (int) ($git['dirty_count'] ?? 0),
+            'dirty_files_sample' => (array) ($git['dirty_files_sample'] ?? []),
+            'dirty_files_truncated' => (bool) ($git['dirty_files_truncated'] ?? false),
             'git' => $git,
             'operator_guidance' => [
                 'use_current_dirty_workspace_for_provider_battery' => false,
