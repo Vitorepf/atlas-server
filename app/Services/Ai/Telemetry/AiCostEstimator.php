@@ -71,6 +71,20 @@ class AiCostEstimator
 
         $provider = $job?->provider ?: $trace->provider;
         $model = $this->models->resolve($provider, $job?->model ?: $trace->model);
+        if ($this->isProviderNotApplicableLedgerProjection($trace, $job)) {
+            return [
+                'prompt_tokens' => $promptTokens,
+                'completion_tokens' => $completionTokens,
+                'total_tokens' => $totalTokens,
+                'estimated_tokens' => $estimatedTokens,
+                'token_source' => $tokenSource,
+                'cost_microusd' => null,
+                'cost_confidence' => self::COST_CONFIDENCE_ESTIMATED,
+                'cost_source' => 'provider_not_applicable',
+                'cost_mode' => 'not_applicable',
+            ];
+        }
+
         $rate = $this->rateFor($provider, $model);
         if (! $rate) {
             return [
@@ -311,6 +325,21 @@ class AiCostEstimator
     private function isCliProvider(?string $provider): bool
     {
         return in_array($provider, ['claude_cli', 'codex_cli', 'gemini_cli', 'claude_codex'], true);
+    }
+
+    private function isProviderNotApplicableLedgerProjection(AiTrace $trace, ?AiJob $job): bool
+    {
+        $provider = $job?->provider ?: $trace->provider;
+        $model = $job?->model ?: $trace->model;
+
+        if ($provider || $model) {
+            return false;
+        }
+
+        $metadata = is_array($trace->metadata) ? $trace->metadata : [];
+
+        return data_get($metadata, 'schema_version') === 'atlas.ledger_projection.metadata.v1'
+            && data_get($metadata, 'projection_id') === 'ai_traces';
     }
 
     private function estimateTokens(string $text): int

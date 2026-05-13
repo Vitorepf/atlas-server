@@ -737,11 +737,7 @@ class AtlasProviderProjectionService
             $lines = array_merge($lines, array_slice($memoryLines, 0, $availableMemoryLines));
         }
 
-        $manualContentBudget = max(1, $maxLines - count($lines) - $manualFrameLines - $pointerBudget);
-        $manualLines = array_slice(array_map('strval', $manualSourceLines), 0, $manualContentBudget);
-        if (count($manualSourceLines) > $manualContentBudget && $manualLines !== []) {
-            $manualLines[count($manualLines) - 1] = Str::limit($manualLines[count($manualLines) - 1], 120, '...');
-        }
+        $manualLines = array_map('strval', $manualSourceLines);
 
         $lines = array_merge($lines, [
             '',
@@ -755,7 +751,7 @@ class AtlasProviderProjectionService
             $lines = array_merge($lines, $pointers);
         }
 
-        return implode("\n", array_slice($lines, 0, $maxLines));
+        return implode("\n", $lines);
     }
 
     private function entryLine(AtlasMemoryEntry $entry): string
@@ -849,7 +845,7 @@ class AtlasProviderProjectionService
         $pattern = '/'.preg_quote(self::MANUAL_START, '/')."\n?.*?\n?".preg_quote(self::MANUAL_END, '/').'/s';
         $canonical = preg_replace($pattern, self::MANUAL_START."\n".self::MANUAL_END, $body) ?? $body;
 
-        return hash('sha256', $canonical);
+        return hash('sha256', rtrim($canonical, "\r\n"));
     }
 
     private function target(string $target): string

@@ -196,6 +196,7 @@ class CaptureService
         $contentHash = $this->captureContentHash($data, $storedFile);
         $now = now()->toJSON();
         $contentIntelligence = $this->contentIntelligenceContract($metadata, $data, $storedFile, $domain, $contentHash, $now);
+        $immuneAudit = $this->cognitiveImmuneAudit($contentIntelligence, $data, $domain, $contentHash);
 
         return [
             ...$metadata,
@@ -221,6 +222,7 @@ class CaptureService
                 'content_intelligence_schema_version' => $contentIntelligence['schema_version'],
                 'content_destination_enum' => $contentIntelligence['destination']['enum'],
                 'content_quality_score' => $contentIntelligence['quality']['score'],
+                'immune_audit' => $immuneAudit,
                 'lineage' => [
                     'origin' => 'capture_pipeline',
                     'captured_at' => is_scalar($data['captured_at'] ?? null) ? (string) $data['captured_at'] : null,
@@ -234,6 +236,60 @@ class CaptureService
                 'updated_at' => $now,
                 'created_at' => $existing['created_at'] ?? $now,
             ],
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $contentIntelligence
+     * @param  array<string,mixed>  $data
+     * @return array<string,mixed>
+     */
+    private function cognitiveImmuneAudit(array $contentIntelligence, array $data, string $domain, string $contentHash): array
+    {
+        $contentType = (string) ($contentIntelligence['content_type'] ?? 'unknown');
+        $destination = (string) data_get($contentIntelligence, 'destination.enum', 'unknown');
+        $qualityScore = (float) data_get($contentIntelligence, 'quality.score', 0.0);
+        $sourceKind = is_scalar($data['kind'] ?? null) ? (string) $data['kind'] : 'unknown';
+        $trivial = $qualityScore < 0.35 || in_array($destination, ['discard', 'none'], true);
+
+        return [
+            'schema_version' => 'atlas.capture.cognitive_immune_audit.v1',
+            'status' => 'quarantined',
+            'master_invariant' => 'raw_capture_not_evidence_not_learning_signal_not_memory_not_context_not_decision',
+            'raw_capture_is_memory' => false,
+            'raw_capture_is_context' => false,
+            'raw_capture_is_decision' => false,
+            'learning_signal_allowed_now' => false,
+            'memory_promotion_allowed_now' => false,
+            'context_export_allowed_now' => false,
+            'constellation_promotion_allowed_now' => false,
+            'embedding_allowed_now' => false,
+            'noise_gate' => [
+                'status' => $trivial ? 'likely_noise_or_low_signal' : 'candidate_requires_review',
+                'content_type' => $contentType,
+                'destination' => $destination,
+                'quality_score' => $qualityScore,
+                'source_kind' => $sourceKind,
+                'domain' => $domain,
+            ],
+            'promotion_gates' => [
+                'g0_capture' => 'captured_quarantined',
+                'g1_extraction' => 'pending_human_or_semantic_review',
+                'g2_signal' => 'pending',
+                'g3_safety' => 'provider_export_blocked',
+                'g4_contradiction' => 'not_checked',
+                'g5_outcome' => 'not_validated',
+                'g6_scope' => 'domain_recorded',
+                'g7_promotion_mode' => 'proposal_or_block',
+                'g8_probation' => 'not_started',
+            ],
+            'audit_hash' => hash('sha256', implode('|', [
+                $contentHash,
+                $contentType,
+                $destination,
+                (string) $qualityScore,
+                $domain,
+            ])),
         ];
     }
 

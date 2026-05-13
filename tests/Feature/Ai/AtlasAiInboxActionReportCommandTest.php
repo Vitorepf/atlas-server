@@ -244,6 +244,65 @@ class AtlasAiInboxActionReportCommandTest extends TestCase
         $this->assertTrue((bool) data_get($payload, 'inbox_actions.recent_events.0.retrieval_shadow_scope_no_provider_call'));
     }
 
+    public function test_command_exposes_external_vector_rag_preflight_review_receipt_as_json(): void
+    {
+        $receiptHash = hash('sha256', 'external-vector-rag-preflight-command-receipt');
+
+        $this->recordInboxAction(
+            '01HINBOXACTIONCMDEXTERNALVECTOR01',
+            'cmd-inbox-external-vector-rag-preflight',
+            'review_external_vector_rag_preflight',
+            'operator_cli',
+            'review_external_vector_rag_preflight',
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [
+                'schema_version' => 'atlas.inbox_action.external_vector_rag_preflight_review.v1',
+                'decision' => 'approved_scope',
+                'reviewed' => true,
+                'scope_approved' => true,
+                'preflight_hash' => hash('sha256', 'external-vector-rag-command-preflight'),
+                'decision_receipt_hash' => $receiptHash,
+                'decision_receipt' => [
+                    'schema_version' => 'atlas.external_vector_rag.preflight_decision_receipt.v1',
+                    'receipt_hash' => $receiptHash,
+                    'embedding_generation_allowed_now' => false,
+                    'external_vector_store_write_allowed_now' => false,
+                    'constellation_promotion_allowed_now' => false,
+                ],
+                'no_external_action' => true,
+                'no_runtime_execution' => true,
+                'no_policy_patch' => true,
+                'no_provider_call' => true,
+            ],
+        );
+
+        $exit = Artisan::call('atlas:ai:inbox-action-report', [
+            '--hours' => 24,
+            '--action' => 'review_external_vector_rag_preflight',
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame(1, data_get($payload, 'inbox_actions.external_vector_rag_preflight_review_count'));
+        $this->assertSame(1, data_get($payload, 'inbox_actions.external_vector_rag_preflight_reviewed_count'));
+        $this->assertSame(1, data_get($payload, 'inbox_actions.external_vector_rag_preflight_decision_receipt_count'));
+        $this->assertSame(0, data_get($payload, 'inbox_actions.external_vector_rag_preflight_unsafe_activation_count'));
+        $this->assertSame(['approved_scope' => 1], data_get($payload, 'inbox_actions.external_vector_rag_preflight_decision_counts'));
+        $this->assertSame('ok', data_get($payload, 'inbox_actions.review_signal.status'));
+        $this->assertSame('external_vector_rag_preflight_review_recorded', data_get($payload, 'inbox_actions.review_signal.reasons.0'));
+        $this->assertSame('approved_scope', data_get($payload, 'inbox_actions.recent_events.0.external_vector_rag_preflight_decision'));
+        $this->assertSame($receiptHash, data_get($payload, 'inbox_actions.recent_events.0.external_vector_rag_preflight_decision_receipt_hash'));
+        $this->assertFalse((bool) data_get($payload, 'inbox_actions.recent_events.0.external_vector_rag_preflight_embedding_allowed_now'));
+        $this->assertFalse((bool) data_get($payload, 'inbox_actions.recent_events.0.external_vector_rag_preflight_vector_write_allowed_now'));
+        $this->assertFalse((bool) data_get($payload, 'inbox_actions.recent_events.0.external_vector_rag_preflight_constellation_allowed_now'));
+    }
+
     public function test_command_human_output_includes_inbox_action_review_signal(): void
     {
         $this->recordInboxAction('01HINBOXACTIONCMDHUMAN01', 'cmd-inbox-human', 'review_patch', 'operator_cli', 'review_observability_patch', []);
@@ -549,6 +608,7 @@ class AtlasAiInboxActionReportCommandTest extends TestCase
         array $upsertedRate = [],
         array $retrievalRegressionReviewAction = [],
         array $retrievalShadowScopeReviewAction = [],
+        array $externalVectorRagPreflightReviewAction = [],
     ): void {
         AtlasLedgerEvent::query()->create([
             'event_id' => $eventId,
@@ -587,6 +647,7 @@ class AtlasAiInboxActionReportCommandTest extends TestCase
                     'upserted_rate' => $upsertedRate,
                     'retrieval_regression_review_action' => $retrievalRegressionReviewAction,
                     'retrieval_shadow_scope_review_action' => $retrievalShadowScopeReviewAction,
+                    'external_vector_rag_preflight_review_action' => $externalVectorRagPreflightReviewAction,
                 ],
                 'recommended_action' => $recommendedAction,
                 'review_signal' => [

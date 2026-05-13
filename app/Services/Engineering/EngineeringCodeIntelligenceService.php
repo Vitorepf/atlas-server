@@ -1396,6 +1396,8 @@ class EngineeringCodeIntelligenceService
     {
         $count = 0;
         $indexedAt = now()->startOfSecond();
+        $now = now();
+        $rows = [];
         foreach ($symbolRows as $row) {
             $moduleSlug = (string) ($row['module_slug'] ?? '');
             unset($row['module_slug']);
@@ -1403,11 +1405,22 @@ class EngineeringCodeIntelligenceService
             $row['status'] = 'active';
             $row['archived_at'] = null;
             $row['indexed_at'] = $indexedAt;
-            AtlasEngineeringCodeSymbol::query()->updateOrCreate(
-                ['symbol_type' => $row['symbol_type'], 'source_hash' => $row['source_hash']],
-                $row,
-            );
+            $row['id'] = (string) Str::uuid();
+            $row['metadata'] = $this->json((array) ($row['metadata'] ?? []));
+            $row['related_doc_ids_json'] = $this->json((array) ($row['related_doc_ids_json'] ?? []));
+            $row['created_at'] = $now;
+            $row['updated_at'] = $now;
+            $rows[] = $row;
             $count++;
+
+            if (count($rows) >= 1000) {
+                $this->upsertSymbolRows($rows);
+                $rows = [];
+            }
+        }
+
+        if ($rows !== []) {
+            $this->upsertSymbolRows($rows);
         }
 
         if ($prune && $symbolRows !== []) {
@@ -1415,6 +1428,36 @@ class EngineeringCodeIntelligenceService
         }
 
         return $count;
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $rows
+     */
+    private function upsertSymbolRows(array $rows): void
+    {
+        DB::table('atlas_engineering_code_symbols')->upsert(
+            $rows,
+            ['symbol_type', 'source_hash'],
+            [
+                'module_id',
+                'symbol_name',
+                'file_path',
+                'line_start',
+                'line_end',
+                'language',
+                'signature',
+                'namespace',
+                'parent_symbol',
+                'visibility',
+                'status',
+                'docs_status',
+                'related_doc_ids_json',
+                'metadata',
+                'indexed_at',
+                'archived_at',
+                'updated_at',
+            ],
+        );
     }
 
     private function archiveStaleSymbols(Carbon $indexedAt): int
@@ -1640,43 +1683,53 @@ class EngineeringCodeIntelligenceService
                 }
             });
 
-        DB::table('atlas_engineering_code_symbols')
-            ->select(['id', 'module_id'])
-            ->where('status', 'active')
-            ->whereNull('archived_at')
-            ->orderBy('id')
-            ->chunkById(100, function ($symbols) use ($documentedModuleIds, $now): void {
-                $symbolDocs = $this->symbolDocsForChunk($symbols->pluck('id')->map(fn ($id): string => (string) $id)->all());
-
-                foreach ($symbols as $symbol) {
-                    $symbolId = (string) $symbol->id;
-                    $relatedDocIds = $symbolDocs[$symbolId] ?? [];
-                    $moduleDocumented = is_string($symbol->module_id) && isset($documentedModuleIds[$symbol->module_id]);
-
-                    DB::table('atlas_engineering_code_symbols')->where('id', $symbolId)->update([
-                        'docs_status' => $relatedDocIds !== [] ? 'documented' : ($moduleDocumented ? 'module_documented' : 'undocumented'),
-                        'related_doc_ids_json' => $this->json($relatedDocIds),
-                        'updated_at' => $now,
-                    ]);
-                }
-            });
+        $this->refreshSymbolDocumentationStatus(array_keys($documentedModuleIds), $now);
     }
 
     /**
-     * @param  array<int,string>  $symbolIds
-     * @return array<string,array<int,string>>
+     * @param  array<int,string>  $documentedModuleIds
      */
-    private function symbolDocsForChunk(array $symbolIds): array
+    private function refreshSymbolDocumentationStatus(array $documentedModuleIds, Carbon $now): void
     {
-        if ($symbolIds === []) {
-            return [];
+        $baseQuery = DB::table('atlas_engineering_code_symbols')
+            ->where('status', 'active')
+            ->whereNull('archived_at');
+
+        if ($documentedModuleIds !== []) {
+            (clone $baseQuery)
+                ->whereIn('module_id', $documentedModuleIds)
+                ->update([
+                    'docs_status' => 'module_documented',
+                    'related_doc_ids_json' => $this->json([]),
+                    'updated_at' => $now,
+                ]);
+
+            (clone $baseQuery)
+                ->where(function ($query) use ($documentedModuleIds): void {
+                    $query
+                        ->whereNull('module_id')
+                        ->orWhereNotIn('module_id', $documentedModuleIds);
+                })
+                ->update([
+                    'docs_status' => 'undocumented',
+                    'related_doc_ids_json' => $this->json([]),
+                    'updated_at' => $now,
+                ]);
+        } else {
+            (clone $baseQuery)->update([
+                'docs_status' => 'undocumented',
+                'related_doc_ids_json' => $this->json([]),
+                'updated_at' => $now,
+            ]);
         }
 
-        $symbolDocs = [];
+        $rows = [];
+        $currentSymbolId = null;
+        $currentDocIds = [];
 
         foreach (DB::table('atlas_engineering_doc_links')
             ->select(['symbol_id', 'knowledge_item_id'])
-            ->whereIn('symbol_id', $symbolIds)
+            ->whereNotNull('symbol_id')
             ->whereNull('archived_at')
             ->where('status', 'current')
             ->orderBy('symbol_id')
@@ -1684,16 +1737,61 @@ class EngineeringCodeIntelligenceService
             $symbolId = (string) $link->symbol_id;
             $knowledgeItemId = (string) $link->knowledge_item_id;
 
+            if ($currentSymbolId !== null && $symbolId !== $currentSymbolId) {
+                $rows[] = $this->symbolDocumentationUpdateRow($currentSymbolId, $currentDocIds, $now);
+                $currentDocIds = [];
+
+                if (count($rows) >= 1000) {
+                    $this->upsertSymbolDocumentationRows($rows);
+                    $rows = [];
+                }
+            }
+
+            $currentSymbolId = $symbolId;
             if ($knowledgeItemId !== '') {
-                $symbolDocs[$symbolId][$knowledgeItemId] = true;
+                $currentDocIds[$knowledgeItemId] = true;
             }
         }
 
-        foreach ($symbolDocs as $symbolId => $knowledgeItemIds) {
-            $symbolDocs[$symbolId] = array_keys($knowledgeItemIds);
+        if ($currentSymbolId !== null) {
+            $rows[] = $this->symbolDocumentationUpdateRow($currentSymbolId, $currentDocIds, $now);
         }
 
-        return $symbolDocs;
+        if ($rows !== []) {
+            $this->upsertSymbolDocumentationRows($rows);
+        }
+    }
+
+    /**
+     * @param  array<string,bool>  $docIds
+     * @return array<string,mixed>
+     */
+    private function symbolDocumentationUpdateRow(string $symbolId, array $docIds, Carbon $now): array
+    {
+        return [
+            'id' => $symbolId,
+            'docs_status' => 'documented',
+            'related_doc_ids_json' => $this->json(array_keys($docIds)),
+            'updated_at' => $now,
+        ];
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $rows
+     */
+    private function upsertSymbolDocumentationRows(array $rows): void
+    {
+        collect($rows)
+            ->groupBy(fn (array $row): string => (string) $row['related_doc_ids_json'])
+            ->each(function (Collection $group): void {
+                DB::table('atlas_engineering_code_symbols')
+                    ->whereIn('id', $group->pluck('id')->all())
+                    ->update([
+                        'docs_status' => 'documented',
+                        'related_doc_ids_json' => (string) $group->first()['related_doc_ids_json'],
+                        'updated_at' => $group->first()['updated_at'],
+                    ]);
+            });
     }
 
     /**

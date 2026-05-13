@@ -62,7 +62,11 @@ Every export must include:
 Context pack exports from API, CLI and MCP must expose `safety` as
 `atlas.open_brain.context_pack_safety.v1`. The safety summary declares
 `provider_safe_only=true`, `raw_content_exposed=false`,
-`raw_content_persisted=false`, audit persistence state and safe ref counts.
+`raw_content_persisted=false`, `audit_query_raw_content_persisted=false`, audit
+persistence state and safe ref counts. Open Brain audit `query_json` stores
+hashes, lengths and labels only; raw objective excerpts and raw workspace paths
+must not be persisted. Audit listing APIs must also sanitize legacy rows before
+returning them to clients and expose `atlas.open_brain.audit_query_safety.v1`.
 
 Memory recall surfaces must also expose safety summary counts:
 

@@ -41,6 +41,9 @@ class SemanticCurationProposalResource extends JsonResource
         $cognitiveQuarantine = is_array($metadata['cognitive_quarantine'] ?? null)
             ? $metadata['cognitive_quarantine']
             : [];
+        $immuneAudit = is_array($cognitiveQuarantine['immune_audit'] ?? null)
+            ? $cognitiveQuarantine['immune_audit']
+            : [];
 
         return [
             'schema_version' => 'atlas.semantic_curation_proposal.safety.v1',
@@ -52,6 +55,14 @@ class SemanticCurationProposalResource extends JsonResource
             'raw_content_exposed' => $cognitiveQuarantine['raw_content_exposed'] ?? false,
             'promotion_status' => $cognitiveQuarantine['promotion_status'] ?? 'unclassified',
             'content_hash' => $cognitiveQuarantine['content_hash'] ?? null,
+            'immune_audit_schema_version' => $immuneAudit['schema_version'] ?? null,
+            'immune_audit_status' => $immuneAudit['status'] ?? null,
+            'immune_audit_hash' => $immuneAudit['audit_hash'] ?? null,
+            'immune_noise_gate_status' => data_get($immuneAudit, 'noise_gate.status'),
+            'immune_learning_signal_allowed_now' => $immuneAudit['learning_signal_allowed_now'] ?? false,
+            'immune_memory_promotion_allowed_now' => $immuneAudit['memory_promotion_allowed_now'] ?? false,
+            'immune_context_export_allowed_now' => $immuneAudit['context_export_allowed_now'] ?? false,
+            'immune_constellation_promotion_allowed_now' => $immuneAudit['constellation_promotion_allowed_now'] ?? false,
         ];
     }
 }

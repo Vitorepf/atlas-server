@@ -158,6 +158,29 @@ baseline strategy, winner policy, minimum evidence hashes and forbidden claims
 before evidence. This prevents a shadow plan from becoming a qualitative claim
 or promotion signal without measured, reviewable results.
 
+Use the case contract when AP-693 needs the next non-executing artifact before
+any shadow run:
+
+```bash
+php artisan atlas:ai:local-rag-benchmark --rivals-shadow-case-contract --json
+```
+
+The contract emits `atlas.memory_retrieval_rivals_shadow_case_contract.v1` with
+deterministic query hashes, strategy contracts, metric requirements and evidence
+hashes. It also declares
+`atlas.memory_retrieval_rivals_shadow_ledger_event_contract.v1` and
+`atlas.memory_retrieval_rivals_shadow_rollback_plan.v1`, so a future reviewed
+run has a hash-only evidence event shape and a baseline rollback target before
+any rival can execute. `atlas.memory_retrieval_rivals_shadow_runtime_invocation_contracts.v1`
+then separates the lexical kernel-internal candidate from the future
+`python_ai_data` Graph RAG candidate and keeps both blocked. The contract keeps
+`shadow_execution_allowed_now=false`, `provider_call_allowed=false`,
+`runtime_execution_allowed=false`, `memory_write_allowed=false`,
+`raw_query_persisted=false` and `raw_context_persisted=false`. It removes
+ambiguity about what a future comparison must measure and how candidates would
+be invoked, but it is not an approval to run lexical, Graph RAG or Python
+candidates.
+
 Add `--emit-rivals-shadow-inbox` only when an operator wants the AP-693 scope
 projected into Inbox for human review:
 
@@ -166,14 +189,18 @@ php artisan atlas:ai:local-rag-benchmark --rivals-shadow-plan --emit-rivals-shad
 ```
 
 The Inbox item uses `atlas.memory_retrieval_rivals_shadow_inbox.v1` and action
-`review_retrieval_shadow_scope`. The action records
-`atlas.inbox_action.memory_retrieval_shadow_scope_review.v1` and an
+`review_retrieval_shadow_scope`. The proposal carries the shadow plan plus the
+hash-only case contract, ledger-event contract, rollback plan and runtime
+invocation contracts. The action records
+`atlas.inbox_action.memory_retrieval_shadow_scope_review.v1`,
+`atlas.memory_retrieval_shadow_scope_privacy_provider_safety_review.v1` and an
 `INBOX_ACTION_RECORDED` ledger event while keeping provider calls, runtime
 execution and policy patching disabled. The review action also emits dry-run
-decision receipt `atlas.memory_retrieval_shadow_scope_decision_receipt.v1`;
-even an `approved_scope` decision keeps `shadow_execution_allowed_now=false`
-until the remaining AP-693 evidence contracts exist. The receipt hash is
-deterministic for the semantic scope decision and excludes audit timestamps.
+decision receipt `atlas.memory_retrieval_shadow_scope_decision_receipt.v1`
+with `case_contract_hash` and `privacy_provider_safety_review_hash`; even an
+`approved_scope` decision keeps `shadow_execution_allowed_now=false`. The
+receipt hash is deterministic for the semantic scope decision and excludes audit
+timestamps.
 Inbox Action replay surfaces project this scope review through
 `atlas:ai:inbox-action-report`, `/ai/inbox-actions/report` and Open Brain MCP:
 decision counts, reviewed count, receipt count, plan/review AP hashes and the

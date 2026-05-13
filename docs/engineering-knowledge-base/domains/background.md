@@ -116,6 +116,27 @@ inside each `atlas.scheduled_task_run_receipt.v1`: autonomy remains low,
 execution is single-run, stop conditions are explicit, recursive schedule
 execution and autonomous follow-up are blocked, and operator review is required
 for escalation.
+`php artisan atlas:ai:long-running-work-report --json` is the read-only
+promotion check for this boundary. It summarizes scheduled tasks, due work,
+recent run status and autonomy receipt safety without claiming tasks or
+dispatching jobs. The report also publishes
+`atlas.long_running_work.baseline_contract.v1`, a hash-only baseline for the
+structure-mother schedule families that should exist before autonomy promotion:
+Memory/Open Brain retrieval snapshots, Capture/Inbox review, Task Orchestration
+receipt review, Tool/Action runtime boundary review and proactive notification
+review. If no scheduled task exists, the report is a low-severity warning rather
+than OK, because zero schedules means monitoring exists but long-running work is
+not operational yet.
+`--emit-baseline-inbox` may emit a proposal item for operator review of that
+baseline. The emission is a review bridge only: it does not create scheduled
+tasks, dispatch jobs, mutate schedule state or raise autonomy.
+`php artisan atlas:ai:long-running-work-declare-baseline --apply --json`
+creates only missing disabled baseline schedule declarations in
+`ai_scheduled_tasks`. These records have `enabled=false`, `next_run_at=null`,
+no workspace path, no raw prompt from the operator, no dispatch authority and
+`atlas.long_running_work.baseline_schedule_declaration.v1` metadata. They
+declare the five schedule families so Structure Mother readiness can see the
+baseline, but still require operator enablement before any job can run.
 
 ## Evidence Contract
 

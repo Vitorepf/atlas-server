@@ -499,11 +499,29 @@ Route::prefix('atlas-cartography')->group(function () {
  * See: atlas-desktop/docs/architecture/0001-atlas-desktop-boundaries.md
  */
 Route::prefix('atlas-code')->group(function () {
+    // BOOT · unified contract for the Desktop topbar
+    Route::get('/boot', \App\Http\Controllers\AtlasCodeBootController::class);
+
+    // MCP · pill status
+    Route::get('/mcp/status', \App\Http\Controllers\AtlasCodeMcpStatusController::class);
+
+    // WORKS · normalized Obra surface
+    Route::get('/works', [\App\Http\Controllers\AtlasCodeWorkController::class, 'index']);
+    Route::post('/works', [\App\Http\Controllers\AtlasCodeWorkController::class, 'store']);
+    Route::get('/works/{project}', [\App\Http\Controllers\AtlasCodeWorkController::class, 'show']);
+    Route::get('/works/{project}/state', [\App\Http\Controllers\AtlasCodeWorkController::class, 'state']);
+
     // 4 · sessions for an obra (project) · NEW
     Route::get('/works/{project}/sessions', [\App\Http\Controllers\AtlasCodeSessionController::class, 'indexForWork']);
 
     // 10 · evidence aggregator per obra · NEW (wraps tools/evidence + engineering/runs)
     Route::get('/works/{project}/evidence', [\App\Http\Controllers\AtlasCodeEvidenceController::class, 'indexForWork']);
+
+    // THREAD · normalized thread+messages contract
+    Route::get('/threads/{thread}', [\App\Http\Controllers\AtlasCodeThreadController::class, 'show']);
+
+    // RECEIPT · Receipt v2 direct
+    Route::get('/decisions/{decision}/receipt', [\App\Http\Controllers\AtlasCodeReceiptShowController::class, 'show']);
 
     // 9 · sign decision receipt · NEW
     Route::post('/decisions/{decision}/sign', [\App\Http\Controllers\AtlasCodeReceiptController::class, 'sign']);

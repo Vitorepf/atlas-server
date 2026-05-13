@@ -18,7 +18,7 @@ class AtlasAiArchitectureOperationsCommandTest extends TestCase
         $this->assertSame('ok', $payload['status']);
         $this->assertSame('atlas.architecture_operations.v1', data_get($payload, 'architecture_operations.schema_version'));
         $this->assertSame('arquitetura_mae', data_get($payload, 'architecture_operations.section'));
-        $this->assertSame(72, data_get($payload, 'architecture_operations.command_count'));
+        $this->assertSame(82, data_get($payload, 'architecture_operations.command_count'));
         $this->assertContains('architecture_operations', data_get($payload, 'architecture_operations.operation_ids'));
 
         $commands = array_column(data_get($payload, 'architecture_operations.commands'), 'command');
@@ -39,8 +39,10 @@ class AtlasAiArchitectureOperationsCommandTest extends TestCase
         $this->assertContains('php artisan atlas:ai:local-rag-benchmark --schedule-plan --json', $commands);
         $this->assertContains('php artisan atlas:ai:local-rag-benchmark --rivals-report --json', $commands);
         $this->assertContains('php artisan atlas:ai:local-rag-benchmark --rivals-shadow-plan --json', $commands);
+        $this->assertContains('php artisan atlas:ai:local-rag-benchmark --rivals-shadow-case-contract --json', $commands);
         $this->assertContains('php artisan atlas:ai:local-rag-benchmark --rivals-shadow-plan --emit-rivals-shadow-inbox --json', $commands);
         $this->assertContains('php artisan atlas:ai:local-rag-benchmark --rivals-report --emit-rivals-inbox --json', $commands);
+        $this->assertContains('php artisan atlas:ai:local-rag-benchmark --emit-external-vector-rag-preflight-inbox --json', $commands);
         $this->assertContains('atlas engineering knowledge sync --prune --json', $commands);
         $this->assertContains('atlas engineering knowledge index-code --prune --summary-only --json', $commands);
         $this->assertContains('php artisan atlas:ai:dynamic-compute-market --provider=<provider> --domain=<domain> --flow=<flow> --json', $commands);
@@ -73,6 +75,13 @@ class AtlasAiArchitectureOperationsCommandTest extends TestCase
         $this->assertContains('php artisan atlas:ai:telemetry:cost-rates --missing --hours=168 --json', $commands);
         $this->assertContains('php artisan atlas:ai:telemetry:cost-rates --provider=<provider> --model=<model> --input-microusd=<input> --output-microusd=<output> --json', $commands);
         $this->assertContains('php artisan atlas:ai:inbox-action-report --hours=24 --json', $commands);
+        $this->assertContains('php artisan atlas:ai:capture-inbox-pipeline-report --hours=24 --json', $commands);
+        $this->assertContains('php artisan atlas:ai:capture-inbox-pipeline-backfill-contracts --hours=720 --json', $commands);
+        $this->assertContains('php artisan atlas:ai:task-orchestration-report --hours=24 --json', $commands);
+        $this->assertContains('php artisan atlas:ai:task-orchestration-backfill-receipts --hours=720 --json', $commands);
+        $this->assertContains('php artisan atlas:ai:tool-action-runtime-report --hours=24 --json', $commands);
+        $this->assertContains('php artisan atlas:ai:long-running-work-report --hours=24 --json', $commands);
+        $this->assertContains('php artisan atlas:ai:proactive-layer-report --hours=24 --json', $commands);
         $this->assertContains('php artisan atlas:ai:decision-receipt-report --envelope=<id> --json', $commands);
         $this->assertContains('php artisan atlas:ai:ledger <id> --json', $commands);
         $this->assertContains('php artisan atlas:ai:ledger-project --limit=500 --json', $commands);
@@ -132,6 +141,7 @@ class AtlasAiArchitectureOperationsCommandTest extends TestCase
         $this->assertStringContainsString('php artisan atlas:ai:local-rag-benchmark --schedule-plan --json', $output);
         $this->assertStringContainsString('php artisan atlas:ai:local-rag-benchmark --rivals-report --json', $output);
         $this->assertStringContainsString('php artisan atlas:ai:local-rag-benchmark --rivals-report --emit-rivals-inbox --json', $output);
+        $this->assertStringContainsString('php artisan atlas:ai:local-rag-benchmark --emit-external-vector-rag-preflight-inbox --json', $output);
         $this->assertStringContainsString('atlas engineering knowledge sync --prune --json', $output);
         $this->assertStringContainsString('atlas engineering knowledge index-code --prune --summary-only --json', $output);
         $this->assertStringContainsString('php artisan atlas:ai:provider-performance --hours=24 --json', $output);
@@ -163,6 +173,13 @@ class AtlasAiArchitectureOperationsCommandTest extends TestCase
         $this->assertStringContainsString('php artisan atlas:ai:self-improve --flow=voice_realtime_review --hours=168 --json', $output);
         $this->assertStringContainsString('php artisan atlas:ai:telemetry:cost-rates --missing --hours=168 --json', $output);
         $this->assertStringContainsString('php artisan atlas:ai:telemetry:cost-rates --provider=<provider> --model=<model> --input-microusd=<input> --output-microusd=<output> --json', $output);
+        $this->assertStringContainsString('php artisan atlas:ai:capture-inbox-pipeline-report --hours=24 --json', $output);
+        $this->assertStringContainsString('php artisan atlas:ai:capture-inbox-pipeline-backfill-contracts --hours=720 --json', $output);
+        $this->assertStringContainsString('php artisan atlas:ai:task-orchestration-report --hours=24 --json', $output);
+        $this->assertStringContainsString('php artisan atlas:ai:task-orchestration-backfill-receipts --hours=720 --json', $output);
+        $this->assertStringContainsString('php artisan atlas:ai:tool-action-runtime-report --hours=24 --json', $output);
+        $this->assertStringContainsString('php artisan atlas:ai:long-running-work-report --hours=24 --json', $output);
+        $this->assertStringContainsString('php artisan atlas:ai:proactive-layer-report --hours=24 --json', $output);
         $this->assertStringContainsString('php artisan atlas:ai:decision-receipt-report --envelope=<id> --json', $output);
         $this->assertStringContainsString('php artisan atlas:ai:ledger <id> --json', $output);
         $this->assertStringContainsString('php artisan atlas:ai:ledger-project --limit=500 --json', $output);
@@ -179,7 +196,7 @@ class AtlasAiArchitectureOperationsCommandTest extends TestCase
 
         $this->assertSame(0, $exit);
         $this->assertSame(['kind' => 'evidence_report'], data_get($payload, 'architecture_operations.filters'));
-        $this->assertSame(12, data_get($payload, 'architecture_operations.command_count'));
+        $this->assertSame(17, data_get($payload, 'architecture_operations.command_count'));
         $this->assertContains('voice_realtime_readiness', data_get($payload, 'architecture_operations.operation_ids'));
         $this->assertContains('provider_performance_report', data_get($payload, 'architecture_operations.operation_ids'));
         $this->assertContains('agent_behavior_report', data_get($payload, 'architecture_operations.operation_ids'));
@@ -187,6 +204,11 @@ class AtlasAiArchitectureOperationsCommandTest extends TestCase
         $this->assertContains('provider_cost_rates_missing', data_get($payload, 'architecture_operations.operation_ids'));
         $this->assertContains('decision_receipt_report', data_get($payload, 'architecture_operations.operation_ids'));
         $this->assertContains('ledger_replay', data_get($payload, 'architecture_operations.operation_ids'));
+        $this->assertContains('capture_inbox_pipeline_report', data_get($payload, 'architecture_operations.operation_ids'));
+        $this->assertContains('task_orchestration_report', data_get($payload, 'architecture_operations.operation_ids'));
+        $this->assertContains('tool_action_runtime_report', data_get($payload, 'architecture_operations.operation_ids'));
+        $this->assertContains('long_running_work_report', data_get($payload, 'architecture_operations.operation_ids'));
+        $this->assertContains('proactive_layer_report', data_get($payload, 'architecture_operations.operation_ids'));
         $this->assertNotContains('architecture_operations', data_get($payload, 'architecture_operations.operation_ids'));
 
         $exit = Artisan::call('atlas:ai:architecture-operations', [
@@ -197,7 +219,7 @@ class AtlasAiArchitectureOperationsCommandTest extends TestCase
 
         $this->assertSame(0, $exit);
         $this->assertSame(['section' => 'arquitetura_mae'], data_get($payload, 'architecture_operations.filters'));
-        $this->assertSame(72, data_get($payload, 'architecture_operations.command_count'));
+        $this->assertSame(82, data_get($payload, 'architecture_operations.command_count'));
         $this->assertContains('architecture_operations', data_get($payload, 'architecture_operations.operation_ids'));
 
         $exit = Artisan::call('atlas:ai:architecture-operations', [

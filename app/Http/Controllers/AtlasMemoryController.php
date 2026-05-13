@@ -2,21 +2,21 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Requests\IndexAtlasMemoryEntryRequest;
-use App\Http\Requests\IndexAtlasMemoryRelationRequest;
-use App\Http\Requests\IndexAtlasMemoryReviewQueueRequest;
-use App\Http\Requests\IndexAtlasMemoryProviderProjectionAuditRequest;
-use App\Http\Requests\IndexAtlasVerbatimMemoryRequest;
 use App\Http\Requests\ApplyAtlasMemoryProviderProjectionRequest;
 use App\Http\Requests\AtlasMemoryProviderProjectionRequest;
 use App\Http\Requests\FeedbackAtlasMemoryUsageRequest;
+use App\Http\Requests\IndexAtlasMemoryEntryRequest;
+use App\Http\Requests\IndexAtlasMemoryProviderProjectionAuditRequest;
 use App\Http\Requests\IndexAtlasMemoryQualitySnapshotRequest;
+use App\Http\Requests\IndexAtlasMemoryRelationRequest;
+use App\Http\Requests\IndexAtlasMemoryReviewQueueRequest;
+use App\Http\Requests\IndexAtlasVerbatimMemoryRequest;
 use App\Http\Requests\PromoteAtlasMemoryDeltaRequest;
 use App\Http\Requests\PurgeAtlasMemoryProviderProjectionAuditRequest;
 use App\Http\Requests\ReviewAtlasMemoryDeltaRequest;
-use App\Http\Requests\ReviewAtlasVerbatimMemoryRequest;
-use App\Http\Requests\ReviewAtlasMemoryRelationRequest;
 use App\Http\Requests\ReviewAtlasMemoryPrivacyRequest;
+use App\Http\Requests\ReviewAtlasMemoryRelationRequest;
+use App\Http\Requests\ReviewAtlasVerbatimMemoryRequest;
 use App\Http\Requests\ScanAtlasMemoryGovernanceRequest;
 use App\Http\Requests\ScanAtlasMemoryPrivacyRequest;
 use App\Http\Requests\StoreAtlasMemoryEntryRequest;
@@ -27,13 +27,13 @@ use App\Http\Requests\UpdateAtlasVerbatimMemoryRequest;
 use App\Http\Resources\AtlasMemoryEntryResource;
 use App\Http\Resources\AtlasVerbatimMemoryResource;
 use App\Models\AiMemoryDelta;
+use App\Models\AiTrace;
 use App\Models\AtlasEngineeringRun;
 use App\Models\AtlasMemoryEntry;
 use App\Models\AtlasMemoryEntryRelation;
 use App\Models\AtlasMemoryEntryUsage;
 use App\Models\AtlasProject;
 use App\Models\AtlasTask;
-use App\Models\AiTrace;
 use App\Models\AtlasVerbatimMemory;
 use App\Services\Ai\AtlasMemoryDeltaPromotionService;
 use App\Services\Ai\AtlasMemoryGovernanceService;
@@ -328,6 +328,10 @@ class AtlasMemoryController extends Controller
 
     private function memoryDeltaSafety(AiMemoryDelta $delta): array
     {
+        $captureQuarantine = collect($delta->evidence ?? [])
+            ->first(fn ($item): bool => is_array($item) && ($item['kind'] ?? null) === 'capture_quarantine');
+        $captureQuarantine = is_array($captureQuarantine) ? $captureQuarantine : [];
+
         return [
             'schema_version' => 'atlas.memory_delta.safety.v1',
             'memory_eligible' => in_array($delta->status, ['accepted', 'promoted'], true),
@@ -338,6 +342,12 @@ class AtlasMemoryController extends Controller
             'promotion_status' => $delta->status,
             'claim_hash' => hash('sha256', (string) $delta->claim),
             'evidence_count' => count($delta->evidence ?? []),
+            'capture_quarantine_immune_audit_schema_version' => $captureQuarantine['immune_audit_schema_version'] ?? null,
+            'capture_quarantine_immune_audit_status' => $captureQuarantine['immune_audit_status'] ?? null,
+            'capture_quarantine_immune_audit_hash' => $captureQuarantine['immune_audit_hash'] ?? null,
+            'capture_quarantine_immune_noise_gate_status' => $captureQuarantine['immune_noise_gate_status'] ?? null,
+            'capture_quarantine_immune_memory_promotion_allowed_now' => $captureQuarantine['immune_memory_promotion_allowed_now'] ?? false,
+            'capture_quarantine_immune_context_export_allowed_now' => $captureQuarantine['immune_context_export_allowed_now'] ?? false,
         ];
     }
 

@@ -72,6 +72,18 @@ se o operador nunca apagar nada, captura trivial nao pode piorar o Atlas.
 Implementacao ativa: `CaptureService` grava `metadata.cognitive_quarantine` em
 capturas API/app; `CurationProposalService` herda como proposta pendente,
 mantem memoria/contexto/embedding bloqueados e registra audit evidence redigida.
+O mesmo bloco agora inclui `immune_audit`
+(`atlas.capture.cognitive_immune_audit.v1`) com invariant, noise gate,
+promotion gates e audit hash para provar por que a captura ainda nao e memoria,
+contexto, decision, embedding ou learning signal.
+`CaptureResource` e `SemanticCurationProposalResource` projetam esse audit
+apenas como resumo seguro em `capture_safety`, `review_workflow.safety` e
+`safety`: schema/status/hash, invariant quando presente, noise-gate status e
+flags fechadas de learning, memoria, contexto e constelacao. Texto bruto,
+evidence bruto e payload de provider continuam fora da projecao.
+`ai_memory_deltas` criados a partir de captura carregam evidencia hash-only do
+immune audit. Capturas legadas sem audit recebem status `legacy_missing` com
+hash deterministico e flags fechadas.
 
 ## Pipeline
 

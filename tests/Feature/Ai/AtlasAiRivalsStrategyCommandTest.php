@@ -37,6 +37,15 @@ class AtlasAiRivalsStrategyCommandTest extends TestCase
         $this->assertSame('ok', $payload['status']);
         $this->assertSame('atlas.rivals_strategy.v1', data_get($payload, 'rivals_strategy.schema_version'));
         $this->assertTrue(data_get($payload, 'rivals_strategy.available'));
+        $this->assertSame('atlas.rivals_strategy.report_safety.v1', data_get($payload, 'rivals_strategy.safety.schema_version'));
+        $this->assertTrue(data_get($payload, 'rivals_strategy.safety.read_model_only'));
+        $this->assertFalse(data_get($payload, 'rivals_strategy.safety.writes'));
+        $this->assertFalse(data_get($payload, 'rivals_strategy.safety.strategy_execution_allowed'));
+        $this->assertFalse(data_get($payload, 'rivals_strategy.safety.provider_dispatch_allowed'));
+        $this->assertFalse(data_get($payload, 'rivals_strategy.safety.runtime_execution_allowed'));
+        $this->assertFalse(data_get($payload, 'rivals_strategy.safety.policy_mutation_allowed'));
+        $this->assertFalse(data_get($payload, 'rivals_strategy.safety.synthetic_scores_allowed'));
+        $this->assertTrue(data_get($payload, 'rivals_strategy.safety.operator_review_required_for_scores'));
         $this->assertSame(0, data_get($payload, 'rivals_strategy.case_count'));
         $this->assertSame('register_first_strategy_rivals_case', data_get($payload, 'rivals_strategy.review_signal.recommended_action'));
     }
@@ -87,6 +96,12 @@ class AtlasAiRivalsStrategyCommandTest extends TestCase
         $this->assertSame(4, data_get($payload, 'rivals_strategy.pending_review_count'));
         $this->assertSame([], data_get($payload, 'rivals_strategy.due_reviews'));
         $this->assertSame('passed', collect(data_get($payload, 'rivals_strategy.gates', []))->firstWhere('id', 'revisit_schedule_created')['status'] ?? null);
+        $this->assertSame('blocked', data_get($payload, 'rivals_strategy.p4_promotion_readiness.status'));
+        $this->assertSame('waiting_for_real_scored_revisit', data_get($payload, 'rivals_strategy.p4_promotion_readiness.reason'));
+        $this->assertSame(30, data_get($payload, 'rivals_strategy.p4_promotion_readiness.next_review.horizon_days'));
+        $this->assertTrue(data_get($payload, 'rivals_strategy.p4_promotion_readiness.rules.no_synthetic_scores'));
+        $this->assertFalse(data_get($payload, 'rivals_strategy.p4_promotion_readiness.rules.qualitative_level_promotion_allowed'));
+        $this->assertContains('record_synthetic_regret_alignment_agency_scores', data_get($payload, 'rivals_strategy.p4_promotion_readiness.prohibited_actions_until_ready'));
     }
 
     public function test_command_records_scored_review_and_updates_multiplier_signal(): void
@@ -120,6 +135,12 @@ class AtlasAiRivalsStrategyCommandTest extends TestCase
         $this->assertSame(88, data_get($payload, 'rivals_strategy.average_agency_score'));
         $this->assertSame(90.2, data_get($payload, 'rivals_strategy.strategy_multiplier_score'));
         $this->assertSame('use_strategy_rivals_signal_for_qualitative_level', data_get($payload, 'rivals_strategy.review_signal.recommended_action'));
+        $this->assertSame('ready', data_get($payload, 'rivals_strategy.p4_promotion_readiness.status'));
+        $this->assertSame('scored_review_with_healthy_agency_available', data_get($payload, 'rivals_strategy.p4_promotion_readiness.reason'));
+        $this->assertTrue(data_get($payload, 'rivals_strategy.safety.qualitative_level_promotion_requires_ready_gate'));
+        $this->assertFalse(data_get($payload, 'rivals_strategy.safety.raw_review_outcome_exposed'));
+        $this->assertTrue(data_get($payload, 'rivals_strategy.p4_promotion_readiness.rules.qualitative_level_promotion_allowed'));
+        $this->assertSame([], data_get($payload, 'rivals_strategy.p4_promotion_readiness.prohibited_actions_until_ready'));
         $this->assertDatabaseHas('atlas_strategy_rivals_reviews', [
             'case_id' => $caseId,
             'horizon_days' => 30,

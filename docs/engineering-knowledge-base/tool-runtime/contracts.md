@@ -89,6 +89,18 @@ raw command/output/workspace remain hidden, provider dispatch, policy mutation
 and Agent Control Plane dispatch stay false, and operator approval is required
 before any external execution path can use that evidence.
 
+`php artisan atlas:ai:tool-action-runtime-report --json` is the compact
+read-only promotion check for this layer. It summarizes registry definitions,
+installation tracking, recent evidence runs, failed required evidence, open
+blocking findings and presence of the action-runtime contract without executing
+tools, evaluating gates or writing ledger events. Promotion status is based on
+the latest evidence per tool so older pre-contract runs remain visible as
+history without creating false blockers.
+The report also flags unsafe action-runtime contracts when raw command/output/
+workspace exposure, provider dispatch, runtime policy mutation, Agent Control
+Plane dispatch or missing operator approval appear on the latest evidence. Recent
+run summaries expose only schema, contract hash and boolean safety flags.
+
 ## Policy Contract
 
 `AtlasToolPolicyEngine` emits auditable decisions:

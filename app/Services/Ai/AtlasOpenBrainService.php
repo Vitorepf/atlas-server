@@ -72,14 +72,18 @@ class AtlasOpenBrainService
             'memory_refs_count' => $summary['memory_refs_count'],
             'provider_safe' => true,
             'query_json' => [
-                'objective_excerpt' => mb_substr($objective, 0, 500),
+                'objective_hash' => hash('sha256', $objective),
+                'objective_excerpt_redacted' => true,
+                'objective_length' => mb_strlen($objective),
                 'task_type' => data_get($contextPack, 'task.type'),
-                'workspace' => $workspace,
+                'workspace_hash' => $workspace ? hash('sha256', $workspace) : null,
+                'workspace_label' => $workspace ? basename($workspace) : null,
             ],
             'result_summary_json' => $summary + ['safety' => $safety],
             'metadata' => [
                 'schema_version' => 1,
                 'source' => 'atlas_open_brain_service',
+                'query_redaction' => 'hash_only_no_raw_objective_or_workspace_path',
             ],
             'accessed_at' => now(),
         ]);
@@ -142,6 +146,7 @@ class AtlasOpenBrainService
             'open_brain_context_allowed' => true,
             'raw_content_exposed' => false,
             'raw_content_persisted' => false,
+            'audit_query_raw_content_persisted' => false,
             'audit_persisted' => $auditPersisted,
             'context_pack_hash_persisted' => $persistedContextPackHash !== null && $persistedContextPackHash !== '',
             'context_refs_count' => (int) ($summary['context_refs_count'] ?? 0),

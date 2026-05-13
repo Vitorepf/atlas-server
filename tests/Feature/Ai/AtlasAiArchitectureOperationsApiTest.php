@@ -22,7 +22,7 @@ class AtlasAiArchitectureOperationsApiTest extends TestCase
             ->assertJsonPath('status', 'ok')
             ->assertJsonPath('architecture_operations.schema_version', 'atlas.architecture_operations.v1')
             ->assertJsonPath('architecture_operations.section', 'arquitetura_mae')
-            ->assertJsonPath('architecture_operations.command_count', 72)
+            ->assertJsonPath('architecture_operations.command_count', 82)
             ->assertJsonPath('architecture_operations.commands.0.id', 'architecture_operations')
             ->assertJsonPath('architecture_operations.commands.0.kind', 'catalog')
             ->assertJsonPath('architecture_operations.commands.0.surface', 'cli');
@@ -44,7 +44,9 @@ class AtlasAiArchitectureOperationsApiTest extends TestCase
         $this->assertContains('php artisan atlas:ai:local-rag-benchmark --json', $commands);
         $this->assertContains('php artisan atlas:ai:local-rag-benchmark --schedule-plan --json', $commands);
         $this->assertContains('php artisan atlas:ai:local-rag-benchmark --rivals-shadow-plan --json', $commands);
+        $this->assertContains('php artisan atlas:ai:local-rag-benchmark --rivals-shadow-case-contract --json', $commands);
         $this->assertContains('php artisan atlas:ai:local-rag-benchmark --rivals-shadow-plan --emit-rivals-shadow-inbox --json', $commands);
+        $this->assertContains('php artisan atlas:ai:local-rag-benchmark --emit-external-vector-rag-preflight-inbox --json', $commands);
         $this->assertContains('php artisan atlas:ai:local-rag-benchmark --rivals-report --json', $commands);
         $this->assertContains('php artisan atlas:ai:local-rag-benchmark --rivals-report --emit-rivals-inbox --json', $commands);
         $this->assertContains('atlas engineering knowledge sync --prune --json', $commands);
@@ -78,11 +80,24 @@ class AtlasAiArchitectureOperationsApiTest extends TestCase
         $this->assertContains('php artisan atlas:ai:telemetry:cost-rates --missing --hours=168 --json', $commands);
         $this->assertContains('php artisan atlas:ai:telemetry:cost-rates --provider=<provider> --model=<model> --input-microusd=<input> --output-microusd=<output> --json', $commands);
         $this->assertContains('php artisan atlas:ai:inbox-action-report --hours=24 --json', $commands);
+        $this->assertContains('php artisan atlas:ai:capture-inbox-pipeline-report --hours=24 --json', $commands);
+        $this->assertContains('php artisan atlas:ai:capture-inbox-pipeline-backfill-contracts --hours=720 --json', $commands);
+        $this->assertContains('php artisan atlas:ai:task-orchestration-report --hours=24 --json', $commands);
+        $this->assertContains('php artisan atlas:ai:task-orchestration-backfill-receipts --hours=720 --json', $commands);
+        $this->assertContains('php artisan atlas:ai:tool-action-runtime-report --hours=24 --json', $commands);
+        $this->assertContains('php artisan atlas:ai:long-running-work-report --hours=24 --json', $commands);
+        $this->assertContains('php artisan atlas:ai:proactive-layer-report --hours=24 --json', $commands);
         $this->assertContains('php artisan atlas:ai:decision-receipt-report --envelope=<id> --json', $commands);
         $this->assertContains('php artisan atlas:ai:ledger <id> --json', $commands);
         $this->assertContains('php artisan atlas:ai:runtime-boundary --json', $commands);
         $this->assertContains('architecture_operations', $response->json('architecture_operations.operation_ids'));
         $this->assertContains('local_rag_graph_promotion_review', $response->json('architecture_operations.operation_ids'));
+        $this->assertContains('external_vector_rag_preflight_inbox', $response->json('architecture_operations.operation_ids'));
+        $this->assertContains('capture_inbox_pipeline_report', $response->json('architecture_operations.operation_ids'));
+        $this->assertContains('task_orchestration_report', $response->json('architecture_operations.operation_ids'));
+        $this->assertContains('tool_action_runtime_report', $response->json('architecture_operations.operation_ids'));
+        $this->assertContains('long_running_work_report', $response->json('architecture_operations.operation_ids'));
+        $this->assertContains('proactive_layer_report', $response->json('architecture_operations.operation_ids'));
 
         $commandsById = collect($response->json('architecture_operations.commands'))->keyBy('id');
 
@@ -107,7 +122,7 @@ class AtlasAiArchitectureOperationsApiTest extends TestCase
         $response = $this->getJson('/ai/architecture/operations?kind=evidence_report', $this->headers)
             ->assertOk()
             ->assertJsonPath('architecture_operations.filters.kind', 'evidence_report')
-            ->assertJsonPath('architecture_operations.command_count', 12);
+            ->assertJsonPath('architecture_operations.command_count', 17);
 
         $this->assertContains('voice_realtime_readiness', $response->json('architecture_operations.operation_ids'));
         $this->assertContains('provider_performance_report', $response->json('architecture_operations.operation_ids'));
@@ -116,12 +131,17 @@ class AtlasAiArchitectureOperationsApiTest extends TestCase
         $this->assertContains('provider_cost_rates_missing', $response->json('architecture_operations.operation_ids'));
         $this->assertContains('decision_receipt_report', $response->json('architecture_operations.operation_ids'));
         $this->assertContains('ledger_replay', $response->json('architecture_operations.operation_ids'));
+        $this->assertContains('capture_inbox_pipeline_report', $response->json('architecture_operations.operation_ids'));
+        $this->assertContains('task_orchestration_report', $response->json('architecture_operations.operation_ids'));
+        $this->assertContains('tool_action_runtime_report', $response->json('architecture_operations.operation_ids'));
+        $this->assertContains('long_running_work_report', $response->json('architecture_operations.operation_ids'));
+        $this->assertContains('proactive_layer_report', $response->json('architecture_operations.operation_ids'));
         $this->assertNotContains('architecture_operations', $response->json('architecture_operations.operation_ids'));
 
         $this->getJson('/ai/architecture/operations?section=arquitetura_mae', $this->headers)
             ->assertOk()
             ->assertJsonPath('architecture_operations.filters.section', 'arquitetura_mae')
-            ->assertJsonPath('architecture_operations.command_count', 72)
+            ->assertJsonPath('architecture_operations.command_count', 82)
             ->assertJsonPath('architecture_operations.operation_ids.0', 'architecture_operations');
 
         $this->getJson('/ai/architecture/operations?surface=runtime', $this->headers)
@@ -199,18 +219,28 @@ class AtlasAiArchitectureOperationsApiTest extends TestCase
         $this->getJson('/ai/architecture/operations?kind=governance_gate', $this->headers)
             ->assertOk()
             ->assertJsonPath('architecture_operations.filters.kind', 'governance_gate')
-            ->assertJsonPath('architecture_operations.command_count', 5)
+            ->assertJsonPath('architecture_operations.command_count', 6)
             ->assertJsonPath('architecture_operations.operation_ids.0', 'feature_placement')
             ->assertJsonPath('architecture_operations.operation_ids.1', 'documentation_split_plan')
             ->assertJsonPath('architecture_operations.operation_ids.2', 'ap_agent_workflow_registry')
             ->assertJsonPath('architecture_operations.operation_ids.3', 'local_rag_benchmark_rivals_shadow_plan')
-            ->assertJsonPath('architecture_operations.operation_ids.4', 'local_rag_graph_promotion_review')
+            ->assertJsonPath('architecture_operations.operation_ids.4', 'local_rag_benchmark_rivals_shadow_case_contract')
+            ->assertJsonPath('architecture_operations.operation_ids.5', 'local_rag_graph_promotion_review')
             ->assertJsonPath('architecture_operations.commands.0.api_endpoint', '/ai/feature-placement')
             ->assertJsonPath('architecture_operations.commands.1.api_endpoint', '/ai/docs-split-plan')
             ->assertJsonPath('architecture_operations.commands.2.command', 'php artisan atlas:ai:ap-agent-workflow --json')
             ->assertJsonPath('architecture_operations.commands.3.doc', 'docs/ap/AP-693-retrieval-rivals-shadow-comparison-contract.md')
             ->assertJsonPath('architecture_operations.commands.3.review_contract', 'atlas.memory_retrieval_rivals_shadow_plan_review_packet.v1')
-            ->assertJsonPath('architecture_operations.commands.4.review_contract', 'atlas.local_rag_graph_promotion_review.v1');
+            ->assertJsonPath('architecture_operations.commands.4.review_contract', 'atlas.memory_retrieval_rivals_shadow_case_contract.v1')
+            ->assertJsonPath('architecture_operations.commands.5.review_contract', 'atlas.local_rag_graph_promotion_review.v1');
+
+        $this->getJson('/ai/architecture/operations?id=external_vector_rag_preflight_inbox', $this->headers)
+            ->assertOk()
+            ->assertJsonPath('architecture_operations.filters.id', 'external_vector_rag_preflight_inbox')
+            ->assertJsonPath('architecture_operations.command_count', 1)
+            ->assertJsonPath('architecture_operations.commands.0.kind', 'review_queue')
+            ->assertJsonPath('architecture_operations.commands.0.command', 'php artisan atlas:ai:local-rag-benchmark --emit-external-vector-rag-preflight-inbox --json')
+            ->assertJsonPath('architecture_operations.commands.0.review_contract', 'atlas.external_vector_rag.preflight_inbox.v1');
 
         $this->getJson('/ai/architecture/operations?id=provider_performance_curator_review', $this->headers)
             ->assertOk()

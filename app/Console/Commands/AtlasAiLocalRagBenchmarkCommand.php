@@ -15,8 +15,10 @@ final class AtlasAiLocalRagBenchmarkCommand extends Command
         {--workspace= : Workspace path for the Memory Quality snapshot}
         {--schedule-plan : Print the governed recurring benchmark schedule plan}
         {--rivals-report : Compare recent retrieval benchmark snapshots without running benchmark or taking action}
+        {--rivals-shadow-case-contract : Print the deterministic hash-only AP-693 shadow case contract without executing rival strategies}
         {--rivals-shadow-plan : Print the blocked shadow-comparison plan for retrieval rival strategies}
         {--emit-rivals-shadow-inbox : Emit a proposal Inbox item for human review of the blocked Rivals shadow plan}
+        {--emit-external-vector-rag-preflight-inbox : Emit a proposal Inbox item for human review of the blocked external vector/RAG preflight}
         {--emit-rivals-inbox : Emit a proposal Inbox item when the Rivals report finds a retrieval regression}
         {--json : Print machine-readable JSON}';
 
@@ -26,6 +28,10 @@ final class AtlasAiLocalRagBenchmarkCommand extends Command
     {
         if ((bool) $this->option('schedule-plan')) {
             return $this->renderSchedulePlan();
+        }
+
+        if ((bool) $this->option('rivals-shadow-case-contract')) {
+            return $this->renderRivalsShadowCaseContract();
         }
 
         if ((bool) $this->option('rivals-shadow-plan') || (bool) $this->option('emit-rivals-shadow-inbox')) {
@@ -40,6 +46,7 @@ final class AtlasAiLocalRagBenchmarkCommand extends Command
         $payload['evidence_ledger'] = $benchmark->evidenceLedgerReport($payload);
         $payload['memory_quality_snapshot'] = $this->recordMemoryQualitySnapshot($quality, $payload);
         $payload['retrieval_benchmark_history'] = $this->retrievalBenchmarkHistory($quality);
+        $payload['emitted_external_vector_rag_preflight_inbox_item'] = $this->emitExternalRetrievalPreflightInbox($payload, $inbox);
 
         if ((bool) $this->option('json')) {
             $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
@@ -59,6 +66,113 @@ final class AtlasAiLocalRagBenchmarkCommand extends Command
         $this->components->twoColumnDetail('Retrieval benchmark history', (string) data_get($payload, 'retrieval_benchmark_history.summary.total', 0));
         $this->components->twoColumnDetail('Remaining prereqs', implode(', ', data_get($payload, 'promotion_gate.remaining_prerequisites', [])));
         $this->components->twoColumnDetail('Next action', $payload['next_action']);
+
+        return self::SUCCESS;
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     * @return array<string,mixed>|null
+     */
+    private function emitExternalRetrievalPreflightInbox(array $payload, ProposalInboxEmitter $inbox): ?array
+    {
+        if (! (bool) $this->option('emit-external-vector-rag-preflight-inbox')) {
+            return null;
+        }
+
+        $contract = (array) data_get($payload, 'promotion_review_contract.external_vector_rag_preflight_contract', []);
+        if ($contract === []) {
+            return [
+                'status' => 'not_emitted',
+                'reason' => 'external_vector_rag_preflight_contract_missing',
+            ];
+        }
+
+        $item = $inbox->emit([
+            'title' => 'Revisar preflight de external vector/RAG Memory/Open Brain',
+            'category' => 'memory_quality',
+            'source_type' => 'local_rag_benchmark',
+            'source_id' => data_get($contract, 'preflight_hash'),
+            'dedupe_key' => 'memory-open-brain-external-vector-rag-preflight:'.sha1((string) data_get($contract, 'preflight_hash', 'unknown')),
+            'problem' => 'External vector/RAG e importante para Constelacao e Open Brain, mas ainda esta bloqueado antes de embeddings, store vetorial externo ou runtime Python.',
+            'solution' => 'Revisar o contrato de preflight, confirmar gates, evidencias e rollback; registrar Decision Receipt sem executar runtime, provider, embeddings ou policy patch.',
+            'worth_it' => 'Este review transforma uma pendencia critica dos modulos 1/2 em trilha governada sem contaminar Voice nem criar memoria paralela.',
+            'metadata' => [
+                'schema_version' => 'atlas.external_vector_rag.preflight_inbox.v1',
+                'review_signal' => [
+                    'status' => 'review_required',
+                    'severity' => 'high',
+                    'recommended_action' => 'review_external_vector_rag_preflight',
+                    'reasons' => [
+                        'external_vector_rag_preflight_declared',
+                        'human_review_required',
+                        'decision_receipt_required',
+                        'embedding_generation_blocked',
+                    ],
+                ],
+            ],
+            'payload' => [
+                'external_vector_rag_preflight_contract' => [
+                    'schema_version' => data_get($contract, 'schema_version'),
+                    'status' => data_get($contract, 'status'),
+                    'mode' => data_get($contract, 'mode'),
+                    'model_ownership' => data_get($contract, 'model_ownership', []),
+                    'runtime_family' => data_get($contract, 'runtime_family'),
+                    'candidate_capability_id' => data_get($contract, 'candidate_capability_id'),
+                    'architecture_operation_id' => data_get($contract, 'architecture_operation_id'),
+                    'execution_gate' => data_get($contract, 'execution_gate', []),
+                    'required_before_any_embedding_or_external_rag' => data_get($contract, 'required_before_any_embedding_or_external_rag', []),
+                    'review_packet' => data_get($contract, 'review_packet', []),
+                    'lineage' => data_get($contract, 'lineage', []),
+                    'preflight_hash' => data_get($contract, 'preflight_hash'),
+                    'raw_query_persisted' => false,
+                    'raw_context_persisted' => false,
+                    'raw_capture_exposed' => false,
+                ],
+            ],
+            'source_refs' => [
+                ['type' => 'ap', 'id' => 'docs/ap/AP-683-local-rag-graph-promotion-review.md'],
+                ['type' => 'ap', 'id' => 'docs/ap/AP-684-graphify-external-graph-harness.md'],
+                ['type' => 'engineering_knowledge', 'id' => 'docs/engineering-knowledge-base/memory/retrieval-and-context.md'],
+            ],
+            'available_actions' => [
+                ['id' => 'review_external_vector_rag_preflight', 'label' => 'Revisar preflight', 'style' => 'primary'],
+                ['id' => 'discuss', 'label' => 'Discutir com Atlas', 'style' => 'default'],
+            ],
+            'confidence' => 0.88,
+        ]);
+
+        if ($item === null) {
+            return [
+                'status' => 'not_emitted',
+                'reason' => 'inbox_tables_unavailable',
+            ];
+        }
+
+        return [
+            'status' => 'emitted',
+            'id' => $item->id,
+            'title' => $item->title,
+            'review_signal' => data_get($item->payload ?? [], 'proposal_contract.review_signal'),
+        ];
+    }
+
+    private function renderRivalsShadowCaseContract(): int
+    {
+        $payload = self::rivalsShadowCaseContract();
+
+        if ((bool) $this->option('json')) {
+            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+
+            return self::SUCCESS;
+        }
+
+        $this->components->twoColumnDetail('<fg=bright-blue;options=bold>Atlas Retrieval Rivals Shadow Case Contract</>', (string) $payload['status']);
+        $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+        $this->components->twoColumnDetail('Case count', (string) $payload['case_count']);
+        $this->components->twoColumnDetail('Execution', data_get($payload, 'execution_gate.shadow_execution_allowed_now') ? 'allowed' : 'blocked');
+        $this->components->twoColumnDetail('Contract hash', (string) $payload['case_contract_hash']);
+        $this->components->twoColumnDetail('Next action', (string) $payload['next_action']);
 
         return self::SUCCESS;
     }
@@ -94,6 +208,8 @@ final class AtlasAiLocalRagBenchmarkCommand extends Command
             return null;
         }
 
+        $caseContract = self::rivalsShadowCaseContract();
+
         $item = $inbox->emit([
             'title' => 'Revisar escopo shadow de retrieval Memory/Open Brain',
             'category' => 'memory_quality',
@@ -110,9 +226,9 @@ final class AtlasAiLocalRagBenchmarkCommand extends Command
                     'severity' => 'medium',
                     'recommended_action' => 'review_retrieval_shadow_scope',
                     'reasons' => [
-                        'shadow_case_contract_missing',
+                        'shadow_case_contract_declared_review_required',
                         'human_review_required',
-                        'runtime_invocation_contract_required',
+                        'runtime_invocation_contracts_declared_blocked',
                     ],
                 ],
             ],
@@ -129,6 +245,25 @@ final class AtlasAiLocalRagBenchmarkCommand extends Command
                     'review_packet' => $payload['review_packet'] ?? [],
                     'raw_query_persisted' => false,
                     'raw_context_persisted' => false,
+                ],
+                'retrieval_rivals_shadow_case_contract' => [
+                    'schema_version' => $caseContract['schema_version'] ?? null,
+                    'status' => $caseContract['status'] ?? null,
+                    'mode' => $caseContract['mode'] ?? null,
+                    'review_ap' => $caseContract['review_ap'] ?? null,
+                    'plan_hash' => $caseContract['plan_hash'] ?? null,
+                    'case_contract_hash' => $caseContract['case_contract_hash'] ?? null,
+                    'strategy_contract_hash' => $caseContract['strategy_contract_hash'] ?? null,
+                    'case_count' => $caseContract['case_count'] ?? null,
+                    'safety' => $caseContract['safety'] ?? [],
+                    'evidence_contract' => $caseContract['evidence_contract'] ?? [],
+                    'evidence_ledger_event_contract' => $caseContract['evidence_ledger_event_contract'] ?? [],
+                    'rollback_plan' => $caseContract['rollback_plan'] ?? [],
+                    'runtime_invocation_contracts' => $caseContract['runtime_invocation_contracts'] ?? [],
+                    'execution_gate' => $caseContract['execution_gate'] ?? [],
+                    'raw_query_persisted' => false,
+                    'raw_context_persisted' => false,
+                    'raw_capture_exposed' => false,
                 ],
             ],
             'source_refs' => [
@@ -311,6 +446,242 @@ final class AtlasAiLocalRagBenchmarkCommand extends Command
         $payload['plan_hash'] = hash('sha256', json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
 
         return $payload;
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    public static function rivalsShadowCaseContract(): array
+    {
+        $shadowPlan = self::rivalsShadowPlan();
+        $shadowPlanScope = $shadowPlan;
+        unset($shadowPlanScope['generated_at'], $shadowPlanScope['plan_hash'], $shadowPlanScope['plan_hash_algorithm']);
+
+        $semanticContract = [
+            'schema_version' => 'atlas.memory_retrieval_rivals_shadow_case_contract.v1',
+            'status' => 'declared_blocked',
+            'mode' => 'case_contract_only_no_runtime_execution',
+            'review_ap' => 'docs/ap/AP-693-retrieval-rivals-shadow-comparison-contract.md',
+            'plan_hash' => hash('sha256', json_encode($shadowPlanScope, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)),
+            'baseline_strategy_id' => 'current_governed_hybrid_memory_recall',
+            'case_count' => 3,
+            'case_inputs' => [
+                [
+                    'case_id' => 'memory-open-brain-core-recall',
+                    'query_hash' => hash('sha256', 'memory-open-brain-core-recall'),
+                    'expected_evidence_hashes_required' => true,
+                    'expected_source_types' => ['memory_registry', 'verbatim_memory', 'engineering_knowledge'],
+                    'raw_query_persisted' => false,
+                    'raw_context_persisted' => false,
+                ],
+                [
+                    'case_id' => 'capture-to-curation-lineage',
+                    'query_hash' => hash('sha256', 'capture-to-curation-lineage'),
+                    'expected_evidence_hashes_required' => true,
+                    'expected_source_types' => ['capture', 'semantic_curation', 'memory_delta'],
+                    'raw_query_persisted' => false,
+                    'raw_context_persisted' => false,
+                ],
+                [
+                    'case_id' => 'external-graph-rag-promotion-boundary',
+                    'query_hash' => hash('sha256', 'external-graph-rag-promotion-boundary'),
+                    'expected_evidence_hashes_required' => true,
+                    'expected_source_types' => ['ap', 'architecture_operation', 'runtime_boundary'],
+                    'raw_query_persisted' => false,
+                    'raw_context_persisted' => false,
+                ],
+            ],
+            'strategy_contracts' => [
+                [
+                    'id' => 'current_governed_hybrid_memory_recall',
+                    'runtime_family' => 'laravel_kernel',
+                    'execution_allowed_now' => false,
+                    'requires_runtime_invocation_contract' => false,
+                    'provider_call_allowed' => false,
+                    'memory_write_allowed' => false,
+                    'raw_text_allowed' => false,
+                ],
+                [
+                    'id' => 'lexical_keyword_fallback_candidate',
+                    'runtime_family' => 'laravel_kernel',
+                    'execution_allowed_now' => false,
+                    'requires_runtime_invocation_contract' => true,
+                    'provider_call_allowed' => false,
+                    'memory_write_allowed' => false,
+                    'raw_text_allowed' => false,
+                ],
+                [
+                    'id' => 'future_graph_rag_python_candidate',
+                    'runtime_family' => 'python_ai_data',
+                    'execution_allowed_now' => false,
+                    'requires_runtime_invocation_contract' => true,
+                    'provider_call_allowed' => false,
+                    'memory_write_allowed' => false,
+                    'raw_text_allowed' => false,
+                ],
+            ],
+            'metric_contract' => [
+                'schema_version' => 'atlas.memory_retrieval_rivals_shadow_metrics.v1',
+                'required_metrics' => [
+                    'precision_at_3',
+                    'precision_at_5',
+                    'missed_critical_context_count',
+                    'context_contamination_count',
+                    'provider_safe_violation_count',
+                    'latency_ms',
+                    'provider_safe_context_rate',
+                ],
+                'comparison_policy' => 'human_reviewed_multi_metric_delta_only',
+                'minimum_case_count_before_claim' => 3,
+                'delta_claim_allowed_now' => false,
+                'winner_claim_allowed_now' => false,
+            ],
+            'evidence_contract' => [
+                'schema_version' => 'atlas.memory_retrieval_rivals_shadow_evidence.v1',
+                'required_hashes' => [
+                    'case_contract_hash',
+                    'plan_hash',
+                    'strategy_contract_hash',
+                    'golden_set_hashes',
+                    'side_by_side_results_hash',
+                    'decision_receipt_hash',
+                ],
+                'ledger_event_required' => true,
+                'raw_query_allowed' => false,
+                'raw_context_allowed' => false,
+                'raw_capture_allowed' => false,
+            ],
+            'evidence_ledger_event_contract' => [
+                'schema_version' => 'atlas.memory_retrieval_rivals_shadow_ledger_event_contract.v1',
+                'status' => 'declared_no_events_recorded',
+                'event_family' => 'RETRIEVAL_RIVALS_SHADOW_*',
+                'event_types' => [
+                    'RETRIEVAL_RIVALS_SHADOW_CASE_DECLARED',
+                    'RETRIEVAL_RIVALS_SHADOW_RUN_BLOCKED',
+                    'RETRIEVAL_RIVALS_SHADOW_RESULTS_REVIEWED',
+                ],
+                'payload_rules' => [
+                    'case_contract_hash_required' => true,
+                    'strategy_contract_hash_required' => true,
+                    'decision_receipt_hash_required_before_execution' => true,
+                    'side_by_side_results_hash_required_after_execution' => true,
+                    'raw_query_allowed' => false,
+                    'raw_context_allowed' => false,
+                    'raw_capture_allowed' => false,
+                ],
+                'record_event_allowed_now' => false,
+            ],
+            'rollback_plan' => [
+                'schema_version' => 'atlas.memory_retrieval_rivals_shadow_rollback_plan.v1',
+                'status' => 'declared',
+                'baseline_strategy_id' => 'current_governed_hybrid_memory_recall',
+                'rollback_target' => 'current_governed_hybrid_memory_recall_only',
+                'automatic_rollback_allowed' => false,
+                'policy_auto_apply_allowed' => false,
+                'memory_write_allowed' => false,
+                'operator_actions' => [
+                    'disable_shadow_strategy_candidate',
+                    'keep_current_governed_hybrid_memory_recall',
+                    'record_rollback_decision_receipt',
+                    'append_evidence_ledger_hash_only_event',
+                ],
+            ],
+            'runtime_invocation_contracts' => [
+                'schema_version' => 'atlas.memory_retrieval_rivals_shadow_runtime_invocation_contracts.v1',
+                'status' => 'declared_blocked',
+                'kernel_first' => true,
+                'candidate_contracts' => [
+                    [
+                        'strategy_id' => 'lexical_keyword_fallback_candidate',
+                        'contract_family' => 'kernel_internal_strategy_contract',
+                        'runtime_family' => 'laravel_kernel',
+                        'execution_allowed_now' => false,
+                        'requires_external_runtime' => false,
+                        'required_fields' => [
+                            'case_contract_hash',
+                            'strategy_contract_hash',
+                            'decision_receipt_hash',
+                            'limits',
+                            'evidence_sink',
+                        ],
+                    ],
+                    [
+                        'strategy_id' => 'future_graph_rag_python_candidate',
+                        'contract_family' => 'atlas.runtime_invocation_contract.v1',
+                        'runtime_family' => 'python_ai_data',
+                        'capability_id' => 'memory_open_brain.retrieval_shadow.graph_rag_candidate',
+                        'execution_allowed_now' => false,
+                        'requires_external_runtime' => true,
+                        'required_fields' => [
+                            'envelope_id',
+                            'decision_receipt_hash',
+                            'runtime_family',
+                            'capability',
+                            'mode',
+                            'limits',
+                            'privacy_class',
+                            'evidence_sink',
+                        ],
+                    ],
+                ],
+                'forbidden_runtime_authority' => [
+                    'choose_provider_or_model',
+                    'choose_domain_or_flow',
+                    'mutate_policy',
+                    'write_memory_directly',
+                    'persist_raw_query_or_context',
+                    'create_parallel_context_store',
+                ],
+            ],
+            'execution_gate' => [
+                'status' => 'blocked',
+                'shadow_case_contract_declared' => true,
+                'evidence_ledger_event_contract_declared' => true,
+                'rollback_plan_declared' => true,
+                'runtime_invocation_contracts_declared' => true,
+                'shadow_execution_allowed_now' => false,
+                'provider_call_allowed' => false,
+                'runtime_execution_allowed' => false,
+                'policy_auto_apply_allowed' => false,
+                'memory_write_allowed' => false,
+                'remaining_before_shadow_run' => [
+                    'human_review',
+                    'decision_receipt_hash',
+                    'privacy_provider_safety_review',
+                ],
+            ],
+            'forbidden_actions' => [
+                'execute_python_graph_rag',
+                'run_unreviewed_lexical_rival',
+                'persist_raw_query',
+                'persist_raw_context',
+                'send_raw_capture_to_provider',
+                'auto_apply_policy_patch',
+                'choose_provider_or_model',
+                'promote_rival_strategy',
+            ],
+            'raw_query_persisted' => false,
+            'raw_context_persisted' => false,
+            'raw_capture_exposed' => false,
+            'next_action' => 'open_ap_693_human_review_for_shadow_case_contract_before_any_execution',
+        ];
+        $semanticContract['strategy_contract_hash'] = hash('sha256', json_encode($semanticContract['strategy_contracts'], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
+        $semanticContract['case_contract_hash_algorithm'] = 'sha256';
+        $semanticContract['case_contract_hash'] = hash('sha256', json_encode($semanticContract, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
+        $semanticContract['safety'] = self::retrievalRivalsSafety([
+            'proposal_only' => true,
+            'provider_call_allowed' => false,
+            'runtime_execution_allowed' => false,
+            'policy_auto_apply_allowed' => false,
+            'memory_write_allowed' => false,
+            'raw_query_persisted' => false,
+            'raw_context_persisted' => false,
+            'raw_capture_exposed' => false,
+            'shadow_case_contract_declared' => true,
+        ]);
+        $semanticContract['generated_at'] = now()->toJSON();
+
+        return $semanticContract;
     }
 
     private function renderRivalsReport(AtlasMemoryQualityService $quality, ProposalInboxEmitter $inbox): int

@@ -43,12 +43,41 @@ class AtlasOpenBrainController extends Controller
                     'context_refs_count' => $log->context_refs_count,
                     'memory_refs_count' => $log->memory_refs_count,
                     'provider_safe' => $log->provider_safe,
-                    'query' => $log->query_json ?? [],
+                    'query' => $this->safeAuditQuery($log->query_json ?? []),
+                    'query_safety' => $this->auditQuerySafety(),
                     'result_summary' => $log->result_summary_json ?? [],
                     'accessed_at' => $log->accessed_at?->toJSON(),
                 ])
                 ->values()
                 ->all(),
         ]);
+    }
+
+    /**
+     * @param  array<string,mixed>  $query
+     * @return array<string,mixed>
+     */
+    private function safeAuditQuery(array $query): array
+    {
+        unset($query['objective_excerpt'], $query['workspace']);
+
+        if (! isset($query['objective_excerpt_redacted'])) {
+            $query['objective_excerpt_redacted'] = true;
+        }
+
+        return $query;
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function auditQuerySafety(): array
+    {
+        return [
+            'schema_version' => 'atlas.open_brain.audit_query_safety.v1',
+            'raw_objective_persisted' => false,
+            'raw_workspace_path_persisted' => false,
+            'legacy_raw_fields_sanitized' => true,
+        ];
     }
 }

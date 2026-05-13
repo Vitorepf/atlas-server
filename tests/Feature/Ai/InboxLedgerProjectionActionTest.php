@@ -287,13 +287,24 @@ class InboxLedgerProjectionActionTest extends TestCase
         $this->assertTrue((bool) data_get($result, 'result.retrieval_shadow_scope_review_action.no_policy_patch'));
         $this->assertTrue((bool) data_get($result, 'result.retrieval_shadow_scope_review_action.no_provider_call'));
         $this->assertSame('shadow-plan-hash', data_get($result, 'result.retrieval_shadow_scope_review_action.plan_hash'));
+        $this->assertSame('shadow-case-contract-hash', data_get($result, 'result.retrieval_shadow_scope_review_action.case_contract_hash'));
         $this->assertSame('docs/ap/AP-693-retrieval-rivals-shadow-comparison-contract.md', data_get($result, 'result.retrieval_shadow_scope_review_action.review_ap'));
+        $this->assertSame('atlas.memory_retrieval_shadow_scope_privacy_provider_safety_review.v1', data_get($result, 'result.retrieval_shadow_scope_review_action.privacy_provider_safety_review.schema_version'));
+        $this->assertSame('passed_blocked', data_get($result, 'result.retrieval_shadow_scope_review_action.privacy_provider_safety_review.status'));
+        $this->assertFalse((bool) data_get($result, 'result.retrieval_shadow_scope_review_action.privacy_provider_safety_review.provider_call_allowed'));
+        $this->assertFalse((bool) data_get($result, 'result.retrieval_shadow_scope_review_action.privacy_provider_safety_review.raw_capture_allowed'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($result, 'result.retrieval_shadow_scope_review_action.privacy_provider_safety_review_hash'));
         $this->assertSame('atlas.memory_retrieval_shadow_scope_decision_receipt.v1', data_get($result, 'result.retrieval_shadow_scope_review_action.decision_receipt.schema_version'));
         $this->assertTrue((bool) data_get($result, 'result.retrieval_shadow_scope_review_action.decision_receipt.dry_run'));
+        $this->assertSame('shadow-case-contract-hash', data_get($result, 'result.retrieval_shadow_scope_review_action.decision_receipt.case_contract_hash'));
+        $this->assertTrue((bool) data_get($result, 'result.retrieval_shadow_scope_review_action.decision_receipt.shadow_case_contract_declared'));
+        $this->assertTrue((bool) data_get($result, 'result.retrieval_shadow_scope_review_action.decision_receipt.privacy_provider_safety_review_passed'));
         $this->assertFalse((bool) data_get($result, 'result.retrieval_shadow_scope_review_action.decision_receipt.shadow_execution_allowed_now'));
         $this->assertFalse((bool) data_get($result, 'result.retrieval_shadow_scope_review_action.decision_receipt.scope_approved'));
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($result, 'result.retrieval_shadow_scope_review_action.decision_receipt_hash'));
         $this->assertContains('shadow_execution_allowed_now', data_get($result, 'result.retrieval_shadow_scope_review_action.decision_receipt.receipt_hash_fields'));
+        $this->assertContains('case_contract_hash', data_get($result, 'result.retrieval_shadow_scope_review_action.decision_receipt.receipt_hash_fields'));
+        $this->assertContains('privacy_provider_safety_review_hash', data_get($result, 'result.retrieval_shadow_scope_review_action.decision_receipt.receipt_hash_fields'));
         $this->assertNotContains('issued_at', data_get($result, 'result.retrieval_shadow_scope_review_action.decision_receipt.receipt_hash_fields'));
 
         $sameDecisionItem = $this->retrievalShadowScopeInboxItem('same-decision');
@@ -324,9 +335,70 @@ class InboxLedgerProjectionActionTest extends TestCase
             ->firstOrFail();
         $this->assertSame('review_retrieval_shadow_scope', data_get($ledgerEvent->payload, 'action'));
         $this->assertSame('atlas.inbox_action.memory_retrieval_shadow_scope_review.v1', data_get($ledgerEvent->payload, 'result.retrieval_shadow_scope_review_action.schema_version'));
+        $this->assertSame('atlas.memory_retrieval_shadow_scope_privacy_provider_safety_review.v1', data_get($ledgerEvent->payload, 'result.retrieval_shadow_scope_review_action.privacy_provider_safety_review.schema_version'));
         $this->assertSame('atlas.memory_retrieval_shadow_scope_decision_receipt.v1', data_get($ledgerEvent->payload, 'result.retrieval_shadow_scope_review_action.decision_receipt.schema_version'));
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($ledgerEvent->payload, 'result.retrieval_shadow_scope_review_action.decision_receipt.receipt_hash'));
         $this->assertSame('review_retrieval_shadow_scope', data_get($ledgerEvent->payload, 'recommended_action'));
+        $this->assertStringNotContainsString('Exact local capture evidence', $ledgerEvent->toJson());
+    }
+
+    public function test_inbox_action_reviews_external_vector_rag_preflight_without_runtime_embeddings_or_constellation_promotion(): void
+    {
+        $item = $this->externalVectorRagPreflightInboxItem();
+
+        $result = app(InboxActionRegistry::class)->handle(
+            $item,
+            'review_external_vector_rag_preflight',
+            [
+                'decision' => 'approved_scope',
+                'operator_note' => 'Escopo aprovado apenas para AP futura; sem embeddings agora.',
+            ],
+            'test-review-external-vector-rag-preflight-'.$item->id,
+        );
+
+        $this->assertTrue($result['ok']);
+        $this->assertTrue((bool) data_get($result, 'result.reviewed'));
+        $this->assertTrue((bool) data_get($result, 'result.no_external_action'));
+        $this->assertSame('atlas.inbox_action.external_vector_rag_preflight_review.v1', data_get($result, 'result.external_vector_rag_preflight_review_action.schema_version'));
+        $this->assertSame('approved_scope', data_get($result, 'result.external_vector_rag_preflight_review_action.decision'));
+        $this->assertTrue((bool) data_get($result, 'result.external_vector_rag_preflight_review_action.scope_approved'));
+        $this->assertTrue((bool) data_get($result, 'result.external_vector_rag_preflight_review_action.no_runtime_execution'));
+        $this->assertTrue((bool) data_get($result, 'result.external_vector_rag_preflight_review_action.no_policy_patch'));
+        $this->assertTrue((bool) data_get($result, 'result.external_vector_rag_preflight_review_action.no_provider_call'));
+        $this->assertFalse((bool) data_get($result, 'result.external_vector_rag_preflight_review_action.embedding_generation_allowed_now'));
+        $this->assertFalse((bool) data_get($result, 'result.external_vector_rag_preflight_review_action.external_vector_store_write_allowed_now'));
+        $this->assertFalse((bool) data_get($result, 'result.external_vector_rag_preflight_review_action.constellation_promotion_allowed_now'));
+        $this->assertSame('external-vector-rag-preflight-hash', data_get($result, 'result.external_vector_rag_preflight_review_action.preflight_hash'));
+        $this->assertSame('atlas.external_vector_rag.preflight_safety_review.v1', data_get($result, 'result.external_vector_rag_preflight_review_action.safety_review.schema_version'));
+        $this->assertSame('passed_blocked', data_get($result, 'result.external_vector_rag_preflight_review_action.safety_review.status'));
+        $this->assertFalse((bool) data_get($result, 'result.external_vector_rag_preflight_review_action.safety_review.embedding_generation_allowed_now'));
+        $this->assertFalse((bool) data_get($result, 'result.external_vector_rag_preflight_review_action.safety_review.external_vector_store_write_allowed_now'));
+        $this->assertFalse((bool) data_get($result, 'result.external_vector_rag_preflight_review_action.safety_review.constellation_promotion_allowed_now'));
+        $this->assertSame('atlas.external_vector_rag.preflight_decision_receipt.v1', data_get($result, 'result.external_vector_rag_preflight_review_action.decision_receipt.schema_version'));
+        $this->assertTrue((bool) data_get($result, 'result.external_vector_rag_preflight_review_action.decision_receipt.dry_run'));
+        $this->assertTrue((bool) data_get($result, 'result.external_vector_rag_preflight_review_action.decision_receipt.scope_approved'));
+        $this->assertFalse((bool) data_get($result, 'result.external_vector_rag_preflight_review_action.decision_receipt.embedding_generation_allowed_now'));
+        $this->assertFalse((bool) data_get($result, 'result.external_vector_rag_preflight_review_action.decision_receipt.external_vector_store_write_allowed_now'));
+        $this->assertFalse((bool) data_get($result, 'result.external_vector_rag_preflight_review_action.decision_receipt.constellation_promotion_allowed_now'));
+        $this->assertContains('successor_external_vector_rag_runtime_ap', data_get($result, 'result.external_vector_rag_preflight_review_action.decision_receipt.future_activation_requires'));
+        $this->assertContains('embedding_generation_allowed_now', data_get($result, 'result.external_vector_rag_preflight_review_action.decision_receipt.receipt_hash_fields'));
+        $this->assertNotContains('issued_at', data_get($result, 'result.external_vector_rag_preflight_review_action.decision_receipt.receipt_hash_fields'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($result, 'result.external_vector_rag_preflight_review_action.decision_receipt_hash'));
+
+        $item->refresh();
+        $this->assertSame('read', $item->status);
+        $this->assertSame('review_external_vector_rag_preflight', data_get($item->response, 'action'));
+        $this->assertSame('atlas.inbox_action.external_vector_rag_preflight_review.v1', data_get($item->payload, 'external_vector_rag_preflight_review_action.schema_version'));
+        $this->assertStringNotContainsString('Exact local capture evidence', json_encode($item->payload, JSON_THROW_ON_ERROR));
+
+        $ledgerEvent = AtlasLedgerEvent::query()
+            ->where('event_type', LedgerEventType::InboxActionRecorded->value)
+            ->where('envelope_id', 'inbox_item:'.$item->id)
+            ->firstOrFail();
+        $this->assertSame('review_external_vector_rag_preflight', data_get($ledgerEvent->payload, 'action'));
+        $this->assertSame('atlas.inbox_action.external_vector_rag_preflight_review.v1', data_get($ledgerEvent->payload, 'result.external_vector_rag_preflight_review_action.schema_version'));
+        $this->assertSame('atlas.external_vector_rag.preflight_decision_receipt.v1', data_get($ledgerEvent->payload, 'result.external_vector_rag_preflight_review_action.decision_receipt.schema_version'));
+        $this->assertSame('review_external_vector_rag_preflight', data_get($ledgerEvent->payload, 'recommended_action'));
         $this->assertStringNotContainsString('Exact local capture evidence', $ledgerEvent->toJson());
     }
 
@@ -708,6 +780,11 @@ class InboxLedgerProjectionActionTest extends TestCase
                     'mode' => 'proposal_only_no_runtime_execution',
                     'review_ap' => 'docs/ap/AP-693-retrieval-rivals-shadow-comparison-contract.md',
                     'plan_hash' => 'shadow-plan-hash',
+                    'safety' => [
+                        'provider_call_allowed' => false,
+                        'runtime_execution_allowed' => false,
+                        'memory_write_allowed' => false,
+                    ],
                     'raw_query_persisted' => false,
                     'raw_context_persisted' => false,
                     'review_packet' => [
@@ -716,6 +793,23 @@ class InboxLedgerProjectionActionTest extends TestCase
                             'execute_python_graph_rag',
                             'persist_raw_query',
                             'persist_raw_context',
+                        ],
+                    ],
+                ],
+                'retrieval_rivals_shadow_case_contract' => [
+                    'schema_version' => 'atlas.memory_retrieval_rivals_shadow_case_contract.v1',
+                    'status' => 'declared_blocked',
+                    'case_contract_hash' => 'shadow-case-contract-hash',
+                    'strategy_contract_hash' => 'shadow-strategy-contract-hash',
+                    'raw_capture_exposed' => false,
+                    'safety' => [
+                        'provider_call_allowed' => false,
+                        'runtime_execution_allowed' => false,
+                        'memory_write_allowed' => false,
+                    ],
+                    'runtime_invocation_contracts' => [
+                        'forbidden_runtime_authority' => [
+                            'write_memory_directly',
                         ],
                     ],
                 ],
@@ -738,6 +832,83 @@ class InboxLedgerProjectionActionTest extends TestCase
             'push_policy' => [],
             'priority_score' => 82,
             'confidence_score' => 0.84,
+        ]);
+    }
+
+    private function externalVectorRagPreflightInboxItem(): AiInboxItem
+    {
+        return AiInboxItem::query()->create([
+            'id' => (string) Str::uuid(),
+            'user_id' => 'vitor',
+            'type' => 'proposal',
+            'category' => 'memory_quality',
+            'severity' => 'warning',
+            'status' => 'unread',
+            'title' => 'Revisar preflight de external vector/RAG Memory/Open Brain',
+            'summary' => 'External vector/RAG precisa de review antes de qualquer embedding ou runtime.',
+            'body' => 'Revise gates, evidencias, delete cascade e rollback sem executar runtime, provider, embeddings ou policy patch.',
+            'source_type' => 'local_rag_benchmark',
+            'source_id' => 'external-vector-rag-preflight-hash',
+            'initiator' => 'system',
+            'dedupe_key' => 'memory-open-brain-external-vector-rag-preflight:test',
+            'available_actions' => [
+                ['id' => 'review_external_vector_rag_preflight', 'label' => 'Revisar preflight', 'style' => 'primary'],
+                ['id' => 'discuss', 'label' => 'Discutir', 'style' => 'secondary'],
+            ],
+            'payload' => [
+                'external_vector_rag_preflight_contract' => [
+                    'schema_version' => 'atlas.external_vector_rag.promotion_preflight.v1',
+                    'status' => 'blocked_until_human_review_ap_and_decision_receipt',
+                    'mode' => 'proposal_only_no_embedding_no_external_runtime',
+                    'runtime_family' => 'python_ai_data',
+                    'preflight_hash' => 'external-vector-rag-preflight-hash',
+                    'execution_gate' => [
+                        'runtime_execution_allowed' => false,
+                        'provider_dispatch_allowed' => false,
+                        'embedding_generation_allowed_now' => false,
+                        'external_vector_store_read_allowed' => false,
+                        'external_vector_store_write_allowed' => false,
+                        'memory_write_allowed' => false,
+                        'context_builder_write_allowed' => false,
+                        'constellation_promotion_allowed' => false,
+                        'raw_content_export_allowed' => false,
+                    ],
+                    'required_before_any_embedding_or_external_rag' => [
+                        'successor_external_vector_rag_runtime_ap',
+                        'decision_receipt_hash',
+                        'retention_policy_and_delete_cascade_for_embeddings',
+                    ],
+                    'review_packet' => [
+                        'schema_version' => 'atlas.external_vector_rag.promotion_preflight_review_packet.v1',
+                        'required_human_decision' => 'approve_or_reject_external_vector_rag_promotion_scope',
+                        'forbidden_actions' => [
+                            'generate_external_embeddings',
+                            'write_external_vector_store',
+                            'read_external_vector_store_for_context',
+                            'send_raw_capture_to_provider',
+                            'promote_to_constelacao',
+                        ],
+                    ],
+                    'raw_query_persisted' => false,
+                    'raw_context_persisted' => false,
+                    'raw_capture_exposed' => false,
+                ],
+                'proposal_contract' => [
+                    'schema_version' => 'atlas.external_vector_rag.preflight_inbox.v1',
+                    'review_signal' => [
+                        'status' => 'review_required',
+                        'severity' => 'high',
+                        'recommended_action' => 'review_external_vector_rag_preflight',
+                        'reasons' => [
+                            'external_vector_rag_preflight_declared',
+                            'embedding_generation_blocked',
+                        ],
+                    ],
+                ],
+            ],
+            'push_policy' => [],
+            'priority_score' => 88,
+            'confidence_score' => 0.88,
         ]);
     }
 

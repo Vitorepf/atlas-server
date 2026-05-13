@@ -80,3 +80,17 @@ is hash/pointer-only: it stores prompt, title, schedule, workspace, output and
 error hashes, not raw prompt/output/workspace paths. It also states the autonomy
 closures for background work: anti-recursion guarded, tool permissions read-only,
 provider changes closed, retry authorization closed and schedule mutation closed.
+`atlas:ai:long-running-work-report --json` projects each recent run's autonomy
+contract as schema, hash and boolean safety flags only, including unsafe status,
+single-run guard, review requirement, schedule mutation, recursion and follow-up.
+It also returns `atlas.long_running_work.baseline_contract.v1` with the minimum
+structure-mother schedule families and fail-closed execution authority. An empty
+schedule table is reported as `warning/no_long_running_work_schedule_declared`
+so operators do not mistake a quiet scheduler for working autonomy.
+`--emit-baseline-inbox` turns that warning into a proposal Inbox item with only
+discussion/review authority; it must not create schedules or dispatch jobs.
+`atlas:ai:long-running-work-declare-baseline --apply --json` is the only
+allowed baseline write path in this phase. It creates missing Structure Mother
+schedule declarations disabled by default, with `next_run_at=null`, no dispatch,
+no workspace path exposure, no runtime/provider authority and operator
+enablement required before execution.

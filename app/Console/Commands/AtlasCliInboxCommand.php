@@ -24,6 +24,14 @@ class AtlasCliInboxCommand extends Command
         {--cursor= : Cursor returned by a previous JSON list response}
         {--projection-hours= : Hours window for run_ledger_projection}
         {--projection-limit= : Max ledger events for run_ledger_projection}
+        {--snoozed-until= : ISO-8601 timestamp for snooze actions}
+        {--provider= : Provider key for provider cost-rate actions}
+        {--model= : Model/runtime identifier for provider cost-rate actions}
+        {--input-microusd= : Input price in micro-USD per 1K tokens for provider cost-rate actions}
+        {--output-microusd= : Output price in micro-USD per 1K tokens for provider cost-rate actions}
+        {--currency=USD : Currency code for provider cost-rate actions}
+        {--effective-from= : Effective start datetime for provider cost-rate actions}
+        {--effective-until= : Optional effective end datetime for provider cost-rate actions}
         {--dry-run : Preview run_ledger_projection without writing projection tables}
         {--json : Print machine-readable JSON}';
 
@@ -152,6 +160,14 @@ class AtlasCliInboxCommand extends Command
             'reason' => is_string($this->option('reason')) ? $this->option('reason') : null,
             'projection_hours' => $this->option('projection-hours'),
             'projection_limit' => $this->option('projection-limit'),
+            'snoozed_until' => $this->option('snoozed-until'),
+            'provider' => $this->option('provider'),
+            'model' => $this->option('model'),
+            'input_microusd' => $this->option('input-microusd'),
+            'output_microusd' => $this->option('output-microusd'),
+            'currency' => $this->option('currency'),
+            'effective_from' => $this->option('effective-from'),
+            'effective_until' => $this->option('effective-until'),
             'dry_run' => (bool) $this->option('dry-run'),
         ], 'cli-'.$action.'-'.$item->id);
 

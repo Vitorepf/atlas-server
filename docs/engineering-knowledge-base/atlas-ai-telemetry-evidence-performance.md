@@ -70,6 +70,15 @@ pecas se relacionam.
   estimativa operacional em cobranca real.
 - Custo desconhecido e problema de observabilidade quando nao existe identidade
   provider/model ou rate suficiente.
+- `ai_traces` projetados do Evidence Ledger (`schema_version=
+  atlas.ledger_projection.metadata.v1`, `projection_id=ai_traces`) sem
+  provider/model nao sao execucoes de provider. Eles devem aparecer como
+  `cost_confidence=estimated`, `cost_source=provider_not_applicable` e
+  `cost_mode=not_applicable`, e o report de missing cost rates deve exclui-los
+  mesmo quando houver summary antigo ainda nao recomputado.
+- Providers CLI reais sem rate ativo continuam acionaveis via
+  `missing_active_cost_rate`; o operador deve preencher rates atuais e o Atlas
+  nao deve inferir precos.
 - `aggregator_version` muda sempre que schema, semantica ou comparabilidade de
   rollup mudar.
 - Trend, anomaly e benchmark nao podem atravessar `aggregator_version` diferente

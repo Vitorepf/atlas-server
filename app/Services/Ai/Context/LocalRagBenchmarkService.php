@@ -6,6 +6,7 @@ use App\Models\AtlasLedgerEvent;
 use App\Models\AtlasMemoryEntry;
 use App\Models\AtlasVerbatimMemory;
 use App\Services\Ai\AtlasHybridMemoryRetrievalService;
+use App\Services\Ai\AtlasMemoryPrivacyService;
 use App\Services\Ai\Kernel\Architecture\AtlasRuntimeLanguageBoundaryReportService;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
@@ -20,6 +21,7 @@ final class LocalRagBenchmarkService
         private readonly ContextRetrievalRouter $router,
         private readonly LocalRagReadinessService $readiness,
         private readonly AtlasHybridMemoryRetrievalService $memoryRetrieval,
+        private readonly AtlasMemoryPrivacyService $memoryPrivacy,
         private readonly AtlasEvidenceLedger $ledger,
         private readonly AtlasRuntimeLanguageBoundaryReportService $runtimeBoundary,
     ) {}
@@ -89,10 +91,12 @@ final class LocalRagBenchmarkService
                 'promotion_allowed' => false,
                 'auto_promotion_allowed' => false,
                 'future_runtime_invocation_contract' => $this->futureGraphRuntimeInvocationContract(),
+                'external_vector_rag_preflight_contract' => $this->externalRetrievalPromotionPreflight($qualityCorpus, $memoryRecallCorpus),
                 'review_packet' => $this->promotionReviewPacket($qualityCorpus),
                 'allowed_outputs' => [
                     'proposal_only',
                     'review_packet',
+                    'external_vector_rag_preflight_contract',
                     'future_ap_scope',
                     'rollback_plan',
                 ],
@@ -100,6 +104,8 @@ final class LocalRagBenchmarkService
                     'policy_patch_auto_apply',
                     'python_runtime_auto_enable',
                     'graph_rag_auto_enable',
+                    'external_vector_store_auto_enable',
+                    'embedding_generation_auto_enable',
                     'parallel_memory_creation',
                     'provider_bypass',
                 ],
@@ -166,6 +172,112 @@ final class LocalRagBenchmarkService
             ],
             'quality_corpus_status' => $qualityCorpus['status'] ?? 'unknown',
         ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $qualityCorpus
+     * @param  array<string,mixed>  $memoryRecallCorpus
+     * @return array<string,mixed>
+     */
+    private function externalRetrievalPromotionPreflight(array $qualityCorpus, array $memoryRecallCorpus): array
+    {
+        $goldenSet = (array) ($memoryRecallCorpus['golden_set'] ?? []);
+        $lineage = [
+            'quality_corpus_id' => (string) ($qualityCorpus['corpus_id'] ?? 'unknown'),
+            'quality_corpus_status' => (string) ($qualityCorpus['status'] ?? 'unknown'),
+            'memory_recall_status' => (string) ($memoryRecallCorpus['status'] ?? 'unknown'),
+            'memory_recall_case_count' => (int) ($memoryRecallCorpus['case_count'] ?? 0),
+            'memory_recall_golden_set_hash' => hash('sha256', json_encode($goldenSet, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)),
+            'raw_query_persisted' => false,
+            'raw_context_persisted' => false,
+        ];
+
+        $payload = [
+            'schema_version' => 'atlas.external_vector_rag.promotion_preflight.v1',
+            'status' => 'blocked_until_human_review_ap_and_decision_receipt',
+            'mode' => 'proposal_only_no_embedding_no_external_runtime',
+            'model_ownership' => [
+                'structure_mother_modules' => [
+                    'Memory/Context Engine',
+                    'Knowledge Base/Open Brain',
+                ],
+                'not_owned_by' => 'Voice/LiveKit',
+                'primary_future_surface' => 'Constelacao',
+            ],
+            'runtime_family' => 'python_ai_data',
+            'candidate_capability_id' => 'memory_open_brain.external_vector_rag_candidate',
+            'architecture_operation_id' => 'external_vector_rag_promotion_preflight',
+            'proposal_only' => true,
+            'human_review_required' => true,
+            'future_ap_required' => true,
+            'decision_receipt_required' => true,
+            'runtime_invocation_contract_required' => true,
+            'rollback_plan_required' => true,
+            'privacy_retention_delete_cascade_review_required' => true,
+            'cost_storage_slo_review_required' => true,
+            'provider_safety_review_required' => true,
+            'golden_set_benchmark_required' => true,
+            'evidence_ledger_required' => true,
+            'lineage' => $lineage,
+            'execution_gate' => [
+                'status' => 'blocked',
+                'runtime_execution_allowed' => false,
+                'provider_dispatch_allowed' => false,
+                'embedding_generation_allowed_now' => false,
+                'external_vector_store_read_allowed' => false,
+                'external_vector_store_write_allowed' => false,
+                'memory_write_allowed' => false,
+                'context_builder_write_allowed' => false,
+                'constellation_promotion_allowed' => false,
+                'policy_auto_apply_allowed' => false,
+                'raw_content_export_allowed' => false,
+            ],
+            'required_before_any_embedding_or_external_rag' => [
+                'docs/ap/AP-683-local-rag-graph-promotion-review.md',
+                'docs/ap/AP-684-graphify-external-graph-harness.md',
+                'successor_external_vector_rag_runtime_ap',
+                'human_reviewed_curator_proposal',
+                'decision_receipt_hash',
+                'atlas.runtime_invocation_contract.v1',
+                'provider_safe_redaction_and_privacy_review',
+                'retention_policy_and_delete_cascade_for_embeddings',
+                'golden_set_benchmark_with_no_contamination',
+                'evidence_ledger_event_contract',
+                'rollback_plan',
+                'cost_storage_slo_freshness_review',
+            ],
+            'review_packet' => [
+                'schema_version' => 'atlas.external_vector_rag.promotion_preflight_review_packet.v1',
+                'status' => 'human_review_required',
+                'required_human_decision' => 'approve_or_reject_external_vector_rag_promotion_scope',
+                'evidence_required' => [
+                    'LOCAL_RAG_QUALITY_CORPUS_EVALUATED',
+                    'LOCAL_RAG_GRAPH_PROMOTION_BLOCKED',
+                    'memory_recall_golden_set_hash',
+                    'AP-683_or_successor_scope',
+                    'AP-684_external_graph_review_packet',
+                    'privacy_retention_delete_cascade_review',
+                    'cost_storage_slo_review',
+                ],
+                'forbidden_actions' => [
+                    'generate_external_embeddings',
+                    'write_external_vector_store',
+                    'read_external_vector_store_for_context',
+                    'execute_python_graph_rag',
+                    'send_raw_capture_to_provider',
+                    'promote_to_constelacao',
+                    'auto_apply_policy_patch',
+                    'bypass_kernel_decision_receipt',
+                ],
+            ],
+            'raw_query_persisted' => false,
+            'raw_context_persisted' => false,
+            'raw_capture_exposed' => false,
+        ];
+        $payload['preflight_hash_algorithm'] = 'sha256';
+        $payload['preflight_hash'] = hash('sha256', json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
+
+        return $payload;
     }
 
     /**
@@ -417,7 +529,7 @@ final class LocalRagBenchmarkService
 
         $fixtures = $this->memoryRecallFixtures();
         if ($fixtures === []) {
-            return $this->emptyMemoryRecallCorpus('no_promoted_provider_safe_memory');
+            return $this->emptyMemoryRecallCorpus('no_governed_provider_safe_memory');
         }
 
         $cases = collect($fixtures)
@@ -477,7 +589,8 @@ final class LocalRagBenchmarkService
                 'raw_query_persisted' => false,
                 'raw_context_persisted' => false,
                 'provider_safe_only' => true,
-                'requires_promoted_registry_or_verbatim_memory' => true,
+                'promoted_memory_preferred' => true,
+                'governed_provider_safe_fallback_allowed' => true,
             ],
         ];
     }
@@ -486,6 +599,20 @@ final class LocalRagBenchmarkService
      * @return array<int,array<string,mixed>>
      */
     private function memoryRecallFixtures(): array
+    {
+        $fixtures = $this->promotedMemoryRecallFixtures();
+
+        if ($fixtures !== []) {
+            return array_slice($this->nonEmptyMemoryRecallFixtures($fixtures), 0, 6);
+        }
+
+        return array_slice($this->nonEmptyMemoryRecallFixtures($this->governedProviderSafeMemoryRecallFixtures()), 0, 6);
+    }
+
+    /**
+     * @return array<int,array<string,mixed>>
+     */
+    private function promotedMemoryRecallFixtures(): array
     {
         $fixtures = [];
 
@@ -506,7 +633,7 @@ final class LocalRagBenchmarkService
                         'source_ref_id' => $entry->id,
                         'query' => trim(implode(' ', array_filter([$entry->title, $entry->summary]))),
                         'context' => $this->memoryContext($entry),
-                        'source' => 'memory_registry',
+                        'source' => 'memory_registry_promoted',
                     ];
                 });
         }
@@ -529,12 +656,76 @@ final class LocalRagBenchmarkService
                         'source_ref_id' => $memory->id,
                         'query' => trim(implode(' ', array_filter([$memory->title, $memory->summary]))),
                         'context' => $this->memoryContext($memory),
-                        'source' => 'verbatim_store',
+                        'source' => 'verbatim_store_promoted',
                     ];
                 });
         }
 
-        return array_slice(array_values(array_filter($fixtures, fn (array $fixture): bool => trim((string) $fixture['query']) !== '')), 0, 6);
+        return $fixtures;
+    }
+
+    /**
+     * @return array<int,array<string,mixed>>
+     */
+    private function governedProviderSafeMemoryRecallFixtures(): array
+    {
+        $fixtures = [];
+
+        if (Schema::hasTable('atlas_memory_entries')) {
+            AtlasMemoryEntry::query()
+                ->where('status', 'active')
+                ->whereNull('archived_at')
+                ->latest('recorded_at')
+                ->limit(12)
+                ->get()
+                ->filter(fn (AtlasMemoryEntry $entry): bool => $this->memoryPrivacy->providerAllowed($entry))
+                ->take(3)
+                ->each(function (AtlasMemoryEntry $entry) use (&$fixtures): void {
+                    $fixtures[] = [
+                        'id' => 'registry:'.hash('sha256', $entry->id),
+                        'source_ref_type' => 'atlas_memory_entry',
+                        'source_ref_id' => $entry->id,
+                        'query' => trim(implode(' ', array_filter([
+                            $this->memoryPrivacy->providerTitle($entry),
+                            $this->memoryPrivacy->providerSummary($entry),
+                        ]))),
+                        'context' => $this->memoryContext($entry),
+                        'source' => 'memory_registry_governed_provider_safe_fallback',
+                    ];
+                });
+        }
+
+        if (Schema::hasTable('atlas_verbatim_memories')) {
+            AtlasVerbatimMemory::query()
+                ->where('status', 'active')
+                ->whereNull('archived_at')
+                ->where('external_ai_allowed', true)
+                ->whereNotNull('redacted_text')
+                ->latest('recorded_at')
+                ->limit(3)
+                ->get()
+                ->each(function (AtlasVerbatimMemory $memory) use (&$fixtures): void {
+                    $fixtures[] = [
+                        'id' => 'verbatim:'.hash('sha256', $memory->id),
+                        'source_ref_type' => 'atlas_verbatim_memory',
+                        'source_ref_id' => $memory->id,
+                        'query' => trim(implode(' ', array_filter([$memory->title, $memory->summary]))),
+                        'context' => $this->memoryContext($memory),
+                        'source' => 'verbatim_store_governed_provider_safe_fallback',
+                    ];
+                });
+        }
+
+        return $fixtures;
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $fixtures
+     * @return array<int,array<string,mixed>>
+     */
+    private function nonEmptyMemoryRecallFixtures(array $fixtures): array
+    {
+        return array_values(array_filter($fixtures, fn (array $fixture): bool => trim((string) $fixture['query']) !== ''));
     }
 
     /**
@@ -546,7 +737,9 @@ final class LocalRagBenchmarkService
         return [
             'schema_version' => 'atlas.memory_recall_golden_set.v1',
             'case_count' => count($fixtures),
-            'selection_rule' => 'promoted_provider_safe_registry_or_verbatim_memory_latest_first',
+            'selection_rule' => collect($fixtures)->contains(fn (array $fixture): bool => str_contains((string) ($fixture['source'] ?? ''), 'fallback'))
+                ? 'promoted_provider_safe_latest_first_else_governed_provider_safe_active_latest_first'
+                : 'promoted_provider_safe_registry_or_verbatim_memory_latest_first',
             'raw_query_persisted' => false,
             'raw_context_persisted' => false,
             'cases' => collect($fixtures)

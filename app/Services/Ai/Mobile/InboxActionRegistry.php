@@ -106,6 +106,7 @@ class InboxActionRegistry
                 'run_ledger_projection' => $this->runLedgerProjection($locked, $input),
                 'review_retrieval_regression' => $this->reviewRetrievalRegression($locked, $input),
                 'review_retrieval_shadow_scope' => $this->reviewRetrievalShadowScope($locked, $input),
+                'review_external_vector_rag_preflight' => $this->reviewExternalVectorRagPreflight($locked, $input),
                 'record_rivals_review' => $this->recordRivalsReview($locked, $input),
                 'configure_provider_cost_rates' => $this->configureProviderCostRates($locked, $input),
                 'ignore_30d' => $this->ignoreThirtyDays($locked),
@@ -769,13 +770,15 @@ class InboxActionRegistry
         if ($shadowPlan === []) {
             throw ValidationException::withMessages(['action' => 'Item nao contem retrieval_rivals_shadow_plan para revisao.']);
         }
+        $shadowCaseContract = $this->array(data_get($payload, 'retrieval_rivals_shadow_case_contract'));
 
         $decision = $this->string($input['decision'] ?? null) ?? 'needs_more_evidence';
         if (! in_array($decision, ['approved_scope', 'rejected_scope', 'needs_more_evidence', 'reviewed'], true)) {
             throw ValidationException::withMessages(['decision' => 'Decision invalida para review_retrieval_shadow_scope.']);
         }
 
-        $decisionReceipt = $this->retrievalShadowScopeDecisionReceipt($shadowPlan, $decision, $input);
+        $privacyProviderSafetyReview = $this->retrievalShadowScopePrivacyProviderSafetyReview($shadowPlan, $shadowCaseContract);
+        $decisionReceipt = $this->retrievalShadowScopeDecisionReceipt($shadowPlan, $shadowCaseContract, $privacyProviderSafetyReview, $decision, $input);
         $reviewAction = [
             'schema_version' => 'atlas.inbox_action.memory_retrieval_shadow_scope_review.v1',
             'decision' => $decision,
@@ -785,7 +788,10 @@ class InboxActionRegistry
             'no_policy_patch' => true,
             'no_provider_call' => true,
             'plan_hash' => $this->string(data_get($shadowPlan, 'plan_hash')),
+            'case_contract_hash' => $this->string(data_get($shadowCaseContract, 'case_contract_hash')),
             'review_ap' => $this->string(data_get($shadowPlan, 'review_ap')),
+            'privacy_provider_safety_review' => $privacyProviderSafetyReview,
+            'privacy_provider_safety_review_hash' => $privacyProviderSafetyReview['review_hash'],
             'decision_receipt' => $decisionReceipt,
             'decision_receipt_hash' => $decisionReceipt['receipt_hash'],
             'review_signal' => $this->array(data_get($payload, 'proposal_contract.review_signal')),
@@ -810,16 +816,71 @@ class InboxActionRegistry
 
     /**
      * @param  array<string,mixed>  $shadowPlan
+     * @param  array<string,mixed>  $shadowCaseContract
+     * @return array<string,mixed>
+     */
+    private function retrievalShadowScopePrivacyProviderSafetyReview(array $shadowPlan, array $shadowCaseContract): array
+    {
+        $caseContractPresent = $shadowCaseContract !== [];
+        $checks = [
+            'plan_provider_call_blocked' => data_get($shadowPlan, 'safety.provider_call_allowed', false) === false,
+            'plan_runtime_execution_blocked' => data_get($shadowPlan, 'safety.runtime_execution_allowed', false) === false,
+            'plan_memory_write_blocked' => data_get($shadowPlan, 'safety.memory_write_allowed', false) === false,
+            'plan_raw_query_blocked' => data_get($shadowPlan, 'raw_query_persisted', false) === false,
+            'plan_raw_context_blocked' => data_get($shadowPlan, 'raw_context_persisted', false) === false,
+            'case_contract_present' => $caseContractPresent,
+            'case_contract_provider_call_blocked' => $caseContractPresent && data_get($shadowCaseContract, 'safety.provider_call_allowed', false) === false,
+            'case_contract_runtime_execution_blocked' => $caseContractPresent && data_get($shadowCaseContract, 'safety.runtime_execution_allowed', false) === false,
+            'case_contract_memory_write_blocked' => $caseContractPresent && data_get($shadowCaseContract, 'safety.memory_write_allowed', false) === false,
+            'case_contract_raw_capture_blocked' => $caseContractPresent && data_get($shadowCaseContract, 'raw_capture_exposed', false) === false,
+            'runtime_authority_blocked' => $caseContractPresent && in_array('write_memory_directly', (array) data_get($shadowCaseContract, 'runtime_invocation_contracts.forbidden_runtime_authority', []), true),
+        ];
+        $status = collect($checks)->every(fn (bool $passed): bool => $passed) ? 'passed_blocked' : 'attention';
+        $review = [
+            'schema_version' => 'atlas.memory_retrieval_shadow_scope_privacy_provider_safety_review.v1',
+            'status' => $status,
+            'provider_safe_for_review' => $status === 'passed_blocked',
+            'shadow_execution_allowed_now' => false,
+            'provider_call_allowed' => false,
+            'runtime_execution_allowed' => false,
+            'memory_write_allowed' => false,
+            'raw_query_allowed' => false,
+            'raw_context_allowed' => false,
+            'raw_capture_allowed' => false,
+            'checks' => $checks,
+            'case_contract_hash' => $this->string(data_get($shadowCaseContract, 'case_contract_hash')),
+            'plan_hash' => $this->string(data_get($shadowPlan, 'plan_hash')),
+        ];
+        $review['review_hash'] = DecisionReceiptHash::hash([
+            'schema_version' => $review['schema_version'],
+            'status' => $review['status'],
+            'checks' => $review['checks'],
+            'case_contract_hash' => $review['case_contract_hash'],
+            'plan_hash' => $review['plan_hash'],
+            'shadow_execution_allowed_now' => $review['shadow_execution_allowed_now'],
+        ]);
+
+        return $review;
+    }
+
+    /**
+     * @param  array<string,mixed>  $shadowPlan
+     * @param  array<string,mixed>  $shadowCaseContract
+     * @param  array<string,mixed>  $privacyProviderSafetyReview
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>
      */
-    private function retrievalShadowScopeDecisionReceipt(array $shadowPlan, string $decision, array $input): array
+    private function retrievalShadowScopeDecisionReceipt(array $shadowPlan, array $shadowCaseContract, array $privacyProviderSafetyReview, string $decision, array $input): array
     {
         $planHash = $this->string(data_get($shadowPlan, 'plan_hash')) ?? 'unknown_plan_hash';
+        $caseContractHash = $this->string(data_get($shadowCaseContract, 'case_contract_hash'));
+        $privacyProviderSafetyReviewHash = $this->string(data_get($privacyProviderSafetyReview, 'review_hash'));
         $reviewAp = $this->string(data_get($shadowPlan, 'review_ap')) ?? 'docs/ap/AP-693-retrieval-rivals-shadow-comparison-contract.md';
         $inputsHash = DecisionReceiptHash::hash([
             'decision' => $decision,
             'plan_hash' => $planHash,
+            'case_contract_hash' => $caseContractHash,
+            'privacy_provider_safety_review_hash' => $privacyProviderSafetyReviewHash,
             'review_ap' => $reviewAp,
             'required_human_decision' => data_get($shadowPlan, 'review_packet.required_human_decision'),
         ]);
@@ -831,6 +892,8 @@ class InboxActionRegistry
             'signed_by' => 'atlas.inbox.review_retrieval_shadow_scope',
             'decision' => $decision,
             'plan_hash' => $planHash,
+            'case_contract_hash' => $caseContractHash,
+            'privacy_provider_safety_review_hash' => $privacyProviderSafetyReviewHash,
             'review_ap' => $reviewAp,
             'inputs_hash' => $inputsHash,
             'receipt_hash_fields' => [
@@ -840,6 +903,8 @@ class InboxActionRegistry
                 'signed_by',
                 'decision',
                 'plan_hash',
+                'case_contract_hash',
+                'privacy_provider_safety_review_hash',
                 'review_ap',
                 'inputs_hash',
                 'shadow_execution_allowed_now',
@@ -848,16 +913,15 @@ class InboxActionRegistry
                 'no_provider_call',
             ],
             'scope_approved' => $decision === 'approved_scope',
+            'shadow_case_contract_declared' => $caseContractHash !== null,
+            'privacy_provider_safety_review_passed' => data_get($privacyProviderSafetyReview, 'status') === 'passed_blocked',
             'shadow_execution_allowed_now' => false,
             'no_runtime_execution' => true,
             'no_policy_patch' => true,
             'no_provider_call' => true,
             'future_shadow_run_requires' => [
-                'shadow_case_contract',
-                'evidence_ledger_event_contract',
-                'privacy_provider_safety_review',
-                'rollback_plan',
-                'runtime_invocation_contract',
+                'execution_decision_receipt',
+                'focused_shadow_execution_tests',
             ],
             'forbidden_actions' => [
                 'execute_python_graph_rag',
@@ -879,12 +943,210 @@ class InboxActionRegistry
             'signed_by' => $receipt['signed_by'],
             'decision' => $receipt['decision'],
             'plan_hash' => $receipt['plan_hash'],
+            'case_contract_hash' => $receipt['case_contract_hash'],
+            'privacy_provider_safety_review_hash' => $receipt['privacy_provider_safety_review_hash'],
             'review_ap' => $receipt['review_ap'],
             'inputs_hash' => $receipt['inputs_hash'],
             'shadow_execution_allowed_now' => $receipt['shadow_execution_allowed_now'],
             'no_runtime_execution' => $receipt['no_runtime_execution'],
             'no_policy_patch' => $receipt['no_policy_patch'],
             'no_provider_call' => $receipt['no_provider_call'],
+        ]);
+
+        return $receipt;
+    }
+
+    /**
+     * @param  array<string,mixed>  $input
+     * @return array{item:AiInboxItem,external_vector_rag_preflight_review_action:array<string,mixed>,reviewed:bool,no_external_action:bool}
+     */
+    private function reviewExternalVectorRagPreflight(AiInboxItem $item, array $input): array
+    {
+        $payload = $item->payload ?? [];
+        $contract = $this->array(data_get($payload, 'external_vector_rag_preflight_contract'));
+        if ($contract === []) {
+            throw ValidationException::withMessages(['action' => 'Item nao contem external_vector_rag_preflight_contract para revisao.']);
+        }
+
+        $decision = $this->string($input['decision'] ?? null) ?? 'needs_more_evidence';
+        if (! in_array($decision, ['approved_scope', 'rejected_scope', 'needs_more_evidence', 'reviewed'], true)) {
+            throw ValidationException::withMessages(['decision' => 'Decision invalida para review_external_vector_rag_preflight.']);
+        }
+
+        $safetyReview = $this->externalVectorRagPreflightSafetyReview($contract);
+        $decisionReceipt = $this->externalVectorRagPreflightDecisionReceipt($contract, $safetyReview, $decision, $input);
+        $reviewAction = [
+            'schema_version' => 'atlas.inbox_action.external_vector_rag_preflight_review.v1',
+            'decision' => $decision,
+            'reviewed' => true,
+            'scope_approved' => $decision === 'approved_scope',
+            'no_external_action' => true,
+            'no_runtime_execution' => true,
+            'no_policy_patch' => true,
+            'no_provider_call' => true,
+            'embedding_generation_allowed_now' => false,
+            'external_vector_store_write_allowed_now' => false,
+            'external_vector_store_read_allowed_now' => false,
+            'constellation_promotion_allowed_now' => false,
+            'preflight_hash' => $this->string(data_get($contract, 'preflight_hash')),
+            'safety_review' => $safetyReview,
+            'safety_review_hash' => $safetyReview['review_hash'],
+            'decision_receipt' => $decisionReceipt,
+            'decision_receipt_hash' => $decisionReceipt['receipt_hash'],
+            'review_signal' => $this->array(data_get($payload, 'proposal_contract.review_signal')),
+            'operator_note' => Str::limit($this->string($input['note'] ?? $input['operator_note'] ?? null) ?? '', 500, ''),
+            'completed_at' => now()->toJSON(),
+        ];
+
+        $payload['external_vector_rag_preflight_review_action'] = $reviewAction;
+        $item->update([
+            'payload' => $payload,
+            'status' => $item->status === 'unread' ? 'read' : $item->status,
+            'read_at' => $item->read_at ?? now(),
+        ]);
+
+        return [
+            'item' => $item->refresh(),
+            'external_vector_rag_preflight_review_action' => $reviewAction,
+            'reviewed' => true,
+            'no_external_action' => true,
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $contract
+     * @return array<string,mixed>
+     */
+    private function externalVectorRagPreflightSafetyReview(array $contract): array
+    {
+        $checks = [
+            'proposal_only' => data_get($contract, 'mode') === 'proposal_only_no_embedding_no_external_runtime',
+            'runtime_execution_blocked' => data_get($contract, 'execution_gate.runtime_execution_allowed', false) === false,
+            'provider_dispatch_blocked' => data_get($contract, 'execution_gate.provider_dispatch_allowed', false) === false,
+            'embedding_generation_blocked' => data_get($contract, 'execution_gate.embedding_generation_allowed_now', false) === false,
+            'external_vector_write_blocked' => data_get($contract, 'execution_gate.external_vector_store_write_allowed', false) === false,
+            'external_vector_read_blocked' => data_get($contract, 'execution_gate.external_vector_store_read_allowed', false) === false,
+            'memory_write_blocked' => data_get($contract, 'execution_gate.memory_write_allowed', false) === false,
+            'context_builder_write_blocked' => data_get($contract, 'execution_gate.context_builder_write_allowed', false) === false,
+            'constellation_promotion_blocked' => data_get($contract, 'execution_gate.constellation_promotion_allowed', false) === false,
+            'raw_content_export_blocked' => data_get($contract, 'execution_gate.raw_content_export_allowed', false) === false,
+            'retention_delete_cascade_required' => in_array('retention_policy_and_delete_cascade_for_embeddings', (array) data_get($contract, 'required_before_any_embedding_or_external_rag', []), true),
+            'review_packet_forbids_embeddings' => in_array('generate_external_embeddings', (array) data_get($contract, 'review_packet.forbidden_actions', []), true),
+        ];
+        $status = collect($checks)->every(fn (bool $passed): bool => $passed) ? 'passed_blocked' : 'attention';
+        $review = [
+            'schema_version' => 'atlas.external_vector_rag.preflight_safety_review.v1',
+            'status' => $status,
+            'provider_safe_for_review' => $status === 'passed_blocked',
+            'runtime_execution_allowed' => false,
+            'provider_call_allowed' => false,
+            'embedding_generation_allowed_now' => false,
+            'external_vector_store_write_allowed_now' => false,
+            'external_vector_store_read_allowed_now' => false,
+            'memory_write_allowed_now' => false,
+            'context_builder_write_allowed_now' => false,
+            'constellation_promotion_allowed_now' => false,
+            'checks' => $checks,
+            'preflight_hash' => $this->string(data_get($contract, 'preflight_hash')),
+        ];
+        $review['review_hash'] = DecisionReceiptHash::hash([
+            'schema_version' => $review['schema_version'],
+            'status' => $review['status'],
+            'checks' => $review['checks'],
+            'preflight_hash' => $review['preflight_hash'],
+        ]);
+
+        return $review;
+    }
+
+    /**
+     * @param  array<string,mixed>  $contract
+     * @param  array<string,mixed>  $safetyReview
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    private function externalVectorRagPreflightDecisionReceipt(array $contract, array $safetyReview, string $decision, array $input): array
+    {
+        $preflightHash = $this->string(data_get($contract, 'preflight_hash')) ?? 'unknown_preflight_hash';
+        $safetyReviewHash = $this->string(data_get($safetyReview, 'review_hash')) ?? 'unknown_safety_review_hash';
+        $inputsHash = DecisionReceiptHash::hash([
+            'decision' => $decision,
+            'preflight_hash' => $preflightHash,
+            'safety_review_hash' => $safetyReviewHash,
+            'review_packet_schema_version' => data_get($contract, 'review_packet.schema_version'),
+            'required_human_decision' => data_get($contract, 'review_packet.required_human_decision'),
+        ]);
+        $receipt = [
+            'schema_version' => 'atlas.external_vector_rag.preflight_decision_receipt.v1',
+            'receipt_id' => 'external_vector_rag_preflight:'.substr($inputsHash, 0, 32),
+            'issued_at' => now()->toJSON(),
+            'dry_run' => true,
+            'signed_by' => 'atlas.inbox.review_external_vector_rag_preflight',
+            'decision' => $decision,
+            'preflight_hash' => $preflightHash,
+            'safety_review_hash' => $safetyReviewHash,
+            'inputs_hash' => $inputsHash,
+            'receipt_hash_fields' => [
+                'schema_version',
+                'receipt_id',
+                'dry_run',
+                'signed_by',
+                'decision',
+                'preflight_hash',
+                'safety_review_hash',
+                'inputs_hash',
+                'scope_approved',
+                'no_runtime_execution',
+                'no_provider_call',
+                'embedding_generation_allowed_now',
+                'external_vector_store_write_allowed_now',
+                'constellation_promotion_allowed_now',
+            ],
+            'scope_approved' => $decision === 'approved_scope',
+            'safety_review_passed' => data_get($safetyReview, 'status') === 'passed_blocked',
+            'no_runtime_execution' => true,
+            'no_policy_patch' => true,
+            'no_provider_call' => true,
+            'embedding_generation_allowed_now' => false,
+            'external_vector_store_write_allowed_now' => false,
+            'external_vector_store_read_allowed_now' => false,
+            'memory_write_allowed_now' => false,
+            'context_builder_write_allowed_now' => false,
+            'constellation_promotion_allowed_now' => false,
+            'future_activation_requires' => [
+                'successor_external_vector_rag_runtime_ap',
+                'runtime_invocation_contract',
+                'execution_decision_receipt',
+                'privacy_retention_delete_cascade_review',
+                'focused_runtime_boundary_tests',
+            ],
+            'forbidden_actions' => [
+                'generate_external_embeddings',
+                'write_external_vector_store',
+                'read_external_vector_store_for_context',
+                'send_raw_capture_to_provider',
+                'promote_to_constelacao',
+                'auto_apply_policy_patch',
+            ],
+            'operator_note_hash' => ($note = $this->string($input['note'] ?? $input['operator_note'] ?? null))
+                ? hash('sha256', $note)
+                : null,
+        ];
+        $receipt['receipt_hash'] = DecisionReceiptHash::hash([
+            'schema_version' => $receipt['schema_version'],
+            'receipt_id' => $receipt['receipt_id'],
+            'dry_run' => $receipt['dry_run'],
+            'signed_by' => $receipt['signed_by'],
+            'decision' => $receipt['decision'],
+            'preflight_hash' => $receipt['preflight_hash'],
+            'safety_review_hash' => $receipt['safety_review_hash'],
+            'inputs_hash' => $receipt['inputs_hash'],
+            'scope_approved' => $receipt['scope_approved'],
+            'no_runtime_execution' => $receipt['no_runtime_execution'],
+            'no_provider_call' => $receipt['no_provider_call'],
+            'embedding_generation_allowed_now' => $receipt['embedding_generation_allowed_now'],
+            'external_vector_store_write_allowed_now' => $receipt['external_vector_store_write_allowed_now'],
+            'constellation_promotion_allowed_now' => $receipt['constellation_promotion_allowed_now'],
         ]);
 
         return $receipt;

@@ -66,6 +66,12 @@ For API/app captures, this is persisted as `captures.metadata.cognitive_quaranti
 with source lineage and a content hash. The capture can feed review and curation,
 but cannot enter provider context, memory registry, embeddings or constellation
 surfaces until an explicit promotion path changes those flags.
+The same block includes `immune_audit` (`atlas.capture.cognitive_immune_audit.v1`)
+with invariant, noise gate, promotion gates and audit hash; it proves why raw
+capture is not memory/context/decision and never authorizes learning, embedding
+or promotion. Capture/proposal safety resources may expose only schema/status/hash,
+invariant when present, noise-gate status and closed learning/memory/context/
+constellation flags, never raw capture text, raw evidence or provider payloads.
 Duplicate capture ingest by `client_id` must remain idempotent and emit
 `atlas.capture.ingest_replay_receipt.v1` audit evidence with content/client
 hashes, quarantine flags and `raw_content_exposed=false`.
@@ -79,6 +85,10 @@ Accepting a curation proposal can explicitly promote memory only when the caller
 sets `promote_to_memory=true`. That path must use `ai_memory_deltas`,
 `AtlasMemoryDeltaPromotionService` and a `atlas.memory.promotion_receipt.v1`
 receipt linking proposal, capture, semantic note, delta and memory entry.
+Capture-backed `ai_memory_deltas` must carry quarantine evidence with content
+hash, proposal link and immune audit hash/status; legacy captures use deterministic
+`legacy_missing` hash-only fallback with learning/memory/context flags closed.
+`atlas.memory_delta.safety.v1` may project those fields by hash/status only.
 Exact capture evidence can be promoted only when the caller sets
 `promote_to_verbatim=true`. That path must use `AtlasVerbatimMemoryService`,
 store provider-safe redaction metadata and emit
@@ -98,11 +108,12 @@ accepted deltas are promotion candidates only, and Open Brain/context eligibilit
 stays closed until a governed promotion creates a Memory Registry entry. Safety
 metadata may include hashes/counts, not raw review reasons.
 
-Memory Registry API payloads must expose `safety` as
-`atlas.memory_entry.safety.v1`, derived from status, privacy class,
-`external_ai_allowed`, redaction state and content hash. This is a response
-contract for HTTP and CLI consumers; canonical provider filtering still stays in
-the Memory Privacy service before recall or projection.
+Memory Registry API payloads must expose `safety` as `atlas.memory_entry.safety.v1`,
+derived from status, privacy, redaction and content hash; provider filtering
+still stays in Memory Privacy before recall/projection. Promoted memories also
+expose `atlas.memory_entry.lineage_safety.v1`: source type, hash-only source/
+delta identity, origin, evidence count, confirmation, valid window and freshness
+status, so Open Brain/Constelacao can reason without raw promotion evidence.
 
 Verbatim Store API payloads must expose `safety` as
 `atlas.verbatim_memory.safety.v1`, including whether exact local text was
@@ -113,8 +124,11 @@ The same safety contract is emitted by `atlas:memory:verbatim --json`.
 
 Open Brain context pack exports must expose `safety` as
 `atlas.open_brain.context_pack_safety.v1`, declaring provider-safe-only export,
-raw-content exposure/persistence closed, audit persistence state and safe counts
-for refs/recall/registry/verbatim/semantic inputs.
+raw-content exposure/persistence closed, audit query raw persistence closed,
+audit persistence state and safe counts for refs/recall/registry/verbatim/
+semantic inputs. Audit `query_json` must be hash-only for objective/workspace,
+and audit listing APIs must sanitize legacy rows and expose
+`atlas.open_brain.audit_query_safety.v1`.
 
 Accepting a curation proposal can also promote exact reviewed local text to
 Verbatim Store with `promote_to_verbatim=true`. That path must write
@@ -129,6 +143,15 @@ delta review. It also exposes `review_workflow.safety` and
 `SemanticCurationProposalResource.safety` from cognitive quarantine so UI/API
 consumers can fail closed for provider export, Open Brain context and raw
 content exposure. It must not include raw capture evidence.
+
+Capture/Inbox pipeline integrity is checked by
+`atlas:ai:capture-inbox-pipeline-report --json`. It is read-only and must report
+recent capture quarantine, content intelligence, proposal lineage, memory delta,
+capture link and operational inbox coverage before captures can be treated as
+Memory/Open Brain inputs. Legacy capture repair is isolated in
+`atlas:ai:capture-inbox-pipeline-backfill-contracts`; dry-run is default, and
+`--write` may only add conservative metadata contracts/backlinks while keeping
+provider export, Open Brain context, embeddings and memory eligibility closed.
 
 Promotion is earned by evidence, scope, privacy, utility, outcome and review.
 Delete/archive/manual cleanup are helpful hygiene, but they are not the primary

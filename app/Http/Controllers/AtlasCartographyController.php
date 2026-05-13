@@ -28,7 +28,16 @@ final class AtlasCartographyController extends Controller
 
     public function graph(): JsonResponse
     {
+        // Cold-walk on a large Obsidian vault (5k+ notes in iCloud) can exceed
+        // PHP's default 30s `max_execution_time`. Bump the cap for this request
+        // only — the Cache::remember below absorbs subsequent calls.
+        @set_time_limit(120);
+        @ini_set('memory_limit', '512M');
+
         $ttl = (int) config('atlas_vault.cache_seconds', 2);
+        // Bump default TTL when a large vault is in play (filesystem walk is
+        // expensive). Operator can still override via env.
+        if ($ttl < 30) $ttl = 30;
         $graph = $ttl > 0
             ? Cache::remember('atlas-cartography:graph', $ttl, fn () => $this->assembler->assemble())
             : $this->assembler->assemble();
@@ -74,44 +83,81 @@ final class AtlasCartographyController extends Controller
 
     public function recentChanges(): JsonResponse
     {
-        $limit = (int) config('atlas_vault.recent_changes_limit', 8);
-        $changes = $this->collectGitChanges($limit);
-        $repoIndex = $this->repoReader->index();
+        $limit = (int) config('atlas_vault.recent_changes_limit', 12);
+
+        // Merge two streams: git log (committed) + filesystem mtime (saved
+        // since last commit / inside Vault). Filesystem stream is what makes
+        // "ver a documentação nascer" possible — the canon says L2 needs
+        // file-save granularity, not commit granularity (ADR-0002 P3.2).
+        $gitChanges = $this->collectGitChanges($limit * 3);
+        $repoMtimes = $this->collectMtimeChanges($this->repoReader->index(), 'repo', $limit * 2);
+        $vaultMtimes = $this->collectMtimeChanges($this->vaultReader->index(), 'vault', $limit * 2);
+
+        $all = array_merge($gitChanges, $repoMtimes, $vaultMtimes);
+        usort($all, fn (array $a, array $b): int => ($b['timestamp'] ?? 0) - ($a['timestamp'] ?? 0));
 
         $enriched = [];
         $seenPaths = [];
-        foreach ($changes as $change) {
-            if (in_array($change['path'], $seenPaths, true)) {
-                continue;
-            }
-            $seenPaths[] = $change['path'];
+        foreach ($all as $change) {
+            $path = $change['path'] ?? '';
+            if (in_array($path, $seenPaths, true)) continue;
+            $seenPaths[] = $path;
 
-            $matched = null;
-            foreach ($repoIndex as $id => $entry) {
-                if ($entry['relative_path'] === $change['path']) {
-                    $matched = ['graph_id' => $id, 'name' => $entry['frontmatter']['title'] ?? $id];
-                    break;
-                }
-            }
-            if ($matched === null) {
-                continue;
-            }
-            $enriched[] = array_merge($change, [
-                'graph_id' => $matched['graph_id'],
-                'name' => $matched['name'],
-                'seconds_ago' => max(0, time() - $change['timestamp']),
-                'time' => gmdate('H:i', $change['timestamp']),
-                'source' => 'repo',
-            ]);
-            if (count($enriched) >= $limit) {
-                break;
-            }
+            $enriched[] = [
+                'graph_id' => (string) ($change['graph_id'] ?? ''),
+                'name' => (string) ($change['name'] ?? $path),
+                'action' => (string) ($change['action'] ?? 'edited'),
+                'author' => (string) ($change['author'] ?? ''),
+                'commit' => (string) ($change['commit'] ?? ''),
+                'path' => $path,
+                'source' => (string) ($change['source'] ?? 'repo'),
+                'timestamp' => (int) ($change['timestamp'] ?? 0),
+                'seconds_ago' => max(0, time() - (int) ($change['timestamp'] ?? 0)),
+                'time' => gmdate('H:i', (int) ($change['timestamp'] ?? 0)),
+            ];
+            if (count($enriched) >= $limit) break;
         }
 
         return response()->json([
             'generated_at' => gmdate('Y-m-d\TH:i:s\Z'),
+            'sources' => [
+                'git_commits' => count($gitChanges),
+                'repo_mtime' => count($repoMtimes),
+                'vault_mtime' => count($vaultMtimes),
+            ],
             'changes' => $enriched,
         ]);
+    }
+
+    /**
+     * Convert an index map into `recent_change`-shaped rows ordered by mtime
+     * desc, filtered to actually-existing files. Only keeps entries newer
+     * than the oldest interesting threshold (30 days) so we don't pollute
+     * the live timeline with ancient files.
+     *
+     * @param  array<string, array{path: string, relative_path: string, frontmatter: array<string, mixed>, mtime: int, exists: true}>  $index
+     * @return list<array<string, mixed>>
+     */
+    private function collectMtimeChanges(array $index, string $source, int $limit): array
+    {
+        $cutoff = time() - 30 * 24 * 60 * 60; // 30d
+        $rows = [];
+        foreach ($index as $id => $entry) {
+            $mtime = (int) ($entry['mtime'] ?? 0);
+            if ($mtime <= 0 || $mtime < $cutoff) continue;
+            $rows[] = [
+                'graph_id' => (string) $id,
+                'name' => (string) ($entry['frontmatter']['title'] ?? $id),
+                'action' => 'saved',
+                'author' => 'filesystem',
+                'commit' => '',
+                'path' => $entry['relative_path'] ?? '',
+                'source' => $source,
+                'timestamp' => $mtime,
+            ];
+        }
+        usort($rows, fn (array $a, array $b): int => ($b['timestamp'] ?? 0) - ($a['timestamp'] ?? 0));
+        return array_slice($rows, 0, $limit);
     }
 
     /**

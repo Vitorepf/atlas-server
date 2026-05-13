@@ -141,6 +141,85 @@ final class AtlasAiLocalRagBenchmarkCommandTest extends TestCase
         $this->assertStringNotContainsString('raw capture', Artisan::output());
     }
 
+    public function test_benchmark_rivals_shadow_case_contract_is_hash_only_and_no_runtime(): void
+    {
+        $exit = Artisan::call('atlas:ai:local-rag-benchmark', [
+            '--rivals-shadow-case-contract' => true,
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.memory_retrieval_rivals_shadow_case_contract.v1', $payload['schema_version']);
+        $this->assertSame('declared_blocked', $payload['status']);
+        $this->assertSame('case_contract_only_no_runtime_execution', $payload['mode']);
+        $this->assertSame('docs/ap/AP-693-retrieval-rivals-shadow-comparison-contract.md', $payload['review_ap']);
+        $this->assertSame('current_governed_hybrid_memory_recall', $payload['baseline_strategy_id']);
+        $this->assertSame(3, $payload['case_count']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $payload['plan_hash']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $payload['strategy_contract_hash']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $payload['case_contract_hash']);
+        $this->assertSame('memory-open-brain-core-recall', data_get($payload, 'case_inputs.0.case_id'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'case_inputs.0.query_hash'));
+        $this->assertTrue(data_get($payload, 'case_inputs.0.expected_evidence_hashes_required'));
+        $this->assertFalse(data_get($payload, 'case_inputs.0.raw_query_persisted'));
+        $this->assertFalse(data_get($payload, 'case_inputs.0.raw_context_persisted'));
+        $this->assertSame('future_graph_rag_python_candidate', data_get($payload, 'strategy_contracts.2.id'));
+        $this->assertFalse(data_get($payload, 'strategy_contracts.2.execution_allowed_now'));
+        $this->assertTrue(data_get($payload, 'strategy_contracts.2.requires_runtime_invocation_contract'));
+        $this->assertSame('atlas.memory_retrieval_rivals_shadow_metrics.v1', data_get($payload, 'metric_contract.schema_version'));
+        $this->assertContains('provider_safe_context_rate', data_get($payload, 'metric_contract.required_metrics'));
+        $this->assertFalse(data_get($payload, 'metric_contract.delta_claim_allowed_now'));
+        $this->assertFalse(data_get($payload, 'metric_contract.winner_claim_allowed_now'));
+        $this->assertSame('atlas.memory_retrieval_rivals_shadow_evidence.v1', data_get($payload, 'evidence_contract.schema_version'));
+        $this->assertContains('side_by_side_results_hash', data_get($payload, 'evidence_contract.required_hashes'));
+        $this->assertFalse(data_get($payload, 'evidence_contract.raw_query_allowed'));
+        $this->assertSame('atlas.memory_retrieval_rivals_shadow_ledger_event_contract.v1', data_get($payload, 'evidence_ledger_event_contract.schema_version'));
+        $this->assertContains('RETRIEVAL_RIVALS_SHADOW_RUN_BLOCKED', data_get($payload, 'evidence_ledger_event_contract.event_types'));
+        $this->assertFalse(data_get($payload, 'evidence_ledger_event_contract.payload_rules.raw_context_allowed'));
+        $this->assertFalse(data_get($payload, 'evidence_ledger_event_contract.record_event_allowed_now'));
+        $this->assertSame('atlas.memory_retrieval_rivals_shadow_rollback_plan.v1', data_get($payload, 'rollback_plan.schema_version'));
+        $this->assertSame('current_governed_hybrid_memory_recall_only', data_get($payload, 'rollback_plan.rollback_target'));
+        $this->assertFalse(data_get($payload, 'rollback_plan.automatic_rollback_allowed'));
+        $this->assertContains('record_rollback_decision_receipt', data_get($payload, 'rollback_plan.operator_actions'));
+        $this->assertSame('atlas.memory_retrieval_rivals_shadow_runtime_invocation_contracts.v1', data_get($payload, 'runtime_invocation_contracts.schema_version'));
+        $this->assertSame('kernel_internal_strategy_contract', data_get($payload, 'runtime_invocation_contracts.candidate_contracts.0.contract_family'));
+        $this->assertSame('atlas.runtime_invocation_contract.v1', data_get($payload, 'runtime_invocation_contracts.candidate_contracts.1.contract_family'));
+        $this->assertSame('python_ai_data', data_get($payload, 'runtime_invocation_contracts.candidate_contracts.1.runtime_family'));
+        $this->assertTrue(data_get($payload, 'runtime_invocation_contracts.candidate_contracts.1.requires_external_runtime'));
+        $this->assertFalse(data_get($payload, 'runtime_invocation_contracts.candidate_contracts.1.execution_allowed_now'));
+        $this->assertContains('write_memory_directly', data_get($payload, 'runtime_invocation_contracts.forbidden_runtime_authority'));
+        $this->assertTrue(data_get($payload, 'execution_gate.shadow_case_contract_declared'));
+        $this->assertTrue(data_get($payload, 'execution_gate.evidence_ledger_event_contract_declared'));
+        $this->assertTrue(data_get($payload, 'execution_gate.rollback_plan_declared'));
+        $this->assertTrue(data_get($payload, 'execution_gate.runtime_invocation_contracts_declared'));
+        $this->assertFalse(data_get($payload, 'execution_gate.shadow_execution_allowed_now'));
+        $this->assertFalse(data_get($payload, 'execution_gate.provider_call_allowed'));
+        $this->assertFalse(data_get($payload, 'execution_gate.runtime_execution_allowed'));
+        $this->assertFalse(data_get($payload, 'execution_gate.memory_write_allowed'));
+        $this->assertContains('privacy_provider_safety_review', data_get($payload, 'execution_gate.remaining_before_shadow_run'));
+        $this->assertNotContains('runtime_invocation_contract_for_alternatives', data_get($payload, 'execution_gate.remaining_before_shadow_run'));
+        $this->assertNotContains('evidence_ledger_event_contract', data_get($payload, 'execution_gate.remaining_before_shadow_run'));
+        $this->assertNotContains('rollback_plan', data_get($payload, 'execution_gate.remaining_before_shadow_run'));
+        $this->assertContains('execute_python_graph_rag', data_get($payload, 'forbidden_actions'));
+        $this->assertSame('atlas.retrieval_rivals.safety.v1', data_get($payload, 'safety.schema_version'));
+        $this->assertTrue(data_get($payload, 'safety.shadow_case_contract_declared'));
+        $this->assertFalse(data_get($payload, 'safety.provider_call_allowed'));
+        $this->assertFalse(data_get($payload, 'raw_query_persisted'));
+        $this->assertFalse(data_get($payload, 'raw_context_persisted'));
+        $this->assertStringNotContainsString('Bearer', Artisan::output());
+        $this->assertStringNotContainsString('raw capture', Artisan::output());
+
+        Artisan::call('atlas:ai:local-rag-benchmark', [
+            '--rivals-shadow-case-contract' => true,
+            '--json' => true,
+        ]);
+        $secondPayload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame($payload['plan_hash'], $secondPayload['plan_hash']);
+        $this->assertSame($payload['case_contract_hash'], $secondPayload['case_contract_hash']);
+    }
+
     public function test_benchmark_rivals_shadow_plan_can_emit_scope_review_to_inbox_without_runtime(): void
     {
         $capturedPayload = null;
@@ -188,7 +267,69 @@ final class AtlasAiLocalRagBenchmarkCommandTest extends TestCase
         $this->assertFalse(data_get($capturedPayload, 'payload.retrieval_rivals_shadow_plan.raw_query_persisted'));
         $this->assertFalse(data_get($capturedPayload, 'payload.retrieval_rivals_shadow_plan.raw_context_persisted'));
         $this->assertContains('execute_python_graph_rag', data_get($capturedPayload, 'payload.retrieval_rivals_shadow_plan.review_packet.forbidden_actions'));
+        $this->assertSame('atlas.memory_retrieval_rivals_shadow_case_contract.v1', data_get($capturedPayload, 'payload.retrieval_rivals_shadow_case_contract.schema_version'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($capturedPayload, 'payload.retrieval_rivals_shadow_case_contract.case_contract_hash'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($capturedPayload, 'payload.retrieval_rivals_shadow_case_contract.strategy_contract_hash'));
+        $this->assertSame('atlas.memory_retrieval_rivals_shadow_ledger_event_contract.v1', data_get($capturedPayload, 'payload.retrieval_rivals_shadow_case_contract.evidence_ledger_event_contract.schema_version'));
+        $this->assertSame('atlas.memory_retrieval_rivals_shadow_rollback_plan.v1', data_get($capturedPayload, 'payload.retrieval_rivals_shadow_case_contract.rollback_plan.schema_version'));
+        $this->assertSame('atlas.memory_retrieval_rivals_shadow_runtime_invocation_contracts.v1', data_get($capturedPayload, 'payload.retrieval_rivals_shadow_case_contract.runtime_invocation_contracts.schema_version'));
+        $this->assertFalse(data_get($capturedPayload, 'payload.retrieval_rivals_shadow_case_contract.execution_gate.shadow_execution_allowed_now'));
+        $this->assertFalse(data_get($capturedPayload, 'payload.retrieval_rivals_shadow_case_contract.raw_capture_exposed'));
         $this->assertStringNotContainsString('Exact local capture evidence', Artisan::output());
+        $this->assertStringNotContainsString('Bearer', json_encode($capturedPayload, JSON_THROW_ON_ERROR));
+    }
+
+    public function test_benchmark_can_emit_external_vector_rag_preflight_review_to_inbox_without_runtime(): void
+    {
+        $this->createLocalRagTables();
+        config()->set('atlas.semantic_memory.embedding_provider', 'local_hash');
+
+        $capturedPayload = null;
+        $inboxItem = new AiInboxItem;
+        $inboxItem->id = '00000000-0000-0000-0000-000000000683';
+        $inboxItem->title = 'Revisar preflight de external vector/RAG Memory/Open Brain';
+        $inboxItem->payload = [
+            'proposal_contract' => [
+                'review_signal' => [
+                    'recommended_action' => 'review_external_vector_rag_preflight',
+                ],
+            ],
+        ];
+
+        $this->mock(ProposalInboxEmitter::class, function ($mock) use ($inboxItem, &$capturedPayload): void {
+            $mock->shouldReceive('emit')
+                ->once()
+                ->andReturnUsing(function (array $payload) use ($inboxItem, &$capturedPayload): AiInboxItem {
+                    $capturedPayload = $payload;
+
+                    return $inboxItem;
+                });
+        });
+
+        $exit = Artisan::call('atlas:ai:local-rag-benchmark', [
+            '--emit-external-vector-rag-preflight-inbox' => true,
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('emitted', data_get($payload, 'emitted_external_vector_rag_preflight_inbox_item.status'));
+        $this->assertSame($inboxItem->id, data_get($payload, 'emitted_external_vector_rag_preflight_inbox_item.id'));
+        $this->assertSame('Revisar preflight de external vector/RAG Memory/Open Brain', data_get($capturedPayload, 'title'));
+        $this->assertSame('atlas.external_vector_rag.preflight_inbox.v1', data_get($capturedPayload, 'metadata.schema_version'));
+        $this->assertSame('review_external_vector_rag_preflight', data_get($capturedPayload, 'metadata.review_signal.recommended_action'));
+        $this->assertSame('review_external_vector_rag_preflight', data_get($capturedPayload, 'available_actions.0.id'));
+        $this->assertSame('atlas.external_vector_rag.promotion_preflight.v1', data_get($capturedPayload, 'payload.external_vector_rag_preflight_contract.schema_version'));
+        $this->assertSame('blocked_until_human_review_ap_and_decision_receipt', data_get($capturedPayload, 'payload.external_vector_rag_preflight_contract.status'));
+        $this->assertSame('Constelacao', data_get($capturedPayload, 'payload.external_vector_rag_preflight_contract.model_ownership.primary_future_surface'));
+        $this->assertFalse(data_get($capturedPayload, 'payload.external_vector_rag_preflight_contract.execution_gate.embedding_generation_allowed_now'));
+        $this->assertFalse(data_get($capturedPayload, 'payload.external_vector_rag_preflight_contract.execution_gate.external_vector_store_write_allowed'));
+        $this->assertFalse(data_get($capturedPayload, 'payload.external_vector_rag_preflight_contract.execution_gate.provider_dispatch_allowed'));
+        $this->assertContains('retention_policy_and_delete_cascade_for_embeddings', data_get($capturedPayload, 'payload.external_vector_rag_preflight_contract.required_before_any_embedding_or_external_rag'));
+        $this->assertContains('generate_external_embeddings', data_get($capturedPayload, 'payload.external_vector_rag_preflight_contract.review_packet.forbidden_actions'));
+        $this->assertFalse(data_get($capturedPayload, 'payload.external_vector_rag_preflight_contract.raw_query_persisted'));
+        $this->assertFalse(data_get($capturedPayload, 'payload.external_vector_rag_preflight_contract.raw_context_persisted'));
+        $this->assertFalse(data_get($capturedPayload, 'payload.external_vector_rag_preflight_contract.raw_capture_exposed'));
         $this->assertStringNotContainsString('Bearer', json_encode($capturedPayload, JSON_THROW_ON_ERROR));
     }
 
@@ -514,8 +655,32 @@ final class AtlasAiLocalRagBenchmarkCommandTest extends TestCase
         $this->assertContains('decision_receipt_hash', data_get($payload, 'promotion_review_contract.future_runtime_invocation_contract.required_fields'));
         $this->assertContains('evidence_sink', data_get($payload, 'promotion_review_contract.future_runtime_invocation_contract.required_fields'));
         $this->assertContains('choose_provider_or_model', data_get($payload, 'promotion_review_contract.future_runtime_invocation_contract.forbidden_runtime_authority'));
+        $this->assertSame('atlas.external_vector_rag.promotion_preflight.v1', data_get($payload, 'promotion_review_contract.external_vector_rag_preflight_contract.schema_version'));
+        $this->assertSame('blocked_until_human_review_ap_and_decision_receipt', data_get($payload, 'promotion_review_contract.external_vector_rag_preflight_contract.status'));
+        $this->assertSame('Memory/Context Engine', data_get($payload, 'promotion_review_contract.external_vector_rag_preflight_contract.model_ownership.structure_mother_modules.0'));
+        $this->assertSame('Knowledge Base/Open Brain', data_get($payload, 'promotion_review_contract.external_vector_rag_preflight_contract.model_ownership.structure_mother_modules.1'));
+        $this->assertSame('Voice/LiveKit', data_get($payload, 'promotion_review_contract.external_vector_rag_preflight_contract.model_ownership.not_owned_by'));
+        $this->assertSame('Constelacao', data_get($payload, 'promotion_review_contract.external_vector_rag_preflight_contract.model_ownership.primary_future_surface'));
+        $this->assertSame('python_ai_data', data_get($payload, 'promotion_review_contract.external_vector_rag_preflight_contract.runtime_family'));
+        $this->assertTrue(data_get($payload, 'promotion_review_contract.external_vector_rag_preflight_contract.proposal_only'));
+        $this->assertFalse(data_get($payload, 'promotion_review_contract.external_vector_rag_preflight_contract.execution_gate.runtime_execution_allowed'));
+        $this->assertFalse(data_get($payload, 'promotion_review_contract.external_vector_rag_preflight_contract.execution_gate.provider_dispatch_allowed'));
+        $this->assertFalse(data_get($payload, 'promotion_review_contract.external_vector_rag_preflight_contract.execution_gate.embedding_generation_allowed_now'));
+        $this->assertFalse(data_get($payload, 'promotion_review_contract.external_vector_rag_preflight_contract.execution_gate.external_vector_store_write_allowed'));
+        $this->assertFalse(data_get($payload, 'promotion_review_contract.external_vector_rag_preflight_contract.execution_gate.external_vector_store_read_allowed'));
+        $this->assertFalse(data_get($payload, 'promotion_review_contract.external_vector_rag_preflight_contract.execution_gate.memory_write_allowed'));
+        $this->assertFalse(data_get($payload, 'promotion_review_contract.external_vector_rag_preflight_contract.execution_gate.context_builder_write_allowed'));
+        $this->assertFalse(data_get($payload, 'promotion_review_contract.external_vector_rag_preflight_contract.execution_gate.constellation_promotion_allowed'));
+        $this->assertContains('retention_policy_and_delete_cascade_for_embeddings', data_get($payload, 'promotion_review_contract.external_vector_rag_preflight_contract.required_before_any_embedding_or_external_rag'));
+        $this->assertSame('atlas.external_vector_rag.promotion_preflight_review_packet.v1', data_get($payload, 'promotion_review_contract.external_vector_rag_preflight_contract.review_packet.schema_version'));
+        $this->assertContains('generate_external_embeddings', data_get($payload, 'promotion_review_contract.external_vector_rag_preflight_contract.review_packet.forbidden_actions'));
+        $this->assertContains('promote_to_constelacao', data_get($payload, 'promotion_review_contract.external_vector_rag_preflight_contract.review_packet.forbidden_actions'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'promotion_review_contract.external_vector_rag_preflight_contract.preflight_hash'));
         $this->assertContains('proposal_only', data_get($payload, 'promotion_review_contract.allowed_outputs'));
+        $this->assertContains('external_vector_rag_preflight_contract', data_get($payload, 'promotion_review_contract.allowed_outputs'));
         $this->assertContains('python_runtime_auto_enable', data_get($payload, 'promotion_review_contract.forbidden_outputs'));
+        $this->assertContains('external_vector_store_auto_enable', data_get($payload, 'promotion_review_contract.forbidden_outputs'));
+        $this->assertContains('embedding_generation_auto_enable', data_get($payload, 'promotion_review_contract.forbidden_outputs'));
         $this->assertContains('retrieval_quality_corpus', data_get($payload, 'promotion_gate.completed_prerequisites'));
         $this->assertContains('latency_p95_measurement', data_get($payload, 'promotion_gate.completed_prerequisites'));
         $this->assertContains('privacy_redaction_verification', data_get($payload, 'promotion_gate.completed_prerequisites'));
@@ -569,6 +734,8 @@ final class AtlasAiLocalRagBenchmarkCommandTest extends TestCase
         $this->assertFalse((bool) data_get($events->last()?->payload, 'local_rag.promotion_review_contract.auto_promotion_allowed'));
         $this->assertSame('atlas.runtime_invocation_contract.v1', data_get($events->last()?->payload, 'local_rag.promotion_review_contract.future_runtime_invocation_contract.schema_version'));
         $this->assertSame('python_ai_data', data_get($events->last()?->payload, 'local_rag.promotion_review_contract.future_runtime_invocation_contract.selected_runtime_family'));
+        $this->assertSame('atlas.external_vector_rag.promotion_preflight.v1', data_get($events->last()?->payload, 'local_rag.promotion_review_contract.external_vector_rag_preflight_contract.schema_version'));
+        $this->assertFalse((bool) data_get($events->last()?->payload, 'local_rag.promotion_review_contract.external_vector_rag_preflight_contract.execution_gate.embedding_generation_allowed_now'));
 
         $architecture = collect($payload['cases'])->firstWhere('id', 'architecture_relation_context');
         $this->assertSame('passed', $architecture['status']);
@@ -671,6 +838,73 @@ final class AtlasAiLocalRagBenchmarkCommandTest extends TestCase
         $this->assertStringNotContainsString('Capture promoted memory retrieval rule', $output);
         $this->assertStringNotContainsString('Exact local capture evidence', $output);
         $this->assertStringNotContainsString('abcdefghijklmno', $output);
+    }
+
+    public function test_benchmark_uses_governed_provider_safe_memory_fallback_when_no_promoted_corpus_exists(): void
+    {
+        $this->createLocalRagTables();
+        $this->createMemoryTables();
+        config()->set('atlas.semantic_memory.embedding_provider', 'local_hash');
+
+        app(AtlasMemoryRegistryService::class)->record([
+            'memory_type' => 'technical_context',
+            'scope_type' => 'global',
+            'title' => 'Governed fallback recall alpha',
+            'body' => 'Provider-safe registry memory alpha should be eligible for real recall benchmark fallback.',
+            'summary' => 'Registry fallback alpha is provider-safe.',
+            'priority' => 90,
+            'importance' => 5,
+            'confidence' => 0.91,
+            'privacy_class' => 'normal',
+            'external_ai_allowed' => true,
+            'source_type' => 'manual_curation',
+            'source_id' => 'fallback-alpha',
+        ]);
+        app(AtlasMemoryRegistryService::class)->record([
+            'memory_type' => 'decision',
+            'scope_type' => 'global',
+            'title' => 'Governed fallback recall beta',
+            'body' => 'Provider-safe registry memory beta should be eligible for real recall benchmark fallback.',
+            'summary' => 'Registry fallback beta is provider-safe.',
+            'priority' => 89,
+            'importance' => 5,
+            'confidence' => 0.90,
+            'privacy_class' => 'normal',
+            'external_ai_allowed' => true,
+            'source_type' => 'manual_curation',
+            'source_id' => 'fallback-beta',
+        ]);
+        app(AtlasMemoryRegistryService::class)->record([
+            'memory_type' => 'strategic_insight',
+            'scope_type' => 'global',
+            'title' => 'Blocked fallback secret memory',
+            'body' => 'Bearer fallback-secret-token must never enter the recall benchmark corpus.',
+            'summary' => 'Blocked fallback secret memory.',
+            'privacy_class' => 'secret',
+            'external_ai_allowed' => false,
+            'source_type' => 'manual_curation',
+            'source_id' => 'fallback-secret',
+        ]);
+
+        $exit = Artisan::call('atlas:ai:local-rag-benchmark', ['--json' => true]);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('passed', data_get($payload, 'memory_recall_corpus.status'));
+        $this->assertSame(2, data_get($payload, 'memory_recall_corpus.case_count'));
+        $this->assertSame('promoted_provider_safe_latest_first_else_governed_provider_safe_active_latest_first', data_get($payload, 'memory_recall_corpus.golden_set.selection_rule'));
+        $this->assertSame('memory_registry_governed_provider_safe_fallback', data_get($payload, 'memory_recall_corpus.golden_set.cases.0.source'));
+        $this->assertEquals(1.0, data_get($payload, 'memory_recall_corpus.metrics.precision_at_3'));
+        $this->assertSame(0, data_get($payload, 'memory_recall_corpus.metrics.provider_safe_violation_count'));
+        $this->assertTrue(data_get($payload, 'memory_recall_corpus.checks.no_provider_safe_violation'));
+        $this->assertTrue(data_get($payload, 'memory_recall_corpus.limits.governed_provider_safe_fallback_allowed'));
+        $this->assertFalse(data_get($payload, 'memory_recall_corpus.golden_set.raw_query_persisted'));
+        $this->assertFalse(data_get($payload, 'memory_recall_corpus.golden_set.raw_context_persisted'));
+        $this->assertSame('passed', data_get($payload, 'retrieval_rivals_packet.status'));
+        $this->assertStringNotContainsString('Governed fallback recall alpha', $output);
+        $this->assertStringNotContainsString('Provider-safe registry memory beta', $output);
+        $this->assertStringNotContainsString('fallback-secret-token', $output);
     }
 
     public function test_benchmark_can_record_memory_quality_snapshot_for_longitudinal_retrieval_eval(): void

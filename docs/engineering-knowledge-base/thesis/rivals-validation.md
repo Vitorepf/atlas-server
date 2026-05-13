@@ -70,6 +70,18 @@ Track at minimum:
 - full: before significant release;
 - on-demand: whenever Atlas feels worse than direct provider.
 
+## P4 Readiness
+
+Strategic Rivals cannot promote Atlas to P4+ from intent or scheduled reviews.
+`atlas:ai:rivals-strategy report --json` must expose
+`p4_promotion_readiness.status=ready`, which requires at least one real scored
+review with regret, alignment and agency evidence and average agency >= 70.
+While blocked, the report names the next review and prohibits synthetic scores,
+P4 declaration and autonomous decision authority.
+The report also exposes `atlas.rivals_strategy.report_safety.v1`: read-model
+only, writes closed, strategy/provider/runtime/policy execution closed,
+synthetic scores forbidden and operator review required for scores.
+
 ## Domain Expansion
 
 Every major domain eventually needs its own suite:

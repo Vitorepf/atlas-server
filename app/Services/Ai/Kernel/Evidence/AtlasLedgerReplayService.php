@@ -1345,14 +1345,36 @@ class AtlasLedgerReplayService
             'retrieval_shadow_scope_decision' => data_get($result, 'retrieval_shadow_scope_review_action.decision'),
             'retrieval_shadow_scope_reviewed' => data_get($result, 'retrieval_shadow_scope_review_action.reviewed'),
             'retrieval_shadow_scope_plan_hash' => data_get($result, 'retrieval_shadow_scope_review_action.plan_hash'),
+            'retrieval_shadow_scope_case_contract_hash' => data_get($result, 'retrieval_shadow_scope_review_action.case_contract_hash'),
             'retrieval_shadow_scope_review_ap' => data_get($result, 'retrieval_shadow_scope_review_action.review_ap'),
+            'retrieval_shadow_scope_privacy_provider_safety_review_hash' => data_get($result, 'retrieval_shadow_scope_review_action.privacy_provider_safety_review_hash'),
+            'retrieval_shadow_scope_privacy_provider_safety_review_status' => data_get($result, 'retrieval_shadow_scope_review_action.privacy_provider_safety_review.status'),
+            'retrieval_shadow_scope_privacy_provider_safe_for_review' => data_get($result, 'retrieval_shadow_scope_review_action.privacy_provider_safety_review.provider_safe_for_review'),
             'retrieval_shadow_scope_decision_receipt_hash' => data_get($result, 'retrieval_shadow_scope_review_action.decision_receipt_hash'),
             'retrieval_shadow_scope_receipt_schema_version' => data_get($result, 'retrieval_shadow_scope_review_action.decision_receipt.schema_version'),
+            'retrieval_shadow_scope_receipt_case_contract_hash' => data_get($result, 'retrieval_shadow_scope_review_action.decision_receipt.case_contract_hash'),
+            'retrieval_shadow_scope_receipt_privacy_provider_safety_review_passed' => data_get($result, 'retrieval_shadow_scope_review_action.decision_receipt.privacy_provider_safety_review_passed'),
             'retrieval_shadow_scope_shadow_execution_allowed_now' => data_get($result, 'retrieval_shadow_scope_review_action.decision_receipt.shadow_execution_allowed_now'),
             'retrieval_shadow_scope_no_external_action' => data_get($result, 'retrieval_shadow_scope_review_action.no_external_action'),
             'retrieval_shadow_scope_no_runtime_execution' => data_get($result, 'retrieval_shadow_scope_review_action.no_runtime_execution'),
             'retrieval_shadow_scope_no_policy_patch' => data_get($result, 'retrieval_shadow_scope_review_action.no_policy_patch'),
             'retrieval_shadow_scope_no_provider_call' => data_get($result, 'retrieval_shadow_scope_review_action.no_provider_call'),
+            'external_vector_rag_preflight_review_schema_version' => data_get($result, 'external_vector_rag_preflight_review_action.schema_version'),
+            'external_vector_rag_preflight_decision' => data_get($result, 'external_vector_rag_preflight_review_action.decision'),
+            'external_vector_rag_preflight_reviewed' => data_get($result, 'external_vector_rag_preflight_review_action.reviewed'),
+            'external_vector_rag_preflight_scope_approved' => data_get($result, 'external_vector_rag_preflight_review_action.scope_approved'),
+            'external_vector_rag_preflight_hash' => data_get($result, 'external_vector_rag_preflight_review_action.preflight_hash'),
+            'external_vector_rag_preflight_safety_review_hash' => data_get($result, 'external_vector_rag_preflight_review_action.safety_review_hash'),
+            'external_vector_rag_preflight_safety_review_status' => data_get($result, 'external_vector_rag_preflight_review_action.safety_review.status'),
+            'external_vector_rag_preflight_decision_receipt_hash' => data_get($result, 'external_vector_rag_preflight_review_action.decision_receipt_hash'),
+            'external_vector_rag_preflight_receipt_schema_version' => data_get($result, 'external_vector_rag_preflight_review_action.decision_receipt.schema_version'),
+            'external_vector_rag_preflight_embedding_allowed_now' => data_get($result, 'external_vector_rag_preflight_review_action.decision_receipt.embedding_generation_allowed_now'),
+            'external_vector_rag_preflight_vector_write_allowed_now' => data_get($result, 'external_vector_rag_preflight_review_action.decision_receipt.external_vector_store_write_allowed_now'),
+            'external_vector_rag_preflight_constellation_allowed_now' => data_get($result, 'external_vector_rag_preflight_review_action.decision_receipt.constellation_promotion_allowed_now'),
+            'external_vector_rag_preflight_no_external_action' => data_get($result, 'external_vector_rag_preflight_review_action.no_external_action'),
+            'external_vector_rag_preflight_no_runtime_execution' => data_get($result, 'external_vector_rag_preflight_review_action.no_runtime_execution'),
+            'external_vector_rag_preflight_no_policy_patch' => data_get($result, 'external_vector_rag_preflight_review_action.no_policy_patch'),
+            'external_vector_rag_preflight_no_provider_call' => data_get($result, 'external_vector_rag_preflight_review_action.no_provider_call'),
             'provider_cost_rate_schema_version' => data_get($result, 'provider_cost_rate_action.schema_version'),
             'provider_cost_rate_provider' => data_get($result, 'provider_cost_rate_action.provider'),
             'provider_cost_rate_model' => data_get($result, 'provider_cost_rate_action.model'),
@@ -1416,6 +1438,23 @@ class AtlasLedgerReplayService
             ->filter(fn (array $event): bool => ($event['action'] ?? null) === 'review_retrieval_shadow_scope')
             ->filter(fn (array $event): bool => (bool) ($event['retrieval_shadow_scope_shadow_execution_allowed_now'] ?? false))
             ->count();
+        $externalVectorRagPreflightReviewCount = $events
+            ->filter(fn (array $event): bool => ($event['action'] ?? null) === 'review_external_vector_rag_preflight')
+            ->count();
+        $externalVectorRagPreflightReviewedCount = $events
+            ->filter(fn (array $event): bool => ($event['action'] ?? null) === 'review_external_vector_rag_preflight')
+            ->filter(fn (array $event): bool => (bool) ($event['external_vector_rag_preflight_reviewed'] ?? false))
+            ->count();
+        $externalVectorRagPreflightReceiptCount = $events
+            ->filter(fn (array $event): bool => ($event['action'] ?? null) === 'review_external_vector_rag_preflight')
+            ->filter(fn (array $event): bool => filled($event['external_vector_rag_preflight_decision_receipt_hash'] ?? null))
+            ->count();
+        $externalVectorRagPreflightUnsafeActivationCount = $events
+            ->filter(fn (array $event): bool => ($event['action'] ?? null) === 'review_external_vector_rag_preflight')
+            ->filter(fn (array $event): bool => (bool) ($event['external_vector_rag_preflight_embedding_allowed_now'] ?? false)
+                || (bool) ($event['external_vector_rag_preflight_vector_write_allowed_now'] ?? false)
+                || (bool) ($event['external_vector_rag_preflight_constellation_allowed_now'] ?? false))
+            ->count();
         $reviewSignal = $this->inboxActionReviewSignal(
             $events,
             $reviewedPatchCount,
@@ -1430,6 +1469,10 @@ class AtlasLedgerReplayService
             $retrievalShadowScopeReviewedCount,
             $retrievalShadowScopeReceiptCount,
             $retrievalShadowScopeRuntimeAllowedCount,
+            $externalVectorRagPreflightReviewCount,
+            $externalVectorRagPreflightReviewedCount,
+            $externalVectorRagPreflightReceiptCount,
+            $externalVectorRagPreflightUnsafeActivationCount,
         );
 
         return [
@@ -1458,6 +1501,16 @@ class AtlasLedgerReplayService
             'retrieval_shadow_scope_decision_counts' => $events
                 ->filter(fn (array $event): bool => ($event['action'] ?? null) === 'review_retrieval_shadow_scope')
                 ->pluck('retrieval_shadow_scope_decision')
+                ->filter()
+                ->countBy()
+                ->all(),
+            'external_vector_rag_preflight_review_count' => $externalVectorRagPreflightReviewCount,
+            'external_vector_rag_preflight_reviewed_count' => $externalVectorRagPreflightReviewedCount,
+            'external_vector_rag_preflight_decision_receipt_count' => $externalVectorRagPreflightReceiptCount,
+            'external_vector_rag_preflight_unsafe_activation_count' => $externalVectorRagPreflightUnsafeActivationCount,
+            'external_vector_rag_preflight_decision_counts' => $events
+                ->filter(fn (array $event): bool => ($event['action'] ?? null) === 'review_external_vector_rag_preflight')
+                ->pluck('external_vector_rag_preflight_decision')
                 ->filter()
                 ->countBy()
                 ->all(),
@@ -1494,6 +1547,10 @@ class AtlasLedgerReplayService
         int $retrievalShadowScopeReviewedCount,
         int $retrievalShadowScopeReceiptCount,
         int $retrievalShadowScopeRuntimeAllowedCount,
+        int $externalVectorRagPreflightReviewCount,
+        int $externalVectorRagPreflightReviewedCount,
+        int $externalVectorRagPreflightReceiptCount,
+        int $externalVectorRagPreflightUnsafeActivationCount,
     ): array {
         if ($events->isEmpty()) {
             return [
@@ -1542,6 +1599,36 @@ class AtlasLedgerReplayService
                 'review_required' => true,
                 'reasons' => ['review_retrieval_shadow_scope_action_without_decision_receipt'],
                 'recommended_action' => 'review_retrieval_shadow_scope',
+            ];
+        }
+
+        if ($externalVectorRagPreflightUnsafeActivationCount > 0) {
+            return [
+                'status' => 'warning',
+                'severity' => 'high',
+                'review_required' => true,
+                'reasons' => ['external_vector_rag_preflight_review_allowed_unsafe_activation'],
+                'recommended_action' => 'review_external_vector_rag_preflight',
+            ];
+        }
+
+        if ($externalVectorRagPreflightReviewCount > 0 && $externalVectorRagPreflightReviewedCount < $externalVectorRagPreflightReviewCount) {
+            return [
+                'status' => 'warning',
+                'severity' => 'medium',
+                'review_required' => true,
+                'reasons' => ['review_external_vector_rag_preflight_action_without_review_marker'],
+                'recommended_action' => 'review_external_vector_rag_preflight',
+            ];
+        }
+
+        if ($externalVectorRagPreflightReviewCount > 0 && $externalVectorRagPreflightReceiptCount < $externalVectorRagPreflightReviewCount) {
+            return [
+                'status' => 'warning',
+                'severity' => 'medium',
+                'review_required' => true,
+                'reasons' => ['review_external_vector_rag_preflight_action_without_decision_receipt'],
+                'recommended_action' => 'review_external_vector_rag_preflight',
             ];
         }
 
@@ -1594,6 +1681,19 @@ class AtlasLedgerReplayService
                 'severity' => 'none',
                 'review_required' => false,
                 'reasons' => ['memory_retrieval_regression_review_recorded'],
+                'recommended_action' => 'none',
+            ];
+        }
+
+        if ($externalVectorRagPreflightReviewCount > 0
+            && $externalVectorRagPreflightReviewedCount === $externalVectorRagPreflightReviewCount
+            && $externalVectorRagPreflightReceiptCount === $externalVectorRagPreflightReviewCount
+        ) {
+            return [
+                'status' => 'ok',
+                'severity' => 'none',
+                'review_required' => false,
+                'reasons' => ['external_vector_rag_preflight_review_recorded'],
                 'recommended_action' => 'none',
             ];
         }

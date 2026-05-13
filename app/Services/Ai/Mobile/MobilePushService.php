@@ -22,8 +22,7 @@ class MobilePushService
         private readonly AuditLogService $audit,
         private readonly ExpoCircuitBreaker $circuit,
         private readonly MobileNotificationPreferences $preferences,
-    ) {
-    }
+    ) {}
 
     public function dispatchForInboxItem(AiInboxItem $item): void
     {
@@ -235,6 +234,7 @@ class MobilePushService
             $receipt = is_string($ticketId) ? data_get($body, 'data.'.$ticketId) : null;
             if (! is_array($receipt)) {
                 $counts['missing']++;
+
                 continue;
             }
 
@@ -254,6 +254,7 @@ class MobilePushService
                     'error_message' => null,
                 ]);
                 $counts['receipt_ok']++;
+
                 continue;
             }
 
@@ -497,12 +498,54 @@ class MobilePushService
             },
             'evidence' => array_merge([
                 'inbox_item_id' => $item?->id,
-                'device_id' => $device->id,
+                'device_id_hash' => hash('sha256', $device->id),
+                'raw_device_id_persisted' => false,
                 'delivery_status' => $delivery->status,
                 'provider' => $delivery->provider,
+                'delivery_attempt_contract' => $this->deliveryAttemptContract($item, $device, $delivery),
             ], $extra),
             'privacy' => ['sensitivity' => 'private'],
         ]);
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function deliveryAttemptContract(?AiInboxItem $item, AtlasMobileDevice $device, MobilePushDelivery $delivery): array
+    {
+        $requestPayload = is_array($delivery->request_payload) ? $delivery->request_payload : [];
+        $data = is_array($requestPayload['data'] ?? null) ? $requestPayload['data'] : [];
+        $dataKeys = array_values(array_filter(array_keys($data), 'is_string'));
+        sort($dataKeys);
+
+        $proactiveContract = is_array(data_get($item?->payload ?? [], 'proactive_delivery_contract'))
+            ? data_get($item?->payload ?? [], 'proactive_delivery_contract')
+            : [];
+
+        $contract = [
+            'schema_version' => 'atlas.proactive.push_delivery_attempt.v1',
+            'delivery_id' => $delivery->id,
+            'inbox_item_id' => $item?->id,
+            'device_id_hash' => hash('sha256', $device->id),
+            'provider' => $delivery->provider,
+            'status' => $delivery->status,
+            'proactive_delivery_contract_schema' => data_get($proactiveContract, 'schema_version'),
+            'proactive_delivery_contract_hash' => data_get($proactiveContract, 'contract_hash'),
+            'request_payload_hash' => hash('sha256', json_encode($requestPayload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: ''),
+            'push_pointer_only' => true,
+            'authenticated_fetch_required' => true,
+            'deep_link_only_delivery' => true,
+            'raw_context_exposed_in_push' => false,
+            'raw_payload_exposed_in_push' => false,
+            'body_exposed_in_push' => false,
+            'raw_device_id_persisted_in_audit' => false,
+            'auto_action_allowed' => false,
+            'provider_payload_data_keys' => $dataKeys,
+        ];
+
+        $contract['contract_hash'] = hash('sha256', json_encode($contract, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '');
+
+        return $contract;
     }
 
     private function recordPushSkipAudit(AiInboxItem $item, AtlasMobileDevice $device, string $reason): void
@@ -515,7 +558,8 @@ class MobilePushService
             'summary' => 'Push bloqueado por preferencia do device.',
             'evidence' => [
                 'inbox_item_id' => $item->id,
-                'device_id' => $device->id,
+                'device_id_hash' => hash('sha256', $device->id),
+                'raw_device_id_persisted' => false,
                 'reason' => $reason,
                 'type' => $item->type,
                 'category' => $item->category,

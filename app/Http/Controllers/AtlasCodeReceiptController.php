@@ -15,16 +15,25 @@ use Illuminate\Validation\ValidationException;
  *
  * The Kernel emits the receipt payload (AiDecision); the desktop signs it
  * locally with ed25519 (Apple Keychain key) and POSTs the signature back.
- * This controller verifies + records into AtlasLedgerEvent (append-only).
+ * This controller:
+ *
+ *   1. Verifies the ed25519 signature against the canonical payload using
+ *      libsodium (sodium_crypto_sign_verify_detached).
+ *   2. Refuses to record invalid signatures (returns 422).
+ *   3. On valid signature, appends to AtlasLedgerEvent (append-only).
  *
  *   POST /api/atlas-code/decisions/{decision}/sign
  *
- * Request:  { signature, publicKey, signedAt, signerId }   (base64 ed25519)
- * Response: { decisionId, signatureValid, ledgerEventId }
+ * Request body:
+ *   {
+ *     "signature":  base64 ed25519 detached signature (64 bytes raw)
+ *     "publicKey":  base64 ed25519 public key (32 bytes raw)
+ *     "signedAt":   ISO8601 timestamp
+ *     "signerId":   human/agent identifier
+ *   }
  *
- * Verification is best-effort (true if shape valid). Cryptographic
- * verification is wired in a follow-up commit when the kernel keypair is
- * registered. For MVP the contract + ledger entry are the canon.
+ * Canonical payload (must match the desktop signer · @atlas/receipts):
+ *   "atlas-decision/v1\n{decisionId}\n{signedAt}\n{signerId}"
  */
 class AtlasCodeReceiptController extends Controller
 {
@@ -37,10 +46,36 @@ class AtlasCodeReceiptController extends Controller
             'signerId' => ['required', 'string', 'max:120'],
         ]);
 
-        $valid = $this->verifySignatureShape($payload['signature'], $payload['publicKey']);
-        if (! $valid) {
+        $signatureBytes = $this->b64decode($payload['signature']);
+        $publicKeyBytes = $this->b64decode($payload['publicKey']);
+
+        if ($signatureBytes === null || strlen($signatureBytes) !== SODIUM_CRYPTO_SIGN_BYTES) {
             throw ValidationException::withMessages([
-                'signature' => 'signature shape rejected (expected base64 ed25519 64-byte digest)',
+                'signature' => 'signature must be 64 raw bytes (base64 encoded)',
+            ]);
+        }
+        if ($publicKeyBytes === null || strlen($publicKeyBytes) !== SODIUM_CRYPTO_SIGN_PUBLICKEYBYTES) {
+            throw ValidationException::withMessages([
+                'publicKey' => 'publicKey must be 32 raw bytes (base64 encoded)',
+            ]);
+        }
+
+        $canonical = $this->canonicalPayload($decision, $payload['signedAt'], $payload['signerId']);
+
+        $cryptoVerified = false;
+        try {
+            $cryptoVerified = sodium_crypto_sign_verify_detached(
+                $signatureBytes,
+                $canonical,
+                $publicKeyBytes,
+            );
+        } catch (\Throwable) {
+            $cryptoVerified = false;
+        }
+
+        if (! $cryptoVerified) {
+            throw ValidationException::withMessages([
+                'signature' => 'ed25519 verification failed against canonical payload',
             ]);
         }
 
@@ -56,45 +91,45 @@ class AtlasCodeReceiptController extends Controller
             'causation_id' => null,
             'event_type' => 'atlas_code.receipt.signed',
             'emitter_stage' => 'atlas_code',
-            'emitter_version' => '0.1.0',
+            'emitter_version' => '0.2.0',
             'payload' => [
                 'decision_id' => (string) $decision->getKey(),
                 'signature' => $payload['signature'],
                 'public_key' => $payload['publicKey'],
                 'signed_at' => CarbonImmutable::parse($payload['signedAt'])->toIso8601String(),
                 'signer_id' => $payload['signerId'],
-                'shape_valid' => $valid,
-                'crypto_verified' => false,
+                'canonical_sha256' => hash('sha256', $canonical),
+                'crypto_verified' => true,
             ],
-            'payload_hash' => hash('sha256', json_encode([
-                $decision->getKey(),
-                $payload['signature'],
-                $payload['publicKey'],
-                $payload['signedAt'],
-                $payload['signerId'],
-            ])),
+            'payload_hash' => hash('sha256', $canonical),
             'occurred_at' => CarbonImmutable::now(),
         ]);
 
         return response()->json([
             'decisionId' => (string) $decision->getKey(),
-            'signatureValid' => $valid,
+            'signatureValid' => true,
             'ledgerEventId' => $event->getKey(),
+            'canonicalSha256' => hash('sha256', $canonical),
         ], 201);
     }
 
-    /**
-     * Cheap ed25519 sanity check: base64url + decoded length.
-     * Real cryptographic verification lands when the kernel keypair is wired.
-     */
-    private function verifySignatureShape(string $sig, string $pub): bool
+    private function b64decode(string $input): ?string
     {
-        $sigDecoded = base64_decode(strtr($sig, '-_', '+/'), true);
-        $pubDecoded = base64_decode(strtr($pub, '-_', '+/'), true);
+        $decoded = base64_decode(strtr($input, '-_', '+/'), true);
+        return is_string($decoded) ? $decoded : null;
+    }
 
-        return is_string($sigDecoded)
-            && is_string($pubDecoded)
-            && strlen($sigDecoded) === 64
-            && strlen($pubDecoded) === 32;
+    /**
+     * Canonical payload used by both desktop signer and server verifier.
+     * Newline-separated for unambiguous re-encoding.
+     */
+    private function canonicalPayload(AiDecision $decision, string $signedAt, string $signerId): string
+    {
+        return implode("\n", [
+            'atlas-decision/v1',
+            (string) $decision->getKey(),
+            CarbonImmutable::parse($signedAt)->toIso8601String(),
+            $signerId,
+        ]);
     }
 }

@@ -1600,11 +1600,20 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
                 'decision' => 'needs_more_evidence',
                 'reviewed' => true,
                 'plan_hash' => hash('sha256', 'retrieval-shadow-scope-mcp-plan'),
+                'case_contract_hash' => hash('sha256', 'retrieval-shadow-scope-mcp-case'),
                 'review_ap' => 'docs/ap/AP-693-retrieval-rivals-shadow-comparison-contract.md',
+                'privacy_provider_safety_review_hash' => hash('sha256', 'retrieval-shadow-scope-mcp-safety'),
+                'privacy_provider_safety_review' => [
+                    'schema_version' => 'atlas.memory_retrieval_shadow_scope_privacy_provider_safety_review.v1',
+                    'status' => 'passed_blocked',
+                    'provider_safe_for_review' => true,
+                ],
                 'decision_receipt_hash' => $receiptHash,
                 'decision_receipt' => [
                     'schema_version' => 'atlas.memory_retrieval_shadow_scope_decision_receipt.v1',
                     'receipt_hash' => $receiptHash,
+                    'case_contract_hash' => hash('sha256', 'retrieval-shadow-scope-mcp-case'),
+                    'privacy_provider_safety_review_passed' => true,
                     'shadow_execution_allowed_now' => false,
                 ],
                 'no_external_action' => true,
@@ -1636,6 +1645,9 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
         $this->assertSame('ok', data_get($structured, 'inbox_actions.review_signal.status'));
         $this->assertSame('needs_more_evidence', data_get($structured, 'inbox_actions.recent_events.0.retrieval_shadow_scope_decision'));
         $this->assertSame($receiptHash, data_get($structured, 'inbox_actions.recent_events.0.retrieval_shadow_scope_decision_receipt_hash'));
+        $this->assertSame(hash('sha256', 'retrieval-shadow-scope-mcp-case'), data_get($structured, 'inbox_actions.recent_events.0.retrieval_shadow_scope_case_contract_hash'));
+        $this->assertSame('passed_blocked', data_get($structured, 'inbox_actions.recent_events.0.retrieval_shadow_scope_privacy_provider_safety_review_status'));
+        $this->assertTrue((bool) data_get($structured, 'inbox_actions.recent_events.0.retrieval_shadow_scope_privacy_provider_safe_for_review'));
         $this->assertFalse((bool) data_get($structured, 'inbox_actions.recent_events.0.retrieval_shadow_scope_shadow_execution_allowed_now'));
         $this->assertTrue((bool) data_get($structured, 'inbox_actions.recent_events.0.retrieval_shadow_scope_no_provider_call'));
     }

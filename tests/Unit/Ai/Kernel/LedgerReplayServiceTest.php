@@ -909,11 +909,20 @@ class LedgerReplayServiceTest extends TestCase
                 'decision' => 'needs_more_evidence',
                 'reviewed' => true,
                 'plan_hash' => hash('sha256', 'retrieval-shadow-plan'),
+                'case_contract_hash' => hash('sha256', 'retrieval-shadow-case-contract'),
                 'review_ap' => 'docs/ap/AP-693-retrieval-rivals-shadow-comparison-contract.md',
+                'privacy_provider_safety_review_hash' => hash('sha256', 'retrieval-shadow-safety-review'),
+                'privacy_provider_safety_review' => [
+                    'schema_version' => 'atlas.memory_retrieval_shadow_scope_privacy_provider_safety_review.v1',
+                    'status' => 'passed_blocked',
+                    'provider_safe_for_review' => true,
+                ],
                 'decision_receipt_hash' => $receiptHash,
                 'decision_receipt' => [
                     'schema_version' => 'atlas.memory_retrieval_shadow_scope_decision_receipt.v1',
                     'receipt_hash' => $receiptHash,
+                    'case_contract_hash' => hash('sha256', 'retrieval-shadow-case-contract'),
+                    'privacy_provider_safety_review_passed' => true,
                     'shadow_execution_allowed_now' => false,
                 ],
                 'no_external_action' => true,
@@ -943,10 +952,78 @@ class LedgerReplayServiceTest extends TestCase
         $this->assertSame('atlas.memory_retrieval_shadow_scope_decision_receipt.v1', data_get($report, 'recent_events.0.retrieval_shadow_scope_receipt_schema_version'));
         $this->assertSame('needs_more_evidence', data_get($report, 'recent_events.0.retrieval_shadow_scope_decision'));
         $this->assertSame($receiptHash, data_get($report, 'recent_events.0.retrieval_shadow_scope_decision_receipt_hash'));
+        $this->assertSame(hash('sha256', 'retrieval-shadow-case-contract'), data_get($report, 'recent_events.0.retrieval_shadow_scope_case_contract_hash'));
+        $this->assertSame('passed_blocked', data_get($report, 'recent_events.0.retrieval_shadow_scope_privacy_provider_safety_review_status'));
+        $this->assertTrue((bool) data_get($report, 'recent_events.0.retrieval_shadow_scope_privacy_provider_safe_for_review'));
+        $this->assertTrue((bool) data_get($report, 'recent_events.0.retrieval_shadow_scope_receipt_privacy_provider_safety_review_passed'));
         $this->assertFalse((bool) data_get($report, 'recent_events.0.retrieval_shadow_scope_shadow_execution_allowed_now'));
         $this->assertTrue((bool) data_get($report, 'recent_events.0.retrieval_shadow_scope_no_runtime_execution'));
         $this->assertTrue((bool) data_get($report, 'recent_events.0.retrieval_shadow_scope_no_policy_patch'));
         $this->assertTrue((bool) data_get($report, 'recent_events.0.retrieval_shadow_scope_no_provider_call'));
+    }
+
+    public function test_inbox_action_window_report_projects_external_vector_rag_preflight_receipts(): void
+    {
+        $receiptHash = hash('sha256', 'external-vector-rag-preflight-receipt');
+
+        $this->recordInboxActionEvent(
+            eventId: '01HINBOXACTIONEXTERNALVECTOR01',
+            inboxItemId: 'inbox-external-vector-rag-preflight-1',
+            action: 'review_external_vector_rag_preflight',
+            actorType: 'operator_cli',
+            category: 'memory',
+            severity: 'high',
+            recommendedAction: 'review_external_vector_rag_preflight',
+            externalVectorRagPreflightReviewAction: [
+                'schema_version' => 'atlas.inbox_action.external_vector_rag_preflight_review.v1',
+                'decision' => 'approved_scope',
+                'reviewed' => true,
+                'scope_approved' => true,
+                'preflight_hash' => hash('sha256', 'external-vector-rag-preflight'),
+                'safety_review_hash' => hash('sha256', 'external-vector-rag-safety-review'),
+                'safety_review' => [
+                    'schema_version' => 'atlas.external_vector_rag.preflight_safety_review.v1',
+                    'status' => 'passed_blocked',
+                ],
+                'decision_receipt_hash' => $receiptHash,
+                'decision_receipt' => [
+                    'schema_version' => 'atlas.external_vector_rag.preflight_decision_receipt.v1',
+                    'receipt_hash' => $receiptHash,
+                    'embedding_generation_allowed_now' => false,
+                    'external_vector_store_write_allowed_now' => false,
+                    'constellation_promotion_allowed_now' => false,
+                ],
+                'no_external_action' => true,
+                'no_runtime_execution' => true,
+                'no_policy_patch' => true,
+                'no_provider_call' => true,
+            ],
+        );
+
+        $report = app(AtlasLedgerReplayService::class)->inboxActionReportForWindow(
+            now()->subHour(),
+            now()->addMinute(),
+            ['action' => 'review_external_vector_rag_preflight'],
+        );
+
+        $this->assertTrue($report['available']);
+        $this->assertSame(1, $report['external_vector_rag_preflight_review_count']);
+        $this->assertSame(1, $report['external_vector_rag_preflight_reviewed_count']);
+        $this->assertSame(1, $report['external_vector_rag_preflight_decision_receipt_count']);
+        $this->assertSame(0, $report['external_vector_rag_preflight_unsafe_activation_count']);
+        $this->assertSame(['approved_scope' => 1], $report['external_vector_rag_preflight_decision_counts']);
+        $this->assertSame('ok', data_get($report, 'review_signal.status'));
+        $this->assertSame('none', data_get($report, 'review_signal.recommended_action'));
+        $this->assertContains('external_vector_rag_preflight_review_recorded', data_get($report, 'review_signal.reasons'));
+        $this->assertSame('atlas.inbox_action.external_vector_rag_preflight_review.v1', data_get($report, 'recent_events.0.external_vector_rag_preflight_review_schema_version'));
+        $this->assertSame('atlas.external_vector_rag.preflight_decision_receipt.v1', data_get($report, 'recent_events.0.external_vector_rag_preflight_receipt_schema_version'));
+        $this->assertSame($receiptHash, data_get($report, 'recent_events.0.external_vector_rag_preflight_decision_receipt_hash'));
+        $this->assertTrue((bool) data_get($report, 'recent_events.0.external_vector_rag_preflight_scope_approved'));
+        $this->assertFalse((bool) data_get($report, 'recent_events.0.external_vector_rag_preflight_embedding_allowed_now'));
+        $this->assertFalse((bool) data_get($report, 'recent_events.0.external_vector_rag_preflight_vector_write_allowed_now'));
+        $this->assertFalse((bool) data_get($report, 'recent_events.0.external_vector_rag_preflight_constellation_allowed_now'));
+        $this->assertTrue((bool) data_get($report, 'recent_events.0.external_vector_rag_preflight_no_runtime_execution'));
+        $this->assertTrue((bool) data_get($report, 'recent_events.0.external_vector_rag_preflight_no_provider_call'));
     }
 
     public function test_inbox_action_window_report_warns_when_shadow_scope_review_missing_receipt(): void
@@ -1319,6 +1396,7 @@ class LedgerReplayServiceTest extends TestCase
         array $upsertedRate = [],
         array $retrievalRegressionReviewAction = [],
         array $retrievalShadowScopeReviewAction = [],
+        array $externalVectorRagPreflightReviewAction = [],
         mixed $occurredAt = null,
     ): void {
         AtlasLedgerEvent::query()->create([
@@ -1362,6 +1440,7 @@ class LedgerReplayServiceTest extends TestCase
                     'upserted_rate' => $upsertedRate,
                     'retrieval_regression_review_action' => $retrievalRegressionReviewAction,
                     'retrieval_shadow_scope_review_action' => $retrievalShadowScopeReviewAction,
+                    'external_vector_rag_preflight_review_action' => $externalVectorRagPreflightReviewAction,
                 ],
                 'proposal_contract' => [
                     'review_signal' => [

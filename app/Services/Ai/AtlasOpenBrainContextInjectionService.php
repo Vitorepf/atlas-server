@@ -935,8 +935,10 @@ class AtlasOpenBrainContextInjectionService
             'provider_safe' => true,
             'query_json' => [
                 'objective_hash' => hash('sha256', $input),
-                'objective_excerpt' => Str::limit($input, 500, ''),
-                'workspace' => $workspace,
+                'objective_excerpt_redacted' => true,
+                'objective_length' => Str::length($input),
+                'workspace_hash' => $workspace ? hash('sha256', $workspace) : null,
+                'workspace_label' => $workspace ? basename($workspace) : null,
             ],
             'result_summary_json' => $summary + ['warnings' => $warnings],
             'metadata' => [
@@ -944,6 +946,7 @@ class AtlasOpenBrainContextInjectionService
                 'source' => 'atlas_open_brain_context_injection',
                 'preview' => $action === 'context_injection_preview',
                 'policy' => $policy,
+                'query_redaction' => 'hash_only_no_raw_objective_or_workspace_path',
             ],
             'accessed_at' => now(),
         ]);

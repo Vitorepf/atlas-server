@@ -55,6 +55,15 @@ final class AtlasTaskResourceSafetyTest extends TestCase
             'event_hash' => str_repeat('b', 64),
             'provider_dispatched' => false,
             'runtime_executed' => false,
+            'orchestration_receipt' => [
+                'schema_version' => 'atlas.task_orchestration.local_event_receipt.v1',
+                'provider_dispatch_allowed' => false,
+                'runtime_execution_allowed' => false,
+                'agent_control_plane_allowed' => false,
+                'policy_mutation_allowed' => false,
+                'auto_completion_allowed' => false,
+                'operator_review_required_for_external_execution' => true,
+            ],
         ];
 
         $payload = (new AtlasTaskEventResource($event))->resolve();
@@ -69,6 +78,13 @@ final class AtlasTaskResourceSafetyTest extends TestCase
         $this->assertTrue(data_get($payload, 'safety.has_event_sequence'));
         $this->assertTrue(data_get($payload, 'safety.has_previous_event_hash'));
         $this->assertTrue(data_get($payload, 'safety.has_event_hash'));
+        $this->assertTrue(data_get($payload, 'safety.has_local_orchestration_receipt'));
+        $this->assertSame('atlas.task_orchestration.local_event_receipt.v1', data_get($payload, 'safety.local_receipt_schema_version'));
+        $this->assertTrue(data_get($payload, 'safety.local_receipt_complete'));
+        $this->assertFalse(data_get($payload, 'safety.unsafe_local_receipt'));
+        $this->assertFalse(data_get($payload, 'safety.receipt_agent_control_plane_allowed'));
+        $this->assertFalse(data_get($payload, 'safety.receipt_auto_completion_allowed'));
+        $this->assertTrue(data_get($payload, 'safety.receipt_operator_review_required_for_external_execution'));
         $this->assertSame('milestone', data_get($payload, 'safety.event_type'));
         $this->assertSame('open_brain_mcp', data_get($payload, 'safety.source'));
     }

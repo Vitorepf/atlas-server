@@ -89,6 +89,26 @@ payload, assigns a per-task `event_sequence`, links to the previous event id and
 hash, and stores a SHA-256 `event_hash`. This makes normal task planning
 replayable by Open Brain without implying provider dispatch, runtime execution,
 Agent Control Plane dispatch, policy mutation or automatic completion authority.
+`php artisan atlas:ai:task-orchestration-report --json` is the compact
+read-only promotion check for this boundary. It reports task counts, lifecycle
+event coverage, receipt/hash-chain coverage, unsafe receipt flags and external
+execution review requirements without creating tasks, completing work or
+dispatching providers/runtimes/agents. The report also publishes
+`atlas.task_orchestration.handoff_contract.v1`, a hash-only fail-closed handoff
+contract: provider dispatch, runtime execution, Agent Control Plane dispatch,
+policy mutation and auto-completion remain false by report authority, and any
+external handoff requires task event receipt, event hash, event sequence,
+Decision Receipt, operator review, runtime invocation contract when applicable
+and Evidence Ledger ref.
+Legacy local task events can be repaired with
+`php artisan atlas:ai:task-orchestration-backfill-receipts --json` first as a
+dry-run, then with `--write` after review. The backfill only repairs local
+sequence, receipt and hash-chain payload fields; it does not execute providers,
+runtimes, agents, policy changes or task completion.
+Task event resources project receipt safety explicitly: local receipt presence,
+schema, completeness, unsafe flag, provider/runtime/Agent Control Plane/policy/
+auto-completion booleans and operator-review requirement. These fields are
+audit signals only and never authorize dispatch.
 
 ## Decision Receipt Fields
 

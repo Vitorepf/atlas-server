@@ -102,6 +102,22 @@ class AiMemoryDeltaProposer
         $contentHash = is_string($quarantine['content_hash'] ?? null)
             ? $quarantine['content_hash']
             : hash('sha256', $text);
+        $immuneAudit = is_array($quarantine['immune_audit'] ?? null)
+            ? $quarantine['immune_audit']
+            : [
+                'schema_version' => 'atlas.capture.cognitive_immune_audit.v1',
+                'status' => 'legacy_missing',
+                'audit_hash' => hash('sha256', implode('|', [
+                    'legacy_missing_cognitive_immune_audit',
+                    $capture->id,
+                    $contentHash,
+                ])),
+                'noise_gate' => [
+                    'status' => 'not_recorded_legacy_capture',
+                ],
+                'memory_promotion_allowed_now' => false,
+                'context_export_allowed_now' => false,
+            ];
         $proposalId = is_scalar($context['proposal_id'] ?? null) ? (string) $context['proposal_id'] : null;
 
         return AiMemoryDelta::query()->firstOrCreate([
@@ -120,6 +136,12 @@ class AiMemoryDeltaProposer
                 'privacy_class' => $privacy['sensitivity'] ?? data_get($capture->metadata, 'sensitivity', 'normal'),
                 'provider_safe' => $providerSafe,
                 'promotion_status' => $quarantine['promotion_status'] ?? 'unclassified',
+                'immune_audit_schema_version' => $immuneAudit['schema_version'] ?? null,
+                'immune_audit_status' => $immuneAudit['status'] ?? null,
+                'immune_audit_hash' => $immuneAudit['audit_hash'] ?? null,
+                'immune_noise_gate_status' => data_get($immuneAudit, 'noise_gate.status'),
+                'immune_memory_promotion_allowed_now' => $immuneAudit['memory_promotion_allowed_now'] ?? false,
+                'immune_context_export_allowed_now' => $immuneAudit['context_export_allowed_now'] ?? false,
             ]],
             'confidence' => $providerSafe ? 0.64 : 0.4,
             'valid_from' => now(),

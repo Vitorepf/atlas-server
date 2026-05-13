@@ -113,9 +113,11 @@ Required behavior:
 ## Benchmark Slice
 
 `php artisan atlas:ai:local-rag-benchmark --json` includes
-`memory_recall_corpus` for promoted memory. The slice runs hybrid recall against
-provider-safe Registry entries promoted from `ai_memory_delta` and provider-safe
-Verbatim memories promoted from capture/curation, then reports:
+`memory_recall_corpus` for real memory recall. The slice prefers provider-safe
+Registry entries promoted from `ai_memory_delta` and provider-safe Verbatim
+memories promoted from capture/curation. If no promoted corpus exists yet, it
+falls back to active governed provider-safe Registry/Verbatim memory selected by
+the same privacy boundary used by Open Brain retrieval, then reports:
 
 - `precision_at_3` and `precision_at_5`;
 - missed critical promoted refs;
@@ -130,7 +132,11 @@ uses hashes, source ref types and source ref hashes. The slice also emits a
 `golden_set` packet (`atlas.memory_recall_golden_set.v1`) with hashed
 objectives, `must_include` ref hashes, `must_exclude` safety classes and
 critical invariants, so repeated runs can compare misses and contamination
-without leaking capture text. Passing this slice can satisfy
+without leaking capture text. Golden-set selection uses
+`promoted_provider_safe_registry_or_verbatim_memory_latest_first` when promoted
+items exist and
+`promoted_provider_safe_latest_first_else_governed_provider_safe_active_latest_first`
+for the fallback path. Passing this slice can satisfy
 `real_corpus_retrieval_answer_quality`, but it does not authorize Graph RAG,
 Python runtime promotion or provider bypass.
 
@@ -161,6 +167,25 @@ executing them. It must keep `raw_query_persisted=false`,
 `raw_context_persisted=false`, forbid provider calls/runtime execution/policy
 auto-apply and require human review plus AP/runtime contracts before any rival
 strategy can run.
+
+External vector/RAG belongs to Memory/Context Engine and Knowledge Base/Open
+Brain, with Constelacao as a likely future surface. It is absent from runtime by
+design because embeddings, external vector-store IO and Graph RAG can change
+recall semantics, privacy exposure, retention/delete behavior and costs. The
+benchmark exposes this boundary through
+`promotion_review_contract.external_vector_rag_preflight_contract`
+(`atlas.external_vector_rag.promotion_preflight.v1`): proposal-only, hash-only,
+no embedding generation, no external vector reads/writes, no provider dispatch,
+no memory/context mutation and no Constelacao promotion. Any activation requires
+AP-683/AP-684 or successor scope, human review, Decision Receipt, runtime
+invocation contract, provider-safety review, retention/delete-cascade policy,
+golden-set benchmark, Evidence Ledger and rollback plan.
+
+`--emit-external-vector-rag-preflight-inbox` turns that contract into a
+proposal Inbox item with `review_external_vector_rag_preflight`. The action
+records a dry-run Decision Receipt and safety review while keeping runtime
+execution, provider calls, embedding generation, external vector IO, memory
+writes, context mutation, policy patching and Constelacao promotion closed.
 
 Recurring snapshots are disabled by default. Use
 `php artisan atlas:ai:local-rag-benchmark --schedule-plan --json` to inspect the

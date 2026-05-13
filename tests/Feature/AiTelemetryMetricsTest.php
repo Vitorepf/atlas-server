@@ -623,6 +623,64 @@ class AiTelemetryMetricsTest extends TestCase
             ->assertJsonPath('health.scorecard.totals.operational_estimate_cost_count', 1);
     }
 
+    public function test_ledger_projection_trace_without_provider_is_not_actionable_missing_cost_rate(): void
+    {
+        $trace = $this->seedCompletedTrace();
+        $trace->update([
+            'provider' => null,
+            'model' => null,
+            'metadata' => [
+                'schema_version' => 'atlas.ledger_projection.metadata.v1',
+                'projection_id' => 'ai_traces',
+                'ledger_event_type' => 'OPERATION_COMPLETED',
+                'ledger_event_id' => (string) Str::uuid(),
+                'emitter_stage' => 'atlas.self_improvement',
+            ],
+        ]);
+        AiJob::query()->where('trace_id', $trace->id)->delete();
+        AiProviderCostRate::query()->delete();
+
+        $summary = app(AiTraceMetricAggregator::class)->recomputeTrace($trace->id);
+
+        $this->assertNull($summary->provider);
+        $this->assertNull($summary->model);
+        $this->assertNull($summary->cost_microusd);
+        $this->assertSame('estimated', $summary->cost_confidence);
+        $this->assertSame('provider_not_applicable', $summary->cost_source);
+        $this->assertSame('not_applicable', $summary->cost_mode);
+
+        $summary->update([
+            'cost_confidence' => 'unknown',
+            'cost_source' => 'missing_cost_rate',
+            'cost_mode' => 'unknown',
+        ]);
+
+        $missing = app(AiProviderCostRateService::class)->missingRates(now()->subDay());
+
+        $this->assertSame([], $missing);
+    }
+
+    public function test_regular_trace_without_provider_stays_actionable_missing_cost_rate(): void
+    {
+        $trace = $this->seedCompletedTrace();
+        $trace->update([
+            'provider' => null,
+            'model' => null,
+            'metadata' => ['source' => 'test_no_provider_identity'],
+        ]);
+        AiJob::query()->where('trace_id', $trace->id)->delete();
+        AiProviderCostRate::query()->delete();
+
+        $summary = app(AiTraceMetricAggregator::class)->recomputeTrace($trace->id);
+
+        $this->assertNull($summary->provider);
+        $this->assertNull($summary->model);
+        $this->assertNull($summary->cost_microusd);
+        $this->assertSame('unknown', $summary->cost_confidence);
+        $this->assertSame('missing_cost_rate', $summary->cost_source);
+        $this->assertSame('unknown', $summary->cost_mode);
+    }
+
     public function test_scorecard_endpoint_can_recompute_and_return_provider_buckets(): void
     {
         $this->seedCompletedTrace();

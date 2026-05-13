@@ -15,7 +15,7 @@ class AtlasArchitectureOperationsCatalogTest extends TestCase
         $this->assertSame('arquitetura_mae', $catalog->sectionKey());
         $this->assertSame('atlas.architecture_operations.v1', $summary['schema_version']);
         $this->assertSame('arquitetura_mae', $summary['section']);
-        $this->assertSame(72, $summary['command_count']);
+        $this->assertSame(82, $summary['command_count']);
         $this->assertSame($catalog->commands(), $summary['commands']);
         $this->assertSame([
             'architecture_operations',
@@ -35,9 +35,11 @@ class AtlasArchitectureOperationsCatalogTest extends TestCase
             'local_rag_benchmark_schedule',
             'local_rag_benchmark_rivals_report',
             'local_rag_benchmark_rivals_shadow_plan',
+            'local_rag_benchmark_rivals_shadow_case_contract',
             'local_rag_benchmark_rivals_shadow_inbox',
             'local_rag_benchmark_rivals_inbox',
             'local_rag_graph_promotion_review',
+            'external_vector_rag_preflight_inbox',
             'external_graph_harness_report',
             'knowledge_sync',
             'code_intelligence_index',
@@ -89,6 +91,14 @@ class AtlasArchitectureOperationsCatalogTest extends TestCase
             'ledger_projection_worker',
             'self_improvement_schedule_report',
             'inbox_action_report',
+            'capture_inbox_pipeline_report',
+            'capture_inbox_pipeline_backfill_contracts',
+            'task_orchestration_report',
+            'task_orchestration_backfill_receipts',
+            'tool_action_runtime_report',
+            'long_running_work_report',
+            'long_running_work_declare_baseline',
+            'proactive_layer_report',
             'runtime_language_boundary',
         ], $summary['operation_ids']);
 
@@ -111,7 +121,9 @@ class AtlasArchitectureOperationsCatalogTest extends TestCase
         $this->assertContains('php artisan atlas:ai:local-rag-benchmark --schedule-plan --json', $commands);
         $this->assertContains('php artisan atlas:ai:local-rag-benchmark --rivals-report --json', $commands);
         $this->assertContains('php artisan atlas:ai:local-rag-benchmark --rivals-shadow-plan --json', $commands);
+        $this->assertContains('php artisan atlas:ai:local-rag-benchmark --rivals-shadow-case-contract --json', $commands);
         $this->assertContains('php artisan atlas:ai:local-rag-benchmark --rivals-shadow-plan --emit-rivals-shadow-inbox --json', $commands);
+        $this->assertContains('php artisan atlas:ai:local-rag-benchmark --emit-external-vector-rag-preflight-inbox --json', $commands);
         $this->assertContains('php artisan atlas:ai:external-graph-harness --json', $commands);
         $this->assertContains('atlas engineering knowledge sync --prune --json', $commands);
         $this->assertContains('atlas engineering knowledge index-code --prune --summary-only --json', $commands);
@@ -162,6 +174,13 @@ class AtlasArchitectureOperationsCatalogTest extends TestCase
         $this->assertContains('php artisan atlas:ai:ledger-project --limit=500 --json', $commands);
         $this->assertContains('php artisan atlas:ai:self-improvement-schedule-report --hours=24 --json', $commands);
         $this->assertContains('php artisan atlas:ai:inbox-action-report --hours=24 --json', $commands);
+        $this->assertContains('php artisan atlas:ai:capture-inbox-pipeline-report --hours=24 --json', $commands);
+        $this->assertContains('php artisan atlas:ai:capture-inbox-pipeline-backfill-contracts --hours=720 --json', $commands);
+        $this->assertContains('php artisan atlas:ai:task-orchestration-report --hours=24 --json', $commands);
+        $this->assertContains('php artisan atlas:ai:task-orchestration-backfill-receipts --hours=720 --json', $commands);
+        $this->assertContains('php artisan atlas:ai:tool-action-runtime-report --hours=24 --json', $commands);
+        $this->assertContains('php artisan atlas:ai:long-running-work-report --hours=24 --json', $commands);
+        $this->assertContains('php artisan atlas:ai:proactive-layer-report --hours=24 --json', $commands);
         $this->assertContains('php artisan atlas:ai:runtime-boundary --json', $commands);
         $this->assertSame('architecture_operations', data_get($summary, 'commands.0.id'));
         $this->assertSame('cli', data_get($summary, 'commands.0.surface'));
@@ -172,11 +191,13 @@ class AtlasArchitectureOperationsCatalogTest extends TestCase
         $this->assertSame('runtime_benchmark_schedule', data_get($summary, 'commands.14.kind'));
         $this->assertSame('maturity_report', data_get($summary, 'commands.15.kind'));
         $this->assertSame('governance_gate', data_get($summary, 'commands.16.kind'));
-        $this->assertSame('review_queue', data_get($summary, 'commands.17.kind'));
+        $this->assertSame('governance_gate', data_get($summary, 'commands.17.kind'));
         $this->assertSame('review_queue', data_get($summary, 'commands.18.kind'));
-        $this->assertSame('governance_gate', data_get($summary, 'commands.19.kind'));
-        $this->assertSame('code_intelligence_report', data_get($summary, 'commands.20.kind'));
-        $this->assertSame('maintenance', data_get($summary, 'commands.21.kind'));
+        $this->assertSame('review_queue', data_get($summary, 'commands.19.kind'));
+        $this->assertSame('governance_gate', data_get($summary, 'commands.20.kind'));
+        $this->assertSame('review_queue', data_get($summary, 'commands.21.kind'));
+        $this->assertSame('code_intelligence_report', data_get($summary, 'commands.22.kind'));
+        $this->assertSame('maintenance', data_get($summary, 'commands.23.kind'));
 
         $commandsById = collect($summary['commands'])->keyBy('id');
         $this->assertSame('catalog', data_get($commandsById, 'architecture_operations.kind'));
@@ -225,12 +246,17 @@ class AtlasArchitectureOperationsCatalogTest extends TestCase
         $this->assertSame('governance_gate', data_get($commandsById, 'local_rag_benchmark_rivals_shadow_plan.kind'));
         $this->assertSame('docs/ap/AP-693-retrieval-rivals-shadow-comparison-contract.md', data_get($commandsById, 'local_rag_benchmark_rivals_shadow_plan.doc'));
         $this->assertSame('atlas.memory_retrieval_rivals_shadow_plan_review_packet.v1', data_get($commandsById, 'local_rag_benchmark_rivals_shadow_plan.review_contract'));
+        $this->assertSame('governance_gate', data_get($commandsById, 'local_rag_benchmark_rivals_shadow_case_contract.kind'));
+        $this->assertSame('atlas.memory_retrieval_rivals_shadow_case_contract.v1', data_get($commandsById, 'local_rag_benchmark_rivals_shadow_case_contract.review_contract'));
         $this->assertSame('review_queue', data_get($commandsById, 'local_rag_benchmark_rivals_shadow_inbox.kind'));
         $this->assertSame('atlas.memory_retrieval_rivals_shadow_inbox.v1', data_get($commandsById, 'local_rag_benchmark_rivals_shadow_inbox.review_contract'));
         $this->assertSame('review_queue', data_get($commandsById, 'local_rag_benchmark_rivals_inbox.kind'));
         $this->assertSame('atlas.memory_retrieval_rivals_inbox.v1', data_get($commandsById, 'local_rag_benchmark_rivals_inbox.review_contract'));
         $this->assertSame('governance_gate', data_get($commandsById, 'local_rag_graph_promotion_review.kind'));
         $this->assertSame('atlas.local_rag_graph_promotion_review.v1', data_get($commandsById, 'local_rag_graph_promotion_review.review_contract'));
+        $this->assertSame('review_queue', data_get($commandsById, 'external_vector_rag_preflight_inbox.kind'));
+        $this->assertSame('docs/engineering-knowledge-base/memory/retrieval-and-context.md', data_get($commandsById, 'external_vector_rag_preflight_inbox.doc'));
+        $this->assertSame('atlas.external_vector_rag.preflight_inbox.v1', data_get($commandsById, 'external_vector_rag_preflight_inbox.review_contract'));
         $this->assertSame('code_intelligence_report', data_get($commandsById, 'external_graph_harness_report.kind'));
         $this->assertSame('/ai/external-graph-harness', data_get($commandsById, 'external_graph_harness_report.api_endpoint'));
         $this->assertSame('maintenance', data_get($commandsById, 'knowledge_sync.kind'));
@@ -276,6 +302,17 @@ class AtlasArchitectureOperationsCatalogTest extends TestCase
         $this->assertSame('validation', data_get($commandsById, 'voice_realtime_production_loop_smoke.kind'));
         $this->assertSame('runtime_contract', data_get($commandsById, 'voice_realtime_worker_start_check.kind'));
         $this->assertSame('maturity_report', data_get($commandsById, 'voice_realtime_rivals_report.kind'));
+        $this->assertSame('evidence_report', data_get($commandsById, 'capture_inbox_pipeline_report.kind'));
+        $this->assertSame('maintenance', data_get($commandsById, 'capture_inbox_pipeline_backfill_contracts.kind'));
+        $this->assertSame('php artisan atlas:ai:capture-inbox-pipeline-backfill-contracts --hours=720 --write --json', data_get($commandsById, 'capture_inbox_pipeline_backfill_contracts.write_command'));
+        $this->assertSame('evidence_report', data_get($commandsById, 'task_orchestration_report.kind'));
+        $this->assertSame('maintenance', data_get($commandsById, 'task_orchestration_backfill_receipts.kind'));
+        $this->assertSame('php artisan atlas:ai:task-orchestration-backfill-receipts --hours=720 --write --json', data_get($commandsById, 'task_orchestration_backfill_receipts.write_command'));
+        $this->assertSame('evidence_report', data_get($commandsById, 'tool_action_runtime_report.kind'));
+        $this->assertSame('evidence_report', data_get($commandsById, 'long_running_work_report.kind'));
+        $this->assertSame('maintenance', data_get($commandsById, 'long_running_work_declare_baseline.kind'));
+        $this->assertSame('php artisan atlas:ai:long-running-work-declare-baseline --apply --json', data_get($commandsById, 'long_running_work_declare_baseline.write_command'));
+        $this->assertSame('evidence_report', data_get($commandsById, 'proactive_layer_report.kind'));
         $this->assertSame('validation', data_get($commandsById, 'runtime_language_boundary.kind'));
         $this->assertSame('/ai/runtime-boundary', data_get($commandsById, 'runtime_language_boundary.api_endpoint'));
         $this->assertSame('atlas_runtime_boundary', data_get($commandsById, 'runtime_language_boundary.mcp_tool'));
@@ -299,7 +336,7 @@ class AtlasArchitectureOperationsCatalogTest extends TestCase
         $this->assertSame('php artisan atlas:ai:provider-performance --hours=24 --json', data_get($byId, 'commands.0.command'));
 
         $this->assertSame(['section' => 'arquitetura_mae'], $bySection['filters']);
-        $this->assertSame(72, $bySection['command_count']);
+        $this->assertSame(82, $bySection['command_count']);
         $this->assertContains('architecture_operations', $bySection['operation_ids']);
         $this->assertSame(['section' => 'legacy'], $byUnknownSection['filters']);
         $this->assertSame(0, $byUnknownSection['command_count']);
@@ -336,16 +373,16 @@ class AtlasArchitectureOperationsCatalogTest extends TestCase
         ], $byValidation['operation_ids']);
 
         $byMaintenance = $catalog->summary(['kind' => 'maintenance']);
-        $this->assertSame(3, $byMaintenance['command_count']);
-        $this->assertSame(['knowledge_sync', 'code_intelligence_index', 'ledger_projection_worker'], $byMaintenance['operation_ids']);
+        $this->assertSame(6, $byMaintenance['command_count']);
+        $this->assertSame(['knowledge_sync', 'code_intelligence_index', 'ledger_projection_worker', 'capture_inbox_pipeline_backfill_contracts', 'task_orchestration_backfill_receipts', 'long_running_work_declare_baseline'], $byMaintenance['operation_ids']);
 
         $byBootstrap = $catalog->summary(['kind' => 'bootstrap']);
         $this->assertSame(1, $byBootstrap['command_count']);
         $this->assertSame(['session_bootstrap'], $byBootstrap['operation_ids']);
 
         $byGovernanceGate = $catalog->summary(['kind' => 'governance_gate']);
-        $this->assertSame(5, $byGovernanceGate['command_count']);
-        $this->assertSame(['feature_placement', 'documentation_split_plan', 'ap_agent_workflow_registry', 'local_rag_benchmark_rivals_shadow_plan', 'local_rag_graph_promotion_review'], $byGovernanceGate['operation_ids']);
+        $this->assertSame(6, $byGovernanceGate['command_count']);
+        $this->assertSame(['feature_placement', 'documentation_split_plan', 'ap_agent_workflow_registry', 'local_rag_benchmark_rivals_shadow_plan', 'local_rag_benchmark_rivals_shadow_case_contract', 'local_rag_graph_promotion_review'], $byGovernanceGate['operation_ids']);
 
         $byProviderProjection = $catalog->summary(['kind' => 'provider_projection']);
         $this->assertSame(2, $byProviderProjection['command_count']);
@@ -389,6 +426,13 @@ class AtlasArchitectureOperationsCatalogTest extends TestCase
         $this->assertSame('docs/ap/AP-683-local-rag-graph-promotion-review.md', data_get($byLocalRagGraphPromotionReview, 'commands.0.doc'));
         $this->assertSame('atlas.local_rag_graph_promotion_review.v1', data_get($byLocalRagGraphPromotionReview, 'commands.0.review_contract'));
 
+        $byExternalVectorRagPreflightInbox = $catalog->summary(['id' => 'external_vector_rag_preflight_inbox']);
+        $this->assertSame(1, $byExternalVectorRagPreflightInbox['command_count']);
+        $this->assertSame('review_queue', data_get($byExternalVectorRagPreflightInbox, 'commands.0.kind'));
+        $this->assertSame('php artisan atlas:ai:local-rag-benchmark --emit-external-vector-rag-preflight-inbox --json', data_get($byExternalVectorRagPreflightInbox, 'commands.0.command'));
+        $this->assertSame('docs/engineering-knowledge-base/memory/retrieval-and-context.md', data_get($byExternalVectorRagPreflightInbox, 'commands.0.doc'));
+        $this->assertSame('atlas.external_vector_rag.preflight_inbox.v1', data_get($byExternalVectorRagPreflightInbox, 'commands.0.review_contract'));
+
         $byCodeIntelligenceReport = $catalog->summary(['kind' => 'code_intelligence_report']);
         $this->assertSame(1, $byCodeIntelligenceReport['command_count']);
         $this->assertSame(['external_graph_harness_report'], $byCodeIntelligenceReport['operation_ids']);
@@ -404,7 +448,7 @@ class AtlasArchitectureOperationsCatalogTest extends TestCase
         $this->assertSame(['voice_realtime_dependencies', 'voice_realtime_dependency_install_plan', 'voice_realtime_scripted_worker_example', 'voice_realtime_callback_loop_check', 'voice_realtime_activation_contract', 'voice_realtime_sdk_check', 'voice_realtime_worker_plan', 'voice_realtime_production_loop_plan', 'voice_realtime_product_loop_check', 'voice_realtime_worker_start_check', 'voice_python_runtime_contract_test'], $byRuntimeContract['operation_ids']);
 
         $this->assertSame(['kind' => 'evidence_report'], $byKind['filters']);
-        $this->assertSame(12, $byKind['command_count']);
+        $this->assertSame(17, $byKind['command_count']);
         $this->assertNotContains('architecture_operations', $byKind['operation_ids']);
         $this->assertContains('voice_realtime_readiness', $byKind['operation_ids']);
         $this->assertContains('kernel_slo_report', $byKind['operation_ids']);
@@ -414,6 +458,14 @@ class AtlasArchitectureOperationsCatalogTest extends TestCase
         $this->assertContains('decision_receipt_report', $byKind['operation_ids']);
         $this->assertContains('ledger_replay', $byKind['operation_ids']);
         $this->assertContains('inbox_action_report', $byKind['operation_ids']);
+        $this->assertContains('capture_inbox_pipeline_report', $byKind['operation_ids']);
+        $this->assertContains('task_orchestration_report', $byKind['operation_ids']);
+        $this->assertContains('tool_action_runtime_report', $byKind['operation_ids']);
+        $this->assertContains('long_running_work_report', $byKind['operation_ids']);
+        $this->assertContains('proactive_layer_report', $byKind['operation_ids']);
+
+        $byMaintenance = $catalog->summary(['kind' => 'maintenance']);
+        $this->assertContains('long_running_work_declare_baseline', $byMaintenance['operation_ids']);
 
         $byReadiness = $catalog->summary(['kind' => 'readiness']);
         $this->assertSame(1, $byReadiness['command_count']);
@@ -435,8 +487,8 @@ class AtlasArchitectureOperationsCatalogTest extends TestCase
         $this->assertSame('php artisan atlas:ai:rivals-strategy report --hours=8760 --json', data_get($byMaturity, 'commands.3.command'));
 
         $byReviewQueue = $catalog->summary(['kind' => 'review_queue']);
-        $this->assertSame(4, $byReviewQueue['command_count']);
-        $this->assertSame(['local_rag_benchmark_rivals_shadow_inbox', 'local_rag_benchmark_rivals_inbox', 'voice_realtime_promotion_review_packet', 'rivals_strategy_due_reviews'], $byReviewQueue['operation_ids']);
+        $this->assertSame(5, $byReviewQueue['command_count']);
+        $this->assertSame(['local_rag_benchmark_rivals_shadow_inbox', 'local_rag_benchmark_rivals_inbox', 'external_vector_rag_preflight_inbox', 'voice_realtime_promotion_review_packet', 'rivals_strategy_due_reviews'], $byReviewQueue['operation_ids']);
 
         $byReviewAction = $catalog->summary(['kind' => 'review_action']);
         $this->assertSame(2, $byReviewAction['command_count']);

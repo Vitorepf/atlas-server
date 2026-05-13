@@ -138,6 +138,42 @@ Mobile deve consumir o mesmo catalogo que CLI/API/app:
   context-bundle API-only status, action-registry requirement, dedupe/deep-link
   hashes and the allowlisted push data fields. Dedupe refreshes the same
   contract instead of reusing stale delivery metadata.
+- The same contract embeds `presence_eclipse_governance` as
+  `atlas.proactive.presence_eclipse.v1`: explicit proactive opt-out, manual
+  eclipse, quiet-hours support, no-surveillance default and retention anchor.
+  Device preferences `proactive_push_enabled=false` or
+  `manual_eclipse_enabled=true` block non-critical proactive push while the
+  Inbox item remains available through the authenticated API.
+- Every `mobile_push_delivery` audit event produced by `MobilePushService`
+  embeds `delivery_attempt_contract` as
+  `atlas.proactive.push_delivery_attempt.v1`: a hash-only attempt receipt with
+  provider/status, request payload hash, linked proactive-contract hash, hashed
+  device id, raw-device-id persistence closed and provider data keys. It never
+  grants actions and keeps context/payload/body outside push. Surrounding push
+  audit evidence also uses `device_id_hash` and `raw_device_id_persisted=false`.
+- `php artisan atlas:ai:proactive-layer-report --json` is the read-only health
+  report for insight watchers, Atlas-initiated insights and push deliveries. It
+  never emits Inbox items or push. It exposes
+  `atlas.proactive_layer.report_safety.v1`: read-model only, writes closed,
+  push pointer-only, authenticated fetch required, raw context/payload/body and
+  raw device-id audit persistence closed, no agent auto-resolve/auto-dismiss.
+  When critical insights are active, it exposes
+  `critical_review_contract` as
+  `atlas.proactive.critical_review_contract.v1`: operator review is required,
+  agent auto-resolve/auto-dismiss is forbidden and only active critical
+  insights (`unread`, `read`, `actioned` or `snoozed`) block completion; already
+  resolved, dismissed or expired critical history remains counted as history but
+  does not keep the review gate open. Review paths remain pointer-only Inbox
+  links. The same contract exposes
+  `operator_review_plan` as `atlas.proactive.operator_review_plan.v1` with
+  CLI commands for `show`, `discuss`, `mark_read`, `snooze` and
+  review-backed `dismiss`; these commands are operator actions, not autonomous
+  completion authority, and the structure-mother audit must be rerun afterward.
+- Inbox CLI `respond` forwards provider cost-rate fields
+  (`--provider`, `--model`, `--input-microusd`, `--output-microusd`,
+  `--currency`, `--effective-from`, `--effective-until`) to the governed
+  `configure_provider_cost_rates` action. Operators must supply current rates;
+  Atlas does not infer or fabricate provider pricing.
 - Conteudo sensivel fica atras de API autenticada.
 - Dedupe key evita spam.
 - Quiet hours, deferred delivery e invalid token devem ser auditaveis.

@@ -144,6 +144,13 @@ class AiProviderCostRateService
             ->where('computed_at', '>=', $since)
             ->where('computed_at', '<=', $until)
             ->where('cost_confidence', 'unknown')
+            ->whereDoesntHave('trace', function (Builder $query): void {
+                $query
+                    ->whereNull('provider')
+                    ->whereNull('model')
+                    ->where('metadata->schema_version', 'atlas.ledger_projection.metadata.v1')
+                    ->where('metadata->projection_id', 'ai_traces');
+            })
             ->groupBy('provider', 'model')
             ->orderByDesc('traces')
             ->limit($limit)

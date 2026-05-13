@@ -54,31 +54,39 @@ Base/Open Brain. It excludes Voice/LiveKit experience work.
 | Recall lineage/freshness/audit | implemented | `AtlasMemoryContextComposer` emits `lineage`, `freshness`, `audit` and `audit_trail` |
 | Engineering Knowledge Base | implemented | `EngineeringKnowledgeBaseService`, `atlas engineering knowledge sync`, API and CLI |
 | Code Intelligence | implemented | `atlas engineering knowledge index-code`, modules, symbols, routes, commands and tests index |
-| Open Brain context export | implemented | `AtlasOpenBrainContextInjectionService`, `AtlasOpenBrainService`, API/CLI/MCP and audits |
+| Open Brain context export | implemented | `AtlasOpenBrainContextInjectionService`, `AtlasOpenBrainService`, API/CLI/MCP and hash-only audits with no raw objective/workspace query persistence |
 | Provider projections | implemented | provider-safe projection status/apply/audit contracts and tests |
 | AtlasVault as human surface | partial | local contracts/runbook exist; arbitrary vault notes are not operational primary source |
 | Memory quality scorecard | implemented | `AtlasMemoryQualityService`, snapshots, history, API and CLI |
 | Raw capture quarantine | implemented | `CaptureService` stamps `metadata.cognitive_quarantine` with memory/context/embedding disabled, provider/Open Brain export closed by default and idempotent replay receipts without raw content |
+| Cognitive immune audit projection | implemented | `CaptureService` records `atlas.capture.cognitive_immune_audit.v1`; capture and curation proposal resources expose only safe audit summaries and closed learning/memory/context/constellation flags |
+| Capture-backed delta immune lineage | implemented | `AiMemoryDeltaProposer` stores content hash, proposal link and immune audit hash/status in delta evidence, with deterministic `legacy_missing` fallback for older captures; `atlas.memory_delta.safety.v1` projects only hash/status gate summaries |
 | Curation proposal quarantine | implemented | `CurationProposalService` inherits capture quarantine, keeps proposal non-memory/non-context and redacts raw source in audit |
 | Memory delta review API | implemented | `/ai/memory/deltas`, `/ai/memory/deltas/{delta}` and review expose delta safety flags and accept/reject with `atlas.memory_delta.review_receipt.v1` |
+| Promoted memory lineage safety | implemented | `AtlasMemoryEntryResource` exposes `atlas.memory_entry.lineage_safety.v1` with hash-only source/delta identity, promotion origin, evidence count, valid window and freshness status |
 | Raw capture to Memory Registry promotion | implemented | accepting a curation proposal with `promote_to_memory=true` promotes the capture-backed delta with `atlas.memory.promotion_receipt.v1` |
 | Raw capture to Verbatim Store promotion | implemented | accepting a curation proposal with `promote_to_verbatim=true` writes exact local text to Verbatim Store with `atlas.verbatim_memory.promotion_receipt.v1` and external AI closed by default |
 | Inbox/Capture review workflow | implemented | `CaptureService` writes `metadata.semantic_curation` and `CaptureResource.review_workflow` exposes proposal, delta, promotion actions and quarantine safety flags without raw evidence text |
+| Capture/Inbox pipeline report | implemented | `atlas:ai:capture-inbox-pipeline-report --json` verifies recent capture quarantine, content intelligence, proposal backlinks, memory deltas, capture links and operational inbox coverage, plus `atlas.capture_inbox_pipeline.promotion_gate.v1`, without mutating memory/context |
+| Legacy capture contract backfill | implemented | `atlas:ai:capture-inbox-pipeline-backfill-contracts` dry-runs by default and can conservatively add quarantine/content-intelligence/proposal backlink metadata while keeping provider/Open Brain/embedding/memory gates closed |
 | Retrieval usage evals | implemented | `AtlasMemoryQualityService` reports `counts.retrieval_eval`, recall coverage and recall-specific negative feedback from `atlas_memory_entry_usages` |
-| Promoted memory retrieval benchmark | implemented | `atlas:ai:local-rag-benchmark --json` includes `memory_recall_corpus` plus a hashed golden-set packet for promoted Registry/Verbatim memories |
+| Real memory retrieval benchmark | implemented | `atlas:ai:local-rag-benchmark --json` includes `memory_recall_corpus` plus a hashed golden-set packet; promoted Registry/Verbatim memories are preferred and active governed provider-safe memory is used as fallback when no promoted corpus exists |
 | Longitudinal retrieval snapshots | implemented | `atlas:ai:local-rag-benchmark --record-memory-quality --json` persists benchmark metrics into `atlas_memory_quality_snapshots` with hashes only and returns filtered benchmark history |
 | Scheduled retrieval evaluation | implemented | `atlas:ai:local-rag-benchmark --schedule-plan --json` exposes the opt-in schedule and `bootstrap/app.php` registers it only when schedulable |
 | Retrieval Rivals packet | implemented | `atlas:ai:local-rag-benchmark --json` returns `retrieval_rivals_packet` comparing current governed recall to proposal-only alternatives without executing them |
 | Retrieval Rivals longitudinal comparison | implemented | `atlas:ai:local-rag-benchmark --rivals-report --json` compares latest/previous benchmark snapshots, flags regression and emits proposal-only human review packet |
 | Retrieval Rivals safety contract | implemented | Rivals shadow plans, reports and Inbox projections expose `atlas.retrieval_rivals.safety.v1` with provider/runtime/policy/memory writes and raw content exposure closed |
 | Retrieval Rivals shadow plan | implemented | `atlas:ai:local-rag-benchmark --rivals-shadow-plan --json` publishes AP-693 blocked scope for future shadow comparison without provider/runtime/policy execution |
-| Retrieval Rivals shadow Inbox review | implemented | `--emit-rivals-shadow-inbox` emits AP-693 scope review and `review_retrieval_shadow_scope` records `atlas.inbox_action.memory_retrieval_shadow_scope_review.v1` plus deterministic dry decision receipt without runtime, provider or policy mutation |
+| Retrieval Rivals shadow case contract | implemented | `atlas:ai:local-rag-benchmark --rivals-shadow-case-contract --json` declares deterministic case, strategy, metric, ledger-event, rollback and runtime-invocation contracts for AP-693 without executing rival retrieval |
+| Retrieval Rivals shadow Inbox review | implemented | `--emit-rivals-shadow-inbox` emits AP-693 scope/case review and `review_retrieval_shadow_scope` records scope review, privacy/provider safety review and deterministic dry decision receipt without runtime, provider or policy mutation |
 | Retrieval Rivals shadow action replay | implemented | Inbox Action CLI/API/MCP replay reports project AP-693 scope decision, reviewed count, receipt count, plan hash and fail-closed runtime/provider/policy markers |
 | Retrieval regression Inbox projection | implemented | `atlas:ai:local-rag-benchmark --rivals-report --emit-rivals-inbox --json` emits operator-review proposal only when comparison status is `attention` |
 | Retrieval regression Inbox action | implemented | `review_retrieval_regression` records `atlas.inbox_action.memory_retrieval_regression_review.v1` and `INBOX_ACTION_RECORDED` without runtime, policy or memory mutation |
 | Retrieval regression action replay | implemented | Inbox Action CLI/API/MCP replay reports project review decision, reviewed count, snapshot hashes and no-runtime/no-policy flags without raw retrieval context |
 | Longitudinal retrieval benchmarks | partial | snapshot persistence/history/schedule/comparison/shadow plan/inbox review actions exist; cross-strategy A/B execution is still pending behind AP-693 |
-| External vector/RAG | missing by design | blocked until dedicated AP/spec and promotion gate |
+| External vector/RAG | governed preflight | runtime remains blocked; `atlas:ai:local-rag-benchmark --json` publishes `atlas.external_vector_rag.promotion_preflight.v1` under the Local RAG promotion review contract with no embeddings, no external vector IO, no provider dispatch, no memory/context mutation and no Constelacao promotion |
+| External vector/RAG Inbox review | implemented | `--emit-external-vector-rag-preflight-inbox` emits a proposal item and `review_external_vector_rag_preflight` records safety review plus dry-run Decision Receipt while keeping embeddings/runtime/provider/vector IO/Constelacao closed |
+| External vector/RAG replay | implemented | Inbox Action report/replay projects `review_external_vector_rag_preflight`, counts reviewed/receipted actions and warns if any receipt allows embeddings, external vector writes or Constelacao promotion |
 
 ## Canonical Contract
 
@@ -97,7 +105,11 @@ title/summary/excerpt plus metadata that explains why each item was selected.
 ## Next Edge
 
 The next coherent block is approved cross-strategy retrieval comparison:
-promoted capture memory now has recall receipts, a deterministic golden-set
-benchmark slice, filtered benchmark history, opt-in scheduling, Rivals-style
-comparison packets and Inbox projection for regressions, but executing alternate
-retrieval strategies still requires AP/runtime contracts and human review.
+real memory now has recall receipts, a deterministic golden-set benchmark
+slice, governed provider-safe fallback selection, filtered benchmark history,
+opt-in scheduling, Rivals-style comparison packets, AP-693 shadow case contract,
+ledger-event contract, rollback plan, runtime-invocation contracts, external
+vector/RAG promotion preflight, privacy/provider safety review, decision receipt
+and Inbox projection for regressions, but executing alternate retrieval
+strategies or generating external embeddings still requires a separate
+execution receipt, focused shadow tests and human approval for the actual run.

@@ -91,7 +91,19 @@ Ja existe base operacional:
     `atlas.capture.content_intelligence.proposal.v1`, preserving lineage,
     quality and destination metadata while keeping raw content quarantined and
     provider/Open Brain promotion blocked until review.
-15. AtlasVault como Human Knowledge Surface, nao fonte operacional crua.
+15. `atlas:ai:capture-inbox-pipeline-report --hours=720 --json` validates
+    Capture -> proposal -> memory delta -> inbox -> capture link integrity as a
+    read-only gate before Memory/Open Brain promotion. It also publishes
+    `atlas.capture_inbox_pipeline.promotion_gate.v1`, keeping memory writes,
+    context injection, embeddings, provider export and Open Brain context closed
+    by report authority until operator review, lineage backlinks and promotion
+    receipt hash exist.
+16. `atlas:ai:capture-inbox-pipeline-backfill-contracts --hours=720 --write --json`
+    repairs legacy capture metadata conservatively: quarantine, content
+    intelligence and proposal backlink only; it copies no raw content and keeps
+    provider export, Open Brain context, embeddings and memory eligibility
+    closed.
+17. AtlasVault como Human Knowledge Surface, nao fonte operacional crua.
 
 Falta transformar isso em Content Intelligence completo para fontes externas,
 source reputation, YouTube global, PDFs, feeds e routing multi-dominio.
@@ -176,6 +188,13 @@ Criacao automatica de proposta deve continuar review-only: ela pode gravar
 `semantic_curation.status=proposal_pending`, atualizar quarantine e expor acoes
 de ratificacao/promocao no resource, mas nao pode promover memoria, escrever
 contexto operacional nem resolver destino sem operador.
+
+Legacy capture contract repair is allowed only as metadata backfill. The repair
+may add `captures.metadata.cognitive_quarantine`,
+`captures.metadata.content_intelligence` and
+`captures.metadata.semantic_curation` backlink receipts, but must keep
+`provider_export_allowed=false`, `open_brain_context_allowed=false`,
+`embedding_allowed=false` and `memory_eligible=false`.
 
 Exige review/approval:
 

@@ -18,8 +18,8 @@ capabilities:
   - session_bootstrap
 decisions:
   - Voice/LiveKit permanece scaffold governado e estacionado fora do caminho critico.
-  - Proximo foco estrutural e Memory/Context Engine + Knowledge Base/Open Brain.
-  - Mobile/frontend continuam pendentes governados ate o backend core estabilizar.
+  - Memory/Open Brain, Capture, Tasks, Tools, Long-Running Work, Rivals readiness and Proactive contracts now have read-only audit surfaces.
+  - Completion requires real Rivals scored review and human review of critical proactive insights; do not synthesize either.
 maintenance:
   - Atualizar ao fechar blocos estruturais grandes.
   - Manter objetivo e abaixo de 220 linhas.
@@ -47,6 +47,34 @@ A estrutura mae do Atlas AI e o backend governado que transforma o Atlas em uma 
 7. Evaluation/Rivals Framework.
 8. Notification/Proactive Layer.
 9. Voice/LiveKit Runtime.
+
+Audit canônico atual:
+
+```bash
+php artisan atlas:ai:structure-mother-audit --hours=720 --workspace=/Users/vitorepf/develop/Atlas/atlas-server --json
+```
+
+Esse comando agrega os oito modulos sem chamar provider, executar runtime,
+promover memoria, resolver Inbox ou tocar Voice/Self-Construction. Ele e o gate
+para decidir se `update_goal` e permitido. O campo `completion_checklist` mapeia
+cada requisito da estrutura mae para artefato, comando de evidencia, status e
+blockers.
+O campo `prompt_to_artifact_checklist` e o mapa explicito do pedido para
+artefatos: handoff canonico, oito modulos, regras de Voice/Self-Construction,
+validacoes obrigatorias e blockers restantes. Ele marca o handoff raiz como
+`covered` quando `/Users/vitorepf/develop/Atlas/docs/...` aponta para este
+handoff server-local canonico.
+
+Estado atual validado em 2026-05-13: `implementation_complete=true`,
+`complete=false`, `status=operational_blocked`, `ready_count=8` e
+`completion_gate.update_goal_allowed=false`. Os oito modulos tem superficie
+governada pronta, mas a conclusao operacional ainda depende de calendario/humano.
+`operator_action_plan` lista exatamente as acoes pendentes:
+
+- registrar review real de Rivals quando a janela vencer;
+- revisar insights criticos no Inbox sem auto-resolve/auto-dismiss por agente.
+- configurar rates atuais de providers quando `cost-rates --missing` indicar
+  `missing_active_cost_rate`; agente nao pode inferir precos.
 
 ## Voice/LiveKit
 
@@ -82,10 +110,12 @@ Comandos recorrentes:
 
 ```bash
 php artisan test <tests focados>
+php artisan atlas:ai:structure-mother-audit --hours=720 --json
 php artisan atlas:ai:architecture-validate --json
-atlas engineering knowledge docs-health
-atlas engineering knowledge sync --prune
-atlas engineering knowledge index-code --prune
+php artisan atlas:ai:runtime-boundary --json
+atlas engineering knowledge docs-health --json
+atlas engineering knowledge sync --prune --json
+atlas engineering knowledge index-code --prune --summary-only --json
 git diff --check
 ```
 
@@ -148,25 +178,25 @@ Provavel outra frente:
 
 Preservar tudo.
 
-## Proximo Modulo
+## Estado Atual Dos Oito Modulos
 
-Memory/Context Engine + Open Brain foundation.
+- Memory/Context Engine: pronto por scorecard, recall metadata, privacy e quality.
+- Knowledge Base/Open Brain: pronto por docs health, sync/index-code e Open Brain safety/audit.
+- Inbox/Capture Pipeline: pronto por `capture-inbox-pipeline-report`; legacy capture backfill aplicado sem abrir provider/context/memory.
+- Task/Agent Orchestration: pronto por receipt/hash-chain report e backfill local seguro.
+- Tool/Action Runtime: pronto como report/evidence read-only; sem executar tools.
+- Autonomy/Long-Running Work: pronto como report/autonomy receipt read-only; baseline declarada com 5 schedules desabilitados via `atlas:ai:long-running-work-declare-baseline --apply --json`, sem dispatch, `enabled=false` e `next_run_at=null`.
+- Evaluation/Rivals Framework: implementado; P4 operacional bloqueado ate review real pontuada.
+- Notification/Proactive Layer: implementado; 8 insights criticos exigem operador.
 
-Objetivo: memoria real governada e recuperavel, conectada a docs, codigo, vault, decisoes, entidades, relacoes, freshness, lineage e evidencia. Esse modulo reduz confusao de IA, duplicacao de fluxo e perda de contexto.
+## Blockers Reais
 
-## Primeiro Bloco Tecnico Recomendado
-
-1. Ler estado real:
-
-```bash
-pwd
-git status --short
-rg -n "Open Brain|memory|context|Knowledge|retrieval|vault|ledger projection" docs app config routes tests
-```
-
-2. Mapear classes, comandos, tabelas e docs existentes de Memory/Open Brain.
-3. Produzir matriz `implemented | partial | scaffold | missing` apenas para Memory/Open Brain.
-4. Escolher o primeiro elo backend: contrato canonico de memory item/context pack/retrieval result, validator e CLI/API read-only.
-5. Implementar com testes focados e rodar `architecture-validate`, `docs-health`, `sync --prune`, `index-code --prune` e `git diff --check`.
-
-Nao comecar por UI. Nao comecar por mobile. Nao criar novo sistema de memoria antes de reconciliar o que ja existe.
+1. Rivals/P4: primeira review real vence em 2026-06-12. Nao registrar score
+   sintetico de regret/alignment/agency.
+2. Proactive Layer: insights criticos ativos precisam de operador. Agente nao
+   pode auto-resolver nem auto-dismissar.
+3. Provider cost rates: traces projetados do Evidence Ledger nao contam mais
+   como `missing_provider_identity`; restam rates ativos a serem preenchidos
+   pelo operador para `claude_cli`, `codex_cli` e `gemini_cli` conforme
+   `php artisan atlas:ai:telemetry:cost-rates --missing --hours=240 --json`.
+4. P6/P7 continuam futuros: presence/eclipse amplo e memoria longitudinal.

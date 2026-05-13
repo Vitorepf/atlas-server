@@ -26,8 +26,10 @@ class AtlasRivalsStrategyReadModel
                 'schema_version' => self::SCHEMA_VERSION,
                 'window' => ['since' => $since->toJSON(), 'until' => $until->toJSON()],
                 ...$this->emptySummary(),
+                'safety' => $this->reportSafety(false),
                 'gates' => $this->gates($this->emptySummary(), false),
                 'review_signal' => $this->reviewSignal($this->emptySummary(), false),
+                'p4_promotion_readiness' => $this->p4PromotionReadiness($this->emptySummary(), collect(), false),
                 'recent_cases' => [],
                 'due_reviews' => [],
             ];
@@ -52,8 +54,10 @@ class AtlasRivalsStrategyReadModel
             'schema_version' => self::SCHEMA_VERSION,
             'window' => ['since' => $since->toJSON(), 'until' => $until->toJSON()],
             ...$summary,
+            'safety' => $this->reportSafety(true),
             'gates' => $this->gates($summary, true),
             'review_signal' => $this->reviewSignal($summary, true),
+            'p4_promotion_readiness' => $this->p4PromotionReadiness($summary, $scheduledReviews, true),
             'recent_cases' => $cases->take(10)->map(fn (AtlasStrategyRivalsCase $case): array => $this->casePayload($case))->values()->all(),
             'due_reviews' => $dueReviews
                 ->filter(fn (AtlasStrategyRivalsReview $review): bool => $review->review_due_at <= $until && $review->status === 'pending')
@@ -131,6 +135,27 @@ class AtlasRivalsStrategyReadModel
     {
         return Schema::hasTable('atlas_strategy_rivals_cases')
             && Schema::hasTable('atlas_strategy_rivals_reviews');
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function reportSafety(bool $storageAvailable): array
+    {
+        return [
+            'schema_version' => 'atlas.rivals_strategy.report_safety.v1',
+            'storage_available' => $storageAvailable,
+            'read_model_only' => true,
+            'writes' => false,
+            'strategy_execution_allowed' => false,
+            'provider_dispatch_allowed' => false,
+            'runtime_execution_allowed' => false,
+            'policy_mutation_allowed' => false,
+            'synthetic_scores_allowed' => false,
+            'operator_review_required_for_scores' => true,
+            'qualitative_level_promotion_requires_ready_gate' => true,
+            'raw_review_outcome_exposed' => false,
+        ];
     }
 
     /**
@@ -276,6 +301,98 @@ class AtlasRivalsStrategyReadModel
             'severity' => 'none',
             'reasons' => [],
             'recommended_action' => 'use_strategy_rivals_signal_for_qualitative_level',
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $summary
+     * @param  Collection<int,AtlasStrategyRivalsReview>  $reviews
+     * @return array<string,mixed>
+     */
+    private function p4PromotionReadiness(array $summary, Collection $reviews, bool $available): array
+    {
+        if (! $available) {
+            return [
+                'schema_version' => 'atlas.rivals_strategy.p4_promotion_readiness.v1',
+                'status' => 'blocked',
+                'reason' => 'strategy_rivals_storage_missing',
+                'next_review' => null,
+                'requirements' => $this->p4Requirements($summary),
+                'prohibited_actions_until_ready' => $this->p4ProhibitedActions(),
+            ];
+        }
+
+        $pending = $reviews
+            ->filter(fn (AtlasStrategyRivalsReview $review): bool => $review->status === 'pending')
+            ->sortBy(fn (AtlasStrategyRivalsReview $review): string => $review->review_due_at?->toJSON() ?? '')
+            ->values();
+        $next = $pending->first();
+        $ready = (int) ($summary['scored_review_count'] ?? 0) > 0
+            && ((float) ($summary['average_agency_score'] ?? 0)) >= 70;
+
+        return [
+            'schema_version' => 'atlas.rivals_strategy.p4_promotion_readiness.v1',
+            'status' => $ready ? 'ready' : 'blocked',
+            'reason' => $ready ? 'scored_review_with_healthy_agency_available' : $this->p4BlockedReason($summary),
+            'next_review' => $next instanceof AtlasStrategyRivalsReview ? $this->reviewPayload($next) : null,
+            'requirements' => $this->p4Requirements($summary),
+            'prohibited_actions_until_ready' => $ready ? [] : $this->p4ProhibitedActions(),
+            'rules' => [
+                'no_synthetic_scores' => true,
+                'operator_review_required' => true,
+                'strategy_execution_allowed' => false,
+                'qualitative_level_promotion_allowed' => $ready,
+            ],
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $summary
+     * @return array<string,mixed>
+     */
+    private function p4Requirements(array $summary): array
+    {
+        return [
+            'case_registered' => (int) ($summary['case_count'] ?? 0) > 0,
+            'revisit_schedule_created' => (int) ($summary['scheduled_review_count'] ?? 0) > 0,
+            'scored_review_recorded' => (int) ($summary['scored_review_count'] ?? 0) > 0,
+            'agency_score_threshold' => 70,
+            'average_agency_score' => $summary['average_agency_score'] ?? null,
+            'strategy_multiplier_score' => $summary['strategy_multiplier_score'] ?? null,
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $summary
+     */
+    private function p4BlockedReason(array $summary): string
+    {
+        if ((int) ($summary['case_count'] ?? 0) === 0) {
+            return 'no_strategy_rivals_case_registered';
+        }
+        if ((int) ($summary['scheduled_review_count'] ?? 0) === 0) {
+            return 'no_revisit_schedule_created';
+        }
+        if ((int) ($summary['scored_review_count'] ?? 0) === 0) {
+            return 'waiting_for_real_scored_revisit';
+        }
+        if (((float) ($summary['average_agency_score'] ?? 0)) < 70) {
+            return 'agency_score_below_threshold';
+        }
+
+        return 'unknown_blocker';
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function p4ProhibitedActions(): array
+    {
+        return [
+            'declare_p4_or_higher_qualitative_level',
+            'promote_strategy_rivals_gate_as_passed',
+            'record_synthetic_regret_alignment_agency_scores',
+            'use_rivals_strategy_as_autonomous_decision_authority',
         ];
     }
 

@@ -31,6 +31,11 @@ final class AiInboxItemResourceTest extends TestCase
             'proactive_delivery_contract' => [
                 'schema_version' => 'atlas.proactive.delivery_contract.v1',
                 'contract_hash' => hash('sha256', 'test-proactive-contract'),
+                'presence_eclipse_governance' => [
+                    'schema_version' => 'atlas.proactive.presence_eclipse.v1',
+                    'explicit_opt_out_supported' => true,
+                    'manual_eclipse_supported' => true,
+                ],
             ],
         ];
 
@@ -40,6 +45,9 @@ final class AiInboxItemResourceTest extends TestCase
         $this->assertTrue(data_get($payload, 'safety.has_proactive_delivery_contract'));
         $this->assertSame('atlas.proactive.delivery_contract.v1', data_get($payload, 'safety.proactive_delivery_contract_schema'));
         $this->assertSame(hash('sha256', 'test-proactive-contract'), data_get($payload, 'safety.proactive_delivery_contract_hash'));
+        $this->assertSame('atlas.proactive.presence_eclipse.v1', data_get($payload, 'safety.presence_eclipse_contract_schema'));
+        $this->assertTrue(data_get($payload, 'safety.manual_eclipse_supported'));
+        $this->assertTrue(data_get($payload, 'safety.proactive_push_opt_out_supported'));
         $this->assertTrue(data_get($payload, 'safety.authenticated_api_required'));
         $this->assertTrue(data_get($payload, 'safety.push_is_pointer_only'));
         $this->assertTrue(data_get($payload, 'safety.push_delivery_requested'));

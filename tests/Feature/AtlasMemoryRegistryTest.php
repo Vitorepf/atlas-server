@@ -545,6 +545,15 @@ class AtlasMemoryRegistryTest extends TestCase
             ->assertJsonPath('memory.safety.provider_export_allowed', false)
             ->assertJsonPath('memory.safety.open_brain_context_allowed', false)
             ->assertJsonPath('memory.safety.raw_content_exposed', false)
+            ->assertJsonPath('memory.safety.lineage_schema_version', 'atlas.memory_entry.lineage_safety.v1')
+            ->assertJsonPath('memory.safety.source_type', 'ai_memory_delta')
+            ->assertJsonPath('memory.safety.source_id_hash', hash('sha256', $apiDelta->id))
+            ->assertJsonPath('memory.safety.promoted_from', 'ai_memory_delta')
+            ->assertJsonPath('memory.safety.promotion_delta_id_hash', hash('sha256', $apiDelta->id))
+            ->assertJsonPath('memory.safety.promotion_evidence_count', 1)
+            ->assertJsonPath('memory.safety.promotion_requires_confirmation', true)
+            ->assertJsonPath('memory.safety.promotion_freshness_status', 'active')
+            ->assertJsonPath('memory.safety.raw_lineage_content_exposed', false)
             ->assertJsonPath('memory_delta.status', 'promoted')
             ->assertJsonPath('memory_delta.safety.schema_version', 'atlas.memory_delta.safety.v1')
             ->assertJsonPath('memory_delta.safety.memory_eligible', true)
@@ -1923,7 +1932,48 @@ class AtlasMemoryRegistryTest extends TestCase
             'atlas.open_brain.context_pack_safety.v1',
             data_get(AtlasOpenBrainAccessLog::query()->where('requester', 'test-api')->first()?->result_summary_json, 'safety.schema_version'),
         );
-        $this->assertTrue(data_get(AtlasOpenBrainAccessLog::query()->where('requester', 'test-api')->first()?->result_summary_json, 'safety.audit_persisted'));
+        $apiLog = AtlasOpenBrainAccessLog::query()->where('requester', 'test-api')->first();
+        $this->assertTrue(data_get($apiLog?->result_summary_json, 'safety.audit_persisted'));
+        $this->assertFalse(data_get($apiLog?->result_summary_json, 'safety.audit_query_raw_content_persisted'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) data_get($apiLog?->query_json, 'objective_hash'));
+        $this->assertTrue(data_get($apiLog?->query_json, 'objective_excerpt_redacted'));
+        $this->assertArrayNotHasKey('objective_excerpt', $apiLog?->query_json ?? []);
+        $this->assertArrayNotHasKey('workspace', $apiLog?->query_json ?? []);
+        $this->assertSame('hash_only_no_raw_objective_or_workspace_path', data_get($apiLog?->metadata, 'query_redaction'));
+
+        AtlasOpenBrainAccessLog::query()->create([
+            'surface' => 'api',
+            'requester' => 'legacy',
+            'action' => 'context_pack_export',
+            'status' => 'completed',
+            'workspace_hash' => hash('sha256', base_path()),
+            'workspace_label' => basename(base_path()),
+            'context_pack_hash' => str_repeat('a', 64),
+            'context_refs_count' => 1,
+            'memory_refs_count' => 1,
+            'provider_safe' => true,
+            'query_json' => [
+                'objective_excerpt' => 'legacy raw objective must not leave API',
+                'workspace' => base_path(),
+                'objective_hash' => str_repeat('b', 64),
+            ],
+            'result_summary_json' => [
+                'safety' => ['raw_content_persisted' => false],
+            ],
+            'metadata' => ['schema_version' => 1],
+            'accessed_at' => now()->addSecond(),
+        ]);
+
+        $this->getJson('/ai/open-brain/audits?limit=1', $this->headers)
+            ->assertOk()
+            ->assertJsonPath('open_brain_audits.0.requester', 'legacy')
+            ->assertJsonPath('open_brain_audits.0.query_safety.schema_version', 'atlas.open_brain.audit_query_safety.v1')
+            ->assertJsonPath('open_brain_audits.0.query_safety.raw_objective_persisted', false)
+            ->assertJsonPath('open_brain_audits.0.query_safety.raw_workspace_path_persisted', false)
+            ->assertJsonPath('open_brain_audits.0.query_safety.legacy_raw_fields_sanitized', true)
+            ->assertJsonPath('open_brain_audits.0.query.objective_excerpt_redacted', true)
+            ->assertJsonMissingPath('open_brain_audits.0.query.objective_excerpt')
+            ->assertJsonMissingPath('open_brain_audits.0.query.workspace');
 
         $exit = Artisan::call('atlas:open-brain:context', [
             'objective' => ['Export', 'Open', 'Brain', 'context'],
@@ -1944,12 +1994,17 @@ class AtlasMemoryRegistryTest extends TestCase
         $this->assertSame('atlas.open_brain.context_pack_safety.v1', data_get($payload, 'open_brain.safety.schema_version'));
         $this->assertFalse(data_get($payload, 'open_brain.safety.raw_content_exposed'));
         $this->assertFalse(data_get($payload, 'open_brain.safety.raw_content_persisted'));
+        $this->assertFalse(data_get($payload, 'open_brain.safety.audit_query_raw_content_persisted'));
         $this->assertTrue(data_get($payload, 'open_brain.safety.audit_persisted'));
         $this->assertDatabaseHas('atlas_open_brain_access_logs', [
             'requester' => 'test-cli',
             'surface' => 'cli',
         ]);
-        $this->assertSame(2, AtlasOpenBrainAccessLog::query()->count());
+        $cliLog = AtlasOpenBrainAccessLog::query()->where('requester', 'test-cli')->first();
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) data_get($cliLog?->query_json, 'objective_hash'));
+        $this->assertArrayNotHasKey('objective_excerpt', $cliLog?->query_json ?? []);
+        $this->assertArrayNotHasKey('workspace', $cliLog?->query_json ?? []);
+        $this->assertSame(3, AtlasOpenBrainAccessLog::query()->count());
     }
 
     public function test_open_brain_context_injection_audits_dev_prompt_context(): void
@@ -1994,6 +2049,12 @@ class AtlasMemoryRegistryTest extends TestCase
             'surface' => 'cli_chat',
             'action' => 'context_injection',
         ]);
+        $log = AtlasOpenBrainAccessLog::query()->where('surface', 'cli_chat')->where('action', 'context_injection')->first();
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) data_get($log?->query_json, 'objective_hash'));
+        $this->assertTrue(data_get($log?->query_json, 'objective_excerpt_redacted'));
+        $this->assertArrayNotHasKey('objective_excerpt', $log?->query_json ?? []);
+        $this->assertArrayNotHasKey('workspace', $log?->query_json ?? []);
+        $this->assertSame('hash_only_no_raw_objective_or_workspace_path', data_get($log?->metadata, 'query_redaction'));
     }
 
     public function test_open_brain_context_injection_skips_direct_mode_by_default(): void
@@ -2388,7 +2449,7 @@ class AtlasMemoryRegistryTest extends TestCase
                 $path,
                 str_replace(
                     AtlasProviderProjectionService::MANUAL_END,
-                    "Human provider note preserved by Atlas.\n".AtlasProviderProjectionService::MANUAL_END,
+                    "```bash\nphp artisan atlas:test\n```\nHuman provider note preserved by Atlas.\n".AtlasProviderProjectionService::MANUAL_END,
                     (string) file_get_contents($path),
                 ),
             );
@@ -2413,6 +2474,7 @@ class AtlasMemoryRegistryTest extends TestCase
                 '--json' => true,
             ]);
 
+            $this->assertStringContainsString("```bash\nphp artisan atlas:test\n```", (string) file_get_contents($path));
             $this->assertStringContainsString('Human provider note preserved by Atlas.', (string) file_get_contents($path));
 
             $agentsPath = $workspace.'/AGENTS.md';

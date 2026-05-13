@@ -126,7 +126,9 @@ class MobileGatewayTest extends TestCase
             ->assertJsonPath('device.notification_preferences.critical_push_enabled', false)
             ->assertJsonPath('device.notification_preferences.telemetry_health_push_enabled', true)
             ->assertJsonPath('device.notification_preferences.daily_report_push_enabled', false)
-            ->assertJsonPath('device.notification_preferences.quiet_hours_enabled', false);
+            ->assertJsonPath('device.notification_preferences.quiet_hours_enabled', false)
+            ->assertJsonPath('device.notification_preferences.proactive_push_enabled', true)
+            ->assertJsonPath('device.notification_preferences.manual_eclipse_enabled', false);
 
         $device = AtlasMobileDevice::query()->firstOrFail();
         $this->assertFalse(data_get($device->metadata, 'notification_preferences.critical_push_enabled'));
@@ -1399,6 +1401,10 @@ class MobileGatewayTest extends TestCase
         $this->assertFalse(data_get($contract, 'body_exposed_in_push'));
         $this->assertFalse(data_get($contract, 'auto_action_allowed'));
         $this->assertTrue(data_get($contract, 'action_execution_requires_registry'));
+        $this->assertSame('atlas.proactive.presence_eclipse.v1', data_get($contract, 'presence_eclipse_governance.schema_version'));
+        $this->assertTrue(data_get($contract, 'presence_eclipse_governance.explicit_opt_out_supported'));
+        $this->assertTrue(data_get($contract, 'presence_eclipse_governance.manual_eclipse_supported'));
+        $this->assertTrue(data_get($contract, 'presence_eclipse_governance.no_surveillance_default'));
         $this->assertSame('warning', data_get($contract, 'severity'));
         $this->assertSame(hash('sha256', 'insight:proactive-contract'), data_get($contract, 'dedupe_key_hash'));
         $this->assertIsString(data_get($contract, 'deep_link_hash'));
@@ -1925,6 +1931,69 @@ class MobileGatewayTest extends TestCase
         $this->assertSame('read', data_get($respondPayload, 'item.status'));
         $this->assertSame('mark_read', data_get($respondPayload, 'item.response.action'));
 
+        $snoozeItem = app(AtlasInboxService::class)->create([
+            'type' => 'insight',
+            'title' => 'Insight para snooze via CLI',
+            'summary' => 'Resumo do insight adiado.',
+            'dedupe_key' => 'cli:insight:snooze-test',
+        ]);
+        $snoozedUntil = now()->addDay()->toJSON();
+        $snoozeExit = Artisan::call('atlas:cli:inbox', [
+            'action' => 'respond',
+            'id' => $snoozeItem->id,
+            '--action' => 'snooze',
+            '--reason' => 'operador revisara depois',
+            '--snoozed-until' => $snoozedUntil,
+            '--json' => true,
+        ]);
+        $snoozePayload = json_decode(Artisan::output(), true);
+
+        $this->assertSame(0, $snoozeExit);
+        $this->assertSame('snoozed', data_get($snoozePayload, 'item.status'));
+        $this->assertSame('snooze', data_get($snoozePayload, 'item.response.action'));
+        $this->assertSame('operador revisara depois', data_get($snoozePayload, 'item.response.reason'));
+
+        $costRateItem = AiInboxItem::query()->create([
+            'id' => (string) Str::uuid(),
+            'user_id' => 'vitor',
+            'type' => 'proposal',
+            'category' => 'self_improvement',
+            'severity' => 'warning',
+            'status' => 'unread',
+            'title' => 'Configurar rates de custo via CLI',
+            'source_type' => 'atlas_initiative_run',
+            'source_id' => (string) Str::uuid(),
+            'initiator' => 'system',
+            'dedupe_key' => 'cli:provider-cost-rates:'.(string) Str::uuid(),
+            'available_actions' => [
+                ['id' => 'configure_provider_cost_rates', 'label' => 'Configurar rates', 'style' => 'primary'],
+            ],
+            'payload' => ['proposal_contract' => ['source_refs' => []]],
+        ]);
+        $costRateExit = Artisan::call('atlas:cli:inbox', [
+            'action' => 'respond',
+            'id' => $costRateItem->id,
+            '--action' => 'configure_provider_cost_rates',
+            '--provider' => 'codex_cli',
+            '--model' => 'gpt-5.5',
+            '--input-microusd' => '120',
+            '--output-microusd' => '480',
+            '--currency' => 'USD',
+            '--json' => true,
+        ]);
+        $costRatePayload = json_decode(Artisan::output(), true);
+
+        $this->assertSame(0, $costRateExit);
+        $this->assertTrue((bool) data_get($costRatePayload, 'result.applied'));
+        $this->assertSame('configure_provider_cost_rates', data_get($costRatePayload, 'item.response.action'));
+        $this->assertDatabaseHas('ai_provider_cost_rates', [
+            'provider' => 'codex_cli',
+            'model' => 'gpt-5.5',
+            'input_microusd_per_1k' => 120,
+            'output_microusd_per_1k' => 480,
+            'currency' => 'USD',
+        ]);
+
         $discussExit = Artisan::call('atlas:cli:inbox', [
             'action' => 'discuss',
             'id' => $item->id,
@@ -1990,7 +2059,28 @@ class MobileGatewayTest extends TestCase
             && $request['badge'] === 1
             && $request['data']['inbox_id'] === $item->id
             && $request['data']['deep_link'] === 'atlas://inbox/'.$item->id);
-        $this->assertSame('sent', MobilePushDelivery::query()->firstOrFail()->status);
+        $delivery = MobilePushDelivery::query()->firstOrFail();
+        $this->assertSame('sent', $delivery->status);
+
+        $audit = AuditEvent::query()->where('event_type', 'push.sent')->firstOrFail();
+        $contract = data_get($audit->evidence, 'delivery_attempt_contract');
+        $this->assertSame('atlas.proactive.push_delivery_attempt.v1', data_get($contract, 'schema_version'));
+        $this->assertSame($delivery->id, data_get($contract, 'delivery_id'));
+        $this->assertSame($item->id, data_get($contract, 'inbox_item_id'));
+        $this->assertSame('atlas.proactive.delivery_contract.v1', data_get($contract, 'proactive_delivery_contract_schema'));
+        $this->assertSame(data_get($item->payload, 'proactive_delivery_contract.contract_hash'), data_get($contract, 'proactive_delivery_contract_hash'));
+        $this->assertSame(hash('sha256', json_encode($delivery->request_payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: ''), data_get($contract, 'request_payload_hash'));
+        $this->assertTrue(data_get($contract, 'push_pointer_only'));
+        $this->assertTrue(data_get($contract, 'authenticated_fetch_required'));
+        $this->assertFalse(data_get($contract, 'raw_payload_exposed_in_push'));
+        $this->assertFalse(data_get($contract, 'body_exposed_in_push'));
+        $this->assertFalse(data_get($contract, 'raw_device_id_persisted_in_audit'));
+        $this->assertFalse(data_get($contract, 'auto_action_allowed'));
+        $this->assertContains('deep_link', data_get($contract, 'provider_payload_data_keys'));
+        $this->assertIsString(data_get($contract, 'contract_hash'));
+        $this->assertSame(hash('sha256', AtlasMobileDevice::query()->firstOrFail()->id), data_get($audit->evidence, 'device_id_hash'));
+        $this->assertFalse(data_get($audit->evidence, 'raw_device_id_persisted'));
+        $this->assertArrayNotHasKey('device_id', $audit->evidence ?? []);
     }
 
     public function test_mobile_cli_push_test_creates_real_test_item_for_selected_device(): void
@@ -2198,7 +2288,11 @@ class MobileGatewayTest extends TestCase
 
         $this->assertDatabaseCount('mobile_push_deliveries', 0);
         $this->assertSame(1, AuditEvent::query()->where('event_type', 'push.skipped')->count());
-        $this->assertSame('critical_push_disabled', data_get(AuditEvent::query()->where('event_type', 'push.skipped')->first()?->evidence, 'reason'));
+        $skipAudit = AuditEvent::query()->where('event_type', 'push.skipped')->first();
+        $this->assertSame('critical_push_disabled', data_get($skipAudit?->evidence, 'reason'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) data_get($skipAudit?->evidence, 'device_id_hash'));
+        $this->assertFalse(data_get($skipAudit?->evidence, 'raw_device_id_persisted'));
+        $this->assertArrayNotHasKey('device_id', $skipAudit?->evidence ?? []);
         Http::assertSentCount(0);
     }
 
@@ -2231,6 +2325,38 @@ class MobileGatewayTest extends TestCase
 
         $this->assertDatabaseCount('mobile_push_deliveries', 0);
         $this->assertSame('telemetry_health_push_disabled', data_get(AuditEvent::query()->where('event_type', 'push.skipped')->first()?->evidence, 'reason'));
+        Http::assertSentCount(0);
+    }
+
+    public function test_presence_eclipse_preferences_block_non_critical_proactive_push(): void
+    {
+        config()->set('atlas.mobile.enabled', true);
+        config()->set('atlas.mobile.batching.enabled', false);
+        config()->set('atlas.mobile.quiet_hours.enabled', false);
+        Http::fake(['*' => Http::response(['data' => ['status' => 'ok', 'id' => 'ticket-eclipse']], 200)]);
+        $token = $this->pairedDeviceToken('ExponentPushToken[test]');
+
+        $this
+            ->withHeader('Authorization', 'Bearer '.$token)
+            ->postJson('/v1/mobile/devices/notification-preferences', [
+                'proactive_push_enabled' => false,
+                'manual_eclipse_enabled' => true,
+            ])
+            ->assertOk()
+            ->assertJsonPath('device.notification_preferences.proactive_push_enabled', false)
+            ->assertJsonPath('device.notification_preferences.manual_eclipse_enabled', true);
+
+        app(AtlasInboxService::class)->create([
+            'type' => 'insight',
+            'severity' => 'warning',
+            'title' => 'Insight nao interruptivo',
+            'summary' => 'Deve ficar so no Inbox durante eclipse.',
+            'push_policy' => ['send' => 'immediate'],
+        ]);
+
+        $this->assertDatabaseCount('mobile_push_deliveries', 0);
+        $audit = AuditEvent::query()->where('event_type', 'push.skipped')->firstOrFail();
+        $this->assertSame('manual_eclipse_active', data_get($audit->evidence, 'reason'));
         Http::assertSentCount(0);
     }
 
@@ -3728,6 +3854,19 @@ PHP);
             $table->timestamps();
         });
 
+        Schema::create('ai_provider_cost_rates', function (Blueprint $table): void {
+            $table->uuid('id')->primary();
+            $table->string('provider', 80);
+            $table->string('model', 120);
+            $table->unsignedInteger('input_microusd_per_1k');
+            $table->unsignedInteger('output_microusd_per_1k');
+            $table->string('currency', 8)->default('USD');
+            $table->timestamp('effective_from')->useCurrent();
+            $table->timestamp('effective_until')->nullable();
+            $table->json('metadata')->default('{}');
+            $table->timestamp('created_at')->useCurrent();
+        });
+
         Schema::create('ai_quality_evaluations', function (Blueprint $table): void {
             $table->uuid('id')->primary();
             $table->uuid('trace_id')->nullable();
@@ -3795,6 +3934,7 @@ PHP);
         Schema::dropIfExists('ai_threads');
         Schema::dropIfExists('ai_performance_recommendations');
         Schema::dropIfExists('ai_quality_evaluations');
+        Schema::dropIfExists('ai_provider_cost_rates');
         Schema::dropIfExists('ai_traces');
         Schema::dropIfExists('ai_jobs');
         Schema::dropIfExists('health_snapshots');

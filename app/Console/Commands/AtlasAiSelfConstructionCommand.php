@@ -554,6 +554,33 @@ class AtlasAiSelfConstructionCommand extends Command
             'agent-codex-real-invoker-post-start-process-invocation-authorization-gate-contract-template' => 'Generate the read-only Codex real invoker post-start process invocation authorization gate template',
             'agent-codex-real-invoker-post-start-process-invocation-authorization-gate-preflight' => 'Verify Codex real invoker post-start process invocation authorization gate prerequisites without invoking Codex',
             'agent-codex-real-invoker-post-start-process-invocation-authorization-gate-implementation-packet' => 'Generate the scoped Codex real invoker post-start process invocation authorization gate implementation packet without invoking Codex',
+            'agent-codex-real-invoker-post-start-external-process-invoker-dry-run-gate-contract-template' => 'Generate the read-only Codex real invoker post-start external process invoker dry-run gate template',
+            'agent-codex-real-invoker-post-start-external-process-invoker-dry-run-gate-preflight' => 'Verify Codex real invoker post-start external process invoker dry-run gate prerequisites without invoking Codex',
+            'agent-codex-real-invoker-post-start-external-process-invoker-dry-run-gate-implementation-packet' => 'Generate the scoped Codex real invoker post-start external process invoker dry-run gate implementation packet without invoking Codex',
+            'agent-codex-real-invoker-post-start-real-invoker-release-preflight-gate-contract-template' => 'Generate the read-only Codex real invoker post-start release preflight gate template',
+            'agent-codex-real-invoker-post-start-real-invoker-release-preflight-gate-preflight' => 'Verify Codex real invoker post-start release preflight gate prerequisites without invoking Codex',
+            'agent-codex-real-invoker-post-start-real-invoker-release-preflight-gate-implementation-packet' => 'Generate the scoped Codex real invoker post-start release preflight gate implementation packet without invoking Codex',
+            'agent-codex-real-invoker-post-start-signed-real-invoker-release-gate-contract-template' => 'Generate the read-only Codex real invoker post-start signed release gate template',
+            'agent-codex-real-invoker-post-start-signed-real-invoker-release-gate-preflight' => 'Verify Codex real invoker post-start signed release gate prerequisites without invoking Codex',
+            'agent-codex-real-invoker-post-start-signed-real-invoker-release-gate-implementation-packet' => 'Generate the scoped Codex real invoker post-start signed release gate implementation packet without invoking Codex',
+            'agent-codex-real-invoker-post-start-implementation-boundary-gate-contract-template' => 'Generate the read-only Codex real invoker post-start implementation boundary gate template',
+            'agent-codex-real-invoker-post-start-implementation-boundary-gate-preflight' => 'Verify Codex real invoker post-start implementation boundary gate prerequisites without invoking Codex',
+            'agent-codex-real-invoker-post-start-implementation-boundary-gate-implementation-packet' => 'Generate the scoped Codex real invoker post-start implementation boundary gate implementation packet without invoking Codex',
+            'agent-codex-real-invoker-post-start-executor-plan-gate-contract-template' => 'Generate the read-only Codex real invoker post-start executor plan gate template',
+            'agent-codex-real-invoker-post-start-executor-plan-gate-preflight' => 'Verify Codex real invoker post-start executor plan gate prerequisites without invoking Codex',
+            'agent-codex-real-invoker-post-start-executor-plan-gate-implementation-packet' => 'Generate the scoped Codex real invoker post-start executor plan gate implementation packet without enabling executor',
+            'agent-codex-real-invoker-post-start-executor-fresh-release-gate-contract-template' => 'Generate the read-only Codex real invoker post-start executor fresh release gate template',
+            'agent-codex-real-invoker-post-start-executor-fresh-release-gate-preflight' => 'Verify Codex real invoker post-start executor fresh release gate prerequisites without invoking Codex',
+            'agent-codex-real-invoker-post-start-executor-fresh-release-gate-implementation-packet' => 'Generate the scoped Codex real invoker post-start executor fresh release gate implementation packet without enabling executor',
+            'agent-codex-real-invoker-post-start-executor-enablement-gate-contract-template' => 'Generate the read-only Codex real invoker post-start executor enablement gate template',
+            'agent-codex-real-invoker-post-start-executor-enablement-gate-preflight' => 'Verify Codex real invoker post-start executor enablement gate prerequisites without starting Codex',
+            'agent-codex-real-invoker-post-start-executor-enablement-gate-implementation-packet' => 'Generate the scoped Codex real invoker post-start executor enablement gate implementation packet without starting Codex',
+            'agent-codex-real-invoker-post-start-supervised-start-activation-gate-contract-template' => 'Generate the read-only Codex real invoker post-start supervised start activation gate template',
+            'agent-codex-real-invoker-post-start-supervised-start-activation-gate-preflight' => 'Verify Codex real invoker post-start supervised start activation gate prerequisites without starting Codex',
+            'agent-codex-real-invoker-post-start-supervised-start-activation-gate-implementation-packet' => 'Generate the scoped Codex real invoker post-start supervised start activation gate implementation packet without starting Codex',
+            'agent-codex-real-invoker-post-start-guarded-process-start-executor-gate-contract-template' => 'Generate the read-only Codex real invoker post-start guarded process start gate template',
+            'agent-codex-real-invoker-post-start-guarded-process-start-executor-gate-preflight' => 'Verify Codex real invoker post-start guarded process start gate prerequisites without starting Codex',
+            'agent-codex-real-invoker-post-start-guarded-process-start-executor-gate-implementation-packet' => 'Generate the scoped Codex real invoker post-start guarded process start gate implementation packet without starting Codex',
         ] as $name => $description) {
             if (! $this->getDefinition()->hasOption($name)) {
                 $this->addOption($name, null, InputOption::VALUE_NONE, $description);
@@ -737,6 +764,33 @@ class AtlasAiSelfConstructionCommand extends Command
             (bool) $this->option('agent-codex-real-invoker-post-start-process-invocation-authorization-gate-implementation-packet') => $readiness->agentCodexRealInvokerPostStartProcessInvocationAuthorizationGateImplementationPacket($options),
             (bool) $this->option('agent-codex-real-invoker-post-start-process-invocation-authorization-gate-preflight') => $readiness->agentCodexRealInvokerPostStartProcessInvocationAuthorizationGatePreflight($options),
             (bool) $this->option('agent-codex-real-invoker-post-start-process-invocation-authorization-gate-contract-template') => $readiness->agentCodexRealInvokerPostStartProcessInvocationAuthorizationGateContractTemplate($options),
+            (bool) $this->option('agent-codex-real-invoker-post-start-external-process-invoker-dry-run-gate-implementation-packet') => $readiness->agentCodexRealInvokerPostStartExternalProcessInvokerDryRunGateImplementationPacket($options),
+            (bool) $this->option('agent-codex-real-invoker-post-start-external-process-invoker-dry-run-gate-preflight') => $readiness->agentCodexRealInvokerPostStartExternalProcessInvokerDryRunGatePreflight($options),
+            (bool) $this->option('agent-codex-real-invoker-post-start-external-process-invoker-dry-run-gate-contract-template') => $readiness->agentCodexRealInvokerPostStartExternalProcessInvokerDryRunGateContractTemplate($options),
+            (bool) $this->option('agent-codex-real-invoker-post-start-real-invoker-release-preflight-gate-implementation-packet') => $readiness->agentCodexRealInvokerPostStartRealInvokerReleasePreflightGateImplementationPacket($options),
+            (bool) $this->option('agent-codex-real-invoker-post-start-real-invoker-release-preflight-gate-preflight') => $readiness->agentCodexRealInvokerPostStartRealInvokerReleasePreflightGatePreflight($options),
+            (bool) $this->option('agent-codex-real-invoker-post-start-real-invoker-release-preflight-gate-contract-template') => $readiness->agentCodexRealInvokerPostStartRealInvokerReleasePreflightGateContractTemplate($options),
+            (bool) $this->option('agent-codex-real-invoker-post-start-signed-real-invoker-release-gate-implementation-packet') => $readiness->agentCodexRealInvokerPostStartSignedRealInvokerReleaseGateImplementationPacket($options),
+            (bool) $this->option('agent-codex-real-invoker-post-start-signed-real-invoker-release-gate-preflight') => $readiness->agentCodexRealInvokerPostStartSignedRealInvokerReleaseGatePreflight($options),
+            (bool) $this->option('agent-codex-real-invoker-post-start-signed-real-invoker-release-gate-contract-template') => $readiness->agentCodexRealInvokerPostStartSignedRealInvokerReleaseGateContractTemplate($options),
+            (bool) $this->option('agent-codex-real-invoker-post-start-implementation-boundary-gate-implementation-packet') => $readiness->agentCodexRealInvokerPostStartImplementationBoundaryGateImplementationPacket($options),
+            (bool) $this->option('agent-codex-real-invoker-post-start-implementation-boundary-gate-preflight') => $readiness->agentCodexRealInvokerPostStartImplementationBoundaryGatePreflight($options),
+            (bool) $this->option('agent-codex-real-invoker-post-start-implementation-boundary-gate-contract-template') => $readiness->agentCodexRealInvokerPostStartImplementationBoundaryGateContractTemplate($options),
+            (bool) $this->option('agent-codex-real-invoker-post-start-executor-plan-gate-implementation-packet') => $readiness->agentCodexRealInvokerPostStartExecutorPlanGateImplementationPacket($options),
+            (bool) $this->option('agent-codex-real-invoker-post-start-executor-plan-gate-preflight') => $readiness->agentCodexRealInvokerPostStartExecutorPlanGatePreflight($options),
+            (bool) $this->option('agent-codex-real-invoker-post-start-executor-plan-gate-contract-template') => $readiness->agentCodexRealInvokerPostStartExecutorPlanGateContractTemplate($options),
+            (bool) $this->option('agent-codex-real-invoker-post-start-executor-fresh-release-gate-implementation-packet') => $readiness->agentCodexRealInvokerPostStartExecutorFreshReleaseGateImplementationPacket($options),
+            (bool) $this->option('agent-codex-real-invoker-post-start-executor-fresh-release-gate-preflight') => $readiness->agentCodexRealInvokerPostStartExecutorFreshReleaseGatePreflight($options),
+            (bool) $this->option('agent-codex-real-invoker-post-start-executor-fresh-release-gate-contract-template') => $readiness->agentCodexRealInvokerPostStartExecutorFreshReleaseGateContractTemplate($options),
+            (bool) $this->option('agent-codex-real-invoker-post-start-executor-enablement-gate-implementation-packet') => $readiness->agentCodexRealInvokerPostStartExecutorEnablementGateImplementationPacket($options),
+            (bool) $this->option('agent-codex-real-invoker-post-start-executor-enablement-gate-preflight') => $readiness->agentCodexRealInvokerPostStartExecutorEnablementGatePreflight($options),
+            (bool) $this->option('agent-codex-real-invoker-post-start-executor-enablement-gate-contract-template') => $readiness->agentCodexRealInvokerPostStartExecutorEnablementGateContractTemplate($options),
+            (bool) $this->option('agent-codex-real-invoker-post-start-supervised-start-activation-gate-implementation-packet') => $readiness->agentCodexRealInvokerPostStartSupervisedStartActivationGateImplementationPacket($options),
+            (bool) $this->option('agent-codex-real-invoker-post-start-supervised-start-activation-gate-preflight') => $readiness->agentCodexRealInvokerPostStartSupervisedStartActivationGatePreflight($options),
+            (bool) $this->option('agent-codex-real-invoker-post-start-supervised-start-activation-gate-contract-template') => $readiness->agentCodexRealInvokerPostStartSupervisedStartActivationGateContractTemplate($options),
+            (bool) $this->option('agent-codex-real-invoker-post-start-guarded-process-start-executor-gate-implementation-packet') => $readiness->agentCodexRealInvokerPostStartGuardedProcessStartExecutorGateImplementationPacket($options),
+            (bool) $this->option('agent-codex-real-invoker-post-start-guarded-process-start-executor-gate-preflight') => $readiness->agentCodexRealInvokerPostStartGuardedProcessStartExecutorGatePreflight($options),
+            (bool) $this->option('agent-codex-real-invoker-post-start-guarded-process-start-executor-gate-contract-template') => $readiness->agentCodexRealInvokerPostStartGuardedProcessStartExecutorGateContractTemplate($options),
             (bool) $this->option('agent-codex-real-invoker-post-start-adapter-execution-guard-gate-implementation-packet') => $readiness->agentCodexRealInvokerPostStartAdapterExecutionGuardGateImplementationPacket($options),
             (bool) $this->option('agent-codex-real-invoker-post-start-adapter-execution-guard-gate-preflight') => $readiness->agentCodexRealInvokerPostStartAdapterExecutionGuardGatePreflight($options),
             (bool) $this->option('agent-codex-real-invoker-post-start-adapter-execution-guard-gate-contract-template') => $readiness->agentCodexRealInvokerPostStartAdapterExecutionGuardGateContractTemplate($options),
@@ -7131,6 +7185,357 @@ class AtlasAiSelfConstructionCommand extends Command
             $this->components->twoColumnDetail('Packet status', (string) data_get($payload, 'codex_real_invoker_post_start_process_invocation_authorization_gate_implementation_packet.status'));
             $this->components->twoColumnDetail('Task count', (string) data_get($payload, 'codex_real_invoker_post_start_process_invocation_authorization_gate_implementation_packet.task_count'));
             $this->components->twoColumnDetail('Packet hash', (string) data_get($payload, 'codex_real_invoker_post_start_process_invocation_authorization_gate_implementation_packet_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-codex-real-invoker-post-start-external-process-invoker-dry-run-gate-contract-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Contract status', (string) data_get($payload, 'codex_real_invoker_post_start_external_process_invoker_dry_run_gate_contract_template.status'));
+            $this->components->twoColumnDetail('Method', (string) data_get($payload, 'codex_real_invoker_post_start_external_process_invoker_dry_run_gate_contract_template.contract.method'));
+            $this->components->twoColumnDetail('Contract hash', (string) data_get($payload, 'codex_real_invoker_post_start_external_process_invoker_dry_run_gate_contract_template_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-codex-real-invoker-post-start-external-process-invoker-dry-run-gate-preflight')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Preflight status', (string) data_get($payload, 'codex_real_invoker_post_start_external_process_invoker_dry_run_gate_preflight.status'));
+            $this->components->twoColumnDetail('Blocking count', (string) data_get($payload, 'codex_real_invoker_post_start_external_process_invoker_dry_run_gate_preflight.blocking_count'));
+            $this->components->twoColumnDetail('Preflight hash', (string) data_get($payload, 'codex_real_invoker_post_start_external_process_invoker_dry_run_gate_preflight_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-codex-real-invoker-post-start-external-process-invoker-dry-run-gate-implementation-packet')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Packet status', (string) data_get($payload, 'codex_real_invoker_post_start_external_process_invoker_dry_run_gate_implementation_packet.status'));
+            $this->components->twoColumnDetail('Task count', (string) data_get($payload, 'codex_real_invoker_post_start_external_process_invoker_dry_run_gate_implementation_packet.task_count'));
+            $this->components->twoColumnDetail('Packet hash', (string) data_get($payload, 'codex_real_invoker_post_start_external_process_invoker_dry_run_gate_implementation_packet_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-codex-real-invoker-post-start-real-invoker-release-preflight-gate-contract-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Contract status', (string) data_get($payload, 'codex_real_invoker_post_start_real_invoker_release_preflight_gate_contract_template.status'));
+            $this->components->twoColumnDetail('Method', (string) data_get($payload, 'codex_real_invoker_post_start_real_invoker_release_preflight_gate_contract_template.contract.method'));
+            $this->components->twoColumnDetail('Contract hash', (string) data_get($payload, 'codex_real_invoker_post_start_real_invoker_release_preflight_gate_contract_template_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-codex-real-invoker-post-start-real-invoker-release-preflight-gate-preflight')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Preflight status', (string) data_get($payload, 'codex_real_invoker_post_start_real_invoker_release_preflight_gate_preflight.status'));
+            $this->components->twoColumnDetail('Blocking count', (string) data_get($payload, 'codex_real_invoker_post_start_real_invoker_release_preflight_gate_preflight.blocking_count'));
+            $this->components->twoColumnDetail('Preflight hash', (string) data_get($payload, 'codex_real_invoker_post_start_real_invoker_release_preflight_gate_preflight_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-codex-real-invoker-post-start-real-invoker-release-preflight-gate-implementation-packet')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Packet status', (string) data_get($payload, 'codex_real_invoker_post_start_real_invoker_release_preflight_gate_implementation_packet.status'));
+            $this->components->twoColumnDetail('Task count', (string) data_get($payload, 'codex_real_invoker_post_start_real_invoker_release_preflight_gate_implementation_packet.task_count'));
+            $this->components->twoColumnDetail('Packet hash', (string) data_get($payload, 'codex_real_invoker_post_start_real_invoker_release_preflight_gate_implementation_packet_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-codex-real-invoker-post-start-signed-real-invoker-release-gate-contract-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Contract status', (string) data_get($payload, 'codex_real_invoker_post_start_signed_real_invoker_release_gate_contract_template.status'));
+            $this->components->twoColumnDetail('Method', (string) data_get($payload, 'codex_real_invoker_post_start_signed_real_invoker_release_gate_contract_template.contract.method'));
+            $this->components->twoColumnDetail('Contract hash', (string) data_get($payload, 'codex_real_invoker_post_start_signed_real_invoker_release_gate_contract_template_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-codex-real-invoker-post-start-signed-real-invoker-release-gate-preflight')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Preflight status', (string) data_get($payload, 'codex_real_invoker_post_start_signed_real_invoker_release_gate_preflight.status'));
+            $this->components->twoColumnDetail('Blocking count', (string) data_get($payload, 'codex_real_invoker_post_start_signed_real_invoker_release_gate_preflight.blocking_count'));
+            $this->components->twoColumnDetail('Preflight hash', (string) data_get($payload, 'codex_real_invoker_post_start_signed_real_invoker_release_gate_preflight_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-codex-real-invoker-post-start-signed-real-invoker-release-gate-implementation-packet')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Packet status', (string) data_get($payload, 'codex_real_invoker_post_start_signed_real_invoker_release_gate_implementation_packet.status'));
+            $this->components->twoColumnDetail('Task count', (string) data_get($payload, 'codex_real_invoker_post_start_signed_real_invoker_release_gate_implementation_packet.task_count'));
+            $this->components->twoColumnDetail('Packet hash', (string) data_get($payload, 'codex_real_invoker_post_start_signed_real_invoker_release_gate_implementation_packet_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-codex-real-invoker-post-start-implementation-boundary-gate-contract-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Contract status', (string) data_get($payload, 'codex_real_invoker_post_start_implementation_boundary_gate_contract_template.status'));
+            $this->components->twoColumnDetail('Method', (string) data_get($payload, 'codex_real_invoker_post_start_implementation_boundary_gate_contract_template.contract.method'));
+            $this->components->twoColumnDetail('Contract hash', (string) data_get($payload, 'codex_real_invoker_post_start_implementation_boundary_gate_contract_template_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-codex-real-invoker-post-start-implementation-boundary-gate-preflight')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Preflight status', (string) data_get($payload, 'codex_real_invoker_post_start_implementation_boundary_gate_preflight.status'));
+            $this->components->twoColumnDetail('Blocking count', (string) data_get($payload, 'codex_real_invoker_post_start_implementation_boundary_gate_preflight.blocking_count'));
+            $this->components->twoColumnDetail('Preflight hash', (string) data_get($payload, 'codex_real_invoker_post_start_implementation_boundary_gate_preflight_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-codex-real-invoker-post-start-implementation-boundary-gate-implementation-packet')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Packet status', (string) data_get($payload, 'codex_real_invoker_post_start_implementation_boundary_gate_implementation_packet.status'));
+            $this->components->twoColumnDetail('Task count', (string) data_get($payload, 'codex_real_invoker_post_start_implementation_boundary_gate_implementation_packet.task_count'));
+            $this->components->twoColumnDetail('Packet hash', (string) data_get($payload, 'codex_real_invoker_post_start_implementation_boundary_gate_implementation_packet_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-codex-real-invoker-post-start-executor-plan-gate-contract-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Contract status', (string) data_get($payload, 'codex_real_invoker_post_start_executor_plan_gate_contract_template.status'));
+            $this->components->twoColumnDetail('Method', (string) data_get($payload, 'codex_real_invoker_post_start_executor_plan_gate_contract_template.contract.method'));
+            $this->components->twoColumnDetail('Contract hash', (string) data_get($payload, 'codex_real_invoker_post_start_executor_plan_gate_contract_template_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-codex-real-invoker-post-start-executor-plan-gate-preflight')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Preflight status', (string) data_get($payload, 'codex_real_invoker_post_start_executor_plan_gate_preflight.status'));
+            $this->components->twoColumnDetail('Blocking count', (string) data_get($payload, 'codex_real_invoker_post_start_executor_plan_gate_preflight.blocking_count'));
+            $this->components->twoColumnDetail('Preflight hash', (string) data_get($payload, 'codex_real_invoker_post_start_executor_plan_gate_preflight_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-codex-real-invoker-post-start-executor-plan-gate-implementation-packet')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Packet status', (string) data_get($payload, 'codex_real_invoker_post_start_executor_plan_gate_implementation_packet.status'));
+            $this->components->twoColumnDetail('Task count', (string) data_get($payload, 'codex_real_invoker_post_start_executor_plan_gate_implementation_packet.task_count'));
+            $this->components->twoColumnDetail('Packet hash', (string) data_get($payload, 'codex_real_invoker_post_start_executor_plan_gate_implementation_packet_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-codex-real-invoker-post-start-executor-fresh-release-gate-contract-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Contract status', (string) data_get($payload, 'codex_real_invoker_post_start_executor_fresh_release_gate_contract_template.status'));
+            $this->components->twoColumnDetail('Method', (string) data_get($payload, 'codex_real_invoker_post_start_executor_fresh_release_gate_contract_template.contract.method'));
+            $this->components->twoColumnDetail('Contract hash', (string) data_get($payload, 'codex_real_invoker_post_start_executor_fresh_release_gate_contract_template_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-codex-real-invoker-post-start-executor-fresh-release-gate-preflight')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Preflight status', (string) data_get($payload, 'codex_real_invoker_post_start_executor_fresh_release_gate_preflight.status'));
+            $this->components->twoColumnDetail('Blocking count', (string) data_get($payload, 'codex_real_invoker_post_start_executor_fresh_release_gate_preflight.blocking_count'));
+            $this->components->twoColumnDetail('Preflight hash', (string) data_get($payload, 'codex_real_invoker_post_start_executor_fresh_release_gate_preflight_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-codex-real-invoker-post-start-executor-fresh-release-gate-implementation-packet')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Packet status', (string) data_get($payload, 'codex_real_invoker_post_start_executor_fresh_release_gate_implementation_packet.status'));
+            $this->components->twoColumnDetail('Task count', (string) data_get($payload, 'codex_real_invoker_post_start_executor_fresh_release_gate_implementation_packet.task_count'));
+            $this->components->twoColumnDetail('Packet hash', (string) data_get($payload, 'codex_real_invoker_post_start_executor_fresh_release_gate_implementation_packet_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-codex-real-invoker-post-start-executor-enablement-gate-contract-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Contract status', (string) data_get($payload, 'codex_real_invoker_post_start_executor_enablement_gate_contract_template.status'));
+            $this->components->twoColumnDetail('Method', (string) data_get($payload, 'codex_real_invoker_post_start_executor_enablement_gate_contract_template.contract.method'));
+            $this->components->twoColumnDetail('Contract hash', (string) data_get($payload, 'codex_real_invoker_post_start_executor_enablement_gate_contract_template_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-codex-real-invoker-post-start-executor-enablement-gate-preflight')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Preflight status', (string) data_get($payload, 'codex_real_invoker_post_start_executor_enablement_gate_preflight.status'));
+            $this->components->twoColumnDetail('Blocking count', (string) data_get($payload, 'codex_real_invoker_post_start_executor_enablement_gate_preflight.blocking_count'));
+            $this->components->twoColumnDetail('Preflight hash', (string) data_get($payload, 'codex_real_invoker_post_start_executor_enablement_gate_preflight_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-codex-real-invoker-post-start-executor-enablement-gate-implementation-packet')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Packet status', (string) data_get($payload, 'codex_real_invoker_post_start_executor_enablement_gate_implementation_packet.status'));
+            $this->components->twoColumnDetail('Task count', (string) data_get($payload, 'codex_real_invoker_post_start_executor_enablement_gate_implementation_packet.task_count'));
+            $this->components->twoColumnDetail('Packet hash', (string) data_get($payload, 'codex_real_invoker_post_start_executor_enablement_gate_implementation_packet_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-codex-real-invoker-post-start-supervised-start-activation-gate-contract-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Contract status', (string) data_get($payload, 'codex_real_invoker_post_start_supervised_start_activation_gate_contract_template.status'));
+            $this->components->twoColumnDetail('Method', (string) data_get($payload, 'codex_real_invoker_post_start_supervised_start_activation_gate_contract_template.contract.method'));
+            $this->components->twoColumnDetail('Contract hash', (string) data_get($payload, 'codex_real_invoker_post_start_supervised_start_activation_gate_contract_template_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-codex-real-invoker-post-start-supervised-start-activation-gate-preflight')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Preflight status', (string) data_get($payload, 'codex_real_invoker_post_start_supervised_start_activation_gate_preflight.status'));
+            $this->components->twoColumnDetail('Blocking count', (string) data_get($payload, 'codex_real_invoker_post_start_supervised_start_activation_gate_preflight.blocking_count'));
+            $this->components->twoColumnDetail('Preflight hash', (string) data_get($payload, 'codex_real_invoker_post_start_supervised_start_activation_gate_preflight_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-codex-real-invoker-post-start-supervised-start-activation-gate-implementation-packet')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Packet status', (string) data_get($payload, 'codex_real_invoker_post_start_supervised_start_activation_gate_implementation_packet.status'));
+            $this->components->twoColumnDetail('Task count', (string) data_get($payload, 'codex_real_invoker_post_start_supervised_start_activation_gate_implementation_packet.task_count'));
+            $this->components->twoColumnDetail('Packet hash', (string) data_get($payload, 'codex_real_invoker_post_start_supervised_start_activation_gate_implementation_packet_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-codex-real-invoker-post-start-guarded-process-start-executor-gate-contract-template')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Contract status', (string) data_get($payload, 'codex_real_invoker_post_start_guarded_process_start_executor_gate_contract_template.status'));
+            $this->components->twoColumnDetail('Method', (string) data_get($payload, 'codex_real_invoker_post_start_guarded_process_start_executor_gate_contract_template.contract.method'));
+            $this->components->twoColumnDetail('Contract hash', (string) data_get($payload, 'codex_real_invoker_post_start_guarded_process_start_executor_gate_contract_template_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-codex-real-invoker-post-start-guarded-process-start-executor-gate-preflight')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Preflight status', (string) data_get($payload, 'codex_real_invoker_post_start_guarded_process_start_executor_gate_preflight.status'));
+            $this->components->twoColumnDetail('Blocking count', (string) data_get($payload, 'codex_real_invoker_post_start_guarded_process_start_executor_gate_preflight.blocking_count'));
+            $this->components->twoColumnDetail('Preflight hash', (string) data_get($payload, 'codex_real_invoker_post_start_guarded_process_start_executor_gate_preflight_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-codex-real-invoker-post-start-guarded-process-start-executor-gate-implementation-packet')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Packet status', (string) data_get($payload, 'codex_real_invoker_post_start_guarded_process_start_executor_gate_implementation_packet.status'));
+            $this->components->twoColumnDetail('Task count', (string) data_get($payload, 'codex_real_invoker_post_start_guarded_process_start_executor_gate_implementation_packet.task_count'));
+            $this->components->twoColumnDetail('Packet hash', (string) data_get($payload, 'codex_real_invoker_post_start_guarded_process_start_executor_gate_implementation_packet_hash'));
             $this->newLine();
             $this->line((string) $payload['human_summary']);
 

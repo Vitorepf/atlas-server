@@ -170,7 +170,8 @@ Eles devem:
 1. apontar para este contrato e para o bootstrap canonico;
 2. resumir regras provider-safe;
 3. ser regeneraveis ou sincronizados;
-4. nunca introduzir decisao que nao exista nos docs canonicos.
+4. preservar `atlas:manual` sem truncar notas humanas ou fences markdown;
+5. nunca introduzir decisao que nao exista nos docs canonicos.
 
 Se provider projection divergir de doc canonico, atualize o doc canonico primeiro
 e depois a projection.

@@ -91,7 +91,17 @@ class TaskPlanningServiceEventReceiptTest extends TestCase
         $this->assertTrue(data_get($payload, 'safety.has_event_sequence'));
         $this->assertTrue(data_get($payload, 'safety.has_previous_event_hash'));
         $this->assertTrue(data_get($payload, 'safety.has_event_hash'));
+        $this->assertTrue(data_get($payload, 'safety.has_local_orchestration_receipt'));
+        $this->assertSame('atlas.task_orchestration.local_event_receipt.v1', data_get($payload, 'safety.local_receipt_schema_version'));
+        $this->assertTrue(data_get($payload, 'safety.local_receipt_complete'));
+        $this->assertFalse(data_get($payload, 'safety.unsafe_local_receipt'));
         $this->assertFalse(data_get($payload, 'safety.provider_dispatch_allowed'));
         $this->assertFalse(data_get($payload, 'safety.runtime_execution_allowed'));
+        $this->assertFalse(data_get($payload, 'safety.receipt_provider_dispatch_allowed'));
+        $this->assertFalse(data_get($payload, 'safety.receipt_runtime_execution_allowed'));
+        $this->assertFalse(data_get($payload, 'safety.receipt_agent_control_plane_allowed'));
+        $this->assertFalse(data_get($payload, 'safety.receipt_policy_mutation_allowed'));
+        $this->assertFalse(data_get($payload, 'safety.receipt_auto_completion_allowed'));
+        $this->assertTrue(data_get($payload, 'safety.receipt_operator_review_required_for_external_execution'));
     }
 }

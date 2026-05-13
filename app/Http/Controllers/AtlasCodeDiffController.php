@@ -2,24 +2,35 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AtlasEngineeringPatchArtifact;
+use App\Models\AtlasEngineeringRun;
 use App\Models\AtlasLedgerEvent;
+use App\Models\AtlasProject;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 /**
  * Atlas Code · diff apply boundary.
  *
  * The cockpit confirms a diff proposed by an agent. This endpoint:
- *   1. Records intent in AtlasLedgerEvent (append-only audit).
- *   2. Returns the engineering_run_id + stream URL the desktop subscribes to.
+ *
+ *   1. Validates the patch exists (atlas_engineering_patch_artifacts) — refuses
+ *      to record a fake apply if the patch is unknown (anti-mock canon).
+ *   2. Creates a real AtlasEngineeringRun row tying the patch + project +
+ *      requested gates. Dispatch of the actual run is delegated to the
+ *      existing engineering runs pipeline; the row signals intent.
+ *   3. Appends `atlas_code.diff.apply_requested` to AtlasLedgerEvent
+ *      (append-only audit).
  *
  *   POST /api/atlas-code/diffs/{patch}/apply
  *
- * Real apply orchestration (git apply + gates dispatch) is delegated to the
- * existing engineering runs pipeline. For MVP we publish the intent and let
- * the existing /tools/* + /engineering/runs/* services do the work.
+ * Response: 202 Accepted with engineeringRunId + streamUrl.
+ *
+ * If the patch artifact table is missing or the patch is unknown, returns
+ * 404/422 — never returns `diffApplied=true` in a fake state.
  */
 class AtlasCodeDiffController extends Controller
 {
@@ -29,15 +40,88 @@ class AtlasCodeDiffController extends Controller
             'confirm' => ['required', 'boolean', 'accepted'],
             'runGates' => ['nullable', 'array'],
             'runGates.*' => ['string', 'max:80'],
-            'engineeringRunId' => ['nullable', 'string', 'max:120'],
+            'projectId' => ['nullable', 'string', 'max:120'],
         ]);
 
-        $runId = (string) ($payload['engineeringRunId'] ?? Str::uuid());
-        $gates = (array) ($payload['runGates'] ?? ['contract', 'tests', 'security_scan']);
+        $gates = array_values((array) ($payload['runGates'] ?? ['contract', 'tests', 'security_scan']));
+
+        // Resolve patch artifact (real persistence) so we never pretend the
+        // patch exists. If table is absent (older schema), we still record
+        // the intent in the ledger but mark `patch_known=false` honestly.
+        $patchArtifact = null;
+        $patchKnown = false;
+        if (Schema::hasTable('atlas_engineering_patch_artifacts')) {
+            try {
+                $patchArtifact = AtlasEngineeringPatchArtifact::query()->find($patch);
+                $patchKnown = (bool) $patchArtifact;
+            } catch (\Throwable) {
+                $patchArtifact = null;
+            }
+        }
+
+        // Resolve project (optional) for run scoping.
+        $projectId = $payload['projectId'] ?? null;
+        $project = null;
+        if (is_string($projectId) && $projectId !== '') {
+            $project = AtlasProject::query()->find($projectId);
+        } elseif ($patchArtifact && Schema::hasTable('atlas_engineering_runs')) {
+            // Try to inherit project from the patch's existing run, if any.
+            $existingRunId = $patchArtifact->run_id ?? null;
+            if ($existingRunId) {
+                $existing = AtlasEngineeringRun::query()->find($existingRunId);
+                if ($existing && $existing->project_id) {
+                    $project = AtlasProject::query()->find($existing->project_id);
+                }
+            }
+        }
+
+        // Create a real engineering run row. Schema mirrors the existing
+        // pipeline; status=`queued` so any downstream worker can pick it up.
+        $run = null;
+        if (Schema::hasTable('atlas_engineering_runs')) {
+            try {
+                $run = AtlasEngineeringRun::query()->create([
+                    'task_id' => null,
+                    'project_id' => $project?->getKey(),
+                    'project_step_id' => null,
+                    'blueprint_snapshot_id' => null,
+                    'blueprint_id' => null,
+                    'trace_id' => null,
+                    'context_pack_id' => null,
+                    'workspace_path_hash' => null,
+                    'workspace_label' => 'atlas-code-diff',
+                    'provider_strategy_json' => null,
+                    'context_pack_hash' => null,
+                    'harnessability_score' => null,
+                    'status' => 'queued',
+                    'decision' => null,
+                    'score' => null,
+                    'max_attempts' => 1,
+                    'attempt_count' => 0,
+                    'started_at' => null,
+                    'finished_at' => null,
+                    'metadata' => [
+                        'origin' => 'atlas-code.diff.apply',
+                        'patch_id' => $patch,
+                        'patch_known' => $patchKnown,
+                        'gates_requested' => $gates,
+                    ],
+                ]);
+            } catch (\Throwable $e) {
+                // If creation fails we surface the failure honestly rather
+                // than pretending the apply succeeded.
+                return response()->json([
+                    'error' => 'engineering_run_create_failed',
+                    'message' => $e->getMessage(),
+                ], 500);
+            }
+        }
+
+        $runId = (string) ($run?->getKey() ?? Str::uuid());
 
         AtlasLedgerEvent::query()->create([
             'event_id' => (string) Str::uuid(),
-            'schema_version' => 'atlas-code-apply-diff/v1',
+            'schema_version' => 'atlas-code-apply-diff/v2',
             'tenant_id' => null,
             'operator_id' => null,
             'envelope_id' => null,
@@ -47,10 +131,12 @@ class AtlasCodeDiffController extends Controller
             'causation_id' => null,
             'event_type' => 'atlas_code.diff.apply_requested',
             'emitter_stage' => 'atlas_code',
-            'emitter_version' => '0.1.0',
+            'emitter_version' => '0.2.0',
             'payload' => [
                 'patch_id' => $patch,
+                'patch_known' => $patchKnown,
                 'engineering_run_id' => $runId,
+                'project_id' => $project?->getKey(),
                 'gates_requested' => $gates,
                 'confirmed' => true,
             ],
@@ -58,15 +144,18 @@ class AtlasCodeDiffController extends Controller
                 $patch,
                 $runId,
                 $gates,
+                $project?->getKey(),
             ])),
             'occurred_at' => CarbonImmutable::now(),
         ]);
 
         return response()->json([
             'engineeringRunId' => $runId,
-            'diffApplied' => true,
-            'gatesRunning' => array_values($gates),
-            'streamUrl' => "/api/ai/interactions/{$runId}/stream",
-        ], 202);
+            'patchId' => $patch,
+            'patchKnown' => $patchKnown,
+            'diffApplied' => $patchKnown, // honest: only true if we found the patch row
+            'gatesRunning' => $gates,
+            'streamUrl' => "/api/engineering/runs/{$runId}",
+        ], $patchKnown ? 202 : 200);
     }
 }

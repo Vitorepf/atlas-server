@@ -62,6 +62,7 @@ class CaptureResource extends JsonResource
     {
         $metadata = is_array($this->metadata) ? $this->metadata : [];
         $cognitiveQuarantine = is_array($metadata['cognitive_quarantine'] ?? null) ? $metadata['cognitive_quarantine'] : [];
+        $immuneAudit = is_array($cognitiveQuarantine['immune_audit'] ?? null) ? $cognitiveQuarantine['immune_audit'] : [];
         $contentIntelligence = is_array($metadata['content_intelligence'] ?? null) ? $metadata['content_intelligence'] : [];
         $contentTextPresent = is_string($this->content_text) && $this->content_text !== '';
 
@@ -84,6 +85,15 @@ class CaptureResource extends JsonResource
             'context_eligible' => $cognitiveQuarantine['context_eligible'] ?? false,
             'promotion_status' => $cognitiveQuarantine['promotion_status'] ?? 'unclassified',
             'content_hash' => $cognitiveQuarantine['content_hash'] ?? $this->content_sha256,
+            'immune_audit_schema_version' => $immuneAudit['schema_version'] ?? null,
+            'immune_audit_status' => $immuneAudit['status'] ?? null,
+            'immune_audit_hash' => $immuneAudit['audit_hash'] ?? null,
+            'immune_master_invariant' => $immuneAudit['master_invariant'] ?? null,
+            'immune_noise_gate_status' => data_get($immuneAudit, 'noise_gate.status'),
+            'immune_learning_signal_allowed_now' => $immuneAudit['learning_signal_allowed_now'] ?? false,
+            'immune_memory_promotion_allowed_now' => $immuneAudit['memory_promotion_allowed_now'] ?? false,
+            'immune_context_export_allowed_now' => $immuneAudit['context_export_allowed_now'] ?? false,
+            'immune_constellation_promotion_allowed_now' => $immuneAudit['constellation_promotion_allowed_now'] ?? false,
             'content_intelligence_schema_version' => $contentIntelligence['schema_version'] ?? null,
             'content_type' => $contentIntelligence['content_type'] ?? null,
             'destination_enum' => data_get($contentIntelligence, 'destination.enum'),
@@ -197,6 +207,8 @@ class CaptureResource extends JsonResource
      */
     private function reviewWorkflowSafety(array $cognitiveQuarantine): array
     {
+        $immuneAudit = is_array($cognitiveQuarantine['immune_audit'] ?? null) ? $cognitiveQuarantine['immune_audit'] : [];
+
         return [
             'schema_version' => 'atlas.capture.review_workflow_safety.v1',
             'memory_eligible' => $cognitiveQuarantine['memory_eligible'] ?? false,
@@ -207,6 +219,14 @@ class CaptureResource extends JsonResource
             'raw_content_exposed' => $cognitiveQuarantine['raw_content_exposed'] ?? false,
             'promotion_status' => $cognitiveQuarantine['promotion_status'] ?? 'unclassified',
             'content_hash' => $cognitiveQuarantine['content_hash'] ?? null,
+            'immune_audit_schema_version' => $immuneAudit['schema_version'] ?? null,
+            'immune_audit_status' => $immuneAudit['status'] ?? null,
+            'immune_audit_hash' => $immuneAudit['audit_hash'] ?? null,
+            'immune_noise_gate_status' => data_get($immuneAudit, 'noise_gate.status'),
+            'immune_learning_signal_allowed_now' => $immuneAudit['learning_signal_allowed_now'] ?? false,
+            'immune_memory_promotion_allowed_now' => $immuneAudit['memory_promotion_allowed_now'] ?? false,
+            'immune_context_export_allowed_now' => $immuneAudit['context_export_allowed_now'] ?? false,
+            'immune_constellation_promotion_allowed_now' => $immuneAudit['constellation_promotion_allowed_now'] ?? false,
         ];
     }
 

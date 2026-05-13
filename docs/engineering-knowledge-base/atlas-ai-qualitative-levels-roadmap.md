@@ -214,7 +214,9 @@ Formalizar classes de mutacao:
 
 ### QL-6 — Presence and eclipse governance
 
-Antes de qualquer ambiente/voz/sensor, implementar:
+Status: iniciado no Mobile Inbox/Push com opt-out proativo, manual eclipse para
+push nao critico, quiet-hours e receipts hash-only de entrega. Antes de qualquer
+ambiente/voz/sensor amplo, completar:
 
 1. opt-in explicito;
 2. modos eclipse;

@@ -52,6 +52,8 @@ class MobileDeviceController extends Controller
             'telemetry_health_push_enabled' => ['sometimes', 'boolean'],
             'daily_report_push_enabled' => ['sometimes', 'boolean'],
             'quiet_hours_enabled' => ['sometimes', 'boolean'],
+            'proactive_push_enabled' => ['sometimes', 'boolean'],
+            'manual_eclipse_enabled' => ['sometimes', 'boolean'],
         ]);
 
         $device = $this->device($request);

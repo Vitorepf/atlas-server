@@ -19,6 +19,8 @@ class MobileNotificationPreferences
             'telemetry_health_push_enabled' => true,
             'daily_report_push_enabled' => true,
             'quiet_hours_enabled' => false,
+            'proactive_push_enabled' => true,
+            'manual_eclipse_enabled' => false,
         ];
     }
 
@@ -48,6 +50,14 @@ class MobileNotificationPreferences
 
         if ($item->severity === 'critical' && $preferences['critical_push_enabled'] === false) {
             return 'critical_push_disabled';
+        }
+
+        if ($preferences['manual_eclipse_enabled'] === true && $this->severityRank($item->severity) < $this->severityRank('critical')) {
+            return 'manual_eclipse_active';
+        }
+
+        if ($preferences['proactive_push_enabled'] === false && $item->type !== 'approval' && $this->severityRank($item->severity) < $this->severityRank('critical')) {
+            return 'proactive_push_disabled';
         }
 
         if ($this->isTelemetryHealthInsight($item) && $preferences['telemetry_health_push_enabled'] === false) {
@@ -90,5 +100,15 @@ class MobileNotificationPreferences
             || $item->source_type === 'atlas_ai_performance_report'
             || data_get($item->payload ?? [], 'category') === 'atlas_ai_performance'
             || str_contains((string) $item->dedupe_key, 'atlas-ai-performance');
+    }
+
+    private function severityRank(string $severity): int
+    {
+        return match ($severity) {
+            'critical' => 3,
+            'warning' => 2,
+            'info' => 1,
+            default => 0,
+        };
     }
 }

@@ -94,7 +94,7 @@ Resultado do snapshot:
 | Static scanner | 0 failed static scans no readiness atual. |
 | Blocker atual | Nenhum blocker ativo no readiness atual. |
 | Provider projection | `passed`. |
-| Architecture operations | `published`, 65 commands. |
+| Architecture operations | `published`, 81 commands. |
 
 Observacao: esta matriz continua read-only; confirmar estado real com readiness
 e testes focados antes de expandir qualquer bloco.
@@ -109,7 +109,7 @@ e testes focados antes de expandir qualquer bloco.
 | Domain plane | implemented_ready | Validador reporta 15 domains ready e 93 flows. | Reconciliar docs que ainda digam scaffold apos higiene. |
 | Evidence Ledger foundation | implemented_ready | Append-only model, commands/API, replay service e 3 projections ready. | Ledger projection drift ainda depende de ledger presente. |
 | Decision Receipt v2 | implemented_ready | Receipt issuer, runtime guard, hash, replay/report tests e AP scans verdes. | Runtime nao pode executar sem receipt onde contrato exige. |
-| Architecture Operations | implemented_ready | Catalogo publicado, readiness command/API/MCP declarados e `owner_layer_operations.runtime` exposto em readiness/bootstrap/placement; `owner_layer=runtime` descobre AP-201 sem confundir surface CLI com runtime governado. | Usar antes de expandir arquitetura. |
+| Architecture Operations | implemented_ready | Catalogo publicado, readiness command/API/MCP declarados, `owner_layer_operations.runtime` exposto em readiness/bootstrap/placement, report surfaces para Capture/Inbox, Task Orchestration, Tool Action Runtime, Long-Running Work e Proactive Layer, mais baseline declaration command para Long-Running Work. | Usar antes de expandir arquitetura. |
 | Documentation OS | implemented_ready | docs-health verde e limites de linha respeitados nos docs obrigatorios. | Manter indices sincronizados depois da higiene. |
 | Self-Improvement base | implemented_ready | Runtime, schedule, health/report, proposal inbox e filtros por replay existem. | Curator recomenda/revisa; nao aplica mudanca sozinho. |
 | AP-99/AP-146 provider cost/performance | implemented_ready | Provider performance, cost rates, inbox replay e Curator finding para rates nao aplicados. | Rates continuam humanos/revisaveis. |
@@ -118,7 +118,7 @@ e testes focados antes de expandir qualquer bloco.
 | Provider Projection | implemented_ready | Projection status passed para `claude` e `agents`; AGENTS/CLAUDE sao artefatos gerenciados. | Nao editar bloco gerenciado manualmente fora do projection flow. |
 | AtlasVault boundary | implemented_ready | Vault docs/contracts/runbook definem sync gerenciado, frontmatter e promocao para Memory. | Vault nao e fonte operacional crua. |
 | Telemetry / Observability | implemented_ready | SLOs, provider performance, telemetry commands e reports existem. | Observability reporta; nao decide policy sozinho. |
-| Mobile gateway base | implemented_partial | Mobile surface e rotas voice/AI existem em camada API. | UX mobile final e contratos por feature ainda precisam maturidade. |
+| Mobile gateway base | implemented_partial | Mobile surface, rotas voice/AI, Inbox safety, proactive delivery receipts and presence/eclipse push controls exist in API layer. | UX mobile final e contratos por feature ainda precisam maturidade. |
 | Attachments / multimodal input | implemented_partial | Attachment index, chunked upload, file/image attachment services e tests existem. | Garantir que tudo entre por Atlas Input/context policy. |
 | Search / retrieval surfaces | implemented_partial | Session search, retrieval inputs, context router, `atlas:ai:local-rag-readiness`, corpus benchmark, eventos `LOCAL_RAG_*` sanitizados, `promotion_review_contract`, `review_packet` com rollback/proibicoes e AP-683 review gate proposal-only existem. | Graph RAG/rerank Python ainda e futuro governado; falta review humano/Curator antes de policy patch real. |
 | Inbox / Proposal loop | implemented_ready | Inbox actions, proposal commands, mobile inbox, action replay report e Curator refs existem. | Inbox e review humano continuam gate; nao auto-aplicar proposals. |
