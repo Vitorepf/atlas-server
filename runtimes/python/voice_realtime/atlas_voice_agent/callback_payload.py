@@ -102,6 +102,16 @@ class AtlasVoiceCallbackBase:
         if cls.SHA256_PATTERN.match(value) is None:
             raise UnsafeVoicePayload(f"{field} must be a sha256 hex digest")
 
+    @classmethod
+    def optional_sha256(cls, value: Any, field: str) -> str | None:
+        if value is None:
+            return None
+
+        parsed = str(value).strip().lower()
+        cls.assert_sha256(parsed, field)
+
+        return parsed
+
 
 @dataclass(frozen=True)
 class AtlasVoiceSynthesizedPayload(AtlasVoiceCallbackBase):
@@ -115,16 +125,11 @@ class AtlasVoiceSynthesizedPayload(AtlasVoiceCallbackBase):
         cls.assert_no_forbidden_keys(payload)
         response_text = payload.get("response_text")
         response_text_hash = payload.get("response_text_hash")
-        response_text_hash_value = str(response_text_hash).strip() if response_text_hash is not None else None
+        response_text_hash_value = cls.optional_sha256(response_text_hash, "response_text_hash")
         if response_text is not None:
             response_text_hash_value = hashlib.sha256(str(response_text).encode("utf-8")).hexdigest()
-        if response_text_hash_value is not None:
-            cls.assert_sha256(response_text_hash_value, "response_text_hash")
 
-        audio_hash = payload.get("audio_hash")
-        audio_hash_value = str(audio_hash).strip() if audio_hash is not None else None
-        if audio_hash_value is not None:
-            cls.assert_sha256(audio_hash_value, "audio_hash")
+        audio_hash_value = cls.optional_sha256(payload.get("audio_hash"), "audio_hash")
         if not response_text_hash_value and not audio_hash_value:
             raise UnsafeVoicePayload("synthesis callback requires response_text_hash or audio_hash")
 
@@ -195,6 +200,7 @@ class AtlasVoicePlayedPayload(AtlasVoiceCallbackBase):
 class AtlasVoiceInterruptedPayload(AtlasVoiceCallbackBase):
     reason: str = "operator_interrupted"
     interrupted_stage: str = "runtime_or_tts"
+    played_duration_ms: int | None = None
 
     @classmethod
     def from_runtime_output(cls, payload: Mapping[str, Any]) -> "AtlasVoiceInterruptedPayload":
@@ -212,12 +218,15 @@ class AtlasVoiceInterruptedPayload(AtlasVoiceCallbackBase):
             rivals_arm=cls.rivals_arm_value(payload.get("rivals_arm")),
             reason=str(payload.get("reason") or "operator_interrupted"),
             interrupted_stage=str(payload.get("interrupted_stage") or "runtime_or_tts"),
+            played_duration_ms=cls.optional_int(payload.get("played_duration_ms")),
         )
 
     def to_kernel_payload(self) -> dict[str, Any]:
         payload = self.base_payload()
         payload["reason"] = self.reason
         payload["interrupted_stage"] = self.interrupted_stage
+        if self.played_duration_ms is not None:
+            payload["played_duration_ms"] = self.played_duration_ms
 
         self.assert_no_forbidden_keys(payload)
 
@@ -228,10 +237,12 @@ class AtlasVoiceInterruptedPayload(AtlasVoiceCallbackBase):
 class AtlasVoiceFailurePayload(AtlasVoiceCallbackBase):
     failure_code: str = "runtime_failed"
     error_class: str | None = None
+    error_message_hash: str | None = None
 
     @classmethod
     def from_runtime_output(cls, payload: Mapping[str, Any]) -> "AtlasVoiceFailurePayload":
         cls.assert_no_forbidden_keys(payload)
+        error_message_hash = cls.optional_sha256(payload.get("error_message_hash"), "error_message_hash")
 
         return cls(
             session_id=cls.require_string(payload, "session_id"),
@@ -245,6 +256,7 @@ class AtlasVoiceFailurePayload(AtlasVoiceCallbackBase):
             rivals_arm=cls.rivals_arm_value(payload.get("rivals_arm")),
             failure_code=str(payload.get("failure_code") or "runtime_failed"),
             error_class=str(payload["error_class"]) if payload.get("error_class") is not None else None,
+            error_message_hash=error_message_hash,
         )
 
     def to_kernel_payload(self) -> dict[str, Any]:
@@ -252,6 +264,8 @@ class AtlasVoiceFailurePayload(AtlasVoiceCallbackBase):
         payload["failure_code"] = self.failure_code
         if self.error_class is not None:
             payload["error_class"] = self.error_class
+        if self.error_message_hash is not None:
+            payload["error_message_hash"] = self.error_message_hash
 
         self.assert_no_forbidden_keys(payload)
 

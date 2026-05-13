@@ -41,6 +41,10 @@ related_paths:
   - docs/engineering-knowledge-base/START_HERE.md
   - docs/engineering-knowledge-base/README.md
   - docs/engineering-knowledge-base/atlas-ai-documentation-operating-system.md
+  - docs/engineering-knowledge-base/atlas-next-patamar-operating-systems.md
+  - docs/engineering-knowledge-base/atlas-sovereign-operating-system.md
+  - docs/engineering-knowledge-base/atlas-epistemic-operating-system.md
+  - docs/engineering-knowledge-base/atlas-cartographic-knowledge-os.md
   - docs/engineering-knowledge-base/atlas-ai-provider-evolution-intelligence.md
   - docs/engineering-knowledge-base/atlas-ai-canonical-architecture-index.md
   - docs/engineering-knowledge-base/atlas-ai-agent-behavior-contract.md
@@ -142,6 +146,13 @@ O contrato e simples: decisao canonica nasce em doc versionado, e consultada por
 Postgres/Context Pack, e provada por codigo/teste/ledger. Obsidian, chat e
 arquivos de provider podem alimentar o sistema, mas nao governam implementacao
 sem promocao.
+
+Proximo patamar canonico: `atlas-next-patamar-operating-systems.md` fixa o
+conjunto soberano/epistemico/cartografico; `atlas-sovereign-operating-system.md`
+decide direcao e limites; `atlas-epistemic-operating-system.md` transforma esta
+governanca em confianca, drift, contradicao, maturidade e permissoes de IA; e
+`atlas-cartographic-knowledge-os.md` transforma verdade e direcao em mapa visual
+navegavel por humanos e IAs.
 
 ## Por Que IAs Se Perdem
 

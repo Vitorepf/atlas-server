@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\File;
+use Symfony\Component\Process\Process;
 use Tests\TestCase;
 
 class AtlasEngineeringQualityScanCommandTest extends TestCase
@@ -51,7 +52,7 @@ class AtlasEngineeringQualityScanCommandTest extends TestCase
         ]);
         $payload = json_decode(Artisan::output(), true);
 
-        $this->assertSame(0, $exit);
+        $this->assertSame(0, $exit, Artisan::output());
         $this->assertSame('passed', $payload['status'] ?? null);
         $this->assertFalse((bool) ($payload['paid_tool_required'] ?? true));
         $this->assertSame('free_local_or_project_local', $payload['cost_posture'] ?? null);
@@ -60,6 +61,70 @@ class AtlasEngineeringQualityScanCommandTest extends TestCase
         $this->assertSame('eslint', data_get($payload, 'recommendations.0.tool'));
         $this->assertFalse((bool) data_get($payload, 'recommendations.0.paid_tool_required'));
         $this->assertFileExists($payload['artifact_root'].'/scan.json');
+    }
+
+    public function test_quality_scan_runs_pint_with_large_memory_limit(): void
+    {
+        File::put($this->workspace.'/composer.json', json_encode([
+            'name' => 'atlas/test',
+            'description' => 'Atlas test package',
+            'license' => 'MIT',
+            'require' => new \stdClass,
+        ]));
+        File::ensureDirectoryExists($this->workspace.'/vendor/bin');
+        File::put($this->workspace.'/vendor/bin/pint', <<<'PHP'
+<?php
+echo "pint ok\n";
+exit(0);
+PHP);
+
+        $exit = Artisan::call('atlas:engineering:quality-scan', [
+            '--workspace' => $this->workspace,
+            '--profile' => 'fast',
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true);
+        $pint = collect($payload['tools'] ?? [])->firstWhere('slug', 'laravel_pint');
+
+        $this->assertSame(0, $exit, Artisan::output());
+        $this->assertSame('passed', data_get($pint, 'status'));
+        $this->assertContains('-d', data_get($pint, 'command'));
+        $this->assertContains('memory_limit=1024M', data_get($pint, 'command'));
+        $this->assertContains('vendor/bin/pint', data_get($pint, 'command'));
+    }
+
+    public function test_changed_only_quality_scan_limits_pint_to_changed_php_targets(): void
+    {
+        File::put($this->workspace.'/composer.json', json_encode([
+            'name' => 'atlas/test',
+            'description' => 'Atlas test package',
+            'license' => 'MIT',
+            'require' => new \stdClass,
+        ]));
+        File::ensureDirectoryExists($this->workspace.'/vendor/bin');
+        File::ensureDirectoryExists($this->workspace.'/app');
+        File::put($this->workspace.'/vendor/bin/pint', <<<'PHP'
+<?php
+echo json_encode(array_slice($argv, 1))."\n";
+exit(0);
+PHP);
+        File::put($this->workspace.'/app/Changed.php', "<?php\nclass Changed {}\n");
+
+        (new Process(['git', 'init'], $this->workspace))->mustRun();
+
+        $exit = Artisan::call('atlas:engineering:quality-scan', [
+            '--workspace' => $this->workspace,
+            '--profile' => 'fast',
+            '--changed-only' => true,
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true);
+        $pint = collect($payload['tools'] ?? [])->firstWhere('slug', 'laravel_pint');
+
+        $this->assertSame(0, $exit, Artisan::output());
+        $this->assertContains('app/Changed.php', data_get($payload, 'targets'));
+        $this->assertSame('passed', data_get($pint, 'status'));
+        $this->assertContains('app/Changed.php', data_get($pint, 'command'));
     }
 
     public function test_quality_scan_normalizes_gitleaks_findings(): void

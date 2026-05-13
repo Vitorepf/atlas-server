@@ -17,6 +17,10 @@ capabilities:
   - atlas_system_graph
   - atlas_living_architecture_graph
   - knowledge_governance_system
+  - next_patamar_operating_systems
+  - sovereign_operating_system
+  - epistemic_operating_system
+  - cartographic_knowledge_os
   - provider_evolution_intelligence
   - runtime_language_boundaries
   - native_mac_agent
@@ -24,6 +28,8 @@ capabilities:
   - content_intelligence_curation
   - research_intelligence_runtime
   - spec_operating_system
+  - programming_governance_system
+  - forge_operating_system
   - self_construction_os
   - paperclip_control_plane_benchmark
   - qualitative_levels_roadmap
@@ -75,6 +81,10 @@ decisions:
   - Atlas System Graph define o mapa visual/navegavel do Atlas para humanos e IAs: sistemas, programas, modulos, artefatos, dependencias, status, riscos, unlocks e projecao gerenciada para AtlasVault/Obsidian.
   - Atlas Living Architecture Graph define o proximo patamar do System Graph: notes reais no Obsidian com links, status, dependencias, evidence e next actions para consciencia arquitetural viva.
   - Atlas AI Knowledge Governance System define a fonte de verdade entre repo docs, Postgres KB, Code Intelligence, Evidence Ledger, Obsidian, AGENTS/CLAUDE e chat source material.
+  - Atlas Next Patamar Operating Systems fixa Sovereign OS, Epistemic OS e Cartographic Knowledge OS como conjunto indivisivel para autoevolucao enterprise por IA.
+  - Atlas Sovereign Operating System define o patamar acima do Epistemic OS: proposito, identidade, autonomia, prioridade, risco, tradeoffs, self-modification e soberania do operador.
+  - Atlas Epistemic Operating System define verdade, confianca, drift, contradicao, maturidade e permissoes de IA para um Atlas construido por agentes.
+  - Atlas Cartographic Knowledge OS define a Cartografia como sistema operacional visual da verdade, com zoom semantico e navegacao humana/IA.
   - Atlas AI Runtime Language Boundaries separa Laravel Kernel, Python AI/Data Runtime, Go Edge/Concurrency Runtime e Swift Native Mac Runtime.
   - Atlas AI Voice Realtime Surface define Voice como surface canonica mobile-first com Surface Adapter `voice_realtime`, LiveKit Agents SDK (Python), LiveKit/WebRTC, Swift Mac edge futuro, eclipse modes class-3 e Rivals-Voice.
   - Atlas Native Mac Agent define Swift/macOS como camada nativa local para Keychain, Touch ID, notificacoes, FSEvents, Menu Bar e contexto opt-in, sem virar Kernel.
@@ -82,6 +92,8 @@ decisions:
   - Atlas AI Content Intelligence And Knowledge Curation define como capturar, filtrar, descartar, rotear e promover conteudo sem poluir memoria ou dominios.
   - Atlas AI Research Intelligence And Self-Improvement Runtime define pesquisa de maximo nivel, source quality, promocao para docs, planejamento, implementacao validada e autoaprimoramento governado como frente P0 de evolucao do Atlas.
   - Atlas AI Spec Operating System define SDD como capacidade interna: intencao simples vira spec operacional, plano, tasks, Decision Receipt, execucao governada, evidencia, drift detection, learning proposal, data model, agentes internos, MCP governado e context packages versionados.
+  - Atlas Programming Governance System define os gates canonicos da programacao por IA: placement, spec antes do codigo, task contracts, Code Intelligence, evidence, learning e cartografia.
+  - Atlas Forge Operating System define o patamar acima da governanca de programacao: fabrica multiagente de software com spec-mae, packets, workspace state, evidence normalization, integration queue e release gate.
   - Atlas AI Self-Construction OS define como Atlas constroi Atlas: pesquisa, documentacao, Meta-SDD, prioridade, execucao governada, evidencia, drift, learning e maturidade sem criar arquitetura paralela; sua camada multi-provider permite Codex, Claude, Gemini, agentes locais e futuros providers consumirem o mesmo contrato de implementacao.
   - Paperclip Control Plane Benchmark define as primitivas externas que Atlas deve absorver para multiagente persistente: runtime state, heartbeat runs, wakeup queue, checkout lock, execution workspace, liveness, approvals, cost events, adapters e work products, sempre subordinadas a Obras, Forge, SDD e Self-Programming OS.
   - Obras Shared Workspace e o nome canonico do escritorio compartilhado de producao: contratos, packets, artifact bus, status, evidence e integration queue para trabalho longo ou multi-provider; Forge Workspace e sua especializacao em Programming/Atlas Forge.
@@ -117,9 +129,15 @@ maintenance:
   - Leia system-graph/living-architecture-graph-contract.md antes de construir ou atualizar os nodes reais do Atlas no Obsidian.
   - Rode `php artisan atlas:ai:docs-split-plan --owner=<owner_area> --json` antes de expandir qualquer doc `split_required`; use `severity` e `status` para reduzir contexto quando a sessao tiver escopo estreito.
   - Leia atlas-ai-knowledge-governance-system.md antes de iniciar feature com owner incerto, alterar bootstrap, provider projection, KB sync, Obsidian/vault flow ou contexto para agentes.
+  - Leia atlas-next-patamar-operating-systems.md antes de planejar Sovereign OS, Epistemic OS, Cartographic Knowledge OS ou autoevolucao enterprise por IA.
+  - Leia atlas-sovereign-operating-system.md antes de propor mudanca de proposito, identidade, autonomia, prioridade estrategica, self-modification ou qualquer capacidade que possa alterar a direcao do Atlas.
+  - Leia atlas-epistemic-operating-system.md antes de transformar conhecimento, evidence, confidence, drift ou maturidade em permissao de escrita por IA.
+  - Leia atlas-cartographic-knowledge-os.md antes de alterar Cartografia, zoom semantico, visualizacao de grafo, links visuais ou navegacao humana/IA.
   - Leia atlas-ai-runtime-language-boundaries.md, atlas-native-mac-agent.md, atlas-ai-local-performance-memory-strategy.md, atlas-ai-content-intelligence-curation.md e atlas-ai-scenario-simulation-harness.md antes de propor Python, Go, Swift, microservico, worker externo, daemon, RAG local, cache, modelos locais, uso dos 48GB RAM, YouTube ingestion, feeds, scraping, curadoria de fontes, swarm ou simulacao multiagente.
   - Leia atlas-ai-research-self-improvement-runtime.md antes de pesquisa longa, source quality, promocao de pesquisa para docs, planejamento automatico, autoaprimoramento ou qualquer tentativa de acelerar evolucao do Atlas por automacao.
   - Leia atlas-ai-spec-operating-system.md antes de alterar SDD, Programming harness, spec compiler, task compiler, Decision Receipt de execucao, drift detector, code-agent prompts ou fluxo de one-shot implementation.
+  - Leia atlas-programming-governance-system.md antes de alterar placement, spec antes do codigo, task contracts, Code Intelligence, evidence, learning ou cartografia de programacao.
+  - Leia atlas-forge-operating-system.md antes de alterar Forge, fabrica multiagente de software, packets, integration queue, evidence normalization, release gate ou trabalho multiprovider.
   - Leia atlas-ai-self-construction-os.md antes de alterar self-programming, Meta-SDD, prioridade de construcao, maturity ladder, build graph, loop autonomo, safety contract ou qualquer tentativa do Atlas construir Atlas.
   - Leia self-construction/agent-control-plane-contract.md antes de alterar estado de sessao de provider, agent runs, locks, liveness, continuation summary ou ponte entre Self-Construction OS e Self-Programming OS.
   - Leia self-construction/paperclip-control-plane-benchmark.md antes de implementar runtime state de agente, heartbeat runs, wakeup queue, checkout lock, execution workspace, liveness, approvals, cost events, adapters ou work products.

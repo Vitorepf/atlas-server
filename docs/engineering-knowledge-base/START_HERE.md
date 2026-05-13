@@ -16,6 +16,10 @@ capabilities:
   - documentation_operating_system
   - canonical_module_doc_v1
   - knowledge_governance_system
+  - next_patamar_operating_systems
+  - sovereign_operating_system
+  - epistemic_operating_system
+  - cartographic_knowledge_os
   - provider_evolution_intelligence
   - runtime_language_boundaries
   - native_mac_agent
@@ -23,6 +27,8 @@ capabilities:
   - content_intelligence_curation
   - research_intelligence_runtime
   - spec_operating_system
+  - programming_governance_system
+  - forge_operating_system
   - self_construction_os
   - qualitative_levels_roadmap
   - canonical_architecture_index
@@ -54,11 +60,17 @@ decisions:
   - Toda IA nova deve ler Atlas Canonical Module Doc v1 antes de criar ou alterar docs tecnicos que alimentem Cartografia, Atlas Code ou implementacao por IA.
   - Toda IA nova deve rodar `php artisan atlas:ai:docs-split-plan --owner=<owner_area> --json` antes de expandir docs grandes, usando `severity`/`status` quando precisar de contexto menor.
   - Toda IA nova deve ler Atlas AI Knowledge Governance System antes de depender de Obsidian, AGENTS/CLAUDE, Postgres KB ou chat como contexto para implementacao.
+  - Toda IA nova deve ler Atlas Next Patamar Operating Systems antes de planejar Sovereign OS, Epistemic OS, Cartographic Knowledge OS ou autoevolucao enterprise por IA.
+  - Toda IA nova deve ler Atlas Sovereign Operating System antes de propor mudanca de autonomia, prioridade estrategica, identidade, proposito ou auto-modificacao do Atlas.
+  - Toda IA nova deve ler Atlas Epistemic Operating System antes de permitir que verdade, evidencia, maturidade ou confidence orientem escrita autonoma por IA.
+  - Toda IA nova deve ler Atlas Cartographic Knowledge OS antes de alterar Cartografia, zoom semantico, visualizacao de grafo ou navegacao visual humana/IA.
   - Toda IA nova deve ler Atlas AI Runtime Language Boundaries antes de propor Python, Go, Swift, microservico, worker externo ou daemon.
   - Toda IA nova deve ler Atlas AI Local Performance Memory Strategy antes de propor RAG local, modelos locais, cache, reranker, Graph RAG, KV cache ou uso dos 48GB RAM.
   - Toda IA nova deve ler Atlas AI Content Intelligence And Knowledge Curation antes de propor YouTube ingestion, feed/RSS, scraping, source reputation, blacklist ou promocao de conteudo para memoria.
   - Toda IA nova deve ler Atlas AI Research Intelligence And Self-Improvement Runtime antes de pesquisa longa, source quality, promocao de pesquisa para docs, planejamento automatico, implementacao baseada em pesquisa ou aceleracao de autoaprimoramento.
   - Toda IA nova deve ler Atlas AI Spec Operating System antes de alterar SDD, Programming harness, spec compiler, task compiler, Decision Receipt de execucao, drift detector, code-agent prompts, MCP SDD, context packages, data model ou fluxo de one-shot implementation.
+  - Toda IA nova deve ler Atlas Programming Governance System antes de implementar ou alterar placement, spec antes do codigo, task contracts, Code Intelligence, evidence, learning ou cartografia de programacao.
+  - Toda IA nova deve ler Atlas Forge Operating System antes de planejar trabalho pesado, longo, multiagente, multiprovider, integration queue, packets, evidence normalization ou fabrica de software por IA.
   - Toda IA nova deve ler Atlas AI Self-Construction OS antes de alterar self-programming, Meta-SDD, maturity ladder, build graph, priority engine, autonomous loop, safety contract ou qualquer fluxo do Atlas construindo Atlas.
   - Toda IA nova que va implementar em paralelo deve ler o Multi-Provider Agent Orchestration Contract: Codex, Claude, Gemini, agentes locais e futuros providers consomem o mesmo pacote universal; adapters nao podem ampliar escopo.
   - Toda IA nova deve ler Obras Shared Workspace antes de alterar Atlas Forge, colaboracao multi-provider, artifact bus, provider context packs, escopos paralelos, integration queue ou qualquer tentativa de transformar providers em time.
@@ -89,11 +101,17 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-ai-documentation-operating-system.md
   - docs/engineering-knowledge-base/atlas-canonical-module-doc-v1.md
   - docs/engineering-knowledge-base/atlas-ai-knowledge-governance-system.md
+  - docs/engineering-knowledge-base/atlas-next-patamar-operating-systems.md
+  - docs/engineering-knowledge-base/atlas-sovereign-operating-system.md
+  - docs/engineering-knowledge-base/atlas-epistemic-operating-system.md
+  - docs/engineering-knowledge-base/atlas-cartographic-knowledge-os.md
   - docs/engineering-knowledge-base/atlas-ai-runtime-language-boundaries.md
   - docs/engineering-knowledge-base/atlas-native-mac-agent.md
   - docs/engineering-knowledge-base/atlas-ai-local-performance-memory-strategy.md
   - docs/engineering-knowledge-base/atlas-ai-content-intelligence-curation.md
   - docs/engineering-knowledge-base/atlas-ai-research-self-improvement-runtime.md
+  - docs/engineering-knowledge-base/atlas-programming-governance-system.md
+  - docs/engineering-knowledge-base/atlas-forge-operating-system.md
   - docs/engineering-knowledge-base/atlas-ai-self-construction-os.md
   - docs/engineering-knowledge-base/atlas-ai-obras-operating-system.md
   - docs/engineering-knowledge-base/obras/shared-workspace-and-forge.md
@@ -340,6 +358,8 @@ Para uma sessao nova responder "o que e Atlas?", "isso ja esta implementado?",
 1. `atlas-ai-content-intelligence-curation.md` quando envolver YouTube, RSS, scraping, source quality, blacklist ou promocao de conteudo
 1. `atlas-ai-research-self-improvement-runtime.md` quando envolver pesquisa longa, source quality, promocao para docs, planejamento automatico, implementacao baseada em pesquisa ou autoaprimoramento
 1. `atlas-ai-spec-operating-system.md` quando envolver SDD, spec compiler, one-shot implementation, task compiler, spec graph, drift detector ou execucao governada por Decision Receipt
+1. `atlas-programming-governance-system.md` quando envolver programacao governada, placement, spec antes do codigo, task contracts, Code Intelligence, evidence, learning ou cartografia de programacao
+1. `atlas-forge-operating-system.md` quando envolver Forge, fabrica de software, packets, multiagente, multiprovider, integration queue ou evidence normalization
 1. `atlas-ai-cognitive-runtime.md` quando envolver memoria governada, busca de contexto, sessoes longas, compactacao automatica, 72h de alta performance ou auditoria cognitiva
 1. `memory/cognitive-immune-learning-kernel.md` quando envolver captura, ruido, promocao de memoria, embeddings, Constelacao, delete ou aprendizado seletivo
 1. `code-intelligence/external-graph-harness.md` quando envolver Graphify, grafo externo, AST graph externo, import de `graph.json` ou relacoes surpreendentes de codigo

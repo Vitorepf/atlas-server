@@ -3,8 +3,12 @@
 namespace Tests\Feature;
 
 use App\Jobs\ProcessAudioTranscription;
+use App\Models\AiTrace;
 use App\Services\Ai\AiGatewayService;
+use App\Services\Semantic\ActivationEngine;
+use App\Services\Semantic\CaptureSemanticClarifier;
 use App\Services\Semantic\CurationProposalService;
+use App\Services\WhisperTranscriber;
 use Carbon\Carbon;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Schema\Blueprint;
@@ -2486,6 +2490,418 @@ class CaptureTranscriptionRetryTest extends TestCase
         ]);
 
         Queue::assertPushed(ProcessAudioTranscription::class);
+    }
+
+    public function test_completed_audio_transcription_dispatches_voice_turn_when_capture_requests_conversation(): void
+    {
+        $this->createCaptureTables();
+        Storage::fake('atlas');
+
+        config()->set('atlas.transcription.engine', 'whisper');
+        config()->set('atlas.transcription.language', 'pt-BR');
+
+        $captureId = (string) Str::uuid();
+        $clientId = (string) Str::uuid();
+        $jobId = (string) Str::uuid();
+        $now = now();
+        $audioBytes = 'audio-bytes';
+        $metadata = [
+            'voice_realtime_dispatch' => [
+                'dispatch_to_ai' => true,
+                'allow_transcript_persistence' => true,
+                'session_id' => 'voice_session_capture',
+                'envelope_id' => 'env_voice_capture',
+                'receipt_id' => 'receipt_voice_capture',
+                'turn_id' => 'voice_turn_capture',
+                'ai_thread_id' => (string) Str::uuid(),
+                'domain_hint' => 'programming',
+                'flow_hint' => 'voice.push_to_talk',
+                'language' => 'pt-BR',
+                'client_surface' => 'mobile',
+                'transport' => 'mobile_push_to_talk',
+                'runtime' => 'livekit_agents_sdk',
+                'privacy_class' => 'p3_audio',
+            ],
+        ];
+
+        Storage::disk('atlas')->put('audio/test.m4a', $audioBytes);
+
+        \DB::table('captures')->insert([
+            'id' => $captureId,
+            'client_id' => $clientId,
+            'kind' => 'audio',
+            'domain' => 'programming',
+            'content_text' => null,
+            'content_file_path' => 'audio/test.m4a',
+            'content_duration_ms' => 2300,
+            'content_size_bytes' => strlen($audioBytes),
+            'content_sha256' => hash('sha256', $audioBytes),
+            'content_mime_type' => 'audio/x-m4a',
+            'transcription_status' => 'pending',
+            'transcription_engine' => null,
+            'transcription_error' => null,
+            'captured_at' => $now,
+            'captured_timezone' => 'America/Sao_Paulo',
+            'captured_lat' => null,
+            'captured_lng' => null,
+            'metadata' => json_encode($metadata, JSON_THROW_ON_ERROR),
+            'pre_capture_digital_context' => '{}',
+            'created_at' => $now,
+            'updated_at' => $now,
+            'deleted_at' => null,
+        ]);
+
+        \DB::table('transcription_jobs')->insert([
+            'id' => $jobId,
+            'capture_id' => $captureId,
+            'status' => 'queued',
+            'attempts' => 0,
+            'max_attempts' => 3,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        $this->mock(WhisperTranscriber::class, function ($mock): void {
+            $mock->shouldReceive('transcribe')
+                ->once()
+                ->andReturn('corrija o teste quebrado');
+        });
+        $this->mock(CaptureSemanticClarifier::class, function ($mock): void {
+            $mock->shouldReceive('handleReady')->once()->andReturnUsing(fn ($capture) => $capture);
+            $mock->shouldReceive('resultFor')->once()->andReturn([]);
+        });
+        $this->mock(CurationProposalService::class, function ($mock): void {
+            $mock->shouldReceive('createFromCapture')->once()->andReturn(null);
+        });
+        $this->mock(ActivationEngine::class, function ($mock): void {
+            $mock->shouldReceive('createForContext')->once();
+        });
+        $trace = new AiTrace;
+        $trace->forceFill([
+            'id' => (string) Str::uuid(),
+            'thread_id' => data_get($metadata, 'voice_realtime_dispatch.ai_thread_id'),
+            'status' => 'queued',
+        ]);
+        $this->mock(AiGatewayService::class, function ($mock) use ($metadata, $audioBytes, $trace): void {
+            $mock->shouldReceive('enqueueInteraction')
+                ->once()
+                ->withArgs(function (string $input, array $options) use ($metadata, $audioBytes): bool {
+                    return $input === 'corrija o teste quebrado'
+                        && ($options['client_id'] ?? null) === 'voice:voice_session_capture:voice_turn_capture'
+                        && ($options['thread_id'] ?? null) === data_get($metadata, 'voice_realtime_dispatch.ai_thread_id')
+                        && data_get($options, 'payload.voice_realtime.audio_hash') === hash('sha256', $audioBytes)
+                        && data_get($options, 'payload.voice_realtime.transcript_hash') === hash('sha256', 'corrija o teste quebrado')
+                        && data_get($options, 'payload.voice_realtime.session_id') === 'voice_session_capture'
+                        && data_get($options, 'payload.privacy.transcript_persistence_explicitly_allowed') === true;
+                })
+                ->andReturn($trace);
+        });
+
+        app()->call([new ProcessAudioTranscription($jobId), 'handle']);
+
+        $this->assertDatabaseHas('captures', [
+            'id' => $captureId,
+            'content_text' => 'corrija o teste quebrado',
+            'transcription_status' => 'done',
+            'transcription_engine' => 'whisper',
+        ]);
+        $this->assertDatabaseHas('transcription_jobs', [
+            'id' => $jobId,
+            'status' => 'done',
+            'attempts' => 1,
+        ]);
+
+        $capture = \DB::table('captures')->where('id', $captureId)->first();
+        $updatedMetadata = json_decode($capture->metadata, true, flags: JSON_THROW_ON_ERROR);
+        $dispatchResult = $updatedMetadata['voice_realtime_dispatch_result'];
+
+        $this->assertSame('atlas.capture.voice_realtime_dispatch_result.v1', $dispatchResult['schema_version']);
+        $this->assertSame('ai_interaction_enqueued', $dispatchResult['status']);
+        $this->assertTrue($dispatchResult['dispatched']);
+        $this->assertSame($trace->id, $dispatchResult['trace_id']);
+        $this->assertSame(data_get($metadata, 'voice_realtime_dispatch.ai_thread_id'), $dispatchResult['thread_id']);
+        $this->assertSame(hash('sha256', 'corrija o teste quebrado'), $dispatchResult['transcript_hash']);
+        $this->assertArrayNotHasKey('transcript', $dispatchResult);
+    }
+
+    public function test_completed_audio_transcription_records_voice_ai_enqueue_failure_receipt(): void
+    {
+        $this->createCaptureTables();
+        Storage::fake('atlas');
+
+        config()->set('atlas.transcription.engine', 'whisper');
+        config()->set('atlas.transcription.language', 'pt-BR');
+
+        $captureId = (string) Str::uuid();
+        $clientId = (string) Str::uuid();
+        $jobId = (string) Str::uuid();
+        $now = now();
+        $audioBytes = 'voice-audio-enqueue-failure';
+        $metadata = [
+            'voice_realtime_dispatch' => [
+                'dispatch_to_ai' => true,
+                'allow_transcript_persistence' => true,
+                'session_id' => 'voice_session_enqueue_failed',
+                'turn_id' => 'voice_turn_enqueue_failed',
+                'language' => 'pt-BR',
+                'domain_hint' => 'programming',
+                'flow_hint' => 'voice.push_to_talk',
+                'client_surface' => 'mobile',
+                'transport' => 'mobile_push_to_talk',
+                'runtime' => 'livekit_agents_sdk',
+                'privacy_class' => 'p3_audio',
+            ],
+        ];
+
+        Storage::disk('atlas')->put('audio/enqueue-failure.m4a', $audioBytes);
+
+        \DB::table('captures')->insert([
+            'id' => $captureId,
+            'client_id' => $clientId,
+            'kind' => 'audio',
+            'domain' => 'programming',
+            'content_text' => null,
+            'content_file_path' => 'audio/enqueue-failure.m4a',
+            'content_duration_ms' => 1900,
+            'content_size_bytes' => strlen($audioBytes),
+            'content_sha256' => hash('sha256', $audioBytes),
+            'content_mime_type' => 'audio/x-m4a',
+            'transcription_status' => 'pending',
+            'transcription_engine' => null,
+            'transcription_error' => null,
+            'captured_at' => $now,
+            'captured_timezone' => 'America/Sao_Paulo',
+            'captured_lat' => null,
+            'captured_lng' => null,
+            'metadata' => json_encode($metadata, JSON_THROW_ON_ERROR),
+            'pre_capture_digital_context' => '{}',
+            'created_at' => $now,
+            'updated_at' => $now,
+            'deleted_at' => null,
+        ]);
+
+        \DB::table('transcription_jobs')->insert([
+            'id' => $jobId,
+            'capture_id' => $captureId,
+            'status' => 'queued',
+            'attempts' => 0,
+            'max_attempts' => 3,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        $this->mock(WhisperTranscriber::class, function ($mock): void {
+            $mock->shouldReceive('transcribe')
+                ->once()
+                ->andReturn('preciso continuar a conversa em tempo real');
+        });
+        $this->mock(CaptureSemanticClarifier::class, function ($mock): void {
+            $mock->shouldReceive('handleReady')->once()->andReturnUsing(fn ($capture) => $capture);
+            $mock->shouldReceive('resultFor')->once()->andReturn([]);
+        });
+        $this->mock(CurationProposalService::class, function ($mock): void {
+            $mock->shouldReceive('createFromCapture')->once()->andReturn(null);
+        });
+        $this->mock(ActivationEngine::class, function ($mock): void {
+            $mock->shouldReceive('createForContext')->once();
+        });
+        $this->mock(AiGatewayService::class, function ($mock): void {
+            $mock->shouldReceive('enqueueInteraction')
+                ->once()
+                ->andThrow(new RuntimeException('ai queue unavailable'));
+        });
+
+        app()->call([new ProcessAudioTranscription($jobId), 'handle']);
+
+        $capture = \DB::table('captures')->where('id', $captureId)->first();
+        $updatedMetadata = json_decode($capture->metadata, true, flags: JSON_THROW_ON_ERROR);
+        $dispatchResult = $updatedMetadata['voice_realtime_dispatch_result'];
+
+        $this->assertSame('done', $capture->transcription_status);
+        $this->assertSame('atlas.capture.voice_realtime_dispatch_result.v1', $dispatchResult['schema_version']);
+        $this->assertSame('ai_interaction_enqueue_failed', $dispatchResult['status']);
+        $this->assertFalse($dispatchResult['dispatched']);
+        $this->assertSame(RuntimeException::class, $dispatchResult['error_class']);
+        $this->assertSame(hash('sha256', 'ai queue unavailable'), $dispatchResult['error_message_hash']);
+        $this->assertSame(hash('sha256', 'preciso continuar a conversa em tempo real'), $dispatchResult['transcript_hash']);
+        $this->assertArrayNotHasKey('transcript', $dispatchResult);
+        $this->assertArrayNotHasKey('message', $dispatchResult);
+        $this->assertArrayNotHasKey('raw_audio', $dispatchResult);
+    }
+
+    public function test_completed_audio_transcription_records_voice_dispatch_exception_receipt(): void
+    {
+        $this->createCaptureTables();
+        Storage::fake('atlas');
+
+        config()->set('atlas.transcription.engine', 'whisper');
+        config()->set('atlas.transcription.language', 'pt-BR');
+
+        $captureId = (string) Str::uuid();
+        $clientId = (string) Str::uuid();
+        $jobId = (string) Str::uuid();
+        $now = now();
+        $audioBytes = 'voice-audio-dispatch-exception';
+        $metadata = [
+            'voice_realtime_dispatch' => [
+                'dispatch_to_ai' => true,
+                'allow_transcript_persistence' => true,
+                'session_id' => 'voice_session_dispatch_exception',
+                'turn_id' => 'voice_turn_dispatch_exception',
+                'language' => 'pt-BR',
+                'domain_hint' => 'atlas',
+                'flow_hint' => 'voice.push_to_talk',
+                'client_surface' => 'mobile',
+                'transport' => 'invalid_transport_for_dispatch_exception',
+                'runtime' => 'livekit_agents_sdk',
+                'privacy_class' => 'p3_audio',
+            ],
+        ];
+
+        Storage::disk('atlas')->put('audio/dispatch-exception.m4a', $audioBytes);
+
+        \DB::table('captures')->insert([
+            'id' => $captureId,
+            'client_id' => $clientId,
+            'kind' => 'audio',
+            'domain' => 'atlas',
+            'content_text' => null,
+            'content_file_path' => 'audio/dispatch-exception.m4a',
+            'content_duration_ms' => 2100,
+            'content_size_bytes' => strlen($audioBytes),
+            'content_sha256' => hash('sha256', $audioBytes),
+            'content_mime_type' => 'audio/x-m4a',
+            'transcription_status' => 'pending',
+            'transcription_engine' => null,
+            'transcription_error' => null,
+            'captured_at' => $now,
+            'captured_timezone' => 'America/Sao_Paulo',
+            'captured_lat' => null,
+            'captured_lng' => null,
+            'metadata' => json_encode($metadata, JSON_THROW_ON_ERROR),
+            'pre_capture_digital_context' => '{}',
+            'created_at' => $now,
+            'updated_at' => $now,
+            'deleted_at' => null,
+        ]);
+
+        \DB::table('transcription_jobs')->insert([
+            'id' => $jobId,
+            'capture_id' => $captureId,
+            'status' => 'queued',
+            'attempts' => 0,
+            'max_attempts' => 3,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        $this->mock(WhisperTranscriber::class, function ($mock): void {
+            $mock->shouldReceive('transcribe')
+                ->once()
+                ->andReturn('o serviço de voz precisa falhar de forma auditavel');
+        });
+        $this->mock(CaptureSemanticClarifier::class, function ($mock): void {
+            $mock->shouldReceive('handleReady')->once()->andReturnUsing(fn ($capture) => $capture);
+            $mock->shouldReceive('resultFor')->once()->andReturn([]);
+        });
+        $this->mock(CurationProposalService::class, function ($mock): void {
+            $mock->shouldReceive('createFromCapture')->once()->andReturn(null);
+        });
+        $this->mock(ActivationEngine::class, function ($mock): void {
+            $mock->shouldReceive('createForContext')->once();
+        });
+        app()->call([new ProcessAudioTranscription($jobId), 'handle']);
+
+        $capture = \DB::table('captures')->where('id', $captureId)->first();
+        $updatedMetadata = json_decode($capture->metadata, true, flags: JSON_THROW_ON_ERROR);
+        $dispatchResult = $updatedMetadata['voice_realtime_dispatch_result'];
+
+        $this->assertSame('done', $capture->transcription_status);
+        $this->assertSame('atlas.capture.voice_realtime_dispatch_result.v1', $dispatchResult['schema_version']);
+        $this->assertSame('ai_interaction_dispatch_failed', $dispatchResult['status']);
+        $this->assertFalse($dispatchResult['dispatched']);
+        $this->assertSame(\InvalidArgumentException::class, $dispatchResult['error_class']);
+        $this->assertSame(
+            hash('sha256', 'Invalid Atlas Voice transport: invalid_transport_for_dispatch_exception'),
+            $dispatchResult['error_message_hash'],
+        );
+        $this->assertSame(hash('sha256', 'o serviço de voz precisa falhar de forma auditavel'), $dispatchResult['transcript_hash']);
+        $this->assertArrayNotHasKey('transcript', $dispatchResult);
+        $this->assertArrayNotHasKey('message', $dispatchResult);
+        $this->assertArrayNotHasKey('raw_audio', $dispatchResult);
+    }
+
+    public function test_failed_audio_transcription_records_voice_dispatch_failure_receipt(): void
+    {
+        $this->createCaptureTables();
+
+        $captureId = (string) Str::uuid();
+        $clientId = (string) Str::uuid();
+        $jobId = (string) Str::uuid();
+        $now = now();
+        $audioBytes = 'broken-audio-bytes';
+        $metadata = [
+            'voice_realtime_dispatch' => [
+                'dispatch_to_ai' => true,
+                'allow_transcript_persistence' => true,
+                'session_id' => 'voice_session_failed_transcription',
+                'turn_id' => 'voice_turn_failed_transcription',
+            ],
+        ];
+
+        \DB::table('captures')->insert([
+            'id' => $captureId,
+            'client_id' => $clientId,
+            'kind' => 'audio',
+            'domain' => 'atlas',
+            'content_text' => null,
+            'content_file_path' => 'audio/broken.m4a',
+            'content_duration_ms' => 1200,
+            'content_size_bytes' => strlen($audioBytes),
+            'content_sha256' => hash('sha256', $audioBytes),
+            'content_mime_type' => 'audio/x-m4a',
+            'transcription_status' => 'processing',
+            'transcription_engine' => null,
+            'transcription_error' => null,
+            'captured_at' => $now,
+            'captured_timezone' => 'America/Sao_Paulo',
+            'captured_lat' => null,
+            'captured_lng' => null,
+            'metadata' => json_encode($metadata, JSON_THROW_ON_ERROR),
+            'pre_capture_digital_context' => '{}',
+            'created_at' => $now,
+            'updated_at' => $now,
+            'deleted_at' => null,
+        ]);
+
+        \DB::table('transcription_jobs')->insert([
+            'id' => $jobId,
+            'capture_id' => $captureId,
+            'status' => 'processing',
+            'attempts' => 1,
+            'max_attempts' => 3,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        (new ProcessAudioTranscription($jobId))->failed(new RuntimeException('ffmpeg could not decode audio'));
+
+        $capture = \DB::table('captures')->where('id', $captureId)->first();
+        $updatedMetadata = json_decode($capture->metadata, true, flags: JSON_THROW_ON_ERROR);
+        $dispatchResult = $updatedMetadata['voice_realtime_dispatch_result'];
+
+        $this->assertSame('failed', \DB::table('transcription_jobs')->where('id', $jobId)->value('status'));
+        $this->assertSame('failed', $capture->transcription_status);
+        $this->assertSame('atlas.capture.voice_realtime_dispatch_result.v1', $dispatchResult['schema_version']);
+        $this->assertSame('transcription_failed', $dispatchResult['status']);
+        $this->assertFalse($dispatchResult['dispatched']);
+        $this->assertSame('audio_transcription_failed_before_voice_turn', $dispatchResult['reason']);
+        $this->assertSame('voice_session_failed_transcription', $dispatchResult['session_id']);
+        $this->assertSame('voice_turn_failed_transcription', $dispatchResult['turn_id']);
+        $this->assertSame(hash('sha256', $audioBytes), $dispatchResult['audio_hash']);
+        $this->assertSame(hash('sha256', 'ffmpeg could not decode audio'), $dispatchResult['error_message_hash']);
+        $this->assertArrayNotHasKey('transcript', $dispatchResult);
+        $this->assertArrayNotHasKey('raw_audio', $dispatchResult);
     }
 
     private function createCaptureTables(): void

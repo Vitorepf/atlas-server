@@ -25,10 +25,13 @@ capabilities:
   - programming_learning_loop
 decisions:
   - Programming Agentic RAG e a camada de inteligencia antes de plan/patch/test/repair.
+  - O alvo de RAG/Agentic RAG profissional e governado por programming-agentic-rag-professional-spec.md; MVP fraco nao e criterio de conclusao.
   - Semantic Code Graph e Test Impact Analysis alimentam o Retrieval Plan.
   - Stage receipts, action manifests e resume sao obrigatorios para runtime enterprise.
   - Patch Verifier e Repair Loop executor bloqueiam claims quando evidencia estiver fraca.
-  - Learning Loop promove apenas candidatos curados, com evidencia e reversibilidade.
+- Learning Loop promove apenas candidatos curados, com evidencia e reversibilidade.
+- Rivals-Programming nao pode gastar nova bateria paga quando a ultima execucao real esta invalida; primeiro corrigir protocolo, gates e escopo.
+- Fair Claude/Rivals provider execution exige runbook pronto, workspace Atlas limpo e baseline workspace separado/limpo antes de gastar provider.
 maintenance:
   - Atualize este documento quando qualquer um dos oito itens ganhar codigo, comando, API, teste ou gate.
   - Nao declare item concluido sem DoD, comando de evidencia e teste verde cobrindo o requisito.
@@ -37,9 +40,16 @@ related_paths:
   - app/Services/Ai/AtlasOpenBrainContextInjectionService.php
   - app/Services/Engineering/EngineeringCodeIntelligenceService.php
   - app/Services/Ai/Runtime/AiToolRuntime.php
+  - app/Services/Ai/Programming/ProgrammingPythonRuntimeContract.php
+  - app/Services/Ai/Programming/ProgrammingPythonRuntimeExecutor.php
+  - app/Services/Ai/Programming/ProgrammingPythonRuntimeGraphProjector.php
+  - app/Services/Ai/Programming/ProgrammingRivalsReadinessService.php
+  - app/Services/Ai/Programming/ProgrammingProfessionalCompletionAuditService.php
+  - runtimes/python/programming_intelligence
   - app/Services/Engineering/EngineeringHarnessExecutionService.php
   - app/Services/Engineering/EngineeringHarnessRunnerService.php
   - docs/engineering-knowledge-base/domains/programming.md
+  - docs/engineering-knowledge-base/domains/programming-agentic-rag-professional-spec.md
   - docs/engineering-knowledge-base/domains/programming-repair-contract.md
   - docs/engineering-knowledge-base/domains/programming-frontend-superpower.md
   - docs/engineering-knowledge-base/evolution/context-builder-roadmap.md
@@ -91,10 +101,14 @@ required_tests:
   - "php artisan test tests/Unit/Ai/Programming/ProgrammingEnterpriseRuntimeTest.php"
   - "php artisan test tests/Unit/AiToolRuntimeTest.php"
   - "php artisan test tests/Feature/Architecture/DomainProfileComplianceTest.php"
+  - "php artisan atlas:programming:rivals-readiness --json"
+  - "php artisan atlas:programming:completion-audit --json"
 next_actions:
-  - Implementar Programming Agentic RAG como primeira fase.
-  - Criar Stage Receipt Store e Resume Service depois do Retrieval Plan.
-  - Padronizar ProgrammingActionManifest antes do Patch Verifier.
+  - Integrar receipts/action manifests ao Evidence Ledger global quando a projection registry aceitar a nova projection de programacao.
+  - Ampliar o Semantic Code Graph com parsers por linguagem alem do PHP/import metadata.
+  - Expor fila de Learning Loop em UI/API quando a surface de review humano for priorizada.
+  - Triar bateria Rivals real invalida antes de nova execucao paga contra providers.
+  - Criar worktrees limpos para Atlas arm e baseline antes de nova bateria real.
 requires_evidence: true
 risk_level: medium
 ---
@@ -114,6 +128,7 @@ Fluxo alvo:
 task -> intent/flow -> Agentic RAG plan -> Semantic Code Graph/docs/memory
 -> ranked context pack -> stage plan -> action manifests -> verifier/tests
 -> repair when needed -> receipts -> curated learning candidates
+-> Rivals diagnostics without new provider spend when the last battery is invalid
 ```
 
 ## Papel no Atlas
@@ -242,6 +257,42 @@ memoria quando houver evidencia suficiente.
 11. Se falhar, `ProgrammingRepairExecutor` abre tentativa rastreavel.
 12. Se passar, Learning Loop gera candidatos curados.
 
+## Status de Implementacao
+
+Status em 2026-05-13:
+
+| Item | Status | Artefato atual |
+| --- | --- | --- |
+| Programming Agentic RAG | Implementado localmente com contrato profissional | `ProgrammingRetrievalPlanner` mantem `atlas.programming.agentic_rag.plan.v1` e adiciona `atlas.programming.agentic_rag.professional_plan.v1`; `ProgrammingRetrievalExecutor` emite context pack legado e `atlas.programming.context_pack.professional.v1` com retrieval hibrido graph + vector local, reranking, critic, eval online proxy, hash, budget, provider-safe e replay via `atlas_programming_context_packs`; `ProgrammingPythonRuntimeContract` declara runtime Python governado para AST/simbolos/embedding local, `ProgrammingPythonRuntimeExecutor` executa apenas com approval, runtime boundary verde e Decision Receipt, e `ProgrammingPythonRuntimeGraphProjector` converte receipt aprovado em fragmento de Semantic Code Graph; `atlas:programming:retrieval-benchmark` roda golden set local de recall/precision. |
+| Semantic Code Graph | Implementado localmente | `ProgrammingSemanticCodeGraphService` prefere Code Intelligence indexado, usa scan de filesystem como fallback e emite edges `depends_on` por metadata/imports PHP. |
+| Stage Receipts + Resume | Implementado localmente | `ProgrammingStageReceiptStore`, migration `atlas_programming_stage_receipts`, validator, `ProgrammingResumeService` e comando `atlas:programming:resume`. |
+| ProgrammingActionManifest | Implementado localmente | `ProgrammingActionManifestFactory`, `ProgrammingActionManifestStore`, migration `atlas_programming_action_manifests` e anexo no `AiToolRuntime`. |
+| Patch Verifier | Implementado localmente com benchmark | `ProgrammingPatchVerifier` bloqueia falta de teste/razao, manifest ausente/malformado, arquivo sensivel, rollback ausente e cobertura parcial de manifest; `atlas:programming:patch-verifier-benchmark` mede golden set local de grounded patch. |
+| Test Impact Analysis | Implementado localmente com benchmark | `ProgrammingTestImpactAnalyzer` seleciona testes por grafo e convencao, com comandos recomendados; `atlas:programming:test-impact-benchmark` mede golden set local de test selection accuracy. |
+| Execution Sandbox forte | Implementado localmente | `ProgrammingSandboxManager` define modo, rollback, snapshot strategy, acoes permitidas/bloqueadas, integrity gate, provisiona worktree git isolada para write high/critical e emite `atlas.programming.sandbox_rollback_receipt.v1`. |
+| Repair Loop executor | Implementado localmente | `ProgrammingRepairExecutor` gera attempt plan; `ProgrammingRepairAttemptStore` gera receipt de repair com failure packet, patch manifest e test manifest. |
+| Learning Loop de programacao | Implementado localmente | `ProgrammingLearningCandidateProjector`, `ProgrammingLearningCandidateStore` e `ProgrammingLearningPromotionGate` criam fila deduplicada/expiravel e bloqueiam promocao sem review humano. |
+| Rivals-Programming readiness | Implementado como contrato seguro | `ProgrammingRivalsReadinessService` e `atlas:programming:rivals-readiness` consolidam os benchmarks locais, expõem `atlas.programming.rivals_contract.v1`, emitem `atlas.programming.rivals_operator_execution_packet.v1`, apontam os comandos reais de `atlas:engineering:benchmark:rivals` e bloqueiam claim comparavel ate existir bateria pareada real com provider/custo aprovados. |
+| Completion audit | Implementado como gate executavel | `ProgrammingProfessionalCompletionAuditService` e `atlas:programming:completion-audit` mapeiam requisito -> artefato -> evidencia, retornam `blocked` enquanto Rivals real nao estiver claim-ready e impedem marcar a frente completa por proxy. |
+
+Evidencia local ja executada:
+
+```bash
+/opt/homebrew/bin/php artisan test tests/Unit/Ai/Programming/ProgrammingEnterpriseRuntimeTest.php
+/opt/homebrew/bin/php artisan test tests/Unit/Ai/AtlasProgrammingOrchestratorTest.php
+/opt/homebrew/bin/php artisan test tests/Unit/AiToolRuntimeTest.php
+/opt/homebrew/bin/php artisan test tests/Unit/Ai/AtlasOpenBrainContextInjectionServiceTest.php
+/opt/homebrew/bin/php artisan test tests/Feature/Architecture/DomainProfileComplianceTest.php
+/opt/homebrew/bin/php artisan atlas:programming:retrieval-benchmark --json
+/opt/homebrew/bin/php artisan atlas:programming:test-impact-benchmark --json
+/opt/homebrew/bin/php artisan atlas:programming:patch-verifier-benchmark --json
+/opt/homebrew/bin/php artisan atlas:programming:rivals-readiness --json
+/opt/homebrew/bin/php artisan atlas:programming:completion-audit --json
+PYTHONPATH=runtimes/python/programming_intelligence python3 -m unittest discover runtimes/python/programming_intelligence/tests
+php artisan atlas:engineering:knowledge docs-health --json
+php artisan atlas:ai:architecture-validate --json
+```
+
 ## Regras para IA
 
 - Nunca usar RAG como despejo de contexto bruto.
@@ -249,6 +300,7 @@ memoria quando houver evidencia suficiente.
 - Nunca promover memoria de programacao sem evidencia e curadoria.
 - Nunca considerar screenshot suficiente para frontend.
 - Nunca rodar bateria externa de Rivals-Programming sem aceite de custo.
+- Nunca declarar score comparavel de Rivals-Programming a partir de benchmark local.
 - Nunca retomar tarefa quebrada sem validar `parent_plan_id` e receipts.
 - Preferir contexto com hash, fonte, motivo de inclusao e escopo.
 - Bloquear quando fonte obrigatoria estiver ausente em flow strict/forge/repair.
@@ -317,6 +369,9 @@ DoD:
 - Tool Runtime para manifests e rollback.
 - Engineering Harness para gates, tests e sandbox.
 - Rivals-Programming para medir ganho real depois da implementacao.
+  `atlas:programming:rivals-readiness` apenas informa prontidao e pendencias; a
+  bateria comparavel continua sendo `atlas:engineering:benchmark:rivals` com
+  providers reais.
 
 ## Evidencias
 
@@ -343,6 +398,8 @@ Evidencias de conclusao:
 - Sandbox rollback receipt
 - Repair attempt receipt
 - Learning candidate receipt
+- Programming Rivals readiness receipt
+- Fair Claude/Rivals export bundle verificado quando houver claim comparavel
 
 ## Riscos
 
@@ -377,17 +434,10 @@ Evidencias de conclusao:
 
 ## Proximas Acoes
 
-1. Implementar `ProgrammingRetrievalPlanner` e schema
-   `atlas.programming.agentic_rag.plan.v1`.
-2. Ligar Semantic Code Graph basico ao retrieval plan.
-3. Implementar `ProgrammingStageReceiptStore` e validator.
-4. Implementar `ProgrammingResumeService`.
-5. Implementar `ProgrammingActionManifest` no Tool Runtime.
-6. Implementar `ProgrammingPatchVerifier`.
-7. Implementar `TestImpactAnalyzer`.
-8. Implementar sandbox promotion/rollback.
-9. Implementar `ProgrammingRepairExecutor`.
-10. Implementar Learning Loop com candidatos curados.
+1. Registrar uma projection oficial no Evidence Ledger para receipts/manifests de programacao.
+2. Ampliar parsers do Semantic Code Graph para TypeScript/Swift/Kotlin quando essas stacks forem priorizadas.
+3. Expor Learning Queue em surface humana dedicada.
+4. Conectar replay/resume ao fluxo visual do app mobile quando a tela de programacao for priorizada.
 
 Regra de parada: esta frente so pode ser marcada como concluida quando todos os
 itens acima tiverem artefato, teste e gate correspondente. Enquanto algum item

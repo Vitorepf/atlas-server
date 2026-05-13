@@ -2,13 +2,16 @@
 
 namespace Tests\Feature\Ai;
 
+use App\Models\AiTrace;
 use App\Models\AtlasLedgerEvent;
 use App\Models\AtlasMobileDevice;
+use App\Services\Ai\AiGatewayService;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use App\Services\Ai\Mobile\MobilePairingService;
 use App\Services\Ai\Voice\AtlasVoiceRealtimeService;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 final class AtlasAiVoiceRealtimeApiTest extends TestCase
@@ -333,6 +336,29 @@ final class AtlasAiVoiceRealtimeApiTest extends TestCase
             'operator_id' => 'operator-voice',
             'emitter_stage' => 'atlas.voice_realtime',
         ]);
+
+        $event = AtlasLedgerEvent::query()
+            ->where('event_type', LedgerEventType::VoiceSessionEnded->value)
+            ->where('envelope_id', 'env_voice_end')
+            ->firstOrFail();
+
+        $this->assertSame('operator_finished', data_get($event->payload, 'voice.reason'));
+
+        $this->postJson('/ai/voice/session/end', [
+            'session_id' => 'voice_session_backgrounded',
+            'envelope_id' => 'env_voice_backgrounded',
+            'receipt_id' => 'receipt_voice_backgrounded',
+            'reason' => 'app_backgrounded_mobile_voice',
+        ], $this->headers)
+            ->assertOk()
+            ->assertJsonPath('status', 'session_ended_scaffold');
+
+        $backgroundEvent = AtlasLedgerEvent::query()
+            ->where('event_type', LedgerEventType::VoiceSessionEnded->value)
+            ->where('envelope_id', 'env_voice_backgrounded')
+            ->firstOrFail();
+
+        $this->assertSame('app_backgrounded_mobile_voice', data_get($backgroundEvent->payload, 'voice.reason'));
     }
 
     public function test_voice_eclipse_endpoint_reports_policy_reasons_without_recording_evidence(): void
@@ -474,6 +500,7 @@ final class AtlasAiVoiceRealtimeApiTest extends TestCase
             ->assertJsonPath('persistence_contract.raw_response_text', false)
             ->assertJsonPath('callback_payload_schemas.transcript_final.required.2', 'transcript')
             ->assertJsonPath('callback_payload_schemas.tts_synthesized.prohibited.0', 'response_text')
+            ->assertJsonPath('callback_payload_schemas.barge_in.optional.2', 'played_duration_ms')
             ->assertJsonPath('callback_payload_schemas.provider_health_degraded.required.2', 'provider')
             ->assertJsonPath('production_loop_smoke.schema_version', 'atlas.voice_realtime.production_loop_smoke_contract.v1')
             ->assertJsonPath('production_loop_smoke.status', 'available_without_daemon')
@@ -521,6 +548,35 @@ final class AtlasAiVoiceRealtimeApiTest extends TestCase
             ->assertJson(fn ($json) => $json
                 ->where('errors.0', 'forbidden_runtime_field:debug_blob.raw_audio')
                 ->where('dropped_fields.0', 'debug_blob')
+                ->etc()
+            );
+    }
+
+    public function test_voice_runtime_event_normalizer_preserves_barge_in_played_duration(): void
+    {
+        $this->postJson('/ai/voice/runtime/events/normalize', [
+            'event_kind' => 'turn_interrupted',
+            'session_id' => 'voice_session_barge_duration',
+            'turn_id' => 'voice_turn_barge_duration',
+            'reason' => 'barge_in',
+            'interrupted_stage' => 'tts_streaming',
+            'played_duration_ms' => 730,
+            'latency_ms' => 44,
+            'ignored_sdk_object' => ['safe' => true],
+        ], $this->headers)
+            ->assertOk()
+            ->assertJsonPath('schema_version', 'atlas.voice_realtime.runtime_event_normalizer.v1')
+            ->assertJsonPath('status', 'normalized')
+            ->assertJsonPath('valid', true)
+            ->assertJsonPath('callback', 'barge_in')
+            ->assertJsonPath('callback_event.payload.session_id', 'voice_session_barge_duration')
+            ->assertJsonPath('callback_event.payload.turn_id', 'voice_turn_barge_duration')
+            ->assertJsonPath('callback_event.payload.reason', 'barge_in')
+            ->assertJsonPath('callback_event.payload.interrupted_stage', 'tts_streaming')
+            ->assertJsonPath('callback_event.payload.played_duration_ms', 730)
+            ->assertJsonPath('callback_event.payload.latency_ms', 44)
+            ->assertJson(fn ($json) => $json
+                ->where('dropped_fields.0', 'ignored_sdk_object')
                 ->etc()
             );
     }
@@ -1219,7 +1275,7 @@ final class AtlasAiVoiceRealtimeApiTest extends TestCase
             'envelope_id' => 'env_voice_turn',
             'receipt_id' => 'receipt_voice_turn',
             'turn_id' => 'voice_turn_01',
-            'audio_hash' => hash('sha256', 'voice-audio'),
+            'audio_hash' => strtoupper(hash('sha256', 'voice-audio')),
             'transcript' => 'corrija o teste quebrado',
             'domain_hint' => 'programming',
             'flow_hint' => 'programming.repair',
@@ -1264,11 +1320,111 @@ final class AtlasAiVoiceRealtimeApiTest extends TestCase
             ->where('event_type', LedgerEventType::VoiceTurnTranscribed->value)
             ->where('envelope_id', $envelopeId)
             ->firstOrFail();
+        $audioReceived = AtlasLedgerEvent::query()
+            ->where('event_type', LedgerEventType::VoiceTurnAudioReceived->value)
+            ->where('envelope_id', $envelopeId)
+            ->firstOrFail();
 
+        $this->assertSame(hash('sha256', 'voice-audio'), data_get($audioReceived->payload, 'voice.audio_hash'));
         $this->assertArrayNotHasKey('transcript', data_get($transcribed->payload, 'voice'));
         $this->assertSame(hash('sha256', 'corrija o teste quebrado'), data_get($transcribed->payload, 'voice.transcript_hash'));
         $this->assertSame(24, data_get($transcribed->payload, 'voice.transcript_length'));
         $this->assertStringNotContainsString('corrija o teste quebrado', json_encode($transcribed->payload, JSON_THROW_ON_ERROR));
+    }
+
+    public function test_voice_turn_can_enqueue_ai_interaction_when_transcript_persistence_is_explicitly_allowed(): void
+    {
+        $traceId = (string) Str::uuid();
+        $threadId = (string) Str::uuid();
+        $trace = new AiTrace;
+        $trace->forceFill([
+            'id' => $traceId,
+            'thread_id' => $threadId,
+            'status' => 'queued',
+        ]);
+
+        $this->mock(AiGatewayService::class, function ($mock) use ($trace): void {
+            $mock->shouldReceive('enqueueInteraction')
+                ->once()
+                ->withArgs(function (string $input, array $options): bool {
+                    return $input === 'corrija o teste quebrado'
+                        && ($options['client_id'] ?? null) === 'voice:voice_session_ai_dispatch:voice_turn_ai_dispatch'
+                        && ($options['source_type'] ?? null) === 'voice_realtime'
+                        && data_get($options, 'payload.voice_realtime.transcript_hash') === hash('sha256', 'corrija o teste quebrado')
+                        && data_get($options, 'payload.privacy.transcript_persistence_explicitly_allowed') === true;
+                })
+                ->andReturn($trace);
+        });
+
+        $this->postJson('/ai/voice/turn', [
+            'session_id' => 'voice_session_ai_dispatch',
+            'envelope_id' => 'env_voice_ai_dispatch',
+            'receipt_id' => 'receipt_voice_ai_dispatch',
+            'turn_id' => 'voice_turn_ai_dispatch',
+            'audio_hash' => hash('sha256', 'voice-audio'),
+            'transcript' => 'corrija o teste quebrado',
+            'domain_hint' => 'programming',
+            'flow_hint' => 'programming.repair',
+            'dispatch_to_ai' => true,
+            'allow_transcript_persistence' => true,
+        ], $this->headers)
+            ->assertOk()
+            ->assertJsonPath('turn.provider_execution_enabled', true)
+            ->assertJsonPath('turn.runtime_execution_enabled', false)
+            ->assertJsonPath('turn.ai_interaction.status', 'ai_interaction_enqueued')
+            ->assertJsonPath('turn.ai_interaction.trace_id', $traceId)
+            ->assertJsonPath('turn.ai_interaction.thread_id', $threadId);
+    }
+
+    public function test_voice_turn_ai_enqueue_failure_returns_only_error_hash_without_raw_message(): void
+    {
+        $this->mock(AiGatewayService::class, function ($mock): void {
+            $mock->shouldReceive('enqueueInteraction')
+                ->once()
+                ->andThrow(new \RuntimeException('provider queue refused voice turn'));
+        });
+
+        $response = $this->postJson('/ai/voice/turn', [
+            'session_id' => 'voice_session_ai_dispatch_failure',
+            'envelope_id' => 'env_voice_ai_dispatch_failure',
+            'receipt_id' => 'receipt_voice_ai_dispatch_failure',
+            'turn_id' => 'voice_turn_ai_dispatch_failure',
+            'audio_hash' => hash('sha256', 'voice-audio-failure'),
+            'transcript' => 'corrija o teste quebrado',
+            'domain_hint' => 'programming',
+            'flow_hint' => 'programming.repair',
+            'dispatch_to_ai' => true,
+            'allow_transcript_persistence' => true,
+        ], $this->headers)
+            ->assertOk()
+            ->assertJsonPath('turn.provider_execution_enabled', false)
+            ->assertJsonPath('turn.ai_interaction.status', 'ai_interaction_enqueue_failed')
+            ->assertJsonPath('turn.ai_interaction.dispatched', false)
+            ->assertJsonPath('turn.ai_interaction.error_class', \RuntimeException::class)
+            ->assertJsonPath('turn.ai_interaction.error_message_hash', hash('sha256', 'provider queue refused voice turn'))
+            ->assertJsonPath('turn.ai_interaction.transcript_hash', hash('sha256', 'corrija o teste quebrado'));
+
+        $this->assertStringNotContainsString('provider queue refused voice turn', $response->getContent());
+        $this->assertArrayNotHasKey('message', $response->json('turn.ai_interaction'));
+        $this->assertArrayNotHasKey('transcript', $response->json('turn.ai_interaction'));
+    }
+
+    public function test_voice_turn_blocks_ai_dispatch_without_explicit_transcript_persistence(): void
+    {
+        $this->mock(AiGatewayService::class, function ($mock): void {
+            $mock->shouldNotReceive('enqueueInteraction');
+        });
+
+        $this->postJson('/ai/voice/turn', [
+            'session_id' => 'voice_session_ai_dispatch_blocked',
+            'envelope_id' => 'env_voice_ai_dispatch_blocked',
+            'turn_id' => 'voice_turn_ai_dispatch_blocked',
+            'transcript' => 'corrija o teste quebrado',
+            'dispatch_to_ai' => true,
+        ], $this->headers)
+            ->assertOk()
+            ->assertJsonPath('turn.provider_execution_enabled', false)
+            ->assertJsonPath('turn.ai_interaction.status', 'blocked_transcript_persistence_not_allowed');
     }
 
     public function test_voice_turn_is_blocked_by_eclipse_policy(): void
@@ -1305,6 +1461,7 @@ final class AtlasAiVoiceRealtimeApiTest extends TestCase
             'turn_id' => 'voice_turn_interrupt',
             'reason' => 'operator_started_speaking',
             'interrupted_stage' => 'tts_streaming',
+            'played_duration_ms' => 1250,
             'latency_ms' => 92,
         ], $this->headers)
             ->assertOk()
@@ -1312,6 +1469,10 @@ final class AtlasAiVoiceRealtimeApiTest extends TestCase
             ->assertJsonPath('turn.turn_id', 'voice_turn_interrupt')
             ->assertJsonPath('turn.interruption_recorded', true)
             ->assertJsonPath('turn.interruption_source', 'operator')
+            ->assertJsonPath('turn.reason', 'operator_started_speaking')
+            ->assertJsonPath('turn.interrupted_stage', 'tts_streaming')
+            ->assertJsonPath('turn.played_duration_ms', 1250)
+            ->assertJsonPath('turn.latency_ms', 92)
             ->assertJsonPath('turn.raw_audio_persisted', false)
             ->assertJsonPath('evidence_ledger.interrupted.event_type', LedgerEventType::VoiceTurnInterrupted->value)
             ->assertJsonPath('evidence_ledger.slo.event_type', LedgerEventType::SloObserved->value);
@@ -1321,11 +1482,63 @@ final class AtlasAiVoiceRealtimeApiTest extends TestCase
             'envelope_id' => 'env_voice_interrupt',
             'receipt_id' => 'receipt_voice_interrupt',
         ]);
+        $event = AtlasLedgerEvent::query()
+            ->where('event_type', LedgerEventType::VoiceTurnInterrupted->value)
+            ->where('envelope_id', 'env_voice_interrupt')
+            ->firstOrFail();
+
+        $this->assertSame(1250, data_get($event->payload, 'voice.played_duration_ms'));
+        $this->assertSame(92, data_get($event->payload, 'voice.latency_ms'));
         $this->assertDatabaseHas('atlas_ledger_events', [
             'event_type' => LedgerEventType::SloObserved->value,
             'envelope_id' => 'env_voice_interrupt',
             'receipt_id' => 'receipt_voice_interrupt',
         ]);
+        $slo = AtlasLedgerEvent::query()
+            ->where('event_type', LedgerEventType::SloObserved->value)
+            ->where('envelope_id', 'env_voice_interrupt')
+            ->firstOrFail();
+
+        $this->assertSame('voice.interruption_stop_audio', data_get($slo->payload, 'stage'));
+        $this->assertSame(92, data_get($slo->payload, 'slo.duration_ms'));
+    }
+
+    public function test_voice_turn_interruption_records_pending_mobile_stages(): void
+    {
+        foreach (['transcription_pending', 'assistant_thinking'] as $stage) {
+            $this->postJson('/ai/voice/turn/interrupted', [
+                'session_id' => 'voice_session_'.$stage,
+                'envelope_id' => 'env_'.$stage,
+                'receipt_id' => 'receipt_'.$stage,
+                'turn_id' => 'voice_turn_'.$stage,
+                'reason' => 'operator_closed_mobile_voice',
+                'interrupted_stage' => $stage,
+                'latency_ms' => 321,
+            ], $this->headers)
+                ->assertOk()
+                ->assertJsonPath('status', 'turn_interrupted_recorded')
+                ->assertJsonPath('turn.turn_id', 'voice_turn_'.$stage)
+                ->assertJsonPath('turn.interruption_recorded', true)
+                ->assertJsonPath('turn.interruption_source', 'operator')
+                ->assertJsonPath('turn.reason', 'operator_closed_mobile_voice')
+                ->assertJsonPath('turn.interrupted_stage', $stage)
+                ->assertJsonPath('turn.latency_ms', 321)
+                ->assertJsonPath('turn.raw_audio_persisted', false)
+                ->assertJsonPath('evidence_ledger.interrupted.event_type', LedgerEventType::VoiceTurnInterrupted->value)
+                ->assertJsonPath('evidence_ledger.slo.event_type', LedgerEventType::SloObserved->value);
+
+            $event = AtlasLedgerEvent::query()
+                ->where('event_type', LedgerEventType::VoiceTurnInterrupted->value)
+                ->where('envelope_id', 'env_'.$stage)
+                ->firstOrFail();
+
+            $this->assertSame($stage, data_get($event->payload, 'voice.interrupted_stage'));
+            $this->assertSame('operator_closed_mobile_voice', data_get($event->payload, 'voice.reason'));
+            $this->assertSame(321, data_get($event->payload, 'voice.latency_ms'));
+            $this->assertNull(data_get($event->payload, 'voice.played_duration_ms'));
+            $this->assertArrayNotHasKey('raw_audio', data_get($event->payload, 'voice'));
+            $this->assertArrayNotHasKey('transcript', data_get($event->payload, 'voice'));
+        }
     }
 
     public function test_voice_runtime_interruption_callback_requires_accepted_kernel_turn(): void
@@ -1379,10 +1592,11 @@ final class AtlasAiVoiceRealtimeApiTest extends TestCase
         $base['receipt_id'] = (string) $turn->json('turn.decision_receipt.receipt_id');
 
         $this->postJson('/ai/voice/turn/synthesized', $base + [
-            'response_text_hash' => hash('sha256', 'resposta falada sensivel'),
+            'response_text_hash' => strtoupper(hash('sha256', 'resposta falada sensivel')),
             'tts_provider' => 'elevenlabs',
-            'audio_hash' => hash('sha256', 'tts-audio'),
+            'audio_hash' => strtoupper(hash('sha256', 'tts-audio')),
             'audio_duration_ms' => 1300,
+            'latency_ms' => 87,
         ], $this->headers)
             ->assertOk()
             ->assertJsonPath('status', 'turn_synthesis_recorded')
@@ -1392,6 +1606,7 @@ final class AtlasAiVoiceRealtimeApiTest extends TestCase
 
         $this->postJson('/ai/voice/turn/played', $base + [
             'played_duration_ms' => 1250,
+            'latency_ms' => 33,
         ], $this->headers)
             ->assertOk()
             ->assertJsonPath('status', 'turn_playback_recorded')
@@ -1401,15 +1616,19 @@ final class AtlasAiVoiceRealtimeApiTest extends TestCase
             'interruption_source' => 'runtime_callback',
             'reason' => 'barge_in',
             'interrupted_stage' => 'tts_streaming',
+            'played_duration_ms' => 1000,
             'latency_ms' => 65,
         ], $this->headers)
             ->assertOk()
             ->assertJsonPath('status', 'turn_interrupted_recorded')
             ->assertJsonPath('turn.interruption_source', 'runtime_callback')
+            ->assertJsonPath('turn.played_duration_ms', 1000)
             ->assertJsonPath('evidence_ledger.interrupted.event_type', LedgerEventType::VoiceTurnInterrupted->value);
 
         $this->postJson('/ai/voice/runtime/failed', $base + [
             'failure_code' => 'tts_timeout',
+            'error_class' => 'AtlasVoicePlaybackTimeout',
+            'error_message_hash' => strtoupper(hash('sha256', 'provider timed out before first audio')),
             'latency_ms' => 2400,
         ], $this->headers)
             ->assertOk()
@@ -1445,6 +1664,37 @@ final class AtlasAiVoiceRealtimeApiTest extends TestCase
 
         $this->assertArrayNotHasKey('response_text', data_get($synthesized->payload, 'voice'));
         $this->assertSame(hash('sha256', 'resposta falada sensivel'), data_get($synthesized->payload, 'voice.response_text_hash'));
+        $this->assertSame(hash('sha256', 'tts-audio'), data_get($synthesized->payload, 'voice.audio_hash'));
+        $this->assertSame(87, data_get($synthesized->payload, 'voice.latency_ms'));
+
+        $played = AtlasLedgerEvent::query()
+            ->where('event_type', LedgerEventType::VoiceTurnPlayed->value)
+            ->where('envelope_id', $base['envelope_id'])
+            ->firstOrFail();
+        $this->assertSame(1250, data_get($played->payload, 'voice.audio_duration_ms'));
+        $this->assertSame(33, data_get($played->payload, 'voice.latency_ms'));
+
+        $interrupted = AtlasLedgerEvent::query()
+            ->where('event_type', LedgerEventType::VoiceTurnInterrupted->value)
+            ->where('envelope_id', $base['envelope_id'])
+            ->firstOrFail();
+        $this->assertSame(1000, data_get($interrupted->payload, 'voice.played_duration_ms'));
+        $this->assertSame(65, data_get($interrupted->payload, 'voice.latency_ms'));
+
+        $runtimeFailure = AtlasLedgerEvent::query()
+            ->where('event_type', LedgerEventType::VoiceRuntimeFailed->value)
+            ->where('envelope_id', $base['envelope_id'])
+            ->where('payload->voice->failure_code', 'tts_timeout')
+            ->firstOrFail();
+        $this->assertSame(2400, data_get($runtimeFailure->payload, 'voice.latency_ms'));
+        $this->assertSame('AtlasVoicePlaybackTimeout', data_get($runtimeFailure->payload, 'voice.error_class'));
+        $this->assertSame(hash('sha256', 'provider timed out before first audio'), data_get($runtimeFailure->payload, 'voice.error_message_hash'));
+        $this->assertArrayNotHasKey('error_message', data_get($runtimeFailure->payload, 'voice'));
+
+        $this->postJson('/ai/voice/runtime/failed', $base + [
+            'failure_code' => 'raw_error_message_rejected',
+            'error_message' => 'provider timed out before first audio',
+        ], $this->headers)->assertUnprocessable();
     }
 
     public function test_voice_runtime_callbacks_fail_closed_without_accepted_kernel_turn(): void

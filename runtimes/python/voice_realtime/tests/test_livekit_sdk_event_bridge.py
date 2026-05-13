@@ -103,13 +103,23 @@ class LiveKitSdkEventBridgeTest(unittest.TestCase):
             "turn_id": "voice_turn",
             "played_duration_ms": 320,
         })
+        interrupted = subject.route_sdk_event({
+            "event_kind": "barge_in",
+            "session_id": "voice_session",
+            "turn_id": "voice_turn",
+            "played_duration_ms": 240,
+            "latency_ms": 31,
+        })
 
         self.assertEqual("session_started", joined.event_kind)
         self.assertEqual("turn_accepted_scaffold", turn.status)
         self.assertEqual("ok", played.status)
+        self.assertEqual("ok", interrupted.status)
         self.assertEqual("http://atlas.test/ai/voice/session/start", transport.calls[0][0])
         self.assertEqual("http://atlas.test/ai/voice/turn", transport.calls[1][0])
         self.assertEqual("http://atlas.test/ai/voice/turn/played", transport.calls[2][0])
+        self.assertEqual("http://atlas.test/ai/voice/turn/interrupted", transport.calls[3][0])
+        self.assertEqual(240, transport.calls[3][1]["played_duration_ms"])
 
     def test_bridge_contract_is_stable_and_token_safe(self) -> None:
         payload = LiveKitSdkEventBridge.contract()

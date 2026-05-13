@@ -61,6 +61,20 @@ class ProgrammingSemanticCodeGraphService
                     'type' => 'defines',
                 ];
             }
+            foreach ($this->dependencyNames($file) as $dependency) {
+                $dependencyId = hash('sha256', 'dependency:'.$dependency);
+                $nodes[] = [
+                    'id' => $dependencyId,
+                    'kind' => 'dependency',
+                    'name' => $dependency,
+                    'path' => $relative,
+                ];
+                $edges[] = [
+                    'from' => hash('sha256', $relative),
+                    'to' => $dependencyId,
+                    'type' => 'depends_on',
+                ];
+            }
         }
 
         return [
@@ -172,6 +186,21 @@ class ProgrammingSemanticCodeGraphService
                     'from' => 'module:'.$symbol->module_id,
                     'to' => $symbolId,
                     'type' => 'contains_symbol',
+                ];
+            }
+            foreach ($this->metadataDependencies((array) ($symbol->metadata ?? [])) as $dependency) {
+                $dependencyId = 'dependency:'.hash('sha256', $dependency);
+                $nodes[] = [
+                    'id' => $dependencyId,
+                    'kind' => 'dependency',
+                    'name' => $dependency,
+                    'path' => $symbol->file_path,
+                    'reason' => 'code_intelligence_symbol_dependency',
+                ];
+                $edges[] = [
+                    'from' => $symbolId,
+                    'to' => $dependencyId,
+                    'type' => 'depends_on',
                 ];
             }
         }
@@ -326,6 +355,50 @@ class ProgrammingSemanticCodeGraphService
         preg_match_all('/(?:class|interface|trait|enum|function)\s+([A-Za-z_][A-Za-z0-9_]*)/', $content, $matches);
 
         return array_values(array_unique(array_slice($matches[1] ?? [], 0, 12)));
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function dependencyNames(string $file): array
+    {
+        if (! is_file($file) || strtolower(pathinfo($file, PATHINFO_EXTENSION)) !== 'php' || filesize($file) > 300_000) {
+            return [];
+        }
+
+        $content = File::get($file);
+        preg_match_all('/^\s*use\s+([^;]+);/m', $content, $uses);
+        preg_match_all('/\b(?:extends|implements)\s+([A-Za-z_\\\\][A-Za-z0-9_\\\\, ]*)/', $content, $inheritance);
+
+        $dependencies = [];
+        foreach (array_merge($uses[1] ?? [], $inheritance[1] ?? []) as $dependencyGroup) {
+            foreach (explode(',', (string) $dependencyGroup) as $dependency) {
+                $dependency = trim(preg_replace('/\s+as\s+[A-Za-z_][A-Za-z0-9_]*$/i', '', $dependency) ?? '');
+                if ($dependency !== '') {
+                    $dependencies[] = $dependency;
+                }
+            }
+        }
+
+        return array_values(array_unique(array_slice($dependencies, 0, 20)));
+    }
+
+    /**
+     * @param  array<string,mixed>  $metadata
+     * @return array<int,string>
+     */
+    private function metadataDependencies(array $metadata): array
+    {
+        $dependencies = [];
+        foreach (['imports', 'dependencies', 'uses'] as $key) {
+            foreach ((array) ($metadata[$key] ?? []) as $dependency) {
+                if (is_string($dependency) && trim($dependency) !== '') {
+                    $dependencies[] = trim($dependency);
+                }
+            }
+        }
+
+        return array_values(array_unique(array_slice($dependencies, 0, 20)));
     }
 
     /**

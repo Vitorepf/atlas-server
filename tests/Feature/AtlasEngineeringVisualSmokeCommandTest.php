@@ -69,6 +69,42 @@ class AtlasEngineeringVisualSmokeCommandTest extends TestCase
         $this->assertStringContainsString('Atlas visual ok', File::get($this->workspace.'/atlas-visual-report/routes/root.html'));
     }
 
+    public function test_visual_smoke_defaults_to_api_health_for_api_only_laravel_workspace(): void
+    {
+        File::ensureDirectoryExists($this->workspace.'/routes');
+        File::put($this->workspace.'/routes/api.php', '<?php // api only');
+        File::put($this->workspace.'/artisan', '#!/usr/bin/env php');
+        File::put($this->workspace.'/public/index.php', <<<'PHP'
+<?php
+if (($_SERVER['REQUEST_URI'] ?? '/') === '/api/health') {
+    header('Content-Type: application/json');
+    echo json_encode(['ok' => true]);
+    return;
+}
+http_response_code(404);
+echo 'missing';
+PHP);
+
+        $port = 48_000 + random_int(1000, 1999);
+        $exit = Artisan::call('atlas:engineering:visual-smoke', [
+            '--workspace' => $this->workspace,
+            '--start-command' => escapeshellarg(PHP_BINARY).' -S 127.0.0.1:{port} -t public',
+            '--url' => 'http://127.0.0.1:{port}',
+            '--port' => $port,
+            '--timeout' => 10,
+            '--artifact-dir' => 'atlas-visual-report',
+            '--baseline' => 'off',
+            '--screenshot-driver' => 'off',
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true);
+
+        $this->assertSame(0, $exit, $this->visualManifestForFailure());
+        $this->assertSame('passed', $payload['status'] ?? null);
+        $this->assertSame('/api/health', data_get($payload, 'routes.0.route'));
+        $this->assertSame(200, data_get($payload, 'routes.0.status_code'));
+    }
+
     public function test_visual_baseline_promote_lists_and_unblocks_strict_changes(): void
     {
         $port = 49_000 + random_int(0, 499);

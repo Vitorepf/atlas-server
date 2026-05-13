@@ -29009,6 +29009,16 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
             'activate_signed_one_shot_scheduler_tick_mutating_writer_contract',
             'activate_signed_one_shot_scheduler_tick_mutating_writer_preflight',
             'activate_signed_one_shot_scheduler_tick_mutating_writer_implementation_packet',
+            'activate_signed_one_shot_scheduler_tick_mutating_writer_service',
+            'activate_signed_one_shot_scheduler_tick_guarded_runtime_invocation_contract',
+            'activate_signed_one_shot_scheduler_tick_guarded_runtime_invocation_preflight',
+            'activate_signed_one_shot_scheduler_tick_guarded_runtime_invocation_implementation_packet',
+            'activate_signed_one_shot_scheduler_tick_guarded_runtime_invocation_service',
+            'activate_signed_one_shot_scheduler_tick_dispatch_receipt_use_release_contract',
+            'activate_signed_one_shot_scheduler_tick_dispatch_receipt_use_preflight',
+            'activate_signed_one_shot_scheduler_tick_dispatch_receipt_use_implementation_packet',
+            'activate_signed_one_shot_scheduler_tick_dispatch_receipt_use_service',
+            'activate_signed_one_shot_scheduler_tick_provider_start_driver_release_contract',
         ]);
         $this->assertContains(data_get($payload, 'control_plane.persistent_runtime.next_required_slice'), data_get($payload, 'control_plane.next_build_slices'));
         $this->assertSame(
@@ -29117,6 +29127,16 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
             'activate_signed_one_shot_scheduler_tick_mutating_writer_contract',
             'activate_signed_one_shot_scheduler_tick_mutating_writer_preflight',
             'activate_signed_one_shot_scheduler_tick_mutating_writer_implementation_packet',
+            'activate_signed_one_shot_scheduler_tick_mutating_writer_service',
+            'activate_signed_one_shot_scheduler_tick_guarded_runtime_invocation_contract',
+            'activate_signed_one_shot_scheduler_tick_guarded_runtime_invocation_preflight',
+            'activate_signed_one_shot_scheduler_tick_guarded_runtime_invocation_implementation_packet',
+            'activate_signed_one_shot_scheduler_tick_guarded_runtime_invocation_service',
+            'activate_signed_one_shot_scheduler_tick_dispatch_receipt_use_release_contract',
+            'activate_signed_one_shot_scheduler_tick_dispatch_receipt_use_preflight',
+            'activate_signed_one_shot_scheduler_tick_dispatch_receipt_use_implementation_packet',
+            'activate_signed_one_shot_scheduler_tick_dispatch_receipt_use_service',
+            'activate_signed_one_shot_scheduler_tick_provider_start_driver_release_contract',
         ]);
         $this->assertContains('persistent_control_plane_schema_contract', data_get($payload, 'runtime_schema_preflight.contracts_available'));
         $this->assertTrue(data_get($payload, 'runtime_schema_preflight.activation_policy.preflight_is_read_only'));
@@ -30947,6 +30967,1518 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_contract_does_not_start_providers', data_get($payload, 'non_execution_guarantees'));
         $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_contract_does_not_enable_self_programming', data_get($payload, 'non_execution_guarantees'));
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_contract_hash'));
+    }
+
+    public function test_command_returns_agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_preflight_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-automatic-dispatch-scheduler-one-shot-tick-mutating-writer-preflight' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_preflight.v1', data_get($payload, 'schema_version'));
+        $this->assertContains(data_get($payload, 'status'), [
+            'one_shot_tick_mutating_writer_preflight_ready',
+            'blocked',
+        ]);
+        $this->assertSame('read_only_agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_preflight', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'runtime_write_allowed'));
+        $this->assertFalse(data_get($payload, 'signature_acceptance_allowed'));
+        $this->assertFalse(data_get($payload, 'release_receipt_persistence_allowed'));
+        $this->assertFalse(data_get($payload, 'claim_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_receipt_write_allowed'));
+        $this->assertFalse(data_get($payload, 'provider_start_allowed'));
+        $this->assertFalse(data_get($payload, 'token_spend_allowed'));
+        $this->assertSame('Atlas Agent Control Plane', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_preflight.submodule'));
+        $this->assertSame('FORGE-WORKSPACE-ATLAS-SELF-CONSTRUCTION-0001', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_preflight.workspace_id'));
+        $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_preflight.preflight_checks.mutating_writer_contract_ready'));
+        $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_preflight.preflight_checks.max_one_wakeup_claim'));
+        $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_preflight.preflight_checks.max_one_dispatch_receipt'));
+        $this->assertArrayHasKey('wakeup_required_columns', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_preflight.storage_readiness'));
+        $this->assertArrayHasKey('dispatch_receipt_required_columns', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_preflight.storage_readiness'));
+        $this->assertContains('claim_exactly_one_wakeup_item', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_preflight.implementation_requirements'));
+        $this->assertContains('write_exactly_one_signed_pending_dispatch_receipt', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_preflight.implementation_requirements'));
+        $this->assertContains('stop_before_dispatch_receipt_use', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_preflight.implementation_requirements'));
+        $this->assertFalse(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_preflight.writer_policy.runtime_mutation_allowed_here'));
+        $this->assertFalse(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_preflight.writer_policy.provider_start_allowed_here'));
+        $this->assertSame('activate_signed_one_shot_scheduler_tick_mutating_writer_implementation_packet', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_preflight.next_required_slice'));
+        $this->assertContains('claim_wakeup_item', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_preflight.forbidden_now'));
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_preflight_does_not_claim_wakeup_items', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_preflight_does_not_write_dispatch_receipts', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_preflight_does_not_start_providers', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_preflight_does_not_enable_self_programming', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_preflight_hash'));
+    }
+
+    public function test_command_returns_agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_implementation_packet_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-automatic-dispatch-scheduler-one-shot-tick-mutating-writer-implementation-packet' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_implementation_packet.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('ready_for_scoped_one_shot_tick_mutating_writer_implementation', data_get($payload, 'status'));
+        $this->assertSame('read_only_agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_implementation_packet', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'runtime_write_allowed'));
+        $this->assertFalse(data_get($payload, 'signature_acceptance_allowed'));
+        $this->assertFalse(data_get($payload, 'release_receipt_persistence_allowed'));
+        $this->assertFalse(data_get($payload, 'claim_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_receipt_write_allowed'));
+        $this->assertFalse(data_get($payload, 'provider_start_allowed'));
+        $this->assertFalse(data_get($payload, 'token_spend_allowed'));
+        $this->assertSame('Atlas Agent Control Plane', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_implementation_packet.submodule'));
+        $this->assertSame('FORGE-WORKSPACE-ATLAS-SELF-CONSTRUCTION-0001', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_implementation_packet.workspace_id'));
+        $this->assertSame(6, data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_implementation_packet.task_count'));
+        $this->assertContains('app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickMutatingWriter.php', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_implementation_packet.allowed_files'));
+        $this->assertContains('tests/Feature/Ai/AtlasAiSelfConstructionAgentAutomaticDispatchSchedulerOneShotTickMutatingWriterTest.php', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_implementation_packet.allowed_files'));
+        $this->assertContains('writer_claims_exactly_one_wakeup_item', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_implementation_packet.acceptance_criteria'));
+        $this->assertContains('writer_writes_exactly_one_signed_pending_dispatch_receipt', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_implementation_packet.acceptance_criteria'));
+        $this->assertContains('writer_stops_before_dispatch_receipt_use_and_provider_start', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_implementation_packet.acceptance_criteria'));
+        $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_implementation_packet.implementation_policy.implementation_allowed_by_packet'));
+        $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_implementation_packet.implementation_policy.runtime_mutation_allowed_by_packet'));
+        $this->assertFalse(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_implementation_packet.implementation_policy.provider_start_allowed_by_packet'));
+        $this->assertFalse(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_implementation_packet.implementation_policy.self_programming_allowed_by_packet'));
+        $this->assertContains('need_to_start_provider_or_call_adapter', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_implementation_packet.stop_conditions'));
+        $this->assertSame('activate_signed_one_shot_scheduler_tick_mutating_writer_service', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_implementation_packet.next_required_slice'));
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_implementation_packet_does_not_claim_wakeup_items', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_implementation_packet_does_not_write_dispatch_receipts', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_implementation_packet_does_not_start_providers', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_implementation_packet_does_not_enable_self_programming', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_implementation_packet_hash'));
+    }
+
+    public function test_command_returns_agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_status_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-automatic-dispatch-scheduler-one-shot-tick-mutating-writer-status' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_status.v1', data_get($payload, 'schema_version'));
+        $this->assertContains(data_get($payload, 'status'), [
+            'one_shot_tick_mutating_writer_service_ready',
+            'blocked',
+        ]);
+        $this->assertSame('read_only_agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_status', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_allowed'));
+        $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
+        $this->assertFalse(data_get($payload, 'runtime_write_allowed'));
+        $this->assertFalse(data_get($payload, 'signature_acceptance_allowed'));
+        $this->assertFalse(data_get($payload, 'release_receipt_persistence_allowed'));
+        $this->assertFalse(data_get($payload, 'claim_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_receipt_write_allowed'));
+        $this->assertFalse(data_get($payload, 'provider_start_allowed'));
+        $this->assertFalse(data_get($payload, 'token_spend_allowed'));
+        $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_status.writer_service_ready'));
+        $this->assertSame('atlas_self_construction_agent_wakeup_items', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_status.wakeup_items_table'));
+        $this->assertSame('atlas_self_construction_agent_dispatch_receipts', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_status.dispatch_receipts_table'));
+        $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_status.runtime_policy.status_projection_is_read_only'));
+        $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_status.runtime_policy.writer_service_may_claim_one_wakeup_after_signed_release'));
+        $this->assertFalse(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_status.runtime_policy.provider_start_allowed_here'));
+        $this->assertFalse(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_status.runtime_policy.self_programming_allowed_here'));
+        $this->assertContains(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_status.next_required_slice'), [
+            'activate_signed_one_shot_scheduler_tick_guarded_runtime_invocation_contract',
+            'repair_one_shot_scheduler_tick_mutating_writer_service_blockers',
+        ]);
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_status_does_not_claim_wakeup_items', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_status_does_not_write_dispatch_receipts', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_status_does_not_start_providers', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_status_does_not_enable_self_programming', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_status_hash'));
+    }
+
+    public function test_command_returns_agent_automatic_dispatch_scheduler_one_shot_tick_guarded_runtime_invocation_contract_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-automatic-dispatch-scheduler-one-shot-tick-guarded-runtime-invocation-contract' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_automatic_dispatch_scheduler_one_shot_tick_guarded_runtime_invocation_contract.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('one_shot_tick_guarded_runtime_invocation_contract_ready', data_get($payload, 'status'));
+        $this->assertSame('read_only_agent_automatic_dispatch_scheduler_one_shot_tick_guarded_runtime_invocation_contract', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'runtime_write_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_receipt_use_allowed'));
+        $this->assertFalse(data_get($payload, 'provider_start_allowed'));
+        $this->assertFalse(data_get($payload, 'adapter_invocation_allowed'));
+        $this->assertFalse(data_get($payload, 'token_spend_allowed'));
+        $this->assertSame('invokeSignedOneShotSchedulerTick', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_guarded_runtime_invocation_contract.invocation_boundary.canonical_method'));
+        $this->assertSame(1, data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_guarded_runtime_invocation_contract.invocation_boundary.max_writer_invocations_per_command'));
+        $this->assertContains('receipt_hash', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_guarded_runtime_invocation_contract.input_contract'));
+        $this->assertContains('call_mutating_writer_once', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_guarded_runtime_invocation_contract.allowed_mutations'));
+        $this->assertContains('start_provider_process', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_guarded_runtime_invocation_contract.forbidden_even_after_invocation'));
+        $this->assertSame('activate_signed_one_shot_scheduler_tick_guarded_runtime_invocation_preflight', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_guarded_runtime_invocation_contract.next_required_slice'));
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_guarded_runtime_invocation_contract_does_not_call_mutating_writer', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_guarded_runtime_invocation_contract_does_not_start_providers', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_guarded_runtime_invocation_contract_does_not_enable_self_programming', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_guarded_runtime_invocation_contract_hash'));
+    }
+
+    public function test_command_returns_agent_automatic_dispatch_scheduler_one_shot_tick_guarded_runtime_invocation_preflight_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-automatic-dispatch-scheduler-one-shot-tick-guarded-runtime-invocation-preflight' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_automatic_dispatch_scheduler_one_shot_tick_guarded_runtime_invocation_preflight.v1', data_get($payload, 'schema_version'));
+        $this->assertContains(data_get($payload, 'status'), [
+            'one_shot_tick_guarded_runtime_invocation_preflight_ready',
+            'blocked',
+        ]);
+        $this->assertSame('read_only_agent_automatic_dispatch_scheduler_one_shot_tick_guarded_runtime_invocation_preflight', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'runtime_write_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_receipt_use_allowed'));
+        $this->assertFalse(data_get($payload, 'provider_start_allowed'));
+        $this->assertFalse(data_get($payload, 'adapter_invocation_allowed'));
+        $this->assertFalse(data_get($payload, 'token_spend_allowed'));
+        $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_guarded_runtime_invocation_preflight.preflight_checks.guarded_invocation_contract_ready'));
+        $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_guarded_runtime_invocation_preflight.preflight_checks.max_one_writer_invocation'));
+        $this->assertContains('call_mutating_writer_once_only', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_guarded_runtime_invocation_preflight.implementation_requirements'));
+        $this->assertFalse(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_guarded_runtime_invocation_preflight.writer_policy.runtime_invocation_allowed_here'));
+        $this->assertSame('activate_signed_one_shot_scheduler_tick_guarded_runtime_invocation_implementation_packet', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_guarded_runtime_invocation_preflight.next_required_slice'));
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_guarded_runtime_invocation_preflight_does_not_call_mutating_writer', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_guarded_runtime_invocation_preflight_does_not_start_providers', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_guarded_runtime_invocation_preflight_does_not_enable_self_programming', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_guarded_runtime_invocation_preflight_hash'));
+    }
+
+    public function test_command_returns_agent_automatic_dispatch_scheduler_one_shot_tick_guarded_runtime_invocation_implementation_packet_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-automatic-dispatch-scheduler-one-shot-tick-guarded-runtime-invocation-implementation-packet' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_automatic_dispatch_scheduler_one_shot_tick_guarded_runtime_invocation_implementation_packet.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('ready_for_scoped_one_shot_tick_guarded_runtime_invocation_implementation', data_get($payload, 'status'));
+        $this->assertSame('read_only_agent_automatic_dispatch_scheduler_one_shot_tick_guarded_runtime_invocation_implementation_packet', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'runtime_write_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_receipt_use_allowed'));
+        $this->assertFalse(data_get($payload, 'provider_start_allowed'));
+        $this->assertFalse(data_get($payload, 'adapter_invocation_allowed'));
+        $this->assertFalse(data_get($payload, 'token_spend_allowed'));
+        $this->assertSame(4, data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_guarded_runtime_invocation_implementation_packet.task_count'));
+        $this->assertContains('app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickGuardedRuntimeInvoker.php', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_guarded_runtime_invocation_implementation_packet.allowed_files'));
+        $this->assertContains('guarded_invoker_calls_mutating_writer_once_only', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_guarded_runtime_invocation_implementation_packet.acceptance_criteria'));
+        $this->assertFalse(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_guarded_runtime_invocation_implementation_packet.implementation_policy.provider_start_allowed_by_packet'));
+        $this->assertFalse(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_guarded_runtime_invocation_implementation_packet.implementation_policy.self_programming_allowed_by_packet'));
+        $this->assertSame('activate_signed_one_shot_scheduler_tick_guarded_runtime_invocation_service', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_guarded_runtime_invocation_implementation_packet.next_required_slice'));
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_guarded_runtime_invocation_implementation_packet_does_not_call_mutating_writer', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_guarded_runtime_invocation_implementation_packet_does_not_start_providers', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_guarded_runtime_invocation_implementation_packet_does_not_enable_self_programming', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_guarded_runtime_invocation_implementation_packet_hash'));
+    }
+
+    public function test_command_returns_agent_automatic_dispatch_scheduler_one_shot_tick_guarded_runtime_invocation_status_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-automatic-dispatch-scheduler-one-shot-tick-guarded-runtime-invocation-status' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_automatic_dispatch_scheduler_one_shot_tick_guarded_runtime_invocation_status.v1', data_get($payload, 'schema_version'));
+        $this->assertContains(data_get($payload, 'status'), [
+            'one_shot_tick_guarded_runtime_invocation_service_ready',
+            'blocked',
+        ]);
+        $this->assertSame('read_only_agent_automatic_dispatch_scheduler_one_shot_tick_guarded_runtime_invocation_status', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'runtime_write_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_receipt_use_allowed'));
+        $this->assertFalse(data_get($payload, 'mark_dispatch_receipt_used_allowed'));
+        $this->assertFalse(data_get($payload, 'provider_start_allowed'));
+        $this->assertFalse(data_get($payload, 'adapter_invocation_allowed'));
+        $this->assertFalse(data_get($payload, 'token_spend_allowed'));
+        $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_guarded_runtime_invocation_status.invoker_service_ready'));
+        $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_guarded_runtime_invocation_status.writer_service_ready'));
+        $this->assertSame('invokeSignedOneShotSchedulerTick', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_guarded_runtime_invocation_status.invoker_canonical_method'));
+        $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_guarded_runtime_invocation_status.runtime_policy.status_projection_is_read_only'));
+        $this->assertSame(1, data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_guarded_runtime_invocation_status.runtime_policy.writer_invocation_limit_per_request'));
+        $this->assertFalse(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_guarded_runtime_invocation_status.runtime_policy.provider_start_allowed_here'));
+        $this->assertFalse(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_guarded_runtime_invocation_status.runtime_policy.self_programming_allowed_here'));
+        $this->assertContains(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_guarded_runtime_invocation_status.next_required_slice'), [
+            'activate_signed_one_shot_scheduler_tick_dispatch_receipt_use_release_contract',
+            'repair_one_shot_scheduler_tick_guarded_runtime_invocation_service_blockers',
+        ]);
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_guarded_runtime_invocation_status_does_not_call_mutating_writer', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_guarded_runtime_invocation_status_does_not_use_dispatch_receipts', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_guarded_runtime_invocation_status_does_not_start_providers', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_guarded_runtime_invocation_status_does_not_enable_self_programming', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_guarded_runtime_invocation_status_hash'));
+    }
+
+    public function test_command_returns_agent_automatic_dispatch_scheduler_one_shot_tick_dispatch_receipt_use_release_contract_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-automatic-dispatch-scheduler-one-shot-tick-dispatch-receipt-use-release-contract' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_automatic_dispatch_scheduler_one_shot_tick_dispatch_receipt_use_release_contract.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('one_shot_tick_dispatch_receipt_use_release_contract_ready', data_get($payload, 'status'));
+        $this->assertSame('read_only_agent_automatic_dispatch_scheduler_one_shot_tick_dispatch_receipt_use_release_contract', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'dispatch_receipt_use_allowed'));
+        $this->assertFalse(data_get($payload, 'provider_start_allowed'));
+        $this->assertFalse(data_get($payload, 'adapter_invocation_allowed'));
+        $this->assertFalse(data_get($payload, 'token_spend_allowed'));
+        $this->assertSame('markReceiptUsedAtomically', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_dispatch_receipt_use_release_contract.release_boundary.canonical_writer_method'));
+        $this->assertContains('receipt_hash', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_dispatch_receipt_use_release_contract.required_input_fields_for_future_use'));
+        $this->assertContains('mark_one_signed_pending_dispatch_receipt_used', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_dispatch_receipt_use_release_contract.allowed_future_mutations'));
+        $this->assertContains('start_provider_process', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_dispatch_receipt_use_release_contract.forbidden_even_after_receipt_use'));
+        $this->assertSame('activate_signed_one_shot_scheduler_tick_dispatch_receipt_use_preflight', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_dispatch_receipt_use_release_contract.next_required_slice'));
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_dispatch_receipt_use_release_contract_does_not_mark_receipt_used', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_dispatch_receipt_use_release_contract_does_not_start_providers', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_dispatch_receipt_use_release_contract_hash'));
+    }
+
+    public function test_command_returns_agent_automatic_dispatch_scheduler_one_shot_tick_dispatch_receipt_use_preflight_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-automatic-dispatch-scheduler-one-shot-tick-dispatch-receipt-use-preflight' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_automatic_dispatch_scheduler_one_shot_tick_dispatch_receipt_use_preflight.v1', data_get($payload, 'schema_version'));
+        $this->assertContains(data_get($payload, 'status'), [
+            'one_shot_tick_dispatch_receipt_use_preflight_ready',
+            'blocked',
+        ]);
+        $this->assertSame('read_only_agent_automatic_dispatch_scheduler_one_shot_tick_dispatch_receipt_use_preflight', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'dispatch_receipt_use_allowed'));
+        $this->assertFalse(data_get($payload, 'provider_start_allowed'));
+        $this->assertFalse(data_get($payload, 'adapter_invocation_allowed'));
+        $this->assertFalse(data_get($payload, 'token_spend_allowed'));
+        $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_dispatch_receipt_use_preflight.preflight_checks.release_contract_ready'));
+        $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_dispatch_receipt_use_preflight.preflight_checks.canonical_writer_method_ready'));
+        $this->assertContains('delegate_to_agent_dispatch_executor_receipt_use_writer', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_dispatch_receipt_use_preflight.implementation_requirements'));
+        $this->assertFalse(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_dispatch_receipt_use_preflight.runtime_policy.receipt_use_mark_allowed_here'));
+        $this->assertSame('activate_signed_one_shot_scheduler_tick_dispatch_receipt_use_implementation_packet', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_dispatch_receipt_use_preflight.next_required_slice'));
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_dispatch_receipt_use_preflight_does_not_mark_receipt_used', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_dispatch_receipt_use_preflight_does_not_start_providers', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_dispatch_receipt_use_preflight_hash'));
+    }
+
+    public function test_command_returns_agent_automatic_dispatch_scheduler_one_shot_tick_dispatch_receipt_use_implementation_packet_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-automatic-dispatch-scheduler-one-shot-tick-dispatch-receipt-use-implementation-packet' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_automatic_dispatch_scheduler_one_shot_tick_dispatch_receipt_use_implementation_packet.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('ready_for_scoped_one_shot_tick_dispatch_receipt_use_implementation', data_get($payload, 'status'));
+        $this->assertSame('read_only_agent_automatic_dispatch_scheduler_one_shot_tick_dispatch_receipt_use_implementation_packet', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'dispatch_receipt_use_allowed'));
+        $this->assertFalse(data_get($payload, 'provider_start_allowed'));
+        $this->assertFalse(data_get($payload, 'adapter_invocation_allowed'));
+        $this->assertFalse(data_get($payload, 'token_spend_allowed'));
+        $this->assertSame(4, data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_dispatch_receipt_use_implementation_packet.task_count'));
+        $this->assertContains('app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickDispatchReceiptUseInvoker.php', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_dispatch_receipt_use_implementation_packet.allowed_files'));
+        $this->assertContains('receipt_use_invoker_marks_one_signed_pending_dispatch_receipt_used', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_dispatch_receipt_use_implementation_packet.acceptance_criteria'));
+        $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_dispatch_receipt_use_implementation_packet.implementation_policy.receipt_use_mark_allowed_by_future_invoker'));
+        $this->assertFalse(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_dispatch_receipt_use_implementation_packet.implementation_policy.provider_start_allowed_by_packet'));
+        $this->assertSame('activate_signed_one_shot_scheduler_tick_dispatch_receipt_use_service', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_dispatch_receipt_use_implementation_packet.next_required_slice'));
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_dispatch_receipt_use_implementation_packet_does_not_mark_receipt_used', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_dispatch_receipt_use_implementation_packet_does_not_start_providers', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_dispatch_receipt_use_implementation_packet_hash'));
+    }
+
+    public function test_command_returns_agent_automatic_dispatch_scheduler_one_shot_tick_dispatch_receipt_use_status_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-automatic-dispatch-scheduler-one-shot-tick-dispatch-receipt-use-status' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_automatic_dispatch_scheduler_one_shot_tick_dispatch_receipt_use_status.v1', data_get($payload, 'schema_version'));
+        $this->assertContains(data_get($payload, 'status'), [
+            'one_shot_tick_dispatch_receipt_use_service_ready',
+            'blocked',
+        ]);
+        $this->assertSame('read_only_agent_automatic_dispatch_scheduler_one_shot_tick_dispatch_receipt_use_status', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'dispatch_receipt_use_allowed'));
+        $this->assertFalse(data_get($payload, 'provider_start_allowed'));
+        $this->assertFalse(data_get($payload, 'adapter_invocation_allowed'));
+        $this->assertFalse(data_get($payload, 'token_spend_allowed'));
+        $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_dispatch_receipt_use_status.invoker_service_ready'));
+        $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_dispatch_receipt_use_status.writer_service_ready'));
+        $this->assertSame('markSignedDispatchReceiptUsed', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_dispatch_receipt_use_status.invoker_canonical_method'));
+        $this->assertSame('markReceiptUsedAtomically', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_dispatch_receipt_use_status.writer_canonical_method'));
+        $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_dispatch_receipt_use_status.runtime_policy.status_projection_is_read_only'));
+        $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_dispatch_receipt_use_status.runtime_policy.receipt_use_is_not_provider_start'));
+        $this->assertFalse(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_dispatch_receipt_use_status.runtime_policy.provider_start_allowed_here'));
+        $this->assertContains(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_dispatch_receipt_use_status.next_required_slice'), [
+            'activate_signed_one_shot_scheduler_tick_provider_start_driver_release_contract',
+            'repair_one_shot_scheduler_tick_dispatch_receipt_use_service_blockers',
+        ]);
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_dispatch_receipt_use_status_does_not_mark_receipt_used', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_dispatch_receipt_use_status_does_not_start_providers', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_dispatch_receipt_use_status_hash'));
+    }
+
+    public function test_command_returns_agent_automatic_dispatch_scheduler_one_shot_tick_provider_start_driver_release_contract_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-automatic-dispatch-scheduler-one-shot-tick-provider-start-driver-release-contract' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_automatic_dispatch_scheduler_one_shot_tick_provider_start_driver_release_contract.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('one_shot_tick_provider_start_driver_release_contract_ready', data_get($payload, 'status'));
+        $this->assertSame('read_only_agent_automatic_dispatch_scheduler_one_shot_tick_provider_start_driver_release_contract', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'provider_start_driver_allowed'));
+        $this->assertFalse(data_get($payload, 'provider_start_allowed'));
+        $this->assertFalse(data_get($payload, 'adapter_invocation_allowed'));
+        $this->assertFalse(data_get($payload, 'token_spend_allowed'));
+        $this->assertSame('startProviderOnce', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_start_driver_release_contract.release_boundary.canonical_driver_method'));
+        $this->assertFalse(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_start_driver_release_contract.release_boundary.provider_external_process_started_by_driver'));
+        $this->assertContains('sandbox_binding_key', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_start_driver_release_contract.required_input_fields_for_future_invoker'));
+        $this->assertContains('write_pre_start_heartbeat', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_start_driver_release_contract.allowed_future_mutations'));
+        $this->assertContains('spawn_provider_process', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_start_driver_release_contract.forbidden_even_after_driver'));
+        $this->assertSame('activate_signed_one_shot_scheduler_tick_provider_start_driver_preflight', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_start_driver_release_contract.next_required_slice'));
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_provider_start_driver_release_contract_does_not_call_provider_start_driver', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_provider_start_driver_release_contract_does_not_start_providers', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_start_driver_release_contract_hash'));
+    }
+
+    public function test_command_returns_agent_automatic_dispatch_scheduler_one_shot_tick_provider_start_driver_preflight_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-automatic-dispatch-scheduler-one-shot-tick-provider-start-driver-preflight' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_automatic_dispatch_scheduler_one_shot_tick_provider_start_driver_preflight.v1', data_get($payload, 'schema_version'));
+        $this->assertContains(data_get($payload, 'status'), [
+            'one_shot_tick_provider_start_driver_preflight_ready',
+            'blocked',
+        ]);
+        $this->assertSame('read_only_agent_automatic_dispatch_scheduler_one_shot_tick_provider_start_driver_preflight', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'provider_start_driver_allowed'));
+        $this->assertFalse(data_get($payload, 'provider_start_allowed'));
+        $this->assertFalse(data_get($payload, 'adapter_invocation_allowed'));
+        $this->assertFalse(data_get($payload, 'token_spend_allowed'));
+        $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_start_driver_preflight.preflight_checks.release_contract_ready'));
+        $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_start_driver_preflight.preflight_checks.canonical_driver_method_ready'));
+        $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_start_driver_preflight.preflight_checks.driver_does_not_start_external_process'));
+        $this->assertContains('delegate_to_agent_dispatch_executor_provider_start_driver', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_start_driver_preflight.implementation_requirements'));
+        $this->assertFalse(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_start_driver_preflight.runtime_policy.provider_start_driver_call_allowed_here'));
+        $this->assertSame('activate_signed_one_shot_scheduler_tick_provider_start_driver_implementation_packet', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_start_driver_preflight.next_required_slice'));
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_provider_start_driver_preflight_does_not_call_provider_start_driver', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_provider_start_driver_preflight_does_not_start_providers', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_start_driver_preflight_hash'));
+    }
+
+    public function test_command_returns_agent_automatic_dispatch_scheduler_one_shot_tick_provider_start_driver_implementation_packet_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-automatic-dispatch-scheduler-one-shot-tick-provider-start-driver-implementation-packet' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_automatic_dispatch_scheduler_one_shot_tick_provider_start_driver_implementation_packet.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('ready_for_scoped_one_shot_tick_provider_start_driver_invoker_implementation', data_get($payload, 'status'));
+        $this->assertSame('read_only_agent_automatic_dispatch_scheduler_one_shot_tick_provider_start_driver_implementation_packet', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'provider_start_driver_allowed'));
+        $this->assertFalse(data_get($payload, 'provider_start_allowed'));
+        $this->assertFalse(data_get($payload, 'adapter_invocation_allowed'));
+        $this->assertFalse(data_get($payload, 'token_spend_allowed'));
+        $this->assertSame(4, data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_start_driver_implementation_packet.task_count'));
+        $this->assertContains('app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickProviderStartDriverInvoker.php', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_start_driver_implementation_packet.allowed_files'));
+        $this->assertContains('provider_start_driver_invoker_creates_pre_start_guarded_run', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_start_driver_implementation_packet.acceptance_criteria'));
+        $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_start_driver_implementation_packet.implementation_policy.provider_start_driver_call_allowed_by_future_invoker'));
+        $this->assertFalse(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_start_driver_implementation_packet.implementation_policy.provider_external_process_start_allowed_by_packet'));
+        $this->assertSame('activate_signed_one_shot_scheduler_tick_provider_start_driver_invoker_service', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_start_driver_implementation_packet.next_required_slice'));
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_provider_start_driver_implementation_packet_does_not_call_provider_start_driver', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_provider_start_driver_implementation_packet_does_not_start_providers', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_start_driver_implementation_packet_hash'));
+    }
+
+    public function test_command_returns_agent_automatic_dispatch_scheduler_one_shot_tick_provider_start_driver_status_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-automatic-dispatch-scheduler-one-shot-tick-provider-start-driver-status' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_automatic_dispatch_scheduler_one_shot_tick_provider_start_driver_status.v1', data_get($payload, 'schema_version'));
+        $this->assertContains(data_get($payload, 'status'), [
+            'one_shot_tick_provider_start_driver_service_ready',
+            'blocked',
+        ]);
+        $this->assertSame('read_only_agent_automatic_dispatch_scheduler_one_shot_tick_provider_start_driver_status', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'provider_start_driver_allowed'));
+        $this->assertFalse(data_get($payload, 'provider_start_allowed'));
+        $this->assertFalse(data_get($payload, 'adapter_invocation_allowed'));
+        $this->assertFalse(data_get($payload, 'token_spend_allowed'));
+        $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_start_driver_status.invoker_service_ready'));
+        $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_start_driver_status.generic_driver_service_ready'));
+        $this->assertSame('prepareProviderStartDriver', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_start_driver_status.invoker_canonical_method'));
+        $this->assertSame('startProviderOnce', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_start_driver_status.generic_driver_canonical_method'));
+        $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_start_driver_status.runtime_policy.status_projection_is_read_only'));
+        $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_start_driver_status.runtime_policy.provider_start_driver_is_pre_start_guard_not_external_process_start'));
+        $this->assertFalse(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_start_driver_status.runtime_policy.provider_external_process_start_allowed_here'));
+        $this->assertContains(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_start_driver_status.next_required_slice'), [
+            'activate_signed_one_shot_scheduler_tick_adapter_invocation_boundary_release_contract',
+            'repair_one_shot_scheduler_tick_provider_start_driver_service_blockers',
+        ]);
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_provider_start_driver_status_does_not_call_provider_start_driver', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_provider_start_driver_status_does_not_start_providers', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_start_driver_status_hash'));
+    }
+
+    public function test_command_returns_agent_automatic_dispatch_scheduler_one_shot_tick_adapter_invocation_boundary_release_contract_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-automatic-dispatch-scheduler-one-shot-tick-adapter-invocation-boundary-release-contract' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_automatic_dispatch_scheduler_one_shot_tick_adapter_invocation_boundary_release_contract.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('one_shot_tick_adapter_invocation_boundary_release_contract_ready', data_get($payload, 'status'));
+        $this->assertSame('read_only_agent_automatic_dispatch_scheduler_one_shot_tick_adapter_invocation_boundary_release_contract', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'adapter_invocation_boundary_allowed'));
+        $this->assertFalse(data_get($payload, 'adapter_invocation_allowed'));
+        $this->assertFalse(data_get($payload, 'provider_start_allowed'));
+        $this->assertFalse(data_get($payload, 'token_spend_allowed'));
+        $this->assertSame('prepareInvocation', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_adapter_invocation_boundary_release_contract.release_boundary.canonical_boundary_method'));
+        $this->assertFalse(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_adapter_invocation_boundary_release_contract.release_boundary.external_process_started_by_boundary'));
+        $this->assertContains('context_pack_hash', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_adapter_invocation_boundary_release_contract.required_input_fields_for_future_invoker'));
+        $this->assertContains('transition_run_to_adapter_invocation_prepared', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_adapter_invocation_boundary_release_contract.allowed_future_mutations'));
+        $this->assertContains('execute_provider_adapter', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_adapter_invocation_boundary_release_contract.forbidden_even_after_boundary'));
+        $this->assertSame('activate_signed_one_shot_scheduler_tick_adapter_invocation_boundary_preflight', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_adapter_invocation_boundary_release_contract.next_required_slice'));
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_adapter_invocation_boundary_release_contract_does_not_call_adapter_boundary', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_adapter_invocation_boundary_release_contract_does_not_call_adapters', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_adapter_invocation_boundary_release_contract_hash'));
+    }
+
+    public function test_command_returns_agent_automatic_dispatch_scheduler_one_shot_tick_adapter_invocation_boundary_preflight_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-automatic-dispatch-scheduler-one-shot-tick-adapter-invocation-boundary-preflight' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_automatic_dispatch_scheduler_one_shot_tick_adapter_invocation_boundary_preflight.v1', data_get($payload, 'schema_version'));
+        $this->assertContains(data_get($payload, 'status'), [
+            'one_shot_tick_adapter_invocation_boundary_preflight_ready',
+            'blocked',
+        ]);
+        $this->assertSame('read_only_agent_automatic_dispatch_scheduler_one_shot_tick_adapter_invocation_boundary_preflight', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'adapter_invocation_boundary_allowed'));
+        $this->assertFalse(data_get($payload, 'adapter_invocation_allowed'));
+        $this->assertFalse(data_get($payload, 'provider_start_allowed'));
+        $this->assertFalse(data_get($payload, 'token_spend_allowed'));
+        $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_adapter_invocation_boundary_preflight.preflight_checks.release_contract_ready'));
+        $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_adapter_invocation_boundary_preflight.preflight_checks.canonical_boundary_method_ready'));
+        $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_adapter_invocation_boundary_preflight.preflight_checks.boundary_does_not_start_external_process'));
+        $this->assertContains('delegate_to_agent_dispatch_executor_adapter_invocation_boundary', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_adapter_invocation_boundary_preflight.implementation_requirements'));
+        $this->assertFalse(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_adapter_invocation_boundary_preflight.runtime_policy.adapter_invocation_boundary_call_allowed_here'));
+        $this->assertSame('activate_signed_one_shot_scheduler_tick_adapter_invocation_boundary_implementation_packet', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_adapter_invocation_boundary_preflight.next_required_slice'));
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_adapter_invocation_boundary_preflight_does_not_call_adapter_boundary', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_adapter_invocation_boundary_preflight_does_not_call_adapters', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_adapter_invocation_boundary_preflight_hash'));
+    }
+
+    public function test_command_returns_agent_automatic_dispatch_scheduler_one_shot_tick_adapter_invocation_boundary_implementation_packet_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-automatic-dispatch-scheduler-one-shot-tick-adapter-invocation-boundary-implementation-packet' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_automatic_dispatch_scheduler_one_shot_tick_adapter_invocation_boundary_implementation_packet.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('ready_for_scoped_one_shot_tick_adapter_invocation_boundary_invoker_implementation', data_get($payload, 'status'));
+        $this->assertSame('read_only_agent_automatic_dispatch_scheduler_one_shot_tick_adapter_invocation_boundary_implementation_packet', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'adapter_invocation_boundary_allowed'));
+        $this->assertFalse(data_get($payload, 'adapter_invocation_allowed'));
+        $this->assertFalse(data_get($payload, 'provider_start_allowed'));
+        $this->assertFalse(data_get($payload, 'token_spend_allowed'));
+        $this->assertSame(4, data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_adapter_invocation_boundary_implementation_packet.task_count'));
+        $this->assertContains('app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickAdapterInvocationBoundaryInvoker.php', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_adapter_invocation_boundary_implementation_packet.allowed_files'));
+        $this->assertContains('adapter_invocation_boundary_invoker_transitions_run_to_adapter_invocation_prepared', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_adapter_invocation_boundary_implementation_packet.acceptance_criteria'));
+        $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_adapter_invocation_boundary_implementation_packet.implementation_policy.adapter_invocation_boundary_call_allowed_by_future_invoker'));
+        $this->assertFalse(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_adapter_invocation_boundary_implementation_packet.implementation_policy.adapter_execution_allowed_by_packet'));
+        $this->assertSame('activate_signed_one_shot_scheduler_tick_adapter_invocation_boundary_invoker_service', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_adapter_invocation_boundary_implementation_packet.next_required_slice'));
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_adapter_invocation_boundary_implementation_packet_does_not_call_adapter_boundary', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_adapter_invocation_boundary_implementation_packet_does_not_call_adapters', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_adapter_invocation_boundary_implementation_packet_hash'));
+    }
+
+    public function test_command_returns_agent_automatic_dispatch_scheduler_one_shot_tick_adapter_invocation_boundary_status_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-automatic-dispatch-scheduler-one-shot-tick-adapter-invocation-boundary-status' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_automatic_dispatch_scheduler_one_shot_tick_adapter_invocation_boundary_status.v1', data_get($payload, 'schema_version'));
+        $this->assertContains(data_get($payload, 'status'), [
+            'one_shot_tick_adapter_invocation_boundary_service_ready',
+            'blocked',
+        ]);
+        $this->assertSame('read_only_agent_automatic_dispatch_scheduler_one_shot_tick_adapter_invocation_boundary_status', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'adapter_invocation_boundary_allowed'));
+        $this->assertFalse(data_get($payload, 'adapter_invocation_allowed'));
+        $this->assertFalse(data_get($payload, 'provider_start_allowed'));
+        $this->assertFalse(data_get($payload, 'token_spend_allowed'));
+        $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_adapter_invocation_boundary_status.invoker_service_ready'));
+        $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_adapter_invocation_boundary_status.generic_boundary_service_ready'));
+        $this->assertSame('prepareAdapterInvocationBoundary', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_adapter_invocation_boundary_status.invoker_canonical_method'));
+        $this->assertSame('prepareInvocation', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_adapter_invocation_boundary_status.generic_boundary_canonical_method'));
+        $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_adapter_invocation_boundary_status.runtime_policy.status_projection_is_read_only'));
+        $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_adapter_invocation_boundary_status.runtime_policy.adapter_invocation_boundary_is_metadata_preparation_not_adapter_execution'));
+        $this->assertFalse(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_adapter_invocation_boundary_status.runtime_policy.adapter_execution_allowed_here'));
+        $this->assertContains(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_adapter_invocation_boundary_status.next_required_slice'), [
+            'activate_signed_one_shot_scheduler_tick_provider_adapter_execution_guard_release_contract',
+            'repair_one_shot_scheduler_tick_adapter_invocation_boundary_service_blockers',
+        ]);
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_adapter_invocation_boundary_status_does_not_call_adapter_boundary', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_adapter_invocation_boundary_status_does_not_call_adapters', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_adapter_invocation_boundary_status_hash'));
+    }
+
+    public function test_command_returns_agent_automatic_dispatch_scheduler_one_shot_tick_provider_adapter_execution_guard_release_contract_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-automatic-dispatch-scheduler-one-shot-tick-provider-adapter-execution-guard-release-contract' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_automatic_dispatch_scheduler_one_shot_tick_provider_adapter_execution_guard_release_contract.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('one_shot_tick_provider_adapter_execution_guard_release_contract_ready', data_get($payload, 'status'));
+        $this->assertSame('read_only_agent_automatic_dispatch_scheduler_one_shot_tick_provider_adapter_execution_guard_release_contract', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'provider_adapter_execution_guard_allowed'));
+        $this->assertFalse(data_get($payload, 'adapter_execution_allowed'));
+        $this->assertFalse(data_get($payload, 'provider_start_allowed'));
+        $this->assertFalse(data_get($payload, 'token_spend_allowed'));
+        $this->assertSame('blockUntilProviderSpecificContract', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_adapter_execution_guard_release_contract.release_boundary.canonical_guard_method'));
+        $this->assertFalse(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_adapter_execution_guard_release_contract.release_boundary.external_process_started_by_guard'));
+        $this->assertContains('execution_guard_id', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_adapter_execution_guard_release_contract.required_input_fields_for_future_invoker'));
+        $this->assertContains('write_provider_adapter_execution_guard_metadata_on_agent_run', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_adapter_execution_guard_release_contract.allowed_future_mutations'));
+        $this->assertContains('execute_provider_adapter', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_adapter_execution_guard_release_contract.forbidden_even_after_guard'));
+        $this->assertSame('activate_signed_one_shot_scheduler_tick_provider_adapter_execution_guard_preflight', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_adapter_execution_guard_release_contract.next_required_slice'));
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_provider_adapter_execution_guard_release_contract_does_not_call_execution_guard', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_provider_adapter_execution_guard_release_contract_does_not_call_adapters', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_adapter_execution_guard_release_contract_hash'));
+    }
+
+    public function test_command_returns_agent_automatic_dispatch_scheduler_one_shot_tick_provider_adapter_execution_guard_preflight_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-automatic-dispatch-scheduler-one-shot-tick-provider-adapter-execution-guard-preflight' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_automatic_dispatch_scheduler_one_shot_tick_provider_adapter_execution_guard_preflight.v1', data_get($payload, 'schema_version'));
+        $this->assertContains(data_get($payload, 'status'), [
+            'one_shot_tick_provider_adapter_execution_guard_preflight_ready',
+            'blocked',
+        ]);
+        $this->assertSame('read_only_agent_automatic_dispatch_scheduler_one_shot_tick_provider_adapter_execution_guard_preflight', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'provider_adapter_execution_guard_allowed'));
+        $this->assertFalse(data_get($payload, 'adapter_execution_allowed'));
+        $this->assertFalse(data_get($payload, 'provider_start_allowed'));
+        $this->assertFalse(data_get($payload, 'token_spend_allowed'));
+        $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_adapter_execution_guard_preflight.preflight_checks.release_contract_ready'));
+        $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_adapter_execution_guard_preflight.preflight_checks.canonical_guard_method_ready'));
+        $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_adapter_execution_guard_preflight.preflight_checks.guard_does_not_start_external_process'));
+        $this->assertContains('delegate_to_agent_provider_adapter_execution_guard', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_adapter_execution_guard_preflight.implementation_requirements'));
+        $this->assertFalse(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_adapter_execution_guard_preflight.runtime_policy.provider_adapter_execution_guard_call_allowed_here'));
+        $this->assertSame('activate_signed_one_shot_scheduler_tick_provider_adapter_execution_guard_implementation_packet', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_adapter_execution_guard_preflight.next_required_slice'));
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_provider_adapter_execution_guard_preflight_does_not_call_execution_guard', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_provider_adapter_execution_guard_preflight_does_not_call_adapters', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_adapter_execution_guard_preflight_hash'));
+    }
+
+    public function test_command_returns_agent_automatic_dispatch_scheduler_one_shot_tick_provider_adapter_execution_guard_implementation_packet_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-automatic-dispatch-scheduler-one-shot-tick-provider-adapter-execution-guard-implementation-packet' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_automatic_dispatch_scheduler_one_shot_tick_provider_adapter_execution_guard_implementation_packet.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('ready_for_scoped_one_shot_tick_provider_adapter_execution_guard_invoker_implementation', data_get($payload, 'status'));
+        $this->assertSame('read_only_agent_automatic_dispatch_scheduler_one_shot_tick_provider_adapter_execution_guard_implementation_packet', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'provider_adapter_execution_guard_allowed'));
+        $this->assertFalse(data_get($payload, 'adapter_execution_allowed'));
+        $this->assertFalse(data_get($payload, 'provider_start_allowed'));
+        $this->assertFalse(data_get($payload, 'token_spend_allowed'));
+        $this->assertSame(4, data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_adapter_execution_guard_implementation_packet.task_count'));
+        $this->assertContains('app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickProviderAdapterExecutionGuardInvoker.php', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_adapter_execution_guard_implementation_packet.allowed_files'));
+        $this->assertContains('provider_adapter_execution_guard_invoker_blocks_provider_execution_without_starting_provider', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_adapter_execution_guard_implementation_packet.acceptance_criteria'));
+        $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_adapter_execution_guard_implementation_packet.implementation_policy.provider_adapter_execution_guard_call_allowed_by_future_invoker'));
+        $this->assertFalse(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_adapter_execution_guard_implementation_packet.implementation_policy.adapter_execution_allowed_by_packet'));
+        $this->assertSame('activate_signed_one_shot_scheduler_tick_provider_adapter_execution_guard_invoker_service', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_adapter_execution_guard_implementation_packet.next_required_slice'));
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_provider_adapter_execution_guard_implementation_packet_does_not_call_execution_guard', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_provider_adapter_execution_guard_implementation_packet_does_not_call_adapters', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_adapter_execution_guard_implementation_packet_hash'));
+    }
+
+    public function test_command_returns_agent_automatic_dispatch_scheduler_one_shot_tick_provider_adapter_execution_guard_status_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-automatic-dispatch-scheduler-one-shot-tick-provider-adapter-execution-guard-status' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_automatic_dispatch_scheduler_one_shot_tick_provider_adapter_execution_guard_status.v1', data_get($payload, 'schema_version'));
+        $this->assertContains(data_get($payload, 'status'), [
+            'one_shot_tick_provider_adapter_execution_guard_service_ready',
+            'blocked',
+        ]);
+        $this->assertSame('read_only_agent_automatic_dispatch_scheduler_one_shot_tick_provider_adapter_execution_guard_status', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'provider_adapter_execution_guard_allowed'));
+        $this->assertFalse(data_get($payload, 'adapter_execution_allowed'));
+        $this->assertFalse(data_get($payload, 'provider_start_allowed'));
+        $this->assertFalse(data_get($payload, 'token_spend_allowed'));
+        $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_adapter_execution_guard_status.invoker_service_ready'));
+        $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_adapter_execution_guard_status.generic_guard_service_ready'));
+        $this->assertSame('blockProviderAdapterExecution', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_adapter_execution_guard_status.invoker_canonical_method'));
+        $this->assertSame('blockUntilProviderSpecificContract', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_adapter_execution_guard_status.generic_guard_canonical_method'));
+        $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_adapter_execution_guard_status.runtime_policy.status_projection_is_read_only'));
+        $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_adapter_execution_guard_status.runtime_policy.provider_adapter_execution_guard_is_blocking_tripwire_not_execution'));
+        $this->assertFalse(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_adapter_execution_guard_status.runtime_policy.adapter_execution_allowed_here'));
+        $this->assertContains(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_adapter_execution_guard_status.next_required_slice'), [
+            'activate_signed_one_shot_scheduler_tick_provider_specific_execution_contract_release',
+            'repair_one_shot_scheduler_tick_provider_adapter_execution_guard_service_blockers',
+        ]);
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_provider_adapter_execution_guard_status_does_not_call_execution_guard', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_provider_adapter_execution_guard_status_does_not_call_adapters', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_adapter_execution_guard_status_hash'));
+    }
+
+    public function test_command_returns_agent_automatic_dispatch_scheduler_one_shot_tick_provider_specific_execution_contract_release_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-automatic-dispatch-scheduler-one-shot-tick-provider-specific-execution-contract-release' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_automatic_dispatch_scheduler_one_shot_tick_provider_specific_execution_contract_release.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('one_shot_tick_provider_specific_execution_contract_release_ready', data_get($payload, 'status'));
+        $this->assertSame('read_only_agent_automatic_dispatch_scheduler_one_shot_tick_provider_specific_execution_contract_release', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'provider_specific_execution_contract_allowed'));
+        $this->assertFalse(data_get($payload, 'adapter_execution_allowed'));
+        $this->assertFalse(data_get($payload, 'provider_start_allowed'));
+        $this->assertFalse(data_get($payload, 'token_spend_allowed'));
+        $this->assertSame('codex', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_specific_execution_contract_release.provider'));
+        $this->assertSame('prepareCodexExecution', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_specific_execution_contract_release.release_boundary.canonical_driver_method'));
+        $this->assertFalse(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_specific_execution_contract_release.release_boundary.external_process_started_by_driver'));
+        $this->assertContains('context_pack_hash', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_specific_execution_contract_release.required_input_fields_for_future_invoker'));
+        $this->assertContains('write_codex_provider_execution_metadata_on_agent_run', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_specific_execution_contract_release.allowed_future_mutations'));
+        $this->assertContains('call_codex_cli_or_codex_app', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_specific_execution_contract_release.forbidden_even_after_contract'));
+        $this->assertSame('activate_signed_one_shot_scheduler_tick_provider_specific_execution_contract_preflight', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_specific_execution_contract_release.next_required_slice'));
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_provider_specific_execution_contract_release_does_not_call_codex_driver', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_provider_specific_execution_contract_release_does_not_start_codex', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_specific_execution_contract_release_hash'));
+    }
+
+    public function test_command_returns_agent_automatic_dispatch_scheduler_one_shot_tick_provider_specific_execution_contract_preflight_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-automatic-dispatch-scheduler-one-shot-tick-provider-specific-execution-contract-preflight' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_automatic_dispatch_scheduler_one_shot_tick_provider_specific_execution_contract_preflight.v1', data_get($payload, 'schema_version'));
+        $this->assertContains(data_get($payload, 'status'), [
+            'one_shot_tick_provider_specific_execution_contract_preflight_ready',
+            'blocked',
+        ]);
+        $this->assertSame('read_only_agent_automatic_dispatch_scheduler_one_shot_tick_provider_specific_execution_contract_preflight', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'provider_specific_execution_contract_allowed'));
+        $this->assertFalse(data_get($payload, 'adapter_execution_allowed'));
+        $this->assertFalse(data_get($payload, 'provider_start_allowed'));
+        $this->assertFalse(data_get($payload, 'token_spend_allowed'));
+        $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_specific_execution_contract_preflight.preflight_checks.release_contract_ready'));
+        $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_specific_execution_contract_preflight.preflight_checks.canonical_driver_method_ready'));
+        $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_specific_execution_contract_preflight.preflight_checks.driver_does_not_start_external_process'));
+        $this->assertContains('delegate_to_agent_codex_provider_execution_driver', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_specific_execution_contract_preflight.implementation_requirements'));
+        $this->assertFalse(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_specific_execution_contract_preflight.runtime_policy.codex_provider_execution_driver_call_allowed_here'));
+        $this->assertSame('activate_signed_one_shot_scheduler_tick_provider_specific_execution_contract_implementation_packet', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_specific_execution_contract_preflight.next_required_slice'));
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_provider_specific_execution_contract_preflight_does_not_call_codex_driver', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_provider_specific_execution_contract_preflight_does_not_start_codex', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_specific_execution_contract_preflight_hash'));
+    }
+
+    public function test_command_returns_agent_automatic_dispatch_scheduler_one_shot_tick_provider_specific_execution_contract_implementation_packet_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-automatic-dispatch-scheduler-one-shot-tick-provider-specific-execution-contract-implementation-packet' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_automatic_dispatch_scheduler_one_shot_tick_provider_specific_execution_contract_implementation_packet.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('ready_for_scoped_one_shot_tick_provider_specific_execution_contract_invoker_implementation', data_get($payload, 'status'));
+        $this->assertSame('read_only_agent_automatic_dispatch_scheduler_one_shot_tick_provider_specific_execution_contract_implementation_packet', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'provider_specific_execution_contract_allowed'));
+        $this->assertFalse(data_get($payload, 'adapter_execution_allowed'));
+        $this->assertFalse(data_get($payload, 'provider_start_allowed'));
+        $this->assertFalse(data_get($payload, 'token_spend_allowed'));
+        $this->assertSame(4, data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_specific_execution_contract_implementation_packet.task_count'));
+        $this->assertContains('app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickCodexProviderExecutionContractInvoker.php', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_specific_execution_contract_implementation_packet.allowed_files'));
+        $this->assertContains('codex_provider_execution_contract_invoker_prepares_codex_execution_without_starting_codex', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_specific_execution_contract_implementation_packet.acceptance_criteria'));
+        $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_specific_execution_contract_implementation_packet.implementation_policy.codex_provider_execution_driver_call_allowed_by_future_invoker'));
+        $this->assertFalse(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_specific_execution_contract_implementation_packet.implementation_policy.codex_process_start_allowed_by_packet'));
+        $this->assertSame('activate_signed_one_shot_scheduler_tick_provider_specific_execution_contract_invoker_service', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_specific_execution_contract_implementation_packet.next_required_slice'));
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_provider_specific_execution_contract_implementation_packet_does_not_call_codex_driver', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_provider_specific_execution_contract_implementation_packet_does_not_start_codex', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_specific_execution_contract_implementation_packet_hash'));
+    }
+
+    public function test_command_returns_agent_automatic_dispatch_scheduler_one_shot_tick_provider_specific_execution_contract_status_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-automatic-dispatch-scheduler-one-shot-tick-provider-specific-execution-contract-status' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_automatic_dispatch_scheduler_one_shot_tick_provider_specific_execution_contract_status.v1', data_get($payload, 'schema_version'));
+        $this->assertContains(data_get($payload, 'status'), [
+            'one_shot_tick_provider_specific_execution_contract_service_ready',
+            'blocked',
+        ]);
+        $this->assertSame('read_only_agent_automatic_dispatch_scheduler_one_shot_tick_provider_specific_execution_contract_status', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'provider_specific_execution_contract_allowed'));
+        $this->assertFalse(data_get($payload, 'adapter_execution_allowed'));
+        $this->assertFalse(data_get($payload, 'provider_start_allowed'));
+        $this->assertFalse(data_get($payload, 'token_spend_allowed'));
+        $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_specific_execution_contract_status.invoker_service_ready'));
+        $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_specific_execution_contract_status.generic_driver_service_ready'));
+        $this->assertSame('prepareCodexProviderExecutionContract', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_specific_execution_contract_status.invoker_canonical_method'));
+        $this->assertSame('prepareCodexExecution', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_specific_execution_contract_status.generic_driver_canonical_method'));
+        $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_specific_execution_contract_status.runtime_policy.status_projection_is_read_only'));
+        $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_specific_execution_contract_status.runtime_policy.provider_specific_execution_contract_is_not_process_start'));
+        $this->assertFalse(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_specific_execution_contract_status.runtime_policy.codex_process_start_allowed_here'));
+        $this->assertContains(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_specific_execution_contract_status.next_required_slice'), [
+            'activate_signed_one_shot_scheduler_tick_codex_process_start_release_contract',
+            'repair_one_shot_scheduler_tick_provider_specific_execution_contract_service_blockers',
+        ]);
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_provider_specific_execution_contract_status_does_not_call_codex_driver', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_provider_specific_execution_contract_status_does_not_start_codex', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_specific_execution_contract_status_hash'));
+    }
+
+    public function test_command_returns_agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_start_release_contract_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-automatic-dispatch-scheduler-one-shot-tick-codex-process-start-release-contract' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_start_release_contract.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('one_shot_tick_codex_process_start_release_contract_ready', data_get($payload, 'status'));
+        $this->assertSame('read_only_agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_start_release_contract', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'codex_process_start_release_allowed'));
+        $this->assertFalse(data_get($payload, 'adapter_execution_allowed'));
+        $this->assertFalse(data_get($payload, 'provider_start_allowed'));
+        $this->assertFalse(data_get($payload, 'token_spend_allowed'));
+        $this->assertSame('authorizeCodexProcessStart', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_start_release_contract.release_boundary.canonical_gate_method'));
+        $this->assertFalse(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_start_release_contract.release_boundary.external_process_started_by_gate'));
+        $this->assertContains('operator_release_receipt_hash', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_start_release_contract.required_input_fields_for_future_invoker'));
+        $this->assertContains('write_codex_process_start_release_metadata_on_agent_run', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_start_release_contract.allowed_future_mutations'));
+        $this->assertContains('call_codex_cli_or_codex_app', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_start_release_contract.forbidden_even_after_contract'));
+        $this->assertSame('activate_signed_one_shot_scheduler_tick_codex_process_start_release_preflight', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_start_release_contract.next_required_slice'));
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_start_release_contract_does_not_call_release_gate', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_start_release_contract_does_not_start_codex', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_start_release_contract_hash'));
+    }
+
+    public function test_command_returns_agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_start_release_preflight_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-automatic-dispatch-scheduler-one-shot-tick-codex-process-start-release-preflight' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_start_release_preflight.v1', data_get($payload, 'schema_version'));
+        $this->assertContains(data_get($payload, 'status'), [
+            'one_shot_tick_codex_process_start_release_preflight_ready',
+            'blocked',
+        ]);
+        $this->assertSame('read_only_agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_start_release_preflight', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'codex_process_start_release_allowed'));
+        $this->assertFalse(data_get($payload, 'adapter_execution_allowed'));
+        $this->assertFalse(data_get($payload, 'provider_start_allowed'));
+        $this->assertFalse(data_get($payload, 'token_spend_allowed'));
+        $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_start_release_preflight.preflight_checks.release_contract_ready'));
+        $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_start_release_preflight.preflight_checks.canonical_gate_method_ready'));
+        $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_start_release_preflight.preflight_checks.gate_does_not_start_external_process'));
+        $this->assertContains('delegate_to_agent_codex_process_start_release_gate', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_start_release_preflight.implementation_requirements'));
+        $this->assertFalse(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_start_release_preflight.runtime_policy.codex_process_start_release_gate_call_allowed_here'));
+        $this->assertSame('activate_signed_one_shot_scheduler_tick_codex_process_start_release_implementation_packet', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_start_release_preflight.next_required_slice'));
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_start_release_preflight_does_not_call_release_gate', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_start_release_preflight_does_not_start_codex', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_start_release_preflight_hash'));
+    }
+
+    public function test_command_returns_agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_start_release_implementation_packet_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-automatic-dispatch-scheduler-one-shot-tick-codex-process-start-release-implementation-packet' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_start_release_implementation_packet.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('ready_for_scoped_one_shot_tick_codex_process_start_release_invoker_implementation', data_get($payload, 'status'));
+        $this->assertSame('read_only_agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_start_release_implementation_packet', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'codex_process_start_release_allowed'));
+        $this->assertFalse(data_get($payload, 'adapter_execution_allowed'));
+        $this->assertFalse(data_get($payload, 'provider_start_allowed'));
+        $this->assertFalse(data_get($payload, 'token_spend_allowed'));
+        $this->assertSame(4, data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_start_release_implementation_packet.task_count'));
+        $this->assertContains('app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickCodexProcessStartReleaseInvoker.php', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_start_release_implementation_packet.allowed_files'));
+        $this->assertContains('codex_process_start_release_invoker_authorizes_release_without_starting_codex', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_start_release_implementation_packet.acceptance_criteria'));
+        $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_start_release_implementation_packet.implementation_policy.codex_process_start_release_gate_call_allowed_by_future_invoker'));
+        $this->assertFalse(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_start_release_implementation_packet.implementation_policy.codex_process_start_allowed_by_packet'));
+        $this->assertSame('activate_signed_one_shot_scheduler_tick_codex_process_start_release_invoker_service', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_start_release_implementation_packet.next_required_slice'));
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_start_release_implementation_packet_does_not_call_release_gate', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_start_release_implementation_packet_does_not_start_codex', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_start_release_implementation_packet_hash'));
+    }
+
+    public function test_command_returns_agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_start_release_status_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-automatic-dispatch-scheduler-one-shot-tick-codex-process-start-release-status' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_start_release_status.v1', data_get($payload, 'schema_version'));
+        $this->assertContains(data_get($payload, 'status'), [
+            'one_shot_tick_codex_process_start_release_service_ready',
+            'blocked',
+        ]);
+        $this->assertSame('read_only_agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_start_release_status', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'codex_process_start_release_allowed'));
+        $this->assertFalse(data_get($payload, 'adapter_execution_allowed'));
+        $this->assertFalse(data_get($payload, 'provider_start_allowed'));
+        $this->assertFalse(data_get($payload, 'token_spend_allowed'));
+        $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_start_release_status.invoker_service_ready'));
+        $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_start_release_status.generic_gate_service_ready'));
+        $this->assertSame('authorizeCodexProcessStartRelease', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_start_release_status.invoker_canonical_method'));
+        $this->assertSame('authorizeCodexProcessStart', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_start_release_status.generic_gate_canonical_method'));
+        $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_start_release_status.runtime_policy.status_projection_is_read_only'));
+        $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_start_release_status.runtime_policy.process_start_release_is_not_process_start'));
+        $this->assertFalse(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_start_release_status.runtime_policy.codex_process_start_allowed_here'));
+        $this->assertContains(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_start_release_status.next_required_slice'), [
+            'activate_signed_one_shot_scheduler_tick_codex_supervised_start_executor_release_contract',
+            'repair_one_shot_scheduler_tick_codex_process_start_release_service_blockers',
+        ]);
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_start_release_status_does_not_call_release_gate', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_start_release_status_does_not_start_codex', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_start_release_status_hash'));
+    }
+
+    public function test_command_returns_agent_automatic_dispatch_scheduler_one_shot_tick_codex_supervised_start_executor_release_contract_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-automatic-dispatch-scheduler-one-shot-tick-codex-supervised-start-executor-release-contract' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_automatic_dispatch_scheduler_one_shot_tick_codex_supervised_start_executor_release_contract.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('one_shot_tick_codex_supervised_start_executor_release_contract_ready', data_get($payload, 'status'));
+        $this->assertSame('read_only_agent_automatic_dispatch_scheduler_one_shot_tick_codex_supervised_start_executor_release_contract', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'codex_supervised_start_allowed'));
+        $this->assertFalse(data_get($payload, 'adapter_execution_allowed'));
+        $this->assertFalse(data_get($payload, 'provider_start_allowed'));
+        $this->assertFalse(data_get($payload, 'token_spend_allowed'));
+        $this->assertSame('prepareSupervisedStart', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_supervised_start_executor_release_contract.release_boundary.canonical_executor_method'));
+        $this->assertFalse(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_supervised_start_executor_release_contract.release_boundary.external_process_started_by_executor'));
+        $this->assertContains('ready_probe_plan_hash', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_supervised_start_executor_release_contract.required_input_fields_for_future_invoker'));
+        $this->assertContains('write_codex_supervised_start_metadata_on_agent_run', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_supervised_start_executor_release_contract.allowed_future_mutations'));
+        $this->assertContains('call_codex_cli_or_codex_app', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_supervised_start_executor_release_contract.forbidden_even_after_contract'));
+        $this->assertSame('activate_signed_one_shot_scheduler_tick_codex_supervised_start_executor_preflight', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_supervised_start_executor_release_contract.next_required_slice'));
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_codex_supervised_start_executor_release_contract_does_not_call_supervised_executor', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_codex_supervised_start_executor_release_contract_does_not_start_codex', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_supervised_start_executor_release_contract_hash'));
+    }
+
+    public function test_command_returns_agent_automatic_dispatch_scheduler_one_shot_tick_codex_supervised_start_executor_preflight_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-automatic-dispatch-scheduler-one-shot-tick-codex-supervised-start-executor-preflight' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_automatic_dispatch_scheduler_one_shot_tick_codex_supervised_start_executor_preflight.v1', data_get($payload, 'schema_version'));
+        $this->assertContains(data_get($payload, 'status'), [
+            'one_shot_tick_codex_supervised_start_executor_preflight_ready',
+            'blocked',
+        ]);
+        $this->assertSame('read_only_agent_automatic_dispatch_scheduler_one_shot_tick_codex_supervised_start_executor_preflight', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'codex_supervised_start_allowed'));
+        $this->assertFalse(data_get($payload, 'adapter_execution_allowed'));
+        $this->assertFalse(data_get($payload, 'provider_start_allowed'));
+        $this->assertFalse(data_get($payload, 'token_spend_allowed'));
+        $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_supervised_start_executor_preflight.preflight_checks.release_contract_ready'));
+        $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_supervised_start_executor_preflight.preflight_checks.canonical_executor_method_ready'));
+        $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_supervised_start_executor_preflight.preflight_checks.executor_does_not_start_external_process'));
+        $this->assertContains('delegate_to_agent_codex_supervised_start_executor', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_supervised_start_executor_preflight.implementation_requirements'));
+        $this->assertFalse(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_supervised_start_executor_preflight.runtime_policy.codex_supervised_start_executor_call_allowed_here'));
+        $this->assertSame('activate_signed_one_shot_scheduler_tick_codex_supervised_start_executor_implementation_packet', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_supervised_start_executor_preflight.next_required_slice'));
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_codex_supervised_start_executor_preflight_does_not_call_supervised_executor', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_codex_supervised_start_executor_preflight_does_not_start_codex', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_supervised_start_executor_preflight_hash'));
+    }
+
+    public function test_command_returns_agent_automatic_dispatch_scheduler_one_shot_tick_codex_supervised_start_executor_implementation_packet_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-automatic-dispatch-scheduler-one-shot-tick-codex-supervised-start-executor-implementation-packet' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_automatic_dispatch_scheduler_one_shot_tick_codex_supervised_start_executor_implementation_packet.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('ready_for_scoped_one_shot_tick_codex_supervised_start_executor_invoker_implementation', data_get($payload, 'status'));
+        $this->assertSame('read_only_agent_automatic_dispatch_scheduler_one_shot_tick_codex_supervised_start_executor_implementation_packet', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'codex_supervised_start_allowed'));
+        $this->assertFalse(data_get($payload, 'adapter_execution_allowed'));
+        $this->assertFalse(data_get($payload, 'provider_start_allowed'));
+        $this->assertFalse(data_get($payload, 'token_spend_allowed'));
+        $this->assertSame(4, data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_supervised_start_executor_implementation_packet.task_count'));
+        $this->assertContains('app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickCodexSupervisedStartExecutorInvoker.php', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_supervised_start_executor_implementation_packet.allowed_files'));
+        $this->assertContains('codex_supervised_start_invoker_prepares_without_starting_codex', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_supervised_start_executor_implementation_packet.acceptance_criteria'));
+        $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_supervised_start_executor_implementation_packet.implementation_policy.codex_supervised_start_executor_call_allowed_by_future_invoker'));
+        $this->assertFalse(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_supervised_start_executor_implementation_packet.implementation_policy.codex_process_spawn_allowed_by_packet'));
+        $this->assertSame('activate_signed_one_shot_scheduler_tick_codex_supervised_start_executor_invoker_service', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_supervised_start_executor_implementation_packet.next_required_slice'));
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_codex_supervised_start_executor_implementation_packet_does_not_call_supervised_executor', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_codex_supervised_start_executor_implementation_packet_does_not_start_codex', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_supervised_start_executor_implementation_packet_hash'));
+    }
+
+    public function test_command_returns_agent_automatic_dispatch_scheduler_one_shot_tick_codex_supervised_start_executor_status_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-automatic-dispatch-scheduler-one-shot-tick-codex-supervised-start-executor-status' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_automatic_dispatch_scheduler_one_shot_tick_codex_supervised_start_executor_status.v1', data_get($payload, 'schema_version'));
+        $this->assertContains(data_get($payload, 'status'), [
+            'one_shot_tick_codex_supervised_start_executor_service_ready',
+            'blocked',
+        ]);
+        $this->assertSame('read_only_agent_automatic_dispatch_scheduler_one_shot_tick_codex_supervised_start_executor_status', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'codex_supervised_start_allowed'));
+        $this->assertFalse(data_get($payload, 'adapter_execution_allowed'));
+        $this->assertFalse(data_get($payload, 'provider_start_allowed'));
+        $this->assertFalse(data_get($payload, 'token_spend_allowed'));
+        $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_supervised_start_executor_status.invoker_service_ready'));
+        $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_supervised_start_executor_status.generic_executor_service_ready'));
+        $this->assertSame('prepareCodexSupervisedStart', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_supervised_start_executor_status.invoker_canonical_method'));
+        $this->assertSame('prepareSupervisedStart', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_supervised_start_executor_status.generic_executor_canonical_method'));
+        $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_supervised_start_executor_status.runtime_policy.status_projection_is_read_only'));
+        $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_supervised_start_executor_status.runtime_policy.supervised_start_executor_is_not_process_spawn'));
+        $this->assertFalse(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_supervised_start_executor_status.runtime_policy.codex_process_spawn_allowed_here'));
+        $this->assertContains(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_supervised_start_executor_status.next_required_slice'), [
+            'activate_signed_one_shot_scheduler_tick_codex_process_spawn_enablement_contract',
+            'repair_one_shot_scheduler_tick_codex_supervised_start_executor_service_blockers',
+        ]);
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_codex_supervised_start_executor_status_does_not_call_supervised_executor', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_codex_supervised_start_executor_status_does_not_start_codex', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_supervised_start_executor_status_hash'));
+    }
+
+    public function test_command_returns_agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_spawn_enablement_contract_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-automatic-dispatch-scheduler-one-shot-tick-codex-process-spawn-enablement-contract' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_spawn_enablement_contract.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('one_shot_tick_codex_process_spawn_enablement_contract_ready', data_get($payload, 'status'));
+        $this->assertSame('read_only_agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_spawn_enablement_contract', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'codex_process_spawn_enablement_allowed'));
+        $this->assertFalse(data_get($payload, 'adapter_execution_allowed'));
+        $this->assertFalse(data_get($payload, 'provider_start_allowed'));
+        $this->assertFalse(data_get($payload, 'token_spend_allowed'));
+        $this->assertSame('enableCodexProcessSpawn', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_spawn_enablement_contract.release_boundary.canonical_gate_method'));
+        $this->assertFalse(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_spawn_enablement_contract.release_boundary.external_process_started_by_gate'));
+        $this->assertContains('operator_spawn_receipt_hash', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_spawn_enablement_contract.required_input_fields_for_future_invoker'));
+        $this->assertContains('write_codex_process_spawn_enablement_metadata_on_agent_run', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_spawn_enablement_contract.allowed_future_mutations'));
+        $this->assertContains('call_codex_cli_or_codex_app', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_spawn_enablement_contract.forbidden_even_after_contract'));
+        $this->assertSame('activate_signed_one_shot_scheduler_tick_codex_process_spawn_enablement_preflight', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_spawn_enablement_contract.next_required_slice'));
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_spawn_enablement_contract_does_not_call_enablement_gate', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_spawn_enablement_contract_does_not_start_codex', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_spawn_enablement_contract_hash'));
+    }
+
+    public function test_command_returns_agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_spawn_enablement_preflight_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-automatic-dispatch-scheduler-one-shot-tick-codex-process-spawn-enablement-preflight' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_spawn_enablement_preflight.v1', data_get($payload, 'schema_version'));
+        $this->assertContains(data_get($payload, 'status'), [
+            'one_shot_tick_codex_process_spawn_enablement_preflight_ready',
+            'blocked',
+        ]);
+        $this->assertSame('read_only_agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_spawn_enablement_preflight', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'codex_process_spawn_enablement_allowed'));
+        $this->assertFalse(data_get($payload, 'adapter_execution_allowed'));
+        $this->assertFalse(data_get($payload, 'provider_start_allowed'));
+        $this->assertFalse(data_get($payload, 'token_spend_allowed'));
+        $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_spawn_enablement_preflight.preflight_checks.release_contract_ready'));
+        $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_spawn_enablement_preflight.preflight_checks.canonical_gate_method_ready'));
+        $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_spawn_enablement_preflight.preflight_checks.gate_does_not_start_external_process'));
+        $this->assertContains('delegate_to_agent_codex_process_spawn_enablement_gate', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_spawn_enablement_preflight.implementation_requirements'));
+        $this->assertFalse(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_spawn_enablement_preflight.runtime_policy.codex_process_spawn_enablement_gate_call_allowed_here'));
+        $this->assertSame('activate_signed_one_shot_scheduler_tick_codex_process_spawn_enablement_implementation_packet', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_spawn_enablement_preflight.next_required_slice'));
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_spawn_enablement_preflight_does_not_call_enablement_gate', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_spawn_enablement_preflight_does_not_start_codex', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_spawn_enablement_preflight_hash'));
+    }
+
+    public function test_command_returns_agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_spawn_enablement_implementation_packet_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-automatic-dispatch-scheduler-one-shot-tick-codex-process-spawn-enablement-implementation-packet' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_spawn_enablement_implementation_packet.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('ready_for_scoped_one_shot_tick_codex_process_spawn_enablement_invoker_implementation', data_get($payload, 'status'));
+        $this->assertSame('read_only_agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_spawn_enablement_implementation_packet', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'codex_process_spawn_enablement_allowed'));
+        $this->assertFalse(data_get($payload, 'adapter_execution_allowed'));
+        $this->assertFalse(data_get($payload, 'provider_start_allowed'));
+        $this->assertFalse(data_get($payload, 'token_spend_allowed'));
+        $this->assertSame(4, data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_spawn_enablement_implementation_packet.task_count'));
+        $this->assertContains('app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickCodexProcessSpawnEnablementInvoker.php', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_spawn_enablement_implementation_packet.allowed_files'));
+        $this->assertContains('codex_process_spawn_enablement_invoker_records_without_starting_codex', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_spawn_enablement_implementation_packet.acceptance_criteria'));
+        $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_spawn_enablement_implementation_packet.implementation_policy.codex_process_spawn_enablement_gate_call_allowed_by_future_invoker'));
+        $this->assertFalse(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_spawn_enablement_implementation_packet.implementation_policy.codex_process_spawn_allowed_by_packet'));
+        $this->assertSame('activate_signed_one_shot_scheduler_tick_codex_process_spawn_enablement_invoker_service', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_spawn_enablement_implementation_packet.next_required_slice'));
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_spawn_enablement_implementation_packet_does_not_call_enablement_gate', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_spawn_enablement_implementation_packet_does_not_start_codex', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_spawn_enablement_implementation_packet_hash'));
+    }
+
+    public function test_command_returns_agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_spawn_enablement_status_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-automatic-dispatch-scheduler-one-shot-tick-codex-process-spawn-enablement-status' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_spawn_enablement_status.v1', data_get($payload, 'schema_version'));
+        $this->assertContains(data_get($payload, 'status'), [
+            'one_shot_tick_codex_process_spawn_enablement_service_ready',
+            'blocked',
+        ]);
+        $this->assertSame('read_only_agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_spawn_enablement_status', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'codex_process_spawn_enablement_allowed'));
+        $this->assertFalse(data_get($payload, 'adapter_execution_allowed'));
+        $this->assertFalse(data_get($payload, 'provider_start_allowed'));
+        $this->assertFalse(data_get($payload, 'token_spend_allowed'));
+        $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_spawn_enablement_status.invoker_service_ready'));
+        $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_spawn_enablement_status.generic_gate_service_ready'));
+        $this->assertSame('enableCodexProcessSpawn', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_spawn_enablement_status.invoker_canonical_method'));
+        $this->assertSame('enableCodexProcessSpawn', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_spawn_enablement_status.generic_gate_canonical_method'));
+        $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_spawn_enablement_status.runtime_policy.status_projection_is_read_only'));
+        $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_spawn_enablement_status.runtime_policy.process_spawn_enablement_is_not_process_spawn'));
+        $this->assertFalse(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_spawn_enablement_status.runtime_policy.codex_process_spawn_allowed_here'));
+        $this->assertContains(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_spawn_enablement_status.next_required_slice'), [
+            'activate_signed_one_shot_scheduler_tick_codex_final_process_spawn_executor_contract',
+            'repair_one_shot_scheduler_tick_codex_process_spawn_enablement_service_blockers',
+        ]);
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_spawn_enablement_status_does_not_call_enablement_gate', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_spawn_enablement_status_does_not_start_codex', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_spawn_enablement_status_hash'));
+    }
+
+    public function test_command_returns_agent_automatic_dispatch_scheduler_one_shot_tick_codex_final_process_spawn_executor_contract_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-automatic-dispatch-scheduler-one-shot-tick-codex-final-process-spawn-executor-contract' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_automatic_dispatch_scheduler_one_shot_tick_codex_final_process_spawn_executor_contract.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('one_shot_tick_codex_final_process_spawn_executor_contract_ready', data_get($payload, 'status'));
+        $this->assertSame('read_only_agent_automatic_dispatch_scheduler_one_shot_tick_codex_final_process_spawn_executor_contract', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'codex_final_process_spawn_executor_allowed'));
+        $this->assertFalse(data_get($payload, 'adapter_execution_allowed'));
+        $this->assertFalse(data_get($payload, 'provider_start_allowed'));
+        $this->assertFalse(data_get($payload, 'token_spend_allowed'));
+        $this->assertSame('prepareProcessSpawn', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_final_process_spawn_executor_contract.release_boundary.canonical_executor_method'));
+        $this->assertSame('prepareCodexFinalProcessSpawn', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_final_process_spawn_executor_contract.release_boundary.scheduler_invoker_method'));
+        $this->assertFalse(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_final_process_spawn_executor_contract.release_boundary.external_process_started_by_executor'));
+        $this->assertContains('operator_final_spawn_receipt_hash', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_final_process_spawn_executor_contract.required_input_fields_for_future_invoker'));
+        $this->assertContains('write_codex_process_spawn_executor_metadata_on_agent_run', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_final_process_spawn_executor_contract.allowed_future_mutations'));
+        $this->assertContains('spawn_shell_or_subprocess', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_final_process_spawn_executor_contract.forbidden_even_after_contract'));
+        $this->assertSame('activate_signed_one_shot_scheduler_tick_codex_final_process_spawn_executor_preflight', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_final_process_spawn_executor_contract.next_required_slice'));
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_codex_final_process_spawn_executor_contract_does_not_call_executor', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_codex_final_process_spawn_executor_contract_does_not_start_codex', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_final_process_spawn_executor_contract_hash'));
+    }
+
+    public function test_command_returns_agent_automatic_dispatch_scheduler_one_shot_tick_codex_final_process_spawn_executor_preflight_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-automatic-dispatch-scheduler-one-shot-tick-codex-final-process-spawn-executor-preflight' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_automatic_dispatch_scheduler_one_shot_tick_codex_final_process_spawn_executor_preflight.v1', data_get($payload, 'schema_version'));
+        $this->assertContains(data_get($payload, 'status'), [
+            'one_shot_tick_codex_final_process_spawn_executor_preflight_ready',
+            'blocked',
+        ]);
+        $this->assertSame('read_only_agent_automatic_dispatch_scheduler_one_shot_tick_codex_final_process_spawn_executor_preflight', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'codex_final_process_spawn_executor_allowed'));
+        $this->assertFalse(data_get($payload, 'adapter_execution_allowed'));
+        $this->assertFalse(data_get($payload, 'provider_start_allowed'));
+        $this->assertFalse(data_get($payload, 'token_spend_allowed'));
+        $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_final_process_spawn_executor_preflight.preflight_checks.release_contract_ready'));
+        $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_final_process_spawn_executor_preflight.preflight_checks.canonical_executor_method_ready'));
+        $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_final_process_spawn_executor_preflight.preflight_checks.executor_does_not_start_external_process'));
+        $this->assertContains('delegate_to_agent_codex_process_spawn_executor', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_final_process_spawn_executor_preflight.implementation_requirements'));
+        $this->assertFalse(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_final_process_spawn_executor_preflight.runtime_policy.codex_process_spawn_executor_call_allowed_here'));
+        $this->assertSame('activate_signed_one_shot_scheduler_tick_codex_final_process_spawn_executor_implementation_packet', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_final_process_spawn_executor_preflight.next_required_slice'));
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_codex_final_process_spawn_executor_preflight_does_not_call_executor', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_codex_final_process_spawn_executor_preflight_does_not_start_codex', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_final_process_spawn_executor_preflight_hash'));
+    }
+
+    public function test_command_returns_agent_automatic_dispatch_scheduler_one_shot_tick_codex_final_process_spawn_executor_implementation_packet_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-automatic-dispatch-scheduler-one-shot-tick-codex-final-process-spawn-executor-implementation-packet' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_automatic_dispatch_scheduler_one_shot_tick_codex_final_process_spawn_executor_implementation_packet.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('ready_for_scoped_one_shot_tick_codex_final_process_spawn_executor_invoker_implementation', data_get($payload, 'status'));
+        $this->assertSame('read_only_agent_automatic_dispatch_scheduler_one_shot_tick_codex_final_process_spawn_executor_implementation_packet', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'codex_final_process_spawn_executor_allowed'));
+        $this->assertFalse(data_get($payload, 'adapter_execution_allowed'));
+        $this->assertFalse(data_get($payload, 'provider_start_allowed'));
+        $this->assertFalse(data_get($payload, 'token_spend_allowed'));
+        $this->assertSame(4, data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_final_process_spawn_executor_implementation_packet.task_count'));
+        $this->assertContains('app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickCodexFinalProcessSpawnExecutorInvoker.php', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_final_process_spawn_executor_implementation_packet.allowed_files'));
+        $this->assertContains('codex_final_process_spawn_executor_invoker_prepares_without_starting_codex', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_final_process_spawn_executor_implementation_packet.acceptance_criteria'));
+        $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_final_process_spawn_executor_implementation_packet.implementation_policy.codex_process_spawn_executor_call_allowed_by_future_invoker'));
+        $this->assertFalse(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_final_process_spawn_executor_implementation_packet.implementation_policy.codex_external_process_runtime_allowed_by_packet'));
+        $this->assertSame('activate_signed_one_shot_scheduler_tick_codex_final_process_spawn_executor_invoker_service', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_final_process_spawn_executor_implementation_packet.next_required_slice'));
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_codex_final_process_spawn_executor_implementation_packet_does_not_call_executor', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_codex_final_process_spawn_executor_implementation_packet_does_not_start_codex', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_final_process_spawn_executor_implementation_packet_hash'));
+    }
+
+    public function test_command_returns_agent_automatic_dispatch_scheduler_one_shot_tick_codex_final_process_spawn_executor_status_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-automatic-dispatch-scheduler-one-shot-tick-codex-final-process-spawn-executor-status' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_automatic_dispatch_scheduler_one_shot_tick_codex_final_process_spawn_executor_status.v1', data_get($payload, 'schema_version'));
+        $this->assertContains(data_get($payload, 'status'), [
+            'one_shot_tick_codex_final_process_spawn_executor_service_ready',
+            'blocked',
+        ]);
+        $this->assertSame('read_only_agent_automatic_dispatch_scheduler_one_shot_tick_codex_final_process_spawn_executor_status', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'codex_final_process_spawn_executor_allowed'));
+        $this->assertFalse(data_get($payload, 'adapter_execution_allowed'));
+        $this->assertFalse(data_get($payload, 'provider_start_allowed'));
+        $this->assertFalse(data_get($payload, 'token_spend_allowed'));
+        $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_final_process_spawn_executor_status.invoker_service_ready'));
+        $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_final_process_spawn_executor_status.generic_executor_service_ready'));
+        $this->assertSame('prepareCodexFinalProcessSpawn', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_final_process_spawn_executor_status.invoker_canonical_method'));
+        $this->assertSame('prepareProcessSpawn', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_final_process_spawn_executor_status.generic_executor_canonical_method'));
+        $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_final_process_spawn_executor_status.runtime_policy.status_projection_is_read_only'));
+        $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_final_process_spawn_executor_status.runtime_policy.final_process_spawn_executor_is_not_external_process_runtime'));
+        $this->assertFalse(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_final_process_spawn_executor_status.runtime_policy.codex_external_process_runtime_allowed_here'));
+        $this->assertContains(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_final_process_spawn_executor_status.next_required_slice'), [
+            'activate_signed_one_shot_scheduler_tick_codex_external_process_runtime_driver_contract',
+            'repair_one_shot_scheduler_tick_codex_final_process_spawn_executor_service_blockers',
+        ]);
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_codex_final_process_spawn_executor_status_does_not_call_executor', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_codex_final_process_spawn_executor_status_does_not_start_codex', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_final_process_spawn_executor_status_hash'));
+    }
+
+    public function test_command_returns_agent_automatic_dispatch_scheduler_one_shot_tick_codex_external_process_runtime_driver_contract_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-automatic-dispatch-scheduler-one-shot-tick-codex-external-process-runtime-driver-contract' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_automatic_dispatch_scheduler_one_shot_tick_codex_external_process_runtime_driver_contract.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('one_shot_tick_codex_external_process_runtime_driver_contract_ready', data_get($payload, 'status'));
+        $this->assertSame('read_only_agent_automatic_dispatch_scheduler_one_shot_tick_codex_external_process_runtime_driver_contract', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'codex_external_process_runtime_driver_allowed'));
+        $this->assertFalse(data_get($payload, 'adapter_execution_allowed'));
+        $this->assertFalse(data_get($payload, 'provider_start_allowed'));
+        $this->assertFalse(data_get($payload, 'token_spend_allowed'));
+        $this->assertSame('prepareExternalRuntime', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_external_process_runtime_driver_contract.release_boundary.canonical_driver_method'));
+        $this->assertSame('prepareCodexExternalProcessRuntime', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_external_process_runtime_driver_contract.release_boundary.scheduler_invoker_method'));
+        $this->assertFalse(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_external_process_runtime_driver_contract.release_boundary.external_process_started_by_driver'));
+        $this->assertContains('operator_runtime_receipt_hash', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_external_process_runtime_driver_contract.required_input_fields_for_future_invoker'));
+        $this->assertContains('write_codex_external_process_runtime_driver_metadata_on_agent_run', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_external_process_runtime_driver_contract.allowed_future_mutations'));
+        $this->assertContains('spawn_shell_or_subprocess', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_external_process_runtime_driver_contract.forbidden_even_after_contract'));
+        $this->assertSame('activate_signed_one_shot_scheduler_tick_codex_external_process_runtime_driver_preflight', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_external_process_runtime_driver_contract.next_required_slice'));
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_codex_external_process_runtime_driver_contract_does_not_call_driver', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_codex_external_process_runtime_driver_contract_does_not_start_codex', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_external_process_runtime_driver_contract_hash'));
+    }
+
+    public function test_command_returns_agent_automatic_dispatch_scheduler_one_shot_tick_codex_external_process_runtime_driver_preflight_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-automatic-dispatch-scheduler-one-shot-tick-codex-external-process-runtime-driver-preflight' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_automatic_dispatch_scheduler_one_shot_tick_codex_external_process_runtime_driver_preflight.v1', data_get($payload, 'schema_version'));
+        $this->assertContains(data_get($payload, 'status'), [
+            'one_shot_tick_codex_external_process_runtime_driver_preflight_ready',
+            'blocked',
+        ]);
+        $this->assertSame('read_only_agent_automatic_dispatch_scheduler_one_shot_tick_codex_external_process_runtime_driver_preflight', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'codex_external_process_runtime_driver_allowed'));
+        $this->assertFalse(data_get($payload, 'adapter_execution_allowed'));
+        $this->assertFalse(data_get($payload, 'provider_start_allowed'));
+        $this->assertFalse(data_get($payload, 'token_spend_allowed'));
+        $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_external_process_runtime_driver_preflight.preflight_checks.release_contract_ready'));
+        $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_external_process_runtime_driver_preflight.preflight_checks.canonical_driver_method_ready'));
+        $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_external_process_runtime_driver_preflight.preflight_checks.driver_does_not_start_external_process'));
+        $this->assertContains('delegate_to_agent_codex_external_process_runtime_driver', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_external_process_runtime_driver_preflight.implementation_requirements'));
+        $this->assertFalse(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_external_process_runtime_driver_preflight.runtime_policy.codex_external_process_runtime_driver_call_allowed_here'));
+        $this->assertSame('activate_signed_one_shot_scheduler_tick_codex_external_process_runtime_driver_implementation_packet', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_external_process_runtime_driver_preflight.next_required_slice'));
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_codex_external_process_runtime_driver_preflight_does_not_call_driver', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_codex_external_process_runtime_driver_preflight_does_not_start_codex', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_external_process_runtime_driver_preflight_hash'));
+    }
+
+    public function test_command_returns_agent_automatic_dispatch_scheduler_one_shot_tick_codex_external_process_runtime_driver_implementation_packet_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-automatic-dispatch-scheduler-one-shot-tick-codex-external-process-runtime-driver-implementation-packet' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_automatic_dispatch_scheduler_one_shot_tick_codex_external_process_runtime_driver_implementation_packet.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('ready_for_scoped_one_shot_tick_codex_external_process_runtime_driver_invoker_implementation', data_get($payload, 'status'));
+        $this->assertSame('read_only_agent_automatic_dispatch_scheduler_one_shot_tick_codex_external_process_runtime_driver_implementation_packet', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'codex_external_process_runtime_driver_allowed'));
+        $this->assertFalse(data_get($payload, 'adapter_execution_allowed'));
+        $this->assertFalse(data_get($payload, 'provider_start_allowed'));
+        $this->assertFalse(data_get($payload, 'token_spend_allowed'));
+        $this->assertSame(4, data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_external_process_runtime_driver_implementation_packet.task_count'));
+        $this->assertContains('app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickCodexExternalProcessRuntimeDriverInvoker.php', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_external_process_runtime_driver_implementation_packet.allowed_files'));
+        $this->assertContains('codex_external_process_runtime_driver_invoker_prepares_without_starting_codex', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_external_process_runtime_driver_implementation_packet.acceptance_criteria'));
+        $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_external_process_runtime_driver_implementation_packet.implementation_policy.codex_external_process_runtime_driver_call_allowed_by_future_invoker'));
+        $this->assertFalse(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_external_process_runtime_driver_implementation_packet.implementation_policy.codex_process_invocation_authorization_allowed_by_packet'));
+        $this->assertSame('activate_signed_one_shot_scheduler_tick_codex_external_process_runtime_driver_invoker_service', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_external_process_runtime_driver_implementation_packet.next_required_slice'));
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_codex_external_process_runtime_driver_implementation_packet_does_not_call_driver', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_codex_external_process_runtime_driver_implementation_packet_does_not_start_codex', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_external_process_runtime_driver_implementation_packet_hash'));
+    }
+
+    public function test_command_returns_agent_automatic_dispatch_scheduler_one_shot_tick_codex_external_process_runtime_driver_status_as_json(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-automatic-dispatch-scheduler-one-shot-tick-codex-external-process-runtime-driver-status' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_automatic_dispatch_scheduler_one_shot_tick_codex_external_process_runtime_driver_status.v1', data_get($payload, 'schema_version'));
+        $this->assertContains(data_get($payload, 'status'), [
+            'one_shot_tick_codex_external_process_runtime_driver_service_ready',
+            'blocked',
+        ]);
+        $this->assertSame('read_only_agent_automatic_dispatch_scheduler_one_shot_tick_codex_external_process_runtime_driver_status', data_get($payload, 'mode'));
+        $this->assertFalse(data_get($payload, 'execution_allowed'));
+        $this->assertFalse(data_get($payload, 'codex_external_process_runtime_driver_allowed'));
+        $this->assertFalse(data_get($payload, 'adapter_execution_allowed'));
+        $this->assertFalse(data_get($payload, 'provider_start_allowed'));
+        $this->assertFalse(data_get($payload, 'token_spend_allowed'));
+        $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_external_process_runtime_driver_status.invoker_service_ready'));
+        $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_external_process_runtime_driver_status.generic_driver_service_ready'));
+        $this->assertSame('prepareCodexExternalProcessRuntime', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_external_process_runtime_driver_status.invoker_canonical_method'));
+        $this->assertSame('prepareExternalRuntime', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_external_process_runtime_driver_status.generic_driver_canonical_method'));
+        $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_external_process_runtime_driver_status.runtime_policy.status_projection_is_read_only'));
+        $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_external_process_runtime_driver_status.runtime_policy.external_process_runtime_driver_is_not_process_invocation'));
+        $this->assertFalse(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_external_process_runtime_driver_status.runtime_policy.codex_process_invocation_authorization_allowed_here'));
+        $this->assertContains(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_external_process_runtime_driver_status.next_required_slice'), [
+            'activate_signed_one_shot_scheduler_tick_codex_process_invocation_authorization_contract',
+            'repair_one_shot_scheduler_tick_codex_external_process_runtime_driver_service_blockers',
+        ]);
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_codex_external_process_runtime_driver_status_does_not_call_driver', data_get($payload, 'non_execution_guarantees'));
+        $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_codex_external_process_runtime_driver_status_does_not_start_codex', data_get($payload, 'non_execution_guarantees'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_external_process_runtime_driver_status_hash'));
     }
 
     public function test_command_returns_agent_provider_adapter_execution_guard_contract_template_as_json(): void

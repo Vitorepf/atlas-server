@@ -32,8 +32,8 @@ final class AtlasVoiceRuntimeEventNormalizer
         'wake_word_detected' => ['session_id', 'wake_word_engine', 'confidence', 'latency_ms'],
         'tts_synthesized' => ['session_id', 'turn_id', 'response_text_hash', 'audio_hash', 'audio_duration_ms', 'tts_provider', 'provider', 'model', 'latency_ms'],
         'audio_played' => ['session_id', 'turn_id', 'played_duration_ms', 'latency_ms'],
-        'barge_in' => ['session_id', 'turn_id', 'reason', 'interrupted_stage', 'latency_ms'],
-        'runtime_failed' => ['session_id', 'turn_id', 'failure_code', 'error_class', 'latency_ms'],
+        'barge_in' => ['session_id', 'turn_id', 'reason', 'interrupted_stage', 'played_duration_ms', 'latency_ms'],
+        'runtime_failed' => ['session_id', 'turn_id', 'failure_code', 'error_class', 'error_message_hash', 'latency_ms'],
         'provider_health_degraded' => ['session_id', 'turn_id', 'provider', 'reason', 'latency_ms'],
         'participant_left' => ['session_id', 'reason'],
     ];

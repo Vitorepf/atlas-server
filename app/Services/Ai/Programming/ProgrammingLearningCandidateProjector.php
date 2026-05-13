@@ -21,6 +21,11 @@ class ProgrammingLearningCandidateProjector
             'evidence_refs' => $evidenceRefs,
             'source_status' => $result['status'] ?? null,
             'candidate_hash' => hash('sha256', json_encode($result, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: ''),
+            'expires_at' => now()->addDays(30)->toJSON(),
+            'rollback' => [
+                'available' => true,
+                'strategy' => 'reject_candidate_without_memory_promotion',
+            ],
             'prohibited_actions' => [
                 'auto_promote_to_memory',
                 'send_raw_private_code_to_provider_memory',

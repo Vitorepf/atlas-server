@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AtlasEngineeringBenchmarkResult;
 use App\Models\AtlasEngineeringBenchmarkRun;
 use App\Models\AtlasEngineeringBenchmarkSuite;
 use App\Models\AtlasEngineeringRun;
@@ -11,6 +12,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Symfony\Component\Process\Process;
 
 class EngineeringBenchmarkController extends Controller
 {
@@ -151,7 +153,7 @@ class EngineeringBenchmarkController extends Controller
         return response()->json($benchmarks->fairClaudeReportPayload($this->resolveSuite($suite), $data));
     }
 
-    public function rivalsBatteryPlan(Request $request, string $suite): JsonResponse
+    public function rivalsBatteryPlan(Request $request, string $suite, EngineeringBenchmarkService $benchmarks): JsonResponse
     {
         $data = $request->validate([
             'mode' => ['required', Rule::in(['official_fair', 'same_model', 'max'])],
@@ -162,7 +164,12 @@ class EngineeringBenchmarkController extends Controller
             'limit' => ['nullable', 'integer', 'min:1', 'max:30'],
         ]);
 
-        $plan = $this->rivalsBatteryPlanPayload($this->resolveSuite($suite)->load('cases'), $data);
+        $resolved = $this->resolveSuite($suite)->load('cases');
+        $plan = $this->rivalsBatteryPlanPayload(
+            $resolved,
+            $data,
+            $benchmarks->fairClaudeReportPayload($resolved, ['limit' => 20]),
+        );
 
         return response()->json(['battery_plan' => $plan]);
     }
@@ -171,7 +178,7 @@ class EngineeringBenchmarkController extends Controller
      * @param  array<string,mixed>  $data
      * @return array<string,mixed>
      */
-    private function rivalsBatteryPlanPayload(AtlasEngineeringBenchmarkSuite $resolved, array $data): array
+    private function rivalsBatteryPlanPayload(AtlasEngineeringBenchmarkSuite $resolved, array $data, ?array $fairClaudeReport = null): array
     {
         $mode = (string) $data['mode'];
         $workspace = trim((string) ($data['workspace'] ?? ''));
@@ -184,15 +191,48 @@ class EngineeringBenchmarkController extends Controller
         $activeCorpus = (int) (data_get($resolved->metadata, 'corpus_manifest.active_cases')
             ?: $resolved->cases->where('status', 'active')->count());
         $minimumRelease = 6;
+        $workspaceExists = $workspace !== '' && is_dir($workspace);
+        $baselineWorkspaceExists = $baselineWorkspace !== '' && is_dir($baselineWorkspace);
+        $workspaceGit = $workspaceExists ? $this->gitWorkspaceState($workspace) : ['is_git' => false, 'clean' => null, 'dirty_files' => [], 'status' => $workspace === '' ? 'missing' : 'missing_or_unreadable'];
+        $baselineGit = $baselineWorkspaceExists ? $this->gitWorkspaceState($baselineWorkspace) : ['is_git' => false, 'clean' => null, 'dirty_files' => [], 'status' => $baselineWorkspace === '' ? 'missing' : 'missing_or_unreadable'];
+        $baselineSeparate = $workspaceExists
+            && $baselineWorkspaceExists
+            && realpath($workspace) !== realpath($baselineWorkspace);
         $blockers = [];
         if ($workspace === '') {
             $blockers[] = 'workspace_required';
         }
+        if ($workspace !== '' && ! $workspaceExists) {
+            $blockers[] = 'workspace_missing_or_unreadable';
+        }
+        if ($workspaceExists && ($workspaceGit['is_git'] ?? false) !== true) {
+            $blockers[] = 'atlas_workspace_not_git_worktree';
+        }
+        if (($workspaceGit['is_git'] ?? false) && ($workspaceGit['clean'] ?? null) !== true) {
+            $blockers[] = 'atlas_workspace_dirty';
+        }
         if ($releaseCorpus < $minimumRelease) {
             $blockers[] = 'release_corpus_below_minimum';
         }
+        $triageRequiredBeforeRerun = $this->fairClaudeReportRequiresTriageBeforeRerun($fairClaudeReport)
+            || $this->suiteHasHistoricalInvalidFairBattery($resolved);
+        if ($triageRequiredBeforeRerun) {
+            $blockers[] = 'historical_invalid_battery_requires_triage';
+        }
         if ($mode === 'official_fair' && $baselineWorkspace === '') {
             $blockers[] = 'separate_baseline_workspace_required';
+        }
+        if ($mode === 'official_fair' && $baselineWorkspace !== '' && ! $baselineWorkspaceExists) {
+            $blockers[] = 'claude_code_baseline_workspace_missing_or_unreadable';
+        }
+        if ($mode === 'official_fair' && $workspaceExists && $baselineWorkspaceExists && ! $baselineSeparate) {
+            $blockers[] = 'baseline_workspace_must_be_separate';
+        }
+        if ($mode === 'official_fair' && $baselineWorkspaceExists && ($baselineGit['is_git'] ?? false) !== true) {
+            $blockers[] = 'claude_code_baseline_workspace_not_git_worktree';
+        }
+        if ($mode === 'official_fair' && ($baselineGit['is_git'] ?? false) && ($baselineGit['clean'] ?? null) !== true) {
+            $blockers[] = 'claude_code_baseline_workspace_dirty';
         }
         if ($mode !== 'max' && $provider === '') {
             $blockers[] = 'provider_required';
@@ -252,10 +292,24 @@ class EngineeringBenchmarkController extends Controller
                 'fair_claim_eligible' => $mode === 'official_fair',
                 'max_capability_run' => $mode === 'max',
             ],
+            'preflight' => [
+                'workspace_exists' => $workspaceExists,
+                'workspace_git' => $workspaceGit,
+                'baseline_workspace_exists' => $baselineWorkspaceExists,
+                'baseline_workspace_separate' => $baselineSeparate,
+                'baseline_workspace_git' => $baselineGit,
+            ],
             'corpus' => [
                 'active_case_count' => $activeCorpus,
                 'release_case_count' => $releaseCorpus,
                 'minimum_release_case_count' => $minimumRelease,
+            ],
+            'result_integrity' => [
+                'status' => data_get($fairClaudeReport, 'result_integrity.status'),
+                'score_admitted' => (bool) data_get($fairClaudeReport, 'result_integrity.score_admitted', false),
+                'claim_winner_admitted' => (bool) data_get($fairClaudeReport, 'result_integrity.claim_winner_admitted', false),
+                'winner_for_claim' => data_get($fairClaudeReport, 'result_integrity.winner_for_claim'),
+                'triage_required_before_rerun' => $triageRequiredBeforeRerun,
             ],
             'safety' => [
                 'read_only_plan' => true,
@@ -263,12 +317,117 @@ class EngineeringBenchmarkController extends Controller
                 'no_benchmark_run_created' => true,
                 'no_score_recorded' => true,
                 'no_completion_gate_change' => true,
+                'clean_git_workspaces_required' => true,
             ],
         ];
         $plan['plan_hash'] = hash('sha256', json_encode($plan, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '');
         $plan['generated_at'] = now()->toJSON();
 
         return $plan;
+    }
+
+    /**
+     * @param  array<string,mixed>|null  $report
+     */
+    private function fairClaudeReportRequiresTriageBeforeRerun(?array $report): bool
+    {
+        if ($report === null) {
+            return false;
+        }
+
+        if ((string) data_get($report, 'result_integrity.status') === 'invalid_battery_no_comparable_score') {
+            return true;
+        }
+
+        $nextActionIds = collect((array) data_get($report, 'next_actions', []))
+            ->pluck('id')
+            ->filter(fn (mixed $id): bool => is_string($id) && $id !== '')
+            ->values()
+            ->all();
+
+        return in_array('triage_invalid_battery_before_provider_rerun', $nextActionIds, true);
+    }
+
+    /**
+     * @return array{is_git:bool,clean:?bool,dirty_files:array<int,string>,status:string}
+     */
+    private function gitWorkspaceState(string $workspace): array
+    {
+        $inside = new Process(['git', 'rev-parse', '--is-inside-work-tree'], $workspace);
+        $inside->setTimeout(5);
+        $inside->run();
+
+        if (! $inside->isSuccessful() || trim($inside->getOutput()) !== 'true') {
+            return [
+                'is_git' => false,
+                'clean' => null,
+                'dirty_files' => [],
+                'status' => 'not_git_workspace',
+            ];
+        }
+
+        $status = new Process(['git', 'status', '--porcelain'], $workspace);
+        $status->setTimeout(10);
+        $status->run();
+
+        if (! $status->isSuccessful()) {
+            return [
+                'is_git' => true,
+                'clean' => null,
+                'dirty_files' => [],
+                'status' => 'git_status_unavailable',
+            ];
+        }
+
+        $dirtyFiles = collect(explode("\n", trim($status->getOutput())))
+            ->filter(fn (string $line): bool => trim($line) !== '')
+            ->map(function (string $line): string {
+                $path = preg_replace('/^..\s*/', '', $line);
+
+                return trim(is_string($path) && $path !== '' ? $path : $line);
+            })
+            ->values()
+            ->all();
+
+        return [
+            'is_git' => true,
+            'clean' => $dirtyFiles === [],
+            'dirty_files' => $dirtyFiles,
+            'status' => $dirtyFiles === [] ? 'clean' : 'dirty',
+        ];
+    }
+
+    private function suiteHasHistoricalInvalidFairBattery(AtlasEngineeringBenchmarkSuite $suite): bool
+    {
+        $results = AtlasEngineeringBenchmarkResult::query()
+            ->where('suite_id', $suite->id)
+            ->latest()
+            ->limit(50)
+            ->get();
+        $hasInvalidFairCase = false;
+        $hasComparableFairCase = false;
+
+        foreach ($results as $result) {
+            $scorecard = data_get($result->observed_json ?? [], 'paired_scorecard');
+            if (! is_array($scorecard) || ! (bool) ($scorecard['fair_mode'] ?? false)) {
+                continue;
+            }
+
+            if (
+                (string) ($scorecard['comparison_status'] ?? '') === 'atlas_protocol_invalid'
+                || (bool) data_get($scorecard, 'atlas.protocol_valid', true) === false
+            ) {
+                $hasInvalidFairCase = true;
+
+                continue;
+            }
+
+            if ((bool) ($scorecard['comparable'] ?? false) && (string) ($scorecard['comparison_status'] ?? '') === 'comparable') {
+                $hasComparableFairCase = true;
+            }
+        }
+
+        return $hasInvalidFairCase && ! $hasComparableFairCase;
     }
 
     /**
@@ -578,7 +737,7 @@ class EngineeringBenchmarkController extends Controller
                 'provider' => $data['provider'] ?? null,
                 'model' => $data['model'] ?? null,
                 'limit' => $data['limit'] ?? null,
-            ]);
+            ], $benchmarks->fairClaudeReportPayload($resolved, ['limit' => 20]));
 
             if (($data['operator_plan_reviewed'] ?? false) !== true) {
                 return response()->json([

@@ -86,6 +86,12 @@ use App\Console\Commands\AtlasMemorySeedCoreCommand;
 use App\Console\Commands\AtlasOpenBrainContextCommand;
 use App\Console\Commands\AtlasOpenBrainMcpCommand;
 use App\Console\Commands\AtlasProductiveFailureCommand;
+use App\Console\Commands\AtlasProgrammingCompletionAuditCommand;
+use App\Console\Commands\AtlasProgrammingPatchVerifierBenchmarkCommand;
+use App\Console\Commands\AtlasProgrammingResumeCommand;
+use App\Console\Commands\AtlasProgrammingRetrievalBenchmarkCommand;
+use App\Console\Commands\AtlasProgrammingRivalsReadinessCommand;
+use App\Console\Commands\AtlasProgrammingTestImpactBenchmarkCommand;
 use App\Console\Commands\AtlasProposalCommand;
 use App\Console\Commands\AtlasProposalScanCommand;
 use App\Console\Commands\AtlasRivalsCommand;
@@ -110,6 +116,7 @@ use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Middleware\HandleCors;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -171,6 +178,12 @@ return Application::configure(basePath: dirname(__DIR__))
         AtlasCliProvidersCommand::class,
         AtlasProposalCommand::class,
         AtlasProposalScanCommand::class,
+        AtlasProgrammingCompletionAuditCommand::class,
+        AtlasProgrammingPatchVerifierBenchmarkCommand::class,
+        AtlasProgrammingRetrievalBenchmarkCommand::class,
+        AtlasProgrammingRivalsReadinessCommand::class,
+        AtlasProgrammingResumeCommand::class,
+        AtlasProgrammingTestImpactBenchmarkCommand::class,
         AtlasProductiveFailureCommand::class,
         AtlasMemoryMaintenanceCommand::class,
         AtlasMemoryQualityCommand::class,
@@ -397,7 +410,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         // Atlas Code MVP: enable CORS for atlas-desktop dev (Vite :5173) +
         // Tauri shell. Origins are governed by config/cors.php.
-        $middleware->prepend(\Illuminate\Http\Middleware\HandleCors::class);
+        $middleware->prepend(HandleCors::class);
 
         $middleware->alias([
             'atlas.token' => AuthenticateAtlasToken::class,

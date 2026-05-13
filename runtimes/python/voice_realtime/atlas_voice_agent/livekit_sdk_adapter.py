@@ -94,6 +94,7 @@ class LiveKitSdkAdapter:
             "turn_id": _required(event, "turn_id"),
             "reason": str(event.get("reason") or "operator_started_speaking"),
             "interrupted_stage": str(event.get("interrupted_stage") or "tts_streaming"),
+            "played_duration_ms": event.get("played_duration_ms"),
             "latency_ms": event.get("latency_ms"),
         }))
 
@@ -106,6 +107,7 @@ class LiveKitSdkAdapter:
             "turn_id": _required(event, "turn_id"),
             "failure_code": str(event.get("failure_code") or "runtime_failed"),
             "error_class": event.get("error_class"),
+            "error_message_hash": event.get("error_message_hash"),
             "latency_ms": event.get("latency_ms"),
         }))
 

@@ -42,6 +42,10 @@ class CaptureController extends Controller
             $query->where('kind', $data['kind']);
         }
 
+        if (isset($data['client_id'])) {
+            $query->where('client_id', $data['client_id']);
+        }
+
         if (isset($data['cursor'])) {
             $cursor = Capture::withTrashed()->find($data['cursor']);
 

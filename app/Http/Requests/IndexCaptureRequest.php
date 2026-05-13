@@ -21,6 +21,7 @@ class IndexCaptureRequest extends FormRequest
             'since' => ['sometimes', 'date'],
             'domain' => $this->atlasDomainRule(required: false),
             'kind' => ['sometimes', Rule::in(['audio', 'text', 'photo'])],
+            'client_id' => ['sometimes', 'uuid'],
             'limit' => ['sometimes', 'integer', 'min:1', 'max:200'],
             'cursor' => ['sometimes', 'uuid'],
         ];

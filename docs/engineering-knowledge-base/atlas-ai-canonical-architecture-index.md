@@ -31,7 +31,11 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-ai-thesis-multiplier-channel.md
   - docs/engineering-knowledge-base/atlas-ai-session-bootstrap.md
   - docs/engineering-knowledge-base/atlas-ai-documentation-operating-system.md
+  - docs/engineering-knowledge-base/atlas-next-patamar-operating-systems.md
+  - docs/engineering-knowledge-base/atlas-sovereign-operating-system.md
   - docs/engineering-knowledge-base/atlas-system-graph.md
+  - docs/engineering-knowledge-base/atlas-epistemic-operating-system.md
+  - docs/engineering-knowledge-base/atlas-cartographic-knowledge-os.md
   - docs/engineering-knowledge-base/system-graph/node-catalog-and-build-contract.md
   - docs/engineering-knowledge-base/system-graph/living-architecture-graph-contract.md
   - docs/engineering-knowledge-base/atlas-ai-knowledge-governance-system.md
@@ -44,6 +48,8 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-ai-research-self-improvement-runtime.md
   - docs/engineering-knowledge-base/research-self-improvement/
   - docs/engineering-knowledge-base/atlas-ai-spec-operating-system.md
+  - docs/engineering-knowledge-base/atlas-programming-governance-system.md
+  - docs/engineering-knowledge-base/atlas-forge-operating-system.md
   - docs/engineering-knowledge-base/spec-operating-system/
   - docs/engineering-knowledge-base/atlas-ai-self-construction-os.md
   - docs/engineering-knowledge-base/atlas-ai-obras-operating-system.md
@@ -138,9 +144,14 @@ Compact authority root for Atlas AI architecture; if a session is confused about
 ```text
 Layer -1  Thesis / Multiplicador / Canal Unico / Antifragilidade
 Layer 0   Constitution, identity, glossary, AtlasVault human knowledge
+Layer 0.45 Sovereign OS: purpose, identity, autonomy, priority and self-modification governance
 Layer 0.5 Documentation Operating System and session bootstrap
+Layer 0.55 Epistemic OS: truth, confidence, drift, contradiction and AI permissions
+Layer 0.56 Cartographic Knowledge OS: visual truth navigation and semantic zoom
 Layer 0.6 Research Intelligence and source-backed evolution governance
 Layer 0.7 Spec Operating System / SDD governance
+Layer 0.72 Programming Governance System: placement, spec before code, task contracts, Code Intelligence, evidence and cartography
+Layer 0.75 Forge Operating System: AI software factory over governed programming
 Layer 0.8 Self-Construction OS / governed self-programming
 Layer 1   Kernel contracts: envelope, receipt, ledger, SDKs, tests, SLOs
 Layer 1.5 Runtime boundaries: Laravel, Python, Go, Swift
@@ -157,6 +168,10 @@ Layer -1 wins every conflict. Kernel wins executable contracts. Master Architect
 | Layer implementation status | `canonical-index/layer-status.md` |
 | New AI session bootstrap | `atlas-ai-session-bootstrap.md` |
 | Documentation governance | `atlas-ai-documentation-operating-system.md` |
+| Next patamar operating systems / Sovereign + Epistemic + Cartographic as one set | `atlas-next-patamar-operating-systems.md` |
+| Sovereign OS / purpose, identity, autonomy, priority and self-modification | `atlas-sovereign-operating-system.md` |
+| Epistemic OS / truth, confidence, drift and autonomous knowledge permissions | `atlas-epistemic-operating-system.md` |
+| Cartographic Knowledge OS / visual truth map, semantic zoom and human navigation | `atlas-cartographic-knowledge-os.md` |
 | Atlas System Graph / visual architecture map | `atlas-system-graph.md` |
 | Atlas Living Architecture Graph / Obsidian graph maturity | `system-graph/living-architecture-graph-contract.md` |
 | Knowledge surfaces and source truth | `atlas-ai-knowledge-governance-system.md` |
@@ -165,6 +180,8 @@ Layer -1 wins every conflict. Kernel wins executable contracts. Master Architect
 | Evolution roadmap | `atlas-ai-evolution-roadmap.md` + `evolution/README.md` |
 | Research Intelligence and governed self-improvement | `atlas-ai-research-self-improvement-runtime.md` |
 | Spec Operating System / SDD | `atlas-ai-spec-operating-system.md` |
+| Programming Governance System / placement, spec before code, task contracts, Code Intelligence, evidence and cartography | `atlas-programming-governance-system.md` |
+| Forge Operating System / AI software factory and multi-agent implementation | `atlas-forge-operating-system.md` |
 | SDD data model and services | `spec-operating-system/data-model-and-services.md` |
 | SDD agents and MCP | `spec-operating-system/agents-and-mcp-contract.md` |
 | SDD context packages and projections | `spec-operating-system/context-packages-and-projections.md` |
@@ -182,9 +199,10 @@ Layer -1 wins every conflict. Kernel wins executable contracts. Master Architect
 When documents conflict:
 1. If it is constitutional or provider strategy, audit against Layer -1.
 2. If it is executable behavior, Kernel wins.
-3. If it is product/domain direction, Master Architecture wins.
-4. If it is surface behavior, Pipeline/Core/Operating System must conform to Kernel and Master.
-5. If it is legacy material, Resolver Corpus Audit or Legacy Cleanup decides whether to promote, reference or archive.
+3. If it is purpose, identity, autonomy, self-modification or strategic priority, Sovereign OS wins under Layer -1.
+4. If it is product/domain direction, Master Architecture wins.
+5. If it is surface behavior, Pipeline/Core/Operating System must conform to Kernel and Master.
+6. If it is legacy material, Resolver Corpus Audit or Legacy Cleanup decides whether to promote, reference or archive.
 ## Implementation Rule
 New docs do not become authority by being long or persuasive; they become authority only when linked here or by the owner README/doc and validated by Documentation OS.
 

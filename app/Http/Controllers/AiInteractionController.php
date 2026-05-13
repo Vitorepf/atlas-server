@@ -34,6 +34,9 @@ class AiInteractionController extends Controller
             ->when($request->query('thread_id'), fn ($query, $threadId) => $query->where('thread_id', $threadId))
             ->when($request->query('status'), fn ($query, $status) => $query->where('status', $status))
             ->when($request->query('agent'), fn ($query, $agent) => $query->where('agent_slug', $agent))
+            ->when($request->query('client_id'), function ($query, $clientId): void {
+                $query->whereHas('jobs', fn ($jobQuery) => $jobQuery->where('client_id', $clientId));
+            })
             ->orderByDesc('created_at')
             ->limit(min((int) $request->query('limit', 50), 200))
             ->get();
@@ -198,6 +201,7 @@ class AiInteractionController extends Controller
                     ->where('trace_id', $trace->id)
                     ->where('sequence', '>', $lastSequence)
                     ->orderBy('sequence')
+                    ->orderBy('id')
                     ->limit(100)
                     ->get();
 

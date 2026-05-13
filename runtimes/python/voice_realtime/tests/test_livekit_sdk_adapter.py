@@ -135,11 +135,14 @@ class LiveKitSdkAdapterTest(unittest.TestCase):
         interrupted = subject.on_barge_in({
             "session_id": "voice_session",
             "turn_id": "voice_turn",
+            "played_duration_ms": 700,
+            "latency_ms": 42,
         })
         failed = subject.on_runtime_failed({
             "session_id": "voice_session",
             "turn_id": "voice_turn",
             "failure_code": "tts_timeout",
+            "error_message_hash": "b" * 64,
         })
         degraded = subject.on_provider_health_degraded({
             "session_id": "voice_session",
@@ -153,7 +156,10 @@ class LiveKitSdkAdapterTest(unittest.TestCase):
         self.assertEqual("ok", failed.status)
         self.assertEqual("ok", degraded.status)
         self.assertEqual("http://atlas.test/ai/voice/turn/interrupted", transport.calls[2][0])
+        self.assertEqual(700, transport.calls[2][1]["played_duration_ms"])
+        self.assertEqual(42, transport.calls[2][1]["latency_ms"])
         self.assertEqual("http://atlas.test/ai/voice/runtime/failed", transport.calls[3][0])
+        self.assertEqual("b" * 64, transport.calls[3][1]["error_message_hash"])
         self.assertEqual("http://atlas.test/ai/voice/provider/health-degraded", transport.calls[4][0])
 
     def test_rejects_missing_required_sdk_fields(self) -> None:

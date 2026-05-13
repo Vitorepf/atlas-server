@@ -42,13 +42,13 @@ REQUIRED_CALLBACK_PAYLOAD_SCHEMAS: dict[str, dict[str, list[str]]] = {
     },
     "barge_in": {
         "required": ["session_id", "turn_id"],
-        "optional": ["reason", "interrupted_stage", "latency_ms"],
+        "optional": ["reason", "interrupted_stage", "played_duration_ms", "latency_ms"],
         "prohibited": ["raw_audio", "audio_bytes", "pcm", "wav"],
     },
     "runtime_failed": {
         "required": ["session_id", "turn_id"],
-        "optional": ["failure_code", "error_class", "latency_ms"],
-        "prohibited": ["raw_audio", "audio_bytes", "response_text", "tool_call", "tool_args"],
+        "optional": ["failure_code", "error_class", "error_message_hash", "latency_ms"],
+        "prohibited": ["raw_audio", "audio_bytes", "response_text", "raw_response_text", "error_message", "message", "tool_call", "tool_args"],
     },
     "provider_health_degraded": {
         "required": ["session_id", "turn_id", "provider"],

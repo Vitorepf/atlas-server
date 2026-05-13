@@ -93,6 +93,7 @@ class AtlasAiStructureMotherAuditCommandTest extends TestCase
         $this->assertContains('frontend_design_harness_enterprise_runs', $closureItems->pluck('id')->all());
         $this->assertContains('p6_p7_advanced_readiness', $closureItems->pluck('id')->all());
         $batteryAction = $closureItems->firstWhere('id', 'rivals_programming_real_battery');
+        $this->assertSame('blocked_until_clean_worktrees_and_operator_cost_approval', data_get($batteryAction, 'status'));
         $this->assertTrue(data_get($batteryAction, 'external_cost_possible'));
         $this->assertContains('operator_cost_acknowledged', data_get($batteryAction, 'required_evidence'));
         $this->assertContains('same_model', data_get($batteryAction, 'allowed_modes'));
@@ -101,8 +102,18 @@ class AtlasAiStructureMotherAuditCommandTest extends TestCase
             data_get($batteryAction, 'execution_guard.schema_version'),
         );
         $this->assertTrue(data_get($batteryAction, 'execution_guard.no_provider_call_in_structure_mother_audit'));
+        $this->assertTrue(data_get($batteryAction, 'execution_guard.clean_atlas_worktree_required'));
+        $this->assertTrue(data_get($batteryAction, 'execution_guard.separate_clean_baseline_worktree_required'));
         $this->assertStringContainsString(
             'rivals runbook',
+            data_get($batteryAction, 'safe_preflight_commands.runbook'),
+        );
+        $this->assertStringContainsString(
+            '--workspace=<clean-atlas-workspace>',
+            data_get($batteryAction, 'safe_preflight_commands.runbook'),
+        );
+        $this->assertStringContainsString(
+            '--claude-code-baseline-workspace=<separate-clean-baseline-workspace>',
             data_get($batteryAction, 'safe_preflight_commands.runbook'),
         );
         $this->assertStringContainsString(
@@ -125,7 +136,7 @@ class AtlasAiStructureMotherAuditCommandTest extends TestCase
         $this->assertSame(5, data_get($payload, 'structure_mother_audit.operator_action_plan.action_count'));
         $this->assertSame('atlas.structure_mother.operator_action_summary.v1', data_get($payload, 'structure_mother_audit.operator_action_plan.action_summary.schema_version'));
         $this->assertSame('operator_action_available_now', data_get($payload, 'structure_mother_audit.operator_action_plan.action_summary.status'));
-        $this->assertSame(4, data_get($payload, 'structure_mother_audit.operator_action_plan.action_summary.actionable_now_count'));
+        $this->assertSame(3, data_get($payload, 'structure_mother_audit.operator_action_plan.action_summary.actionable_now_count'));
         $this->assertSame(1, data_get($payload, 'structure_mother_audit.operator_action_plan.action_summary.calendar_wait_count'));
         $this->assertContains('review_critical_proactive_insights', data_get($payload, 'structure_mother_audit.operator_action_plan.action_summary.next_action_ids'));
         $this->assertContains('record_real_rivals_review_when_due', collect(data_get($payload, 'structure_mother_audit.operator_action_plan.actions'))->pluck('id')->all());
@@ -140,11 +151,16 @@ class AtlasAiStructureMotherAuditCommandTest extends TestCase
         $this->assertTrue(data_get($rivalsAction, 'calendar_wait_required'));
         $this->assertFalse(data_get($rivalsAction, 'api.synthetic_scores_allowed'));
         $batteryOperatorAction = collect(data_get($payload, 'structure_mother_audit.operator_action_plan.actions'))->firstWhere('id', 'approve_rivals_programming_real_battery');
-        $this->assertTrue(data_get($batteryOperatorAction, 'actionable_now'));
+        $this->assertSame('blocked_until_clean_worktrees_and_operator_cost_approval', data_get($batteryOperatorAction, 'status'));
+        $this->assertFalse(data_get($batteryOperatorAction, 'actionable_now'));
         $this->assertTrue(data_get($batteryOperatorAction, 'external_provider_cost_possible'));
         $this->assertFalse(data_get($batteryOperatorAction, 'agent_auto_execute_allowed'));
         $this->assertStringContainsString('rivals runbook', data_get($batteryOperatorAction, 'safe_preflight_commands.runbook'));
+        $this->assertStringContainsString('--workspace=<clean-atlas-workspace>', data_get($batteryOperatorAction, 'safe_preflight_commands.runbook'));
+        $this->assertStringContainsString('--claude-code-baseline-workspace=<separate-clean-baseline-workspace>', data_get($batteryOperatorAction, 'safe_preflight_commands.runbook'));
         $this->assertStringContainsString('--confirm-provider-cost', data_get($batteryOperatorAction, 'cost_acknowledged_execution_commands.quick'));
+        $this->assertSame('<clean-atlas-workspace>', data_get($batteryOperatorAction, 'api.body.workspace'));
+        $this->assertSame('<separate-clean-baseline-workspace>', data_get($batteryOperatorAction, 'api.body.claude_code_baseline_workspace'));
         $frontendOperatorAction = collect(data_get($payload, 'structure_mother_audit.operator_action_plan.actions'))->firstWhere('id', 'run_frontend_design_harness_enterprise_receipts');
         $this->assertTrue(data_get($frontendOperatorAction, 'actionable_now'));
         $this->assertFalse(data_get($frontendOperatorAction, 'external_provider_cost_possible'));

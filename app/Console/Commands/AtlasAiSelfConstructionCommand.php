@@ -132,6 +132,52 @@ class AtlasAiSelfConstructionCommand extends Command
         {--agent-automatic-dispatch-scheduler-one-shot-tick-mutating-writer-release-preflight : Preflight the persisted release receipt for a future one-shot mutating scheduler tick without claiming wakeups or starting providers}
         {--agent-automatic-dispatch-scheduler-one-shot-tick-mutating-writer-contract : Project the one-shot scheduler tick mutating writer contract without claiming wakeups, writing dispatch receipts or starting providers}
         {--agent-automatic-dispatch-scheduler-one-shot-tick-mutating-writer-preflight : Preflight the one-shot scheduler tick mutating writer implementation prerequisites without claiming wakeups or writing dispatch receipts}
+        {--agent-automatic-dispatch-scheduler-one-shot-tick-mutating-writer-implementation-packet : Generate the scoped one-shot scheduler tick mutating writer implementation packet without creating writer files}
+        {--agent-automatic-dispatch-scheduler-one-shot-tick-mutating-writer-status : Inspect one-shot scheduler tick mutating writer service status without claiming wakeups, writing receipts or starting providers}
+        {--agent-automatic-dispatch-scheduler-one-shot-tick-guarded-runtime-invocation-contract : Project the guarded one-shot scheduler tick runtime invocation contract without calling the mutating writer}
+        {--agent-automatic-dispatch-scheduler-one-shot-tick-guarded-runtime-invocation-preflight : Preflight guarded one-shot scheduler tick runtime invocation prerequisites without calling the mutating writer}
+        {--agent-automatic-dispatch-scheduler-one-shot-tick-guarded-runtime-invocation-implementation-packet : Generate the scoped guarded one-shot scheduler tick runtime invocation implementation packet without creating invoker files}
+        {--agent-automatic-dispatch-scheduler-one-shot-tick-guarded-runtime-invocation-status : Inspect guarded one-shot scheduler tick runtime invocation service status without calling the invoker or starting providers}
+        {--agent-automatic-dispatch-scheduler-one-shot-tick-dispatch-receipt-use-release-contract : Project the one-shot scheduler tick dispatch receipt-use release contract without marking receipts used}
+        {--agent-automatic-dispatch-scheduler-one-shot-tick-dispatch-receipt-use-preflight : Preflight one-shot scheduler tick dispatch receipt-use prerequisites without marking receipts used}
+        {--agent-automatic-dispatch-scheduler-one-shot-tick-dispatch-receipt-use-implementation-packet : Generate the scoped one-shot scheduler tick dispatch receipt-use implementation packet without creating invoker files}
+        {--agent-automatic-dispatch-scheduler-one-shot-tick-dispatch-receipt-use-status : Inspect one-shot scheduler tick dispatch receipt-use service status without marking receipts used or starting providers}
+        {--agent-automatic-dispatch-scheduler-one-shot-tick-provider-start-driver-release-contract : Project the one-shot scheduler tick provider start driver release contract without starting providers}
+        {--agent-automatic-dispatch-scheduler-one-shot-tick-provider-start-driver-preflight : Preflight one-shot scheduler tick provider start driver prerequisites without starting providers}
+        {--agent-automatic-dispatch-scheduler-one-shot-tick-provider-start-driver-implementation-packet : Generate the scoped one-shot scheduler tick provider start driver implementation packet without creating invoker files}
+        {--agent-automatic-dispatch-scheduler-one-shot-tick-provider-start-driver-status : Inspect one-shot scheduler tick provider start driver service status without calling the driver or starting providers}
+        {--agent-automatic-dispatch-scheduler-one-shot-tick-adapter-invocation-boundary-release-contract : Project the one-shot scheduler tick adapter invocation boundary release contract without calling adapters}
+        {--agent-automatic-dispatch-scheduler-one-shot-tick-adapter-invocation-boundary-preflight : Preflight one-shot scheduler tick adapter invocation boundary prerequisites without calling adapters}
+        {--agent-automatic-dispatch-scheduler-one-shot-tick-adapter-invocation-boundary-implementation-packet : Generate the scoped one-shot scheduler tick adapter invocation boundary implementation packet without creating invoker files}
+        {--agent-automatic-dispatch-scheduler-one-shot-tick-adapter-invocation-boundary-status : Inspect one-shot scheduler tick adapter invocation boundary service status without calling adapters}
+        {--agent-automatic-dispatch-scheduler-one-shot-tick-provider-adapter-execution-guard-release-contract : Project the one-shot scheduler tick provider adapter execution guard release contract without calling the guard}
+        {--agent-automatic-dispatch-scheduler-one-shot-tick-provider-adapter-execution-guard-preflight : Preflight one-shot scheduler tick provider adapter execution guard prerequisites without calling the guard}
+        {--agent-automatic-dispatch-scheduler-one-shot-tick-provider-adapter-execution-guard-implementation-packet : Generate the scoped one-shot scheduler tick provider adapter execution guard implementation packet without creating invoker files}
+        {--agent-automatic-dispatch-scheduler-one-shot-tick-provider-adapter-execution-guard-status : Inspect one-shot scheduler tick provider adapter execution guard service status without calling adapters}
+        {--agent-automatic-dispatch-scheduler-one-shot-tick-provider-specific-execution-contract-release : Project the one-shot scheduler tick provider-specific execution contract release without calling Codex}
+        {--agent-automatic-dispatch-scheduler-one-shot-tick-provider-specific-execution-contract-preflight : Preflight one-shot scheduler tick provider-specific execution contract prerequisites without calling Codex}
+        {--agent-automatic-dispatch-scheduler-one-shot-tick-provider-specific-execution-contract-implementation-packet : Generate the scoped one-shot scheduler tick provider-specific execution contract implementation packet without creating invoker files}
+        {--agent-automatic-dispatch-scheduler-one-shot-tick-provider-specific-execution-contract-status : Inspect one-shot scheduler tick provider-specific execution contract service status without calling Codex}
+        {--agent-automatic-dispatch-scheduler-one-shot-tick-codex-process-start-release-contract : Project the one-shot scheduler tick Codex process start release contract without calling Codex}
+        {--agent-automatic-dispatch-scheduler-one-shot-tick-codex-process-start-release-preflight : Preflight one-shot scheduler tick Codex process start release prerequisites without calling Codex}
+        {--agent-automatic-dispatch-scheduler-one-shot-tick-codex-process-start-release-implementation-packet : Generate the scoped one-shot scheduler tick Codex process start release implementation packet without creating invoker files}
+        {--agent-automatic-dispatch-scheduler-one-shot-tick-codex-process-start-release-status : Inspect one-shot scheduler tick Codex process start release service status without calling Codex}
+        {--agent-automatic-dispatch-scheduler-one-shot-tick-codex-supervised-start-executor-release-contract : Project the one-shot scheduler tick Codex supervised start executor release contract without spawning Codex}
+        {--agent-automatic-dispatch-scheduler-one-shot-tick-codex-supervised-start-executor-preflight : Preflight one-shot scheduler tick Codex supervised start executor prerequisites without spawning Codex}
+        {--agent-automatic-dispatch-scheduler-one-shot-tick-codex-supervised-start-executor-implementation-packet : Generate the scoped one-shot scheduler tick Codex supervised start executor implementation packet without creating invoker files}
+        {--agent-automatic-dispatch-scheduler-one-shot-tick-codex-supervised-start-executor-status : Inspect one-shot scheduler tick Codex supervised start executor service status without spawning Codex}
+        {--agent-automatic-dispatch-scheduler-one-shot-tick-codex-process-spawn-enablement-contract : Project the one-shot scheduler tick Codex process spawn enablement contract without spawning Codex}
+        {--agent-automatic-dispatch-scheduler-one-shot-tick-codex-process-spawn-enablement-preflight : Preflight one-shot scheduler tick Codex process spawn enablement prerequisites without spawning Codex}
+        {--agent-automatic-dispatch-scheduler-one-shot-tick-codex-process-spawn-enablement-implementation-packet : Generate the scoped one-shot scheduler tick Codex process spawn enablement implementation packet without creating invoker files}
+        {--agent-automatic-dispatch-scheduler-one-shot-tick-codex-process-spawn-enablement-status : Inspect one-shot scheduler tick Codex process spawn enablement service status without spawning Codex}
+        {--agent-automatic-dispatch-scheduler-one-shot-tick-codex-final-process-spawn-executor-contract : Project the one-shot scheduler tick Codex final process spawn executor contract without spawning Codex}
+        {--agent-automatic-dispatch-scheduler-one-shot-tick-codex-final-process-spawn-executor-preflight : Preflight one-shot scheduler tick Codex final process spawn executor prerequisites without spawning Codex}
+        {--agent-automatic-dispatch-scheduler-one-shot-tick-codex-final-process-spawn-executor-implementation-packet : Generate the scoped one-shot scheduler tick Codex final process spawn executor implementation packet without creating runtime files}
+        {--agent-automatic-dispatch-scheduler-one-shot-tick-codex-final-process-spawn-executor-status : Inspect one-shot scheduler tick Codex final process spawn executor service status without spawning Codex}
+        {--agent-automatic-dispatch-scheduler-one-shot-tick-codex-external-process-runtime-driver-contract : Project the one-shot scheduler tick Codex external process runtime driver contract without invoking Codex}
+        {--agent-automatic-dispatch-scheduler-one-shot-tick-codex-external-process-runtime-driver-preflight : Preflight one-shot scheduler tick Codex external process runtime driver prerequisites without invoking Codex}
+        {--agent-automatic-dispatch-scheduler-one-shot-tick-codex-external-process-runtime-driver-implementation-packet : Generate the scoped one-shot scheduler tick Codex external process runtime driver implementation packet without creating invocation files}
+        {--agent-automatic-dispatch-scheduler-one-shot-tick-codex-external-process-runtime-driver-status : Inspect one-shot scheduler tick Codex external process runtime driver service status without invoking Codex}
         {--agent-provider-adapter-registry-contract-template : Generate the read-only provider adapter registry contract template}
         {--agent-provider-adapter-registry-preflight : Verify provider adapter registry prerequisites without calling providers}
         {--agent-provider-adapter-registry-implementation-packet : Generate the scoped provider adapter registry implementation packet without creating registry files}
@@ -962,6 +1008,52 @@ class AtlasAiSelfConstructionCommand extends Command
             (bool) $this->option('agent-provider-adapter-execution-guard-implementation-packet') => $readiness->agentProviderAdapterExecutionGuardImplementationPacket($options),
             (bool) $this->option('agent-provider-adapter-execution-guard-preflight') => $readiness->agentProviderAdapterExecutionGuardPreflight($options),
             (bool) $this->option('agent-provider-adapter-execution-guard-contract-template') => $readiness->agentProviderAdapterExecutionGuardContractTemplate($options),
+            (bool) $this->option('agent-automatic-dispatch-scheduler-one-shot-tick-codex-external-process-runtime-driver-status') => $readiness->agentAutomaticDispatchSchedulerOneShotTickCodexExternalProcessRuntimeDriverStatus($options),
+            (bool) $this->option('agent-automatic-dispatch-scheduler-one-shot-tick-codex-external-process-runtime-driver-implementation-packet') => $readiness->agentAutomaticDispatchSchedulerOneShotTickCodexExternalProcessRuntimeDriverImplementationPacket($options),
+            (bool) $this->option('agent-automatic-dispatch-scheduler-one-shot-tick-codex-external-process-runtime-driver-preflight') => $readiness->agentAutomaticDispatchSchedulerOneShotTickCodexExternalProcessRuntimeDriverPreflight($options),
+            (bool) $this->option('agent-automatic-dispatch-scheduler-one-shot-tick-codex-external-process-runtime-driver-contract') => $readiness->agentAutomaticDispatchSchedulerOneShotTickCodexExternalProcessRuntimeDriverContract($options),
+            (bool) $this->option('agent-automatic-dispatch-scheduler-one-shot-tick-codex-final-process-spawn-executor-status') => $readiness->agentAutomaticDispatchSchedulerOneShotTickCodexFinalProcessSpawnExecutorStatus($options),
+            (bool) $this->option('agent-automatic-dispatch-scheduler-one-shot-tick-codex-final-process-spawn-executor-implementation-packet') => $readiness->agentAutomaticDispatchSchedulerOneShotTickCodexFinalProcessSpawnExecutorImplementationPacket($options),
+            (bool) $this->option('agent-automatic-dispatch-scheduler-one-shot-tick-codex-final-process-spawn-executor-preflight') => $readiness->agentAutomaticDispatchSchedulerOneShotTickCodexFinalProcessSpawnExecutorPreflight($options),
+            (bool) $this->option('agent-automatic-dispatch-scheduler-one-shot-tick-codex-final-process-spawn-executor-contract') => $readiness->agentAutomaticDispatchSchedulerOneShotTickCodexFinalProcessSpawnExecutorContract($options),
+            (bool) $this->option('agent-automatic-dispatch-scheduler-one-shot-tick-codex-process-spawn-enablement-status') => $readiness->agentAutomaticDispatchSchedulerOneShotTickCodexProcessSpawnEnablementStatus($options),
+            (bool) $this->option('agent-automatic-dispatch-scheduler-one-shot-tick-codex-process-spawn-enablement-implementation-packet') => $readiness->agentAutomaticDispatchSchedulerOneShotTickCodexProcessSpawnEnablementImplementationPacket($options),
+            (bool) $this->option('agent-automatic-dispatch-scheduler-one-shot-tick-codex-process-spawn-enablement-preflight') => $readiness->agentAutomaticDispatchSchedulerOneShotTickCodexProcessSpawnEnablementPreflight($options),
+            (bool) $this->option('agent-automatic-dispatch-scheduler-one-shot-tick-codex-process-spawn-enablement-contract') => $readiness->agentAutomaticDispatchSchedulerOneShotTickCodexProcessSpawnEnablementContract($options),
+            (bool) $this->option('agent-automatic-dispatch-scheduler-one-shot-tick-codex-supervised-start-executor-status') => $readiness->agentAutomaticDispatchSchedulerOneShotTickCodexSupervisedStartExecutorStatus($options),
+            (bool) $this->option('agent-automatic-dispatch-scheduler-one-shot-tick-codex-supervised-start-executor-implementation-packet') => $readiness->agentAutomaticDispatchSchedulerOneShotTickCodexSupervisedStartExecutorImplementationPacket($options),
+            (bool) $this->option('agent-automatic-dispatch-scheduler-one-shot-tick-codex-supervised-start-executor-preflight') => $readiness->agentAutomaticDispatchSchedulerOneShotTickCodexSupervisedStartExecutorPreflight($options),
+            (bool) $this->option('agent-automatic-dispatch-scheduler-one-shot-tick-codex-supervised-start-executor-release-contract') => $readiness->agentAutomaticDispatchSchedulerOneShotTickCodexSupervisedStartExecutorReleaseContract($options),
+            (bool) $this->option('agent-automatic-dispatch-scheduler-one-shot-tick-codex-process-start-release-status') => $readiness->agentAutomaticDispatchSchedulerOneShotTickCodexProcessStartReleaseStatus($options),
+            (bool) $this->option('agent-automatic-dispatch-scheduler-one-shot-tick-codex-process-start-release-implementation-packet') => $readiness->agentAutomaticDispatchSchedulerOneShotTickCodexProcessStartReleaseImplementationPacket($options),
+            (bool) $this->option('agent-automatic-dispatch-scheduler-one-shot-tick-codex-process-start-release-preflight') => $readiness->agentAutomaticDispatchSchedulerOneShotTickCodexProcessStartReleasePreflight($options),
+            (bool) $this->option('agent-automatic-dispatch-scheduler-one-shot-tick-codex-process-start-release-contract') => $readiness->agentAutomaticDispatchSchedulerOneShotTickCodexProcessStartReleaseContract($options),
+            (bool) $this->option('agent-automatic-dispatch-scheduler-one-shot-tick-provider-specific-execution-contract-status') => $readiness->agentAutomaticDispatchSchedulerOneShotTickProviderSpecificExecutionContractStatus($options),
+            (bool) $this->option('agent-automatic-dispatch-scheduler-one-shot-tick-provider-specific-execution-contract-implementation-packet') => $readiness->agentAutomaticDispatchSchedulerOneShotTickProviderSpecificExecutionContractImplementationPacket($options),
+            (bool) $this->option('agent-automatic-dispatch-scheduler-one-shot-tick-provider-specific-execution-contract-preflight') => $readiness->agentAutomaticDispatchSchedulerOneShotTickProviderSpecificExecutionContractPreflight($options),
+            (bool) $this->option('agent-automatic-dispatch-scheduler-one-shot-tick-provider-specific-execution-contract-release') => $readiness->agentAutomaticDispatchSchedulerOneShotTickProviderSpecificExecutionContractRelease($options),
+            (bool) $this->option('agent-automatic-dispatch-scheduler-one-shot-tick-provider-adapter-execution-guard-status') => $readiness->agentAutomaticDispatchSchedulerOneShotTickProviderAdapterExecutionGuardStatus($options),
+            (bool) $this->option('agent-automatic-dispatch-scheduler-one-shot-tick-provider-adapter-execution-guard-implementation-packet') => $readiness->agentAutomaticDispatchSchedulerOneShotTickProviderAdapterExecutionGuardImplementationPacket($options),
+            (bool) $this->option('agent-automatic-dispatch-scheduler-one-shot-tick-provider-adapter-execution-guard-preflight') => $readiness->agentAutomaticDispatchSchedulerOneShotTickProviderAdapterExecutionGuardPreflight($options),
+            (bool) $this->option('agent-automatic-dispatch-scheduler-one-shot-tick-provider-adapter-execution-guard-release-contract') => $readiness->agentAutomaticDispatchSchedulerOneShotTickProviderAdapterExecutionGuardReleaseContract($options),
+            (bool) $this->option('agent-automatic-dispatch-scheduler-one-shot-tick-adapter-invocation-boundary-status') => $readiness->agentAutomaticDispatchSchedulerOneShotTickAdapterInvocationBoundaryStatus($options),
+            (bool) $this->option('agent-automatic-dispatch-scheduler-one-shot-tick-adapter-invocation-boundary-implementation-packet') => $readiness->agentAutomaticDispatchSchedulerOneShotTickAdapterInvocationBoundaryImplementationPacket($options),
+            (bool) $this->option('agent-automatic-dispatch-scheduler-one-shot-tick-adapter-invocation-boundary-preflight') => $readiness->agentAutomaticDispatchSchedulerOneShotTickAdapterInvocationBoundaryPreflight($options),
+            (bool) $this->option('agent-automatic-dispatch-scheduler-one-shot-tick-adapter-invocation-boundary-release-contract') => $readiness->agentAutomaticDispatchSchedulerOneShotTickAdapterInvocationBoundaryReleaseContract($options),
+            (bool) $this->option('agent-automatic-dispatch-scheduler-one-shot-tick-dispatch-receipt-use-status') => $readiness->agentAutomaticDispatchSchedulerOneShotTickDispatchReceiptUseStatus($options),
+            (bool) $this->option('agent-automatic-dispatch-scheduler-one-shot-tick-provider-start-driver-status') => $readiness->agentAutomaticDispatchSchedulerOneShotTickProviderStartDriverStatus($options),
+            (bool) $this->option('agent-automatic-dispatch-scheduler-one-shot-tick-provider-start-driver-implementation-packet') => $readiness->agentAutomaticDispatchSchedulerOneShotTickProviderStartDriverImplementationPacket($options),
+            (bool) $this->option('agent-automatic-dispatch-scheduler-one-shot-tick-provider-start-driver-preflight') => $readiness->agentAutomaticDispatchSchedulerOneShotTickProviderStartDriverPreflight($options),
+            (bool) $this->option('agent-automatic-dispatch-scheduler-one-shot-tick-provider-start-driver-release-contract') => $readiness->agentAutomaticDispatchSchedulerOneShotTickProviderStartDriverReleaseContract($options),
+            (bool) $this->option('agent-automatic-dispatch-scheduler-one-shot-tick-dispatch-receipt-use-implementation-packet') => $readiness->agentAutomaticDispatchSchedulerOneShotTickDispatchReceiptUseImplementationPacket($options),
+            (bool) $this->option('agent-automatic-dispatch-scheduler-one-shot-tick-dispatch-receipt-use-preflight') => $readiness->agentAutomaticDispatchSchedulerOneShotTickDispatchReceiptUsePreflight($options),
+            (bool) $this->option('agent-automatic-dispatch-scheduler-one-shot-tick-dispatch-receipt-use-release-contract') => $readiness->agentAutomaticDispatchSchedulerOneShotTickDispatchReceiptUseReleaseContract($options),
+            (bool) $this->option('agent-automatic-dispatch-scheduler-one-shot-tick-guarded-runtime-invocation-status') => $readiness->agentAutomaticDispatchSchedulerOneShotTickGuardedRuntimeInvocationStatus($options),
+            (bool) $this->option('agent-automatic-dispatch-scheduler-one-shot-tick-guarded-runtime-invocation-implementation-packet') => $readiness->agentAutomaticDispatchSchedulerOneShotTickGuardedRuntimeInvocationImplementationPacket($options),
+            (bool) $this->option('agent-automatic-dispatch-scheduler-one-shot-tick-guarded-runtime-invocation-preflight') => $readiness->agentAutomaticDispatchSchedulerOneShotTickGuardedRuntimeInvocationPreflight($options),
+            (bool) $this->option('agent-automatic-dispatch-scheduler-one-shot-tick-guarded-runtime-invocation-contract') => $readiness->agentAutomaticDispatchSchedulerOneShotTickGuardedRuntimeInvocationContract($options),
+            (bool) $this->option('agent-automatic-dispatch-scheduler-one-shot-tick-mutating-writer-status') => $readiness->agentAutomaticDispatchSchedulerOneShotTickMutatingWriterStatus($options),
+            (bool) $this->option('agent-automatic-dispatch-scheduler-one-shot-tick-mutating-writer-implementation-packet') => $readiness->agentAutomaticDispatchSchedulerOneShotTickMutatingWriterImplementationPacket($options),
             (bool) $this->option('agent-automatic-dispatch-scheduler-one-shot-tick-mutating-writer-preflight') => $readiness->agentAutomaticDispatchSchedulerOneShotTickMutatingWriterPreflight($options),
             (bool) $this->option('agent-automatic-dispatch-scheduler-one-shot-tick-mutating-writer-contract') => $readiness->agentAutomaticDispatchSchedulerOneShotTickMutatingWriterContract($options),
             (bool) $this->option('agent-automatic-dispatch-scheduler-one-shot-tick-mutating-writer-release-preflight') => $readiness->agentAutomaticDispatchSchedulerOneShotTickMutatingWriterReleasePreflight($options),
@@ -6007,6 +6099,86 @@ class AtlasAiSelfConstructionCommand extends Command
             return self::SUCCESS;
         }
 
+        if ((bool) $this->option('agent-automatic-dispatch-scheduler-one-shot-tick-mutating-writer-implementation-packet')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Runtime write allowed', data_get($payload, 'runtime_write_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Claim allowed', data_get($payload, 'claim_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch receipt write allowed', data_get($payload, 'dispatch_receipt_write_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Provider start allowed', data_get($payload, 'provider_start_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Packet status', (string) data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_implementation_packet.status'));
+            $this->components->twoColumnDetail('Task count', (string) data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_implementation_packet.task_count'));
+            $this->components->twoColumnDetail('Next slice', (string) data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_implementation_packet.next_required_slice'));
+            $this->components->twoColumnDetail('Packet hash', (string) data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_implementation_packet_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-automatic-dispatch-scheduler-one-shot-tick-mutating-writer-status')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Runtime write allowed', data_get($payload, 'runtime_write_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Claim allowed here', data_get($payload, 'claim_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Provider start allowed', data_get($payload, 'provider_start_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Writer status', (string) data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_status.status'));
+            $this->components->twoColumnDetail('Writer ready', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_status.writer_service_ready') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Claimed wakeups', (string) data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_status.claimed_wakeup_count', '-'));
+            $this->components->twoColumnDetail('Pending dispatch receipts', (string) data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_status.signed_pending_dispatch_receipt_count', '-'));
+            $this->components->twoColumnDetail('Next slice', (string) data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_status.next_required_slice'));
+            $this->components->twoColumnDetail('Status hash', (string) data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_status_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-automatic-dispatch-scheduler-one-shot-tick-guarded-runtime-invocation-contract')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Runtime write allowed', data_get($payload, 'runtime_write_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Provider start allowed', data_get($payload, 'provider_start_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Contract status', (string) data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_guarded_runtime_invocation_contract.status'));
+            $this->components->twoColumnDetail('Method', (string) data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_guarded_runtime_invocation_contract.invocation_boundary.canonical_method'));
+            $this->components->twoColumnDetail('Next slice', (string) data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_guarded_runtime_invocation_contract.next_required_slice'));
+            $this->components->twoColumnDetail('Contract hash', (string) data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_guarded_runtime_invocation_contract_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-automatic-dispatch-scheduler-one-shot-tick-guarded-runtime-invocation-preflight')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Runtime write allowed', data_get($payload, 'runtime_write_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Provider start allowed', data_get($payload, 'provider_start_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Preflight status', (string) data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_guarded_runtime_invocation_preflight.status'));
+            $this->components->twoColumnDetail('Blocking count', (string) data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_guarded_runtime_invocation_preflight.blocking_count'));
+            $this->components->twoColumnDetail('Next slice', (string) data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_guarded_runtime_invocation_preflight.next_required_slice'));
+            $this->components->twoColumnDetail('Preflight hash', (string) data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_guarded_runtime_invocation_preflight_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-automatic-dispatch-scheduler-one-shot-tick-guarded-runtime-invocation-implementation-packet')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Runtime write allowed', data_get($payload, 'runtime_write_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Provider start allowed', data_get($payload, 'provider_start_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Packet status', (string) data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_guarded_runtime_invocation_implementation_packet.status'));
+            $this->components->twoColumnDetail('Task count', (string) data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_guarded_runtime_invocation_implementation_packet.task_count'));
+            $this->components->twoColumnDetail('Next slice', (string) data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_guarded_runtime_invocation_implementation_packet.next_required_slice'));
+            $this->components->twoColumnDetail('Packet hash', (string) data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_guarded_runtime_invocation_implementation_packet_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
         if ((bool) $this->option('agent-provider-adapter-execution-guard-contract-template')) {
             $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
             $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
@@ -6196,6 +6368,110 @@ class AtlasAiSelfConstructionCommand extends Command
             $this->components->twoColumnDetail('Packet status', (string) data_get($payload, 'codex_process_spawn_enablement_implementation_packet.status'));
             $this->components->twoColumnDetail('Task count', (string) data_get($payload, 'codex_process_spawn_enablement_implementation_packet.task_count'));
             $this->components->twoColumnDetail('Packet hash', (string) data_get($payload, 'codex_process_spawn_enablement_implementation_packet_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-automatic-dispatch-scheduler-one-shot-tick-codex-final-process-spawn-executor-contract')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Contract status', (string) data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_final_process_spawn_executor_contract.status'));
+            $this->components->twoColumnDetail('Method', (string) data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_final_process_spawn_executor_contract.release_boundary.scheduler_invoker_method'));
+            $this->components->twoColumnDetail('Contract hash', (string) data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_final_process_spawn_executor_contract_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-automatic-dispatch-scheduler-one-shot-tick-codex-final-process-spawn-executor-preflight')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Preflight status', (string) data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_final_process_spawn_executor_preflight.status'));
+            $this->components->twoColumnDetail('Blocking count', (string) data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_final_process_spawn_executor_preflight.blocking_count'));
+            $this->components->twoColumnDetail('Preflight hash', (string) data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_final_process_spawn_executor_preflight_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-automatic-dispatch-scheduler-one-shot-tick-codex-final-process-spawn-executor-implementation-packet')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Packet status', (string) data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_final_process_spawn_executor_implementation_packet.status'));
+            $this->components->twoColumnDetail('Task count', (string) data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_final_process_spawn_executor_implementation_packet.task_count'));
+            $this->components->twoColumnDetail('Packet hash', (string) data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_final_process_spawn_executor_implementation_packet_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-automatic-dispatch-scheduler-one-shot-tick-codex-final-process-spawn-executor-status')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Status', (string) data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_final_process_spawn_executor_status.status'));
+            $this->components->twoColumnDetail('Prepared run count', (string) data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_final_process_spawn_executor_status.codex_process_spawn_executor_prepared_run_count'));
+            $this->components->twoColumnDetail('Status hash', (string) data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_final_process_spawn_executor_status_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-automatic-dispatch-scheduler-one-shot-tick-codex-external-process-runtime-driver-contract')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Contract status', (string) data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_external_process_runtime_driver_contract.status'));
+            $this->components->twoColumnDetail('Method', (string) data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_external_process_runtime_driver_contract.release_boundary.scheduler_invoker_method'));
+            $this->components->twoColumnDetail('Contract hash', (string) data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_external_process_runtime_driver_contract_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-automatic-dispatch-scheduler-one-shot-tick-codex-external-process-runtime-driver-preflight')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Preflight status', (string) data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_external_process_runtime_driver_preflight.status'));
+            $this->components->twoColumnDetail('Blocking count', (string) data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_external_process_runtime_driver_preflight.blocking_count'));
+            $this->components->twoColumnDetail('Preflight hash', (string) data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_external_process_runtime_driver_preflight_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-automatic-dispatch-scheduler-one-shot-tick-codex-external-process-runtime-driver-implementation-packet')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Packet status', (string) data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_external_process_runtime_driver_implementation_packet.status'));
+            $this->components->twoColumnDetail('Task count', (string) data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_external_process_runtime_driver_implementation_packet.task_count'));
+            $this->components->twoColumnDetail('Packet hash', (string) data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_external_process_runtime_driver_implementation_packet_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-automatic-dispatch-scheduler-one-shot-tick-codex-external-process-runtime-driver-status')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Status', (string) data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_external_process_runtime_driver_status.status'));
+            $this->components->twoColumnDetail('Prepared run count', (string) data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_external_process_runtime_driver_status.codex_external_process_runtime_driver_prepared_run_count'));
+            $this->components->twoColumnDetail('Status hash', (string) data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_external_process_runtime_driver_status_hash'));
             $this->newLine();
             $this->line((string) $payload['human_summary']);
 

@@ -2,9 +2,10 @@
 
 namespace App\Services\Ai\Runtime;
 
-use App\Services\Ai\Programming\ProgrammingActionManifestFactory;
 use App\Models\AiToolEvent;
 use App\Services\Ai\Context\RetrievalRankInput;
+use App\Services\Ai\Programming\ProgrammingActionManifestFactory;
+use App\Services\Ai\Programming\ProgrammingActionManifestStore;
 use App\Services\Ai\Search\SessionSearchService;
 use App\Support\AtlasSecurity;
 use Illuminate\Support\Facades\File;
@@ -49,6 +50,7 @@ class AiToolRuntime
         private readonly AtlasTestCommandResolver $testCommands,
         private readonly RetrievalRankInput $retrievalRankInput,
         private readonly ProgrammingActionManifestFactory $actionManifests,
+        private readonly ProgrammingActionManifestStore $actionManifestStore,
     ) {}
 
     public function execute(ToolInvocation $invocation): ToolResult
@@ -816,6 +818,8 @@ class AiToolRuntime
 
     private function withActionRuntimeContract(ToolResult $result, ToolInvocation $invocation): ToolResult
     {
+        $manifest = $this->actionManifestStore->persist($this->actionManifests->make($invocation, $result));
+
         return new ToolResult(
             ok: $result->ok,
             invocationId: $result->invocationId,
@@ -834,7 +838,7 @@ class AiToolRuntime
             events: $result->events,
             metadata: array_merge($result->metadata, [
                 'action_runtime_contract' => $this->actionRuntimeContract($invocation, $result),
-                'programming_action_manifest' => $this->actionManifests->make($invocation, $result),
+                'programming_action_manifest' => $manifest,
             ]),
         );
     }

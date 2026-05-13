@@ -4,6 +4,7 @@ namespace App\Services\Engineering;
 
 use App\Services\Tools\AtlasToolEvidenceStore;
 use App\Services\Tools\AtlasToolResultNormalizer;
+use App\Support\AtlasPhpBinary;
 use App\Support\AtlasSecurity;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
@@ -38,7 +39,7 @@ class EngineeringQualityScanService
 
         $targets = $this->changedTargets($workspace, $changedOnly);
         $plans = $this->filterPlans(
-            $this->plans($workspace, $profile, $targets),
+            $this->plans($workspace, $profile, $targets, $changedOnly),
             $this->stringList($options['include_categories'] ?? []),
             $this->stringList($options['include_tools'] ?? []),
         );
@@ -123,7 +124,7 @@ class EngineeringQualityScanService
             return [];
         }
 
-        $process = new Process(['git', 'status', '--short'], $workspace, AtlasSecurity::processEnv([], 'tool'));
+        $process = new Process(['git', 'status', '--short', '--untracked-files=all'], $workspace, AtlasSecurity::processEnv([], 'tool'));
         $process->setTimeout(15);
         $process->run();
 
@@ -142,13 +143,20 @@ class EngineeringQualityScanService
      * @param  array<int,string>  $targets
      * @return array<int,array<string,mixed>>
      */
-    private function plans(string $workspace, string $profile, array $targets): array
+    private function plans(string $workspace, string $profile, array $targets, bool $changedOnly): array
     {
         $plans = [];
         $plans[] = $this->composerValidatePlan($workspace);
-        $plans[] = $this->workspaceBinaryPlan('laravel_pint', 'vendor/bin/pint', ['./vendor/bin/pint', '--test'], $workspace, File::isFile($workspace.'/composer.json'));
         $phpTargets = $this->targetArgs($targets, ['php']);
         $frontendTargets = $this->targetArgs($targets, ['js', 'jsx', 'ts', 'tsx', 'vue', 'mjs', 'cjs', 'json', 'jsonc']);
+        $plans[] = $this->workspaceBinaryPlan(
+            'laravel_pint',
+            'vendor/bin/pint',
+            array_values(array_filter([AtlasPhpBinary::path(), '-d', 'memory_limit=1024M', 'vendor/bin/pint', '--test', ...$phpTargets])),
+            $workspace,
+            File::isFile($workspace.'/composer.json') && (! $changedOnly || $phpTargets !== []),
+            $changedOnly && $phpTargets === [] ? 'no_changed_php_targets' : null,
+        );
 
         $plans[] = $this->workspaceBinaryPlan('phpstan', 'vendor/bin/phpstan', array_values(array_filter(['./vendor/bin/phpstan', 'analyse', '--no-progress', '--error-format=json', ...$phpTargets])), $workspace, File::exists($workspace.'/phpstan.neon') || File::exists($workspace.'/phpstan.neon.dist'));
         $plans[] = $this->workspaceBinaryPlan('psalm', 'vendor/bin/psalm', array_values(array_filter(['./vendor/bin/psalm', '--output-format=json', ...$phpTargets])), $workspace, File::exists($workspace.'/psalm.xml') || File::exists($workspace.'/psalm.xml.dist'));
@@ -264,7 +272,7 @@ class EngineeringQualityScanService
     /**
      * @return array<string,mixed>
      */
-    private function workspaceBinaryPlan(string $slug, string $binary, array $command, string $workspace, bool $applicable): array
+    private function workspaceBinaryPlan(string $slug, string $binary, array $command, string $workspace, bool $applicable, ?string $missingReason = null): array
     {
         $path = $workspace.'/'.$binary;
 
@@ -274,7 +282,7 @@ class EngineeringQualityScanService
             'available' => File::isFile($path),
             'applicable' => $applicable,
             'command' => $command,
-            'missing_reason' => ! $applicable ? 'not_applicable' : $slug.'_not_installed_in_workspace',
+            'missing_reason' => $missingReason ?? (! $applicable ? 'not_applicable' : $slug.'_not_installed_in_workspace'),
             'parser' => $slug,
             'required' => false,
         ];

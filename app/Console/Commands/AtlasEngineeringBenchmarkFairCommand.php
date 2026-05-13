@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Models\AtlasEngineeringBenchmarkResult;
 use App\Models\AtlasEngineeringBenchmarkRun;
 use App\Models\AtlasEngineeringBenchmarkSuite;
 use App\Services\Ai\FairClaudePolicy;
@@ -10,6 +11,7 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Str;
 use Symfony\Component\Process\ExecutableFinder;
+use Symfony\Component\Process\Process;
 
 class AtlasEngineeringBenchmarkFairCommand extends Command
 {
@@ -28,6 +30,7 @@ class AtlasEngineeringBenchmarkFairCommand extends Command
         {--model=opus : Fair Claude model lock. Only opus is accepted.}
         {--model-policy=fixed : Fair Claude model policy. Only fixed is accepted.}
         {--test-command= : Explicit deterministic validation command}
+        {--quality-changed-only : Force fair quality scan to changed files for patch-scoped A/B validity}
         {--claude-code-baseline-workspace= : Separate workspace for claude-code baseline run}
         {--claude-code-baseline-binary= : Claude Code CLI binary override}
         {--claude-code-baseline-timeout=900 : Seconds to wait for Claude Code baseline run}
@@ -59,6 +62,10 @@ class AtlasEngineeringBenchmarkFairCommand extends Command
             $confirmationGuard = $this->guardProviderExecutionConfirmation($action);
             if ($confirmationGuard !== null) {
                 return $confirmationGuard;
+            }
+            $preflightGuard = $this->guardProviderExecutionPreflight($benchmarks, $action);
+            if ($preflightGuard !== null) {
+                return $preflightGuard;
             }
         }
 
@@ -318,11 +325,18 @@ class AtlasEngineeringBenchmarkFairCommand extends Command
         $baselineSeparate = $workspace !== null
             && $baselineWorkspace !== null
             && realpath($workspace) !== realpath($baselineWorkspace);
+        $workspaceGit = $workspaceOk ? $this->gitWorkspaceState((string) $workspace) : ['is_git' => false, 'clean' => null, 'dirty_files' => []];
+        $baselineGit = $baselineWorkspaceOk ? $this->gitWorkspaceState((string) $baselineWorkspace) : ['is_git' => false, 'clean' => null, 'dirty_files' => []];
         $releaseCorpusCount = (int) data_get($report, 'readiness.release_corpus_case_count', 0);
+        $resultIntegrityStatus = (string) data_get($report, 'result_integrity.status', 'unknown');
+        $historicalInvalidBatteryRequiresTriage = $this->historicalInvalidBatteryRequiresTriage($report);
 
         $blocking = [];
         if ($report === null) {
             $blocking[] = 'suite_not_prepared';
+        }
+        if ($historicalInvalidBatteryRequiresTriage) {
+            $blocking[] = 'historical_invalid_battery_requires_triage';
         }
         if ($releaseCorpusCount < 6) {
             $blocking[] = 'fair_release_corpus_below_minimum';
@@ -335,6 +349,18 @@ class AtlasEngineeringBenchmarkFairCommand extends Command
         }
         if ($workspaceOk && $baselineWorkspaceOk && ! $baselineSeparate) {
             $blocking[] = 'baseline_workspace_must_be_separate';
+        }
+        if ($workspaceOk && ($workspaceGit['is_git'] ?? false) !== true) {
+            $blocking[] = 'atlas_workspace_not_git_worktree';
+        }
+        if ($baselineWorkspaceOk && ($baselineGit['is_git'] ?? false) !== true) {
+            $blocking[] = 'claude_code_baseline_workspace_not_git_worktree';
+        }
+        if (($workspaceGit['is_git'] ?? false) && ($workspaceGit['clean'] ?? null) !== true) {
+            $blocking[] = 'atlas_workspace_dirty';
+        }
+        if (($baselineGit['is_git'] ?? false) && ($baselineGit['clean'] ?? null) !== true) {
+            $blocking[] = 'claude_code_baseline_workspace_dirty';
         }
         if (! $baselineBinaryFound) {
             $blocking[] = 'claude_code_binary_not_found';
@@ -361,6 +387,7 @@ class AtlasEngineeringBenchmarkFairCommand extends Command
             .' --model='.$this->fairModelOption()
             .' --model-policy='.($this->stringOption('model-policy') ?: 'fixed')
             .' --gate-profile='.$this->shellArg($this->stringOption('gate-profile') ?: 'strict')
+            .' --quality-changed-only'
             .' --confirm-runbook-reviewed --confirm-provider-cost';
         $doctorArgs = "{$suiteArg}{$workspaceArg}{$baselineWorkspaceArg}{$binaryArg}"
             .' --model='.$this->fairModelOption()
@@ -381,14 +408,22 @@ class AtlasEngineeringBenchmarkFairCommand extends Command
                 'release_corpus_case_count' => $releaseCorpusCount,
                 'minimum_release_corpus_case_count' => 6,
                 'workspace_exists' => $workspaceOk,
+                'workspace_git' => $workspaceGit,
                 'baseline_workspace_exists' => $baselineWorkspaceOk,
                 'baseline_workspace_separate' => $baselineSeparate,
+                'baseline_workspace_git' => $baselineGit,
                 'claude_code_binary' => $baselineBinary,
                 'claude_code_binary_found' => $baselineBinaryFound,
                 'report_readiness_status' => data_get($report, 'readiness.status'),
+                'report_result_integrity_status' => $resultIntegrityStatus,
+                'historical_invalid_battery_requires_triage' => $historicalInvalidBatteryRequiresTriage,
                 'report_blocking_reasons' => data_get($report, 'readiness.blocking_reasons', []),
             ],
             'commands' => [
+                'prepare_clean_atlas_worktree' => 'git worktree add <clean-atlas-workspace> HEAD',
+                'prepare_clean_baseline_worktree' => 'git worktree add <separate-clean-baseline-workspace> HEAD',
+                'verify_atlas_worktree_clean' => 'git -C <clean-atlas-workspace> status --short',
+                'verify_baseline_worktree_clean' => 'git -C <separate-clean-baseline-workspace> status --short',
                 'prepare_corpus' => "{$base} prepare {$suiteArg} --json",
                 'doctor' => "{$base} runbook {$doctorArgs} --json",
                 'run_full_paired_battery' => "{$base} run {$commonRunArgs} --json",
@@ -410,6 +445,11 @@ class AtlasEngineeringBenchmarkFairCommand extends Command
                 'schema_version' => 'atlas.fair_claude.provider_execution_guard.v1',
                 'confirm_runbook_reviewed_required' => true,
                 'confirm_provider_cost_required' => true,
+                'ready_runbook_required' => true,
+                'git_worktree_required' => true,
+                'invalid_battery_triage_required_before_rerun' => true,
+                'clean_atlas_workspace_required' => true,
+                'clean_baseline_workspace_required' => true,
                 'blocking_error' => 'fair_claude_provider_execution_confirmation_required',
             ],
         ];
@@ -422,6 +462,81 @@ class AtlasEngineeringBenchmarkFairCommand extends Command
         }
 
         return $finder->find($binary) !== null;
+    }
+
+    /**
+     * @param  array<string,mixed>|null  $report
+     */
+    private function historicalInvalidBatteryRequiresTriage(?array $report): bool
+    {
+        if ($report === null) {
+            return false;
+        }
+
+        if ((string) data_get($report, 'result_integrity.status') === 'invalid_battery_no_comparable_score') {
+            return true;
+        }
+
+        $nextActionIds = collect((array) data_get($report, 'next_actions', []))
+            ->pluck('id')
+            ->filter(fn (mixed $id): bool => is_string($id) && $id !== '')
+            ->values()
+            ->all();
+        if (in_array('triage_invalid_battery_before_provider_rerun', $nextActionIds, true)) {
+            return true;
+        }
+
+        $pairedRunCount = (int) data_get($report, 'scope.paired_run_count', 0);
+        $caseComparisonCount = (int) data_get($report, 'scope.case_comparison_count', 0);
+        $comparableCount = (int) data_get($report, 'readiness.comparable_count', 0);
+        $invalidCaseCount = (int) data_get($report, 'paired_scorecard.invalid_case_count', 0);
+
+        return $pairedRunCount > 0
+            && $caseComparisonCount > 0
+            && $comparableCount === 0
+            && $invalidCaseCount > 0
+            || $this->suiteHasHistoricalInvalidFairBattery($report);
+    }
+
+    /**
+     * @param  array<string,mixed>  $report
+     */
+    private function suiteHasHistoricalInvalidFairBattery(array $report): bool
+    {
+        $suiteId = data_get($report, 'suite.id');
+        if (! is_string($suiteId) || $suiteId === '') {
+            return false;
+        }
+
+        $results = AtlasEngineeringBenchmarkResult::query()
+            ->where('suite_id', $suiteId)
+            ->latest()
+            ->limit(50)
+            ->get();
+        $hasInvalidFairCase = false;
+        $hasComparableFairCase = false;
+
+        foreach ($results as $result) {
+            $scorecard = data_get($result->observed_json ?? [], 'paired_scorecard');
+            if (! is_array($scorecard) || ! (bool) ($scorecard['fair_mode'] ?? false)) {
+                continue;
+            }
+
+            if (
+                (string) ($scorecard['comparison_status'] ?? '') === 'atlas_protocol_invalid'
+                || (bool) data_get($scorecard, 'atlas.protocol_valid', true) === false
+            ) {
+                $hasInvalidFairCase = true;
+
+                continue;
+            }
+
+            if ((bool) ($scorecard['comparable'] ?? false) && (string) ($scorecard['comparison_status'] ?? '') === 'comparable') {
+                $hasComparableFairCase = true;
+            }
+        }
+
+        return $hasInvalidFairCase && ! $hasComparableFairCase;
     }
 
     private function shellArg(string $value): string
@@ -463,6 +578,7 @@ class AtlasEngineeringBenchmarkFairCommand extends Command
             '--test-command' => $this->stringOption('test-command'),
             '--complete' => ! $noProvider,
             '--auto-test' => ! (bool) $this->option('no-auto-test'),
+            '--quality-changed-only' => true,
             '--no-provider' => $noProvider,
             '--keep-workspace' => (bool) $this->option('keep-workspace'),
             '--gate-profile' => $this->stringOption('gate-profile') ?: 'strict',
@@ -523,6 +639,97 @@ class AtlasEngineeringBenchmarkFairCommand extends Command
         }
 
         return self::FAILURE;
+    }
+
+    private function guardProviderExecutionPreflight(EngineeringBenchmarkService $benchmarks, string $action): ?int
+    {
+        $suite = $this->findSuite();
+        $report = $suite
+            ? $benchmarks->fairClaudeReportPayload($suite, [
+                'limit' => $this->intOption('limit') ?: 20,
+            ])
+            : null;
+        $runbook = $this->runbookPayload($report);
+        $blocking = (array) ($runbook['start_blocking_reasons'] ?? []);
+
+        if ($blocking === []) {
+            return null;
+        }
+
+        $payload = [
+            'schema_version' => 1,
+            'error' => 'fair_claude_provider_execution_preflight_blocked',
+            'message' => 'Fair Claude provider execution requires a ready runbook, clean isolated workspaces and valid preflight before spending provider tokens.',
+            'action' => $action,
+            'blocking_reasons' => $blocking,
+            'runbook' => $runbook,
+            'safety' => [
+                'no_provider_call' => true,
+                'no_benchmark_run_created' => true,
+                'external_cost_possible' => true,
+                'operator_confirmations_present_but_insufficient' => true,
+            ],
+        ];
+
+        if ((bool) $this->option('json')) {
+            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+        } else {
+            $this->error($payload['message']);
+            foreach ($blocking as $reason) {
+                $this->warn('Blocking: '.(string) $reason);
+            }
+        }
+
+        return self::FAILURE;
+    }
+
+    /**
+     * @return array{is_git:bool,clean:?bool,dirty_files:array<int,string>,status:string}
+     */
+    private function gitWorkspaceState(string $workspace): array
+    {
+        $inside = new Process(['git', 'rev-parse', '--is-inside-work-tree'], $workspace);
+        $inside->setTimeout(5);
+        $inside->run();
+
+        if (! $inside->isSuccessful() || trim($inside->getOutput()) !== 'true') {
+            return [
+                'is_git' => false,
+                'clean' => null,
+                'dirty_files' => [],
+                'status' => 'not_git_workspace',
+            ];
+        }
+
+        $status = new Process(['git', 'status', '--porcelain'], $workspace);
+        $status->setTimeout(10);
+        $status->run();
+
+        if (! $status->isSuccessful()) {
+            return [
+                'is_git' => true,
+                'clean' => null,
+                'dirty_files' => [],
+                'status' => 'git_status_unavailable',
+            ];
+        }
+
+        $dirtyFiles = collect(explode("\n", trim($status->getOutput())))
+            ->filter(fn (string $line): bool => trim($line) !== '')
+            ->map(function (string $line): string {
+                $path = preg_replace('/^..\s*/', '', $line);
+
+                return trim(is_string($path) && $path !== '' ? $path : $line);
+            })
+            ->values()
+            ->all();
+
+        return [
+            'is_git' => true,
+            'clean' => $dirtyFiles === [],
+            'dirty_files' => $dirtyFiles,
+            'status' => $dirtyFiles === [] ? 'clean' : 'dirty',
+        ];
     }
 
     private function replay(EngineeringBenchmarkService $benchmarks): int

@@ -3,6 +3,7 @@
 namespace App\Services\Ai\Voice;
 
 use App\Models\AtlasLedgerEvent;
+use App\Services\Ai\AiGatewayService;
 use App\Services\Ai\Kernel\Architecture\AtlasRuntimeLanguageBoundaryReportService;
 use App\Services\Ai\Kernel\Decision\DecisionReceipt;
 use App\Services\Ai\Kernel\Decision\DecisionReceiptIssuer;
@@ -17,6 +18,7 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Symfony\Component\Process\Exception\ProcessTimedOutException;
 use Symfony\Component\Process\Process;
+use Throwable;
 
 final class AtlasVoiceRealtimeService
 {
@@ -68,13 +70,13 @@ final class AtlasVoiceRealtimeService
         ],
         'barge_in' => [
             'required' => ['session_id', 'turn_id'],
-            'optional' => ['reason', 'interrupted_stage', 'latency_ms'],
+            'optional' => ['reason', 'interrupted_stage', 'played_duration_ms', 'latency_ms'],
             'prohibited' => ['raw_audio', 'audio_bytes', 'pcm', 'wav'],
         ],
         'runtime_failed' => [
             'required' => ['session_id', 'turn_id'],
-            'optional' => ['failure_code', 'error_class', 'latency_ms'],
-            'prohibited' => ['raw_audio', 'audio_bytes', 'response_text', 'tool_call', 'tool_args'],
+            'optional' => ['failure_code', 'error_class', 'error_message_hash', 'latency_ms'],
+            'prohibited' => ['raw_audio', 'audio_bytes', 'response_text', 'raw_response_text', 'error_message', 'message', 'tool_call', 'tool_args'],
         ],
         'provider_health_degraded' => [
             'required' => ['session_id', 'turn_id', 'provider'],
@@ -96,6 +98,7 @@ final class AtlasVoiceRealtimeService
         private readonly DecisionReceiptIssuer $receipts,
         private readonly AtlasVoiceLiveKitTokenIssuer $liveKitTokens,
         private readonly AtlasRuntimeLanguageBoundaryReportService $runtimeBoundary,
+        private readonly AiGatewayService $gateway,
     ) {}
 
     /**
@@ -124,6 +127,103 @@ final class AtlasVoiceRealtimeService
             'contract' => $this->contract(),
             'evidence_ledger' => $this->ledgerEventPayload($event),
         ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $session
+     * @param  array<string,mixed>  $payload
+     * @return array<string,mixed>
+     */
+    private function maybeEnqueueTranscriptInteraction(
+        array $session,
+        array $payload,
+        string $turnId,
+        string $transcript,
+        DecisionReceipt $receipt,
+    ): array {
+        if ($transcript === '') {
+            return [
+                'dispatched' => false,
+                'status' => 'skipped_no_transcript',
+                'reason' => 'voice_turn_has_no_transcript_final',
+            ];
+        }
+
+        if (! (bool) ($payload['dispatch_to_ai'] ?? false)) {
+            return [
+                'dispatched' => false,
+                'status' => 'skipped_not_requested',
+                'reason' => 'dispatch_to_ai_not_requested',
+                'transcript_hash' => hash('sha256', $transcript),
+            ];
+        }
+
+        if (! (bool) ($payload['allow_transcript_persistence'] ?? false)) {
+            return [
+                'dispatched' => false,
+                'status' => 'blocked_transcript_persistence_not_allowed',
+                'reason' => 'voice_contract_requires_explicit_transcript_persistence_for_ai_interaction',
+                'transcript_hash' => hash('sha256', $transcript),
+            ];
+        }
+
+        try {
+            $trace = $this->gateway->enqueueInteraction($transcript, [
+                'client_id' => 'voice:'.$session['session_id'].':'.$turnId,
+                'source_type' => 'voice_realtime',
+                'source_id' => $turnId,
+                'kind' => 'interaction',
+                'thread_id' => is_string($payload['ai_thread_id'] ?? null) ? (string) $payload['ai_thread_id'] : null,
+                'new_thread' => ! is_string($payload['ai_thread_id'] ?? null),
+                'agent_slug' => config('atlas.ai.default_agent', 'orquestrador'),
+                'include_semantic_context' => true,
+                'context_note_limit' => 5,
+                'payload' => [
+                    'app_surface' => 'voice_realtime',
+                    'atlas_focus' => $this->string($payload['domain_hint'] ?? 'general', 120) ?: 'general',
+                    'routing_task' => 'voice_turn',
+                    'routing_domain' => $this->string($payload['domain_hint'] ?? 'general', 120) ?: 'general',
+                    'response_style' => 'conversational',
+                    'privacy' => [
+                        'source' => 'voice_realtime_transcript',
+                        'privacy_class' => $session['privacy_class'],
+                        'raw_audio_persisted' => false,
+                        'transcript_persistence_explicitly_allowed' => true,
+                    ],
+                    'voice_realtime' => [
+                        'schema_version' => self::SCHEMA_VERSION,
+                        'session_id' => $session['session_id'],
+                        'turn_id' => $turnId,
+                        'transport' => $session['transport'],
+                        'runtime' => $session['runtime'],
+                        'audio_hash' => $this->sha256Hex($payload['audio_hash'] ?? null),
+                        'audio_duration_ms' => $payload['audio_duration_ms'] ?? null,
+                        'transcript_hash' => hash('sha256', $transcript),
+                        'decision_receipt_id' => $receipt->receiptId,
+                        'decision_receipt_hash' => $receipt->receiptHash,
+                        'decision_domain' => $receipt->domain,
+                        'decision_flow' => $receipt->flow,
+                    ],
+                ],
+            ]);
+
+            return [
+                'dispatched' => true,
+                'status' => 'ai_interaction_enqueued',
+                'trace_id' => $trace->id,
+                'thread_id' => $trace->thread_id,
+                'trace_status' => $trace->status,
+                'transcript_hash' => hash('sha256', $transcript),
+            ];
+        } catch (Throwable $error) {
+            return [
+                'dispatched' => false,
+                'status' => 'ai_interaction_enqueue_failed',
+                'error_class' => $error::class,
+                'error_message_hash' => hash('sha256', $error->getMessage()),
+                'transcript_hash' => hash('sha256', $transcript),
+            ];
+        }
     }
 
     /**
@@ -169,13 +269,13 @@ final class AtlasVoiceRealtimeService
             $events['audio_received'] = $this->ledger->recordVoiceEvent(LedgerEventType::VoiceTurnAudioReceived, [
                 ...$session,
                 'turn_id' => $turnId,
-                'audio_hash' => $payload['audio_hash'],
+                'audio_hash' => $this->sha256Hex($payload['audio_hash'] ?? null),
                 'audio_duration_ms' => $payload['audio_duration_ms'] ?? null,
             ], $this->ledgerContext($session));
         }
 
-        if (isset($payload['transcript']) && is_string($payload['transcript'])) {
-            $transcript = (string) $payload['transcript'];
+        $transcript = is_string($payload['transcript'] ?? null) ? trim((string) $payload['transcript']) : '';
+        if ($transcript !== '') {
             $events['transcribed'] = $this->ledger->recordVoiceEvent(LedgerEventType::VoiceTurnTranscribed, [
                 ...$session,
                 'turn_id' => $turnId,
@@ -208,6 +308,8 @@ final class AtlasVoiceRealtimeService
             ]);
         }
 
+        $aiInteraction = $this->maybeEnqueueTranscriptInteraction($session, $payload, $turnId, $transcript, $receipt);
+
         return [
             'schema_version' => self::SCHEMA_VERSION,
             'status' => 'turn_accepted_scaffold',
@@ -232,10 +334,11 @@ final class AtlasVoiceRealtimeService
                     'receipt_hash' => $receipt->receiptHash,
                     'chain_hash' => $receipt->chainHash,
                 ],
-                'provider_execution_enabled' => false,
+                'provider_execution_enabled' => (bool) ($aiInteraction['dispatched'] ?? false),
                 'runtime_execution_enabled' => false,
                 'requires_decision_receipt' => true,
                 'raw_audio_persisted' => false,
+                'ai_interaction' => $aiInteraction,
             ],
             'eclipse' => $eclipse,
             'contract' => $this->contract(),
@@ -384,17 +487,23 @@ final class AtlasVoiceRealtimeService
             }
         }
 
+        $reason = $this->string($payload['reason'] ?? 'operator_interrupted', 120);
+        $interruptedStage = $this->string($payload['interrupted_stage'] ?? 'runtime_or_tts', 120);
+        $playedDurationMs = isset($payload['played_duration_ms']) ? (int) $payload['played_duration_ms'] : null;
+        $latencyMs = isset($payload['latency_ms']) ? (int) $payload['latency_ms'] : null;
+
         $event = $this->ledger->recordVoiceEvent(LedgerEventType::VoiceTurnInterrupted, [
             ...$session,
             'turn_id' => $turnId,
             'interruption_source' => $interruptionSource,
-            'reason' => $this->string($payload['reason'] ?? 'operator_interrupted', 120),
-            'interrupted_stage' => $this->string($payload['interrupted_stage'] ?? 'runtime_or_tts', 120),
-            'latency_ms' => isset($payload['latency_ms']) ? (int) $payload['latency_ms'] : null,
+            'reason' => $reason,
+            'interrupted_stage' => $interruptedStage,
+            'played_duration_ms' => $playedDurationMs,
+            'latency_ms' => $latencyMs,
         ], $this->ledgerContext($session));
         $slo = null;
-        if (isset($payload['latency_ms'])) {
-            $assessment = $this->sloTargets->assess('voice.interruption_stop_audio', (int) $payload['latency_ms'], true);
+        if ($latencyMs !== null) {
+            $assessment = $this->sloTargets->assess('voice.interruption_stop_audio', $latencyMs, true);
             $slo = $this->ledger->recordSloObservation($assessment, [
                 ...$this->ledgerContext($session),
                 'surface_id' => 'voice_realtime',
@@ -411,6 +520,10 @@ final class AtlasVoiceRealtimeService
                 'turn_id' => $turnId,
                 'interruption_recorded' => true,
                 'interruption_source' => $interruptionSource,
+                'reason' => $reason,
+                'interrupted_stage' => $interruptedStage,
+                'played_duration_ms' => $playedDurationMs,
+                'latency_ms' => $latencyMs,
                 'raw_audio_persisted' => false,
             ],
             'contract' => $this->contract(),
@@ -1631,7 +1744,7 @@ final class AtlasVoiceRealtimeService
         $domain = $this->string($payload['domain_hint'] ?? 'general', 120) ?: 'general';
         $flow = $this->string($payload['flow_hint'] ?? 'general.answer', 120) ?: 'general.answer';
         $transcript = is_string($payload['transcript'] ?? null) ? (string) $payload['transcript'] : '';
-        $audioHash = is_scalar($payload['audio_hash'] ?? null) ? (string) $payload['audio_hash'] : null;
+        $audioHash = $this->sha256Hex($payload['audio_hash'] ?? null);
 
         $envelope = $this->envelopes->create([
             'operator' => [
@@ -1873,11 +1986,13 @@ final class AtlasVoiceRealtimeService
             'runtime' => $this->string($payload['runtime'] ?? $session['runtime'], 120),
             'provider' => $this->string($payload[$options['provider_key'] ?? 'provider'] ?? $payload['provider'] ?? '', 120),
             'model' => $this->string($payload['model'] ?? '', 120),
-            'audio_hash' => $payload['audio_hash'] ?? null,
+            'audio_hash' => $this->sha256Hex($payload['audio_hash'] ?? null),
             'audio_duration_ms' => $payload[$options['duration_key'] ?? 'audio_duration_ms'] ?? $payload['audio_duration_ms'] ?? null,
             'latency_ms' => isset($payload['latency_ms']) ? (int) $payload['latency_ms'] : null,
             'failure_code' => $this->string($payload[$options['failure_key'] ?? 'failure_code'] ?? $payload['failure_code'] ?? '', 160),
-            'response_text_hash' => $this->string($payload['response_text_hash'] ?? '', 160),
+            'error_class' => $this->string($payload['error_class'] ?? '', 160),
+            'error_message_hash' => $this->sha256Hex($payload['error_message_hash'] ?? null) ?? '',
+            'response_text_hash' => $this->sha256Hex($payload['response_text_hash'] ?? null) ?? '',
         ];
 
         $event = $this->ledger->recordVoiceEvent($type, $voicePayload, $this->ledgerContext($session));
@@ -2111,6 +2226,17 @@ final class AtlasVoiceRealtimeService
     private function string(mixed $value, int $limit): string
     {
         return Str::limit(trim((string) $value), $limit, '');
+    }
+
+    private function sha256Hex(mixed $value): ?string
+    {
+        if (! is_scalar($value)) {
+            return null;
+        }
+
+        $hash = strtolower(trim((string) $value));
+
+        return preg_match('/^[a-f0-9]{64}$/', $hash) === 1 ? $hash : null;
     }
 
     /**

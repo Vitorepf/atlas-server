@@ -43,7 +43,7 @@ class AtlasEngineeringVisualSmokeCommand extends Command
         $startCommand = $this->expandedOption('start-command', $workspace, $host, $port)
             ?: $this->detectStartCommand($workspace, $host, $port);
         $baseUrl = rtrim($this->expandedOption('url', $workspace, $host, $port) ?: "http://{$host}:{$port}", '/');
-        $routes = $this->routes();
+        $routes = $this->routes($workspace);
         $baselineMode = $this->baselineMode();
         $screenshotBaselineMode = $this->screenshotBaselineMode($baselineMode);
         $screenshotDriver = $this->screenshotDriver($workspace);
@@ -367,11 +367,29 @@ class AtlasEngineeringVisualSmokeCommand extends Command
     /**
      * @return array<int,string>
      */
-    private function routes(): array
+    private function routes(string $workspace): array
     {
         $routes = array_values(array_filter((array) $this->option('route'), fn (mixed $route): bool => is_scalar($route) && trim((string) $route) !== ''));
 
-        return $routes === [] ? ['/'] : array_map(fn (mixed $route): string => (string) $route, $routes);
+        if ($routes !== []) {
+            return array_map(fn (mixed $route): string => (string) $route, $routes);
+        }
+
+        if (File::isFile($workspace.'/routes/api.php') && ! File::isFile($workspace.'/routes/web.php')) {
+            return [$this->defaultApiHealthRoute($workspace)];
+        }
+
+        return ['/'];
+    }
+
+    private function defaultApiHealthRoute(string $workspace): string
+    {
+        $bootstrap = $workspace.'/bootstrap/app.php';
+        if (File::isFile($bootstrap) && str_contains((string) File::get($bootstrap), "apiPrefix: ''")) {
+            return '/health';
+        }
+
+        return '/api/health';
     }
 
     private function baselineMode(): string

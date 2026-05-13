@@ -28,8 +28,15 @@ class AiStreamRecorder
             : 'progress';
 
         return DB::transaction(function () use ($job, $attempt, $eventType, $content, $metadata, $channel): AiStreamEvent {
+            if ($job->trace_id) {
+                DB::table('ai_traces')
+                    ->where('id', $job->trace_id)
+                    ->lockForUpdate()
+                    ->value('id');
+            }
+
             $lastSequence = (int) AiStreamEvent::query()
-                ->where('ai_job_id', $job->id)
+                ->where('trace_id', $job->trace_id)
                 ->max('sequence');
 
             return AiStreamEvent::query()->create([

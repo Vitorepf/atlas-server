@@ -87,6 +87,49 @@ class AiStreamRecorderTest extends TestCase
         $this->assertSame('feito', $second?->content);
     }
 
+    public function test_sequences_are_global_for_trace_across_multiple_jobs(): void
+    {
+        $trace = AiTrace::query()->create([
+            'trace_key' => 'trace_stream_council_test',
+            'source_type' => 'manual',
+            'status' => 'processing',
+            'operator_input' => 'pedido',
+            'agent_slug' => 'orquestrador',
+            'provider' => 'claude_codex',
+            'skill_versions' => [],
+            'context_refs' => [],
+            'metadata' => [],
+        ]);
+
+        $jobs = collect(['claude_cli', 'codex_cli'])->map(fn (string $provider): AiJob => AiJob::query()->create([
+            'trace_id' => $trace->id,
+            'kind' => 'council',
+            'status' => 'processing',
+            'priority' => 50,
+            'agent_slug' => 'orquestrador',
+            'provider' => $provider,
+            'input_text' => 'pedido',
+            'prompt' => 'prompt',
+            'context_refs' => [],
+            'payload' => [],
+            'available_at' => now(),
+            'attempts' => 1,
+            'max_attempts' => 2,
+            'timeout_seconds' => 300,
+            'metadata' => [],
+        ]));
+
+        $recorder = app(AiStreamRecorder::class);
+
+        $first = $recorder->record($jobs[0], null, 'token', 'claude', [], 'assistant');
+        $second = $recorder->record($jobs[1], null, 'token', 'codex', [], 'assistant');
+        $third = $recorder->record($jobs[0], null, 'response', 'final', [], 'assistant');
+
+        $this->assertSame(1, $first?->sequence);
+        $this->assertSame(2, $second?->sequence);
+        $this->assertSame(3, $third?->sequence);
+    }
+
     private function createTables(): void
     {
         Schema::create('ai_traces', function (Blueprint $table): void {

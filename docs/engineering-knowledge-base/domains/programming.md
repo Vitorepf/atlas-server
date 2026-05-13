@@ -24,7 +24,10 @@ decisions:
   - Flows de harness, QA, security, database, visual e forge devem produzir evidence suficiente para gates e replay.
   - O dominio consome Core, Super Tool Runtime, Memory/Open Brain, Code Intelligence e Evidence Ledger; nao deve duplicar essas capacidades.
   - Especialistas tecnicos como frontend, backend-api, mobile e performance vivem como specialist profiles dentro de Programming, nao como dominios paralelos.
+  - Atlas Programming Governance System governa placement, spec antes do codigo, task contracts, Code Intelligence, evidence, learning e cartografia dentro dos fluxos de programacao.
+  - Atlas Forge Operating System e o patamar acima para trabalho pesado, multiagente ou multiprovider sobre `programming.forge`.
   - Os oito saltos enterprise de programacao vivem em programming-enterprise-implementation-plan.md.
+  - RAG/Agentic RAG profissional de programacao vive em programming-agentic-rag-professional-spec.md; MVP de RAG nao e criterio de conclusao aceitavel.
 maintenance:
   - Atualize este documento quando flows programming, gates, executor preference, surfaces ou orchestrator mudarem.
   - Leia junto de atlas-ai-master-architecture.md, atlas-ai-operating-system.md, engineering-blueprint.md e programming-power-tools-catalog.md antes de alterar Programming runtime.
@@ -39,9 +42,12 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-ai-master-architecture.md
   - docs/engineering-knowledge-base/atlas-ai-operating-system.md
   - docs/engineering-knowledge-base/engineering-blueprint.md
+  - docs/engineering-knowledge-base/atlas-programming-governance-system.md
+  - docs/engineering-knowledge-base/atlas-forge-operating-system.md
   - docs/engineering-knowledge-base/programming-power-tools-catalog.md
   - docs/engineering-knowledge-base/domains/programming-specialist-profiles.md
   - docs/engineering-knowledge-base/domains/programming-enterprise-implementation-plan.md
+  - docs/engineering-knowledge-base/domains/programming-agentic-rag-professional-spec.md
   - docs/engineering-knowledge-base/domains/programming-frontend-superpower.md
   - docs/engineering-knowledge-base/domains/programming-surfaces.md
   - docs/engineering-knowledge-base/domains/programming-repair-contract.md

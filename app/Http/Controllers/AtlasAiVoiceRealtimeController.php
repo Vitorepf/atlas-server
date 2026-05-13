@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers;
 
-use App\Services\Ai\Voice\AtlasVoiceLiveKitTokenIssuer;
 use App\Services\Ai\Voice\AtlasVoiceLiveKitServerProbe;
+use App\Services\Ai\Voice\AtlasVoiceLiveKitTokenIssuer;
 use App\Services\Ai\Voice\AtlasVoiceProductionPromotionReviewBundleService;
 use App\Services\Ai\Voice\AtlasVoiceRealtimeService;
 use App\Services\Ai\Voice\AtlasVoiceRivalsRunner;
@@ -215,6 +215,9 @@ final class AtlasAiVoiceRealtimeController extends Controller
             'domain_hint' => ['nullable', 'string', 'max:120'],
             'flow_hint' => ['nullable', 'string', 'max:120'],
             'turn_to_first_audio_ms' => ['nullable', 'integer', 'min:0'],
+            'dispatch_to_ai' => ['nullable', 'boolean'],
+            'allow_transcript_persistence' => ['nullable', 'boolean'],
+            'ai_thread_id' => ['nullable', 'uuid'],
         ]);
 
         return response()->json($this->voice->handleTurn($data));
@@ -240,6 +243,7 @@ final class AtlasAiVoiceRealtimeController extends Controller
             'reason' => ['nullable', 'string', 'max:120'],
             'interrupted_stage' => ['nullable', 'string', 'max:120'],
             'interruption_source' => ['nullable', 'in:operator,mobile,runtime_callback'],
+            'played_duration_ms' => ['nullable', 'integer', 'min:0'],
             'latency_ms' => ['nullable', 'integer', 'min:0'],
             'audio_bytes' => ['prohibited'],
             'raw_audio' => ['prohibited'],
@@ -258,6 +262,7 @@ final class AtlasAiVoiceRealtimeController extends Controller
             'tts_provider' => ['nullable', 'string', 'max:120'],
             'audio_hash' => ['nullable', 'required_without:response_text_hash', 'string', 'regex:/^[a-f0-9]{64}$/i'],
             'audio_duration_ms' => ['nullable', 'integer', 'min:0'],
+            'latency_ms' => ['nullable', 'integer', 'min:0'],
             'audio_bytes' => ['prohibited'],
             'raw_audio' => ['prohibited'],
         ]);
@@ -269,6 +274,7 @@ final class AtlasAiVoiceRealtimeController extends Controller
     {
         $data = $this->validateRuntimeCallbackPayload($request) + $request->validate([
             'played_duration_ms' => ['nullable', 'integer', 'min:0'],
+            'latency_ms' => ['nullable', 'integer', 'min:0'],
         ]);
 
         return response()->json($this->voice->recordPlayback($data));
@@ -279,6 +285,14 @@ final class AtlasAiVoiceRealtimeController extends Controller
         $data = $this->validateRuntimeCallbackPayload($request) + $request->validate([
             'failure_code' => ['nullable', 'string', 'max:160'],
             'error_class' => ['nullable', 'string', 'max:160'],
+            'error_message_hash' => ['nullable', 'string', 'regex:/^[a-f0-9]{64}$/i'],
+            'latency_ms' => ['nullable', 'integer', 'min:0'],
+            'error_message' => ['prohibited'],
+            'message' => ['prohibited'],
+            'response_text' => ['prohibited'],
+            'raw_response_text' => ['prohibited'],
+            'raw_audio' => ['prohibited'],
+            'audio_bytes' => ['prohibited'],
         ]);
 
         return response()->json($this->voice->recordRuntimeFailure($data));

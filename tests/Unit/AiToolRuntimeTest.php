@@ -4,7 +4,9 @@ namespace Tests\Unit;
 
 use App\Services\Ai\Runtime\AiToolRuntime;
 use App\Services\Ai\Runtime\ToolInvocation;
+use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
 class AiToolRuntimeTest extends TestCase
@@ -228,6 +230,8 @@ class AiToolRuntimeTest extends TestCase
 
     public function test_programming_quality_and_visual_smoke_have_safe_dry_run_contracts(): void
     {
+        $this->createProgrammingActionManifestTable();
+
         $quality = app(AiToolRuntime::class)->execute(ToolInvocation::make('programming.quality_scan', $this->workspace, [
             'profile' => 'fast',
             'timeout' => 10,
@@ -254,5 +258,38 @@ class AiToolRuntimeTest extends TestCase
         $this->assertSame('programming.visual_smoke', data_get($visual->metadata, 'programming_action_manifest.tool'));
         $this->assertSame('test', data_get($visual->metadata, 'programming_action_manifest.stage'));
         $this->assertSame('advisory', data_get($visual->metadata, 'programming_action_manifest.gate_effect'));
+        $this->assertTrue(data_get($visual->metadata, 'programming_action_manifest.storage.persisted'));
+        $this->assertDatabaseHas('atlas_programming_action_manifests', [
+            'action_id' => $visual->invocationId,
+            'tool' => 'programming.visual_smoke',
+            'stage' => 'test',
+            'dry_run' => true,
+            'gate_effect' => 'advisory',
+        ]);
+    }
+
+    private function createProgrammingActionManifestTable(): void
+    {
+        Schema::dropIfExists('atlas_programming_action_manifests');
+
+        Schema::create('atlas_programming_action_manifests', function (Blueprint $table): void {
+            $table->uuid('id')->primary();
+            $table->string('action_id', 120)->unique();
+            $table->string('plan_id', 160)->nullable()->index();
+            $table->string('stage', 40)->index();
+            $table->string('tool', 120)->index();
+            $table->boolean('programming_tool')->default(false)->index();
+            $table->string('permission_mode', 20)->index();
+            $table->boolean('dry_run')->default(false)->index();
+            $table->string('gate_effect', 40)->index();
+            $table->string('next_action', 40)->index();
+            $table->json('changed_files_json')->default('[]');
+            $table->json('rollback_json')->default('{}');
+            $table->json('inputs_json')->default('{}');
+            $table->json('outputs_json')->default('{}');
+            $table->json('payload_json')->default('{}');
+            $table->string('payload_hash', 64)->index();
+            $table->timestamps();
+        });
     }
 }

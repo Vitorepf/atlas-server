@@ -1,0 +1,518 @@
+---
+id: atlas-cartographic-knowledge-os
+type: engineering_knowledge
+title: Atlas Cartographic Knowledge OS
+status: future
+category: cartography
+priority: 100
+summary: Especificacao canonica da Cartografia como sistema operacional visual da verdade do Atlas: navegacao por escala, zoom semantico, engrenagens, fluxos, fonte real, links e estados epistemicos para humanos e IAs.
+tags:
+  - atlas
+  - cartography
+  - visual-knowledge
+  - semantic-zoom
+  - human-interface
+  - ai-navigation
+capabilities:
+  - cartographic_knowledge_os
+  - semantic_zoom
+  - visual_truth_navigation
+  - graph_lod
+  - gear_flow_visualization
+  - human_readable_system_map
+  - ai_navigable_context_graph
+  - epistemic_visual_state
+decisions:
+  - Cartographic Knowledge OS e a interface visual primaria para humanos entenderem o Atlas.
+  - Cartografia nao e desenho, wiki ou grafo decorativo; e sistema operacional visual da verdade canonica.
+  - O humano deve conseguir entender Atlas por imagem, escala, fluxo, posicao e relacao, com o minimo de leitura.
+  - A IA deve usar os mesmos links e nodes para navegar contexto com mais precisao e menor desperdicio.
+  - Todo node visual precisa apontar para fonte real, owner, status, links, evidencia e estado epistemico/soberano quando existir.
+  - Zoom semantico deve esconder o resto do mundo e revelar o funcionamento interno da engrenagem escolhida.
+maintenance:
+  - Atualizar quando Cartografia, Atlas Semantic Graph, Knowledge Governance ou Desktop mudarem contrato visual.
+  - Manter abaixo de 520 linhas; dividir detalhes de UI, API e layout em specs filhas quando iniciar implementacao.
+  - Rodar docs-health depois de alterar.
+related_paths:
+  - docs/engineering-knowledge-base/atlas-semantic-graph.md
+  - docs/engineering-knowledge-base/atlas-system-graph.md
+  - docs/engineering-knowledge-base/atlas-canonical-module-doc-v1.md
+  - docs/engineering-knowledge-base/atlas-epistemic-operating-system.md
+  - docs/engineering-knowledge-base/atlas-sovereign-operating-system.md
+  - docs/engineering-knowledge-base/atlas-ai-knowledge-governance-system.md
+  - docs/engineering-knowledge-base/vault/atlas-vault-cartography-schema.md
+  - docs/engineering-knowledge-base/vault/atlas-vault-cartography-schema-contracts.md
+  - docs/engineering-knowledge-base/atlas-desktop-code-surface.md
+  - docs/engineering-knowledge-base/atlas-desktop-backend-contract.md
+  - app/Services/Vault/GraphAssembler.php
+  - app/Services/Vault/RepoVaultReader.php
+doc_schema: atlas_canonical_module_doc.v1
+graph_id: atlas-cartographic-knowledge-os
+graph_title: Atlas Cartographic Knowledge OS
+graph_world: atlas
+graph_layer: system
+graph_kind: system
+graph_parent: atlas-semantic-graph
+graph_status: future
+graph_source: repo
+owner: atlas-cartography
+repo_paths:
+  - docs/engineering-knowledge-base/atlas-cartographic-knowledge-os.md
+allowed_changes:
+  - Evoluir contratos de zoom semantico, mapas por escala, visualizacao de engrenagens e navegacao por humanos/IAs.
+  - Criar specs filhas para viewport, LOD, inspector, graph API, visual grammar e interaction model.
+forbidden_changes:
+  - Tratar Cartografia como mock, arte estatica ou diagrama manual sem fonte real.
+  - Mostrar node sem source_path, owner, status ou estado de confianca quando a fonte exigir.
+  - Permitir que visual sobrescreva docs canonicos.
+  - Esconder ausencia de informacao com layout bonito.
+depends_on:
+  - atlas-semantic-graph
+  - atlas-canonical-module-doc-v1
+  - atlas-ai-knowledge-governance-system
+  - atlas-epistemic-operating-system
+  - atlas-sovereign-operating-system
+flows_to:
+  - atlas-desktop-code-surface
+  - atlas-code
+  - atlas-vault
+unlocks:
+  - human-readable-atlas
+  - visual-ai-navigation
+  - zoomable-operational-truth
+governs:
+  - atlas-cartography
+  - semantic-graph
+  - visual-knowledge-navigation
+evidence:
+  - docs/engineering-knowledge-base/atlas-cartographic-knowledge-os.md
+  - docs/engineering-knowledge-base/atlas-semantic-graph.md
+required_tests:
+  - php artisan atlas:engineering:knowledge docs-health --json
+requires_evidence: true
+risk_level: critical
+visual_tags:
+  - system
+  - cartography
+  - visual-os
+  - semantic-zoom
+ai_entrypoints:
+  - Leia este doc antes de criar tela, grafo, visualizacao ou endpoint de Cartografia.
+  - Use a metafora de cidade como regra de design: mundo, setor, bairro, predio, engrenagem.
+ai_usage_notes:
+  - Se um node nao tem fonte real, nao invente visual; marque ausencia ou crie proposta de doc.
+  - Links sao infraestrutura de navegacao e execucao, nao detalhes esteticos.
+quality_gates:
+  - php artisan atlas:engineering:knowledge docs-health --json
+  - future: atlas cartography graph validate --json
+  - future: atlas cartography visual-lod-audit --json
+failure_modes:
+  - Cartografia virar diagrama bonito mas incompleto.
+  - Zoom mostrar detalhe sem preservar caminho de volta.
+  - Links ruins fazerem IA navegar contexto errado.
+  - Humano acreditar que algo nao existe porque nao aparece no mapa.
+  - Nodes demais sem LOD virarem nuvem ilegivel.
+observability_signals:
+  - docs-health status ok
+  - future: graph completeness percent
+  - future: orphan nodes count
+  - future: missing source paths count
+  - future: stale visual nodes count
+next_actions:
+  - Definir schema de node visual por escala e endpoint de semantic zoom.
+---
+# Atlas Cartographic Knowledge OS
+
+## Resumo
+
+Atlas Cartographic Knowledge OS e a evolucao da Cartografia para sistema
+operacional visual da verdade do Atlas. Ele deve permitir que humano e IA
+naveguem o Atlas como uma cidade viva: de cima, por setores; com zoom, por
+bairros; com mais zoom, por predios; e no nivel final, por engrenagens internas
+em funcionamento.
+
+O humano nao deve precisar ler centenas de docs para entender onde esta uma
+peca, o que ela faz, quem a governa, de onde recebe entrada, para onde envia
+saida, qual fluxo executa e o que falta. A imagem deve carregar essa compreensao.
+
+## Papel no Atlas
+
+Cartographic Knowledge OS e a interface humana principal para entender um Atlas
+construido por IAs. Como o humano nao implementa tudo manualmente, a Cartografia
+precisa mostrar a realidade de forma visual, navegavel e verificavel.
+
+Para IAs, ela tambem funciona como mapa de contexto: reduz busca cega,
+melhora retrieval, revela owner, links, dependencias, riscos e limites de
+implementacao.
+
+## Onde Se Encaixa
+
+```text
+Docs Canonicos / AtlasVault / Codigo / Evidence / Epistemic OS
+        |
+        v
+Atlas Semantic Graph
+        |
+        v
+Cartographic Knowledge OS
+        |
+        +--> World View
+        +--> Sector View
+        +--> System View
+        +--> Flow View
+        +--> Gear View
+        +--> Evidence View
+        +--> AI Navigation Context
+```
+
+Ele consome verdade; nao cria verdade. A fonte continua nos arquivos, codigo,
+ledger e Epistemic OS. A Cartografia organiza visualmente.
+
+## Contratos
+
+1. Todo node visual precisa apontar para fonte real.
+2. Todo link visual precisa ter tipo e significado.
+3. Todo zoom muda o nivel semantico, nao apenas o tamanho da tela.
+4. Ao focar uma engrenagem, o resto do mundo deve sair do caminho visual.
+5. Ausencia de fonte deve aparecer como lacuna, nao como silencio.
+6. O humano deve conseguir entender posicao e funcao por imagem.
+7. A IA deve conseguir pedir contexto por node, link, fluxo, owner ou risco.
+8. Visual nunca vence doc canonico, codigo, teste ou Evidence Ledger.
+9. Estado epistemico deve aparecer como cor, opacidade, selo, alerta ou camada.
+10. Cartografia precisa permitir ida e volta: mundo -> engrenagem -> mundo.
+
+## Metafora Canonica
+
+Cartografia deve funcionar como conhecer Sao Paulo por escalas.
+
+```text
+Cidade inteira
+  -> setores
+  -> bairros
+  -> quarteiroes
+  -> predios
+  -> supermercado
+  -> caixa / estoque / pessoas / fluxo de mercadoria / dinheiro
+```
+
+No Atlas:
+
+```text
+Atlas inteiro
+  -> sistemas
+  -> surfaces/domains/runtimes
+  -> fluxos
+  -> modulos
+  -> engrenagens
+  -> codigo / teste / evidence / receipt / risco
+```
+
+## Modulos
+
+| Modulo | Funcao | Saida |
+|---|---|---|
+| Visual Knowledge Graph | Grafo visual da verdade canonica | nodes e edges renderizaveis |
+| Semantic Zoom Engine | Troca nivel de realidade conforme zoom/foco | cenas por escala |
+| Level of Detail Engine | Decide o que aparece/some em cada escala | visual LOD |
+| Gear Flow Renderer | Mostra funcionamento interno de uma engrenagem | fluxo interno |
+| Link Semantics Engine | Classifica relacoes visuais e operacionais | typed edges |
+| Source Inspector | Mostra fonte real e evidencias de um node | painel verificavel |
+| Epistemic/Sovereign Overlay | Mostra confianca, drift, risco, maturidade e bloqueios soberanos | estado visual |
+| Human Navigation Shell | Permite navegar sem ler docs longos | interface humana |
+| AI Navigation API | Permite IA navegar por graph_id e relacoes | context slices |
+| Visual Completeness Auditor | Detecta lacunas, orfaos e links quebrados | audit report |
+| Scenario Replay Layer | Mostra fluxo vivo como animacao/replay | replay operacional |
+| Map Authoring Contract | Define como docs viram nodes bons | authoring rules |
+
+## Submodulos
+
+### Visual Knowledge Graph
+
+Cada node deve conter:
+
+- graph_id;
+- title;
+- layer;
+- kind;
+- parent;
+- source;
+- source_path;
+- owner;
+- status;
+- maturity;
+- confidence;
+- risk;
+- inputs;
+- outputs;
+- dependencies;
+- unlocks;
+- evidence;
+- next_actions.
+
+Cada edge deve ter tipo:
+
+- contains;
+- flows_to;
+- depends_on;
+- unlocks;
+- governs;
+- implements;
+- proves;
+- contradicts;
+- supersedes;
+- renders;
+- consumes;
+- emits.
+
+### Semantic Zoom Engine
+
+Zoom nao e apenas aproximar pixels. Zoom e trocar pergunta.
+
+| Nivel | Pergunta visual | Exemplo |
+|---|---|---|
+| L0 World | O que existe no Atlas? | sistemas principais |
+| L1 Sector | Quais setores compoem esse sistema? | Kernel, Evidence, Runtime |
+| L2 Flow | Como o setor opera? | pipeline com entradas e saidas |
+| L3 Module | Que modulos executam cada etapa? | Atlas Decide, Policy |
+| L4 Gear | Como essa engrenagem funciona por dentro? | decisao, teste, receipt |
+| L5 Evidence | O que prova que isso existe? | codigo, teste, ledger |
+
+### Level of Detail Engine
+
+Em cada escala, detalhes irrelevantes devem sumir. Isso evita que a Cartografia
+vire nuvem ilegivel.
+
+Regras:
+
+- L0 mostra poucos sistemas.
+- L1 mostra familias e boundaries.
+- L2 mostra fluxo.
+- L3 mostra modulos com status.
+- L4 mostra entradas, transformacoes, saidas e falhas.
+- L5 mostra evidencias e comandos.
+
+### Gear Flow Renderer
+
+Uma engrenagem precisa mostrar:
+
+- inputs;
+- normalizacao;
+- decisao ou transformacao;
+- policies aplicadas;
+- outputs;
+- fallback;
+- failure modes;
+- tests;
+- evidence;
+- owner;
+- proxima engrenagem.
+
+Exemplo: ao abrir `Atlas Decide`, o renderer deve ocultar o restante do Atlas e
+mostrar apenas o funcionamento interno: intent, policy, provider selection,
+budget, autonomy, receipt, outputs e falhas.
+
+### Link Semantics Engine
+
+Links sao infraestrutura. Um link ruim e como uma rua errada no mapa. Para IA,
+isso vira contexto errado. Para humano, vira cidade invisivel.
+
+Cada link deve responder:
+
+- por que existe?
+- que tipo de dependencia representa?
+- e direcional?
+- e fluxo, autoridade, evidencia ou composicao?
+- se quebrar, o que deixa de funcionar?
+- aparece em qual nivel de zoom?
+
+### Source Inspector
+
+O inspector deve mostrar a fonte real:
+
+- markdown do doc canonico;
+- path;
+- frontmatter;
+- related paths;
+- codigo relacionado;
+- tests;
+- Evidence Ledger;
+- confidence;
+- drift;
+- contradictions;
+- owner;
+- next actions.
+
+### Epistemic Overlay
+
+Consome o Epistemic OS. Exemplos visuais:
+
+- verde: confiavel e recente;
+- amarelo: parcial ou stale;
+- vermelho: contradicao ou drift;
+- cinza: future/scaffold;
+- tracejado: fonte ausente ou planejada;
+- brilho: evidencia runtime recente;
+- cadeado: escrita por IA bloqueada;
+- seta: fluxo ativo;
+- alerta: risco critico.
+
+### Human Navigation Shell
+
+O humano deve poder:
+
+- ver a cidade inteira;
+- buscar uma engrenagem;
+- dar zoom progressivo;
+- voltar pelo breadcrumb;
+- filtrar por status, risco, owner, dominio ou maturity;
+- abrir fonte;
+- comparar esperado vs real;
+- ver o que falta;
+- entender sem depender de texto longo.
+
+### AI Navigation API
+
+Uma IA deve poder pedir:
+
+- contexto de um node;
+- vizinhos por profundidade;
+- owner docs;
+- allowed_changes e forbidden_changes;
+- confidence e maturity;
+- links de entrada e saida;
+- shortest path entre duas engrenagens;
+- impact map de uma mudanca;
+- pacote de implementacao visualmente derivado.
+
+### Visual Completeness Auditor
+
+Audita se a cidade esta incompleta.
+
+Findings:
+
+- orphan_node;
+- missing_source_path;
+- missing_parent;
+- missing_edge_type;
+- stale_visual_node;
+- undocumented_runtime_component;
+- documented_but_unrendered_node;
+- high_risk_without_evidence;
+- implemented_without_visual_presence.
+
+### Scenario Replay Layer
+
+Mostra fluxo acontecendo. Exemplo:
+
+```text
+Input do usuario -> Surface Adapter -> Operation Envelope -> Intent Routing
+-> Context Builder -> Policy -> Atlas Decide -> Decision Receipt
+-> Runtime -> Quality Gates -> Evidence Ledger -> Output Renderer
+```
+
+Isso deve poder ser animado ou reconstituido a partir de Evidence Ledger.
+
+## Fluxo
+
+```text
+Doc ou codigo muda
+  -> docs-health / index-code
+  -> Semantic Graph atualiza nodes e edges
+  -> Epistemic OS calcula confidence/drift/maturity
+  -> Cartographic Knowledge OS atualiza cena
+  -> Humano ve mapa
+  -> IA usa graph_id para navegar contexto
+```
+
+## Regras para IA
+
+1. Para fazer uma peca aparecer, atualize a fonte canonica, nao o desenho.
+2. Para mudar posicao visual, preserve graph_id e source_path.
+3. Para criar link, declare tipo e motivo.
+4. Para zoom de engrenagem, mostre fluxo interno e esconda ruido externo.
+5. Para area sem evidencia, marque scaffold/future/unknown.
+6. Para visual de runtime, use evidence real ou replay.
+7. Para nodes criticos, mostre estado epistemico.
+
+## Escopo de Implementacao
+
+Fase 0: especificacao canonica e alinhamento com Semantic Graph.  
+Fase 1: schema de visual node e typed edge.  
+Fase 2: endpoint de semantic zoom por `graph_id`.  
+Fase 3: LOD e cenas world/sector/flow/module/gear/evidence.  
+Fase 4: inspector com source real, evidence e confidence.  
+Fase 5: AI Navigation API para context slices.  
+Fase 6: Visual Completeness Auditor.  
+Fase 7: Scenario Replay com Evidence Ledger.  
+Fase 8: Authoring tools para sugerir links faltantes.
+
+## Definition of Done
+
+Considerar concluido somente quando:
+
+1. Todo doc canonico relevante vira node visual com source_path.
+2. Todo node tem parent, layer, kind, owner, status e graph_id.
+3. Edges possuem tipo semantico e direcao.
+4. Semantic zoom funciona em pelo menos 5 niveis: world, sector, flow, module, gear.
+5. Gear view mostra fluxo interno completo de uma engrenagem real.
+6. Inspector mostra markdown real, frontmatter, evidence, tests e related paths.
+7. Epistemic overlay mostra confidence, drift, maturity e bloqueios.
+8. Human shell permite navegar sem depender de leitura longa.
+9. AI Navigation API retorna context slices por node e profundidade.
+10. Auditor encontra orfaos, source ausente, links quebrados e nodes nao renderizados.
+11. Cartografia diferencia active, implemented, scaffold, future e archived.
+12. Replays basicos mostram fluxo do Kernel Pipeline com evidencia real ou fixture auditada.
+13. Testes cobrem graph assembly, semantic zoom, LOD, inspector e edge semantics.
+14. Performance suporta grafo grande sem travar a UI.
+15. Nenhum dado visual importante e inventado quando fonte falta.
+
+## Dependencias
+
+- `atlas-semantic-graph`
+- `atlas-canonical-module-doc-v1`
+- `atlas-ai-knowledge-governance-system`
+- `atlas-epistemic-operating-system`
+- `atlas-desktop-backend-contract`
+- `vault/atlas-vault-cartography-schema`
+
+## Evidencias
+
+Evidencia atual: este documento e o Semantic Graph existente.  
+Evidencia futura exigida: endpoints, frontend, testes, screenshots, audits de
+completude e consumo real por Atlas Desktop.
+
+## Riscos
+
+- Ficar visualmente lindo e epistemicamente fraco.
+- Mostrar menos do que existe e fazer humano acreditar que falta.
+- Mostrar demais e perder compreensao.
+- Links fracos degradarem navegacao de IA.
+- Zoom virar pan/scale comum sem troca semantica.
+- Cartografia virar editor e disputar autoridade com docs.
+
+## Exemplos
+
+### Kernel Pipeline
+
+Visao L0 mostra `Atlas AI Kernel System`.  
+Zoom L1 mostra `Surface`, `Context`, `Decide`, `Runtime`, `Evidence`, `Render`.  
+Zoom L2 mostra o pipeline inteiro.  
+Zoom L3 em `Atlas Decide` mostra modulos internos.  
+Zoom L4 mostra criteria, provider selection, budget, autonomy e receipt.  
+Zoom L5 mostra codigo, testes, evidence e drift.
+
+### Knowledge Governance
+
+Visao L1 mostra fontes: repo docs, Postgres KB, Code Intelligence, Ledger,
+Vault, projections e chat.  
+Zoom em `repo docs` mostra docs canônicos e owners.  
+Zoom em `projection` mostra freshness e drift.  
+Zoom em `Evidence Ledger` mostra provas runtime.
+
+## Proximas Acoes
+
+1. Criar AP para Visual Node + Typed Edge schema.
+2. Definir endpoint `GET /atlas-cartography/zoom/{graph_id}`.
+3. Adicionar auditor de nodes orfaos e links sem tipo.
+4. Fazer Cartografia consumir estado epistemico quando existir.
+5. Criar primeira Gear View completa para `Atlas Decide`.

@@ -10,64 +10,67 @@
             "ok": true,
             "status_code": 200,
             "content_type": "application/json",
-            "body_hash": "fd754545b8b111f8dd2c0a1b4bc0e94224dddf1993dbffb3abd67b06540542ca",
+            "body_hash": "caf24503db794aa295f2b48ee87afafdd63545ecc324408649d2b2518fa54195",
             "bytes": 2870,
-            "duration_ms": 46,
+            "duration_ms": 53,
             "slug": "health",
             "artifact": "routes/health.html",
             "headers_artifact": "routes/health.headers.json",
             "baseline": {
-                "current_hash": "fd754545b8b111f8dd2c0a1b4bc0e94224dddf1993dbffb3abd67b06540542ca",
+                "current_hash": "caf24503db794aa295f2b48ee87afafdd63545ecc324408649d2b2518fa54195",
                 "baseline_file_hash": "f5296f2a318aacb8d1659d5a46c23ca1862951244301fca40c39492e0b1a0d4b",
                 "baseline_root_hash": "46a2e48c97ef7c331b29877b8ee97cb87dd117cfde464dc9ee3b62cff316371e",
-                "status": "first_baseline",
-                "strict": true
+                "status": "changed",
+                "strict": false,
+                "previous_hash": "fd754545b8b111f8dd2c0a1b4bc0e94224dddf1993dbffb3abd67b06540542ca",
+                "baseline_promoted_at": "2026-05-13T14:38:06.260937Z",
+                "source_manifest_hash": null
             },
             "screenshot": {
                 "status": "skipped",
-                "reason": "screenshot_driver_disabled",
+                "reason": "playwright_dependency_not_installed",
                 "driver": {
-                    "status": "disabled",
-                    "mode": "off",
-                    "source": "off",
+                    "status": "missing",
+                    "mode": "auto",
+                    "source": "auto",
                     "required": false,
-                    "reason": "screenshot_driver_disabled",
+                    "reason": "playwright_dependency_not_installed",
                     "node_modules_hash": null,
                     "require_from_hash": null,
                     "browsers_path_hash": null,
-                    "searched_count": 0
+                    "searched_count": 2
                 }
             }
         }
     ],
     "screenshot": {
         "status": "skipped",
-        "reason": "screenshot_driver_disabled",
+        "reason": "playwright_dependency_not_installed",
         "driver": {
-            "status": "disabled",
-            "mode": "off",
-            "source": "off",
+            "status": "missing",
+            "mode": "auto",
+            "source": "auto",
             "required": false,
-            "reason": "screenshot_driver_disabled",
+            "reason": "playwright_dependency_not_installed",
             "node_modules_hash": null,
             "require_from_hash": null,
             "browsers_path_hash": null,
-            "searched_count": 0
+            "searched_count": 2
         }
     },
     "screenshot_driver": {
-        "status": "disabled",
-        "mode": "off",
-        "source": "off",
+        "status": "missing",
+        "mode": "auto",
+        "source": "auto",
         "required": false,
-        "reason": "screenshot_driver_disabled",
+        "reason": "playwright_dependency_not_installed",
         "node_modules_hash": null,
         "require_from_hash": null,
         "browsers_path_hash": null,
-        "searched_count": 0
+        "searched_count": 2
     },
-    "baseline_mode": "strict",
-    "screenshot_baseline_mode": "strict",
+    "baseline_mode": "observe",
+    "screenshot_baseline_mode": "observe",
     "strict_failure_summary": {
         "route_failed_count": 0,
         "dom_baseline_changed_count": 0,
@@ -77,10 +80,10 @@
     },
     "artifact_dir": "atlas-visual-report",
     "started_command": "'/opt/homebrew/bin/php' artisan serve --host='127.0.0.1' --port='51298'",
-    "duration_ms": 433,
+    "duration_ms": 473,
     "process": {
         "exit_code": 0,
-        "stdout_excerpt": "\n   INFO  Server running on [http://127.0.0.1:51298].  \n\n  Press Ctrl+C to stop the server\n\n  2026-05-13 11:38:06 / ............................................ ~ 0.02ms\n  2026-05-13 11:38:06 /health ...................................... ~ 0.01ms\n",
+        "stdout_excerpt": "\n   INFO  Server running on [http://127.0.0.1:51298].  \n\n  Press Ctrl+C to stop the server\n\n  2026-05-13 17:50:26 / ............................................ ~ 0.02ms\n  2026-05-13 17:50:26 /health ...................................... ~ 0.01ms\n",
         "stderr_excerpt": ""
     }
 }

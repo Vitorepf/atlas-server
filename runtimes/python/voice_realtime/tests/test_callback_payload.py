@@ -20,7 +20,7 @@ class AtlasVoiceCallbackPayloadTest(unittest.TestCase):
             "turn_id": "voice_turn",
             "response_text": "resposta sensivel",
             "tts_provider": "elevenlabs",
-            "audio_hash": "54b3a51133731af31a6d839861dc388514e9d3bd67da6d2c4a54b3366bb198d7",
+            "audio_hash": "54B3A51133731AF31A6D839861DC388514E9D3BD67DA6D2C4A54B3366BB198D7",
             "rivals_arm": "direct_provider_baseline",
         }).to_kernel_payload()
 
@@ -107,11 +107,23 @@ class AtlasVoiceCallbackPayloadTest(unittest.TestCase):
             "turn_id": "voice_turn",
             "failure_code": "tts_timeout",
             "error_class": "TimeoutError",
+            "error_message_hash": "A" * 64,
         }).to_kernel_payload()
 
         self.assertEqual("tts_timeout", payload["failure_code"])
         self.assertEqual("TimeoutError", payload["error_class"])
+        self.assertEqual("a" * 64, payload["error_message_hash"])
+        self.assertNotIn("error_message", payload)
         self.assertNotIn("raw_response_text", payload)
+
+    def test_failure_payload_rejects_non_sha256_error_message_hash(self) -> None:
+        with self.assertRaises(UnsafeVoicePayload):
+            AtlasVoiceFailurePayload.from_runtime_output({
+                "session_id": "voice_session",
+                "turn_id": "voice_turn",
+                "failure_code": "tts_timeout",
+                "error_message_hash": "provider timed out",
+            })
 
     def test_interrupted_payload_reports_barge_in_safely(self) -> None:
         payload = AtlasVoiceInterruptedPayload.from_runtime_output({
@@ -119,11 +131,13 @@ class AtlasVoiceCallbackPayloadTest(unittest.TestCase):
             "turn_id": "voice_turn",
             "reason": "operator_started_speaking",
             "interrupted_stage": "tts_streaming",
+            "played_duration_ms": 640,
             "latency_ms": 90,
         }).to_kernel_payload()
 
         self.assertEqual("operator_started_speaking", payload["reason"])
         self.assertEqual("tts_streaming", payload["interrupted_stage"])
+        self.assertEqual(640, payload["played_duration_ms"])
         self.assertEqual(90, payload["latency_ms"])
         self.assertNotIn("audio_bytes", payload)
 
