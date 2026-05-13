@@ -502,6 +502,9 @@ Route::prefix('atlas-code')->group(function () {
     // 4 · sessions for an obra (project) · NEW
     Route::get('/works/{project}/sessions', [\App\Http\Controllers\AtlasCodeSessionController::class, 'indexForWork']);
 
+    // 10 · evidence aggregator per obra · NEW (wraps tools/evidence + engineering/runs)
+    Route::get('/works/{project}/evidence', [\App\Http\Controllers\AtlasCodeEvidenceController::class, 'indexForWork']);
+
     // 9 · sign decision receipt · NEW
     Route::post('/decisions/{decision}/sign', [\App\Http\Controllers\AtlasCodeReceiptController::class, 'sign']);
 

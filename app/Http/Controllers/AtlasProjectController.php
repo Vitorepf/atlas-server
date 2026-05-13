@@ -102,12 +102,23 @@ class AtlasProjectController extends Controller
     public function store(Request $request, AtlasDomainRegistry $domains, ProjectExecutionService $execution): JsonResponse
     {
         $data = $request->validate($this->rules($domains, true));
-        $title = trim((string) ($data['title'] ?? 'Projeto Atlas'));
+
+        // Atlas Code MVP wrap (passo-3): atlas-desktop posts {intent, objective}
+        // instead of {title, description}. Coerce so existing projects.store
+        // logic stays the same shape.
+        $intent = trim((string) ($data['intent'] ?? ''));
+        $objective = trim((string) ($data['objective'] ?? ''));
+        $title = trim((string) ($data['title'] ?? $objective));
+        if ($title === '') {
+            $title = 'Projeto Atlas';
+        }
+        $description = $data['description'] ?? ($intent !== '' ? $intent : null);
+
         $plan = $execution->inferPlan(null, $data, $title);
 
         $project = AtlasProject::query()->create([
             'title' => $title,
-            'description' => $data['description'] ?? null,
+            'description' => $description,
             'status' => $data['status'] ?? 'active',
             'domain' => $data['domain'] ?? $domains->defaultSlug(),
             'source_capture_id' => $data['source_capture_id'] ?? null,
@@ -127,8 +138,12 @@ class AtlasProjectController extends Controller
             'next_review_at' => $data['next_review_at'] ?? now()->addDays(3),
             'metadata' => [
                 ...($data['metadata'] ?? []),
-                'created_from' => 'projects.store',
+                'created_from' => $intent !== '' || $objective !== '' ? 'atlas-code.projects.store' : 'projects.store',
                 'process_steps' => $plan['process_steps'],
+                'atlas_code' => array_filter([
+                    'intent' => $intent !== '' ? $intent : null,
+                    'objective' => $objective !== '' ? $objective : null,
+                ]),
             ],
         ]);
 
@@ -142,6 +157,11 @@ class AtlasProjectController extends Controller
         return response()->json([
             'project' => (new AtlasProjectResource($project->refresh()->load($this->projectRelations())->loadCount(['tasks', 'steps'])))->resolve(),
             'active_next_task' => (new AtlasTaskResource($task->load(['project', 'projectStep'])))->resolve(),
+            // Atlas Code MVP wrap: surface receipt_id slot so the desktop can
+            // immediately request the receipt for this obra. The Kernel mints
+            // the actual decision asynchronously; this is the placeholder ID
+            // the UI uses until the real receipt arrives via stream.
+            'receipt_id' => 'pending:' . $project->getKey(),
         ], 201);
     }
 
@@ -415,7 +435,11 @@ class AtlasProjectController extends Controller
     private function rules(AtlasDomainRegistry $domains, bool $creating): array
     {
         return [
-            'title' => [$creating ? 'required' : 'sometimes', 'string', 'max:180'],
+            'title' => [$creating ? 'sometimes' : 'sometimes', 'string', 'max:180'],
+            // Atlas Code MVP wrap (passo-3): atlas-desktop posts intent+objective.
+            // Either trio (title) or duo (intent+objective) is required when creating.
+            'intent' => [$creating ? 'sometimes' : 'sometimes', 'string', 'max:1000'],
+            'objective' => [$creating ? 'sometimes' : 'sometimes', 'string', 'max:300'],
             'description' => ['sometimes', 'nullable', 'string', 'max:2000'],
             'status' => ['sometimes', Rule::in(['active', 'paused', 'blocked', 'waiting', 'completed', 'archived'])],
             'domain' => [$creating ? 'required' : 'sometimes', 'string', 'max:80', Rule::in($domains->activeSlugs())],
