@@ -395,6 +395,10 @@ return Application::configure(basePath: dirname(__DIR__))
         }
     })
     ->withMiddleware(function (Middleware $middleware): void {
+        // Atlas Code MVP: enable CORS for atlas-desktop dev (Vite :5173) +
+        // Tauri shell. Origins are governed by config/cors.php.
+        $middleware->prepend(\Illuminate\Http\Middleware\HandleCors::class);
+
         $middleware->alias([
             'atlas.token' => AuthenticateAtlasToken::class,
             'atlas.mobile.bearer' => AuthenticateMobileDevice::class,
