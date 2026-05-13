@@ -13,6 +13,7 @@ class ProgrammingRetrievalPlanner
         private readonly ProgrammingRetrievalEvaluator $retrievalEvaluator,
         private readonly ProgrammingContextPackStore $contextPackStore,
         private readonly ProgrammingPythonRuntimeContract $pythonRuntimeContract,
+        private readonly ProgrammingGraphRagRuntime $graphRagRuntime,
     ) {}
 
     /**
@@ -27,6 +28,14 @@ class ProgrammingRetrievalPlanner
         $sources = $this->requiredSources($canonicalFlow);
         $queries = $this->queries($objective, $canonicalFlow, $sources);
         $graph = $this->codeGraph->query($workspace, $objective, $canonicalFlow);
+        $graphRagRuntime = $this->graphRagRuntime->retrieve(
+            workspace: $workspace,
+            objective: $objective,
+            flow: $canonicalFlow,
+            graph: $graph,
+            queries: $queries,
+            maxRefs: (int) ($options['max_refs'] ?? 40),
+        );
         $previousReceipts = is_array($options['previous_stage_receipts'] ?? null)
             ? $options['previous_stage_receipts']
             : [];
@@ -46,6 +55,7 @@ class ProgrammingRetrievalPlanner
             requiredSources: $sources,
             maxRefs: (int) ($options['max_refs'] ?? 40),
             maxChars: (int) ($options['max_chars'] ?? 20000),
+            graphRagRefs: (array) data_get($graphRagRuntime, 'evidence_refs', []),
         );
         $professionalContextPack = $this->contextPackStore->persist(
             planId: $planId,
@@ -78,6 +88,7 @@ class ProgrammingRetrievalPlanner
             gapCritic: $gapCritic,
             retrievalEval: $retrievalEval,
             retrievalReceiptId: $retrievalReceiptId,
+            graphRagRuntime: $graphRagRuntime,
         );
         $pythonRuntime = $this->pythonRuntimeContract->manifest(
             workspace: $workspace,
@@ -116,6 +127,7 @@ class ProgrammingRetrievalPlanner
                 'related_docs' => data_get($graph, 'related_docs', []),
                 'complete' => (bool) data_get($graph, 'complete', false),
             ],
+            'graph_rag_runtime' => $graphRagRuntime,
             'context_pack' => $contextPack,
             'professional_plan' => $professionalPlan,
             'professional_context_pack' => $professionalContextPack,
@@ -231,6 +243,7 @@ class ProgrammingRetrievalPlanner
         array $gapCritic,
         array $retrievalEval,
         string $retrievalReceiptId,
+        array $graphRagRuntime,
     ): array {
         $iterations = [
             [
@@ -264,9 +277,18 @@ class ProgrammingRetrievalPlanner
             'plan_id' => $planId,
             'flow' => $flow,
             'objective_hash' => hash('sha256', $objective),
-            'retrieval_strategy' => 'hybrid_graph_semantic',
+            'retrieval_strategy' => data_get($graphRagRuntime, 'promoted_runtime') === true
+                ? 'promoted_programming_graph_rag_semantic'
+                : 'hybrid_graph_semantic',
             'required_sources' => $sources,
             'source_queries' => $queries,
+            'graph_rag_runtime' => [
+                'schema_version' => data_get($graphRagRuntime, 'schema_version'),
+                'status' => data_get($graphRagRuntime, 'status'),
+                'runtime_scope' => data_get($graphRagRuntime, 'runtime_scope'),
+                'evidence_ref_count' => data_get($graphRagRuntime, 'evidence_ref_count'),
+                'artifact_hash' => data_get($graphRagRuntime, 'artifact_hash'),
+            ],
             'iterations' => $iterations,
             'context_pack_hash' => $contextPack['context_pack_hash'] ?? null,
             'context_sufficiency_gate' => [

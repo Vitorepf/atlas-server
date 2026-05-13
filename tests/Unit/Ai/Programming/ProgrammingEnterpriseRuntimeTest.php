@@ -76,7 +76,17 @@ class ProgrammingEnterpriseRuntimeTest extends TestCase
         $this->assertSame(true, data_get($plan, 'context_pack.provider_safe'));
         $this->assertSame('atlas.programming.agentic_rag.professional_plan.v1', data_get($plan, 'professional_plan.schema_version'));
         $this->assertSame('atlas.programming.context_pack.professional.v1', data_get($plan, 'professional_context_pack.schema_version'));
-        $this->assertSame('hybrid_graph_semantic', data_get($plan, 'professional_plan.retrieval_strategy'));
+        $this->assertSame('promoted_programming_graph_rag_semantic', data_get($plan, 'professional_plan.retrieval_strategy'));
+        $this->assertSame('atlas.programming.graph_rag_runtime.v1', data_get($plan, 'graph_rag_runtime.schema_version'));
+        $this->assertSame('promoted', data_get($plan, 'graph_rag_runtime.status'));
+        $this->assertTrue(data_get($plan, 'graph_rag_runtime.promoted_runtime'));
+        $this->assertSame('programming_only', data_get($plan, 'graph_rag_runtime.runtime_scope'));
+        $this->assertGreaterThan(0, data_get($plan, 'graph_rag_runtime.evidence_ref_count'));
+        $this->assertTrue(data_get($plan, 'graph_rag_runtime.execution_policy.local_only'));
+        $this->assertFalse(data_get($plan, 'graph_rag_runtime.execution_policy.provider_calls_allowed'));
+        $this->assertTrue(data_get($plan, 'graph_rag_runtime.ap_683_boundary.global_python_graph_rag_policy_unchanged'));
+        $this->assertTrue(data_get($plan, 'graph_rag_runtime.ap_683_boundary.programming_runtime_is_bounded_by_context_pack_receipts'));
+        $this->assertSame('atlas.programming.graph_rag_runtime.v1', data_get($plan, 'professional_plan.graph_rag_runtime.schema_version'));
         $this->assertNotEmpty(data_get($plan, 'professional_context_pack.ranked_refs'));
         $this->assertSame('atlas.programming.agentic_rag.gap_critic.v1', data_get($plan, 'gap_critic.schema_version'));
         $this->assertSame('atlas.programming.retrieval_eval.v1', data_get($plan, 'retrieval_eval.schema_version'));
@@ -120,7 +130,7 @@ class ProgrammingEnterpriseRuntimeTest extends TestCase
             'plan_id' => 'plan-professional-rag-1',
             'context_pack_hash' => $contextPackHash,
             'schema_version' => 'atlas.programming.context_pack.professional.v1',
-            'retrieval_strategy' => 'hybrid_graph_semantic',
+            'retrieval_strategy' => 'promoted_programming_graph_rag_semantic',
         ]);
         $this->assertNotEmpty(data_get($plan, 'professional_context_pack.metrics.required_source_coverage'));
         $this->assertIsFloat(data_get($plan, 'retrieval_eval.recall_at_k_proxy'));
@@ -163,7 +173,11 @@ class ProgrammingEnterpriseRuntimeTest extends TestCase
         $this->assertSame(3, data_get($report, 'golden_set.case_count'));
         $this->assertGreaterThanOrEqual(0.66, data_get($report, 'metrics.recall_at_k'));
         $this->assertTrue(data_get($report, 'promotion_gate.professional_promotion_allowed'));
+        $this->assertTrue(data_get($report, 'promotion_gate.graph_rag_runtime_promoted'));
+        $this->assertSame('programming_only', data_get($report, 'promotion_gate.graph_rag_runtime_scope'));
         $this->assertTrue(data_get($report, 'promotion_gate.requires_rivals_programming'));
+        $this->assertSame('promoted', data_get($report, 'cases.0.graph_rag_runtime.status'));
+        $this->assertSame('programming_only', data_get($report, 'cases.0.graph_rag_runtime.runtime_scope'));
         $this->assertSame('atlas.programming.retrieval_benchmark_runtime_cache.v1', data_get($report, 'runtime_cache.schema_version'));
         $this->assertFalse(data_get($report, 'runtime_cache.persistent_cache'));
         $this->assertFalse(data_get($report, 'runtime_cache.provider_state_cached'));
@@ -185,6 +199,7 @@ class ProgrammingEnterpriseRuntimeTest extends TestCase
         $this->assertSame('atlas.programming.retrieval_benchmark.v1', data_get($payload, 'schema_version'));
         $this->assertSame('passed', data_get($payload, 'status'));
         $this->assertSame(3, data_get($payload, 'golden_set.case_count'));
+        $this->assertTrue(data_get($payload, 'promotion_gate.graph_rag_runtime_promoted'));
         $this->assertArrayHasKey('runtime_cache', $payload);
 
         $refreshExitCode = Artisan::call('atlas:programming:retrieval-benchmark', [
@@ -318,6 +333,7 @@ class ProgrammingEnterpriseRuntimeTest extends TestCase
         $this->assertIsBool(data_get($report, 'invalid_battery_triage_packet.rerun_provider_battery_allowed_now'));
         $this->assertIsBool(data_get($report, 'invalid_battery_triage_packet.provider_budget_policy.spend_more_provider_tokens_now'));
         if (! data_get($report, 'current_workspace_preflight.ready_for_provider_battery')) {
+            $this->assertFalse(data_get($report, 'invalid_battery_triage_packet.rerun_provider_battery_allowed_now'));
             $this->assertFalse(data_get($report, 'invalid_battery_triage_packet.provider_budget_policy.spend_more_provider_tokens_now'));
             $this->assertStringContainsString('workspace', data_get($report, 'invalid_battery_triage_packet.provider_budget_policy.reason'));
             $this->assertContains('current_workspace_not_provider_battery_ready', data_get($report, 'invalid_battery_triage_packet.current_rerun_preconditions.why_provider_dispatch_is_blocked'));
@@ -371,6 +387,11 @@ class ProgrammingEnterpriseRuntimeTest extends TestCase
         $this->assertFalse(data_get($report, 'operator_execution_packet.provider_dispatches_now'));
         $this->assertTrue(data_get($report, 'operator_execution_packet.operator_approval_required'));
         $this->assertIsBool(data_get($report, 'operator_execution_packet.rerun_provider_battery_allowed_now'));
+        if (! data_get($report, 'current_workspace_preflight.ready_for_provider_battery')) {
+            $this->assertSame('blocked_until_clean_worktree', data_get($report, 'operator_execution_packet.status'));
+            $this->assertFalse(data_get($report, 'operator_execution_packet.rerun_provider_battery_allowed_now'));
+            $this->assertContains('current_workspace_not_provider_battery_ready', data_get($report, 'operator_execution_packet.blocking_reasons'));
+        }
         $this->assertStringContainsString('--confirm-runbook-reviewed', data_get($report, 'operator_execution_packet.recommended_first_run.command'));
         if (data_get($report, 'operator_execution_packet.recommended_first_run.workspace_placeholder_used')) {
             $this->assertStringContainsString('--workspace=<clean-atlas-workspace>', data_get($report, 'operator_execution_packet.recommended_first_run.command'));
@@ -653,10 +674,14 @@ class ProgrammingEnterpriseRuntimeTest extends TestCase
         $this->assertTrue(data_get($report, 'artifact_coverage.rivals_provider_runtime_preflight.checks.blocks_missing_vendor_autoload'));
         $this->assertTrue(data_get($report, 'artifact_coverage.rivals_provider_runtime_preflight.checks.pint_uses_high_memory'));
         $this->assertTrue(data_get($report, 'artifact_coverage.rivals_provider_runtime_preflight.checks.fair_replay_case_has_strict_scope'));
+        $this->assertTrue(data_get($report, 'artifact_coverage.programming_graph_rag_runtime.covered'));
+        $this->assertTrue(data_get($report, 'artifact_coverage.programming_graph_rag_runtime.checks.runtime_is_programming_only'));
+        $this->assertTrue(data_get($report, 'artifact_coverage.programming_graph_rag_runtime.checks.runtime_preserves_ap_683_global_boundary'));
         $this->assertSame([], data_get($report, 'artifact_coverage.local_benchmarks.missing_classes'));
         $this->assertSame('atlas.programming.professional_completion_verification_evidence.v1', data_get($report, 'verification_evidence.schema_version'));
         $this->assertSame('passed', data_get($report, 'verification_evidence.local_benchmarks.retrieval.status'));
         $this->assertSame(1.0, (float) data_get($report, 'verification_evidence.local_benchmarks.retrieval.metrics.recall_at_k'));
+        $this->assertTrue(data_get($report, 'verification_evidence.local_benchmarks.retrieval.promotion_gate.graph_rag_runtime_promoted'));
         $this->assertSame('atlas.programming.retrieval_benchmark_runtime_cache.v1', data_get($report, 'verification_evidence.local_benchmarks.retrieval.runtime_cache.schema_version'));
         $this->assertFalse(data_get($report, 'verification_evidence.local_benchmarks.retrieval.runtime_cache.persistent_cache'));
         $this->assertFalse(data_get($report, 'verification_evidence.local_benchmarks.retrieval.runtime_cache.provider_state_cached'));
@@ -665,9 +690,9 @@ class ProgrammingEnterpriseRuntimeTest extends TestCase
         $this->assertContains(data_get($report, 'verification_evidence.rivals_external_claim.status'), ['external_battery_required', 'external_battery_invalid']);
         $this->assertSame('atlas.programming.power_scorecard.v1', data_get($report, 'power_scorecard.schema_version'));
         $this->assertSame('target_not_met', data_get($report, 'power_scorecard.status'));
-        $this->assertGreaterThanOrEqual(7.0, data_get($report, 'power_scorecard.score_out_of_10'));
+        $this->assertGreaterThanOrEqual(8.0, data_get($report, 'power_scorecard.score_out_of_10'));
         $this->assertLessThan(9.0, data_get($report, 'power_scorecard.score_out_of_10'));
-        $this->assertContains('graph_rag_runtime', collect(data_get($report, 'power_scorecard.blocking_items'))->pluck('id')->all());
+        $this->assertNotContains('graph_rag_runtime', collect(data_get($report, 'power_scorecard.blocking_items'))->pluck('id')->all());
         $this->assertContains('real_rivals_execution_proof', collect(data_get($report, 'power_scorecard.blocking_items'))->pluck('id')->all());
         $this->assertFalse(data_get($report, 'verification_evidence.rivals_external_claim.synthetic_scores_allowed'));
         $this->assertSame('atlas.programming.rivals_result_integrity_diagnostics.v1', data_get($report, 'verification_evidence.result_integrity_diagnostics.schema_version'));

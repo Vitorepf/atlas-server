@@ -459,7 +459,8 @@ class ProgrammingRivalsReadinessService
             && ! $claimReady
             && (bool) data_get($fairClaude, 'report.result_integrity.triage_required_before_rerun', true);
         $blockedByInvalidAttempt = $invalidBatteryRequiresTriage;
-        $readyToRequestOperator = $localPassed && ! $claimReady && $corpusPrepared && ! $blockedByInvalidAttempt;
+        $currentWorkspaceReady = (bool) data_get($currentWorkspacePreflight, 'ready_for_provider_battery', false);
+        $readyToRequestOperator = $localPassed && ! $claimReady && $corpusPrepared && ! $blockedByInvalidAttempt && $currentWorkspaceReady;
         $providerWorkspace = (bool) data_get($currentWorkspacePreflight, 'ready_for_provider_battery', false)
             ? $workspace
             : '<clean-atlas-workspace>';
@@ -468,7 +469,9 @@ class ProgrammingRivalsReadinessService
             'schema_version' => 'atlas.programming.rivals_operator_execution_packet.v1',
             'status' => $claimReady
                 ? 'not_required_claim_ready'
-                : ($blockedByInvalidAttempt ? 'blocked_until_invalid_battery_triaged' : ($readyToRequestOperator ? 'ready_for_operator_approval' : 'blocked_before_operator')),
+                : ($blockedByInvalidAttempt
+                    ? 'blocked_until_invalid_battery_triaged'
+                    : ($readyToRequestOperator ? 'ready_for_operator_approval' : ($currentWorkspaceReady ? 'blocked_before_operator' : 'blocked_until_clean_worktree'))),
             'workspace_hash' => hash('sha256', $workspace),
             'provider_dispatches_now' => false,
             'operator_approval_required' => ! $claimReady,
@@ -507,7 +510,7 @@ class ProgrammingRivalsReadinessService
                 'current_comparable_case_count' => (int) ($current['comparable_case_count'] ?? 0),
                 'invalid_case_count' => $invalidCaseCount,
                 'real_battery_attempted' => $realBatteryAttempted,
-                'current_workspace_ready_for_provider_battery' => (bool) data_get($currentWorkspacePreflight, 'ready_for_provider_battery', false),
+                'current_workspace_ready_for_provider_battery' => $currentWorkspaceReady,
                 'ready_for_claim' => $claimReady,
             ],
             'blocking_reasons' => array_values(array_filter([
@@ -623,7 +626,7 @@ class ProgrammingRivalsReadinessService
             'status' => $invalidBatteryRequiresTriage
                 ? 'triage_required_before_rerun'
                 : ($realBatteryInvalid ? 'triaged_quarantined_pending_fresh_battery' : 'not_required'),
-            'rerun_provider_battery_allowed_now' => ! $invalidBatteryRequiresTriage,
+            'rerun_provider_battery_allowed_now' => $spendMoreProviderTokensNow,
             'historical_failure_policy' => [
                 'schema_version' => 'atlas.programming.rivals_historical_failure_policy.v1',
                 'historical_failed_gates_are_diagnostic' => true,
