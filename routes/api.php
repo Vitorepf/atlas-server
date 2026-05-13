@@ -488,3 +488,26 @@ Route::prefix('atlas-cartography')->group(function () {
     Route::get('/note/{graph_id}', [\App\Http\Controllers\AtlasCartographyController::class, 'note']);
     Route::get('/recent-changes', [\App\Http\Controllers\AtlasCartographyController::class, 'recentChanges']);
 });
+
+/*
+ * Atlas Code · MVP endpoints consumed by the atlas-desktop bridge.
+ *
+ * The desktop never decides; it commands, shows, signs, observes.
+ * These endpoints add the 3 NEW slots identified in the audit. The other 9
+ * needs reuse pre-existing routes (/api/projects, /api/ai/threads, etc.).
+ *
+ * See: atlas-desktop/docs/architecture/0001-atlas-desktop-boundaries.md
+ */
+Route::prefix('atlas-code')->group(function () {
+    // 4 · sessions for an obra (project) · NEW
+    Route::get('/works/{project}/sessions', [\App\Http\Controllers\AtlasCodeSessionController::class, 'indexForWork']);
+
+    // 10 · evidence aggregator per obra · NEW (wraps tools/evidence + engineering/runs)
+    Route::get('/works/{project}/evidence', [\App\Http\Controllers\AtlasCodeEvidenceController::class, 'indexForWork']);
+
+    // 9 · sign decision receipt · NEW
+    Route::post('/decisions/{decision}/sign', [\App\Http\Controllers\AtlasCodeReceiptController::class, 'sign']);
+
+    // 12 · apply diff · NEW
+    Route::post('/diffs/{patch}/apply', [\App\Http\Controllers\AtlasCodeDiffController::class, 'apply']);
+});

@@ -50,6 +50,50 @@ class AiDecisionResource extends JsonResource
             ] : null),
             'created_at' => $this->created_at?->toJSON(),
             'updated_at' => $this->updated_at?->toJSON(),
+
+            // ─────────────────────────────────────────────────────────────
+            // Atlas Code MVP wrap (passo-3): camelCase mirror of the receipt
+            // contract @atlas/domain · DecisionReceipt expects. Keeps the
+            // existing snake_case keys above for Laravel/admin clients while
+            // exposing the cockpit-friendly shape.
+            'obraId' => data_get($this->signals, 'obra_id') ?? data_get($this->task_profile, 'obra_id'),
+            'primary' => $this->selected_provider . ($this->selected_model ? ' · ' . $this->selected_model : ''),
+            'confidence' => $this->normaliseConfidence((float) ($this->confidence_score ?? 0)),
+            'confidenceScore' => (float) ($this->confidence_score ?? 0),
+            'fallbackChain' => $this->resolveFallbackChain(),
+            'budgetEstUsd' => (float) (data_get($this->metrics_snapshot, 'budget_est_usd') ?? data_get($this->signals, 'budget_est_usd') ?? 0),
+            'budgetUsedUsd' => (float) (data_get($this->metrics_snapshot, 'budget_used_usd') ?? data_get($this->signals, 'budget_used_usd') ?? 0),
+            'signedBy' => data_get($this->signals, 'signed_by'),
+            'signature' => data_get($this->signals, 'signature'),
+            'signedAt' => data_get($this->signals, 'signed_at'),
         ];
+    }
+
+    private function normaliseConfidence(float $score): string
+    {
+        return match (true) {
+            $score >= 0.85 => 'high',
+            $score >= 0.6 => 'med',
+            default => 'low',
+        };
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function resolveFallbackChain(): array
+    {
+        $chain = data_get($this->signals, 'fallback_chain');
+        if (is_array($chain)) {
+            return array_values(array_map(
+                static fn ($item): string => is_string($item) ? $item : (string) data_get($item, 'name', ''),
+                $chain
+            ));
+        }
+        $explicit = $this->fallback_provider;
+        if ($explicit && $explicit !== $this->selected_provider) {
+            return [$explicit];
+        }
+        return [];
     }
 }
