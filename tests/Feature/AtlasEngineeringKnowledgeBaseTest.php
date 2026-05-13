@@ -127,6 +127,8 @@ class AtlasEngineeringKnowledgeBaseTest extends TestCase
         $this->assertSame(0, data_get($payload, 'summary.required_missing_count'));
         $this->assertSame(0, data_get($payload, 'summary.oversized_count'));
         $this->assertSame(0, data_get($payload, 'summary.frontmatter_violation_count'));
+        $this->assertSame(0, data_get($payload, 'summary.canonical_module_coverage_violation_count'));
+        $this->assertSame(0, data_get($payload, 'summary.canonical_module_violation_count'));
         $this->assertContains(
             'docs/engineering-knowledge-base/atlas-ai-session-bootstrap.md',
             collect(data_get($payload, 'required_docs', []))->pluck('path')->all(),
@@ -347,9 +349,11 @@ PHP);
 
 namespace App\Http\Controllers;
 
+use App\Services\Engineering\FooService;
+
 class EngineeringFooController
 {
-    public function show(): void
+    public function show(FooService $service): void
     {
     }
 }
@@ -387,10 +391,13 @@ File::put($workspace.'/tests/Feature/AtlasEngineeringFooTest.php', <<<'PHP'
 
 namespace Tests\Feature\Ai;
 
+use App\Services\Engineering\FooService;
+
 class AtlasEngineeringFooTest
 {
     public function test_foo_route_is_indexed(): void
     {
+        $target = FooService::class;
     }
 
     public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_validation_report_template_ready_after_all_packets_completed_with_additional_regression_suffix_to_exceed_database_symbol_name_limit(): void
@@ -497,6 +504,33 @@ PHP);
                 'target_path' => 'app/Services/Engineering/FooService.php',
                 'status' => 'current',
             ]);
+            $apiModule = \App\Models\AtlasEngineeringCodeModule::query()
+                ->where('slug', 'engineering_harness_api')
+                ->firstOrFail();
+            $this->assertSame('symbols_dependencies_tests_docs', data_get($apiModule->metadata, 'code_intelligence_depth'));
+            $this->assertContains(
+                'engineering_harness_services',
+                collect(data_get($apiModule->metadata, 'dependency_edges', []))->pluck('to_module')->all(),
+            );
+            $this->assertContains(
+                'App\\Services\\Engineering\\FooService',
+                collect(data_get($apiModule->metadata, 'symbol_references', []))->pluck('symbol')->all(),
+            );
+            $this->assertContains(
+                'php_use_ast',
+                collect(data_get($apiModule->metadata, 'dependency_edges', []))->pluck('kind')->all(),
+            );
+            $testModule = \App\Models\AtlasEngineeringCodeModule::query()
+                ->where('slug', 'engineering_harness_tests')
+                ->firstOrFail();
+            $this->assertContains(
+                'App\\Services\\Engineering\\FooService',
+                collect(data_get($testModule->metadata, 'test_targets', []))->pluck('symbol')->all(),
+            );
+            $this->assertContains(
+                'test_symbol_reference_ast',
+                collect(data_get($testModule->metadata, 'test_targets', []))->pluck('kind')->all(),
+            );
             $this->assertDatabaseHas('atlas_engineering_doc_links', [
                 'link_hash' => $staleDocLinkHash,
                 'status' => 'archived',

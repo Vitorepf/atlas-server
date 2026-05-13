@@ -93,8 +93,26 @@ requires_evidence: true
 risk_level: critical
 next_actions:
   - Conectar Atlas Desktop apenas em endpoints reais e remover qualquer fallback mockado.
----
+visual_tags:
+  - module
+  - contract
+  - surface
 
+ai_entrypoints:
+  - Leia Resumo, Contratos, Regras para IA, Evidencias e Riscos antes de implementar.
+
+ai_usage_notes:
+  - Use repo_paths, allowed_changes, forbidden_changes e required_tests como limites operacionais.
+
+quality_gates:
+  - "php artisan atlas:engineering:knowledge docs-health --json"
+
+failure_modes:
+  - Contexto desatualizado entre doc, codigo, teste e evidencia.
+
+observability_signals:
+  - docs-health status ok
+---
 # Atlas Desktop Backend Contract
 
 Este contrato define o que o `atlas-server` precisa entregar para duas telas
@@ -483,21 +501,15 @@ Resposta deve agregar:
 
 ### 6.3 Cartografia live-doc
 
-Cartografia L1 ja pode ler repo docs + AtlasVault. Para a experiencia "ver a
-documentacao nascer", o backend precisa evoluir:
+Cartografia L1 ja pode ler repo docs + AtlasVault. Para a experiencia "ver a documentacao nascer", o backend precisa evoluir:
 
-- adicionar checksum no `/atlas-cartography/graph`;
-- adicionar `source_health` com root path, readable, indexed_count e errors;
-- trocar ou complementar `git log` por watcher/polling de mtime;
-- classificar eventos como `repo_doc_saved`, `vault_note_saved`, `git_commit`
-  e `server_event`;
+- adicionar checksum no `/atlas-cartography/graph` e `source_health` com root path, readable, indexed_count e errors;
+- trocar/complementar `git log` por watcher/polling de mtime e classificar eventos como `repo_doc_saved`, `vault_note_saved`, `git_commit` e `server_event`;
 - garantir que `note/{graph_id}` sempre retorna body real do arquivo fonte.
 
 ### 6.4 Anti-mock reforcado
 
-O Desktop pode renderizar estado pendente local apenas enquanto uma requisicao
-esta em andamento. Esse estado precisa sumir se o backend recusar. E proibido:
-
+O Desktop pode renderizar estado pendente local apenas enquanto uma requisicao esta em andamento. Esse estado precisa sumir se o backend recusar. E proibido:
 - criar sessao artificial chamada `thread atual`;
 - retornar `diff_applied=true` sem apply real;
 - marcar assinatura como valida sem verificacao criptografica real;

@@ -2,6 +2,7 @@
 
 namespace App\Services\Ai\Runtime;
 
+use App\Services\Ai\Programming\ProgrammingActionManifestFactory;
 use App\Models\AiToolEvent;
 use App\Services\Ai\Context\RetrievalRankInput;
 use App\Services\Ai\Search\SessionSearchService;
@@ -32,6 +33,12 @@ class AiToolRuntime
             'git.apply_patch',
             'checkpoint.restore',
             'test.run',
+            'programming.test',
+            'programming.lint',
+            'programming.quality_scan',
+            'programming.visual_smoke',
+            'programming.git_diff',
+            'programming.code_search',
         ];
     }
 
@@ -41,6 +48,7 @@ class AiToolRuntime
         private readonly SessionSearchService $sessionSearch,
         private readonly AtlasTestCommandResolver $testCommands,
         private readonly RetrievalRankInput $retrievalRankInput,
+        private readonly ProgrammingActionManifestFactory $actionManifests,
     ) {}
 
     public function execute(ToolInvocation $invocation): ToolResult
@@ -73,6 +81,12 @@ class AiToolRuntime
                 'git.apply_patch' => $this->gitApplyPatch($invocation),
                 'checkpoint.restore' => $this->checkpointRestore($invocation),
                 'test.run' => $this->testRun($invocation),
+                'programming.test' => $this->programmingTest($invocation),
+                'programming.lint' => $this->programmingLint($invocation),
+                'programming.quality_scan' => $this->programmingQualityScan($invocation),
+                'programming.visual_smoke' => $this->programmingVisualSmoke($invocation),
+                'programming.git_diff' => $this->gitDiffTool($invocation),
+                'programming.code_search' => $this->searchRg($invocation),
                 default => ToolResult::failure($invocation, 'unknown_tool', "Ferramenta desconhecida: {$invocation->tool}."),
             };
         } catch (\Throwable $exception) {
@@ -82,7 +96,7 @@ class AiToolRuntime
             return $result;
         }
 
-        $result = $this->withDuration($result, (int) ((hrtime(true) - $started) / 1_000_000));
+        $result = $this->withDuration($this->withActionRuntimeContract($result, $invocation), (int) ((hrtime(true) - $started) / 1_000_000));
         $this->recordToolEvent($invocation, $result, $this->riskFor($invocation), $this->permissionStatus($invocation));
 
         return $result;
@@ -159,7 +173,7 @@ class AiToolRuntime
         return match ($invocation->permissionMode) {
             'danger' => 'high',
             'write' => 'medium',
-            default => in_array($invocation->tool, ['shell.run', 'test.run'], true) ? 'medium' : 'low',
+            default => in_array($invocation->tool, ['shell.run', 'test.run', 'programming.test', 'programming.lint', 'programming.quality_scan', 'programming.visual_smoke'], true) ? 'medium' : 'low',
         };
     }
 
@@ -375,7 +389,21 @@ class AiToolRuntime
             $args[] = $path;
         }
 
-        return $this->processResult($invocation, $this->runProcess($args, $invocation->workspace, 20), 'Busca concluida.');
+        $process = $this->runProcess($args, $invocation->workspace, 20);
+        if ((int) $process['exit_code'] !== 0) {
+            $fallback = $this->phpCodeSearch($invocation->workspace, $query, is_string($path) && $path !== '' ? $path : null);
+            if ($fallback !== '') {
+                $process = [
+                    'exit_code' => 0,
+                    'stdout' => $fallback,
+                    'stderr' => '',
+                    'duration_ms' => $process['duration_ms'],
+                    'command' => ['php_recursive_search', $query],
+                ];
+            }
+        }
+
+        return $this->processResult($invocation, $process, 'Busca concluida.');
     }
 
     private function sessionSearch(ToolInvocation $invocation): ToolResult
@@ -458,7 +486,18 @@ class AiToolRuntime
             $args[] = $path;
         }
 
-        return $this->processResult($invocation, $this->runProcess($args, $invocation->workspace), 'Git diff concluido.');
+        $process = $this->runProcess($args, $invocation->workspace);
+        if ((int) $process['exit_code'] !== 0 && str_contains(strtolower((string) $process['stderr']), 'not a git repository')) {
+            return new ToolResult(
+                ok: true,
+                invocationId: $invocation->id,
+                tool: $invocation->tool,
+                summary: 'Git diff indisponivel: workspace sem repositorio git.',
+                metadata: ['git_available' => false],
+            );
+        }
+
+        return $this->processResult($invocation, $process, 'Git diff concluido.');
     }
 
     private function gitApplyPatch(ToolInvocation $invocation): ToolResult
@@ -522,12 +561,107 @@ class AiToolRuntime
             return ToolResult::failure($invocation, 'no_test_command', 'Nenhum comando de teste detectado.');
         }
 
+        if ($invocation->dryRun) {
+            return $this->dryRunCommandResult($invocation, $command, 'Dry-run de teste concluido.', 'test');
+        }
+
         $runtimeInvocation = $invocation->withMetadata(['test_command' => $command]);
         $before = $this->gitStatusOutput($invocation->workspace);
         $result = $this->processResult($runtimeInvocation, $this->runTestShell($command, $invocation->workspace, (int) $invocation->argument('timeout', 900)), 'Teste executado.');
         $after = $this->gitStatusOutput($invocation->workspace);
 
         return $this->withRuntimeMutationMetadata($result, $before, $after);
+    }
+
+    private function programmingTest(ToolInvocation $invocation): ToolResult
+    {
+        return $this->testRun($invocation->withMetadata(['programming_action' => 'test']));
+    }
+
+    private function programmingLint(ToolInvocation $invocation): ToolResult
+    {
+        $command = trim((string) $invocation->argument('command', ''));
+        if ($command === '') {
+            $profile = $this->profiler->profile($invocation->workspace);
+            $command = $this->preferredLintCommand((array) $profile->scripts);
+        }
+
+        if ($command === '') {
+            return ToolResult::failure($invocation, 'no_lint_command', 'Nenhum comando de lint/typecheck detectado.');
+        }
+
+        if ($invocation->dryRun) {
+            return $this->dryRunCommandResult($invocation, $command, 'Dry-run de lint concluido.', 'lint');
+        }
+
+        $before = $this->gitStatusOutput($invocation->workspace);
+        $result = $this->processResult(
+            $invocation->withMetadata(['programming_action' => 'lint', 'lint_command' => $command]),
+            $this->runTestShell($command, $invocation->workspace, (int) $invocation->argument('timeout', 600)),
+            'Lint executado.',
+        );
+        $after = $this->gitStatusOutput($invocation->workspace);
+
+        return $this->withRuntimeMutationMetadata($result, $before, $after);
+    }
+
+    private function programmingQualityScan(ToolInvocation $invocation): ToolResult
+    {
+        $command = [
+            PHP_BINARY,
+            base_path('artisan'),
+            'atlas:engineering:quality-scan',
+            '--workspace='.$invocation->workspace,
+            '--profile='.(string) $invocation->argument('profile', 'auto'),
+            '--timeout='.(string) max(1, (int) $invocation->argument('timeout', 300)),
+            '--json',
+        ];
+        if ((bool) $invocation->argument('changed_only', true)) {
+            $command[] = '--changed-only';
+        }
+
+        if ($invocation->dryRun) {
+            return $this->dryRunCommandResult($invocation, $command, 'Dry-run de quality scan concluido.', 'quality_scan');
+        }
+
+        return $this->processResult(
+            $invocation->withMetadata(['programming_action' => 'quality_scan']),
+            $this->runProcess($command, $invocation->workspace, max(5, (int) $invocation->argument('timeout', 300)) + 30),
+            'Quality scan executado.',
+        );
+    }
+
+    private function programmingVisualSmoke(ToolInvocation $invocation): ToolResult
+    {
+        $command = [
+            PHP_BINARY,
+            base_path('artisan'),
+            'atlas:engineering:visual-smoke',
+            '--workspace='.$invocation->workspace,
+            '--timeout='.(string) max(5, (int) $invocation->argument('timeout', 45)),
+            '--json',
+        ];
+        foreach (['start_command' => '--start-command=', 'url' => '--url=', 'baseline' => '--baseline=', 'screenshot_baseline' => '--screenshot-baseline=', 'screenshot_driver' => '--screenshot-driver='] as $argument => $option) {
+            $value = $invocation->argument($argument);
+            if (is_scalar($value) && trim((string) $value) !== '') {
+                $command[] = $option.trim((string) $value);
+            }
+        }
+        foreach ((array) $invocation->argument('routes', []) as $route) {
+            if (is_scalar($route) && trim((string) $route) !== '') {
+                $command[] = '--route='.trim((string) $route);
+            }
+        }
+
+        if ($invocation->dryRun) {
+            return $this->dryRunCommandResult($invocation, $command, 'Dry-run de visual smoke concluido.', 'visual_smoke');
+        }
+
+        return $this->processResult(
+            $invocation->withMetadata(['programming_action' => 'visual_smoke']),
+            $this->runProcess($command, $invocation->workspace, max(5, (int) $invocation->argument('timeout', 45)) + 30),
+            'Visual smoke executado.',
+        );
     }
 
     private function checkpointRestore(ToolInvocation $invocation): ToolResult
@@ -680,6 +814,94 @@ class AiToolRuntime
         );
     }
 
+    private function withActionRuntimeContract(ToolResult $result, ToolInvocation $invocation): ToolResult
+    {
+        return new ToolResult(
+            ok: $result->ok,
+            invocationId: $result->invocationId,
+            tool: $result->tool,
+            summary: $result->summary,
+            output: $result->output,
+            stdout: $result->stdout,
+            stderr: $result->stderr,
+            exitCode: $result->exitCode,
+            durationMs: $result->durationMs,
+            changedFiles: $result->changedFiles,
+            diff: $result->diff,
+            checkpointPath: $result->checkpointPath,
+            errorCode: $result->errorCode,
+            errorMessage: $result->errorMessage,
+            events: $result->events,
+            metadata: array_merge($result->metadata, [
+                'action_runtime_contract' => $this->actionRuntimeContract($invocation, $result),
+                'programming_action_manifest' => $this->actionManifests->make($invocation, $result),
+            ]),
+        );
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function actionRuntimeContract(ToolInvocation $invocation, ToolResult $result): array
+    {
+        $writeTool = in_array($invocation->tool, ['file.write', 'file.patch', 'git.apply_patch', 'checkpoint.restore'], true);
+        $programmingTool = str_starts_with($invocation->tool, 'programming.');
+
+        return [
+            'schema_version' => 'atlas.tool_action_runtime.contract.v1',
+            'tool' => $invocation->tool,
+            'programming_action' => $programmingTool ? substr($invocation->tool, strlen('programming.')) : data_get($invocation->metadata, 'programming_action'),
+            'dry_run' => $invocation->dryRun,
+            'permission_mode' => $invocation->permissionMode,
+            'operator_approval_required_for_execution' => true,
+            'rollback' => [
+                'available' => $result->checkpointPath !== null,
+                'checkpoint_path_hash' => $result->checkpointPath ? hash('sha256', $result->checkpointPath) : null,
+                'restore_tool' => $result->checkpointPath ? 'checkpoint.restore' : null,
+            ],
+            'evidence' => [
+                'invocation_id' => $invocation->id,
+                'output_sha256' => $result->output !== '' ? hash('sha256', $result->output) : null,
+                'stdout_sha256' => $result->stdout !== '' ? hash('sha256', $result->stdout) : null,
+                'stderr_sha256' => $result->stderr !== '' ? hash('sha256', $result->stderr) : null,
+                'diff_sha256' => $result->diff ? hash('sha256', $result->diff) : null,
+                'changed_file_count' => count($result->changedFiles),
+                'artifact_path_hash' => is_string(data_get($result->metadata, 'artifact_path')) ? hash('sha256', (string) data_get($result->metadata, 'artifact_path')) : null,
+            ],
+            'raw_command_exposed' => false,
+            'raw_output_exposed' => false,
+            'workspace_path_exposed' => false,
+            'provider_dispatch_allowed' => false,
+            'runtime_policy_mutation_allowed' => false,
+            'agent_control_plane_allowed' => false,
+            'write_action' => $writeTool,
+        ];
+    }
+
+    /**
+     * @param  array<int,string>|string  $command
+     */
+    private function dryRunCommandResult(ToolInvocation $invocation, array|string $command, string $summary, string $action): ToolResult
+    {
+        $display = is_array($command)
+            ? AtlasSecurity::commandLineForDisplay($command)
+            : AtlasSecurity::redactString($command);
+
+        return new ToolResult(
+            ok: true,
+            invocationId: $invocation->id,
+            tool: $invocation->tool,
+            summary: $summary,
+            output: $display,
+            metadata: [
+                'dry_run' => true,
+                'programming_action' => $action,
+                'command' => AtlasSecurity::redactCommandValue($command),
+                'command_display' => $display,
+            ],
+        );
+    }
+
     private function workspacePath(ToolInvocation $invocation, string $path, bool $allowMissing = false): string
     {
         if ($path === '') {
@@ -747,6 +969,62 @@ class AiToolRuntime
         }
 
         return $this->runProcess($args, $workspace)['stdout'];
+    }
+
+    /**
+     * @param  array<string,string>  $scripts
+     */
+    private function preferredLintCommand(array $scripts): string
+    {
+        foreach (['lint', 'typecheck', 'types', 'check', 'test:lint'] as $script) {
+            if (isset($scripts[$script]) && is_string($scripts[$script]) && trim($scripts[$script]) !== '') {
+                return "npm run {$script}";
+            }
+        }
+
+        return '';
+    }
+
+    private function phpCodeSearch(string $workspace, string $query, ?string $path = null): string
+    {
+        $root = $path ? $workspace.DIRECTORY_SEPARATOR.ltrim($path, DIRECTORY_SEPARATOR) : $workspace;
+        $root = realpath($root) ?: $root;
+        if (! AtlasSecurity::pathIsInside($root, $workspace) || (! is_dir($root) && ! is_file($root))) {
+            return '';
+        }
+
+        $files = is_file($root)
+            ? [new \SplFileInfo($root)]
+            : new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($root, \FilesystemIterator::SKIP_DOTS));
+        $lines = [];
+
+        foreach ($files as $file) {
+            if (! $file instanceof \SplFileInfo || ! $file->isFile()) {
+                continue;
+            }
+            $real = $file->getRealPath();
+            if (! is_string($real) || str_contains($real, DIRECTORY_SEPARATOR.'.git'.DIRECTORY_SEPARATOR) || str_contains($real, DIRECTORY_SEPARATOR.'node_modules'.DIRECTORY_SEPARATOR) || str_contains($real, DIRECTORY_SEPARATOR.'vendor'.DIRECTORY_SEPARATOR)) {
+                continue;
+            }
+
+            $handle = @fopen($real, 'r');
+            if ($handle === false) {
+                continue;
+            }
+            $lineNumber = 0;
+            while (($line = fgets($handle)) !== false) {
+                $lineNumber++;
+                if (str_contains($line, $query)) {
+                    $lines[] = $this->relativePath($workspace, $real).':'.$lineNumber.':'.rtrim($line, "\r\n");
+                }
+                if (count($lines) >= 200) {
+                    break 2;
+                }
+            }
+            fclose($handle);
+        }
+
+        return $lines === [] ? '' : implode("\n", $lines)."\n";
     }
 
     private function unifiedDiff(string $before, string $after, string $label): string

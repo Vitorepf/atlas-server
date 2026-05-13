@@ -3249,7 +3249,11 @@ class EngineeringHarnessRunnerTest extends TestCase
         $this->assertStringContainsString('--model=opus', (string) data_get($payload, 'commands.doctor'));
         $this->assertStringContainsString('--model-policy=fixed', (string) data_get($payload, 'commands.doctor'));
         $this->assertStringContainsString('--model=opus', (string) data_get($payload, 'commands.run_full_paired_battery'));
+        $this->assertStringContainsString('--confirm-runbook-reviewed', (string) data_get($payload, 'commands.run_full_paired_battery'));
+        $this->assertStringContainsString('--confirm-provider-cost', (string) data_get($payload, 'commands.run_full_paired_battery'));
         $this->assertSame('claude_cli', data_get($payload, 'protocol.atlas_provider_lock'));
+        $this->assertTrue((bool) data_get($payload, 'provider_execution_guard.confirm_runbook_reviewed_required'));
+        $this->assertTrue((bool) data_get($payload, 'provider_execution_guard.confirm_provider_cost_required'));
 
         $exitCode = Artisan::call('atlas:engineering:benchmark:claude-fair', [
             'action' => 'runbook',
@@ -3262,6 +3266,48 @@ class EngineeringHarnessRunnerTest extends TestCase
         $this->assertSame(1, $exitCode);
         $this->assertSame('blocked', data_get($blockedPayload, 'start_status'));
         $this->assertContains('claude_code_baseline_workspace_missing_or_unreadable', data_get($blockedPayload, 'start_blocking_reasons', []));
+    }
+
+    public function test_fair_claude_provider_run_requires_explicit_runbook_and_cost_confirmation(): void
+    {
+        $before = AtlasEngineeringBenchmarkRun::query()->count();
+
+        $exitCode = Artisan::call('atlas:engineering:benchmark:claude-fair', [
+            'action' => 'run',
+            '--suite' => 'fair-provider-confirmation',
+            '--workspace' => $this->workspace,
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true);
+
+        $this->assertSame(1, $exitCode);
+        $this->assertSame('fair_claude_provider_execution_confirmation_required', data_get($payload, 'error'));
+        $this->assertContains('confirm_runbook_reviewed', data_get($payload, 'missing_confirmations', []));
+        $this->assertContains('confirm_provider_cost', data_get($payload, 'missing_confirmations', []));
+        $this->assertTrue((bool) data_get($payload, 'safety.no_provider_call'));
+        $this->assertTrue((bool) data_get($payload, 'safety.no_benchmark_run_created'));
+        $this->assertSame($before, AtlasEngineeringBenchmarkRun::query()->count());
+    }
+
+    public function test_atlas_rivals_wrapper_requires_explicit_runbook_and_cost_confirmation(): void
+    {
+        $before = AtlasEngineeringBenchmarkRun::query()->count();
+
+        $exitCode = Artisan::call('atlas:engineering:benchmark:rivals', [
+            'action' => 'run',
+            '--suite' => 'fair-provider-confirmation',
+            '--workspace' => $this->workspace,
+            '--json' => true,
+            '--no-dashboard' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true);
+
+        $this->assertSame(1, $exitCode);
+        $this->assertSame('fair_claude_provider_execution_confirmation_required', data_get($payload, 'error'));
+        $this->assertContains('confirm_runbook_reviewed', data_get($payload, 'missing_confirmations', []));
+        $this->assertContains('confirm_provider_cost', data_get($payload, 'missing_confirmations', []));
+        $this->assertTrue((bool) data_get($payload, 'safety.no_provider_call'));
+        $this->assertSame($before, AtlasEngineeringBenchmarkRun::query()->count());
     }
 
     public function test_fair_claude_command_accepts_opus_model_lock_and_rejects_model_drift(): void

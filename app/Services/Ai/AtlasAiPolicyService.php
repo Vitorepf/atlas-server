@@ -357,7 +357,7 @@ class AtlasAiPolicyService
                 : 'programming_repair_guard';
         }
 
-        if (in_array($flow, ['programming.qa', 'programming.security', 'programming.database', 'programming.visual'], true)) {
+        if (in_array($flow, ['programming.qa', 'programming.security', 'programming.database', 'programming.frontend', 'programming.visual'], true)) {
             $policy['executor_preference'] = 'engineering_harness';
             $policy['harness_required'] = true;
             $policy['quality_required'] = true;

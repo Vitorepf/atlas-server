@@ -148,6 +148,99 @@ class AtlasOpenBrainContextInjectionServiceTest extends TestCase
         $this->assertContains($result['status'], ['injected', 'degraded']);
     }
 
+    public function test_inject_for_programming_repair_routing_task_even_when_mode_is_direct(): void
+    {
+        $result = $this->service->inject(
+            'corrigir falha da bateria de testes',
+            $this->task('direct'),
+            $this->pack(),
+            ['payload' => [
+                'routing_task' => 'programming.repair',
+                'dev_execution_plan' => [
+                    'plan_id' => 'plan-repair-1',
+                    'parent_plan_id' => 'plan-dev-1',
+                    'programming_flow' => 'programming.repair',
+                    'programming_profile' => 'dev',
+                    'agentic_rag_plan' => [
+                        'schema_version' => 'atlas.programming.agentic_rag.plan.v1',
+                        'status' => 'ready',
+                        'required_sources' => ['code_symbols', 'related_tests'],
+                        'missing_required_sources' => [],
+                        'retrieval_receipt' => ['receipt_id' => 'rag-receipt-1'],
+                        'context_sufficiency_gate' => ['status' => 'passed'],
+                        'semantic_code_graph' => ['node_count' => 3, 'edge_count' => 2],
+                    ],
+                    'operator_options' => ['auto_test' => true],
+                    'engineering_contract' => [
+                        'likely_files' => ['app/Services/Ai/Foo.php', 'tests/Unit/FooTest.php'],
+                    ],
+                ],
+                'programming_repair' => ['enabled' => true],
+            ]],
+        );
+
+        $this->assertContains($result['status'], ['injected', 'degraded']);
+        $this->assertSame('programming.repair', data_get($result, 'summary.programming_context.flow'));
+        $this->assertTrue(data_get($result, 'summary.programming_context.stage_contract.repair'));
+        $this->assertTrue(data_get($result, 'summary.programming_context.stage_contract.test'));
+        $this->assertSame(2, data_get($result, 'summary.programming_context.selected_file_count'));
+        $this->assertSame('ready', data_get($result, 'summary.programming_context.agentic_rag.status'));
+        $this->assertSame('rag-receipt-1', data_get($result, 'summary.programming_context.agentic_rag.retrieval_receipt_id'));
+        $this->assertStringContainsString('## Programming Context', $result['prompt_section'] ?? '');
+        $this->assertStringContainsString('flow: programming.repair', $result['prompt_section'] ?? '');
+        $this->assertStringContainsString('agentic_rag: status=ready; context_gate=passed; receipt=rag-receipt-1', $result['prompt_section'] ?? '');
+        $this->assertStringContainsString('stages: plan=true; review=false; patch=true; test=true; repair=true', $result['prompt_section'] ?? '');
+    }
+
+    public function test_programming_context_summarizes_history_and_prior_decisions(): void
+    {
+        $result = $this->service->inject(
+            'continuar tarefa quebrada',
+            $this->task('dev'),
+            new AiContextPack(
+                data: [
+                    'task' => ['type' => 'dev', 'desired_mode' => 'dev', 'risk_level' => 'high', 'domain' => 'developer', 'objective' => 'continue'],
+                    'surface' => ['kind' => 'mac_cli', 'workspace' => base_path()],
+                    'prior_runs' => [
+                        ['id' => 'run-1', 'status' => 'failed'],
+                    ],
+                    'evidence' => [
+                        'previous_traces' => [
+                            ['id' => 'trace-1', 'status' => 'failed'],
+                        ],
+                    ],
+                    'continuity' => [
+                        'active_state' => [
+                            'decisions' => [
+                                ['text' => 'Usar Tool Runtime para validar antes de provider.'],
+                            ],
+                        ],
+                    ],
+                    'memory' => ['semantic' => []],
+                    'constraints' => [],
+                ],
+                contextRefs: [],
+            ),
+            ['payload' => [
+                'atlas_workflow_mode' => 'dev',
+                'routing_task' => 'programming.dev',
+                'dev_execution_plan' => [
+                    'plan_id' => 'plan-2',
+                    'resumed_at' => now()->toJSON(),
+                    'parent_plan_id' => 'plan-1',
+                    'programming_flow' => 'programming.dev',
+                    'programming_profile' => 'dev',
+                ],
+            ]],
+        );
+
+        $this->assertTrue(data_get($result, 'summary.programming_context.resume.resumed'));
+        $this->assertSame(1, data_get($result, 'summary.programming_context.prior_run_count'));
+        $this->assertSame(1, data_get($result, 'summary.programming_context.previous_trace_count'));
+        $this->assertSame(1, data_get($result, 'summary.programming_context.prior_decision_count'));
+        $this->assertStringContainsString('history: prior_runs=1; previous_traces=1; prior_decisions=1', $result['prompt_section'] ?? '');
+    }
+
     // --- prompt section shape ---
 
     public function test_prompt_section_contains_hash_and_surface(): void

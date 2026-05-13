@@ -91,6 +91,9 @@ class AtlasOpenBrainContextInjectionService
             data_get($payload, 'atlas_workflow_mode'),
             data_get($payload, 'routing_task'),
             data_get($payload, 'routing_domain'),
+            data_get($payload, 'programming_flow'),
+            data_get($payload, 'dev_execution_plan.programming_flow'),
+            data_get($payload, 'programming_message_plan.programming_flow'),
             data_get($payload, 'task_type'),
         ])
             ->filter(fn (mixed $value): bool => is_string($value) && trim($value) !== '')
@@ -98,14 +101,34 @@ class AtlasOpenBrainContextInjectionService
             ->values()
             ->all();
 
-        return collect($signals)->contains(fn (string $signal): bool => in_array($signal, [
-            'dev',
-            'debug',
-            'review',
-            'programming',
-            'quality_repair',
-            'execute',
-        ], true));
+        return collect($signals)->contains(function (string $signal): bool {
+            if (str_starts_with($signal, 'programming.')) {
+                return in_array($signal, [
+                    'programming.dev',
+                    'programming.debug',
+                    'programming.review',
+                    'programming.repair',
+                    'programming.refactor',
+                    'programming.qa',
+                    'programming.security',
+                    'programming.database',
+                    'programming.frontend',
+                    'programming.visual',
+                    'programming.forge',
+                ], true);
+            }
+
+            return in_array($signal, [
+                'dev',
+                'debug',
+                'review',
+                'repair',
+                'fix',
+                'programming',
+                'quality_repair',
+                'execute',
+            ], true);
+        });
     }
 
     /**
@@ -139,6 +162,7 @@ class AtlasOpenBrainContextInjectionService
             $summary['memory_quality'] = $memoryQualitySummary;
         }
         $summary['self_reflection'] = $selfReflection;
+        $summary['programming_context'] = $this->programmingContextSummary($payload, $contextPack);
         $warnings = [];
 
         if ((int) $summary['memory_refs'] === 0) {
@@ -626,6 +650,109 @@ class AtlasOpenBrainContextInjectionService
     }
 
     /**
+     * @param  array<string,mixed>  $payload
+     * @return array<string,mixed>
+     */
+    private function programmingContextSummary(array $payload, AiContextPack $contextPack): array
+    {
+        $devPlan = (array) data_get($payload, 'dev_execution_plan', []);
+        $messagePlan = (array) data_get($payload, 'programming_message_plan', []);
+        $repair = (array) data_get($payload, 'programming_repair', []);
+        $agenticRag = (array) (
+            data_get($payload, 'agentic_rag_plan')
+            ?: data_get($devPlan, 'agentic_rag_plan')
+            ?: data_get($messagePlan, 'agentic_rag_plan')
+            ?: []
+        );
+        $pack = $contextPack->toArray();
+        $contract = (array) (data_get($devPlan, 'engineering_contract')
+            ?: data_get($messagePlan, 'engineering_contract')
+            ?: data_get($pack, 'engineering.contract')
+            ?: []);
+
+        $flow = $this->string(
+            data_get($payload, 'programming_flow')
+            ?: data_get($devPlan, 'programming_flow')
+            ?: data_get($messagePlan, 'programming_flow')
+            ?: data_get($payload, 'routing_task')
+        );
+        $profile = $this->string(
+            data_get($payload, 'programming_profile')
+            ?: data_get($devPlan, 'programming_profile')
+            ?: data_get($messagePlan, 'programming_profile')
+        );
+        $selectedFiles = collect([
+            ...(array) data_get($pack, 'selected_files', []),
+            ...(array) data_get($contract, 'likely_files', []),
+            ...(array) data_get($devPlan, 'selected_files', []),
+        ])
+            ->filter(fn (mixed $file): bool => is_string($file) && trim($file) !== '')
+            ->map(fn (mixed $file): string => trim((string) $file))
+            ->unique()
+            ->values()
+            ->take(20)
+            ->all();
+        $priorRuns = collect((array) data_get($pack, 'prior_runs', []))
+            ->filter(fn (mixed $run): bool => is_array($run))
+            ->values()
+            ->take(5)
+            ->all();
+        $previousTraces = collect((array) data_get($pack, 'evidence.previous_traces', []))
+            ->filter(fn (mixed $trace): bool => is_array($trace))
+            ->values()
+            ->take(5)
+            ->all();
+        $priorDecisions = collect([
+            ...(array) data_get($pack, 'decisions', []),
+            ...(array) data_get($pack, 'continuity.active_state.decisions', []),
+            ...(array) data_get($devPlan, 'prior_decisions', []),
+            ...(array) data_get($messagePlan, 'prior_decisions', []),
+        ])
+            ->filter(fn (mixed $decision): bool => is_array($decision) || (is_scalar($decision) && trim((string) $decision) !== ''))
+            ->map(fn (mixed $decision): array => is_array($decision) ? $decision : ['text' => trim((string) $decision)])
+            ->values()
+            ->take(8)
+            ->all();
+
+        return [
+            'schema_version' => 'atlas.programming.open_brain_context.v1',
+            'flow' => $flow,
+            'profile' => $profile,
+            'intent' => $this->string(data_get($payload, 'programming_intent', data_get($devPlan, 'operator_options.programming_intent'))),
+            'resume' => [
+                'resumed' => (bool) data_get($devPlan, 'resumed_at') || (bool) data_get($messagePlan, 'resumed_at'),
+                'parent_plan_id' => $this->string(data_get($devPlan, 'parent_plan_id', data_get($messagePlan, 'parent_plan_id'))),
+                'plan_id' => $this->string(data_get($devPlan, 'plan_id', data_get($messagePlan, 'plan_id'))),
+            ],
+            'stage_contract' => [
+                'plan' => true,
+                'review' => in_array($flow, ['programming.review', 'programming.refactor', 'programming.forge'], true),
+                'patch' => ! in_array($flow, ['programming.review'], true),
+                'test' => (bool) data_get($devPlan, 'operator_options.auto_test', data_get($messagePlan, 'execution_profile.auto_test', false)),
+                'repair' => $flow === 'programming.repair' || (bool) data_get($repair, 'enabled', false),
+            ],
+            'selected_files' => $selectedFiles,
+            'selected_file_count' => count($selectedFiles),
+            'prior_run_count' => count($priorRuns),
+            'prior_runs' => $priorRuns,
+            'previous_trace_count' => count($previousTraces),
+            'previous_traces' => $previousTraces,
+            'prior_decision_count' => count($priorDecisions),
+            'prior_decisions' => $priorDecisions,
+            'agentic_rag' => $agenticRag === [] ? null : [
+                'schema_version' => data_get($agenticRag, 'schema_version'),
+                'status' => data_get($agenticRag, 'status'),
+                'required_sources' => (array) data_get($agenticRag, 'required_sources', []),
+                'missing_required_sources' => (array) data_get($agenticRag, 'missing_required_sources', []),
+                'retrieval_receipt_id' => data_get($agenticRag, 'retrieval_receipt.receipt_id'),
+                'context_gate_status' => data_get($agenticRag, 'context_sufficiency_gate.status'),
+                'semantic_node_count' => data_get($agenticRag, 'semantic_code_graph.node_count'),
+                'semantic_edge_count' => data_get($agenticRag, 'semantic_code_graph.edge_count'),
+            ],
+        ];
+    }
+
+    /**
      * @param  array<string,mixed>  $retrievalPlan
      * @return array<string,mixed>|null
      */
@@ -886,6 +1013,44 @@ class AtlasOpenBrainContextInjectionService
             if ($reasons !== []) {
                 $lines[] = '- reasons: '.implode(', ', $reasons);
             }
+        }
+
+        if (is_array($summary['programming_context'] ?? null)) {
+            $programming = $summary['programming_context'];
+            $lines[] = '';
+            $lines[] = '## Programming Context';
+            $lines[] = '- schema: '.($programming['schema_version'] ?? 'unknown');
+            $lines[] = '- flow: '.($programming['flow'] ?: 'n/a').'; profile='.($programming['profile'] ?: 'n/a').'; intent='.($programming['intent'] ?: 'n/a');
+            $lines[] = '- resume: '.(data_get($programming, 'resume.resumed') ? 'true' : 'false')
+                .'; plan_id='.(data_get($programming, 'resume.plan_id') ?: 'n/a')
+                .'; parent_plan_id='.(data_get($programming, 'resume.parent_plan_id') ?: 'n/a');
+            $stage = (array) ($programming['stage_contract'] ?? []);
+            $lines[] = '- stages: plan='.(($stage['plan'] ?? false) ? 'true' : 'false')
+                .'; review='.(($stage['review'] ?? false) ? 'true' : 'false')
+                .'; patch='.(($stage['patch'] ?? false) ? 'true' : 'false')
+                .'; test='.(($stage['test'] ?? false) ? 'true' : 'false')
+                .'; repair='.(($stage['repair'] ?? false) ? 'true' : 'false');
+            if (is_array($programming['agentic_rag'] ?? null)) {
+                $rag = $programming['agentic_rag'];
+                $lines[] = '- agentic_rag: status='.($rag['status'] ?? 'unknown')
+                    .'; context_gate='.($rag['context_gate_status'] ?? 'unknown')
+                    .'; receipt='.($rag['retrieval_receipt_id'] ?? 'n/a');
+                $required = array_values((array) ($rag['required_sources'] ?? []));
+                if ($required !== []) {
+                    $lines[] = '- agentic_rag_required_sources: '.implode(', ', $required);
+                }
+                $missing = array_values((array) ($rag['missing_required_sources'] ?? []));
+                if ($missing !== []) {
+                    $lines[] = '- agentic_rag_missing_sources: '.implode(', ', $missing);
+                }
+            }
+            $selectedFiles = array_values((array) ($programming['selected_files'] ?? []));
+            if ($selectedFiles !== []) {
+                $lines[] = '- selected_files: '.implode(', ', array_slice($selectedFiles, 0, 12));
+            }
+            $lines[] = '- history: prior_runs='.(int) ($programming['prior_run_count'] ?? 0)
+                .'; previous_traces='.(int) ($programming['previous_trace_count'] ?? 0)
+                .'; prior_decisions='.(int) ($programming['prior_decision_count'] ?? 0);
         }
 
         if ($knowledgeRefs !== []) {

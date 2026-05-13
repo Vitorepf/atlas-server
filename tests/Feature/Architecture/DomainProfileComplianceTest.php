@@ -210,6 +210,7 @@ class DomainProfileComplianceTest extends TestCase
             'programming.qa' => 'EngineeringHarness',
             'programming.security' => 'EngineeringHarness',
             'programming.database' => 'EngineeringHarness',
+            'programming.frontend' => 'EngineeringHarness',
             'programming.visual' => 'EngineeringHarness',
             'programming.forge' => 'EngineeringHarness',
         ] as $flowId => $runtime) {
@@ -225,6 +226,7 @@ class DomainProfileComplianceTest extends TestCase
         $this->assertSame('dev_repair_executor', data_get($registry->resolve('programming.repair'), 'flow_profile.execution_policy.executor_preference'));
         $this->assertSame('read_only', data_get($registry->resolve('programming.review'), 'flow_profile.tool_policy.mode'));
         $this->assertSame('engineering_harness', data_get($registry->resolve('programming.security'), 'flow_profile.execution_policy.executor_preference'));
+        $this->assertSame('programming.frontend', data_get($registry->resolve('programming.frontend'), 'flow_profile.metadata.specialist_profile'));
     }
 
     public function test_finance_declares_analysis_only_enterprise_flows(): void

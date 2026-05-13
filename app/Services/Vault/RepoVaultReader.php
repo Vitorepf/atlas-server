@@ -41,17 +41,23 @@ final class RepoVaultReader
             if (! is_string($id) || $id === '') {
                 continue;
             }
-            // First seen wins; later duplicates are tracked via aliases on the entry.
-            if (isset($index[$id])) {
-                continue;
-            }
-            $index[$id] = [
+            $entry = [
                 'path' => $absolutePath,
                 'relative_path' => $this->relativeToBase($absolutePath),
                 'frontmatter' => $parsed['frontmatter'],
                 'mtime' => @filemtime($absolutePath) ?: 0,
                 'exists' => true,
             ];
+
+            // Some historical archive/source-material files intentionally keep
+            // the same graph_id as the promoted operational document. The
+            // cartography must navigate the promoted doc, not an archived
+            // snapshot that happens to be walked first by the filesystem.
+            if (isset($index[$id]) && ! $this->prefersEntry($entry, $index[$id], $id)) {
+                continue;
+            }
+
+            $index[$id] = $entry;
         }
 
         return $index;
@@ -106,5 +112,47 @@ final class RepoVaultReader
         }
 
         return $absolutePath;
+    }
+
+    /**
+     * @param  array{path: string, relative_path: string, frontmatter: array<string, mixed>, mtime: int, exists: true}  $candidate
+     * @param  array{path: string, relative_path: string, frontmatter: array<string, mixed>, mtime: int, exists: true}  $existing
+     */
+    private function prefersEntry(array $candidate, array $existing, string $id): bool
+    {
+        return $this->entryAuthorityScore($candidate, $id) > $this->entryAuthorityScore($existing, $id);
+    }
+
+    /**
+     * @param  array{path: string, relative_path: string, frontmatter: array<string, mixed>, mtime: int, exists: true}  $entry
+     */
+    private function entryAuthorityScore(array $entry, string $id): int
+    {
+        $score = 0;
+        $path = str_replace('\\', '/', $entry['relative_path']);
+        $frontmatter = $entry['frontmatter'];
+
+        if (! str_contains($path, '/archive/') && ! str_contains($path, '/archive/source-material/')) {
+            $score += 1000;
+        }
+
+        if (($frontmatter['doc_schema'] ?? null) === 'atlas_canonical_module_doc.v1') {
+            $score += 100;
+        }
+
+        if (($frontmatter['status'] ?? null) === 'active' || ($frontmatter['graph_status'] ?? null) === 'active') {
+            $score += 25;
+        }
+
+        $parent = $frontmatter['graph_parent'] ?? null;
+        if (is_string($parent) && $parent !== '' && $parent !== $id) {
+            $score += 10;
+        }
+
+        // Prefer the promoted top-level file over deeper copies when all
+        // semantic authority signals tie.
+        $score -= substr_count($path, '/');
+
+        return $score;
     }
 }

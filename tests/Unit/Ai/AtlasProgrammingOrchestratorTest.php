@@ -28,6 +28,21 @@ class AtlasProgrammingOrchestratorTest extends TestCase
         $this->assertSame('atlas-ai.agent-behavior.v1', data_get($normal, 'agent_behavior_contract.contract_id'));
         $this->assertContains('Surgical Diff Discipline', data_get($normal, 'agent_behavior_contract.principles'));
         $this->assertMatchesRegularExpression('/\A[a-f0-9]{64}\z/', (string) data_get($normal, 'agent_behavior_contract.content_hash'));
+        $this->assertSame('atlas.programming.orchestration.v1', data_get($normal, 'programming_orchestration_contract.schema_version'));
+        $this->assertSame('atlas.programming.agentic_rag.plan.v1', data_get($normal, 'agentic_rag_plan.schema_version'));
+        $this->assertSame('atlas.programming.stage_receipt_plan.v1', data_get($normal, 'stage_receipt_plan.schema_version'));
+        $this->assertSame('atlas.programming.resume_state.v1', data_get($normal, 'resume_state.schema_version'));
+        $this->assertSame('atlas.programming.test_impact.receipt.v1', data_get($normal, 'test_impact_plan.schema_version'));
+        $this->assertSame('atlas.programming.execution_sandbox.plan.v1', data_get($normal, 'sandbox_plan.schema_version'));
+        $this->assertSame('atlas.programming.patch_verifier.report.v1', data_get($normal, 'patch_verifier_gate.schema_version'));
+        $this->assertSame('atlas.programming.learning_candidate.v1', data_get($normal, 'learning_candidate_policy.schema_version'));
+        $this->assertSame(['plan', 'review', 'patch', 'test', 'repair'], data_get($normal, 'programming_orchestration_contract.stage_order'));
+        $this->assertSame('required', data_get($normal, 'programming_orchestration_contract.stages.0.mode'));
+        $this->assertSame('required', data_get($normal, 'programming_orchestration_contract.stages.2.mode'));
+        $this->assertSame('operator_or_policy', data_get($normal, 'programming_orchestration_contract.stages.3.mode'));
+        $this->assertSame('blocked', data_get($normal, 'programming_orchestration_contract.stages.4.mode'));
+        $this->assertSame('atlas.programming.stage_receipt.v1', data_get($normal, 'programming_orchestration_contract.receipt_contract.schema_version'));
+        $this->assertTrue((bool) data_get($normal, 'programming_orchestration_contract.resume_contract.must_load_open_brain'));
 
         $complete = $orchestrator->sessionPlan($workspace, 'dev', [
             'task' => 'implemente fluxo completo',
@@ -41,6 +56,7 @@ class AtlasProgrammingOrchestratorTest extends TestCase
         $this->assertSame('dev_repair_executor', data_get($complete, 'executor_decision.policy_executor_preference'));
         $this->assertSame(4, data_get($complete, 'execution_profile.max_iterations'));
         $this->assertTrue((bool) data_get($complete, 'execution_profile.quality_required'));
+        $this->assertSame('conditional', data_get($complete, 'programming_orchestration_contract.stages.4.mode'));
 
         $forge = $orchestrator->sessionPlan($workspace, 'forge', [
             'task' => 'implemente refatoracao grande',
@@ -56,6 +72,26 @@ class AtlasProgrammingOrchestratorTest extends TestCase
         $this->assertSame('harness', data_get($forge, 'execution_profile.tool_contract.mode'));
         $this->assertSame('strict', data_get($forge, 'execution_profile.gate_contract.minimum_gate'));
         $this->assertSame('atlas-ai.agent-behavior.v1', data_get($forge, 'agent_behavior_contract.contract_id'));
+    }
+
+    public function test_session_plan_has_resume_orchestration_contract_for_broken_task_continuation(): void
+    {
+        $plan = app(AtlasProgrammingOrchestrator::class)->sessionPlan(sys_get_temp_dir(), 'dev', [
+            'task' => 'retomar tarefa quebrada',
+            'interactive' => false,
+            'parent_plan_id' => 'plan-parent-1',
+            'intent' => 'repair',
+            'auto_test' => true,
+        ]);
+
+        $this->assertSame('plan-parent-1', data_get($plan, 'parent_plan_id'));
+        $this->assertTrue((bool) data_get($plan, 'programming_orchestration_contract.resumed'));
+        $this->assertSame('plan-parent-1', data_get($plan, 'programming_orchestration_contract.parent_plan_id'));
+        $this->assertSame('programming.repair', data_get($plan, 'programming_orchestration_contract.programming_flow'));
+        $this->assertSame('required', data_get($plan, 'programming_orchestration_contract.stages.3.mode'));
+        $this->assertSame('conditional', data_get($plan, 'programming_orchestration_contract.stages.4.mode'));
+        $this->assertTrue((bool) data_get($plan, 'programming_orchestration_contract.resume_contract.must_preserve_prior_decisions'));
+        $this->assertTrue((bool) data_get($plan, 'programming_orchestration_contract.resume_contract.must_attach_previous_stage_receipts'));
     }
 
     public function test_session_plan_selects_specialized_programming_flows(): void
@@ -79,6 +115,8 @@ class AtlasProgrammingOrchestratorTest extends TestCase
         $this->assertSame('review', data_get($review, 'programming_flow'));
         $this->assertSame('programming.review', data_get($review, 'policy_profile.profile_id'));
         $this->assertSame('read_only', data_get($review, 'execution_profile.tool_contract.mode'));
+        $this->assertSame('blocked', data_get($review, 'programming_orchestration_contract.stages.2.mode'));
+        $this->assertFalse((bool) data_get($review, 'programming_orchestration_contract.stages.2.write_allowed'));
 
         $database = $orchestrator->sessionPlan($workspace, 'dev', [
             'task' => 'crie migration postgres com rollback',
@@ -87,6 +125,20 @@ class AtlasProgrammingOrchestratorTest extends TestCase
         $this->assertSame('database', data_get($database, 'programming_flow'));
         $this->assertSame('programming.database', data_get($database, 'policy_profile.profile_id'));
         $this->assertSame('engineering_harness', data_get($database, 'executor_decision.executor'));
+
+        $frontend = $orchestrator->sessionPlan($workspace, 'dev', [
+            'task' => 'implemente layout frontend mobile com design system',
+            'interactive' => false,
+        ]);
+        $this->assertSame('frontend', data_get($frontend, 'programming_flow'));
+        $this->assertSame('programming.frontend', data_get($frontend, 'policy_profile.profile_id'));
+        $this->assertSame('atlas.programming.frontend_design_harness.v1', data_get($frontend, 'frontend_design_harness_contract.schema_version'));
+        $this->assertSame('programming.frontend', data_get($frontend, 'frontend_design_harness_contract.specialist_profile'));
+        $this->assertTrue((bool) data_get($frontend, 'frontend_design_harness_contract.provider_policy.provider_neutral'));
+        $this->assertContains('visual_smoke_multi_viewport', data_get($frontend, 'frontend_design_harness_contract.required_gates', []));
+        $this->assertContains('asset_provenance_check', data_get($frontend, 'frontend_design_harness_contract.required_gates', []));
+        $this->assertContains('design_5d_review', data_get($frontend, 'frontend_design_harness_contract.required_gates', []));
+        $this->assertSame('programming.visual_smoke', data_get($frontend, 'frontend_design_harness_contract.evidence_contract.visual_smoke_tool'));
     }
 
     public function test_dispatch_contract_records_selected_execution_path(): void
@@ -146,6 +198,36 @@ class AtlasProgrammingOrchestratorTest extends TestCase
         $this->assertSame('complete_mode_requires_repair_loop', data_get($providerDispatch, 'reason'));
     }
 
+    public function test_dispatch_contract_carries_canonical_programming_orchestration_contract(): void
+    {
+        $plan = app(AtlasProgrammingOrchestrator::class)->sessionPlan(sys_get_temp_dir(), 'dev', [
+            'task' => 'corrigir teste quebrado',
+            'intent' => 'repair',
+            'interactive' => false,
+            'auto_test' => true,
+        ]);
+        $dispatch = app(AtlasProgrammingOrchestrator::class)->dispatchContract($plan);
+
+        $this->assertSame(data_get($plan, 'programming_orchestration_contract.plan_id'), data_get($dispatch, 'programming_orchestration_contract.plan_id'));
+        $this->assertSame('atlas.programming.orchestration.v1', data_get($dispatch, 'programming_orchestration_contract.schema_version'));
+        $this->assertSame('all_cli_app_chat_programming_surfaces_must_follow_this_contract', data_get($dispatch, 'programming_orchestration_contract.surface_rule'));
+        $this->assertSame('atlas.programming.stage_receipt.v1', data_get($dispatch, 'programming_orchestration_contract.receipt_contract.schema_version'));
+        $this->assertSame('atlas.programming.agentic_rag.plan.v1', data_get($dispatch, 'agentic_rag_plan.schema_version'));
+        $this->assertSame('atlas.programming.stage_receipt_plan.v1', data_get($dispatch, 'stage_receipt_plan.schema_version'));
+        $this->assertSame('atlas.programming.resume_state.v1', data_get($dispatch, 'resume_state.schema_version'));
+        $this->assertSame('atlas.programming.execution_sandbox.plan.v1', data_get($dispatch, 'sandbox_plan.schema_version'));
+
+        $frontendPlan = app(AtlasProgrammingOrchestrator::class)->sessionPlan(sys_get_temp_dir(), 'dev', [
+            'task' => 'ajustar frontend react com screenshot',
+        ]);
+        $frontendDispatch = app(AtlasProgrammingOrchestrator::class)->dispatchContract($frontendPlan);
+        $this->assertSame(
+            data_get($frontendPlan, 'frontend_design_harness_contract.plan_id'),
+            data_get($frontendDispatch, 'frontend_design_harness_contract.plan_id'),
+        );
+        $this->assertTrue((bool) data_get($frontendDispatch, 'frontend_design_harness_contract.completion_rules.screenshot_alone_is_insufficient'));
+    }
+
     public function test_harness_completion_contract_projects_evidence_and_score(): void
     {
         $completion = app(AtlasProgrammingOrchestrator::class)->harnessCompletionContract([
@@ -190,6 +272,28 @@ class AtlasProgrammingOrchestratorTest extends TestCase
         $this->assertSame('AtlasRepairOrchestrator', data_get($completion, 'repair_contract.orchestrator'));
         $this->assertSame('harness', data_get($completion, 'policy_contracts.tools.mode'));
         $this->assertSame('strict', data_get($completion, 'policy_contracts.gates.minimum_gate'));
+        $this->assertSame('atlas.programming.test_impact.receipt.v1', data_get($completion, 'test_impact_receipt.schema_version'));
+        $this->assertSame('atlas.programming.patch_verifier.report.v1', data_get($completion, 'patch_verifier_report.schema_version'));
+        $this->assertSame('atlas.programming.learning_candidate.v1', data_get($completion, 'learning_candidate.schema_version'));
+
+        $dispatch['programming_orchestration_contract'] = [
+            'schema_version' => 'atlas.programming.orchestration.v1',
+            'plan_id' => 'plan-1',
+        ];
+        $completionWithOrchestration = app(AtlasProgrammingOrchestrator::class)->harnessCompletionContract([
+            'status' => 'partial',
+        ], $dispatch);
+        $this->assertSame('plan-1', data_get($completionWithOrchestration, 'programming_orchestration_contract.plan_id'));
+
+        $dispatch['frontend_design_harness_contract'] = [
+            'schema_version' => 'atlas.programming.frontend_design_harness.v1',
+            'plan_id' => 'plan-1',
+            'specialist_profile' => 'programming.frontend',
+        ];
+        $completionWithFrontend = app(AtlasProgrammingOrchestrator::class)->harnessCompletionContract([
+            'status' => 'partial',
+        ], $dispatch);
+        $this->assertSame('programming.frontend', data_get($completionWithFrontend, 'frontend_design_harness_contract.specialist_profile'));
     }
 
     public function test_repair_execution_contract_makes_dev_repair_executor_actionable(): void

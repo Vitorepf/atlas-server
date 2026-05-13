@@ -145,6 +145,10 @@ class ToolActionRuntimeReadModel
         $contractedRuns = $runs->filter(
             fn (AtlasToolRun $run): bool => $this->hasActionRuntimeContract($run)
         );
+        $failedStatuses = ['failed', 'timeout', 'requires_approval', 'denied'];
+        $latestFailedRequiredRuns = $latestRuns->filter(
+            fn (AtlasToolRun $run): bool => (bool) $run->required && in_array((string) $run->status, $failedStatuses, true)
+        );
         $latestContractedRuns = $latestRuns->filter(
             fn (AtlasToolRun $run): bool => $this->hasActionRuntimeContract($run)
         );
@@ -154,7 +158,6 @@ class ToolActionRuntimeReadModel
         $latestUnsafeContractRuns = $latestContractedRuns->filter(
             fn (AtlasToolRun $run): bool => $this->hasUnsafeActionRuntimeContract($run)
         );
-        $failedStatuses = ['failed', 'timeout', 'requires_approval', 'denied'];
         $blockingFindings = $findings->filter(fn (AtlasToolFinding $finding): bool => (bool) $finding->blocks_resolved);
 
         return [
@@ -174,6 +177,7 @@ class ToolActionRuntimeReadModel
             'required_evidence_run_count' => $runs->where('required', true)->count(),
             'failed_run_count' => $runs->whereIn('status', $failedStatuses)->count(),
             'failed_required_run_count' => $runs->where('required', true)->whereIn('status', $failedStatuses)->count(),
+            'latest_failed_required_run_count' => $latestFailedRequiredRuns->count(),
             'status_counts' => $runs->pluck('status')->filter()->countBy()->all(),
             'policy_decision_counts' => $runs->pluck('policy_decision')->filter()->countBy()->all(),
             'surface_counts' => $runs->pluck('surface')->filter()->countBy()->all(),
@@ -218,7 +222,7 @@ class ToolActionRuntimeReadModel
      */
     private function reviewSignal(array $summary): array
     {
-        if ((int) ($summary['failed_required_run_count'] ?? 0) > 0) {
+        if ((int) ($summary['latest_failed_required_run_count'] ?? 0) > 0) {
             return [
                 'status' => 'warning',
                 'severity' => 'high',

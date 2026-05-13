@@ -50,8 +50,26 @@ requires_evidence: true
 risk_level: high
 next_actions:
   - Formalizar limites de tamanho e tipos aceitos por surface.
----
+visual_tags:
+  - module
+  - module
+  - system-graph
 
+ai_entrypoints:
+  - Leia Resumo, Contratos, Regras para IA, Evidencias e Riscos antes de implementar.
+
+ai_usage_notes:
+  - Use repo_paths, allowed_changes, forbidden_changes e required_tests como limites operacionais.
+
+quality_gates:
+  - "php artisan atlas:engineering:knowledge docs-health --json"
+
+failure_modes:
+  - Contexto desatualizado entre doc, codigo, teste e evidencia.
+
+observability_signals:
+  - docs-health status ok
+---
 # Atlas Input
 
 ## Resumo
@@ -104,4 +122,3 @@ Um prompt com print, arquivo e texto entra como um input composto, mas ainda sem
 ## Proximas Acoes
 
 Documentar schema de `input_ref` usado em receipts e evidencia.
-

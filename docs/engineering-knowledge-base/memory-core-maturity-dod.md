@@ -33,8 +33,81 @@ related_paths:
   - app/Services/Ai/AtlasMemoryContextComposer.php
   - app/Services/Engineering/EngineeringContextPackService.php
   - docs/engineering-knowledge-base/open-brain-context-injection.md
----
+doc_schema: atlas_canonical_module_doc.v1
 
+graph_id: atlas-memory-core-maturity-dod
+
+graph_title: Atlas Memory Core Maturity And Definition Of Done
+
+graph_world: atlas
+
+graph_layer: module
+
+graph_kind: module
+
+graph_parent: atlas-ai-canonical-architecture-index
+
+graph_status: active
+
+graph_source: repo
+
+owner: capability-matrix
+
+repo_paths:
+  - docs/engineering-knowledge-base/memory-core-maturity-dod.md
+
+allowed_changes:
+  - Atualizar este doc quando codigo, arquitetura, fluxo, evidencia ou decisao canonica mudar.
+
+forbidden_changes:
+  - Declarar runtime, maturidade ou prontidao sem evidencia verificavel e gates verdes.
+
+depends_on:
+  - atlas-ai-documentation-operating-system
+
+flows_to:
+  - atlas-cartography
+  - atlas-code
+
+unlocks:
+  - ai-safe-implementation-context
+
+governs:
+  - capability-matrix
+
+evidence:
+  - docs/engineering-knowledge-base/memory-core-maturity-dod.md
+
+required_tests:
+  - "php artisan atlas:engineering:knowledge docs-health --json"
+
+requires_evidence: true
+
+risk_level: low
+
+visual_tags:
+  - module
+  - module
+  - capability-matrix
+
+ai_entrypoints:
+  - Leia Resumo, Contratos, Regras para IA, Evidencias e Riscos antes de implementar.
+
+ai_usage_notes:
+  - Use repo_paths, allowed_changes, forbidden_changes e required_tests como limites operacionais.
+
+quality_gates:
+  - "php artisan atlas:engineering:knowledge docs-health --json"
+
+failure_modes:
+  - Contexto desatualizado entre doc, codigo, teste e evidencia.
+
+observability_signals:
+  - docs-health status ok
+
+next_actions:
+  - Manter este doc sincronizado com codigo, testes, evidencias e Cartografia.
+---
 # Atlas Memory Core Maturity And Definition Of Done
 
 Este documento define como o Memory Core evolui com qualidade. Ele evita que uma
@@ -205,3 +278,51 @@ Uma capacidade so pode ser marcada como implementada quando:
 3. o documento mestre lista arquivos tocados;
 4. limites e pendencias estao declarados;
 5. nao ha dependencia implicita de conversa ou provider externo.
+
+## Resumo
+
+Modelo de maturidade, metricas e Definition of Done para evoluir o Memory Core sem perder confiabilidade.
+
+## Papel no Atlas
+
+Define a responsabilidade desta peca dentro da arquitetura Atlas.
+
+## Onde Se Encaixa
+
+Relaciona esta peca com seu sistema, camada, fluxo ou modulo pai.
+
+## Contratos
+
+Declara invariantes, entradas, saidas, limites e obrigacoes relevantes.
+
+## Fluxo
+
+Descreve o caminho operacional ou a sequencia de uso quando aplicavel.
+
+## Regras para IA
+
+Agentes devem respeitar escopo, evidencias, testes e proibicoes antes de alterar codigo.
+
+## Escopo de Implementacao
+
+Mudancas devem permanecer nos caminhos e limites declarados no frontmatter.
+
+## Dependencias
+
+Dependencias canonicas vivem em frontmatter e no corpo deste documento.
+
+## Evidencias
+
+Evidencias aceitas incluem docs, comandos, testes, receipts, reports e paths verificaveis.
+
+## Riscos
+
+Riscos principais devem ser tratados antes de promover status, runtime ou claims de prontidao.
+
+## Exemplos
+
+Exemplos concretos devem ser adicionados quando reduzirem ambiguidade para humanos ou IAs.
+
+## Proximas Acoes
+
+Proximas acoes devem ser concretas, verificaveis e ligadas a gates de qualidade.

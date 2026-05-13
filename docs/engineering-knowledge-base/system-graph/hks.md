@@ -50,8 +50,26 @@ requires_evidence: true
 risk_level: high
 next_actions:
   - Exibir source repo/vault sem parecer dois produtos separados na Cartografia.
----
+visual_tags:
+  - module
+  - surface
+  - system-graph
 
+ai_entrypoints:
+  - Leia Resumo, Contratos, Regras para IA, Evidencias e Riscos antes de implementar.
+
+ai_usage_notes:
+  - Use repo_paths, allowed_changes, forbidden_changes e required_tests como limites operacionais.
+
+quality_gates:
+  - "php artisan atlas:engineering:knowledge docs-health --json"
+
+failure_modes:
+  - Contexto desatualizado entre doc, codigo, teste e evidencia.
+
+observability_signals:
+  - docs-health status ok
+---
 # Human Knowledge Surface
 
 ## Resumo
@@ -105,4 +123,3 @@ Um livro no Vault pode inspirar uma Obra; a mudanca tecnica resultante deve vira
 ## Proximas Acoes
 
 Implementar badge de autoridade no inspector da Cartografia.
-

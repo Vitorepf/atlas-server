@@ -4,8 +4,13 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Models\AiTrace;
+use App\Services\Ai\AiGatewayService;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
+use Mockery\MockInterface;
 use Tests\TestCase;
 
 /**
@@ -59,6 +64,159 @@ class AtlasCodeContractTest extends TestCase
                 $t->json('metadata')->nullable();
                 $t->timestamps();
                 $t->softDeletes();
+            });
+        }
+
+        if (! Schema::hasTable('ai_threads')) {
+            Schema::create('ai_threads', function (Blueprint $t) {
+                $t->uuid('id')->primary();
+                $t->string('title')->nullable();
+                $t->string('status')->default('active');
+                $t->string('surface')->nullable();
+                $t->string('workspace')->nullable();
+                $t->string('source_type')->nullable();
+                $t->uuid('source_id')->nullable();
+                $t->integer('message_count')->default(0);
+                $t->timestamp('last_message_at')->nullable();
+                $t->json('metadata')->nullable();
+                $t->timestamps();
+            });
+        }
+
+        if (! Schema::hasTable('ai_messages')) {
+            Schema::create('ai_messages', function (Blueprint $t) {
+                $t->uuid('id')->primary();
+                $t->uuid('thread_id');
+                $t->uuid('trace_id')->nullable();
+                $t->integer('position')->default(1);
+                $t->string('role');
+                $t->string('status')->default('completed');
+                $t->text('content')->nullable();
+                $t->timestamp('occurred_at')->nullable();
+                $t->timestamps();
+            });
+        }
+
+        if (! Schema::hasTable('ai_traces')) {
+            Schema::create('ai_traces', function (Blueprint $t) {
+                $t->uuid('id')->primary();
+                $t->uuid('thread_id')->nullable();
+                $t->string('source_type')->default('app');
+                $t->uuid('source_id')->nullable();
+                $t->string('status')->default('completed');
+                $t->text('operator_input')->nullable();
+                $t->text('response_text')->nullable();
+                $t->json('metadata')->nullable();
+                $t->timestamps();
+            });
+        }
+
+        if (! Schema::hasTable('ai_stream_events')) {
+            Schema::create('ai_stream_events', function (Blueprint $t) {
+                $t->uuid('id')->primary();
+                $t->uuid('trace_id')->nullable();
+                $t->uuid('ai_job_id')->nullable();
+                $t->uuid('ai_job_attempt_id')->nullable();
+                $t->integer('sequence')->default(1);
+                $t->string('event_type')->default('message');
+                $t->string('channel')->nullable();
+                $t->text('content')->nullable();
+                $t->json('metadata')->nullable();
+                $t->timestamp('occurred_at')->nullable();
+            });
+        }
+
+        if (! Schema::hasTable('ai_jobs')) {
+            Schema::create('ai_jobs', function (Blueprint $t) {
+                $t->uuid('id')->primary();
+                $t->uuid('trace_id')->nullable();
+                $t->string('status')->nullable();
+                $t->timestamps();
+            });
+        }
+
+        if (! Schema::hasTable('ai_jobs')) {
+            Schema::create('ai_jobs', function (Blueprint $t) {
+                $t->uuid('id')->primary();
+                $t->uuid('trace_id')->nullable();
+                $t->string('status')->nullable();
+                $t->timestamps();
+            });
+        }
+
+        if (! Schema::hasTable('ai_decisions')) {
+            Schema::create('ai_decisions', function (Blueprint $t) {
+                $t->uuid('id')->primary();
+                $t->uuid('trace_id')->nullable();
+                $t->string('route_mode')->nullable();
+                $t->string('task_type')->nullable();
+                $t->string('risk_level')->nullable();
+                $t->string('selected_provider')->nullable();
+                $t->string('selected_model')->nullable();
+                $t->integer('confidence_score')->nullable();
+                $t->json('candidates')->nullable();
+                $t->json('constraints')->nullable();
+                $t->json('metrics_snapshot')->nullable();
+                $t->text('reason')->nullable();
+                $t->timestamps();
+            });
+        }
+
+        if (! Schema::hasTable('atlas_engineering_runs')) {
+            Schema::create('atlas_engineering_runs', function (Blueprint $t) {
+                $t->uuid('id')->primary();
+                $t->uuid('project_id')->nullable();
+                $t->string('status')->nullable();
+                $t->string('decision')->nullable();
+                $t->timestamp('finished_at')->nullable();
+                $t->timestamps();
+            });
+        }
+
+        if (! Schema::hasTable('atlas_engineering_evidence')) {
+            Schema::create('atlas_engineering_evidence', function (Blueprint $t) {
+                $t->uuid('id')->primary();
+                $t->uuid('project_id')->nullable();
+                $t->string('evidence_type')->nullable();
+                $t->string('status')->nullable();
+                $t->text('summary')->nullable();
+                $t->text('output_excerpt')->nullable();
+                $t->timestamp('recorded_at')->nullable();
+                $t->timestamps();
+            });
+        }
+
+        if (! Schema::hasTable('atlas_tool_runs')) {
+            Schema::create('atlas_tool_runs', function (Blueprint $t) {
+                $t->uuid('id')->primary();
+                $t->string('tool_slug')->nullable();
+                $t->text('workspace')->nullable();
+                $t->string('run_context_type')->nullable();
+                $t->string('run_context_id')->nullable();
+                $t->string('status')->nullable();
+                $t->json('summary_json')->nullable();
+                $t->timestamps();
+            });
+        }
+
+        if (! Schema::hasTable('atlas_ledger_events')) {
+            Schema::create('atlas_ledger_events', function (Blueprint $t) {
+                $t->string('event_id')->primary();
+                $t->string('schema_version')->nullable();
+                $t->string('tenant_id')->nullable();
+                $t->string('operator_id')->nullable();
+                $t->string('envelope_id')->nullable();
+                $t->string('receipt_id')->nullable();
+                $t->string('trace_id')->nullable();
+                $t->string('correlation_id')->nullable();
+                $t->string('causation_id')->nullable();
+                $t->string('event_type')->nullable();
+                $t->string('emitter_stage')->nullable();
+                $t->string('emitter_version')->nullable();
+                $t->json('payload')->nullable();
+                $t->string('payload_hash')->nullable();
+                $t->timestamp('occurred_at')->nullable();
+                $t->timestamps();
             });
         }
     }
@@ -143,5 +301,257 @@ class AtlasCodeContractTest extends TestCase
                 'data',
                 'meta' => ['total'],
             ]);
+    }
+
+    public function test_work_store_creates_real_obra_for_atlas_code(): void
+    {
+        $response = $this->withHeaders($this->headers())->postJson('/atlas-code/works', [
+            'intent' => 'programar uma melhoria no cockpit',
+            'objective' => 'entregar Atlas Code utilizável',
+            'domain' => 'programming',
+        ]);
+
+        $response
+            ->assertCreated()
+            ->assertJsonPath('work.title', 'entregar Atlas Code utilizável')
+            ->assertJsonPath('work.objective', 'entregar Atlas Code utilizável')
+            ->assertJsonPath('work.status', 'active')
+            ->assertJsonPath('work.domain', 'programming')
+            ->assertJsonPath('work.metadata.origin', 'atlas-code');
+
+        $this->assertDatabaseHas('atlas_projects', [
+            'title' => 'entregar Atlas Code utilizável',
+            'description' => 'programar uma melhoria no cockpit',
+            'domain' => 'programming',
+        ]);
+    }
+
+    public function test_work_state_returns_real_thread_receipt_gates_and_evidence(): void
+    {
+        $now = now();
+        $projectId = (string) Str::uuid();
+        $threadId = (string) Str::uuid();
+        $traceId = (string) Str::uuid();
+        $decisionId = (string) Str::uuid();
+
+        DB::table('atlas_projects')->insert([
+            'id' => $projectId,
+            'title' => 'OBRA test',
+            'description' => 'intent',
+            'status' => 'active',
+            'domain' => 'programming',
+            'goal' => 'ship code cockpit',
+            'desired_outcome' => 'ship code cockpit',
+            'priority' => 'medium',
+            'metadata' => json_encode(['workspace_path' => '/tmp/atlas-work']),
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        DB::table('ai_threads')->insert([
+            'id' => $threadId,
+            'title' => 'Sessao real',
+            'status' => 'active',
+            'source_type' => 'atlas_project',
+            'source_id' => $projectId,
+            'workspace' => $projectId,
+            'message_count' => 1,
+            'last_message_at' => $now,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        DB::table('ai_messages')->insert([
+            'id' => (string) Str::uuid(),
+            'thread_id' => $threadId,
+            'position' => 1,
+            'role' => 'user',
+            'content' => 'executa a obra',
+            'occurred_at' => $now,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        DB::table('ai_traces')->insert([
+            'id' => $traceId,
+            'thread_id' => $threadId,
+            'source_type' => 'app',
+            'source_id' => $projectId,
+            'status' => 'completed',
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        DB::table('ai_decisions')->insert([
+            'id' => $decisionId,
+            'trace_id' => $traceId,
+            'selected_provider' => 'claude',
+            'selected_model' => 'sonnet',
+            'confidence_score' => 87,
+            'candidates' => json_encode([['provider' => 'codex']]),
+            'constraints' => json_encode(['budget_est_usd' => 0.012]),
+            'metrics_snapshot' => json_encode(['budget_used_usd' => 0.01]),
+            'reason' => 'routing test',
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        DB::table('atlas_tool_runs')->insert([
+            'id' => (string) Str::uuid(),
+            'tool_slug' => 'tests',
+            'workspace' => '/tmp/atlas-work',
+            'run_context_type' => 'atlas_project',
+            'run_context_id' => $projectId,
+            'status' => 'passed',
+            'summary_json' => json_encode(['summary' => 'tests passed']),
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        DB::table('atlas_engineering_runs')->insert([
+            'id' => (string) Str::uuid(),
+            'project_id' => $projectId,
+            'status' => 'passed',
+            'decision' => 'resolved',
+            'finished_at' => $now,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        DB::table('atlas_engineering_evidence')->insert([
+            'id' => (string) Str::uuid(),
+            'project_id' => $projectId,
+            'evidence_type' => 'test',
+            'status' => 'passed',
+            'summary' => 'unit evidence',
+            'recorded_at' => $now,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        $response = $this->withHeaders($this->headers())->getJson("/atlas-code/works/{$projectId}/state");
+
+        $response->assertOk()
+            ->assertJsonPath('active_thread', $threadId)
+            ->assertJsonPath('receipt.id', $decisionId)
+            ->assertJsonPath('receipt.primary', 'claude')
+            ->assertJsonPath('gates.0.tool_slug', 'tests')
+            ->assertJsonPath('evidence.0.kind', 'engineering_run')
+            ->assertJsonStructure([
+                'work',
+                'sessions',
+                'messages',
+                'sdd' => ['stage', 'steps'],
+                'receipt' => ['id', 'primary', 'confidence', 'fallbackChain'],
+                'gates',
+                'evidence',
+            ]);
+    }
+
+    public function test_atlas_code_can_send_intent_for_work_through_ai_interactions(): void
+    {
+        $now = now();
+        $projectId = (string) Str::uuid();
+        $threadId = (string) Str::uuid();
+        $traceId = (string) Str::uuid();
+        $capturedOptions = null;
+
+        DB::table('atlas_projects')->insert([
+            'id' => $projectId,
+            'title' => 'OBRA intent',
+            'description' => 'intent',
+            'status' => 'active',
+            'domain' => 'programming',
+            'goal' => 'programar com Atlas Code',
+            'desired_outcome' => 'programar com Atlas Code',
+            'priority' => 'medium',
+            'metadata' => json_encode(['workspace_path' => '/tmp/atlas-code']),
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        $this->mock(AiGatewayService::class, function (MockInterface $mock) use ($projectId, $threadId, $traceId, &$capturedOptions): void {
+            $mock
+                ->shouldReceive('enqueueInteraction')
+                ->once()
+                ->with('Refatorar Decide com contrato', \Mockery::on(function (array $options) use ($projectId, &$capturedOptions): bool {
+                    $capturedOptions = $options;
+
+                    return ($options['source_type'] ?? null) === 'app'
+                        && ($options['source_id'] ?? null) === $projectId
+                        && ($options['new_thread'] ?? null) === true
+                        && ($options['kind'] ?? null) === 'interaction';
+                }))
+                ->andReturn(tap(new AiTrace, fn (AiTrace $trace) => $trace->forceFill([
+                    'id' => $traceId,
+                    'trace_key' => 'trace_atlas_code_test',
+                    'thread_id' => $threadId,
+                    'source_type' => 'app',
+                    'source_id' => $projectId,
+                    'status' => 'queued',
+                    'operator_input' => 'Refatorar Decide com contrato',
+                    'agent_slug' => 'orquestrador',
+                    'provider' => 'claude_cli',
+                    'skill_versions' => [],
+                    'context_refs' => [],
+                    'metadata' => ['atlas_code' => true],
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ])));
+        });
+
+        $response = $this->withHeaders($this->headers())->postJson('/ai/interactions', [
+            'input_text' => 'Refatorar Decide com contrato',
+            'source_type' => 'app',
+            'source_id' => $projectId,
+            'new_thread' => true,
+            'kind' => 'interaction',
+        ]);
+
+        $response
+            ->assertAccepted()
+            ->assertJsonPath('trace.id', $traceId)
+            ->assertJsonPath('trace.thread_id', $threadId)
+            ->assertJsonPath('trace.source_id', $projectId);
+
+        $this->assertSame($projectId, $capturedOptions['source_id'] ?? null);
+    }
+
+    public function test_ai_interaction_stream_returns_real_sse_frames(): void
+    {
+        $now = now();
+        $traceId = (string) Str::uuid();
+        $eventId = (string) Str::uuid();
+
+        DB::table('ai_traces')->insert([
+            'id' => $traceId,
+            'thread_id' => null,
+            'source_type' => 'app',
+            'source_id' => null,
+            'status' => 'succeeded',
+            'operator_input' => 'stream test',
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        DB::table('ai_stream_events')->insert([
+            'id' => $eventId,
+            'trace_id' => $traceId,
+            'sequence' => 1,
+            'event_type' => 'assistant_message',
+            'channel' => 'assistant',
+            'content' => 'resposta real do Kernel',
+            'metadata' => json_encode(['source' => 'test']),
+            'occurred_at' => $now,
+        ]);
+
+        $response = $this->withHeaders($this->headers())->get("/ai/interactions/{$traceId}/stream?timeout=5");
+
+        $response->assertOk();
+        $content = $response->streamedContent();
+
+        $this->assertStringContainsString('event: assistant_message', $content);
+        $this->assertStringContainsString('resposta real do Kernel', $content);
+        $this->assertStringContainsString('event: done', $content);
     }
 }

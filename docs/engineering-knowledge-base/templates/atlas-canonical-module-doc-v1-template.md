@@ -47,10 +47,21 @@ required_tests:
   - php artisan atlas:engineering:knowledge docs-health --json
 requires_evidence: true
 risk_level: medium
+visual_tags:
+  - mapa-visual
+ai_entrypoints:
+  - Leia Resumo, Contratos, Regras para IA e Evidencias antes de alterar codigo.
+ai_usage_notes:
+  - Use allowed_changes e forbidden_changes como limite inicial de escopo.
+quality_gates:
+  - php artisan atlas:engineering:knowledge docs-health --json
+failure_modes:
+  - Declarar implementado sem evidencia real.
+observability_signals:
+  - docs-health status ok
 next_actions:
   - Substituir este template por conteudo real.
 ---
-
 # Exemplo Modulo Canonico
 
 ## Resumo

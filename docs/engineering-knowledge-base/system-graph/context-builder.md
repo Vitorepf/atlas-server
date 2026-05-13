@@ -51,8 +51,26 @@ requires_evidence: true
 risk_level: critical
 next_actions:
   - Expor context pack real no Atlas Code para auditoria humana.
----
+visual_tags:
+  - module
+  - module
+  - system-graph
 
+ai_entrypoints:
+  - Leia Resumo, Contratos, Regras para IA, Evidencias e Riscos antes de implementar.
+
+ai_usage_notes:
+  - Use repo_paths, allowed_changes, forbidden_changes e required_tests como limites operacionais.
+
+quality_gates:
+  - "php artisan atlas:engineering:knowledge docs-health --json"
+
+failure_modes:
+  - Contexto desatualizado entre doc, codigo, teste e evidencia.
+
+observability_signals:
+  - docs-health status ok
+---
 # Context Builder
 
 ## Resumo
@@ -106,4 +124,3 @@ Uma Obra de refatoracao deve receber docs canonicos do modulo, caminhos reais e 
 ## Proximas Acoes
 
 Mostrar context pack no painel de spec do Atlas Code.
-

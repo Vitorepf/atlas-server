@@ -44,8 +44,81 @@ related_paths:
   - routes/api.php
   - atlas-app/components/sheets/AtlasAiSheet.tsx
   - atlas-app/lib/api/client.ts
----
+doc_schema: atlas_canonical_module_doc.v1
 
+graph_id: atlas-open-brain-context-injection
+
+graph_title: Atlas Open Brain Context Injection
+
+graph_world: atlas
+
+graph_layer: system
+
+graph_kind: module
+
+graph_parent: atlas-ai-canonical-architecture-index
+
+graph_status: active
+
+graph_source: repo
+
+owner: architecture
+
+repo_paths:
+  - docs/engineering-knowledge-base/open-brain-context-injection.md
+
+allowed_changes:
+  - Atualizar este doc quando codigo, arquitetura, fluxo, evidencia ou decisao canonica mudar.
+
+forbidden_changes:
+  - Declarar runtime, maturidade ou prontidao sem evidencia verificavel e gates verdes.
+
+depends_on:
+  - atlas-ai-documentation-operating-system
+
+flows_to:
+  - atlas-cartography
+  - atlas-code
+
+unlocks:
+  - ai-safe-implementation-context
+
+governs:
+  - architecture
+
+evidence:
+  - docs/engineering-knowledge-base/open-brain-context-injection.md
+
+required_tests:
+  - "php artisan atlas:engineering:knowledge docs-health --json"
+
+requires_evidence: true
+
+risk_level: medium
+
+visual_tags:
+  - system
+  - module
+  - architecture
+
+ai_entrypoints:
+  - Leia Resumo, Contratos, Regras para IA, Evidencias e Riscos antes de implementar.
+
+ai_usage_notes:
+  - Use repo_paths, allowed_changes, forbidden_changes e required_tests como limites operacionais.
+
+quality_gates:
+  - "php artisan atlas:engineering:knowledge docs-health --json"
+
+failure_modes:
+  - Contexto desatualizado entre doc, codigo, teste e evidencia.
+
+observability_signals:
+  - docs-health status ok
+
+next_actions:
+  - Manter este doc sincronizado com codigo, testes, evidencias e Cartografia.
+---
 # Atlas Open Brain Context Injection
 
 This is the active runtime profile for automatic Open Brain injection. It is
@@ -98,6 +171,13 @@ flowchart TD
 | `atlas chat --mode=review` | `auto` | Prioritize contracts, changed files, gates and prior decisions. |
 | Atlas App programming/review/debug | `auto` | App declares mode; backend owns context composition. |
 | Mobile/voice realtime | `auto` through Surface Adapter | Never bypass Kernel or Decision Receipt. |
+
+Programming flows `programming.dev`, `programming.debug`,
+`programming.review`, `programming.repair`, `programming.refactor`,
+`programming.qa`, `programming.security`, `programming.database`,
+`programming.visual` and `programming.forge` activate Open Brain even when the
+surface mode is generic/direct. This prevents repair or resumed work from
+depending on session memory.
 
 ## Policy Modes
 
@@ -195,6 +275,17 @@ Every injection attempt writes or updates trace metadata with:
 - memory/knowledge/code ref counts;
 - audit id from `AtlasOpenBrainAccessLog` when persisted.
 
+Programming injections also include `summary.programming_context` and a
+`## Programming Context` prompt section with flow/profile, resume state,
+plan/review/patch/test/repair stage contract, selected files, prior runs,
+previous traces and prior decisions. This is the automatic bridge from Memory,
+Open Brain, Code Intelligence and engineering history into dev/debug/review/
+repair without relying on chat-session memory.
+The code intelligence slice is expected to include AST-backed PHP relations
+when available (`php_use_ast`, `class_constant_ast`,
+`test_symbol_reference_ast`), plus dependency edges, symbol references,
+test targets and doc links.
+
 Important context injection events are evidence. They can feed read models and
 Self-Improvement proposals, but they cannot silently promote memory or mutate
 critical behavior.
@@ -249,3 +340,51 @@ atlas engineering knowledge index-code --prune
 - Prompt contains one deduplicated Open Brain section.
 - Trace/audit metadata can explain why context was injected, skipped or failed.
 - No surface, provider or tool decides memory, provider, policy or promotion.
+
+## Resumo
+
+Compact canonical runtime profile for automatic Open Brain context injection in Atlas dev, continue, chat, app programming, review and debug flows.
+
+## Papel no Atlas
+
+Define a responsabilidade desta peca dentro da arquitetura Atlas.
+
+## Onde Se Encaixa
+
+Relaciona esta peca com seu sistema, camada, fluxo ou modulo pai.
+
+## Contratos
+
+Declara invariantes, entradas, saidas, limites e obrigacoes relevantes.
+
+## Fluxo
+
+Descreve o caminho operacional ou a sequencia de uso quando aplicavel.
+
+## Regras para IA
+
+Agentes devem respeitar escopo, evidencias, testes e proibicoes antes de alterar codigo.
+
+## Escopo de Implementacao
+
+Mudancas devem permanecer nos caminhos e limites declarados no frontmatter.
+
+## Dependencias
+
+Dependencias canonicas vivem em frontmatter e no corpo deste documento.
+
+## Evidencias
+
+Evidencias aceitas incluem docs, comandos, testes, receipts, reports e paths verificaveis.
+
+## Riscos
+
+Riscos principais devem ser tratados antes de promover status, runtime ou claims de prontidao.
+
+## Exemplos
+
+Exemplos concretos devem ser adicionados quando reduzirem ambiguidade para humanos ou IAs.
+
+## Proximas Acoes
+
+Proximas acoes devem ser concretas, verificaveis e ligadas a gates de qualidade.

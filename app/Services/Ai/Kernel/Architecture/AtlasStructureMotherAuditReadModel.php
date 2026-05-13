@@ -214,6 +214,7 @@ class AtlasStructureMotherAuditReadModel
             'completion_checklist' => $this->completionChecklist($modules, $complete),
             'prompt_to_artifact_checklist' => $this->promptToArtifactChecklist($modules, $complete, $hours, $workspace),
             'operator_action_plan' => $this->operatorActionPlan($modules, $complete, $missingCostRates),
+            'enterprise_closure_plan' => $this->enterpriseClosurePlan($levels),
             'modules' => $modules,
             'blockers' => $blockers,
             'rules' => [
@@ -240,6 +241,138 @@ class AtlasStructureMotherAuditReadModel
                 'update_goal_allowed' => $complete,
             ],
             'generated_at' => now()->toJSON(),
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $levels
+     * @return array<string,mixed>
+     */
+    private function enterpriseClosurePlan(array $levels): array
+    {
+        return [
+            'schema_version' => 'atlas.structure_mother.enterprise_closure_plan.v1',
+            'status' => 'external_or_future_evidence_required',
+            'completion_claim_allowed' => false,
+            'items' => [
+                [
+                    'id' => 'rivals_p4_real_review',
+                    'status' => 'calendar_blocked',
+                    'operator_required' => true,
+                    'external_cost_possible' => false,
+                    'blocks_enterprise_completion_claim' => true,
+                    'required_evidence' => [
+                        'real_scored_rivals_review',
+                        'regret_alignment_agency_scores',
+                        'healthy_agency_gate',
+                        'structure_mother_audit_recheck',
+                    ],
+                    'prohibited_actions' => [
+                        'record_synthetic_scores',
+                        'declare_p4_or_higher',
+                        'mark_structure_mother_complete',
+                    ],
+                ],
+                [
+                    'id' => 'rivals_programming_real_battery',
+                    'status' => 'operator_cost_approval_required',
+                    'operator_required' => true,
+                    'external_cost_possible' => true,
+                    'blocks_enterprise_completion_claim' => true,
+                    'safe_preflight_commands' => [
+                        'runbook' => 'php artisan atlas:engineering:benchmark:rivals runbook --workspace=/Users/vitorepf/develop/Atlas/atlas-server --json',
+                        'readiness' => 'php artisan atlas:engineering:benchmark:rivals readiness --json',
+                        'report' => 'php artisan atlas:engineering:benchmark:rivals report --json',
+                        'export' => 'php artisan atlas:engineering:benchmark:rivals report --output-dir=atlas-rivals-report --json',
+                        'verify_export' => 'php artisan atlas:engineering:benchmark:rivals verify --output-dir=atlas-rivals-report --json',
+                    ],
+                    'cost_acknowledged_execution_commands' => [
+                        'quick' => 'php artisan atlas:engineering:benchmark:rivals run --quick --workspace=/Users/vitorepf/develop/Atlas/atlas-server --confirm-runbook-reviewed --confirm-provider-cost --json',
+                        'medium' => 'php artisan atlas:engineering:benchmark:rivals run --medium --workspace=/Users/vitorepf/develop/Atlas/atlas-server --confirm-runbook-reviewed --confirm-provider-cost --json',
+                        'full' => 'php artisan atlas:engineering:benchmark:rivals run --full --workspace=/Users/vitorepf/develop/Atlas/atlas-server --confirm-runbook-reviewed --confirm-provider-cost --json',
+                    ],
+                    'execution_guard' => [
+                        'schema_version' => 'atlas.structure_mother.rivals_programming_execution_guard.v1',
+                        'runbook_review_required' => true,
+                        'provider_cost_acknowledgement_required' => true,
+                        'external_provider_call_possible' => true,
+                        'no_provider_call_in_structure_mother_audit' => true,
+                        'audit_may_only_surface_commands' => true,
+                    ],
+                    'required_evidence' => [
+                        'battery_plan_hash',
+                        'operator_plan_reviewed',
+                        'operator_cost_acknowledged',
+                        'real_provider_runs',
+                        'paired_scorecard',
+                        'replay_manifest',
+                        'artifact_integrity_gate',
+                        'cost_receipts',
+                    ],
+                    'allowed_modes' => ['official_fair', 'same_model', 'max'],
+                    'prohibited_actions' => [
+                        'call_provider_without_operator_cost_acknowledgement',
+                        'score_synthetic_or_unverified_runs',
+                        'compare_unpaired_workspaces_as_fair_battle',
+                    ],
+                ],
+                [
+                    'id' => 'frontend_design_harness_enterprise_runs',
+                    'status' => 'backend_contract_ready_runs_pending',
+                    'operator_required' => false,
+                    'external_cost_possible' => false,
+                    'blocks_enterprise_completion_claim' => false,
+                    'local_execution_commands' => [
+                        'programming_frontend_plan' => 'Use AtlasProgrammingOrchestrator with flow=programming.frontend and specialist_profile=programming.frontend.',
+                        'visual_smoke_dry_run' => 'php artisan atlas:engineering:visual-smoke --workspace=<frontend-workspace> --url=http://127.0.0.1:<port> --route=/ --baseline=observe --screenshot-baseline=auto --json',
+                        'tool_runtime_dry_run' => 'programming.visual_smoke via AiToolRuntime with dry_run=true before applying frontend completion claims',
+                    ],
+                    'execution_guard' => [
+                        'schema_version' => 'atlas.structure_mother.frontend_design_harness_execution_guard.v1',
+                        'provider_neutral' => true,
+                        'external_provider_cost_possible' => false,
+                        'screenshot_alone_is_insufficient' => true,
+                        'visual_a11y_perf_state_receipts_required' => true,
+                        'craft_visual_owner_may_be_claude_but_atlas_owns_gates' => true,
+                    ],
+                    'required_evidence' => [
+                        'programming_frontend_plan',
+                        'atlas.programming.frontend_design_harness.v1',
+                        'visual_a11y_perf_state_gate_receipts',
+                        'asset_provenance',
+                        'design_5d_review',
+                    ],
+                    'prohibited_actions' => [
+                        'declare_frontend_harness_complete_from_screenshot_only',
+                        'hardcode_provider_as_frontend_owner',
+                    ],
+                ],
+                [
+                    'id' => 'p6_p7_advanced_readiness',
+                    'status' => 'read_model_ready_promotion_blocked',
+                    'operator_required' => true,
+                    'external_cost_possible' => false,
+                    'blocks_enterprise_completion_claim' => false,
+                    'advanced_readiness' => data_get($levels, 'advanced_readiness'),
+                    'required_evidence' => [
+                        'p6_cross_surface_opt_in_and_friction_review',
+                        'p7_years_scale_longitudinal_evidence',
+                        'privacy_vault_forgetting_review',
+                        'human_reviewed_non_obvious_patterns',
+                    ],
+                    'prohibited_actions' => [
+                        'declare_p6_or_p7_without_readiness_gate',
+                        'infer_sensitive_personal_patterns_without_opt_in',
+                        'use_presence_as_autonomous_dispatch_authority',
+                    ],
+                ],
+            ],
+            'rules' => [
+                'do_not_loop_on_calendar_blockers' => true,
+                'do_not_spend_external_provider_cost_without_operator_approval' => true,
+                'do_not_lower_gates_to_make_report_green' => true,
+                'continue_with_next_local_verifiable_action_when_blocked' => true,
+            ],
         ];
     }
 
@@ -477,6 +610,79 @@ class AtlasStructureMotherAuditReadModel
                 'notes' => [
                     'Wait until the review horizon is real.',
                     'Record regret/alignment/agency only from operator review evidence.',
+                ],
+            ];
+        }
+
+        if (! $complete) {
+            $actions[] = [
+                'id' => 'approve_rivals_programming_real_battery',
+                'module_id' => 'evaluation_rivals_framework',
+                'type' => 'external_provider_battery_approval',
+                'status' => 'pending',
+                'operator_required' => true,
+                'actionable_now' => true,
+                'calendar_wait_required' => false,
+                'external_provider_cost_possible' => true,
+                'agent_auto_execute_allowed' => false,
+                'safe_preflight_commands' => [
+                    'runbook' => 'php artisan atlas:engineering:benchmark:rivals runbook --workspace=/Users/vitorepf/develop/Atlas/atlas-server --json',
+                    'readiness' => 'php artisan atlas:engineering:benchmark:rivals readiness --json',
+                    'report' => 'php artisan atlas:engineering:benchmark:rivals report --json',
+                ],
+                'cost_acknowledged_execution_commands' => [
+                    'quick' => 'php artisan atlas:engineering:benchmark:rivals run --quick --workspace=/Users/vitorepf/develop/Atlas/atlas-server --confirm-runbook-reviewed --confirm-provider-cost --json',
+                    'medium' => 'php artisan atlas:engineering:benchmark:rivals run --medium --workspace=/Users/vitorepf/develop/Atlas/atlas-server --confirm-runbook-reviewed --confirm-provider-cost --json',
+                    'full' => 'php artisan atlas:engineering:benchmark:rivals run --full --workspace=/Users/vitorepf/develop/Atlas/atlas-server --confirm-runbook-reviewed --confirm-provider-cost --json',
+                ],
+                'api' => [
+                    'method' => 'POST',
+                    'endpoint' => '/ai/engineering-benchmark/rivals/run',
+                    'body' => [
+                        'preset' => 'quick|medium|full',
+                        'workspace' => '/Users/vitorepf/develop/Atlas/atlas-server',
+                        'confirm_runbook_reviewed' => true,
+                        'confirm_provider_cost' => true,
+                    ],
+                    'operator_required' => true,
+                    'external_provider_cost_possible' => true,
+                    'synthetic_scores_allowed' => false,
+                    'paired_comparison_required' => true,
+                ],
+                'notes' => [
+                    'Runbook/readiness/report are safe preflight commands.',
+                    'Quick/medium/full execute real provider calls and require explicit operator cost acknowledgement.',
+                ],
+            ];
+        }
+
+        if (! $complete) {
+            $actions[] = [
+                'id' => 'run_frontend_design_harness_enterprise_receipts',
+                'module_id' => 'tool_action_runtime',
+                'type' => 'local_frontend_evidence_run',
+                'status' => 'deferred',
+                'operator_required' => false,
+                'actionable_now' => true,
+                'calendar_wait_required' => false,
+                'external_provider_cost_possible' => false,
+                'external_effect_possible' => false,
+                'can_be_deferred_by_operator_decision' => true,
+                'safe_commands' => [
+                    'visual_smoke' => 'php artisan atlas:engineering:visual-smoke --workspace=<frontend-workspace> --url=http://127.0.0.1:<port> --route=/ --baseline=observe --screenshot-baseline=auto --json',
+                    'tool_runtime_dry_run' => 'programming.visual_smoke via AiToolRuntime with dry_run=true',
+                ],
+                'required_receipts' => [
+                    'atlas.programming.frontend_design_harness.v1',
+                    'visual_smoke_multi_viewport',
+                    'a11y_check_or_reason',
+                    'performance_budget_or_reason',
+                    'asset_provenance_check',
+                    'design_5d_review',
+                ],
+                'notes' => [
+                    'This is a local evidence action and does not call external providers.',
+                    'It can wait because craft visual/design ownership was intentionally deferred.',
                 ],
             ];
         }
@@ -750,7 +956,7 @@ class AtlasStructureMotherAuditReadModel
                 evidence: ['self_construction_control_plane_excluded' => true],
             ),
             $this->checklistItem(
-                requirement: 'Goal completion may be marked only when all eight modules are ready',
+                requirement: 'Goal completion may be marked only when all eight modules are ready and operational blockers are clear',
                 artifact: 'structure_mother_audit.completion_gate',
                 evidenceCommand: 'php artisan atlas:ai:structure-mother-audit --json',
                 status: $complete ? 'ready' : 'blocked',

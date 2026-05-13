@@ -39,6 +39,8 @@ class AtlasEngineeringBenchmarkFairCommand extends Command
         {--gate-profile=strict : Release gate profile: release, smoke, strict, advisory or off}
         {--keep-workspace : Keep isolated execution workspace after the run for debugging}
         {--no-auto-test : Disable auto-test for run and run-atlas}
+        {--confirm-runbook-reviewed : Confirm the Fair Claude runbook/preflight was reviewed before provider execution}
+        {--confirm-provider-cost : Confirm external provider cost/token usage before provider execution}
         {--run-id= : Benchmark run id for replay; alias for the positional run argument}
         {--output-dir= : Write or verify report.json, evidence.json, claim.md and manifest.json for report/readiness/verify}
         {--markdown : Print audit-ready Markdown for report/readiness}
@@ -52,6 +54,12 @@ class AtlasEngineeringBenchmarkFairCommand extends Command
         $modelViolation = $this->validateFairModelLock($fairClaude);
         if ($modelViolation !== null) {
             return $this->fairModeViolation($modelViolation);
+        }
+        if (in_array($action, ['run', 'run-atlas', 'run-claude-code'], true)) {
+            $confirmationGuard = $this->guardProviderExecutionConfirmation($action);
+            if ($confirmationGuard !== null) {
+                return $confirmationGuard;
+            }
         }
 
         return match ($action) {
@@ -352,7 +360,8 @@ class AtlasEngineeringBenchmarkFairCommand extends Command
         $commonRunArgs = "{$suiteArg}{$workspaceArg}{$baselineWorkspaceArg}{$binaryArg}{$filterArgs}"
             .' --model='.$this->fairModelOption()
             .' --model-policy='.($this->stringOption('model-policy') ?: 'fixed')
-            .' --gate-profile='.$this->shellArg($this->stringOption('gate-profile') ?: 'strict');
+            .' --gate-profile='.$this->shellArg($this->stringOption('gate-profile') ?: 'strict')
+            .' --confirm-runbook-reviewed --confirm-provider-cost';
         $doctorArgs = "{$suiteArg}{$workspaceArg}{$baselineWorkspaceArg}{$binaryArg}"
             .' --model='.$this->fairModelOption()
             .' --model-policy='.($this->stringOption('model-policy') ?: 'fixed');
@@ -396,6 +405,12 @@ class AtlasEngineeringBenchmarkFairCommand extends Command
                 'baseline_model_lock' => 'opus',
                 'forbidden_in_fair_mode' => ['codex_cli', 'gemini_cli', 'claude_codex', 'atlas_decide', 'fallback', 'council'],
                 'pass_without_human_requires' => ['provider_lock', 'model_lock', 'deterministic_gates_passed', 'human_intervention_count_zero'],
+            ],
+            'provider_execution_guard' => [
+                'schema_version' => 'atlas.fair_claude.provider_execution_guard.v1',
+                'confirm_runbook_reviewed_required' => true,
+                'confirm_provider_cost_required' => true,
+                'blocking_error' => 'fair_claude_provider_execution_confirmation_required',
             ],
         ];
     }
@@ -467,6 +482,47 @@ class AtlasEngineeringBenchmarkFairCommand extends Command
             '--markdown' => (bool) $this->option('markdown'),
             '--json' => (bool) $this->option('json'),
         ], fn (mixed $value): bool => $value !== null && $value !== '' && $value !== false);
+    }
+
+    private function guardProviderExecutionConfirmation(string $action): ?int
+    {
+        $missing = [];
+        if (! (bool) $this->option('confirm-runbook-reviewed')) {
+            $missing[] = 'confirm_runbook_reviewed';
+        }
+        if (! (bool) $this->option('confirm-provider-cost')) {
+            $missing[] = 'confirm_provider_cost';
+        }
+
+        if ($missing === []) {
+            return null;
+        }
+
+        $payload = [
+            'schema_version' => 1,
+            'error' => 'fair_claude_provider_execution_confirmation_required',
+            'message' => 'Fair Claude provider execution requires explicit runbook review and provider cost acknowledgement.',
+            'action' => $action,
+            'missing_confirmations' => $missing,
+            'required_flags' => [
+                '--confirm-runbook-reviewed',
+                '--confirm-provider-cost',
+            ],
+            'safety' => [
+                'no_provider_call' => true,
+                'no_benchmark_run_created' => true,
+                'external_cost_possible' => true,
+            ],
+        ];
+
+        if ((bool) $this->option('json')) {
+            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+        } else {
+            $this->error($payload['message']);
+            $this->line('Required flags: '.implode(' ', $payload['required_flags']));
+        }
+
+        return self::FAILURE;
     }
 
     private function replay(EngineeringBenchmarkService $benchmarks): int

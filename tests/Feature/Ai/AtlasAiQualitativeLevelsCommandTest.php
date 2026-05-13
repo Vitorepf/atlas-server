@@ -31,6 +31,15 @@ class AtlasAiQualitativeLevelsCommandTest extends TestCase
         $this->assertSame('P2', data_get($payload, 'qualitative_levels.next_level'));
         $this->assertTrue(data_get($payload, 'qualitative_levels.rules.read_model_only'));
         $this->assertTrue(data_get($payload, 'qualitative_levels.rules.no_behavior_change'));
+        $this->assertSame('atlas.qualitative_levels.p6_presence_readiness.v1', data_get($payload, 'qualitative_levels.advanced_readiness.p6_presence_eclipse.schema_version'));
+        $this->assertSame('started_not_promotable', data_get($payload, 'qualitative_levels.advanced_readiness.p6_presence_eclipse.status'));
+        $this->assertFalse(data_get($payload, 'qualitative_levels.advanced_readiness.p6_presence_eclipse.promotion_allowed'));
+        $this->assertContains('no_surveillance_default', data_get($payload, 'qualitative_levels.advanced_readiness.p6_presence_eclipse.implemented_evidence.safety_properties', []));
+        $this->assertContains('broader_environment_presence_surfaces', data_get($payload, 'qualitative_levels.advanced_readiness.p6_presence_eclipse.missing_evidence', []));
+        $this->assertSame('atlas.qualitative_levels.p7_longitudinal_readiness.v1', data_get($payload, 'qualitative_levels.advanced_readiness.p7_longitudinal_memory.schema_version'));
+        $this->assertSame('roadmap_only_not_promotable', data_get($payload, 'qualitative_levels.advanced_readiness.p7_longitudinal_memory.status'));
+        $this->assertFalse(data_get($payload, 'qualitative_levels.advanced_readiness.p7_longitudinal_memory.promotion_allowed'));
+        $this->assertContains('years_scale_history', data_get($payload, 'qualitative_levels.advanced_readiness.p7_longitudinal_memory.missing_evidence', []));
         $this->assertContains(
             'Qualitative levels require Evidence Ledger signals.',
             data_get($payload, 'qualitative_levels.next_level_blockers'),

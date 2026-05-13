@@ -232,6 +232,52 @@ class AtlasAiToolActionRuntimeReportCommandTest extends TestCase
         $this->assertSame('inspect_failed_required_tool_runs', data_get($payload, 'tool_action_runtime.review_signal.recommended_action'));
     }
 
+    public function test_superseded_required_tool_failure_does_not_block_when_latest_evidence_passes(): void
+    {
+        $definition = $this->definition('atlas_visual_smoke');
+        AtlasToolRun::query()->create([
+            'tool_definition_id' => $definition->id,
+            'tool_slug' => 'atlas_visual_smoke',
+            'surface' => 'engineering_visual_smoke',
+            'status' => 'failed',
+            'required' => true,
+            'failure_policy' => 'blocks_resolved',
+            'policy_decision' => 'allowed',
+            'exit_code' => 1,
+            'metadata_json' => [
+                'action_runtime_contract' => ['schema_version' => 'atlas.tool_action_runtime.contract.v1'],
+            ],
+            'created_at' => now()->subHour(),
+            'updated_at' => now()->subHour(),
+        ]);
+        AtlasToolRun::query()->create([
+            'tool_definition_id' => $definition->id,
+            'tool_slug' => 'atlas_visual_smoke',
+            'surface' => 'engineering_visual_smoke',
+            'status' => 'passed',
+            'required' => true,
+            'failure_policy' => 'blocks_resolved',
+            'policy_decision' => 'allowed',
+            'exit_code' => 0,
+            'metadata_json' => [
+                'action_runtime_contract' => ['schema_version' => 'atlas.tool_action_runtime.contract.v1'],
+            ],
+            'created_at' => now()->subMinute(),
+            'updated_at' => now()->subMinute(),
+        ]);
+
+        $exit = Artisan::call('atlas:ai:tool-action-runtime-report', [
+            '--hours' => 24,
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame(1, data_get($payload, 'tool_action_runtime.failed_required_run_count'));
+        $this->assertSame(0, data_get($payload, 'tool_action_runtime.latest_failed_required_run_count'));
+        $this->assertSame('ok', data_get($payload, 'tool_action_runtime.review_signal.status'));
+    }
+
     public function test_command_warns_when_blocking_findings_are_open(): void
     {
         $definition = $this->definition('gitleaks');

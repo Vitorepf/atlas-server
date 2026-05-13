@@ -15,6 +15,7 @@ class AgentCodexRealInvokerPostStartProcessStarterReadinessGate
      */
     private const BRIDGE_FIELDS = [
         'post_start_start_execution_gate_id',
+        'post_start_evidence_acceptance_bridge_id',
         'post_start_process_start_envelope_gate_id',
         'post_start_actual_process_start_rehearsal_gate_id',
         'post_start_final_process_start_authorization_gate_id',
@@ -395,6 +396,7 @@ class AgentCodexRealInvokerPostStartProcessStarterReadinessGate
             'status' => 'codex_real_invoker_post_start_process_starter_readiness_gate_prepared',
             'idempotent' => $idempotent,
             'post_start_process_starter_readiness_gate_id' => (string) data_get($run->metadata, 'codex_real_invoker_post_start_process_starter_readiness_gate.post_start_process_starter_readiness_gate_id'),
+            'post_start_evidence_acceptance_bridge_id' => (string) data_get($run->metadata, 'codex_real_invoker_post_start_process_starter_readiness_gate.post_start_evidence_acceptance_bridge_id'),
             'real_invoker_process_starter_readiness_gate_id' => (string) data_get($run->metadata, 'codex_real_invoker_post_start_process_starter_readiness_gate.real_invoker_process_starter_readiness_gate_id'),
             'real_invoker_start_execution_gate_id' => (string) data_get($run->metadata, 'codex_real_invoker_post_start_process_starter_readiness_gate.real_invoker_start_execution_gate_id'),
             'real_invoker_process_start_envelope_id' => (string) data_get($run->metadata, 'codex_real_invoker_post_start_process_starter_readiness_gate.real_invoker_process_start_envelope_id'),

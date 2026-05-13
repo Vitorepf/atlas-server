@@ -28,8 +28,79 @@ related_paths:
 owner: atlas-ai
 layer: extension
 line_limit: 280
----
+doc_schema: atlas_canonical_module_doc.v1
 
+graph_id: atlas-ai-cyber-remediation-patterns
+
+graph_title: Atlas AI Cyber Remediation Patterns
+
+graph_world: atlas
+
+graph_layer: module
+
+graph_kind: module
+
+graph_parent: atlas-ai-canonical-architecture-index
+
+graph_status: building
+
+graph_source: repo
+
+repo_paths:
+  - docs/engineering-knowledge-base/cyber-security/remediation-patterns.md
+
+allowed_changes:
+  - Atualizar este doc quando codigo, arquitetura, fluxo, evidencia ou decisao canonica mudar.
+
+forbidden_changes:
+  - Declarar runtime, maturidade ou prontidao sem evidencia verificavel e gates verdes.
+
+depends_on:
+  - atlas-ai-documentation-operating-system
+
+flows_to:
+  - atlas-cartography
+  - atlas-code
+
+unlocks:
+  - ai-safe-implementation-context
+
+governs:
+  - cyber-security
+
+evidence:
+  - docs/engineering-knowledge-base/cyber-security/remediation-patterns.md
+
+required_tests:
+  - "php artisan atlas:engineering:knowledge docs-health --json"
+
+requires_evidence: true
+
+risk_level: high
+
+visual_tags:
+  - module
+  - module
+  - cyber-security
+
+ai_entrypoints:
+  - Leia Resumo, Contratos, Regras para IA, Evidencias e Riscos antes de implementar.
+
+ai_usage_notes:
+  - Use repo_paths, allowed_changes, forbidden_changes e required_tests como limites operacionais.
+
+quality_gates:
+  - "php artisan atlas:engineering:knowledge docs-health --json"
+
+failure_modes:
+  - Contexto desatualizado entre doc, codigo, teste e evidencia.
+
+observability_signals:
+  - docs-health status ok
+
+next_actions:
+  - Manter este doc sincronizado com codigo, testes, evidencias e Cartografia.
+---
 # Atlas AI Cyber Remediation Patterns
 
 Patterns canonicos de fix por classe de vulnerabilidade. Skill desenvolvedor + cyber-* consomem.
@@ -281,3 +352,51 @@ Cada variant listada acima DEVE aparecer em Negative PoC do Patch que aplica o p
 - Snippet copiado sem adaptar ao stack do cliente -> bug novo.
 - Anti-fix ignorado -> regressao na proxima release.
 - Coverage no path tocado < 100% em codigo `@security-critical` -> Patch bloqueado.
+
+## Resumo
+
+Patterns canonicos de fix por classe de vulnerabilidade (CWE primario), com snippets por stack, anti-fixes, variants para Negative PoC e refactor playbook; consumido por skill desenvolvedor + cyber-* na fase remediacao.
+
+## Papel no Atlas
+
+Define a responsabilidade desta peca dentro da arquitetura Atlas.
+
+## Onde Se Encaixa
+
+Relaciona esta peca com seu sistema, camada, fluxo ou modulo pai.
+
+## Contratos
+
+Declara invariantes, entradas, saidas, limites e obrigacoes relevantes.
+
+## Fluxo
+
+Descreve o caminho operacional ou a sequencia de uso quando aplicavel.
+
+## Regras para IA
+
+Agentes devem respeitar escopo, evidencias, testes e proibicoes antes de alterar codigo.
+
+## Escopo de Implementacao
+
+Mudancas devem permanecer nos caminhos e limites declarados no frontmatter.
+
+## Dependencias
+
+Dependencias canonicas vivem em frontmatter e no corpo deste documento.
+
+## Evidencias
+
+Evidencias aceitas incluem docs, comandos, testes, receipts, reports e paths verificaveis.
+
+## Riscos
+
+Riscos principais devem ser tratados antes de promover status, runtime ou claims de prontidao.
+
+## Exemplos
+
+Exemplos concretos devem ser adicionados quando reduzirem ambiguidade para humanos ou IAs.
+
+## Proximas Acoes
+
+Proximas acoes devem ser concretas, verificaveis e ligadas a gates de qualidade.

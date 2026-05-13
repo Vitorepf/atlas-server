@@ -759,6 +759,12 @@ real. Ele valida, no minimo:
 - comandos exatos para `run`, `run-atlas`, `run-claude-code`, `report`,
   `readiness` e `replay`.
 
+Execucao com provider externo e sempre opt-in. Os comandos `run`, `run-atlas`
+e `run-claude-code` devem falhar antes de criar benchmark run quando faltar:
+
+- `--confirm-runbook-reviewed`;
+- `--confirm-provider-cost`.
+
 Para rodar a bateria pareada completa:
 
 ```bash
@@ -770,6 +776,8 @@ atlas benchmark claude-fair run \
   --model=opus \
   --model-policy=fixed \
   --gate-profile=strict \
+  --confirm-runbook-reviewed \
+  --confirm-provider-cost \
   --json
 ```
 

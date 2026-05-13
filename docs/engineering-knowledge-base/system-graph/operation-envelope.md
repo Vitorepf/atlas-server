@@ -50,8 +50,26 @@ requires_evidence: true
 risk_level: critical
 next_actions:
   - Alinhar envelope com payload de Decision Receipt v2.
----
+visual_tags:
+  - module
+  - module
+  - system-graph
 
+ai_entrypoints:
+  - Leia Resumo, Contratos, Regras para IA, Evidencias e Riscos antes de implementar.
+
+ai_usage_notes:
+  - Use repo_paths, allowed_changes, forbidden_changes e required_tests como limites operacionais.
+
+quality_gates:
+  - "php artisan atlas:engineering:knowledge docs-health --json"
+
+failure_modes:
+  - Contexto desatualizado entre doc, codigo, teste e evidencia.
+
+observability_signals:
+  - docs-health status ok
+---
 # Operation Envelope
 
 ## Resumo
@@ -104,4 +122,3 @@ Uma conversa no Atlas Code vira envelope com obra, thread, origem desktop, anexo
 ## Proximas Acoes
 
 Definir versao do envelope usada nos endpoints do Atlas Code.
-

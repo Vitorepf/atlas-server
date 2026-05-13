@@ -50,8 +50,26 @@ requires_evidence: true
 risk_level: high
 next_actions:
   - Definir schema comum para payload normalizado de surface.
----
+visual_tags:
+  - module
+  - surface
+  - system-graph
 
+ai_entrypoints:
+  - Leia Resumo, Contratos, Regras para IA, Evidencias e Riscos antes de implementar.
+
+ai_usage_notes:
+  - Use repo_paths, allowed_changes, forbidden_changes e required_tests como limites operacionais.
+
+quality_gates:
+  - "php artisan atlas:engineering:knowledge docs-health --json"
+
+failure_modes:
+  - Contexto desatualizado entre doc, codigo, teste e evidencia.
+
+observability_signals:
+  - docs-health status ok
+---
 # Surface Adapter
 
 ## Resumo
@@ -104,4 +122,3 @@ Um paste de codigo e um upload de arquivo viram input normalizado com origem e c
 ## Proximas Acoes
 
 Criar exemplo canonico de payload normalizado usado por Atlas Code.
-

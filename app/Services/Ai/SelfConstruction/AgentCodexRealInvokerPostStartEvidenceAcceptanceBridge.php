@@ -217,7 +217,7 @@ class AgentCodexRealInvokerPostStartEvidenceAcceptanceBridge
     private function receiptContractInput(array $normalized): array
     {
         return Arr::only($normalized, array_merge(
-            ['run_key', 'post_start_receipt_contract_id'],
+            ['run_key', 'post_start_evidence_acceptance_bridge_id', 'post_start_receipt_contract_id'],
             self::CHAIN_FIELDS,
             self::HANDOFF_HASH_FIELDS,
             self::CONTRACT_HASH_FIELDS,
@@ -232,7 +232,7 @@ class AgentCodexRealInvokerPostStartEvidenceAcceptanceBridge
     private function evidenceReceiptInput(array $normalized): array
     {
         return Arr::only($normalized, array_merge(
-            ['run_key', 'post_start_receipt_contract_id', 'post_start_evidence_receipt_id'],
+            ['run_key', 'post_start_evidence_acceptance_bridge_id', 'post_start_receipt_contract_id', 'post_start_evidence_receipt_id'],
             self::CHAIN_FIELDS,
             self::CONTRACT_HASH_FIELDS,
             self::EVIDENCE_HASH_FIELDS,

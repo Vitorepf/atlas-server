@@ -204,6 +204,7 @@ class AtlasEngineeringKnowledgeCommand extends Command
         $this->components->twoColumnDetail('required missing', (string) ($summary['required_missing_count'] ?? 0));
         $this->components->twoColumnDetail('oversized', (string) ($summary['oversized_count'] ?? 0));
         $this->components->twoColumnDetail('frontmatter violations', (string) ($summary['frontmatter_violation_count'] ?? 0));
+        $this->components->twoColumnDetail('canonical coverage violations', (string) ($summary['canonical_module_coverage_violation_count'] ?? 0));
         $this->components->twoColumnDetail('canonical module violations', (string) ($summary['canonical_module_violation_count'] ?? 0));
 
         if (($payload['oversized_docs'] ?? []) !== []) {

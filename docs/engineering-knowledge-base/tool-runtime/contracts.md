@@ -26,8 +26,81 @@ related_paths:
   - app/Services/Tools/AtlasToolRegistryService.php
   - app/Services/Tools/AtlasToolPolicyEngine.php
   - app/Services/Tools/AtlasToolAuthorityMatrixService.php
----
+doc_schema: atlas_canonical_module_doc.v1
 
+graph_id: atlas-tool-runtime-contracts
+
+graph_title: Atlas Tool Runtime Contracts
+
+graph_world: atlas
+
+graph_layer: system
+
+graph_kind: contract
+
+graph_parent: atlas-ai-canonical-architecture-index
+
+graph_status: active
+
+graph_source: repo
+
+owner: tool-runtime
+
+repo_paths:
+  - docs/engineering-knowledge-base/tool-runtime/contracts.md
+
+allowed_changes:
+  - Atualizar este doc quando codigo, arquitetura, fluxo, evidencia ou decisao canonica mudar.
+
+forbidden_changes:
+  - Declarar runtime, maturidade ou prontidao sem evidencia verificavel e gates verdes.
+
+depends_on:
+  - atlas-ai-documentation-operating-system
+
+flows_to:
+  - atlas-cartography
+  - atlas-code
+
+unlocks:
+  - ai-safe-implementation-context
+
+governs:
+  - tool-runtime
+
+evidence:
+  - docs/engineering-knowledge-base/tool-runtime/contracts.md
+
+required_tests:
+  - "php artisan atlas:engineering:knowledge docs-health --json"
+
+requires_evidence: true
+
+risk_level: high
+
+visual_tags:
+  - system
+  - contract
+  - tool-runtime
+
+ai_entrypoints:
+  - Leia Resumo, Contratos, Regras para IA, Evidencias e Riscos antes de implementar.
+
+ai_usage_notes:
+  - Use repo_paths, allowed_changes, forbidden_changes e required_tests como limites operacionais.
+
+quality_gates:
+  - "php artisan atlas:engineering:knowledge docs-health --json"
+
+failure_modes:
+  - Contexto desatualizado entre doc, codigo, teste e evidencia.
+
+observability_signals:
+  - docs-health status ok
+
+next_actions:
+  - Manter este doc sincronizado com codigo, testes, evidencias e Cartografia.
+---
 # Atlas Tool Runtime Contracts
 
 ## Core Tables
@@ -144,3 +217,51 @@ They receive Atlas context and constraints, run in worktree/sandbox, produce
 patch/artifacts, and are validated by Atlas tests/gates/evidence. They never mark
 work resolved, pick providers, bypass secrets policy or become the source of
 truth.
+
+## Resumo
+
+Focused contract for Super Tool Runtime registry, policy, tiers, authority matrix and external agent boundaries.
+
+## Papel no Atlas
+
+Define a responsabilidade desta peca dentro da arquitetura Atlas.
+
+## Onde Se Encaixa
+
+Relaciona esta peca com seu sistema, camada, fluxo ou modulo pai.
+
+## Contratos
+
+Declara invariantes, entradas, saidas, limites e obrigacoes relevantes.
+
+## Fluxo
+
+Descreve o caminho operacional ou a sequencia de uso quando aplicavel.
+
+## Regras para IA
+
+Agentes devem respeitar escopo, evidencias, testes e proibicoes antes de alterar codigo.
+
+## Escopo de Implementacao
+
+Mudancas devem permanecer nos caminhos e limites declarados no frontmatter.
+
+## Dependencias
+
+Dependencias canonicas vivem em frontmatter e no corpo deste documento.
+
+## Evidencias
+
+Evidencias aceitas incluem docs, comandos, testes, receipts, reports e paths verificaveis.
+
+## Riscos
+
+Riscos principais devem ser tratados antes de promover status, runtime ou claims de prontidao.
+
+## Exemplos
+
+Exemplos concretos devem ser adicionados quando reduzirem ambiguidade para humanos ou IAs.
+
+## Proximas Acoes
+
+Proximas acoes devem ser concretas, verificaveis e ligadas a gates de qualidade.

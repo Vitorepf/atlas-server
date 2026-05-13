@@ -39,6 +39,7 @@ class AtlasAiSelfConstructionAgentCodexRealInvokerPostStartOperatorStartHandoffB
 
         $this->assertSame('codex_real_invoker_post_start_operator_start_handoff_built', $result['status']);
         $this->assertFalse($result['idempotent']);
+        $this->assertSame('codex-real-invoker-post-start-evidence-acceptance-bridge-001', $result['post_start_evidence_acceptance_bridge_id']);
         $this->assertTrue($result['post_start_operator_start_handoff_built']);
         $this->assertTrue($result['operator_start_handoff_built']);
         $this->assertTrue($result['manual_operator_start_required']);
@@ -59,6 +60,10 @@ class AtlasAiSelfConstructionAgentCodexRealInvokerPostStartOperatorStartHandoffB
         $this->assertSame(
             'post_start_operator_start_handoff_ready_pending_post_start_receipt_contract',
             data_get($observed->metadata, 'codex_real_invoker_post_start_operator_start_handoff.status')
+        );
+        $this->assertSame(
+            'codex-real-invoker-post-start-evidence-acceptance-bridge-001',
+            data_get($observed->metadata, 'codex_real_invoker_post_start_operator_start_handoff.post_start_evidence_acceptance_bridge_id')
         );
 
         $this->assertDatabaseHas('atlas_ledger_events', [
@@ -104,6 +109,20 @@ class AtlasAiSelfConstructionAgentCodexRealInvokerPostStartOperatorStartHandoffB
 
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('post_start_manual_start_executor_receipt_id_mismatch');
+
+        app(AgentCodexRealInvokerPostStartOperatorStartHandoffBuilder::class)
+            ->buildPostStartOperatorStartHandoff($this->validInput());
+    }
+
+    public function test_post_start_operator_handoff_rejects_missing_evidence_acceptance_bridge(): void
+    {
+        $this->createObservedManualReceiptRun([
+            'metadata' => $this->observedMetadataWithManualReceipt(['post_start_evidence_acceptance_bridge_id' => null]),
+        ]);
+        $this->createProviderManualReceiptRun();
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('post_start_evidence_acceptance_bridge_id_mismatch');
 
         app(AgentCodexRealInvokerPostStartOperatorStartHandoffBuilder::class)
             ->buildPostStartOperatorStartHandoff($this->validInput());
@@ -256,6 +275,7 @@ class AtlasAiSelfConstructionAgentCodexRealInvokerPostStartOperatorStartHandoffB
             'real_invoker_process_start_envelope_id' => 'codex-real-invoker-process-start-envelope-001',
             'real_invoker_start_execution_gate_id' => 'codex-real-invoker-start-execution-gate-001',
             'real_invoker_process_starter_readiness_gate_id' => 'codex-real-invoker-process-starter-readiness-001',
+            'post_start_evidence_acceptance_bridge_id' => 'codex-real-invoker-post-start-evidence-acceptance-bridge-001',
             'manual_start_executor_receipt_id' => 'codex-real-invoker-manual-start-receipt-001',
             'manual_start_command_hash' => str_repeat('1', 64),
             'terminal_session_binding_hash' => str_repeat('2', 64),

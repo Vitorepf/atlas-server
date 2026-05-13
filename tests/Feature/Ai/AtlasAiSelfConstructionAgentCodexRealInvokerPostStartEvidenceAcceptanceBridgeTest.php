@@ -210,6 +210,7 @@ class AtlasAiSelfConstructionAgentCodexRealInvokerPostStartEvidenceAcceptanceBri
         return [
             'codex_real_invoker_post_start_operator_start_handoff' => array_merge([
                 'post_start_operator_start_handoff_id' => 'codex-post-start-operator-handoff-001',
+                'post_start_evidence_acceptance_bridge_id' => 'codex-post-start-evidence-acceptance-bridge-001',
                 'operator_start_handoff_id' => 'codex-real-invoker-operator-start-handoff-001',
                 'manual_start_executor_receipt_id' => 'codex-real-invoker-manual-start-receipt-001',
                 'real_invoker_process_starter_readiness_gate_id' => 'codex-real-invoker-process-starter-readiness-001',
@@ -240,6 +241,7 @@ class AtlasAiSelfConstructionAgentCodexRealInvokerPostStartEvidenceAcceptanceBri
             ], $handoffOverrides),
             'codex_real_invoker_operator_start_handoff' => array_merge([
                 'operator_start_handoff_id' => 'codex-real-invoker-operator-start-handoff-001',
+                'post_start_evidence_acceptance_bridge_id' => 'codex-post-start-evidence-acceptance-bridge-001',
                 'manual_start_executor_receipt_id' => 'codex-real-invoker-manual-start-receipt-001',
                 'real_invoker_process_starter_readiness_gate_id' => 'codex-real-invoker-process-starter-readiness-001',
                 'real_invoker_start_execution_gate_id' => 'codex-real-invoker-start-execution-gate-001',

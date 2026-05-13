@@ -77,8 +77,26 @@ requires_evidence: true
 risk_level: high
 next_actions:
   - Fazer /atlas-cartography/graph expor hierarquia e relacoes derivadas dos docs reais.
----
+visual_tags:
+  - module
+  - module
+  - cartography
 
+ai_entrypoints:
+  - Leia Resumo, Contratos, Regras para IA, Evidencias e Riscos antes de implementar.
+
+ai_usage_notes:
+  - Use repo_paths, allowed_changes, forbidden_changes e required_tests como limites operacionais.
+
+quality_gates:
+  - "php artisan atlas:engineering:knowledge docs-health --json"
+
+failure_modes:
+  - Contexto desatualizado entre doc, codigo, teste e evidencia.
+
+observability_signals:
+  - docs-health status ok
+---
 # Atlas Semantic Graph
 
 ## Resumo

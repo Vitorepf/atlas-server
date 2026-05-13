@@ -51,8 +51,26 @@ requires_evidence: true
 risk_level: high
 next_actions:
   - Fazer Cartografia destacar quando um node nao possui doc canonica v1.
----
+visual_tags:
+  - module
+  - module
+  - system-graph
 
+ai_entrypoints:
+  - Leia Resumo, Contratos, Regras para IA, Evidencias e Riscos antes de implementar.
+
+ai_usage_notes:
+  - Use repo_paths, allowed_changes, forbidden_changes e required_tests como limites operacionais.
+
+quality_gates:
+  - "php artisan atlas:engineering:knowledge docs-health --json"
+
+failure_modes:
+  - Contexto desatualizado entre doc, codigo, teste e evidencia.
+
+observability_signals:
+  - docs-health status ok
+---
 # Documentation Operating System
 
 ## Resumo
@@ -105,4 +123,3 @@ Uma etapa do Kernel so entra na Cartografia como repo source quando tem frontmat
 ## Proximas Acoes
 
 Adicionar gate visual de schema na Cartografia.
-

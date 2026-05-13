@@ -36,8 +36,81 @@ related_paths:
   - docs/engineering-knowledge-base/tool-runtime/contracts.md
   - app/Services/Tools/AtlasToolDefinitionCatalog.php
   - app/Services/Tools/AtlasToolAuthorityMatrixService.php
----
+doc_schema: atlas_canonical_module_doc.v1
 
+graph_id: atlas-programming-power-tools-catalog
+
+graph_title: Atlas Programming Power Tools Catalog
+
+graph_world: atlas
+
+graph_layer: module
+
+graph_kind: module
+
+graph_parent: atlas-ai-canonical-architecture-index
+
+graph_status: active
+
+graph_source: repo
+
+owner: tool-runtime
+
+repo_paths:
+  - docs/engineering-knowledge-base/programming-power-tools-catalog.md
+
+allowed_changes:
+  - Atualizar este doc quando codigo, arquitetura, fluxo, evidencia ou decisao canonica mudar.
+
+forbidden_changes:
+  - Declarar runtime, maturidade ou prontidao sem evidencia verificavel e gates verdes.
+
+depends_on:
+  - atlas-ai-documentation-operating-system
+
+flows_to:
+  - atlas-cartography
+  - atlas-code
+
+unlocks:
+  - ai-safe-implementation-context
+
+governs:
+  - tool-runtime
+
+evidence:
+  - docs/engineering-knowledge-base/programming-power-tools-catalog.md
+
+required_tests:
+  - "php artisan atlas:engineering:knowledge docs-health --json"
+
+requires_evidence: true
+
+risk_level: high
+
+visual_tags:
+  - module
+  - module
+  - tool-runtime
+
+ai_entrypoints:
+  - Leia Resumo, Contratos, Regras para IA, Evidencias e Riscos antes de implementar.
+
+ai_usage_notes:
+  - Use repo_paths, allowed_changes, forbidden_changes e required_tests como limites operacionais.
+
+quality_gates:
+  - "php artisan atlas:engineering:knowledge docs-health --json"
+
+failure_modes:
+  - Contexto desatualizado entre doc, codigo, teste e evidencia.
+
+observability_signals:
+  - docs-health status ok
+
+next_actions:
+  - Manter este doc sincronizado com codigo, testes, evidencias e Cartografia.
+---
 # Atlas Programming Power Tools Catalog
 
 This is the active compact index for programming power tools. The full original
@@ -100,3 +173,51 @@ See `tool-runtime/programming-tool-backlog.md`.
 - Gates consume evidence by authority group.
 - App/CLI exposes findings and repair hints.
 - Self-Improvement can detect stale or missing tooling.
+
+## Resumo
+
+Compact product index for programming power tools, authority groups, tiers, external agent boundaries and implementation backlog.
+
+## Papel no Atlas
+
+Define a responsabilidade desta peca dentro da arquitetura Atlas.
+
+## Onde Se Encaixa
+
+Relaciona esta peca com seu sistema, camada, fluxo ou modulo pai.
+
+## Contratos
+
+Declara invariantes, entradas, saidas, limites e obrigacoes relevantes.
+
+## Fluxo
+
+Descreve o caminho operacional ou a sequencia de uso quando aplicavel.
+
+## Regras para IA
+
+Agentes devem respeitar escopo, evidencias, testes e proibicoes antes de alterar codigo.
+
+## Escopo de Implementacao
+
+Mudancas devem permanecer nos caminhos e limites declarados no frontmatter.
+
+## Dependencias
+
+Dependencias canonicas vivem em frontmatter e no corpo deste documento.
+
+## Evidencias
+
+Evidencias aceitas incluem docs, comandos, testes, receipts, reports e paths verificaveis.
+
+## Riscos
+
+Riscos principais devem ser tratados antes de promover status, runtime ou claims de prontidao.
+
+## Exemplos
+
+Exemplos concretos devem ser adicionados quando reduzirem ambiguidade para humanos ou IAs.
+
+## Proximas Acoes
+
+Proximas acoes devem ser concretas, verificaveis e ligadas a gates de qualidade.

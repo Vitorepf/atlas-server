@@ -35,7 +35,7 @@ class PermissionRequest
             ->all();
 
         [$requiredMode, $risk, $reason] = match ($tool) {
-            'workspace.profile', 'package.detect', 'git.status', 'git.diff', 'session.search', 'search.rg', 'file.read' => [
+            'workspace.profile', 'package.detect', 'git.status', 'git.diff', 'session.search', 'search.rg', 'file.read', 'programming.git_diff', 'programming.code_search' => [
                 'read',
                 'low',
                 'Leitura/inspecao local sem escrita planejada.',
@@ -45,7 +45,7 @@ class PermissionRequest
                 'medium',
                 'Alteracao de arquivos dentro do workspace.',
             ],
-            'test.run' => [
+            'test.run', 'programming.test', 'programming.lint', 'programming.quality_scan', 'programming.visual_smoke' => [
                 'write',
                 'medium',
                 'Comando de validacao pode criar caches, snapshots ou artefatos locais.',

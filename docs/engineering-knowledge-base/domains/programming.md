@@ -24,6 +24,7 @@ decisions:
   - Flows de harness, QA, security, database, visual e forge devem produzir evidence suficiente para gates e replay.
   - O dominio consome Core, Super Tool Runtime, Memory/Open Brain, Code Intelligence e Evidence Ledger; nao deve duplicar essas capacidades.
   - Especialistas tecnicos como frontend, backend-api, mobile e performance vivem como specialist profiles dentro de Programming, nao como dominios paralelos.
+  - Os oito saltos enterprise de programacao vivem em programming-enterprise-implementation-plan.md.
 maintenance:
   - Atualize este documento quando flows programming, gates, executor preference, surfaces ou orchestrator mudarem.
   - Leia junto de atlas-ai-master-architecture.md, atlas-ai-operating-system.md, engineering-blueprint.md e programming-power-tools-catalog.md antes de alterar Programming runtime.
@@ -40,13 +41,87 @@ related_paths:
   - docs/engineering-knowledge-base/engineering-blueprint.md
   - docs/engineering-knowledge-base/programming-power-tools-catalog.md
   - docs/engineering-knowledge-base/domains/programming-specialist-profiles.md
+  - docs/engineering-knowledge-base/domains/programming-enterprise-implementation-plan.md
   - docs/engineering-knowledge-base/domains/programming-frontend-superpower.md
   - docs/engineering-knowledge-base/domains/programming-surfaces.md
   - docs/engineering-knowledge-base/domains/programming-repair-contract.md
   - docs/engineering-knowledge-base/obras/shared-workspace-and-forge.md
   - docs/engineering-knowledge-base/archive/source-material/domains-programming-full-2026-05-08.md
----
+doc_schema: atlas_canonical_module_doc.v1
 
+graph_id: atlas-ai-programming-domain
+
+graph_title: Atlas AI Programming Domain
+
+graph_world: atlas
+
+graph_layer: system
+
+graph_kind: module
+
+graph_parent: atlas-ai-canonical-architecture-index
+
+graph_status: active
+
+graph_source: repo
+
+owner: domains
+
+repo_paths:
+  - docs/engineering-knowledge-base/domains/programming.md
+
+allowed_changes:
+  - Atualizar este doc quando codigo, arquitetura, fluxo, evidencia ou decisao canonica mudar.
+
+forbidden_changes:
+  - Declarar runtime, maturidade ou prontidao sem evidencia verificavel e gates verdes.
+
+depends_on:
+  - atlas-ai-documentation-operating-system
+
+flows_to:
+  - atlas-cartography
+  - atlas-code
+
+unlocks:
+  - ai-safe-implementation-context
+
+governs:
+  - domains
+
+evidence:
+  - docs/engineering-knowledge-base/domains/programming.md
+
+required_tests:
+  - "php artisan atlas:engineering:knowledge docs-health --json"
+
+requires_evidence: true
+
+risk_level: medium
+
+visual_tags:
+  - system
+  - module
+  - domains
+
+ai_entrypoints:
+  - Leia Resumo, Contratos, Regras para IA, Evidencias e Riscos antes de implementar.
+
+ai_usage_notes:
+  - Use repo_paths, allowed_changes, forbidden_changes e required_tests como limites operacionais.
+
+quality_gates:
+  - "php artisan atlas:engineering:knowledge docs-health --json"
+
+failure_modes:
+  - Contexto desatualizado entre doc, codigo, teste e evidencia.
+
+observability_signals:
+  - docs-health status ok
+
+next_actions:
+  - Manter este doc sincronizado com codigo, testes, evidencias e Cartografia.
+---
 # Atlas AI Programming Domain
 
 Programming e o dominio Atlas AI para trabalho de codigo: implementar,
@@ -180,3 +255,51 @@ Validation:
 - `php artisan test tests/Feature/Ai/AtlasAiDomainsCommandTest.php`
 - `php artisan atlas:ai:domains --json`
 - `php artisan atlas:ai:architecture-validate --json`
+
+## Resumo
+
+Spec canonica do dominio implemented/ready Programming para dev, repair, review, refactor, QA, security, database, visual, forge e specialist profiles internos.
+
+## Papel no Atlas
+
+Define a responsabilidade desta peca dentro da arquitetura Atlas.
+
+## Onde Se Encaixa
+
+Relaciona esta peca com seu sistema, camada, fluxo ou modulo pai.
+
+## Contratos
+
+Declara invariantes, entradas, saidas, limites e obrigacoes relevantes.
+
+## Fluxo
+
+Descreve o caminho operacional ou a sequencia de uso quando aplicavel.
+
+## Regras para IA
+
+Agentes devem respeitar escopo, evidencias, testes e proibicoes antes de alterar codigo.
+
+## Escopo de Implementacao
+
+Mudancas devem permanecer nos caminhos e limites declarados no frontmatter.
+
+## Dependencias
+
+Dependencias canonicas vivem em frontmatter e no corpo deste documento.
+
+## Evidencias
+
+Evidencias aceitas incluem docs, comandos, testes, receipts, reports e paths verificaveis.
+
+## Riscos
+
+Riscos principais devem ser tratados antes de promover status, runtime ou claims de prontidao.
+
+## Exemplos
+
+Exemplos concretos devem ser adicionados quando reduzirem ambiguidade para humanos ou IAs.
+
+## Proximas Acoes
+
+Proximas acoes devem ser concretas, verificaveis e ligadas a gates de qualidade.

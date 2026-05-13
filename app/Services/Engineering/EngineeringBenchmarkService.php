@@ -2086,16 +2086,19 @@ class EngineeringBenchmarkService
             && $baselineStatus === 'completed'
             && $baselineDeterministic
             && $baselinePassWithoutHuman;
+        $atlasProtocolInvalidReasons = $this->atlasFairProtocolInvalidReasons($fairScorecard);
+        $atlasProtocolValid = $atlasProtocolInvalidReasons === [];
 
         $atlasPassed = (bool) ($atlasEvaluation['passed'] ?? false);
         $atlasFairPassed = $fairScorecard === null || ! (bool) ($fairScorecard['required'] ?? false) || (bool) ($fairScorecard['passed'] ?? false);
-        $atlasVerified = $atlasPassed && $atlasFairPassed;
+        $atlasVerified = $atlasProtocolValid && $atlasPassed && $atlasFairPassed;
         $baselinePassed = $baselineVerified
             && $baselineDecision === $expectedDecision
             && $baselineScore !== null
             && $baselineScore >= $minScore;
 
         $comparisonStatus = match (true) {
+            ! $atlasProtocolValid => 'atlas_protocol_invalid',
             $baselineStatus === 'planned' => 'baseline_planned',
             ! $baselineExecuted => 'baseline_not_executed',
             $baselineStatus !== 'completed' => 'baseline_failed',
@@ -2171,12 +2174,14 @@ class EngineeringBenchmarkService
                 $atlasVerified,
                 $baselineVerified,
                 $claudeCodeBaseline,
+                $atlasProtocolInvalidReasons,
             ),
         ];
     }
 
     /**
      * @param  array<string,mixed>  $claudeCodeBaseline
+     * @param  array<int,string>  $atlasProtocolInvalidReasons
      * @return array<int,string>
      */
     private function pairedScorecardBlockingReasons(
@@ -2184,6 +2189,7 @@ class EngineeringBenchmarkService
         bool $atlasVerified,
         bool $baselineVerified,
         array $claudeCodeBaseline,
+        array $atlasProtocolInvalidReasons = [],
     ): array {
         $reasons = [];
         if ($comparisonStatus !== 'comparable') {
@@ -2198,8 +2204,50 @@ class EngineeringBenchmarkService
 
         return array_values(array_unique(array_merge(
             $reasons,
+            $atlasProtocolInvalidReasons,
             array_map('strval', (array) ($claudeCodeBaseline['blocking_reasons'] ?? [])),
         )));
+    }
+
+    /**
+     * Invalid fair-protocol cases are excluded from win/loss math. A benchmark
+     * may only compare outputs after proving both arms were measured on a clean,
+     * equivalent protocol.
+     *
+     * @param  array<string,mixed>|null  $fairScorecard
+     * @return array<int,string>
+     */
+    private function atlasFairProtocolInvalidReasons(?array $fairScorecard): array
+    {
+        if ($fairScorecard === null || ! (bool) ($fairScorecard['required'] ?? false)) {
+            return [];
+        }
+
+        $reasons = [];
+        $protocolValid = (bool) data_get($fairScorecard, 'protocol_valid', data_get($fairScorecard, 'passed', false));
+        if (! $protocolValid) {
+            $reasons[] = 'fair_protocol_not_valid';
+        }
+        if ((int) data_get($fairScorecard, 'provider_violation_count', 0) > 0) {
+            $reasons[] = 'provider_lock_violation';
+        }
+        if ((int) data_get($fairScorecard, 'fallback_violation_count', 0) > 0) {
+            $reasons[] = 'fallback_violation';
+        }
+
+        $contaminationReasons = [
+            'dirty_state_overlap',
+            'scope_safety_unverified',
+            'possible_secret_in_diff',
+            'isolated_patch_apply_failed',
+        ];
+        foreach ((array) data_get($fairScorecard, 'blocking_reasons', []) as $reason) {
+            if (is_string($reason) && in_array($reason, $contaminationReasons, true)) {
+                $reasons[] = $reason;
+            }
+        }
+
+        return array_values(array_unique($reasons));
     }
 
     /**
@@ -2658,7 +2706,7 @@ class EngineeringBenchmarkService
                     data_set($scorecard, 'atlas.duration_ms', (int) $result->duration_ms);
                 }
 
-                return $scorecard;
+                return $this->normalizePairedScorecardForReport($scorecard);
             })
             ->filter(fn (mixed $scorecard): bool => is_array($scorecard))
             ->values();
@@ -2800,6 +2848,7 @@ class EngineeringBenchmarkService
                 if (! is_array($scorecard)) {
                     return null;
                 }
+                $scorecard = $this->normalizePairedScorecardForReport($scorecard);
 
                 $atlas = $this->arrayValue(data_get($scorecard, 'atlas', []));
                 $baseline = $this->arrayValue(data_get($scorecard, 'claude_code_baseline', []));
@@ -2875,6 +2924,66 @@ class EngineeringBenchmarkService
             ])
             ->take($this->benchmarkInput()->fairClaudeComparisonTakeLimit($limit))
             ->values();
+    }
+
+    /**
+     * @param  array<string,mixed>  $scorecard
+     * @return array<string,mixed>
+     */
+    private function normalizePairedScorecardForReport(array $scorecard): array
+    {
+        $invalidReasons = $this->pairedScorecardProtocolInvalidReasons($scorecard);
+        if ($invalidReasons === []) {
+            return $scorecard;
+        }
+
+        $scorecard['comparison_status'] = 'atlas_protocol_invalid';
+        $scorecard['comparable'] = false;
+        $scorecard['winner'] = null;
+        data_set($scorecard, 'atlas.verified', false);
+        $scorecard['blocking_reasons'] = array_values(array_unique(array_merge(
+            ['atlas_protocol_invalid'],
+            $invalidReasons,
+            array_map('strval', (array) ($scorecard['blocking_reasons'] ?? [])),
+        )));
+
+        return $scorecard;
+    }
+
+    /**
+     * @param  array<string,mixed>  $scorecard
+     * @return array<int,string>
+     */
+    private function pairedScorecardProtocolInvalidReasons(array $scorecard): array
+    {
+        if (! (bool) ($scorecard['fair_mode'] ?? false)) {
+            return [];
+        }
+
+        $reasons = [];
+        if (! (bool) data_get($scorecard, 'atlas.protocol_valid', data_get($scorecard, 'atlas.verified', false))) {
+            $reasons[] = 'fair_protocol_not_valid';
+        }
+        if ((int) data_get($scorecard, 'atlas.provider_violation_count', 0) > 0) {
+            $reasons[] = 'provider_lock_violation';
+        }
+        if ((int) data_get($scorecard, 'atlas.fallback_violation_count', 0) > 0) {
+            $reasons[] = 'fallback_violation';
+        }
+
+        $contaminationReasons = [
+            'dirty_state_overlap',
+            'scope_safety_unverified',
+            'possible_secret_in_diff',
+            'isolated_patch_apply_failed',
+        ];
+        foreach ((array) ($scorecard['blocking_reasons'] ?? []) as $reason) {
+            if (is_string($reason) && in_array($reason, $contaminationReasons, true)) {
+                $reasons[] = $reason;
+            }
+        }
+
+        return array_values(array_unique($reasons));
     }
 
     /**
@@ -3021,28 +3130,52 @@ class EngineeringBenchmarkService
     private function fairClaudeReportReadiness(Collection $runs, array $paired, array $baseline, array $replay, array $corpusManifest): array
     {
         $blocking = [];
+        $minimumReleaseCount = 6;
         $releaseCorpusCount = (int) data_get($corpusManifest, 'official_subsets.release', 0);
         $activeCorpusCount = (int) ($corpusManifest['active_cases'] ?? 0);
-        if ($releaseCorpusCount < 6) {
+        $comparableCount = (int) ($paired['comparable_count'] ?? 0);
+        $pairedEnabled = (bool) ($paired['enabled'] ?? false);
+
+        if ($releaseCorpusCount < $minimumReleaseCount) {
             $blocking[] = 'fair_release_corpus_below_minimum';
         }
         if ($runs->isEmpty()) {
             $blocking[] = 'no_fair_claude_runs';
         }
-        if (! (bool) ($paired['enabled'] ?? false)) {
+        if (! $pairedEnabled) {
             $blocking[] = 'paired_scorecard_missing';
         }
         if ((int) ($paired['fair_mode_count'] ?? 0) === 0) {
             $blocking[] = 'fair_atlas_arm_missing';
         }
-        if ((int) ($paired['comparable_count'] ?? 0) === 0) {
+        if ($comparableCount === 0) {
             $blocking[] = 'no_comparable_cases';
+        }
+        if ($comparableCount > 0 && $comparableCount < $minimumReleaseCount) {
+            $blocking[] = 'fair_comparable_cases_below_release_minimum';
         }
         if (! (bool) ($baseline['enabled'] ?? false) || (int) ($baseline['executed_count'] ?? 0) === 0) {
             $blocking[] = 'claude_code_baseline_not_executed';
         }
         if (! (bool) ($replay['enabled'] ?? false) || (int) ($replay['artifact_integrity_failed_count'] ?? 0) > 0) {
             $blocking[] = 'replay_manifest_not_fully_verified';
+        }
+        if ($pairedEnabled) {
+            if ((float) ($paired['protocol_validity_rate'] ?? 0.0) < 100.0) {
+                $blocking[] = 'fair_protocol_validity_below_100';
+            }
+            if ((float) ($paired['final_gate_pass_rate'] ?? 0.0) < 100.0) {
+                $blocking[] = 'fair_final_gate_pass_rate_below_100';
+            }
+            if ((float) ($paired['pass_without_human_rate'] ?? 0.0) < 100.0) {
+                $blocking[] = 'fair_pass_without_human_rate_below_100';
+            }
+            if ((int) ($paired['provider_violation_count'] ?? 0) > 0) {
+                $blocking[] = 'provider_lock_violation';
+            }
+            if ((int) ($paired['fallback_violation_count'] ?? 0) > 0) {
+                $blocking[] = 'fallback_violation';
+            }
         }
 
         $atlasWins = (int) ($paired['atlas_win_count'] ?? 0);
@@ -3063,11 +3196,12 @@ class EngineeringBenchmarkService
             'atlas_win_count' => $atlasWins,
             'claude_code_baseline_win_count' => $baselineWins,
             'tie_count' => $ties,
-            'comparable_count' => (int) ($paired['comparable_count'] ?? 0),
+            'comparable_count' => $comparableCount,
             'fair_mode_count' => (int) ($paired['fair_mode_count'] ?? 0),
             'active_corpus_case_count' => $activeCorpusCount,
             'release_corpus_case_count' => $releaseCorpusCount,
-            'minimum_release_corpus_case_count' => 6,
+            'minimum_release_corpus_case_count' => $minimumReleaseCount,
+            'minimum_comparable_case_count' => $minimumReleaseCount,
         ];
     }
 
@@ -3243,12 +3377,13 @@ class EngineeringBenchmarkService
         if ($blocking->contains('no_fair_claude_runs')
             || $blocking->contains('fair_atlas_arm_missing')
             || $blocking->contains('no_comparable_cases')
+            || $blocking->contains('fair_comparable_cases_below_release_minimum')
         ) {
             $add(
                 'run_paired_battery',
                 'critical',
                 'Executar bateria pareada completa',
-                'Ainda não existe amostra Atlas vs Claude Code suficiente para comparar resultados.',
+                'Ainda não existe amostra release comparável suficiente para sustentar um resultado justo.',
                 'atlas rivals run --json',
                 'benchmark_operator',
             );
@@ -3287,12 +3422,16 @@ class EngineeringBenchmarkService
             );
         }
 
-        if ((float) ($paired['protocol_validity_rate'] ?? 0.0) < 100.0 && (bool) ($paired['enabled'] ?? false)) {
+        if ($blocking->contains('fair_protocol_validity_below_100')
+            || $blocking->contains('fair_final_gate_pass_rate_below_100')
+            || $blocking->contains('fair_pass_without_human_rate_below_100')
+            || ((float) ($paired['protocol_validity_rate'] ?? 0.0) < 100.0 && (bool) ($paired['enabled'] ?? false))
+        ) {
             $add(
                 'inspect_protocol_invalid_cases',
-                'warning',
-                'Inspecionar casos com protocolo inválido',
-                'Protocol validity precisa ser 100% para claim; revise os casos bloqueados no comparativo.',
+                'critical',
+                'Corrigir casos sem validade experimental',
+                'Protocol validity, final gate e pass_without_human precisam estar em 100% para claim.',
                 null,
                 'engineering_operator',
             );
@@ -4045,7 +4184,7 @@ class EngineeringBenchmarkService
                 'checked' => true,
                 'exists' => realpath($path) !== false,
                 'hash_matches' => false,
-                'reason' => 'artifact_path_outside_allowed_root',
+                'reason' => $this->replayManifestArtifactPathFailureReason($path),
                 'checked_at' => now()->toJSON(),
             ]);
 
@@ -4080,6 +4219,21 @@ class EngineeringBenchmarkService
         $allowedPrefix = rtrim($allowedRoot, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR;
 
         return str_starts_with($resolvedPath, $allowedPrefix) ? $resolvedPath : null;
+    }
+
+    private function replayManifestArtifactPathFailureReason(string $path): string
+    {
+        $allowedRoot = realpath(storage_path('app/engineering-benchmark-runs'));
+        if ($allowedRoot === false) {
+            return 'artifact_allowed_root_missing';
+        }
+
+        $resolvedPath = realpath($path);
+        if ($resolvedPath === false) {
+            return 'artifact_missing';
+        }
+
+        return 'artifact_path_outside_allowed_root';
     }
 
     /**

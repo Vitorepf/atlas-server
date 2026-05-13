@@ -50,8 +50,26 @@ requires_evidence: true
 risk_level: high
 next_actions:
   - Inventariar todas as superficies oficiais consumidas pelo Atlas Code e Cartografia.
----
+visual_tags:
+  - module
+  - surface
+  - system-graph
 
+ai_entrypoints:
+  - Leia Resumo, Contratos, Regras para IA, Evidencias e Riscos antes de implementar.
+
+ai_usage_notes:
+  - Use repo_paths, allowed_changes, forbidden_changes e required_tests como limites operacionais.
+
+quality_gates:
+  - "php artisan atlas:engineering:knowledge docs-health --json"
+
+failure_modes:
+  - Contexto desatualizado entre doc, codigo, teste e evidencia.
+
+observability_signals:
+  - docs-health status ok
+---
 # Surface Plane
 
 ## Resumo
@@ -105,4 +123,3 @@ Atlas Code, CLI e mobile podem iniciar a mesma Obra; a diferenca e de superficie
 ## Proximas Acoes
 
 Mapear cada surface oficial para seu adapter e eventos suportados.
-

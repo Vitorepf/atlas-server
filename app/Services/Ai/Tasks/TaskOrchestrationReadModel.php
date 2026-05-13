@@ -155,11 +155,7 @@ class TaskOrchestrationReadModel
 
     private function requiresExternalReview(AtlasTask $task): bool
     {
-        $metadata = is_array($task->metadata) ? $task->metadata : [];
-
-        return data_get($metadata, 'engineering_contract') !== null
-            || data_get($metadata, 'latest_engineering_run') !== null
-            || in_array($task->execution_mode, ['provider', 'runtime', 'agent_handoff'], true);
+        return in_array($task->execution_mode, ['provider', 'runtime', 'agent_handoff'], true);
     }
 
     /**

@@ -25,6 +25,7 @@ class AgentCodexRealInvokerPostStartManualStartExecutorReceiptWriter
         'real_invoker_process_start_envelope_id',
         'real_invoker_start_execution_gate_id',
         'real_invoker_process_starter_readiness_gate_id',
+        'post_start_evidence_acceptance_bridge_id',
     ];
 
     /**
@@ -270,6 +271,7 @@ class AgentCodexRealInvokerPostStartManualStartExecutorReceiptWriter
             'post_start_manual_start_executor_receipt_id' => (string) data_get($run->metadata, 'codex_real_invoker_post_start_manual_start_executor_receipt.post_start_manual_start_executor_receipt_id'),
             'manual_start_executor_receipt_id' => (string) data_get($run->metadata, 'codex_real_invoker_post_start_manual_start_executor_receipt.manual_start_executor_receipt_id'),
             'real_invoker_process_starter_readiness_gate_id' => (string) data_get($run->metadata, 'codex_real_invoker_post_start_manual_start_executor_receipt.real_invoker_process_starter_readiness_gate_id'),
+            'post_start_evidence_acceptance_bridge_id' => (string) data_get($run->metadata, 'codex_real_invoker_post_start_manual_start_executor_receipt.post_start_evidence_acceptance_bridge_id'),
             'codex_execution_id' => (string) data_get($run->metadata, 'codex_real_invoker_post_start_manual_start_executor_receipt.codex_execution_id'),
             'agent_run_id' => (string) $run->id,
             'run_key' => $run->run_key,

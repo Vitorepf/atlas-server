@@ -109,7 +109,8 @@ class AtlasAiTaskOrchestrationBackfillReceiptsCommand extends Command
                 $eventHash = $this->stableTaskEventHash((string) $event->task_id, (string) $event->event_type, (string) $event->source, $payload);
                 $payload['event_hash'] = $eventHash;
 
-                if ($payload !== (is_array($event->payload) ? $event->payload : [])) {
+                $currentPayload = is_array($event->payload) ? $event->payload : [];
+                if ($this->stableJson($payload) !== $this->stableJson($currentPayload)) {
                     $repairs->push([
                         'event_id' => (string) $event->id,
                         'payload' => $payload,

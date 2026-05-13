@@ -31,8 +31,81 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-ai-voice-realtime-surface.md
   - resolver-o-que-vale-a-pena/docs/atlas-ai-mobile-operating-model.md
   - resolver-o-que-vale-a-pena/docs/mobile-gateway-push-inbox-implementation.md
----
+doc_schema: atlas_canonical_module_doc.v1
 
+graph_id: atlas-ai-mobile-surface-gateway
+
+graph_title: Atlas AI Mobile Surface Gateway
+
+graph_world: atlas
+
+graph_layer: module
+
+graph_kind: surface
+
+graph_parent: atlas-ai-canonical-architecture-index
+
+graph_status: active
+
+graph_source: repo
+
+owner: surface-architecture
+
+repo_paths:
+  - docs/engineering-knowledge-base/atlas-ai-mobile-surface-gateway.md
+
+allowed_changes:
+  - Atualizar este doc quando codigo, arquitetura, fluxo, evidencia ou decisao canonica mudar.
+
+forbidden_changes:
+  - Declarar runtime, maturidade ou prontidao sem evidencia verificavel e gates verdes.
+
+depends_on:
+  - atlas-ai-documentation-operating-system
+
+flows_to:
+  - atlas-cartography
+  - atlas-code
+
+unlocks:
+  - ai-safe-implementation-context
+
+governs:
+  - surface-architecture
+
+evidence:
+  - docs/engineering-knowledge-base/atlas-ai-mobile-surface-gateway.md
+
+required_tests:
+  - "php artisan atlas:engineering:knowledge docs-health --json"
+
+requires_evidence: true
+
+risk_level: medium
+
+visual_tags:
+  - module
+  - surface
+  - surface-architecture
+
+ai_entrypoints:
+  - Leia Resumo, Contratos, Regras para IA, Evidencias e Riscos antes de implementar.
+
+ai_usage_notes:
+  - Use repo_paths, allowed_changes, forbidden_changes e required_tests como limites operacionais.
+
+quality_gates:
+  - "php artisan atlas:engineering:knowledge docs-health --json"
+
+failure_modes:
+  - Contexto desatualizado entre doc, codigo, teste e evidencia.
+
+observability_signals:
+  - docs-health status ok
+
+next_actions:
+  - Manter este doc sincronizado com codigo, testes, evidencias e Cartografia.
+---
 # Atlas AI Mobile Surface Gateway
 
 Este documento promove o material mobile para a KB sem transformar mobile em
@@ -227,3 +300,51 @@ como edge ambiental local, nao como primeiro produto de voz. Detalhes em
 - `resolver-o-que-vale-a-pena/docs/atlas-ai-mobile-operating-model.md`
 - `resolver-o-que-vale-a-pena/docs/mobile-gateway-push-inbox-implementation.md`
 - `docs/engineering-knowledge-base/surface-domain-catalog-integration-plan.md`
+
+## Resumo
+
+Contrato canonico para mobile como surface, mobile gateway, pairing, push, inbox, discussion handoff e consumo do domain catalog.
+
+## Papel no Atlas
+
+Define a responsabilidade desta peca dentro da arquitetura Atlas.
+
+## Onde Se Encaixa
+
+Relaciona esta peca com seu sistema, camada, fluxo ou modulo pai.
+
+## Contratos
+
+Declara invariantes, entradas, saidas, limites e obrigacoes relevantes.
+
+## Fluxo
+
+Descreve o caminho operacional ou a sequencia de uso quando aplicavel.
+
+## Regras para IA
+
+Agentes devem respeitar escopo, evidencias, testes e proibicoes antes de alterar codigo.
+
+## Escopo de Implementacao
+
+Mudancas devem permanecer nos caminhos e limites declarados no frontmatter.
+
+## Dependencias
+
+Dependencias canonicas vivem em frontmatter e no corpo deste documento.
+
+## Evidencias
+
+Evidencias aceitas incluem docs, comandos, testes, receipts, reports e paths verificaveis.
+
+## Riscos
+
+Riscos principais devem ser tratados antes de promover status, runtime ou claims de prontidao.
+
+## Exemplos
+
+Exemplos concretos devem ser adicionados quando reduzirem ambiguidade para humanos ou IAs.
+
+## Proximas Acoes
+
+Proximas acoes devem ser concretas, verificaveis e ligadas a gates de qualidade.

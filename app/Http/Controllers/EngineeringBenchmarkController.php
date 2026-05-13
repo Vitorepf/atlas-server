@@ -9,6 +9,7 @@ use App\Services\Engineering\EngineeringBenchmarkService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 class EngineeringBenchmarkController extends Controller
@@ -689,9 +690,13 @@ class EngineeringBenchmarkController extends Controller
 
     private function resolveSuite(string $suite): AtlasEngineeringBenchmarkSuite
     {
-        return AtlasEngineeringBenchmarkSuite::query()
-            ->where('id', $suite)
-            ->orWhere('slug', $suite)
-            ->firstOrFail();
+        $query = AtlasEngineeringBenchmarkSuite::query()
+            ->where('slug', $suite);
+
+        if (Str::isUuid($suite)) {
+            $query->orWhere('id', $suite);
+        }
+
+        return $query->firstOrFail();
     }
 }

@@ -75,8 +75,26 @@ requires_evidence: true
 risk_level: high
 next_actions:
   - Migrar primeiro os docs centrais do Kernel, Cartografia e Atlas Code para este schema.
----
+visual_tags:
+  - module
+  - module
+  - documentation
 
+ai_entrypoints:
+  - Leia Resumo, Contratos, Regras para IA, Evidencias e Riscos antes de implementar.
+
+ai_usage_notes:
+  - Use repo_paths, allowed_changes, forbidden_changes e required_tests como limites operacionais.
+
+quality_gates:
+  - "php artisan atlas:engineering:knowledge docs-health --json"
+
+failure_modes:
+  - Contexto desatualizado entre doc, codigo, teste e evidencia.
+
+observability_signals:
+  - docs-health status ok
+---
 # Atlas Canonical Module Doc v1
 
 ## Resumo
@@ -108,7 +126,7 @@ graph_id: stable-ascii-slug
 graph_title: Nome Humano
 graph_world: atlas
 graph_layer: world|system|flow|module|gear|subcomponent
-graph_kind: contract|system|flow|module|policy|runbook|adr|index
+graph_kind: contract|system|flow|module|policy|runbook|adr|index|surface|screen|step
 graph_parent: parent-graph-id
 graph_status: planned|future|building|active|deprecated
 graph_source: repo
@@ -148,6 +166,17 @@ Campos opcionais podem ser usados quando aumentarem clareza:
 - `runtime_surfaces`: CLI, app, MCP, mobile, scheduler ou terminal.
 - `mcp_tools`: ferramentas MCP relacionadas.
 - `decision_receipts`: receipts relevantes.
+- `visual_tags`: etiquetas curtas para agrupamento, filtro e destaque visual.
+- `ai_entrypoints`: ordem de leitura recomendada para IAs antes de implementar.
+- `ai_usage_notes`: instrucoes praticas de uso do doc por agentes implementadores.
+- `quality_gates`: gates adicionais de qualidade alem de `required_tests`.
+- `failure_modes`: modos de falha conhecidos que a IA deve evitar.
+- `observability_signals`: sinais, reports ou metricas que indicam saude real.
+
+Esses campos avancados sao recomendados para docs de alto valor visual ou alto
+risco operacional. Eles nao entram no obrigatorio v1 porque campo preenchido por
+burocracia reduz qualidade de contexto. Quando presentes, `docs-health` valida
+que sejam listas para a Cartografia e Atlas Code consumirem sem parsing ambiguo.
 
 ## Fluxo
 
@@ -189,6 +218,7 @@ Este v1 implementa validacao estrutural, nao uma prova completa de verdade. O do
 - Secoes obrigatorias no corpo.
 - Limite de tamanho maior para docs canonicos v1.
 - `requires_evidence` como booleano real.
+- Campos avancados em formato de lista quando declarados.
 
 O limite padrao deste schema e **520 linhas**. Esse numero e deliberado: ele
 permite frontmatter rico, ficha operacional e corpo humano sem empurrar o doc
@@ -242,5 +272,6 @@ Exemplos bons para migrar primeiro:
 ## Proximas Acoes
 
 - Migrar um primeiro doc real de alto valor para este schema.
-- Fazer a Cartografia ler `graph_layer`, `graph_kind`, `graph_parent`, `graph_status` e `risk_level`.
-- Fazer Atlas Code exibir `allowed_changes`, `forbidden_changes`, `required_tests` e `evidence` na tela de contrato antes de executar mudancas.
+- Migrar progressivamente docs ativos de alto valor para este schema; docs comuns continuam com frontmatter base.
+- Fazer a Cartografia usar `visual_tags`, `quality_gates`, `failure_modes` e `observability_signals` para analise visual avancada.
+- Fazer Atlas Code exibir `allowed_changes`, `forbidden_changes`, `ai_entrypoints`, `ai_usage_notes`, `required_tests` e `evidence` antes de executar mudancas.

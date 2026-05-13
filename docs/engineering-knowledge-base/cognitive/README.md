@@ -46,8 +46,79 @@ related_paths:
 owner: atlas-ai
 layer: 2-and-3
 line_limit: 180
----
+doc_schema: atlas_canonical_module_doc.v1
 
+graph_id: atlas-ai-cognitive-readme
+
+graph_title: Atlas AI Cognitive Plane - Bootstrap
+
+graph_world: atlas
+
+graph_layer: module
+
+graph_kind: index
+
+graph_parent: atlas-ai-canonical-architecture-index
+
+graph_status: active
+
+graph_source: repo
+
+repo_paths:
+  - docs/engineering-knowledge-base/cognitive/README.md
+
+allowed_changes:
+  - Atualizar este doc quando codigo, arquitetura, fluxo, evidencia ou decisao canonica mudar.
+
+forbidden_changes:
+  - Declarar runtime, maturidade ou prontidao sem evidencia verificavel e gates verdes.
+
+depends_on:
+  - atlas-ai-documentation-operating-system
+
+flows_to:
+  - atlas-cartography
+  - atlas-code
+
+unlocks:
+  - ai-safe-implementation-context
+
+governs:
+  - cognitive
+
+evidence:
+  - docs/engineering-knowledge-base/cognitive/README.md
+
+required_tests:
+  - "php artisan atlas:engineering:knowledge docs-health --json"
+
+requires_evidence: true
+
+risk_level: low
+
+visual_tags:
+  - module
+  - index
+  - cognitive
+
+ai_entrypoints:
+  - Leia Resumo, Contratos, Regras para IA, Evidencias e Riscos antes de implementar.
+
+ai_usage_notes:
+  - Use repo_paths, allowed_changes, forbidden_changes e required_tests como limites operacionais.
+
+quality_gates:
+  - "php artisan atlas:engineering:knowledge docs-health --json"
+
+failure_modes:
+  - Contexto desatualizado entre doc, codigo, teste e evidencia.
+
+observability_signals:
+  - docs-health status ok
+
+next_actions:
+  - Manter este doc sincronizado com codigo, testes, evidencias e Cartografia.
+---
 # Atlas AI Cognitive Plane — Bootstrap
 
 Porta de entrada do **Cognitive Development Plane** do Atlas AI. Sub-arquitetura especializada que gerencia trajetoria cognitiva do operador: declarar dominancia, descobrir Pareto, treinar 4 pilares (teorico/pratico/cognitivo/transferencial), consolidar via Evidence, evitar ciclo de gurus, comprimir tempo ate maestria em 3-10x.
@@ -147,3 +218,51 @@ Mudanca aqui exige `docs-health` + `architecture-validate` verdes.
 ## Continuidade
 
 Quando uma capability sair de `scaffold`, mover documentacao detalhada para o AP correspondente e marcar status exato da taxonomia definida em `implementation-briefing.md`.
+
+## Resumo
+
+Porta de entrada do Cognitive Plane do Atlas. Mapa de leitura para humano novo e para Codex implementar. Aponta para overview, principles, capabilities, multiplier edge, pipeline overlay, roadmap e APs executaveis.
+
+## Papel no Atlas
+
+Define a responsabilidade desta peca dentro da arquitetura Atlas.
+
+## Onde Se Encaixa
+
+Relaciona esta peca com seu sistema, camada, fluxo ou modulo pai.
+
+## Contratos
+
+Declara invariantes, entradas, saidas, limites e obrigacoes relevantes.
+
+## Fluxo
+
+Descreve o caminho operacional ou a sequencia de uso quando aplicavel.
+
+## Regras para IA
+
+Agentes devem respeitar escopo, evidencias, testes e proibicoes antes de alterar codigo.
+
+## Escopo de Implementacao
+
+Mudancas devem permanecer nos caminhos e limites declarados no frontmatter.
+
+## Dependencias
+
+Dependencias canonicas vivem em frontmatter e no corpo deste documento.
+
+## Evidencias
+
+Evidencias aceitas incluem docs, comandos, testes, receipts, reports e paths verificaveis.
+
+## Riscos
+
+Riscos principais devem ser tratados antes de promover status, runtime ou claims de prontidao.
+
+## Exemplos
+
+Exemplos concretos devem ser adicionados quando reduzirem ambiguidade para humanos ou IAs.
+
+## Proximas Acoes
+
+Proximas acoes devem ser concretas, verificaveis e ligadas a gates de qualidade.

@@ -14,13 +14,13 @@ class EngineeringDocumentationHealthService
      * @var array<string,int|null>
      */
     private const REQUIRED_DOCS = [
-        'docs/engineering-knowledge-base/atlas-ai-session-bootstrap.md' => 180,
-        'docs/engineering-knowledge-base/atlas-ai-documentation-operating-system.md' => 260,
+        'docs/engineering-knowledge-base/atlas-ai-session-bootstrap.md' => 520,
+        'docs/engineering-knowledge-base/atlas-ai-documentation-operating-system.md' => 520,
         'docs/engineering-knowledge-base/atlas-canonical-module-doc-v1.md' => 520,
-        'docs/engineering-knowledge-base/atlas-ai-knowledge-governance-system.md' => 260,
-        'docs/engineering-knowledge-base/atlas-ai-runtime-language-boundaries.md' => 260,
-        'docs/engineering-knowledge-base/atlas-ai-qualitative-levels-roadmap.md' => 260,
-        'docs/engineering-knowledge-base/atlas-ai-canonical-architecture-index.md' => 180,
+        'docs/engineering-knowledge-base/atlas-ai-knowledge-governance-system.md' => 520,
+        'docs/engineering-knowledge-base/atlas-ai-runtime-language-boundaries.md' => 520,
+        'docs/engineering-knowledge-base/atlas-ai-qualitative-levels-roadmap.md' => 520,
+        'docs/engineering-knowledge-base/atlas-ai-canonical-architecture-index.md' => 520,
         'docs/engineering-knowledge-base/START_HERE.md' => null,
         'docs/engineering-knowledge-base/README.md' => null,
     ];
@@ -69,6 +69,23 @@ class EngineeringDocumentationHealthService
         'requires_evidence',
         'risk_level',
         'next_actions',
+    ];
+
+    /**
+     * @var array<int,string>
+     */
+    private const CANONICAL_MODULE_OPTIONAL_LIST_FRONTMATTER = [
+        'related_to',
+        'influenced_by',
+        'runtime_surfaces',
+        'mcp_tools',
+        'decision_receipts',
+        'visual_tags',
+        'ai_entrypoints',
+        'ai_usage_notes',
+        'quality_gates',
+        'failure_modes',
+        'observability_signals',
     ];
 
     /**
@@ -159,10 +176,12 @@ class EngineeringDocumentationHealthService
         $docs = $this->scanDocs();
         $required = $this->requiredDocsReport($docs);
         $frontmatterViolations = $this->frontmatterViolations($docs);
+        $canonicalCoverageViolations = $this->canonicalModuleCoverageViolations($docs);
         $canonicalViolations = $this->canonicalModuleViolations($docs);
         $violations = array_values(array_merge(
             $required['missing'],
             $frontmatterViolations,
+            $canonicalCoverageViolations,
             $canonicalViolations,
         ));
         $oversized = $this->oversizedDocs($docs);
@@ -176,6 +195,7 @@ class EngineeringDocumentationHealthService
                 'required_missing_count' => count($required['missing']),
                 'oversized_count' => count($oversized),
                 'frontmatter_violation_count' => count($frontmatterViolations),
+                'canonical_module_coverage_violation_count' => count($canonicalCoverageViolations),
                 'canonical_module_violation_count' => count($canonicalViolations),
             ],
             'required_docs' => $required['items'],
@@ -283,6 +303,30 @@ class EngineeringDocumentationHealthService
      * @param  array<int,array<string,mixed>>  $docs
      * @return array<int,string>
      */
+    private function canonicalModuleCoverageViolations(array $docs): array
+    {
+        $violations = [];
+
+        foreach ($docs as $doc) {
+            $path = (string) $doc['path'];
+            $status = (string) $doc['status'];
+            if (str_contains($path, '/archive/') || str_contains($path, '/templates/') || in_array($status, ['archived', 'source_material'], true)) {
+                continue;
+            }
+
+            $frontmatter = (array) $doc['frontmatter'];
+            if (($frontmatter['doc_schema'] ?? null) !== self::CANONICAL_MODULE_SCHEMA) {
+                $violations[] = "{$path}: official non-archive docs must declare doc_schema [".self::CANONICAL_MODULE_SCHEMA.']';
+            }
+        }
+
+        return $violations;
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $docs
+     * @return array<int,string>
+     */
     private function canonicalModuleViolations(array $docs): array
     {
         $violations = [];
@@ -343,6 +387,12 @@ class EngineeringDocumentationHealthService
             foreach (['repo_paths', 'allowed_changes', 'forbidden_changes', 'evidence', 'required_tests', 'next_actions'] as $field) {
                 if (array_key_exists($field, $frontmatter) && ! is_array($frontmatter[$field])) {
                     $violations[] = "{$path}: canonical module field [{$field}] must be a list";
+                }
+            }
+
+            foreach (self::CANONICAL_MODULE_OPTIONAL_LIST_FRONTMATTER as $field) {
+                if (array_key_exists($field, $frontmatter) && ! is_array($frontmatter[$field])) {
+                    $violations[] = "{$path}: optional canonical module field [{$field}] must be a list";
                 }
             }
 

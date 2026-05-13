@@ -14,8 +14,15 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
+use PhpParser\Node;
+use PhpParser\Node\Expr\ClassConstFetch;
+use PhpParser\Node\Name;
+use PhpParser\Node\Stmt\Namespace_;
+use PhpParser\Node\Stmt\Use_;
+use PhpParser\ParserFactory;
 use RuntimeException;
 use SplFileInfo;
+use Throwable;
 
 class EngineeringCodeIntelligenceService
 {
@@ -598,6 +605,10 @@ class EngineeringCodeIntelligenceService
             foreach ($this->parseFileSymbols($relativePath, $content, $module['slug']) as $symbol) {
                 $symbols[] = $symbol;
             }
+            $relations = $this->parseFileRelations($relativePath, $content, $module['slug']);
+            $modules[$module['slug']]['dependencies'] = array_merge($modules[$module['slug']]['dependencies'], $relations['dependencies']);
+            $modules[$module['slug']]['symbol_references'] = array_merge($modules[$module['slug']]['symbol_references'], $relations['symbol_references']);
+            $modules[$module['slug']]['test_targets'] = array_merge($modules[$module['slug']]['test_targets'], $relations['test_targets']);
         }
 
         foreach ($symbols as $symbol) {
@@ -995,6 +1006,283 @@ class EngineeringCodeIntelligenceService
     }
 
     /**
+     * @return array{dependencies:array<int,array<string,mixed>>,symbol_references:array<int,array<string,mixed>>,test_targets:array<int,array<string,mixed>>}
+     */
+    private function parseFileRelations(string $relativePath, string $content, string $moduleSlug): array
+    {
+        $extension = strtolower(pathinfo($relativePath, PATHINFO_EXTENSION));
+
+        return match ($extension) {
+            'php' => $this->parsePhpRelations($relativePath, $content, $moduleSlug),
+            'ts', 'tsx', 'js', 'jsx' => $this->parseJavascriptRelations($relativePath, $content, $moduleSlug),
+            default => ['dependencies' => [], 'symbol_references' => [], 'test_targets' => []],
+        };
+    }
+
+    /**
+     * @return array{dependencies:array<int,array<string,mixed>>,symbol_references:array<int,array<string,mixed>>,test_targets:array<int,array<string,mixed>>}
+     */
+    private function parsePhpRelations(string $relativePath, string $content, string $moduleSlug): array
+    {
+        $astRelations = $this->parsePhpAstRelations($relativePath, $content, $moduleSlug);
+        if ($astRelations !== null) {
+            return $astRelations;
+        }
+
+        $dependencies = [];
+        $references = [];
+        $testTargets = [];
+
+        foreach ($this->lineMatches($content, '/^use\s+([^;]+);/') as $match) {
+            $class = trim($match['matches'][1]);
+            $targetModule = $this->moduleSlugForClass($class);
+            $dependencies[] = [
+                'kind' => 'php_use',
+                'from_module' => $moduleSlug,
+                'to_module' => $targetModule,
+                'symbol' => $class,
+                'file_path' => $relativePath,
+                'line' => $match['line'],
+            ];
+            $references[] = [
+                'kind' => 'php_use',
+                'symbol' => $class,
+                'target_module' => $targetModule,
+                'file_path' => $relativePath,
+                'line' => $match['line'],
+            ];
+        }
+
+        foreach ($this->lineMatches($content, '/([A-Za-z_][A-Za-z0-9_\\\\]+)::class/') as $match) {
+            $class = trim($match['matches'][1]);
+            $targetModule = $this->moduleSlugForClass($class);
+            $references[] = [
+                'kind' => 'class_constant',
+                'symbol' => $class,
+                'target_module' => $targetModule,
+                'file_path' => $relativePath,
+                'line' => $match['line'],
+            ];
+        }
+
+        if (str_starts_with($relativePath, 'tests/')) {
+            foreach ($this->lineMatches($content, '/\b(App\\\\[A-Za-z0-9_\\\\]+|[A-Z][A-Za-z0-9_]+(?:Service|Controller|Command|Model))\b/') as $match) {
+                $symbol = $match['matches'][1];
+                $testTargets[] = [
+                    'kind' => 'test_symbol_reference',
+                    'symbol' => $symbol,
+                    'target_module' => str_contains($symbol, '\\') ? $this->moduleSlugForClass($symbol) : $this->moduleSlugForShortName($symbol),
+                    'test_path' => $relativePath,
+                    'line' => $match['line'],
+                ];
+            }
+        }
+
+        return [
+            'dependencies' => $dependencies,
+            'symbol_references' => $references,
+            'test_targets' => $testTargets,
+        ];
+    }
+
+    /**
+     * @return array{dependencies:array<int,array<string,mixed>>,symbol_references:array<int,array<string,mixed>>,test_targets:array<int,array<string,mixed>>}|null
+     */
+    private function parsePhpAstRelations(string $relativePath, string $content, string $moduleSlug): ?array
+    {
+        if (! class_exists(ParserFactory::class)) {
+            return null;
+        }
+
+        try {
+            $parser = (new ParserFactory)->createForNewestSupportedVersion();
+            $statements = $parser->parse($content);
+        } catch (Throwable) {
+            return null;
+        }
+
+        if (! is_array($statements)) {
+            return null;
+        }
+
+        return $this->parsePhpAstStatementRelations($relativePath, $statements, $moduleSlug);
+    }
+
+    /**
+     * @param  array<int,Node>  $statements
+     * @return array{dependencies:array<int,array<string,mixed>>,symbol_references:array<int,array<string,mixed>>,test_targets:array<int,array<string,mixed>>}
+     */
+    private function parsePhpAstStatementRelations(string $relativePath, array $statements, string $moduleSlug): array
+    {
+        $dependencies = [];
+        $references = [];
+        $testTargets = [];
+
+        foreach ($statements as $statement) {
+            $namespace = '';
+            $body = [$statement];
+            if ($statement instanceof Namespace_) {
+                $namespace = $statement->name instanceof Name ? $this->phpAstName($statement->name) : '';
+                $body = $statement->stmts;
+            }
+
+            $imports = [];
+            foreach ($body as $node) {
+                if ($node instanceof Use_) {
+                    foreach ($node->uses as $use) {
+                        $class = ltrim($this->phpAstName($use->name), '\\');
+                        if ($class === '') {
+                            continue;
+                        }
+
+                        $shortName = $use->alias instanceof Node\Identifier
+                            ? $use->alias->toString()
+                            : Str::afterLast($class, '\\');
+                        $imports[$shortName] = $class;
+                        $targetModule = $this->moduleSlugForClass($class);
+                        $dependencies[] = [
+                            'kind' => 'php_use_ast',
+                            'from_module' => $moduleSlug,
+                            'to_module' => $targetModule,
+                            'symbol' => $class,
+                            'file_path' => $relativePath,
+                            'line' => $use->getStartLine(),
+                        ];
+                        $references[] = [
+                            'kind' => 'php_use_ast',
+                            'symbol' => $class,
+                            'target_module' => $targetModule,
+                            'file_path' => $relativePath,
+                            'line' => $use->getStartLine(),
+                        ];
+                    }
+
+                    continue;
+                }
+
+                foreach ($this->phpAstClassConstFetches($node) as $fetch) {
+                    if (! $fetch->class instanceof Name) {
+                        continue;
+                    }
+
+                    $class = $this->resolvePhpAstClassName($this->phpAstName($fetch->class), $namespace, $imports);
+                    if ($class === '') {
+                        continue;
+                    }
+
+                    $targetModule = $this->moduleSlugForClass($class);
+                    $references[] = [
+                        'kind' => 'class_constant_ast',
+                        'symbol' => $class,
+                        'target_module' => $targetModule,
+                        'file_path' => $relativePath,
+                        'line' => $fetch->getStartLine(),
+                    ];
+                    if (str_starts_with($relativePath, 'tests/')) {
+                        $testTargets[] = [
+                            'kind' => 'test_symbol_reference_ast',
+                            'symbol' => $class,
+                            'target_module' => $targetModule,
+                            'test_path' => $relativePath,
+                            'line' => $fetch->getStartLine(),
+                        ];
+                    }
+                }
+            }
+        }
+
+        return [
+            'dependencies' => $dependencies,
+            'symbol_references' => $references,
+            'test_targets' => $testTargets,
+        ];
+    }
+
+    /**
+     * @return array<int,ClassConstFetch>
+     */
+    private function phpAstClassConstFetches(Node $node): array
+    {
+        $matches = [];
+        if ($node instanceof ClassConstFetch) {
+            $matches[] = $node;
+        }
+
+        foreach ($node->getSubNodeNames() as $name) {
+            $value = $node->{$name};
+            if ($value instanceof Node) {
+                array_push($matches, ...$this->phpAstClassConstFetches($value));
+            } elseif (is_array($value)) {
+                foreach ($value as $child) {
+                    if ($child instanceof Node) {
+                        array_push($matches, ...$this->phpAstClassConstFetches($child));
+                    }
+                }
+            }
+        }
+
+        return $matches;
+    }
+
+    /**
+     * @param  array<string,string>  $imports
+     */
+    private function resolvePhpAstClassName(string $class, string $namespace, array $imports): string
+    {
+        $class = ltrim($class, '\\');
+        if ($class === '' || in_array(strtolower($class), ['self', 'static', 'parent'], true)) {
+            return '';
+        }
+
+        $head = Str::before($class, '\\');
+        if (isset($imports[$head])) {
+            $tail = Str::after($class, $head);
+
+            return $imports[$head].$tail;
+        }
+
+        if (str_contains($class, '\\')) {
+            return $class;
+        }
+
+        return $namespace !== '' ? $namespace.'\\'.$class : $class;
+    }
+
+    private function phpAstName(Name $name): string
+    {
+        if (method_exists($name, 'toCodeString')) {
+            return $name->toCodeString();
+        }
+
+        return $name->toString();
+    }
+
+    /**
+     * @return array{dependencies:array<int,array<string,mixed>>,symbol_references:array<int,array<string,mixed>>,test_targets:array<int,array<string,mixed>>}
+     */
+    private function parseJavascriptRelations(string $relativePath, string $content, string $moduleSlug): array
+    {
+        $dependencies = [];
+        foreach ($this->lineMatches($content, '/\bimport\s+(?:.+?\s+from\s+)?[\'"]([^\'"]+)[\'"]/') as $match) {
+            $import = trim($match['matches'][1]);
+            $dependencies[] = [
+                'kind' => 'js_import',
+                'from_module' => $moduleSlug,
+                'to_module' => str_starts_with($import, '.') ? $this->moduleForPath($this->normalizeRelativeImport($relativePath, $import))['slug'] : 'external_package',
+                'symbol' => $import,
+                'file_path' => $relativePath,
+                'line' => $match['line'],
+            ];
+        }
+
+        return [
+            'dependencies' => $dependencies,
+            'symbol_references' => $dependencies,
+            'test_targets' => [],
+        ];
+    }
+
+    /**
      * @return array<int,array<string,mixed>>
      */
     private function parsePhpSymbols(string $relativePath, string $content, string $moduleSlug): array
@@ -1228,6 +1516,9 @@ class EngineeringCodeIntelligenceService
             'command_count' => 0,
             'migration_count' => 0,
             'test_count' => 0,
+            'dependencies' => [],
+            'symbol_references' => [],
+            'test_targets' => [],
         ]);
     }
 
@@ -1272,6 +1563,10 @@ class EngineeringCodeIntelligenceService
             'metadata' => [
                 'files' => array_slice(array_column($files, 'path'), 0, 160),
                 'language_counts' => $module['languages'],
+                'dependency_edges' => $this->uniqueRelationRows((array) $module['dependencies'], 80),
+                'symbol_references' => $this->uniqueRelationRows((array) $module['symbol_references'], 120),
+                'test_targets' => $this->uniqueRelationRows((array) $module['test_targets'], 80),
+                'code_intelligence_depth' => 'symbols_dependencies_tests_docs',
             ],
             'indexed_at' => now(),
             'archived_at' => null,
@@ -1879,6 +2174,61 @@ class EngineeringCodeIntelligenceService
             'description' => null,
             'tags' => [$root],
         ];
+    }
+
+    private function moduleSlugForClass(string $class): ?string
+    {
+        $class = ltrim($class, '\\');
+        $path = str_replace('\\', '/', $class).'.php';
+        $path = preg_replace('/^App\//', 'app/', $path) ?? $path;
+        $module = $this->moduleForPath($path);
+
+        return $module['slug'] ?? null;
+    }
+
+    private function moduleSlugForShortName(string $symbol): ?string
+    {
+        return match (true) {
+            str_ends_with($symbol, 'Service') => 'application_services',
+            str_ends_with($symbol, 'Controller') => 'http_controllers',
+            str_ends_with($symbol, 'Command') => 'console_commands',
+            str_ends_with($symbol, 'Model') => 'eloquent_models',
+            default => null,
+        };
+    }
+
+    private function normalizeRelativeImport(string $relativePath, string $import): string
+    {
+        $base = trim(dirname($relativePath), '.');
+        $parts = explode('/', trim($base.'/'.$import, '/'));
+        $normalized = [];
+        foreach ($parts as $part) {
+            if ($part === '' || $part === '.') {
+                continue;
+            }
+            if ($part === '..') {
+                array_pop($normalized);
+
+                continue;
+            }
+            $normalized[] = $part;
+        }
+
+        return implode('/', $normalized);
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $rows
+     * @return array<int,array<string,mixed>>
+     */
+    private function uniqueRelationRows(array $rows, int $limit): array
+    {
+        return collect($rows)
+            ->filter(fn (mixed $row): bool => is_array($row))
+            ->unique(fn (array $row): string => hash('sha256', json_encode($row, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: ''))
+            ->values()
+            ->take($limit)
+            ->all();
     }
 
     /**

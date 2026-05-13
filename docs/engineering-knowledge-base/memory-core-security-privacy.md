@@ -33,8 +33,81 @@ related_paths:
   - app/Services/Ai/AtlasProviderProjectionService.php
   - app/Services/Ai/AtlasProviderProjectionAuditService.php
   - config/atlas.php
----
+doc_schema: atlas_canonical_module_doc.v1
 
+graph_id: atlas-memory-core-security-privacy
+
+graph_title: Atlas Memory Core Security And Privacy Policy
+
+graph_world: atlas
+
+graph_layer: module
+
+graph_kind: policy
+
+graph_parent: atlas-ai-canonical-architecture-index
+
+graph_status: active
+
+graph_source: repo
+
+owner: maintenance
+
+repo_paths:
+  - docs/engineering-knowledge-base/memory-core-security-privacy.md
+
+allowed_changes:
+  - Atualizar este doc quando codigo, arquitetura, fluxo, evidencia ou decisao canonica mudar.
+
+forbidden_changes:
+  - Declarar runtime, maturidade ou prontidao sem evidencia verificavel e gates verdes.
+
+depends_on:
+  - atlas-ai-documentation-operating-system
+
+flows_to:
+  - atlas-cartography
+  - atlas-code
+
+unlocks:
+  - ai-safe-implementation-context
+
+governs:
+  - maintenance
+
+evidence:
+  - docs/engineering-knowledge-base/memory-core-security-privacy.md
+
+required_tests:
+  - "php artisan atlas:engineering:knowledge docs-health --json"
+
+requires_evidence: true
+
+risk_level: high
+
+visual_tags:
+  - module
+  - policy
+  - maintenance
+
+ai_entrypoints:
+  - Leia Resumo, Contratos, Regras para IA, Evidencias e Riscos antes de implementar.
+
+ai_usage_notes:
+  - Use repo_paths, allowed_changes, forbidden_changes e required_tests como limites operacionais.
+
+quality_gates:
+  - "php artisan atlas:engineering:knowledge docs-health --json"
+
+failure_modes:
+  - Contexto desatualizado entre doc, codigo, teste e evidencia.
+
+observability_signals:
+  - docs-health status ok
+
+next_actions:
+  - Manter este doc sincronizado com codigo, testes, evidencias e Cartografia.
+---
 # Atlas Memory Core Security And Privacy Policy
 
 Esta politica define o que pode entrar na memoria, no prompt e em provider
@@ -175,3 +248,51 @@ Antes de qualquer uso cognitivo, o item deve passar pelos gates definidos em
 6. Existe motivo de inclusao no context pack?
 7. Existe rastro de auditoria se for memoria usada?
 8. O item passou pela quarentena cognitiva e nao esta tombstoned/superseded?
+
+## Resumo
+
+Politica operacional de seguranca, privacy, redaction e provider-safety para memoria, context packs e provider projections.
+
+## Papel no Atlas
+
+Define a responsabilidade desta peca dentro da arquitetura Atlas.
+
+## Onde Se Encaixa
+
+Relaciona esta peca com seu sistema, camada, fluxo ou modulo pai.
+
+## Contratos
+
+Declara invariantes, entradas, saidas, limites e obrigacoes relevantes.
+
+## Fluxo
+
+Descreve o caminho operacional ou a sequencia de uso quando aplicavel.
+
+## Regras para IA
+
+Agentes devem respeitar escopo, evidencias, testes e proibicoes antes de alterar codigo.
+
+## Escopo de Implementacao
+
+Mudancas devem permanecer nos caminhos e limites declarados no frontmatter.
+
+## Dependencias
+
+Dependencias canonicas vivem em frontmatter e no corpo deste documento.
+
+## Evidencias
+
+Evidencias aceitas incluem docs, comandos, testes, receipts, reports e paths verificaveis.
+
+## Riscos
+
+Riscos principais devem ser tratados antes de promover status, runtime ou claims de prontidao.
+
+## Exemplos
+
+Exemplos concretos devem ser adicionados quando reduzirem ambiguidade para humanos ou IAs.
+
+## Proximas Acoes
+
+Proximas acoes devem ser concretas, verificaveis e ligadas a gates de qualidade.

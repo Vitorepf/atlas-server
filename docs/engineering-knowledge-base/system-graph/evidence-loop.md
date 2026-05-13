@@ -52,8 +52,26 @@ requires_evidence: true
 risk_level: critical
 next_actions:
   - Conectar Evidence Loop aos cards de gate e receipt no Atlas Code.
----
+visual_tags:
+  - module
+  - module
+  - system-graph
 
+ai_entrypoints:
+  - Leia Resumo, Contratos, Regras para IA, Evidencias e Riscos antes de implementar.
+
+ai_usage_notes:
+  - Use repo_paths, allowed_changes, forbidden_changes e required_tests como limites operacionais.
+
+quality_gates:
+  - "php artisan atlas:engineering:knowledge docs-health --json"
+
+failure_modes:
+  - Contexto desatualizado entre doc, codigo, teste e evidencia.
+
+observability_signals:
+  - docs-health status ok
+---
 # Evidence Loop
 
 ## Resumo
@@ -106,4 +124,3 @@ AP-99, custo, latencia, falhas de gate e repair attempts voltam para Decide.
 ## Proximas Acoes
 
 Definir read model para Evidence Loop exibido na Cartografia.
-

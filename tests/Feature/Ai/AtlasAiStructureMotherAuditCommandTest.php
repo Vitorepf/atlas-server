@@ -62,6 +62,10 @@ class AtlasAiStructureMotherAuditCommandTest extends TestCase
         $this->assertTrue(data_get($payload, 'structure_mother_audit.rules.self_construction_control_plane_excluded'));
         $this->assertCount(11, data_get($payload, 'structure_mother_audit.completion_checklist'));
         $completionGate = collect(data_get($payload, 'structure_mother_audit.completion_checklist'))->firstWhere('artifact', 'structure_mother_audit.completion_gate');
+        $this->assertSame(
+            'Goal completion may be marked only when all eight modules are ready and operational blockers are clear',
+            data_get($completionGate, 'requirement'),
+        );
         $this->assertSame('blocked', data_get($completionGate, 'status'));
         $this->assertFalse(data_get($completionGate, 'evidence.update_goal_allowed'));
         $this->assertSame(
@@ -81,13 +85,52 @@ class AtlasAiStructureMotherAuditCommandTest extends TestCase
             data_get($payload, 'structure_mother_audit.prompt_to_artifact_checklist.rules.0.status'),
         );
         $this->assertSame('pending_operator_or_calendar_action', data_get($payload, 'structure_mother_audit.operator_action_plan.status'));
-        $this->assertSame(3, data_get($payload, 'structure_mother_audit.operator_action_plan.action_count'));
+        $this->assertSame('atlas.structure_mother.enterprise_closure_plan.v1', data_get($payload, 'structure_mother_audit.enterprise_closure_plan.schema_version'));
+        $this->assertFalse(data_get($payload, 'structure_mother_audit.enterprise_closure_plan.completion_claim_allowed'));
+        $closureItems = collect(data_get($payload, 'structure_mother_audit.enterprise_closure_plan.items'));
+        $this->assertContains('rivals_p4_real_review', $closureItems->pluck('id')->all());
+        $this->assertContains('rivals_programming_real_battery', $closureItems->pluck('id')->all());
+        $this->assertContains('frontend_design_harness_enterprise_runs', $closureItems->pluck('id')->all());
+        $this->assertContains('p6_p7_advanced_readiness', $closureItems->pluck('id')->all());
+        $batteryAction = $closureItems->firstWhere('id', 'rivals_programming_real_battery');
+        $this->assertTrue(data_get($batteryAction, 'external_cost_possible'));
+        $this->assertContains('operator_cost_acknowledged', data_get($batteryAction, 'required_evidence'));
+        $this->assertContains('same_model', data_get($batteryAction, 'allowed_modes'));
+        $this->assertSame(
+            'atlas.structure_mother.rivals_programming_execution_guard.v1',
+            data_get($batteryAction, 'execution_guard.schema_version'),
+        );
+        $this->assertTrue(data_get($batteryAction, 'execution_guard.no_provider_call_in_structure_mother_audit'));
+        $this->assertStringContainsString(
+            'rivals runbook',
+            data_get($batteryAction, 'safe_preflight_commands.runbook'),
+        );
+        $this->assertStringContainsString(
+            '--confirm-provider-cost',
+            data_get($batteryAction, 'cost_acknowledged_execution_commands.quick'),
+        );
+        $frontendAction = $closureItems->firstWhere('id', 'frontend_design_harness_enterprise_runs');
+        $this->assertSame(
+            'atlas.structure_mother.frontend_design_harness_execution_guard.v1',
+            data_get($frontendAction, 'execution_guard.schema_version'),
+        );
+        $this->assertTrue(data_get($frontendAction, 'execution_guard.provider_neutral'));
+        $this->assertTrue(data_get($frontendAction, 'execution_guard.screenshot_alone_is_insufficient'));
+        $this->assertStringContainsString(
+            'atlas:engineering:visual-smoke',
+            data_get($frontendAction, 'local_execution_commands.visual_smoke_dry_run'),
+        );
+        $this->assertTrue(data_get($payload, 'structure_mother_audit.enterprise_closure_plan.rules.do_not_loop_on_calendar_blockers'));
+        $this->assertTrue(data_get($payload, 'structure_mother_audit.enterprise_closure_plan.rules.do_not_spend_external_provider_cost_without_operator_approval'));
+        $this->assertSame(5, data_get($payload, 'structure_mother_audit.operator_action_plan.action_count'));
         $this->assertSame('atlas.structure_mother.operator_action_summary.v1', data_get($payload, 'structure_mother_audit.operator_action_plan.action_summary.schema_version'));
         $this->assertSame('operator_action_available_now', data_get($payload, 'structure_mother_audit.operator_action_plan.action_summary.status'));
-        $this->assertSame(2, data_get($payload, 'structure_mother_audit.operator_action_plan.action_summary.actionable_now_count'));
+        $this->assertSame(4, data_get($payload, 'structure_mother_audit.operator_action_plan.action_summary.actionable_now_count'));
         $this->assertSame(1, data_get($payload, 'structure_mother_audit.operator_action_plan.action_summary.calendar_wait_count'));
         $this->assertContains('review_critical_proactive_insights', data_get($payload, 'structure_mother_audit.operator_action_plan.action_summary.next_action_ids'));
         $this->assertContains('record_real_rivals_review_when_due', collect(data_get($payload, 'structure_mother_audit.operator_action_plan.actions'))->pluck('id')->all());
+        $this->assertContains('approve_rivals_programming_real_battery', collect(data_get($payload, 'structure_mother_audit.operator_action_plan.actions'))->pluck('id')->all());
+        $this->assertContains('run_frontend_design_harness_enterprise_receipts', collect(data_get($payload, 'structure_mother_audit.operator_action_plan.actions'))->pluck('id')->all());
         $this->assertContains('review_critical_proactive_insights', collect(data_get($payload, 'structure_mother_audit.operator_action_plan.actions'))->pluck('id')->all());
         $this->assertContains('configure_missing_provider_cost_rates', collect(data_get($payload, 'structure_mother_audit.operator_action_plan.actions'))->pluck('id')->all());
         $rivalsAction = collect(data_get($payload, 'structure_mother_audit.operator_action_plan.actions'))->firstWhere('id', 'record_real_rivals_review_when_due');
@@ -96,6 +139,17 @@ class AtlasAiStructureMotherAuditCommandTest extends TestCase
         $this->assertFalse(data_get($rivalsAction, 'actionable_now'));
         $this->assertTrue(data_get($rivalsAction, 'calendar_wait_required'));
         $this->assertFalse(data_get($rivalsAction, 'api.synthetic_scores_allowed'));
+        $batteryOperatorAction = collect(data_get($payload, 'structure_mother_audit.operator_action_plan.actions'))->firstWhere('id', 'approve_rivals_programming_real_battery');
+        $this->assertTrue(data_get($batteryOperatorAction, 'actionable_now'));
+        $this->assertTrue(data_get($batteryOperatorAction, 'external_provider_cost_possible'));
+        $this->assertFalse(data_get($batteryOperatorAction, 'agent_auto_execute_allowed'));
+        $this->assertStringContainsString('rivals runbook', data_get($batteryOperatorAction, 'safe_preflight_commands.runbook'));
+        $this->assertStringContainsString('--confirm-provider-cost', data_get($batteryOperatorAction, 'cost_acknowledged_execution_commands.quick'));
+        $frontendOperatorAction = collect(data_get($payload, 'structure_mother_audit.operator_action_plan.actions'))->firstWhere('id', 'run_frontend_design_harness_enterprise_receipts');
+        $this->assertTrue(data_get($frontendOperatorAction, 'actionable_now'));
+        $this->assertFalse(data_get($frontendOperatorAction, 'external_provider_cost_possible'));
+        $this->assertTrue(data_get($frontendOperatorAction, 'can_be_deferred_by_operator_decision'));
+        $this->assertContains('design_5d_review', data_get($frontendOperatorAction, 'required_receipts'));
         $this->assertTrue(data_get($rivalsAction, 'api.review_due_at_required'));
         $this->assertSame('atlas.rivals_strategy.review_recording.v1', data_get($rivalsAction, 'api.recording_schema_version'));
         $proactiveAction = collect(data_get($payload, 'structure_mother_audit.operator_action_plan.actions'))->firstWhere('id', 'review_critical_proactive_insights');

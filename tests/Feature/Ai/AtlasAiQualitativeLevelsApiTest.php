@@ -28,6 +28,8 @@ class AtlasAiQualitativeLevelsApiTest extends TestCase
             ->assertJsonPath('qualitative_levels.next_level', 'P2')
             ->assertJsonPath('qualitative_levels.rules.read_model_only', true)
             ->assertJsonPath('qualitative_levels.rules.human_agency_required', true)
+            ->assertJsonPath('qualitative_levels.advanced_readiness.p6_presence_eclipse.promotion_allowed', false)
+            ->assertJsonPath('qualitative_levels.advanced_readiness.p7_longitudinal_memory.promotion_allowed', false)
             ->assertJsonPath('qualitative_levels.evidence.evidence_ledger.available', false);
     }
 

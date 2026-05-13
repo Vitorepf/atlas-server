@@ -44,8 +44,81 @@ related_paths:
   - app/Console/Commands/AtlasAiQualitativeLevelsCommand.php
   - app/Console/Commands/AtlasAiRivalsStrategyCommand.php
   - app/Http/Controllers/AtlasAiQualitativeLevelsController.php
----
+doc_schema: atlas_canonical_module_doc.v1
 
+graph_id: atlas-ai-qualitative-levels-roadmap
+
+graph_title: Atlas AI Qualitative Levels Roadmap
+
+graph_world: atlas
+
+graph_layer: flow
+
+graph_kind: module
+
+graph_parent: atlas-ai-pipeline
+
+graph_status: active
+
+graph_source: repo
+
+owner: roadmap
+
+repo_paths:
+  - docs/engineering-knowledge-base/atlas-ai-qualitative-levels-roadmap.md
+
+allowed_changes:
+  - Atualizar este doc quando codigo, arquitetura, fluxo, evidencia ou decisao canonica mudar.
+
+forbidden_changes:
+  - Declarar runtime, maturidade ou prontidao sem evidencia verificavel e gates verdes.
+
+depends_on:
+  - atlas-ai-documentation-operating-system
+
+flows_to:
+  - atlas-cartography
+  - atlas-code
+
+unlocks:
+  - ai-safe-implementation-context
+
+governs:
+  - roadmap
+
+evidence:
+  - docs/engineering-knowledge-base/atlas-ai-qualitative-levels-roadmap.md
+
+required_tests:
+  - "php artisan atlas:engineering:knowledge docs-health --json"
+
+requires_evidence: true
+
+risk_level: low
+
+visual_tags:
+  - flow
+  - module
+  - roadmap
+
+ai_entrypoints:
+  - Leia Resumo, Contratos, Regras para IA, Evidencias e Riscos antes de implementar.
+
+ai_usage_notes:
+  - Use repo_paths, allowed_changes, forbidden_changes e required_tests como limites operacionais.
+
+quality_gates:
+  - "php artisan atlas:engineering:knowledge docs-health --json"
+
+failure_modes:
+  - Contexto desatualizado entre doc, codigo, teste e evidencia.
+
+observability_signals:
+  - docs-health status ok
+
+next_actions:
+  - Manter este doc sincronizado com codigo, testes, evidencias e Cartografia.
+---
 # Atlas AI Qualitative Levels Roadmap
 
 Este e o contrato curto para o "outro patamar" do Atlas.
@@ -175,6 +248,18 @@ backfilled como provider evidence e o gate P3 foi exercitado com
 `GATE_BLOCKED` + `REPAIR_INITIATED` + `REPAIR_COMPLETED` em dry-run. Isso
 autoriza declarar P3 no read model, mas nao autoriza executar repair real.
 
+O read model expoe `advanced_readiness` para P6/P7 sem promover nivel:
+
+- `p6_presence_eclipse` (`atlas.qualitative_levels.p6_presence_readiness.v1`)
+  declara evidence existente de opt-out/eclipse/quiet-hours/pointer-only push e
+  bloqueia promocao enquanto faltarem presenca ambiente ampla, opt-in
+  cross-surface, medicao de friccao/regret e rollout humano revisado.
+- `p7_longitudinal_memory`
+  (`atlas.qualitative_levels.p7_longitudinal_readiness.v1`) declara roadmap e
+  sinais disponiveis, mas bloqueia promocao enquanto faltarem anos de historico,
+  privacy vault/forgetting review, padroes longitudinais revisados por humano e
+  verificacao de agencia.
+
 ### QL-2 — Rivals Strategy
 
 Status: implementado como storage/read model inicial.
@@ -254,3 +339,51 @@ QL-7 avanca Eixo Z com governanca; vision ambiente e sensores ficam future ate C
 O roadmap e norte qualitativo: interrupcao util, discordancia epistemica,
 auto-evolucao auditada e memoria longitudinal. O caminho seguro e medir patamar,
 validar com Rivals, usar scaffold e manter co-estrategista em plan-only.
+
+## Resumo
+
+Roadmap canonico curto dos patamares qualitativos do Atlas AI, subordinado a tese do multiplicador e usado para transformar visao de longo prazo em fila governada de implementacao.
+
+## Papel no Atlas
+
+Define a responsabilidade desta peca dentro da arquitetura Atlas.
+
+## Onde Se Encaixa
+
+Relaciona esta peca com seu sistema, camada, fluxo ou modulo pai.
+
+## Contratos
+
+Declara invariantes, entradas, saidas, limites e obrigacoes relevantes.
+
+## Fluxo
+
+Descreve o caminho operacional ou a sequencia de uso quando aplicavel.
+
+## Regras para IA
+
+Agentes devem respeitar escopo, evidencias, testes e proibicoes antes de alterar codigo.
+
+## Escopo de Implementacao
+
+Mudancas devem permanecer nos caminhos e limites declarados no frontmatter.
+
+## Dependencias
+
+Dependencias canonicas vivem em frontmatter e no corpo deste documento.
+
+## Evidencias
+
+Evidencias aceitas incluem docs, comandos, testes, receipts, reports e paths verificaveis.
+
+## Riscos
+
+Riscos principais devem ser tratados antes de promover status, runtime ou claims de prontidao.
+
+## Exemplos
+
+Exemplos concretos devem ser adicionados quando reduzirem ambiguidade para humanos ou IAs.
+
+## Proximas Acoes
+
+Proximas acoes devem ser concretas, verificaveis e ligadas a gates de qualidade.

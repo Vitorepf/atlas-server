@@ -51,8 +51,26 @@ requires_evidence: true
 risk_level: high
 next_actions:
   - Documentar flows executivos de programacao usados pelo Atlas Code.
----
+visual_tags:
+  - flow
+  - flow
+  - system-graph
 
+ai_entrypoints:
+  - Leia Resumo, Contratos, Regras para IA, Evidencias e Riscos antes de implementar.
+
+ai_usage_notes:
+  - Use repo_paths, allowed_changes, forbidden_changes e required_tests como limites operacionais.
+
+quality_gates:
+  - "php artisan atlas:engineering:knowledge docs-health --json"
+
+failure_modes:
+  - Contexto desatualizado entre doc, codigo, teste e evidencia.
+
+observability_signals:
+  - docs-health status ok
+---
 # Domain Profile Flow
 
 ## Resumo
@@ -106,4 +124,3 @@ Atlas Code usa dominio `programming` e fluxos SDD/Forge para transformar intent 
 ## Proximas Acoes
 
 Publicar matriz dominio -> fluxo -> gates.
-

@@ -57,6 +57,80 @@ related_paths:
   - docs/engineering-knowledge-base/memory/cognitive-immune-learning-kernel.md
   - docs/engineering-knowledge-base/code-intelligence.md
   - docs/engineering-knowledge-base/code-intelligence/external-graph-harness.md
+doc_schema: atlas_canonical_module_doc.v1
+
+graph_id: atlas-ai-canonical-architecture-index
+
+graph_title: Atlas AI Canonical Architecture Index
+
+graph_world: atlas
+
+graph_layer: system
+
+graph_kind: index
+
+graph_parent: atlas
+
+graph_status: active
+
+graph_source: repo
+
+owner: architecture
+
+repo_paths:
+  - docs/engineering-knowledge-base/atlas-ai-canonical-architecture-index.md
+
+allowed_changes:
+  - Atualizar este doc quando codigo, arquitetura, fluxo, evidencia ou decisao canonica mudar.
+
+forbidden_changes:
+  - Declarar runtime, maturidade ou prontidao sem evidencia verificavel e gates verdes.
+
+depends_on:
+  - atlas-ai-documentation-operating-system
+
+flows_to:
+  - atlas-cartography
+  - atlas-code
+
+unlocks:
+  - ai-safe-implementation-context
+
+governs:
+  - architecture
+
+evidence:
+  - docs/engineering-knowledge-base/atlas-ai-canonical-architecture-index.md
+
+required_tests:
+  - "php artisan atlas:engineering:knowledge docs-health --json"
+
+requires_evidence: true
+
+risk_level: medium
+
+visual_tags:
+  - system
+  - index
+  - architecture
+
+ai_entrypoints:
+  - Leia Resumo, Contratos, Regras para IA, Evidencias e Riscos antes de implementar.
+
+ai_usage_notes:
+  - Use repo_paths, allowed_changes, forbidden_changes e required_tests como limites operacionais.
+
+quality_gates:
+  - "php artisan atlas:engineering:knowledge docs-health --json"
+
+failure_modes:
+  - Contexto desatualizado entre doc, codigo, teste e evidencia.
+
+observability_signals:
+  - docs-health status ok
+
+next_actions:
+  - Manter este doc sincronizado com codigo, testes, evidencias e Cartografia.
 ---
 # Atlas AI Canonical Architecture Index
 Compact authority root for Atlas AI architecture; if a session is confused about which document wins, start here.
@@ -113,3 +187,51 @@ When documents conflict:
 5. If it is legacy material, Resolver Corpus Audit or Legacy Cleanup decides whether to promote, reference or archive.
 ## Implementation Rule
 New docs do not become authority by being long or persuasive; they become authority only when linked here or by the owner README/doc and validated by Documentation OS.
+
+## Resumo
+
+Compact canonical index defining Atlas AI architecture layers, conflict resolution and pointers to detailed authority maps.
+
+## Papel no Atlas
+
+Define a responsabilidade desta peca dentro da arquitetura Atlas.
+
+## Onde Se Encaixa
+
+Relaciona esta peca com seu sistema, camada, fluxo ou modulo pai.
+
+## Contratos
+
+Declara invariantes, entradas, saidas, limites e obrigacoes relevantes.
+
+## Fluxo
+
+Descreve o caminho operacional ou a sequencia de uso quando aplicavel.
+
+## Regras para IA
+
+Agentes devem respeitar escopo, evidencias, testes e proibicoes antes de alterar codigo.
+
+## Escopo de Implementacao
+
+Mudancas devem permanecer nos caminhos e limites declarados no frontmatter.
+
+## Dependencias
+
+Dependencias canonicas vivem em frontmatter e no corpo deste documento.
+
+## Evidencias
+
+Evidencias aceitas incluem docs, comandos, testes, receipts, reports e paths verificaveis.
+
+## Riscos
+
+Riscos principais devem ser tratados antes de promover status, runtime ou claims de prontidao.
+
+## Exemplos
+
+Exemplos concretos devem ser adicionados quando reduzirem ambiguidade para humanos ou IAs.
+
+## Proximas Acoes
+
+Proximas acoes devem ser concretas, verificaveis e ligadas a gates de qualidade.

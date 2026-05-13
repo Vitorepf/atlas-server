@@ -48,7 +48,7 @@ final class AtlasCartographyController extends Controller
     public function note(string $graphId): JsonResponse
     {
         $graphId = trim($graphId);
-        if ($graphId === '' || ! preg_match('/^[A-Za-z0-9._:-]+$/', $graphId)) {
+        if ($graphId === '' || str_contains($graphId, '/') || str_contains($graphId, '\\') || str_contains($graphId, "\0")) {
             return response()->json(['error' => 'invalid graph_id'], 400);
         }
 

@@ -15,6 +15,7 @@ class AgentCodexRealInvokerPostStartSupervisedStartActivationGate
      */
     private const BRIDGE_FIELDS = [
         'post_start_executor_enablement_gate_id',
+        'post_start_evidence_acceptance_bridge_id',
         'post_start_executor_fresh_release_gate_id',
         'post_start_executor_plan_gate_id',
         'post_start_implementation_boundary_gate_id',
@@ -357,6 +358,7 @@ class AgentCodexRealInvokerPostStartSupervisedStartActivationGate
             'status' => 'codex_real_invoker_post_start_supervised_start_activation_prepared',
             'idempotent' => $idempotent,
             'post_start_supervised_start_activation_gate_id' => (string) data_get($run->metadata, 'codex_real_invoker_post_start_supervised_start_activation.post_start_supervised_start_activation_gate_id'),
+            'post_start_evidence_acceptance_bridge_id' => (string) data_get($run->metadata, 'codex_real_invoker_post_start_supervised_start_activation.post_start_evidence_acceptance_bridge_id'),
             'real_invoker_supervised_start_activation_id' => (string) data_get($run->metadata, 'codex_real_invoker_post_start_supervised_start_activation.real_invoker_supervised_start_activation_id'),
             'real_invoker_executor_enablement_id' => (string) data_get($run->metadata, 'codex_real_invoker_post_start_supervised_start_activation.real_invoker_executor_enablement_id'),
             'real_invoker_executor_fresh_release_id' => (string) data_get($run->metadata, 'codex_real_invoker_post_start_supervised_start_activation.real_invoker_executor_fresh_release_id'),

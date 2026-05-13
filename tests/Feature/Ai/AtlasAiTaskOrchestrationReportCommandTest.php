@@ -136,6 +136,54 @@ class AtlasAiTaskOrchestrationReportCommandTest extends TestCase
         $this->assertSame('refresh_task_events_through_task_planning_service', data_get($payload, 'task_orchestration.review_signal.recommended_action'));
     }
 
+    public function test_local_engineering_contract_does_not_count_as_external_handoff_review(): void
+    {
+        AtlasTask::query()->create([
+            'title' => 'Contrato tecnico local',
+            'status' => 'open',
+            'priority' => 'normal',
+            'domain' => 'atlas',
+            'execution_mode' => 'quick_win',
+            'metadata' => [
+                'engineering_contract' => [
+                    'goal' => 'Validar contrato local sem provider handoff.',
+                ],
+            ],
+        ]);
+
+        $exit = Artisan::call('atlas:ai:task-orchestration-report', [
+            '--hours' => 24,
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame(0, data_get($payload, 'task_orchestration.external_review_required_task_count'));
+        $this->assertSame('continue_task_orchestration_monitoring', data_get($payload, 'task_orchestration.review_signal.recommended_action'));
+    }
+
+    public function test_provider_runtime_or_agent_handoff_modes_require_external_review(): void
+    {
+        AtlasTask::query()->create([
+            'title' => 'Provider handoff pendente',
+            'status' => 'open',
+            'priority' => 'normal',
+            'domain' => 'atlas',
+            'execution_mode' => 'provider',
+            'metadata' => [],
+        ]);
+
+        $exit = Artisan::call('atlas:ai:task-orchestration-report', [
+            '--hours' => 24,
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame(1, data_get($payload, 'task_orchestration.external_review_required_task_count'));
+        $this->assertSame('review_task_execution_receipts_before_provider_or_runtime_handoff', data_get($payload, 'task_orchestration.review_signal.recommended_action'));
+    }
+
     public function test_command_warns_when_event_receipt_allows_external_authority(): void
     {
         $task = AtlasTask::query()->create([

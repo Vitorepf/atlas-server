@@ -51,8 +51,26 @@ requires_evidence: true
 risk_level: medium
 next_actions:
   - Padronizar output de resposta, diff, plan, receipt e evidence no Atlas Code.
----
+visual_tags:
+  - module
+  - module
+  - system-graph
 
+ai_entrypoints:
+  - Leia Resumo, Contratos, Regras para IA, Evidencias e Riscos antes de implementar.
+
+ai_usage_notes:
+  - Use repo_paths, allowed_changes, forbidden_changes e required_tests como limites operacionais.
+
+quality_gates:
+  - "php artisan atlas:engineering:knowledge docs-health --json"
+
+failure_modes:
+  - Contexto desatualizado entre doc, codigo, teste e evidencia.
+
+observability_signals:
+  - docs-health status ok
+---
 # Output Renderer
 
 ## Resumo
@@ -106,4 +124,3 @@ Atlas Code pode mostrar plan, receipt e evidence em paineis separados, mas os da
 ## Proximas Acoes
 
 Definir view model unico para resposta do Atlas Code.
-

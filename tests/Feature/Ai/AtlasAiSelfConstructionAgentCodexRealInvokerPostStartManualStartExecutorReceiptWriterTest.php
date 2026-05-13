@@ -39,6 +39,7 @@ class AtlasAiSelfConstructionAgentCodexRealInvokerPostStartManualStartExecutorRe
 
         $this->assertSame('codex_real_invoker_post_start_manual_start_executor_receipt_written', $result['status']);
         $this->assertFalse($result['idempotent']);
+        $this->assertSame('codex-real-invoker-post-start-evidence-acceptance-bridge-001', $result['post_start_evidence_acceptance_bridge_id']);
         $this->assertTrue($result['manual_start_executor_receipt_written']);
         $this->assertTrue($result['manual_operator_start_required']);
         $this->assertFalse($result['actual_process_start_allowed']);
@@ -54,6 +55,10 @@ class AtlasAiSelfConstructionAgentCodexRealInvokerPostStartManualStartExecutorRe
         $this->assertSame(
             'post_start_manual_start_executor_receipt_written_pending_operator_handoff',
             data_get($observed->metadata, 'codex_real_invoker_post_start_manual_start_executor_receipt.status')
+        );
+        $this->assertSame(
+            'codex-real-invoker-post-start-evidence-acceptance-bridge-001',
+            data_get($observed->metadata, 'codex_real_invoker_post_start_manual_start_executor_receipt.post_start_evidence_acceptance_bridge_id')
         );
 
         $this->assertDatabaseHas('atlas_ledger_events', [
@@ -84,6 +89,20 @@ class AtlasAiSelfConstructionAgentCodexRealInvokerPostStartManualStartExecutorRe
 
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('post_start_process_starter_readiness_gate_id_mismatch');
+
+        app(AgentCodexRealInvokerPostStartManualStartExecutorReceiptWriter::class)
+            ->writePostStartManualStartExecutorReceipt($this->validInput());
+    }
+
+    public function test_post_start_manual_start_executor_receipt_rejects_missing_evidence_acceptance_bridge(): void
+    {
+        $this->createObservedReadinessRun([
+            'metadata' => $this->observedMetadataWithReadiness(['post_start_evidence_acceptance_bridge_id' => null]),
+        ]);
+        $this->createProviderReadinessRun();
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('post_start_evidence_acceptance_bridge_id_mismatch');
 
         app(AgentCodexRealInvokerPostStartManualStartExecutorReceiptWriter::class)
             ->writePostStartManualStartExecutorReceipt($this->validInput());
@@ -233,6 +252,7 @@ class AtlasAiSelfConstructionAgentCodexRealInvokerPostStartManualStartExecutorRe
             'real_invoker_process_start_envelope_id' => 'codex-real-invoker-process-start-envelope-001',
             'real_invoker_start_execution_gate_id' => 'codex-real-invoker-start-execution-gate-001',
             'real_invoker_process_starter_readiness_gate_id' => 'codex-real-invoker-process-starter-readiness-001',
+            'post_start_evidence_acceptance_bridge_id' => 'codex-real-invoker-post-start-evidence-acceptance-bridge-001',
             'process_starter_manifest_hash' => str_repeat('7', 64),
             'supervisor_binding_hash' => str_repeat('8', 64),
             'liveness_monitor_binding_hash' => str_repeat('9', 64),

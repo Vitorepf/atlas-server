@@ -3,10 +3,12 @@
 namespace Tests\Unit;
 
 use App\Models\AtlasEngineeringBenchmarkCase;
+use App\Models\AtlasEngineeringBenchmarkRun;
 use App\Models\AtlasTask;
 use App\Services\Engineering\EngineeringBenchmarkService;
 use App\Services\Engineering\EngineeringClaudeCodeBaselineRunnerService;
 use App\Services\Engineering\EngineeringHarnessRunnerService;
+use Illuminate\Support\Facades\File;
 use ReflectionMethod;
 use Tests\TestCase;
 
@@ -691,6 +693,128 @@ class EngineeringBenchmarkFairClaudeScorecardTest extends TestCase
         $this->assertTrue($scorecard['claude_code_baseline']['verified']);
     }
 
+    public function test_paired_scorecard_excludes_invalid_atlas_protocol_from_win_loss_math(): void
+    {
+        $scorecard = $this->pairedScorecard([
+            'passed' => false,
+            'failure_summary' => 'fair protocol invalid',
+        ], [
+            'required' => true,
+            'passed' => false,
+            'protocol_valid' => false,
+            'provider_violation_count' => 0,
+            'fallback_violation_count' => 0,
+            'blocking_reasons' => ['fair_protocol_not_valid'],
+        ], [
+            'enabled' => true,
+            'status' => 'completed',
+            'executed' => true,
+            'provider' => 'claude_code_cli',
+            'model' => 'claude-opus-test',
+            'decision' => 'resolved',
+            'score' => 100,
+            'deterministic_gates_passed' => true,
+            'pass_without_human' => true,
+        ], atlasScore: 40);
+
+        $this->assertSame('atlas_protocol_invalid', $scorecard['comparison_status']);
+        $this->assertFalse($scorecard['comparable']);
+        $this->assertNull($scorecard['winner']);
+        $this->assertFalse($scorecard['atlas']['verified']);
+        $this->assertTrue($scorecard['claude_code_baseline']['verified']);
+        $this->assertContains('fair_protocol_not_valid', $scorecard['blocking_reasons']);
+    }
+
+    public function test_report_normalization_excludes_legacy_invalid_protocol_win(): void
+    {
+        $scorecard = $this->normalizePairedScorecardForReport([
+            'fair_mode' => true,
+            'comparison_status' => 'comparable',
+            'comparable' => true,
+            'winner' => 'claude_code_baseline',
+            'atlas' => [
+                'verified' => false,
+                'protocol_valid' => false,
+                'provider_violation_count' => 0,
+                'fallback_violation_count' => 0,
+            ],
+            'claude_code_baseline' => [
+                'verified' => true,
+            ],
+            'blocking_reasons' => ['atlas_not_verified_pass'],
+        ]);
+
+        $this->assertSame('atlas_protocol_invalid', $scorecard['comparison_status']);
+        $this->assertFalse($scorecard['comparable']);
+        $this->assertNull($scorecard['winner']);
+        $this->assertContains('fair_protocol_not_valid', $scorecard['blocking_reasons']);
+    }
+
+    public function test_fair_readiness_blocks_claim_when_comparable_sample_is_below_release_minimum(): void
+    {
+        $readiness = $this->fairClaudeReportReadiness([
+            'enabled' => true,
+            'case_count' => 1,
+            'fair_mode_count' => 1,
+            'comparable_count' => 1,
+            'atlas_win_count' => 1,
+            'claude_code_baseline_win_count' => 0,
+            'tie_count' => 0,
+            'protocol_validity_rate' => 100,
+            'pass_without_human_rate' => 100,
+            'final_gate_pass_rate' => 100,
+            'provider_violation_count' => 0,
+            'fallback_violation_count' => 0,
+        ]);
+
+        $this->assertSame('not_ready', $readiness['status']);
+        $this->assertFalse($readiness['ready_for_claim']);
+        $this->assertSame(6, $readiness['minimum_comparable_case_count']);
+        $this->assertContains('fair_comparable_cases_below_release_minimum', $readiness['blocking_reasons']);
+    }
+
+    public function test_fair_readiness_blocks_claim_when_protocol_or_gate_rates_are_below_100(): void
+    {
+        $readiness = $this->fairClaudeReportReadiness([
+            'enabled' => true,
+            'case_count' => 6,
+            'fair_mode_count' => 6,
+            'comparable_count' => 6,
+            'atlas_win_count' => 6,
+            'claude_code_baseline_win_count' => 0,
+            'tie_count' => 0,
+            'protocol_validity_rate' => 83.33,
+            'pass_without_human_rate' => 100,
+            'final_gate_pass_rate' => 83.33,
+            'provider_violation_count' => 0,
+            'fallback_violation_count' => 0,
+        ]);
+
+        $this->assertSame('not_ready', $readiness['status']);
+        $this->assertFalse($readiness['ready_for_claim']);
+        $this->assertContains('fair_protocol_validity_below_100', $readiness['blocking_reasons']);
+        $this->assertContains('fair_final_gate_pass_rate_below_100', $readiness['blocking_reasons']);
+    }
+
+    public function test_replay_manifest_artifact_verification_reports_missing_file_separately_from_unsafe_path(): void
+    {
+        File::ensureDirectoryExists(storage_path('app/engineering-benchmark-runs'));
+        $path = storage_path('app/engineering-benchmark-runs/missing-run/replay-manifest.json');
+
+        $summary = $this->withReplayManifestArtifactVerification([
+            'replay_manifest' => [
+                'artifact' => [
+                    'status' => 'persisted',
+                    'path' => $path,
+                    'sha256' => hash('sha256', 'missing'),
+                ],
+            ],
+        ]);
+
+        $this->assertSame('artifact_missing', data_get($summary, 'replay_manifest.artifact.integrity.reason'));
+        $this->assertFalse(data_get($summary, 'replay_manifest.artifact.integrity.hash_matches'));
+    }
+
     /**
      * @param  array<string,mixed>  $payload
      * @param  array<string,mixed>  $runnerOptions
@@ -743,6 +867,56 @@ class EngineeringBenchmarkFairClaudeScorecardTest extends TestCase
             'resolved',
             $atlasScore,
         );
+    }
+
+    /**
+     * @param  array<string,mixed>  $paired
+     * @return array<string,mixed>
+     */
+    private function fairClaudeReportReadiness(array $paired): array
+    {
+        $service = app(EngineeringBenchmarkService::class);
+        $method = new ReflectionMethod(EngineeringBenchmarkService::class, 'fairClaudeReportReadiness');
+        $method->setAccessible(true);
+
+        return $method->invoke($service, collect([new AtlasEngineeringBenchmarkRun]), $paired, [
+            'enabled' => true,
+            'executed_count' => (int) ($paired['comparable_count'] ?? 0),
+        ], [
+            'enabled' => true,
+            'artifact_integrity_failed_count' => 0,
+        ], [
+            'active_cases' => 8,
+            'official_subsets' => [
+                'release' => 6,
+            ],
+        ]);
+    }
+
+    /**
+     * @param  array<string,mixed>  $scorecard
+     * @return array<string,mixed>
+     */
+    private function normalizePairedScorecardForReport(array $scorecard): array
+    {
+        $service = app(EngineeringBenchmarkService::class);
+        $method = new ReflectionMethod(EngineeringBenchmarkService::class, 'normalizePairedScorecardForReport');
+        $method->setAccessible(true);
+
+        return $method->invoke($service, $scorecard);
+    }
+
+    /**
+     * @param  array<string,mixed>  $summary
+     * @return array<string,mixed>
+     */
+    private function withReplayManifestArtifactVerification(array $summary): array
+    {
+        $service = app(EngineeringBenchmarkService::class);
+        $method = new ReflectionMethod(EngineeringBenchmarkService::class, 'withReplayManifestArtifactVerification');
+        $method->setAccessible(true);
+
+        return $method->invoke($service, $summary);
     }
 
     private function benchmarkCase(): AtlasEngineeringBenchmarkCase

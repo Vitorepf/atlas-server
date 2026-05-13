@@ -51,8 +51,26 @@ requires_evidence: true
 risk_level: high
 next_actions:
   - Mostrar learning proposals reais no Atlas Code sem autoaplicar mudancas criticas.
----
+visual_tags:
+  - module
+  - module
+  - system-graph
 
+ai_entrypoints:
+  - Leia Resumo, Contratos, Regras para IA, Evidencias e Riscos antes de implementar.
+
+ai_usage_notes:
+  - Use repo_paths, allowed_changes, forbidden_changes e required_tests como limites operacionais.
+
+quality_gates:
+  - "php artisan atlas:engineering:knowledge docs-health --json"
+
+failure_modes:
+  - Contexto desatualizado entre doc, codigo, teste e evidencia.
+
+observability_signals:
+  - docs-health status ok
+---
 # Learning Proposals
 
 ## Resumo
@@ -106,4 +124,3 @@ Se Sonnet superar Opus em uma classe de tarefa, o Atlas pode propor ajuste de de
 ## Proximas Acoes
 
 Conectar propostas ao painel Learn do Atlas Code.
-

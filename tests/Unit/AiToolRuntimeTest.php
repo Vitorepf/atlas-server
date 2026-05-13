@@ -172,4 +172,87 @@ class AiToolRuntimeTest extends TestCase
         $this->assertTrue($result->ok);
         $this->assertSame('missing', trim($result->stdout));
     }
+
+    public function test_programming_test_dry_run_returns_action_runtime_contract_without_execution(): void
+    {
+        $result = app(AiToolRuntime::class)->execute(ToolInvocation::make('programming.test', $this->workspace, [
+            'command' => PHP_BINARY.' -r "file_put_contents(\'ran.txt\', \'yes\');"',
+        ], [
+            'permission_mode' => 'write',
+            'dry_run' => true,
+        ]));
+
+        $this->assertTrue($result->ok);
+        $this->assertStringContainsString(PHP_BINARY, $result->output);
+        $this->assertFalse(File::exists($this->workspace.'/ran.txt'));
+        $this->assertSame('atlas.tool_action_runtime.contract.v1', data_get($result->metadata, 'action_runtime_contract.schema_version'));
+        $this->assertSame('programming.test', data_get($result->metadata, 'action_runtime_contract.tool'));
+        $this->assertSame('test', data_get($result->metadata, 'action_runtime_contract.programming_action'));
+        $this->assertTrue((bool) data_get($result->metadata, 'action_runtime_contract.dry_run'));
+        $this->assertFalse((bool) data_get($result->metadata, 'action_runtime_contract.provider_dispatch_allowed'));
+        $this->assertFalse((bool) data_get($result->metadata, 'action_runtime_contract.raw_command_exposed'));
+    }
+
+    public function test_programming_lint_executes_declared_command_with_evidence_contract(): void
+    {
+        $result = app(AiToolRuntime::class)->execute(ToolInvocation::make('programming.lint', $this->workspace, [
+            'command' => PHP_BINARY.' -r "echo \'lint-ok\';"',
+        ], [
+            'permission_mode' => 'write',
+            'metadata' => ['approved' => true],
+        ]));
+
+        $this->assertTrue($result->ok);
+        $this->assertSame('lint-ok', trim($result->stdout));
+        $this->assertSame('lint', data_get($result->metadata, 'action_runtime_contract.programming_action'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) data_get($result->metadata, 'action_runtime_contract.evidence.stdout_sha256'));
+        $this->assertFalse((bool) data_get($result->metadata, 'action_runtime_contract.rollback.available'));
+    }
+
+    public function test_programming_read_actions_are_canonical_aliases_for_diff_and_code_search(): void
+    {
+        File::put($this->workspace.'/a.php', "<?php\n// Atlas Needle\n");
+
+        $search = app(AiToolRuntime::class)->execute(ToolInvocation::make('programming.code_search', $this->workspace, [
+            'query' => 'Atlas Needle',
+        ]));
+        $diff = app(AiToolRuntime::class)->execute(ToolInvocation::make('programming.git_diff', $this->workspace));
+
+        $this->assertTrue($search->ok);
+        $this->assertStringContainsString('a.php', $search->stdout);
+        $this->assertSame('code_search', data_get($search->metadata, 'action_runtime_contract.programming_action'));
+        $this->assertTrue($diff->ok);
+        $this->assertSame('git_diff', data_get($diff->metadata, 'action_runtime_contract.programming_action'));
+        $this->assertSame('read', data_get($diff->metadata, 'action_runtime_contract.permission_mode'));
+    }
+
+    public function test_programming_quality_and_visual_smoke_have_safe_dry_run_contracts(): void
+    {
+        $quality = app(AiToolRuntime::class)->execute(ToolInvocation::make('programming.quality_scan', $this->workspace, [
+            'profile' => 'fast',
+            'timeout' => 10,
+        ], [
+            'permission_mode' => 'write',
+            'dry_run' => true,
+        ]));
+        $visual = app(AiToolRuntime::class)->execute(ToolInvocation::make('programming.visual_smoke', $this->workspace, [
+            'url' => 'http://127.0.0.1:3000',
+            'routes' => ['/health'],
+        ], [
+            'permission_mode' => 'write',
+            'dry_run' => true,
+        ]));
+
+        $this->assertTrue($quality->ok);
+        $this->assertStringContainsString('atlas:engineering:quality-scan', $quality->output);
+        $this->assertSame('quality_scan', data_get($quality->metadata, 'action_runtime_contract.programming_action'));
+        $this->assertTrue($visual->ok);
+        $this->assertStringContainsString('atlas:engineering:visual-smoke', $visual->output);
+        $this->assertStringContainsString('--route=/health', $visual->output);
+        $this->assertSame('visual_smoke', data_get($visual->metadata, 'action_runtime_contract.programming_action'));
+        $this->assertSame('atlas.programming.action_manifest.v1', data_get($visual->metadata, 'programming_action_manifest.schema_version'));
+        $this->assertSame('programming.visual_smoke', data_get($visual->metadata, 'programming_action_manifest.tool'));
+        $this->assertSame('test', data_get($visual->metadata, 'programming_action_manifest.stage'));
+        $this->assertSame('advisory', data_get($visual->metadata, 'programming_action_manifest.gate_effect'));
+    }
 }

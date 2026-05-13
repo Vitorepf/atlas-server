@@ -17,6 +17,13 @@ class AtlasProgrammingOrchestrator implements AtlasDomainOrchestrator
         private readonly AtlasDecideService $decide,
         private readonly EngineeringHarnessExecutionService $harness,
         private readonly AgentBehaviorContract $agentBehavior,
+        private readonly ProgrammingRetrievalPlanner $retrievalPlanner,
+        private readonly ProgrammingStageReceiptStore $stageReceipts,
+        private readonly ProgrammingResumeService $resumeService,
+        private readonly ProgrammingSandboxManager $sandboxManager,
+        private readonly ProgrammingTestImpactAnalyzer $testImpactAnalyzer,
+        private readonly ProgrammingPatchVerifier $patchVerifier,
+        private readonly ProgrammingLearningCandidateProjector $learningCandidates,
     ) {}
 
     /**
@@ -85,12 +92,15 @@ class AtlasProgrammingOrchestrator implements AtlasDomainOrchestrator
         );
         $policyAutoTest = (bool) data_get($executionPolicy, 'auto_test', $profile === 'forge' || (bool) ($options['auto_test'] ?? false));
 
+        $planId = (string) Str::orderedUuid();
+        $parentPlanId = is_string($options['parent_plan_id'] ?? null) && trim((string) $options['parent_plan_id']) !== ''
+            ? trim((string) $options['parent_plan_id'])
+            : null;
+
         $plan = [
             'schema_version' => 1,
-            'plan_id' => (string) Str::orderedUuid(),
-            'parent_plan_id' => is_string($options['parent_plan_id'] ?? null) && trim((string) $options['parent_plan_id']) !== ''
-                ? trim((string) $options['parent_plan_id'])
-                : null,
+            'plan_id' => $planId,
+            'parent_plan_id' => $parentPlanId,
             'orchestrator' => 'AtlasProgrammingOrchestrator',
             'programming_profile' => $profile,
             'programming_flow' => $programmingFlow,
@@ -118,6 +128,53 @@ class AtlasProgrammingOrchestrator implements AtlasDomainOrchestrator
             'operational_decision' => $decision->toArray(),
             'created_at' => now()->toJSON(),
         ];
+        $previousReceipts = is_array($options['previous_stage_receipts'] ?? null)
+            ? $options['previous_stage_receipts']
+            : [];
+        $plan['agentic_rag_plan'] = $this->retrievalPlanner->plan(
+            planId: $planId,
+            workspace: $workspace,
+            objective: (string) ($options['task'] ?? ''),
+            flow: $programmingFlow,
+            options: [
+                'quality_required' => (bool) data_get($executionPolicy, 'quality_required', false),
+                'previous_stage_receipts' => $previousReceipts,
+            ],
+        );
+        $plan['stage_receipt_plan'] = [
+            'schema_version' => 'atlas.programming.stage_receipt_plan.v1',
+            'expected_receipts' => $this->stageReceipts->expectedReceipts(
+                planId: $planId,
+                parentPlanId: $parentPlanId,
+                stages: ['plan', 'review', 'patch', 'test', 'repair'],
+            ),
+        ];
+        $plan['resume_state'] = $this->resumeService->state($planId, $parentPlanId, $previousReceipts);
+        $plan['test_impact_plan'] = $this->testImpactAnalyzer->analyze(
+            changedFiles: [],
+            codeGraph: (array) data_get($plan, 'agentic_rag_plan.semantic_code_graph', []),
+            risk: (string) data_get($decision->toArray(), 'task_profile.risk_level', 'medium'),
+        );
+        $plan['sandbox_plan'] = $this->sandboxManager->plan(
+            workspace: $workspace,
+            risk: (string) data_get($decision->toArray(), 'task_profile.risk_level', 'medium'),
+            write: (string) data_get($policyContracts, 'tools.mode', 'workspace_write') !== 'read_only',
+        );
+        $plan['patch_verifier_gate'] = $this->patchVerifier->verify([
+            'changed_files' => [],
+            'tests' => [],
+            'no_test_reason' => 'planning_stage_no_patch_yet',
+            'action_manifests' => [['schema_version' => 'atlas.programming.action_manifest.v1', 'stage' => 'plan']],
+        ]);
+        $plan['learning_candidate_policy'] = $this->learningCandidates->project([
+            'status' => 'planned',
+            'evidence_refs' => ['agentic_rag:'.data_get($plan, 'agentic_rag_plan.retrieval_receipt.receipt_id')],
+        ]);
+        $plan['programming_orchestration_contract'] = $this->programmingOrchestrationContract($plan, $options);
+        $frontendContract = $this->frontendDesignHarnessContract($plan, $options);
+        if ($frontendContract !== null) {
+            $plan['frontend_design_harness_contract'] = $frontendContract;
+        }
         $plan['repair_execution_contract'] = $this->repairExecutionContract($plan);
 
         return $plan;
@@ -148,6 +205,7 @@ class AtlasProgrammingOrchestrator implements AtlasDomainOrchestrator
             'programming.qa',
             'programming.security',
             'programming.database',
+            'programming.frontend',
             'programming.visual',
             'programming.forge',
         ];
@@ -236,6 +294,12 @@ class AtlasProgrammingOrchestrator implements AtlasDomainOrchestrator
             'policy_contracts' => data_get($programmingMessagePlan, 'policy_contracts')
                 ?: data_get($programmingMessagePlan, 'policy_profile.policy_contracts')
                 ?: data_get($programmingMessagePlan, 'policy_profile.effective_policy.operational_contracts'),
+            'programming_orchestration_contract' => data_get($programmingMessagePlan, 'programming_orchestration_contract'),
+            'frontend_design_harness_contract' => data_get($programmingMessagePlan, 'frontend_design_harness_contract'),
+            'agentic_rag_plan' => data_get($programmingMessagePlan, 'agentic_rag_plan'),
+            'stage_receipt_plan' => data_get($programmingMessagePlan, 'stage_receipt_plan'),
+            'resume_state' => data_get($programmingMessagePlan, 'resume_state'),
+            'sandbox_plan' => data_get($programmingMessagePlan, 'sandbox_plan'),
             'operational_decision_id' => data_get($programmingMessagePlan, 'operational_decision.decision_id'),
             'plan_id' => data_get($programmingMessagePlan, 'plan_id'),
             'created_at' => now()->toJSON(),
@@ -250,6 +314,19 @@ class AtlasProgrammingOrchestrator implements AtlasDomainOrchestrator
     public function harnessCompletionContract(array $result, array $dispatch, ?string $model = null): array
     {
         $status = (string) ($result['status'] ?? 'unknown');
+        $changedFiles = array_values(array_filter((array) ($result['changed_files'] ?? data_get($result, 'harness_payload.run.changed_files', [])), 'is_string'));
+        $actionManifests = array_values((array) ($result['action_manifests'] ?? data_get($result, 'harness_payload.action_manifests', [])));
+        $testImpact = $this->testImpactAnalyzer->analyze(
+            changedFiles: $changedFiles,
+            codeGraph: (array) data_get($dispatch, 'agentic_rag_plan.semantic_code_graph', []),
+            risk: (string) data_get($dispatch, 'execution_policy.risk_level', 'medium'),
+        );
+        $patchVerifier = $this->patchVerifier->verify([
+            'changed_files' => $changedFiles,
+            'tests' => (array) data_get($testImpact, 'selected_tests', []),
+            'no_test_reason' => $changedFiles === [] ? 'no_patch_changes_reported' : null,
+            'action_manifests' => $actionManifests !== [] ? $actionManifests : [['schema_version' => 'atlas.programming.action_manifest.v1', 'stage' => 'completion_projection']],
+        ]);
 
         return array_filter([
             'schema_version' => 1,
@@ -266,8 +343,190 @@ class AtlasProgrammingOrchestrator implements AtlasDomainOrchestrator
             'kernel_repair_decision' => $result['kernel_repair_decision'] ?? null,
             'repair_contract' => $result['repair_contract'] ?? null,
             'policy_contracts' => data_get($dispatch, 'policy_contracts'),
+            'programming_orchestration_contract' => data_get($dispatch, 'programming_orchestration_contract'),
+            'frontend_design_harness_contract' => data_get($dispatch, 'frontend_design_harness_contract'),
+            'test_impact_receipt' => $testImpact,
+            'patch_verifier_report' => $patchVerifier,
+            'learning_candidate' => $this->learningCandidates->project([
+                'status' => in_array($status, ['passed', 'partial'], true) ? 'passed' : 'blocked',
+                'evidence_refs' => (array) ($result['evidence_refs'] ?? []),
+            ]),
             'completed_at' => now()->toJSON(),
         ], fn (mixed $value): bool => $value !== null && $value !== []);
+    }
+
+    /**
+     * @param  array<string,mixed>  $programmingMessagePlan
+     * @param  array<string,mixed>  $options
+     * @return array<string,mixed>|null
+     */
+    public function frontendDesignHarnessContract(array $programmingMessagePlan, array $options = []): ?array
+    {
+        $flow = (string) data_get($programmingMessagePlan, 'programming_flow', '');
+        $profileId = (string) data_get($programmingMessagePlan, 'policy_profile.profile_id', '');
+        $task = strtolower(Str::ascii((string) ($options['task'] ?? data_get($programmingMessagePlan, 'operational_decision.input_text', ''))));
+        $isFrontend = in_array($flow, ['visual', 'frontend', 'programming.visual', 'programming.frontend'], true)
+            || in_array($profileId, ['programming.visual', 'programming.frontend'], true)
+            || $this->containsAny($task, ['frontend', 'ui', 'layout', 'screen', 'tela', 'component', 'react', 'expo', 'mobile visual', 'design system']);
+
+        if (! $isFrontend) {
+            return null;
+        }
+
+        $planId = (string) (data_get($programmingMessagePlan, 'plan_id') ?: Str::orderedUuid());
+
+        return [
+            'schema_version' => 'atlas.programming.frontend_design_harness.v1',
+            'source' => 'AtlasProgrammingOrchestrator',
+            'plan_id' => $planId,
+            'status' => 'contract_required_before_frontend_claim',
+            'specialist_profile' => 'programming.frontend',
+            'provider_policy' => [
+                'provider_neutral' => true,
+                'hardcode_claude_codex_gemini_forbidden' => true,
+                'atlas_decide_required' => true,
+                'external_skill_license_review_required_for_product_use' => true,
+            ],
+            'context_pack_required' => [
+                'framework_routes_components',
+                'design_tokens_or_reason',
+                'existing_screenshots_or_reason',
+                'viewport_device_matrix',
+                'asset_provenance',
+                'a11y_baseline_or_reason',
+                'performance_budget_or_reason',
+                'console_network_errors_or_reason',
+                'prior_visual_regressions_or_reason',
+            ],
+            'output_types' => [
+                'production_ui_patch',
+                'clickable_prototype',
+                'motion_design_asset',
+                'deck_infographic',
+            ],
+            'required_gates' => [
+                'typescript_or_reason',
+                'eslint_or_biome_or_reason',
+                'console_error_check',
+                'visual_smoke_multi_viewport',
+                'no_text_overlap',
+                'responsive_check',
+                'a11y_check_or_reason',
+                'state_transition_check',
+                'asset_provenance_check',
+                'design_5d_review',
+                'performance_budget_or_reason',
+            ],
+            'evidence_contract' => [
+                'schema_version' => 'atlas.programming.frontend_evidence.v1',
+                'required_before_done' => [
+                    'context_pack_hash',
+                    'changed_files_or_prototype_artifacts',
+                    'tool_run_receipts',
+                    'screenshots_or_reason',
+                    'gate_results',
+                    'design_review_summary',
+                ],
+                'visual_smoke_tool' => 'programming.visual_smoke',
+                'hash_algorithm' => 'sha256',
+            ],
+            'completion_rules' => [
+                'screenshot_alone_is_insufficient' => true,
+                'visual_a11y_perf_state_required_or_reason' => true,
+                'human_review_required_for_broad_visual_change' => true,
+                'may_not_declare_enterprise_harness_complete_without_gate_receipts' => true,
+            ],
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $programmingMessagePlan
+     * @param  array<string,mixed>  $options
+     * @return array<string,mixed>
+     */
+    public function programmingOrchestrationContract(array $programmingMessagePlan, array $options = []): array
+    {
+        $planId = (string) data_get($programmingMessagePlan, 'plan_id', '');
+        $parentPlanId = data_get($programmingMessagePlan, 'parent_plan_id');
+        $flow = (string) data_get($programmingMessagePlan, 'programming_flow', 'dev');
+        $profile = (string) data_get($programmingMessagePlan, 'programming_profile', 'dev');
+        $executor = (string) data_get($programmingMessagePlan, 'executor_decision.executor', 'simple_provider_execution');
+        $toolMode = (string) data_get($programmingMessagePlan, 'policy_contracts.tools.mode', 'workspace_write');
+        $readOnly = $toolMode === 'read_only' || $flow === 'review';
+        $autoTest = (bool) data_get($programmingMessagePlan, 'execution_profile.auto_test', false);
+        $repairEnabled = $executor === 'dev_repair_executor' || $flow === 'repair';
+        $resumed = $parentPlanId !== null || (is_string($options['resume'] ?? null) && trim((string) $options['resume']) !== '');
+
+        $stages = [
+            $this->orchestrationStage($planId, 'plan', 'required', [
+                'description' => 'Normalize objective, load Open Brain context and issue a single canonical plan.',
+                'write_allowed' => false,
+                'provider_allowed' => false,
+                'required_evidence' => ['context_pack_hash', 'operational_decision_id'],
+            ]),
+            $this->orchestrationStage($planId, 'review', $readOnly || in_array($flow, ['review', 'refactor', 'forge'], true) ? 'required' : 'optional', [
+                'description' => 'Inspect code, docs, prior decisions and risk before patching.',
+                'write_allowed' => false,
+                'provider_allowed' => true,
+                'required_evidence' => ['review_summary', 'risk_notes'],
+            ]),
+            $this->orchestrationStage($planId, 'patch', $readOnly ? 'blocked' : 'required', [
+                'description' => 'Apply the smallest scoped code change through the selected executor.',
+                'write_allowed' => ! $readOnly,
+                'provider_allowed' => true,
+                'required_evidence' => ['diff_stat', 'changed_files'],
+            ]),
+            $this->orchestrationStage($planId, 'test', $autoTest ? 'required' : 'operator_or_policy', [
+                'description' => 'Run the declared test, lint, quality or harness actions and attach evidence.',
+                'write_allowed' => false,
+                'provider_allowed' => false,
+                'required_evidence' => ['tool_run_receipts', 'gate_result'],
+            ]),
+            $this->orchestrationStage($planId, 'repair', $repairEnabled ? 'conditional' : 'blocked', [
+                'description' => 'Resume from failed gates only after Kernel repair decision and evidence.',
+                'write_allowed' => $repairEnabled && ! $readOnly,
+                'provider_allowed' => $repairEnabled,
+                'required_evidence' => ['failure_packet', 'kernel_repair_decision'],
+            ]),
+        ];
+
+        return [
+            'schema_version' => 'atlas.programming.orchestration.v1',
+            'source' => 'AtlasProgrammingOrchestrator',
+            'plan_id' => $planId,
+            'parent_plan_id' => is_string($parentPlanId) && trim($parentPlanId) !== '' ? trim($parentPlanId) : null,
+            'resumed' => $resumed,
+            'programming_profile' => $profile,
+            'programming_flow' => str_starts_with($flow, 'programming.') ? $flow : 'programming.'.$flow,
+            'executor' => $executor,
+            'canonical_surface' => 'atlas_cli_dev',
+            'surface_rule' => 'all_cli_app_chat_programming_surfaces_must_follow_this_contract',
+            'stage_order' => array_column($stages, 'stage'),
+            'stages' => $stages,
+            'receipt_contract' => [
+                'schema_version' => 'atlas.programming.stage_receipt.v1',
+                'required_fields' => [
+                    'receipt_id',
+                    'plan_id',
+                    'stage',
+                    'status',
+                    'evidence_refs',
+                    'input_hash',
+                    'output_hash',
+                    'created_at',
+                ],
+                'hash_algorithm' => 'sha256',
+                'append_only' => true,
+            ],
+            'resume_contract' => [
+                'can_resume' => true,
+                'resume_key' => 'plan_id',
+                'parent_plan_id_required_when_resuming' => true,
+                'must_load_open_brain' => true,
+                'must_preserve_prior_decisions' => true,
+                'must_attach_previous_stage_receipts' => true,
+            ],
+        ];
     }
 
     /**
@@ -386,6 +645,25 @@ class AtlasProgrammingOrchestrator implements AtlasDomainOrchestrator
     }
 
     /**
+     * @param  array<string,mixed>  $attributes
+     * @return array<string,mixed>
+     */
+    private function orchestrationStage(string $planId, string $stage, string $mode, array $attributes): array
+    {
+        return [
+            'stage' => $stage,
+            'mode' => $mode,
+            'receipt_id' => $planId !== '' ? hash('sha256', $planId.'|'.$stage) : null,
+            'receipt_schema' => 'atlas.programming.stage_receipt.v1',
+            'status_values' => ['pending', 'running', 'passed', 'failed', 'blocked', 'skipped'],
+            'description' => (string) ($attributes['description'] ?? ''),
+            'write_allowed' => (bool) ($attributes['write_allowed'] ?? false),
+            'provider_allowed' => (bool) ($attributes['provider_allowed'] ?? false),
+            'required_evidence' => array_values((array) ($attributes['required_evidence'] ?? [])),
+        ];
+    }
+
+    /**
      * @param  array<string,mixed>  $options
      */
     private function programmingFlow(string $profile, array $options): string
@@ -410,11 +688,12 @@ class AtlasProgrammingOrchestrator implements AtlasDomainOrchestrator
             'test', 'tests', 'testing', 'quality', 'qa' => 'qa',
             'sec', 'security' => 'security',
             'db', 'database', 'postgres', 'migration', 'migrations' => 'database',
-            'ui', 'frontend', 'visual', 'e2e' => 'visual',
+            'frontend' => 'frontend',
+            'ui', 'visual', 'e2e' => 'visual',
             default => $candidate,
         };
 
-        if (in_array($candidate, ['repair', 'review', 'refactor', 'qa', 'security', 'database', 'visual'], true)) {
+        if (in_array($candidate, ['repair', 'review', 'refactor', 'qa', 'security', 'database', 'frontend', 'visual'], true)) {
             return $candidate;
         }
 
@@ -426,6 +705,7 @@ class AtlasProgrammingOrchestrator implements AtlasDomainOrchestrator
             $this->containsAny($text, ['refactor', 'refator', 'refatore', 'refatoracao', 'refatoração']) => 'refactor',
             $this->containsAny($text, ['security', 'seguranca', 'segurança', 'vulnerab', 'threat']) => 'security',
             $this->containsAny($text, ['database', 'banco', 'postgres', 'migration', 'migracao', 'migração']) => 'database',
+            $this->containsAny($text, ['frontend', 'component', 'react', 'expo', 'design system']) => 'frontend',
             $this->containsAny($text, ['visual', 'frontend', 'ui', 'tela', 'screenshot', 'e2e']) => 'visual',
             $this->containsAny($text, ['qa', 'testes', 'tests', 'regression', 'regressao', 'regressão']) => 'qa',
             default => 'dev',

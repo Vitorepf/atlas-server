@@ -55,8 +55,81 @@ related_paths:
   - docs/atlas-cli-5x-claude-code-plan.md
   - docs/atlas-cli-fair-claude-benchmark.md
   - docs/atlas-cli-release-checklist.md
----
+doc_schema: atlas_canonical_module_doc.v1
 
+graph_id: engineering-knowledge-capability-matrix
+
+graph_title: Matriz De Capacidades Do Harness Legacy
+
+graph_world: atlas
+
+graph_layer: module
+
+graph_kind: module
+
+graph_parent: atlas-ai-canonical-architecture-index
+
+graph_status: deprecated
+
+graph_source: repo
+
+owner: capability-matrix
+
+repo_paths:
+  - docs/engineering-knowledge-base/capability-matrix.md
+
+allowed_changes:
+  - Atualizar este doc quando codigo, arquitetura, fluxo, evidencia ou decisao canonica mudar.
+
+forbidden_changes:
+  - Declarar runtime, maturidade ou prontidao sem evidencia verificavel e gates verdes.
+
+depends_on:
+  - atlas-ai-documentation-operating-system
+
+flows_to:
+  - atlas-cartography
+  - atlas-code
+
+unlocks:
+  - ai-safe-implementation-context
+
+governs:
+  - capability-matrix
+
+evidence:
+  - docs/engineering-knowledge-base/capability-matrix.md
+
+required_tests:
+  - "php artisan atlas:engineering:knowledge docs-health --json"
+
+requires_evidence: true
+
+risk_level: low
+
+visual_tags:
+  - module
+  - module
+  - capability-matrix
+
+ai_entrypoints:
+  - Leia Resumo, Contratos, Regras para IA, Evidencias e Riscos antes de implementar.
+
+ai_usage_notes:
+  - Use repo_paths, allowed_changes, forbidden_changes e required_tests como limites operacionais.
+
+quality_gates:
+  - "php artisan atlas:engineering:knowledge docs-health --json"
+
+failure_modes:
+  - Contexto desatualizado entre doc, codigo, teste e evidencia.
+
+observability_signals:
+  - docs-health status ok
+
+next_actions:
+  - Manter este doc sincronizado com codigo, testes, evidencias e Cartografia.
+---
 # Matriz De Capacidades
 
 > Status: deprecated. Esta matriz foi util durante a consolidacao inicial do
@@ -120,3 +193,51 @@ Ao implementar uma capacidade nova:
 3. criar teste focado;
 4. registrar no help/CLI quando virar operavel;
 5. expor no app apenas quando houver fluxo claro para operador.
+
+## Resumo
+
+Matriz legada das capacidades do Harness; mantida como historico e substituida por Blueprint Maturity, Super Tool Runtime, Programming Power Tools e Canonical Architecture Index.
+
+## Papel no Atlas
+
+Define a responsabilidade desta peca dentro da arquitetura Atlas.
+
+## Onde Se Encaixa
+
+Relaciona esta peca com seu sistema, camada, fluxo ou modulo pai.
+
+## Contratos
+
+Declara invariantes, entradas, saidas, limites e obrigacoes relevantes.
+
+## Fluxo
+
+Descreve o caminho operacional ou a sequencia de uso quando aplicavel.
+
+## Regras para IA
+
+Agentes devem respeitar escopo, evidencias, testes e proibicoes antes de alterar codigo.
+
+## Escopo de Implementacao
+
+Mudancas devem permanecer nos caminhos e limites declarados no frontmatter.
+
+## Dependencias
+
+Dependencias canonicas vivem em frontmatter e no corpo deste documento.
+
+## Evidencias
+
+Evidencias aceitas incluem docs, comandos, testes, receipts, reports e paths verificaveis.
+
+## Riscos
+
+Riscos principais devem ser tratados antes de promover status, runtime ou claims de prontidao.
+
+## Exemplos
+
+Exemplos concretos devem ser adicionados quando reduzirem ambiguidade para humanos ou IAs.
+
+## Proximas Acoes
+
+Proximas acoes devem ser concretas, verificaveis e ligadas a gates de qualidade.

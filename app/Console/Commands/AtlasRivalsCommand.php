@@ -7,6 +7,7 @@ use App\Services\Engineering\EngineeringBenchmarkService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Str;
+use Symfony\Component\Console\Output\BufferedOutput;
 
 class AtlasRivalsCommand extends Command
 {
@@ -42,6 +43,8 @@ class AtlasRivalsCommand extends Command
         {--gate-profile=strict : Release gate profile: release, smoke, strict, advisory or off}
         {--keep-workspace : Keep isolated execution workspace after the run for debugging}
         {--no-auto-test : Disable auto-test for run and run-atlas}
+        {--confirm-runbook-reviewed : Confirm the Rivals runbook/preflight was reviewed before provider execution}
+        {--confirm-provider-cost : Confirm external provider cost/token usage before provider execution}
         {--run-id= : Benchmark run id for replay; alias for the positional run argument}
         {--output-dir= : Write or verify report.json, evidence.json, claim.md and manifest.json for report/readiness/verify}
         {--markdown : Print audit-ready Markdown for report/readiness}
@@ -172,6 +175,8 @@ class AtlasRivalsCommand extends Command
             '--gate-profile' => $this->presetStringOption('gate-profile', $preset, 'gate_profile') ?: 'strict',
             '--keep-workspace' => (bool) $this->option('keep-workspace') ?: null,
             '--no-auto-test' => (bool) $this->option('no-auto-test') ?: null,
+            '--confirm-runbook-reviewed' => (bool) $this->option('confirm-runbook-reviewed') ?: null,
+            '--confirm-provider-cost' => (bool) $this->option('confirm-provider-cost') ?: null,
             '--run-id' => $this->stringOption('run-id'),
             '--output-dir' => $this->stringOption('output-dir'),
             '--markdown' => (bool) $this->option('markdown') ?: null,
@@ -291,8 +296,9 @@ class AtlasRivalsCommand extends Command
     {
         $args = $this->forwardArgs('runbook', $preset);
         $args['--json'] = true;
-        $exitCode = Artisan::call('atlas:engineering:benchmark:claude-fair', $args);
-        $payload = json_decode(Artisan::output(), true);
+        $buffer = new BufferedOutput;
+        $exitCode = Artisan::call('atlas:engineering:benchmark:claude-fair', $args, $buffer);
+        $payload = json_decode($buffer->fetch(), true);
         if (! is_array($payload)) {
             $payload = [
                 'schema_version' => 1,
@@ -322,9 +328,9 @@ class AtlasRivalsCommand extends Command
         $payload['ready_to_start_battery'] = $payload['start_blocking_reasons'] === [];
         $payload['preflight']['baseline_workspace_auto_prepared_when_missing'] = true;
         $payload['commands'] = [
-            'quick' => 'atlas rivals run',
-            'medium' => 'atlas rivals run --medium',
-            'full' => 'atlas rivals run --full',
+            'quick' => 'atlas rivals run --confirm-runbook-reviewed --confirm-provider-cost',
+            'medium' => 'atlas rivals run --medium --confirm-runbook-reviewed --confirm-provider-cost',
+            'full' => 'atlas rivals run --full --confirm-runbook-reviewed --confirm-provider-cost',
             'status' => 'atlas rivals readiness',
             'report' => 'atlas rivals report',
             'export' => 'atlas rivals report --output-dir=atlas-rivals-report',

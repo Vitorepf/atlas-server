@@ -50,8 +50,26 @@ requires_evidence: true
 risk_level: high
 next_actions:
   - Ligar capabilities reais ao painel Runtime do Atlas Code.
----
+visual_tags:
+  - module
+  - module
+  - system-graph
 
+ai_entrypoints:
+  - Leia Resumo, Contratos, Regras para IA, Evidencias e Riscos antes de implementar.
+
+ai_usage_notes:
+  - Use repo_paths, allowed_changes, forbidden_changes e required_tests como limites operacionais.
+
+quality_gates:
+  - "php artisan atlas:engineering:knowledge docs-health --json"
+
+failure_modes:
+  - Contexto desatualizado entre doc, codigo, teste e evidencia.
+
+observability_signals:
+  - docs-health status ok
+---
 # Capabilities
 
 ## Resumo
@@ -105,4 +123,3 @@ Programming Harness executa checks de codigo; Frontend Design Harness valida UI;
 ## Proximas Acoes
 
 Classificar capabilities por risco e evidence obrigatoria.
-
