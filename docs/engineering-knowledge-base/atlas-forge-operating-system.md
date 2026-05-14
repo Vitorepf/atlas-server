@@ -20,6 +20,7 @@ capabilities:
   - integration_queue
   - forge_evidence_loop
 decisions:
+  - Atlas Forge Continuum OS nomeia o sistema completo de continuidade, provider topology e fallback governado acima da fabrica Forge.
   - Atlas Programming Forge Flow e a pagina-mae para entender o fluxo pesado inteiro antes de ler os filhos do Forge.
   - Atlas Forge Operating System e o patamar acima do Programming Governance System.
   - Programming Governance System define as regras; Forge OS opera a fabrica que executa essas regras em escala.
@@ -30,6 +31,7 @@ maintenance:
   - Atualize este indice quando Forge Workspace, Self-Construction OS, Agent Control Plane, multi-provider orchestration, Programming Governance ou Evidence Ledger mudarem.
   - Mantenha este arquivo como indice curto; detalhes vivem nos child docs de contratos e runbook.
 related_paths:
+  - docs/engineering-knowledge-base/atlas-forge-continuum-os.md
   - docs/engineering-knowledge-base/atlas-programming-forge-flow.md
   - docs/engineering-knowledge-base/atlas-forge-operating-system-contracts.md
   - docs/engineering-knowledge-base/atlas-forge-operating-system-runbook.md
@@ -190,11 +192,16 @@ inteiro tambem inclui Programming Domain, `programming.forge`, Atlas Decide,
 Agentic RAG, Semantic Code Graph, Tool Runtime, Engineering Harness Runner,
 Repair Loop, Evidence Ledger, Learning e Cartography.
 
+Se a pergunta for sobre continuidade de execucao, modelos/providers usados,
+fallback quando provider bate limite, ou automatizacao do fluxo Claude/Codex/
+Gemini dentro do Atlas Code, leia `atlas-forge-continuum-os.md`.
+
 Este arquivo e o indice canonico do Forge. Os detalhes foram separados para
 reduzir drift documental:
 
 | Documento | Papel |
 |---|---|
+| `atlas-forge-continuum-os.md` | Sistema inteiro: Atlas Code, Obra, Forge Workspace, Atlas Decide, provider topology, fallback, review, evidence, Rivals e learning. |
 | `atlas-forge-operating-system-contracts.md` | Contratos, objetos persistentes, gates, provider governance e limites humanos. |
 | `atlas-forge-operating-system-runbook.md` | Fluxo operacional, modulos executaveis, evidence, rerun/repair e DoD. |
 
@@ -257,6 +264,8 @@ Invariantes de indice:
 - agente recebe packet, nao poder generico;
 - allowed files, forbidden files, reserved symbols e evidence sao obrigatorios;
 - provider executa, mas nao decide autoridade, escopo ou politica;
+- Atlas Decide decide provider/modelo/papel/fallback antes da execucao;
+- fallback de provider deve ser visivel, auditavel e registrado em receipt/evidence;
 - tool call de risco passa por permission/sandbox gate;
 - release sem evidence normalizada e bloqueado;
 - learning pos-execucao vira proposta governada, nao mutacao escondida.
@@ -277,6 +286,7 @@ intake
 -> packet contract
 -> reservation
 -> agent/tool execution
+-> provider topology / governed fallback quando necessario
 -> verification
 -> evidence
 -> integration queue
@@ -296,6 +306,7 @@ brownfield pesado, self-construction ou alta criticidade exige o fluxo completo.
 - Nao declare Forge implementado sem codigo, testes, Evidence Ledger e docs
   sincronizados.
 - Nao entregue provider context sem boundaries de segredo, privacidade e custo.
+- Nao faca fallback silencioso de provider; use Atlas Decide, receipt e evidence.
 - Nao aceite packet sem allowed files, forbidden files, validation commands e
   evidence.
 - Nao marque release se integration queue, docs, tests ou cartografia exigida
@@ -328,6 +339,7 @@ Fora de escopo:
 - runtime executar sem Decision Receipt;
 - automacao invasiva sem approval e privacy review;
 - claims de autonomia ou maturidade sem evidencia.
+- UI decidir provider/modelo fora do Atlas Decide e do Decision Receipt.
 
 ## Dependencias
 
@@ -341,6 +353,7 @@ Forge depende de:
 - Scope Validator;
 - Assignment and Claim contract;
 - Evidence Ledger;
+- Atlas Decide;
 - Code Intelligence;
 - Spec Operating System;
 - Obras Shared Workspace / Forge Workspace;
@@ -358,6 +371,8 @@ Evidence minimo para uma execucao Forge:
 - claims/reservations;
 - capability/toolset descriptors;
 - permission decisions;
+- provider topology e fallback chain;
+- provider fallback events quando houver;
 - scope/collision map;
 - agent assignments;
 - artifacts com hashes/provenance;
@@ -378,6 +393,8 @@ Evidence minimo para uma execucao Forge:
 - executar ferramenta destrutiva sem approval;
 - aceitar merge sem testes proporcionais;
 - ignorar conflito de arquivo entre agentes;
+- quebrar continuidade quando provider bater limite apesar de existir fallback capaz;
+- trocar provider sem registro auditavel;
 - publicar cartografia falsa ou incompleta;
 - confundir future status com runtime pronto.
 

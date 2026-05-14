@@ -14,6 +14,10 @@ use App\Models\AtlasProgrammingWorkItem;
 use App\Models\AtlasProject;
 use App\Models\AtlasToolRun;
 use App\Services\Ai\Programming\AtlasCodeEnterpriseCertificationService;
+use App\Services\Ai\Programming\AtlasForgeContinuumCertificationService;
+use App\Services\Ai\Programming\AtlasForgeProviderInvocationService;
+use App\Services\Ai\Programming\AtlasForgeProviderTopologyService;
+use App\Services\Ai\Programming\AtlasForgeRuntimeDispatchService;
 use App\Services\Ai\Programming\Governance\ProgrammingScopeMode;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -161,6 +165,13 @@ final class AtlasCodeWorkController extends Controller
             'forge_review_packet' => $this->forgeReviewPacketForWork($project),
             'forge_completion_claim' => $this->forgeCompletionClaimForWork($project),
             'forge_work_intake' => $this->forgeWorkIntakeForWork($project),
+            'forge_provider_topology' => $this->forgeProviderTopologyForWork($project),
+            'forge_continuum_certification' => $this->forgeContinuumCertificationForWork($project),
+            'forge_runtime_dispatch' => $this->forgeRuntimeDispatchForWork($project),
+            'forge_provider_capacity' => $this->forgeProviderCapacityForWork($project),
+            'forge_provider_failure_memory' => $this->forgeProviderFailureMemoryForWork($project),
+            'forge_provider_invocation' => $this->forgeProviderInvocationForWork($project),
+            'forge_provider_invocation_receipt' => $this->forgeProviderInvocationReceiptForWork($project),
             'checkpoint' => $this->checkpointForWork($project),
             'atlas_code_enterprise_certification' => $this->atlasCodeEnterpriseCertificationForProduct(),
             'repair' => [],
@@ -859,6 +870,94 @@ final class AtlasCodeWorkController extends Controller
     private function atlasCodeEnterpriseCertificationForProduct(): ?array
     {
         return app(AtlasCodeEnterpriseCertificationService::class)->latest();
+    }
+
+    /**
+     * @return array<string,mixed>|null
+     */
+    private function forgeProviderCapacityForWork(AtlasProject $project): ?array
+    {
+        try {
+            return app(\App\Services\Ai\Programming\AtlasForgeProviderCapacityService::class)
+                ->snapshot(['obra_id' => (string) $project->getKey()]);
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    /**
+     * @return array<string,mixed>|null
+     */
+    private function forgeProviderFailureMemoryForWork(AtlasProject $project): ?array
+    {
+        try {
+            return app(\App\Services\Ai\Programming\AtlasForgeProviderFailureMemoryService::class)
+                ->snapshot($project);
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    /**
+     * @return array<string,mixed>|null
+     */
+    private function forgeProviderTopologyForWork(AtlasProject $project): ?array
+    {
+        return app(AtlasForgeProviderTopologyService::class)->topology([
+            'obra_id' => (string) $project->getKey(),
+        ]);
+    }
+
+    /**
+     * @return array<string,mixed>|null
+     */
+    private function forgeRuntimeDispatchForWork(AtlasProject $project): ?array
+    {
+        return app(AtlasForgeRuntimeDispatchService::class)->latest($project);
+    }
+
+    /**
+     * @return array<string,mixed>|null
+     */
+    private function forgeProviderInvocationForWork(AtlasProject $project): ?array
+    {
+        return app(AtlasForgeProviderInvocationService::class)->latest($project);
+    }
+
+    /**
+     * @return array<string,mixed>|null
+     */
+    private function forgeProviderInvocationReceiptForWork(AtlasProject $project): ?array
+    {
+        return app(AtlasForgeProviderInvocationService::class)->latestReceipt($project);
+    }
+
+    /**
+     * @return array<string,mixed>|null
+     */
+    private function forgeContinuumCertificationForWork(AtlasProject $project): ?array
+    {
+        $report = app(AtlasForgeContinuumCertificationService::class)->certify([
+            'obra_id' => (string) $project->getKey(),
+            'strict' => false,
+        ]);
+
+        // Slim projection for state snapshot: full audit lives at
+        //   php artisan atlas:forge:continuum-certify --json --strict
+        return [
+            'schema_version' => $report['schema_version'] ?? null,
+            'status' => $report['status'] ?? null,
+            'obra_id' => $report['obra_id'] ?? null,
+            'obra_present' => $report['obra_present'] ?? null,
+            'invariants_all_true' => $report['invariants_all_true'] ?? null,
+            'invariants' => $report['invariants'] ?? [],
+            'blockers' => $report['blockers'] ?? [],
+            'live_decide_runtime' => $report['live_decide_runtime'] ?? null,
+            'evidence_command' => $report['evidence_command'] ?? null,
+            'external_provider_call' => false,
+            'separated_from' => $report['separated_from'] ?? 'external_rivals_certification',
+            'note' => 'State projection slim — full audit em atlas:forge:continuum-certify --json --strict.',
+        ];
     }
 
     /**

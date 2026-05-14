@@ -274,6 +274,10 @@ Saida (resumida):
 }
 ```
 
+## Camadas Filhas
+
+- `atlas-rivals-evidence-pack-replay-manifest-v1.md` — Evidence pack local replayable e verifier; alimenta este evaluator via `--with-evidence-pack`, sem promover claim externo.
+
 ## Proximas Acoes
 
 1. Manter rubric e weights = 100 a cada evolucao.

@@ -19,10 +19,13 @@ capabilities:
 decisions:
   - Atlas Decide e dono da escolha de provider/modelo; surfaces exibem a decisao, nao decidem sozinhas.
   - Manual override precisa ser auditado e refletido no Decision Receipt.
+  - Em Forge pesado, Atlas Decide deve produzir provider topology com papeis, fallback chain, capacidade, budget e blockers.
+  - Fallback de provider nunca pode ser silencioso; deve gerar receipt, evidence e estado visivel.
 maintenance:
   - Atualizar quando sinais, fallback, budget, AP-99 ou politica de modelo mudarem.
   - Validar com docs-health apos qualquer alteracao.
 related_paths:
+  - docs/engineering-knowledge-base/atlas-forge-continuum-os.md
   - docs/engineering-knowledge-base/atlas-ai-model-selection-strategy.md
   - docs/engineering-knowledge-base/atlas-ai-provider-evolution-intelligence.md
   - docs/engineering-knowledge-base/system-graph/decision-receipt.md
@@ -92,6 +95,11 @@ observability_signals:
 
 Atlas Decide e a engrenagem que transforma contexto, politica, risco e historico de performance em uma decisao executavel. Ele define quem executa, com qual modelo, sob qual autonomia, com qual budget e com qual fallback.
 
+No Atlas Forge Continuum OS, Atlas Decide tambem define a topologia de
+execucao: builder principal, reviewer, context scout, repair agent, provider
+fallback e blocker `provider_capacity_exhausted` quando nenhum provider capaz
+estiver disponivel.
+
 ## Papel no Atlas
 
 Ele impede que cada surface vire um seletor manual de provider. Atlas Code, CLI, mobile e MCP podem solicitar execucao, mas a decisao passa pelo Kernel.
@@ -102,7 +110,7 @@ Pai: `atlas-ai-kernel-pipeline`. Depende de `policy-profile`, `context-builder` 
 
 ## Contratos
 
-Entrada: envelope, contexto, perfil de politica, sinais de performance, risco e budget. Saida: decisao com provider, modelo, fallback chain, autonomia, custo estimado e justificativa auditavel.
+Entrada: envelope, contexto, perfil de politica, sinais de performance, risco, budget e disponibilidade de providers. Saida: decisao com provider, modelo, papel, fallback chain, autonomia, custo estimado, capacidade, blocker quando necessario e justificativa auditavel.
 
 ## Fluxo
 
@@ -112,9 +120,28 @@ Policy/Profile e Context Builder chegam ao Decide. Evidence Loop calibra histori
 
 IA nao pode escolher provider por preferencia local. Deve consultar o contrato de modelo e registrar override quando a escolha for humana.
 
+Em Forge, IA nao pode trocar provider apos rate limit, quota, timeout ou erro
+sem registrar fallback governado. Se nao houver provider capaz, deve bloquear
+com `provider_capacity_exhausted`, nao degradar a tarefa silenciosamente.
+
+Para `surface=atlas_code` ou `flow=programming.forge`, Atlas Decide deve
+materializar `forge_provider_topology` dentro do Decision Receipt. Essa topologia
+e a autoridade runtime (`decision_source=live_atlas_decide`): inclui papeis,
+provider/modelo, fallback chain, quality gates, budget decision, receipt id/hash
+e `runtime_dispatch_allowed`. A policy estatica (`decision_source=static_policy`)
+e permitida apenas como read-model de certificacao quando nao ha receipt real.
+Qualquer reroute executavel apos falha de provider exige child Decision Receipt;
+enquanto ele nao existir, `fallback_child_receipt_required=true`.
+
 ## Escopo de Implementacao
 
 Permitido: regras de selecao, metricas, fallback e documentacao de sinais. Proibido: provider dropdown livre fora do receipt.
+
+Permitido para Forge Continuum: provider topology, role assignment, fallback
+classification e estado visivel para Atlas Code. Proibido: fallback invisivel,
+provider menos capaz assumindo tarefa critica sem justificativa, ou completion
+baseado apenas em reroute. Tambem e proibido dispatch runtime a partir de
+`static_policy`.
 
 ## Dependencias
 
@@ -138,6 +165,17 @@ Permitido: regras de selecao, metricas, fallback e documentacao de sinais. Proib
 
 Tarefa de arquitetura pode ir para Claude; implementacao localizada pode ir para Codex; override humano precisa aparecer no receipt.
 
+Tarefa pesada pode usar Claude como primary builder, Codex como critical
+reviewer e Gemini como context scout se Atlas Decide justificar essa topologia.
+Se Claude bater limite, Atlas Decide pode rerotear para o melhor provider capaz
+disponivel; se nenhum existir, o Forge deve bloquear honestamente.
+
 ## Proximas Acoes
 
 Mapear os 14 sinais reais usados por Atlas Decide em um payload de Decision Receipt v2.
+
+> Sinais locais de capacidade dos 5 providers runtime (claude_cli, codex_cli,
+> gemini_cli, claude_codex, atlas-local) vivem em
+> `atlas-forge-provider-capacity-continuity-v1.md` e sao consumidos por Atlas
+> Decide via Provider Topology — nenhum probe externo, cooldown e blocker
+> `provider_capacity_exhausted` honestos.

@@ -444,6 +444,7 @@ Saida (resumida):
 ## Camadas Filhas
 
 - `atlas-rivals-one-shot-enterprise-evaluation-v1.md` — rubrica e evaluation diagnostica que pontuam a qualidade one-shot enterprise; nunca promove claim Rivals, eixo separado de `external_rivals_certification`.
+- `atlas-rivals-evidence-pack-replay-manifest-v1.md` — Evidence pack local replayable que alimenta a evaluation com source/hash honestos; nunca chama provider externo nem promove claim.
 
 ## Proximas Acoes
 

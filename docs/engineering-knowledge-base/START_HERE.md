@@ -74,6 +74,7 @@ decisions:
   - Toda IA nova deve ler Atlas Programming Forge Flow antes de explicar, planejar ou alterar programacao pesada, programming.forge, Forge Workspace, Engineering Harness, Agentic RAG, graphs, tools, repair loop, Evidence ou cartografia de codigo.
   - Toda IA nova deve ler Atlas Forge Operating System antes de planejar trabalho pesado, longo, multiagente, multiprovider, integration queue, packets, evidence normalization ou fabrica de software por IA.
   - Toda IA nova deve ler Atlas AI Self-Construction OS antes de alterar self-programming, Meta-SDD, maturity ladder, build graph, priority engine, autonomous loop, safety contract ou qualquer fluxo do Atlas construindo Atlas.
+  - Toda IA nova deve ler Atlas Self-Improvement Governance Ladder antes de criar auto-Obra, autoproposta, before/after claim, autopromocao ou declarar que o Atlas novo melhorou em relacao ao Atlas anterior.
   - Toda IA nova que va implementar em paralelo deve ler o Multi-Provider Agent Orchestration Contract: Codex, Claude, Gemini, agentes locais e futuros providers consomem o mesmo pacote universal; adapters nao podem ampliar escopo.
   - Toda IA nova deve ler Obras Shared Workspace antes de alterar Atlas Forge, colaboracao multi-provider, artifact bus, provider context packs, escopos paralelos, integration queue ou qualquer tentativa de transformar providers em time.
   - Toda IA nova deve usar `php artisan atlas:ai:self-construction --json` para consultar o estado read-only/advisory antes de planejar autoimplementacao.
@@ -116,6 +117,7 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-programming-forge-flow.md
   - docs/engineering-knowledge-base/atlas-forge-operating-system.md
   - docs/engineering-knowledge-base/atlas-ai-self-construction-os.md
+  - docs/engineering-knowledge-base/atlas-self-improvement-governance-ladder.md
   - docs/engineering-knowledge-base/atlas-ai-obras-operating-system.md
   - docs/engineering-knowledge-base/obras/shared-workspace-and-forge.md
   - docs/engineering-knowledge-base/obras/patamares-l0-l5.md

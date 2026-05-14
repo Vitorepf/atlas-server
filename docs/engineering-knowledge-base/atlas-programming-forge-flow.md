@@ -24,6 +24,7 @@ capabilities:
   - repair_loop
   - tool_runtime_gateway
 decisions:
+  - Atlas Forge Continuum OS e o nome canonico do sistema completo que amarra Atlas Code, Obra, Forge Workspace, Atlas Decide, provider topology, fallback, review, evidence, Rivals e learning.
   - Atlas Programming Forge Flow e o nome canonico do fluxo inteiro de programacao pesada.
   - Programming Domain e o setor/dominio de codigo; Atlas Code e surface; Atlas Code SCOR-1 e versao da surface.
   - Atlas Code SCOR-1 e surface Forge-only: toda intencao sai como `atlas_code` + `programming.forge`.
@@ -39,6 +40,7 @@ maintenance:
   - Atualize este doc antes de alterar Forge OS, programming.forge, Engineering Harness, repair loop, Agentic RAG, Semantic Code Graph, tools, Evidence ou cartografia de programacao pesada.
   - Mantenha este doc como pagina-mae; detalhes persistentes ficam nos docs filhos.
 related_paths:
+  - docs/engineering-knowledge-base/atlas-forge-continuum-os.md
   - docs/engineering-knowledge-base/domains/programming.md
   - docs/engineering-knowledge-base/domains/programming-professional-rag-operating-standard.md
   - docs/engineering-knowledge-base/domains/programming-agentic-rag-professional-spec.md
@@ -80,6 +82,7 @@ forbidden_changes:
   - Declarar Forge OS completo sem runtime, evidence ledger, testes, docs, cartografia e gates verdes.
   - Chamar qualquer grafo de autoridade operacional sem nomear qual grafo e qual camada decide.
 depends_on:
+  - atlas-forge-continuum-os
   - atlas-ai-programming-domain
   - atlas-programming-governance-system
   - atlas-forge-operating-system
@@ -510,10 +513,7 @@ Dois niveis de certificacao replayable, sem provider externo. **Obra e obrigator
 
 Na surface Atlas Code, o operador vincula WorkItem, compila Spec/Plan/Tasks (`POST /atlas-code/works/{obra}/programming/work-items/{wi}/spec`) e roda `POST /atlas-code/works/{obra}/forge/live-executions`. Com task contract real, a execucao inclui `governed_execution`: patch dry-run em workspace sombra, diff artifact, validation command, promotion artifact, hardened receipt e `scope-guard` contra `allowed_files`. Aprovacao humana promove o patch para o workspace vivo somente se hash, scope e completion gate continuarem verdes; rollback restaura backup com drift/hash check, evidence propria, review `rolled_back` e state/history sincronizados.
 
+## Provider Topology e Governed Fallback
+Forge pesado nao escolhe provider por preferencia local: Atlas Decide emite Decision Receipt com a topologia (papeis + provider + modelo + fallback chain) e o runtime segue o contrato. Detalhes em `atlas-forge-provider-topology-and-fallback-v1.md`; sinais locais (capacity + failure memory) em `atlas-forge-provider-capacity-continuity-v1.md`; certificacao em `atlas_forge_continuum_certification` (schema `atlas.forge_continuum_certification.v1`). Fallback nunca silencioso, `provider_capacity_exhausted` e blocker honesto.
 ## Proximas Acoes
-
-1. Manter este doc como primeira leitura para qualquer alteracao de Forge pesado.
-2. Atualizar os docs filhos quando runtime Forge sair de future/building para implemented.
-3. Fazer docs-health apos qualquer mudanca de taxonomia, graph, repair ou evidence.
-4. Rodar `atlas:forge:runtime-certify --obra=<uuid> --json --strict` e `atlas:forge:live-execute --obra=<uuid> --json --strict` apos mudancas no runtime.
-5. Rodar `atlas:code:enterprise-certify --json --strict` apos mudancas no produto Atlas Code, review, promotion, rollback ou checkpoint.
+Manter como primeira leitura do Forge pesado e rodar docs-health/certificacoes apos mudancas em runtime/Atlas Code/review/promotion/rollback/checkpoint.

@@ -53,6 +53,7 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-forge-operating-system.md
   - docs/engineering-knowledge-base/spec-operating-system/
   - docs/engineering-knowledge-base/atlas-ai-self-construction-os.md
+  - docs/engineering-knowledge-base/atlas-self-improvement-governance-ladder.md
   - docs/engineering-knowledge-base/atlas-ai-obras-operating-system.md
   - docs/engineering-knowledge-base/obras/shared-workspace-and-forge.md
   - docs/engineering-knowledge-base/obras/

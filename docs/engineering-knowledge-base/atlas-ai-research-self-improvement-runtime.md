@@ -24,6 +24,7 @@ decisions:
   - Documentacao canonica vem antes de implementacao estrutural.
   - Implementacao vem depois de pesquisa, sintese, AP/plano e validacao de risco.
   - Self-Improvement pode propor, priorizar e auditar; nao autoaplica mudanca estrutural sem gate.
+  - Claims de melhoria precisam passar pela Self-Improvement Governance Ladder antes de promocao: Proposal Power Gate, before/after delta, invariant lock e regression sentinel.
 maintenance:
   - Atualize quando Atlas criar crawler, source registry, research scheduler, evaluator, planner automatico ou Curator mais autonomo.
   - Leia antes de qualquer pesquisa longa, provider-release review, self-improvement proposal ou plano para acelerar evolucao do Atlas.
@@ -43,6 +44,7 @@ related_paths:
   - docs/engineering-knowledge-base/research-self-improvement/automation-runbook.md
   - docs/engineering-knowledge-base/research-self-improvement/failure-modes.md
   - docs/engineering-knowledge-base/research-self-improvement/enterprise-excellence-checklist.md
+  - docs/engineering-knowledge-base/atlas-self-improvement-governance-ladder.md
   - docs/engineering-knowledge-base/atlas-ai-cognitive-runtime.md
   - docs/engineering-knowledge-base/atlas-ai-provider-evolution-intelligence.md
   - docs/engineering-knowledge-base/atlas-ai-content-intelligence-curation.md
@@ -190,6 +192,7 @@ Esse ciclo existe para impedir dois extremos ruins:
 | External provider releases | `atlas-ai-provider-evolution-intelligence.md` |
 | Content ingestion and curation | `atlas-ai-content-intelligence-curation.md` |
 | Operational domain | `domains/self-improvement.md` |
+| Self-improvement governance ladder | `atlas-self-improvement-governance-ladder.md` |
 
 ## Required Runtime Shape
 

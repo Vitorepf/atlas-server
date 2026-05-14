@@ -221,9 +221,29 @@ review · pending · completion · not_allowed · runtime · queued
 evidence · 0 · ledger · 0 · next · wait_for_async_execution
 ```
 
+## Provider Topology no Cockpit
+
+Desde 2026-05-14 o cockpit expoe uma tab dedicada `Topology` que renderiza
+`ForgeProviderTopologyPanel` com:
+
+- status canonico (`available`/`rerouted`/`retry_later`/`provider_capacity_exhausted`);
+- 5 papeis fixos (`primary_builder`, `critical_reviewer`, `context_scout`, `repair_agent`, `local_tool_runner`);
+- fallback chain ordenada com flag `capable`;
+- `provider_capacity` por provider;
+- evento de governed fallback (failure_type, action, blocker, evento id, occurred_at);
+- banner explicito "fallback nunca silencioso";
+- blocker vermelho quando `provider_capacity_exhausted`;
+- continuum certification summary;
+- dropdown para simular falha de provider via `simulate_provider_failure` (read-model, nao chama provider);
+- override manual de provider/model permanece desabilitado (futuro governado).
+
+Doc dedicada: `atlas-forge-provider-topology-and-fallback-v1.md`.
+
 ## Proximas Acoes
 
 1. Manter este doc sincronizado com novos invariants do cockpit.
 2. Rodar `atlas:programming:completion-audit --json` apos alteracao
    significativa no painel.
 3. Continuar isolando Rivals externo.
+4. Quando Tauri ganhar binding dedicado (`bridge_get_forge_provider_topology`),
+   atualizar o adapter no `bridge.ts` para usar invokeTauri direto.

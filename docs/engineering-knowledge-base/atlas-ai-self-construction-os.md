@@ -21,6 +21,7 @@ decisions:
   - Self-construction is not vibe coding; it is governed evolution of the system that builds itself.
   - Any AI must be able to continue Atlas construction from canonical docs without relying on chat history.
   - The most powerful form is research -> docs -> spec -> implementation -> tests -> evidence -> learning.
+  - Self-improvement claims must pass the Self-Improvement Governance Ladder: strong proposal, before/after delta, invariant lock, regression sentinel and promotion policy.
 maintenance:
   - Read before changing Atlas core, self-improvement, SDD runtime, memory, research automation, autonomous coding or governance.
   - Update when a new self-programming loop, maturity level, build dependency or core safety gate is promoted.
@@ -74,6 +75,7 @@ related_paths:
   - docs/engineering-knowledge-base/self-construction/failure-modes.md
   - docs/engineering-knowledge-base/self-construction/builder-persona-and-handoff.md
   - docs/engineering-knowledge-base/self-construction/runtime-implementation-roadmap.md
+  - docs/engineering-knowledge-base/atlas-self-improvement-governance-ladder.md
   - docs/engineering-knowledge-base/obras/shared-workspace-and-forge.md
   - docs/engineering-knowledge-base/atlas-ai-spec-operating-system.md
   - docs/engineering-knowledge-base/atlas-ai-research-self-improvement-runtime.md
