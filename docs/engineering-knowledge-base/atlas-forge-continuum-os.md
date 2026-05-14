@@ -92,6 +92,7 @@ flows_to:
   - runtime-executor
   - evidence-ledger
   - rivals-learning
+  - atlas-self-improvement-activation-cockpit-v1
 unlocks:
   - enterprise-ai-programming
   - autonomous-provider-continuity
@@ -503,13 +504,14 @@ Implementado e certificado em 2026-05-14:
 - Cockpit UI: `apps/desktop/src/surfaces/code/panels/ForgeProviderTopologyPanel.tsx` registrada como tab "Topology" no Right Rail;
 - Audit block: `atlas_forge_continuum_certification` em `ProgrammingProfessionalCompletionAuditService`.
 - Provider Capacity & Continuity: `atlas-forge-provider-capacity-continuity-v1.md` (sinais locais, failure memory, cooldown — alimenta Atlas Decide / Topology / Cockpit).
+- Self-Improvement Governance Ladder: `atlas-self-improvement-governance-ladder.md` (Proposal Power Gate + Before/After Delta + Invariant Lock + Regression Sentinel + Capability Maturity + Trust Ledger + Strategy Portfolio — eixo separado, nunca promove Forge).
+- Self-Improvement → Forge Activation v1: `atlas-self-improvement-forge-activation-v1.md` (closed loop proposta aprovada → Obra real, sem auto Fast Path).
 
 Certificacao: `atlas_forge_continuum_certification`
 (`atlas.forge_continuum_certification.v1`) audita 25 invariantes canonicas.
 
 ## Proximas Acoes
-
-Conectar dispatcher executavel a invocacao provider real apenas com aprovacao explicita do operador, fechar `provider_capacity` com telemetry viva e expandir override governado sem dropdown livre de provider.
+Conectar dispatcher executavel a invocacao provider real apenas com aprovacao explicita do operador, fechar `provider_capacity` com telemetry viva e expandir override governado sem dropdown livre de provider. Cabine humana central: [[atlas-code-obra-command-center-v1]] (lifecycle 8 fases, decision inbox, operational health honesto, schema `atlas.code.obra_command_center.v1`).
 
 Historico:
 - 2026-05-14 — entregue Provider Topology read model, Governed Fallback Policy, state projection/UI no Atlas Code, testes de no-silent-fallback e blocker `provider_capacity_exhausted`, mantendo Rivals como juiz honesto.

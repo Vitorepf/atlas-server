@@ -14,7 +14,9 @@ use App\Models\AtlasProgrammingWorkItem;
 use App\Models\AtlasProject;
 use App\Models\AtlasToolRun;
 use App\Services\Ai\Programming\AtlasCodeEnterpriseCertificationService;
+use App\Services\Ai\Programming\AtlasCodeForgeUxOrchestratorService;
 use App\Services\Ai\Programming\AtlasForgeContinuumCertificationService;
+use App\Services\Ai\Programming\AtlasForgeProviderInvocationDriverRouter;
 use App\Services\Ai\Programming\AtlasForgeProviderInvocationService;
 use App\Services\Ai\Programming\AtlasForgeProviderTopologyService;
 use App\Services\Ai\Programming\AtlasForgeRuntimeDispatchService;
@@ -172,6 +174,11 @@ final class AtlasCodeWorkController extends Controller
             'forge_provider_failure_memory' => $this->forgeProviderFailureMemoryForWork($project),
             'forge_provider_invocation' => $this->forgeProviderInvocationForWork($project),
             'forge_provider_invocation_receipt' => $this->forgeProviderInvocationReceiptForWork($project),
+            'forge_provider_driver_status' => $this->forgeProviderDriverStatusForWork($project),
+            'forge_ux_orchestrator' => $this->forgeUxOrchestratorForWork($project),
+            'obra_command_center' => $this->obraCommandCenterForWork($project),
+            'self_improvement_governance' => $this->selfImprovementGovernanceForWork($project),
+            'self_improvement_activation' => $this->selfImprovementActivationForWork($project),
             'checkpoint' => $this->checkpointForWork($project),
             'atlas_code_enterprise_certification' => $this->atlasCodeEnterpriseCertificationForProduct(),
             'repair' => [],
@@ -875,6 +882,67 @@ final class AtlasCodeWorkController extends Controller
     /**
      * @return array<string,mixed>|null
      */
+    private function selfImprovementActivationForWork(AtlasProject $project): ?array
+    {
+        $metadata = is_array($project->metadata) ? $project->metadata : [];
+        $activation = data_get($metadata, 'self_improvement_activation');
+        if (! is_array($activation)) {
+            return null;
+        }
+
+        return [
+            'schema_version' => 'atlas.self_improvement.forge_activation_state.v1',
+            'activation_id' => $activation['activation_id'] ?? null,
+            'proposal_id' => $activation['proposal_id'] ?? null,
+            'proposal_hash' => $activation['proposal_hash'] ?? null,
+            'power_gate_hash' => $activation['power_gate_hash'] ?? null,
+            'invariant_lock_hash' => $activation['invariant_lock_hash'] ?? null,
+            'regression_sentinel_hash' => $activation['regression_sentinel_hash'] ?? null,
+            'strategy_bucket' => $activation['strategy_bucket'] ?? null,
+            'portfolio_deviation' => $activation['portfolio_deviation'] ?? false,
+            'maturity_target' => $activation['maturity_target'] ?? null,
+            'reviewer' => $activation['reviewer'] ?? null,
+            'reason' => $activation['reason'] ?? null,
+            'approved_at' => $activation['approved_at'] ?? null,
+            'external_provider_call' => false,
+            'separated_from' => 'external_rivals_certification',
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>|null
+     */
+    private function selfImprovementGovernanceForWork(AtlasProject $project): ?array
+    {
+        try {
+            $trustLedger = app(\App\Services\Ai\SelfImprovement\AtlasSelfImprovementHumanTrustLedgerService::class)
+                ->snapshot($project);
+            $portfolio = app(\App\Services\Ai\SelfImprovement\AtlasSelfImprovementStrategyPortfolioService::class)
+                ->snapshot([]);
+
+            return [
+                'schema_version' => 'atlas.self_improvement.governance_state.v1',
+                'trust_ledger' => $trustLedger,
+                'strategy_portfolio' => $portfolio,
+                'commands' => [
+                    'proposal_gate' => 'php artisan atlas:self-improvement:proposal-gate --proposal=@path --json --strict',
+                    'before_after' => 'php artisan atlas:self-improvement:before-after --before=@path --after=@path --json --strict',
+                    'invariant_lock' => 'php artisan atlas:self-improvement:invariant-lock --after-snapshot=@path --proposal=@path --json --strict',
+                    'regression_sentinel' => 'php artisan atlas:self-improvement:regression-sentinel --before-snapshot=@path --after-snapshot=@path --json --strict',
+                    'maturity_score' => 'php artisan atlas:self-improvement:maturity-score --descriptor=@path --json --strict',
+                    'trust_ledger' => 'php artisan atlas:self-improvement:trust-ledger --obra=<uuid> --json',
+                ],
+                'external_provider_call' => false,
+                'separated_from' => 'external_rivals_certification',
+            ];
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    /**
+     * @return array<string,mixed>|null
+     */
     private function forgeProviderCapacityForWork(AtlasProject $project): ?array
     {
         try {
@@ -930,6 +998,46 @@ final class AtlasCodeWorkController extends Controller
     private function forgeProviderInvocationReceiptForWork(AtlasProject $project): ?array
     {
         return app(AtlasForgeProviderInvocationService::class)->latestReceipt($project);
+    }
+
+    /**
+     * @return array<string,mixed>|null
+     */
+    private function forgeProviderDriverStatusForWork(AtlasProject $project): ?array
+    {
+        try {
+            return app(AtlasForgeProviderInvocationDriverRouter::class)->driverStatus();
+        } catch (Throwable $e) {
+            return null;
+        }
+    }
+
+    /**
+     * @return array<string,mixed>|null
+     */
+    private function forgeUxOrchestratorForWork(AtlasProject $project): ?array
+    {
+        try {
+            return app(AtlasCodeForgeUxOrchestratorService::class)->snapshot([
+                'obra_id' => (string) $project->getKey(),
+            ]);
+        } catch (Throwable $e) {
+            return null;
+        }
+    }
+
+    /**
+     * @return array<string,mixed>|null
+     */
+    private function obraCommandCenterForWork(AtlasProject $project): ?array
+    {
+        try {
+            return app(\App\Services\Ai\Programming\AtlasCodeObraCommandCenterService::class)->snapshot([
+                'obra_id' => (string) $project->getKey(),
+            ]);
+        } catch (Throwable $e) {
+            return null;
+        }
     }
 
     /**

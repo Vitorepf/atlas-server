@@ -94,6 +94,7 @@ flows_to:
   - atlas-forge-operating-system-runbook
   - atlas-code
   - atlas-cartographic-knowledge-os
+  - atlas-self-improvement-activation-cockpit-v1
 unlocks:
   - heavy-programming-canonical-context
   - forge-documentation-alignment
@@ -512,8 +513,7 @@ Dois niveis de certificacao replayable, sem provider externo. **Obra e obrigator
 `external_rivals_certification` expoe `blocked_until_invalid_battery_triaged`, `blocked_until_clean_worktree`, `ready_for_operator_paid_rerun` ou `claim_ready` com quarentena, preflight e policy de gasto provider.
 
 Na surface Atlas Code, o operador vincula WorkItem, compila Spec/Plan/Tasks (`POST /atlas-code/works/{obra}/programming/work-items/{wi}/spec`) e roda `POST /atlas-code/works/{obra}/forge/live-executions`. Com task contract real, a execucao inclui `governed_execution`: patch dry-run em workspace sombra, diff artifact, validation command, promotion artifact, hardened receipt e `scope-guard` contra `allowed_files`. Aprovacao humana promove o patch para o workspace vivo somente se hash, scope e completion gate continuarem verdes; rollback restaura backup com drift/hash check, evidence propria, review `rolled_back` e state/history sincronizados.
-
 ## Provider Topology e Governed Fallback
-Forge pesado nao escolhe provider por preferencia local: Atlas Decide emite Decision Receipt com a topologia (papeis + provider + modelo + fallback chain) e o runtime segue o contrato. Detalhes em `atlas-forge-provider-topology-and-fallback-v1.md`; sinais locais (capacity + failure memory) em `atlas-forge-provider-capacity-continuity-v1.md`; certificacao em `atlas_forge_continuum_certification` (schema `atlas.forge_continuum_certification.v1`). Fallback nunca silencioso, `provider_capacity_exhausted` e blocker honesto.
+Forge pesado nao escolhe provider por preferencia local: Atlas Decide emite Decision Receipt com a topologia (papeis + provider + modelo + fallback chain) e o runtime segue o contrato. Detalhes em `atlas-forge-provider-topology-and-fallback-v1.md`; sinais locais (capacity + failure memory) em `atlas-forge-provider-capacity-continuity-v1.md`; certificacao em `atlas_forge_continuum_certification` (schema `atlas.forge_continuum_certification.v1`). Fallback nunca silencioso, `provider_capacity_exhausted` e blocker honesto. Para closed-loop self-improvement → Obra Forge ver `atlas-self-improvement-forge-activation-v1.md`.
 ## Proximas Acoes
-Manter como primeira leitura do Forge pesado e rodar docs-health/certificacoes apos mudancas em runtime/Atlas Code/review/promotion/rollback/checkpoint.
+Manter como primeira leitura do Forge pesado e rodar docs-health/certificacoes apos mudancas em runtime/Atlas Code/review/promotion/rollback/checkpoint. Leitura humana canonica do fluxo: [[atlas-code-obra-command-center-v1]] (lifecycle 8 fases, decision inbox, operational health honesto, schema `atlas.code.obra_command_center.v1`; CLI `php artisan atlas:code:obra-command-center --json --strict`).

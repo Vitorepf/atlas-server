@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Models\AtlasProject;
+use App\Services\Ai\Programming\AtlasForgeProviderInvocationDriverRouter;
 use App\Services\Ai\Programming\AtlasForgeProviderInvocationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -71,6 +72,61 @@ final class AtlasCodeForgeProviderInvocationController extends Controller
         }
 
         return response()->json($latest, 200);
+    }
+
+    /**
+     * GET /atlas-code/works/{project}/forge/provider-invocations/drivers
+     *
+     * Driver runtime status. NEVER calls an external provider.
+     */
+    public function drivers(
+        AtlasProject $project,
+        AtlasForgeProviderInvocationDriverRouter $router,
+    ): JsonResponse {
+        $status = $router->driverStatus();
+        $status['obra_id'] = (string) $project->getKey();
+        $status['obra_present'] = true;
+
+        return response()->json($status, 200);
+    }
+
+    /**
+     * POST /atlas-code/works/{project}/forge/provider-invocations/plan-driver
+     *
+     * Driver plan packet. NEVER calls an external provider.
+     */
+    public function planDriver(
+        Request $request,
+        AtlasProject $project,
+        AtlasForgeProviderInvocationService $service,
+        AtlasForgeProviderInvocationDriverRouter $router,
+    ): JsonResponse {
+        $data = $request->validate([
+            'role' => ['nullable', 'string', 'max:60'],
+            'dispatch_id' => ['nullable', 'string', 'max:60'],
+        ]);
+
+        $invocation = $service->invoke([
+            'obra_id' => (string) $project->getKey(),
+            'role' => $data['role'] ?? null,
+            'mode' => AtlasForgeProviderInvocationService::MODE_DRY_RUN,
+            'dispatch_id' => $data['dispatch_id'] ?? null,
+        ]);
+
+        $driverStatus = $router->driverStatus($invocation['provider'] ?? null);
+        $driverPlan = $router->driverPlan($invocation['provider'] ?? null, [
+            'model' => $invocation['model'] ?? null,
+            'cwd' => null,
+        ]);
+
+        return response()->json([
+            'schema_version' => 'atlas.forge.provider_driver_plan_packet.v1',
+            'invocation' => $invocation,
+            'driver_status' => $driverStatus,
+            'driver_plan' => $driverPlan,
+            'external_provider_call' => false,
+            'note' => 'Plan-only packet · no provider runtime was contacted.',
+        ], 200);
     }
 
     /**

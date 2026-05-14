@@ -5,26 +5,34 @@ declare(strict_types=1);
 namespace App\Services\Ai\Programming;
 
 /**
- * Atlas Forge Provider Invocation Driver Router.
+ * Atlas Forge Provider Invocation Driver Router (v2).
  *
- * Maps a provider id (claude_cli, codex_cli, gemini_cli, claude_codex,
- * atlas-local) to a runtime driver. Only the local Atlas runtime is allowed
- * to actually execute work; external provider drivers must be explicitly
- * registered before they can run, otherwise the router returns a honest
- * `provider_driver_missing` blocker.
+ * Maps a provider id (atlas-local, claude_cli, codex_cli, gemini_cli,
+ * claude_codex) to a concrete runtime driver implementing
+ * `AtlasForgeProviderInvocationDriver`. The router exposes:
  *
- * No external provider is invoked by this class. Real provider invocation
- * happens elsewhere in the Atlas runtime and requires explicit operator +
- * budget approval. This router only exposes plan/invoke contracts.
+ *   - `supports(provider)`           — provider is canonical?
+ *   - `hasRuntimeDriver(provider)`   — driver class is registered?
+ *   - `isConfigured(provider)`       — driver claims it can actually run?
+ *   - `callsExternalProvider(...)`   — would running this driver call out?
+ *   - `driverStatus(provider?)`      — runtime config status per driver
+ *   - `plan(provider,model,prompt,context)` — legacy compact plan view
+ *   - `driverPlan(provider, request)` — full driver plan packet
+ *   - `invoke(provider,model,prompt,context)` — legacy compact invoke
+ *   - `driverInvoke(provider, request)` — full driver invoke through runner
  *
- * Doc: docs/engineering-knowledge-base/atlas-forge-governed-provider-invocation-v1.md
+ * NEVER calls an external provider during configuration/plan; only the
+ * `driverInvoke` / `invoke` path may reach a CLI, and only when the upstream
+ * Invocation Service has validated every gate.
+ *
+ * Doc: docs/engineering-knowledge-base/atlas-forge-real-provider-drivers-v1.md
  */
 class AtlasForgeProviderInvocationDriverRouter
 {
     public const DRIVER_ATLAS_LOCAL = 'atlas-local';
-    public const DRIVER_CLAUDE_CLI = 'claude_cli';
-    public const DRIVER_CODEX_CLI = 'codex_cli';
-    public const DRIVER_GEMINI_CLI = 'gemini_cli';
+    public const DRIVER_CLAUDE_CLI = AtlasForgeClaudeCliInvocationDriver::PROVIDER;
+    public const DRIVER_CODEX_CLI = AtlasForgeCodexCliInvocationDriver::PROVIDER;
+    public const DRIVER_GEMINI_CLI = AtlasForgeGeminiCliInvocationDriver::PROVIDER;
     public const DRIVER_CLAUDE_CODEX = 'claude_codex';
 
     /** @var list<string> Drivers the Atlas Forge Continuum OS recognises. */
@@ -38,30 +46,49 @@ class AtlasForgeProviderInvocationDriverRouter
 
     public const BLOCKER_PROVIDER_DRIVER_MISSING = 'provider_driver_missing';
     public const BLOCKER_PROVIDER_INVOCATION_NOT_CONFIGURED = 'provider_invocation_not_configured';
+    public const BLOCKER_PROVIDER_DRIVER_NOT_CONFIGURED = 'provider_driver_not_configured';
 
-    /**
-     * Does the router recognise this provider at all?
-     */
+    /** @var array<string, AtlasForgeProviderInvocationDriver> */
+    private array $drivers = [];
+
+    public function __construct(
+        AtlasForgeClaudeCliInvocationDriver $claude,
+        AtlasForgeCodexCliInvocationDriver $codex,
+        AtlasForgeGeminiCliInvocationDriver $gemini,
+    ) {
+        $this->drivers = [
+            $claude->provider() => $claude,
+            $codex->provider() => $codex,
+            $gemini->provider() => $gemini,
+        ];
+    }
+
     public function supports(?string $provider): bool
     {
         return $provider !== null && in_array($provider, self::CANONICAL_DRIVERS, true);
     }
 
-    /**
-     * Does the router have a runtime driver configured to actually invoke
-     * this provider? Today only `atlas-local` has a real (safe, deterministic
-     * local) executor wired here.
-     */
     public function hasRuntimeDriver(?string $provider): bool
     {
-        return $provider === self::DRIVER_ATLAS_LOCAL;
+        if ($provider === self::DRIVER_ATLAS_LOCAL) {
+            return true;
+        }
+
+        return $provider !== null && isset($this->drivers[$provider]);
     }
 
-    /**
-     * Whether running this driver causes an external provider call.
-     * `atlas-local` runs only inside the Atlas runtime; everything else, when
-     * eventually configured, will be marked as external.
-     */
+    public function isConfigured(?string $provider): bool
+    {
+        if ($provider === self::DRIVER_ATLAS_LOCAL) {
+            return true;
+        }
+        if ($provider === null || ! isset($this->drivers[$provider])) {
+            return false;
+        }
+
+        return (bool) ($this->drivers[$provider]->configured()['configured'] ?? false);
+    }
+
     public function callsExternalProvider(?string $provider): bool
     {
         if ($provider === null) {
@@ -71,29 +98,101 @@ class AtlasForgeProviderInvocationDriverRouter
         return $provider !== self::DRIVER_ATLAS_LOCAL;
     }
 
-    /**
-     * Whether this driver spends external provider tokens. Always false for
-     * atlas-local. The router never claims tokens were spent unless a real
-     * external driver is wired (which is gated by operator + budget approval
-     * at the Service layer, not here).
-     */
     public function spendsProviderTokens(?string $provider): bool
     {
         return $this->callsExternalProvider($provider);
     }
 
     /**
-     * Produce an invocation plan (no execution). Always safe: never reaches
-     * provider runtime, never spends tokens, never leaks prompts.
+     * @return list<string>
+     */
+    public function configuredDrivers(): array
+    {
+        $configured = [self::DRIVER_ATLAS_LOCAL];
+        foreach ($this->drivers as $provider => $driver) {
+            if ($this->isConfigured($provider)) {
+                $configured[] = $provider;
+            }
+        }
+
+        return array_values(array_unique($configured));
+    }
+
+    /**
+     * Snapshot the configuration status of every governed driver. NEVER calls
+     * an external provider — only inspects the local environment.
      *
-     * @param  array<string,mixed>  $prompt   Canonical prompt packet (`atlas.forge.provider_invocation_prompt.v1`).
-     * @param  array<string,mixed>  $context  Optional metadata (obra_id, decision_receipt_id, role, timeout, max output chars).
+     * @return array<string,mixed>
+     */
+    public function driverStatus(?string $provider = null): array
+    {
+        $atlasLocal = [
+            'schema_version' => 'atlas.forge.provider_driver_config_status.v1',
+            'provider' => self::DRIVER_ATLAS_LOCAL,
+            'configured' => true,
+            'runtime_present' => true,
+            'binary_path' => 'atlas-runtime',
+            'auth_state' => 'not_applicable',
+            'model_prefixes' => ['atlas-'],
+            'allowed_binaries' => ['atlas-runtime'],
+            'blockers' => [],
+            'external_provider_call_possible' => false,
+            'provider_tokens_may_be_spent' => false,
+            'note' => 'Atlas-local executor: deterministic safe runtime.',
+        ];
+
+        $statuses = [self::DRIVER_ATLAS_LOCAL => $atlasLocal];
+        foreach ($this->drivers as $key => $driver) {
+            $statuses[$key] = $driver->configured();
+        }
+
+        if ($provider !== null) {
+            return $statuses[$provider] ?? [
+                'schema_version' => 'atlas.forge.provider_driver_config_status.v1',
+                'provider' => $provider,
+                'configured' => false,
+                'runtime_present' => false,
+                'binary_path' => null,
+                'auth_state' => 'unknown',
+                'model_prefixes' => [],
+                'allowed_binaries' => [],
+                'blockers' => [self::BLOCKER_PROVIDER_DRIVER_MISSING],
+                'external_provider_call_possible' => false,
+                'provider_tokens_may_be_spent' => false,
+                'note' => 'Provider unknown — driver missing.',
+            ];
+        }
+
+        return [
+            'schema_version' => 'atlas.forge.provider_driver_router_status.v1',
+            'drivers' => array_values($statuses),
+            'configured_drivers' => $this->configuredDrivers(),
+            'note' => 'Snapshot read-only; nenhum provider externo foi contatado.',
+        ];
+    }
+
+    /**
+     * Legacy compact plan API (used by the Invocation Service). Returns a
+     * stable summary suitable for receipts and dry-run replays.
+     *
+     * @param  array<string,mixed>  $prompt
+     * @param  array<string,mixed>  $context
      * @return array<string,mixed>
      */
     public function plan(?string $provider, ?string $model, array $prompt, array $context = []): array
     {
         $supports = $this->supports($provider);
         $hasDriver = $supports && $this->hasRuntimeDriver($provider);
+        $configured = $supports && $this->isConfigured($provider);
+
+        $blocker = null;
+        if (! $supports) {
+            $blocker = self::BLOCKER_PROVIDER_DRIVER_MISSING;
+        } elseif (! $hasDriver) {
+            $blocker = self::BLOCKER_PROVIDER_INVOCATION_NOT_CONFIGURED;
+        } elseif (! $configured) {
+            $blocker = self::BLOCKER_PROVIDER_DRIVER_NOT_CONFIGURED;
+        }
 
         return [
             'schema_version' => 'atlas.forge.provider_invocation_plan.v1',
@@ -101,21 +200,50 @@ class AtlasForgeProviderInvocationDriverRouter
             'model' => $model,
             'supports' => $supports,
             'driver_available' => $hasDriver,
+            'driver_configured' => $configured,
             'external_provider_call' => $this->callsExternalProvider($provider),
             'spends_provider_tokens' => $this->spendsProviderTokens($provider),
             'prompt_schema_version' => (string) ($prompt['schema_version'] ?? 'atlas.forge.provider_invocation_prompt.v1'),
             'prompt_hash' => $this->promptHash($prompt),
             'context' => $context,
-            'driver_blocker' => $hasDriver ? null : ($supports ? self::BLOCKER_PROVIDER_INVOCATION_NOT_CONFIGURED : self::BLOCKER_PROVIDER_DRIVER_MISSING),
+            'driver_blocker' => $blocker,
             'note' => 'Plan-only · no provider runtime was contacted.',
         ];
     }
 
     /**
-     * Execute the invocation against the resolved runtime driver. Returns a
-     * structured result with stdout/stderr/exit_code/duration hashes — never
-     * raw prompt content. Only `atlas-local` is wired; everything else
-     * returns `provider_driver_missing` and `provider_called=false`.
+     * Detailed driver plan via the concrete driver (or atlas-local synth).
+     *
+     * @param  array<string,mixed>  $request
+     * @return array<string,mixed>
+     */
+    public function driverPlan(?string $provider, array $request): array
+    {
+        if ($provider === self::DRIVER_ATLAS_LOCAL) {
+            return $this->atlasLocalPlan($request);
+        }
+        if (! $this->supports($provider)) {
+            return [
+                'schema_version' => 'atlas.forge.provider_driver_plan.v1',
+                'provider' => $provider,
+                'plan_safe' => false,
+                'blockers' => [self::BLOCKER_PROVIDER_DRIVER_MISSING],
+            ];
+        }
+        if (! $this->hasRuntimeDriver($provider)) {
+            return [
+                'schema_version' => 'atlas.forge.provider_driver_plan.v1',
+                'provider' => $provider,
+                'plan_safe' => false,
+                'blockers' => [self::BLOCKER_PROVIDER_INVOCATION_NOT_CONFIGURED],
+            ];
+        }
+
+        return $this->drivers[$provider]->plan($request);
+    }
+
+    /**
+     * Legacy invoke — used by Invocation Service to keep the compact contract.
      *
      * @param  array<string,mixed>  $prompt
      * @param  array<string,mixed>  $context
@@ -123,25 +251,105 @@ class AtlasForgeProviderInvocationDriverRouter
      */
     public function invoke(?string $provider, ?string $model, array $prompt, array $context = []): array
     {
+        if ($provider === self::DRIVER_ATLAS_LOCAL) {
+            return $this->invokeAtlasLocal($model, $prompt, $context);
+        }
         if (! $this->supports($provider)) {
-            return $this->blockedResult(
-                provider: $provider,
-                model: $model,
-                blocker: self::BLOCKER_PROVIDER_DRIVER_MISSING,
-                note: "Provider {$provider} is not a canonical Atlas Forge driver.",
-            );
+            return $this->blockedCompact($provider, $model, self::BLOCKER_PROVIDER_DRIVER_MISSING,
+                "Provider {$provider} is not a canonical Atlas Forge driver.");
         }
-
         if (! $this->hasRuntimeDriver($provider)) {
-            return $this->blockedResult(
-                provider: $provider,
-                model: $model,
-                blocker: self::BLOCKER_PROVIDER_INVOCATION_NOT_CONFIGURED,
-                note: "Driver for {$provider} is not configured for runtime execution yet. Use atlas-local or wait for a governed external driver.",
+            return $this->blockedCompact($provider, $model, self::BLOCKER_PROVIDER_INVOCATION_NOT_CONFIGURED,
+                "Driver for {$provider} is not registered for runtime execution.");
+        }
+        if (! $this->isConfigured($provider)) {
+            return $this->blockedCompact($provider, $model, self::BLOCKER_PROVIDER_DRIVER_NOT_CONFIGURED,
+                "Driver for {$provider} is registered but not configured on this host (binary or auth missing).");
+        }
+
+        $result = $this->drivers[$provider]->invoke([
+            'provider' => $provider,
+            'model' => $model,
+            'prompt' => $prompt,
+            'cwd' => $context['cwd'] ?? null,
+            'timeout_seconds' => $context['timeout_seconds'] ?? 120,
+            'max_output_chars' => $context['max_output_chars'] ?? 12000,
+            'obra_id' => $context['obra_id'] ?? null,
+            'role' => $context['role'] ?? null,
+            'dispatch_id' => $context['dispatch_id'] ?? null,
+            'decision_receipt_id' => $context['decision_receipt_id'] ?? null,
+        ]);
+
+        return [
+            'schema_version' => 'atlas.forge.provider_invocation_driver_result.v1',
+            'provider' => $provider,
+            'model' => $model,
+            'provider_called' => (bool) ($result['provider_called'] ?? false),
+            'external_provider_call' => (bool) ($result['external_provider_call'] ?? false),
+            'spends_provider_tokens' => $result['provider_tokens_spent'] ?? 'unknown',
+            'exit_code' => $result['exit_code'] ?? null,
+            'duration_ms' => $result['duration_ms'] ?? null,
+            'stdout' => $result['stdout_excerpt'] ?? '',
+            'stderr' => $result['stderr_excerpt'] ?? '',
+            'stdout_hash' => $result['stdout_hash'] ?? null,
+            'stderr_hash' => $result['stderr_hash'] ?? null,
+            'output_excerpt' => $result['stdout_excerpt'] ?? null,
+            'output_excerpt_hash' => $result['stdout_hash'] ?? null,
+            'classification' => $result['classification'] ?? null,
+            'blocker' => $result['blockers'][0] ?? null,
+            'note' => (string) ($result['note'] ?? 'driver invocation finished'),
+        ];
+    }
+
+    /**
+     * Detailed invoke — used by tests / future evidence pack integration.
+     *
+     * @param  array<string,mixed>  $request
+     * @return array<string,mixed>
+     */
+    public function driverInvoke(?string $provider, array $request): array
+    {
+        if ($provider === self::DRIVER_ATLAS_LOCAL) {
+            return $this->invokeAtlasLocal(
+                $request['model'] ?? null,
+                is_array($request['prompt'] ?? null) ? $request['prompt'] : [],
+                $request,
+            );
+        }
+        if (! $this->supports($provider) || ! $this->hasRuntimeDriver($provider)) {
+            return $this->blockedCompact(
+                $provider,
+                $request['model'] ?? null,
+                $this->supports($provider) ? self::BLOCKER_PROVIDER_INVOCATION_NOT_CONFIGURED : self::BLOCKER_PROVIDER_DRIVER_MISSING,
+                'Driver unavailable.',
             );
         }
 
-        return $this->invokeAtlasLocal($model, $prompt, $context);
+        return $this->drivers[$provider]->invoke($request);
+    }
+
+    /**
+     * @param  array<string,mixed>  $request
+     * @return array<string,mixed>
+     */
+    private function atlasLocalPlan(array $request): array
+    {
+        return [
+            'schema_version' => 'atlas.forge.provider_driver_plan.v1',
+            'provider' => self::DRIVER_ATLAS_LOCAL,
+            'model' => $request['model'] ?? null,
+            'argv_preview' => ['atlas-runtime'],
+            'configured' => true,
+            'allowlist_passed' => true,
+            'allowlist_blockers' => [],
+            'config_blockers' => [],
+            'blockers' => [],
+            'plan_safe' => true,
+            'provider_called' => false,
+            'external_provider_call' => false,
+            'provider_tokens_spent' => false,
+            'note' => 'atlas-local plan: deterministic local executor.',
+        ];
     }
 
     /**
@@ -152,9 +360,6 @@ class AtlasForgeProviderInvocationDriverRouter
     private function invokeAtlasLocal(?string $model, array $prompt, array $context): array
     {
         $started = microtime(true);
-        // Atlas-local executor is intentionally minimal: it summarises the
-        // canonical prompt + dispatch + role into a deterministic payload so
-        // tests can prove "no provider call, no tokens, no fake stdout".
         $summaryLines = [
             'Atlas Forge atlas-local executor · plan-only output',
             'obra_id='.((string) ($context['obra_id'] ?? '—')),
@@ -195,7 +400,7 @@ class AtlasForgeProviderInvocationDriverRouter
     /**
      * @return array<string,mixed>
      */
-    private function blockedResult(?string $provider, ?string $model, string $blocker, string $note): array
+    private function blockedCompact(?string $provider, ?string $model, string $blocker, string $note): array
     {
         return [
             'schema_version' => 'atlas.forge.provider_invocation_driver_result.v1',
@@ -212,6 +417,7 @@ class AtlasForgeProviderInvocationDriverRouter
             'stderr_hash' => hash('sha256', ''),
             'output_excerpt' => null,
             'output_excerpt_hash' => null,
+            'classification' => null,
             'blocker' => $blocker,
             'note' => $note,
         ];
@@ -222,7 +428,6 @@ class AtlasForgeProviderInvocationDriverRouter
      */
     private function promptHash(array $prompt): string
     {
-        // Stable canonical hash so replay/audit can diff prompts without leaking content.
         $canonical = json_encode($prompt, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 
         return hash('sha256', (string) $canonical);

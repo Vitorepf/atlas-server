@@ -71,6 +71,10 @@ class AtlasAiSelfConstructionCommand extends Command
         {--forge-workspace-status : Project the canonical read-only Forge Workspace for Atlas Self-Construction OS}
         {--agent-control-plane : Project the canonical read-only Agent Control Plane for provider sessions, runs, liveness and packet locks}
         {--agent-control-plane-runtime-schema-preflight : Generate the read-only Agent Control Plane runtime schema activation preflight without running migrations}
+        {--agent-control-plane-chain-integrity-certification : Generate the read-only Agent Control Plane Chain Integrity Certification contract without auditing live state}
+        {--agent-control-plane-chain-integrity-certification-preflight : Generate the read-only Agent Control Plane Chain Integrity Certification preflight without auditing live state}
+        {--agent-control-plane-chain-integrity-certification-implementation-packet : Generate the read-only Agent Control Plane Chain Integrity Certification implementation packet without auditing live state}
+        {--agent-control-plane-chain-integrity-certification-status : Run the read-only Agent Control Plane Chain Integrity Certification audit and return its full diagnostic}
         {--agent-run-sync : Materialize reservation ledger state into Agent Control Plane runtime runs when schema is available}
         {--agent-heartbeat : Record a heartbeat for a synced Agent Control Plane run}
         {--agent-run-liveness : Inspect synced Agent Control Plane runs for active, stale, expired and terminal liveness}
@@ -1526,6 +1530,10 @@ class AtlasAiSelfConstructionCommand extends Command
             (bool) $this->option('agent-run-liveness') => $readiness->agentRunLiveness($options),
             (bool) $this->option('agent-heartbeat') => $readiness->agentHeartbeat($options),
             (bool) $this->option('agent-run-sync') => $readiness->agentRunSync($options),
+            (bool) $this->option('agent-control-plane-chain-integrity-certification-status') => $readiness->agentControlPlaneChainIntegrityCertificationStatus($options),
+            (bool) $this->option('agent-control-plane-chain-integrity-certification-implementation-packet') => $readiness->agentControlPlaneChainIntegrityCertificationImplementationPacket($options),
+            (bool) $this->option('agent-control-plane-chain-integrity-certification-preflight') => $readiness->agentControlPlaneChainIntegrityCertificationPreflight($options),
+            (bool) $this->option('agent-control-plane-chain-integrity-certification') => $readiness->agentControlPlaneChainIntegrityCertificationContract($options),
             (bool) $this->option('agent-control-plane-runtime-schema-preflight') => $readiness->agentControlPlaneRuntimeSchemaPreflight($options),
             (bool) $this->option('agent-control-plane') => $readiness->agentControlPlane($options),
             (bool) $this->option('forge-workspace-status') => $readiness->forgeWorkspaceStatus($options),
@@ -5614,6 +5622,65 @@ class AtlasAiSelfConstructionCommand extends Command
             $this->components->twoColumnDetail('Tables ready', (string) data_get($payload, 'runtime_schema_preflight.counts.ready_tables'));
             $this->components->twoColumnDetail('Missing tables', (string) data_get($payload, 'runtime_schema_preflight.counts.missing_tables'));
             $this->components->twoColumnDetail('Preflight hash', (string) data_get($payload, 'runtime_schema_preflight_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-control-plane-chain-integrity-certification')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Certification version', (string) data_get($payload, 'agent_control_plane_chain_integrity_certification_contract.certification_version'));
+            $this->components->twoColumnDetail('Audit service', (string) data_get($payload, 'agent_control_plane_chain_integrity_certification_contract.audit_service'));
+            $this->components->twoColumnDetail('Next required slice', (string) data_get($payload, 'agent_control_plane_chain_integrity_certification_contract.next_required_slice'));
+            $this->components->twoColumnDetail('Contract hash', (string) data_get($payload, 'agent_control_plane_chain_integrity_certification_contract_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-control-plane-chain-integrity-certification-preflight')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Status', (string) data_get($payload, 'agent_control_plane_chain_integrity_certification_preflight.status'));
+            $this->components->twoColumnDetail('Blocking count', (string) data_get($payload, 'agent_control_plane_chain_integrity_certification_preflight.blocking_count'));
+            $this->components->twoColumnDetail('Next required slice', (string) data_get($payload, 'agent_control_plane_chain_integrity_certification_preflight.next_required_slice'));
+            $this->components->twoColumnDetail('Preflight hash', (string) data_get($payload, 'agent_control_plane_chain_integrity_certification_preflight_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-control-plane-chain-integrity-certification-implementation-packet')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Packet ID', (string) data_get($payload, 'agent_control_plane_chain_integrity_certification_implementation_packet.packet_id'));
+            $this->components->twoColumnDetail('Allowed files', (string) count((array) data_get($payload, 'agent_control_plane_chain_integrity_certification_implementation_packet.allowed_files', [])));
+            $this->components->twoColumnDetail('Acceptance criteria', (string) count((array) data_get($payload, 'agent_control_plane_chain_integrity_certification_implementation_packet.acceptance_criteria', [])));
+            $this->components->twoColumnDetail('Next required slice', (string) data_get($payload, 'agent_control_plane_chain_integrity_certification_implementation_packet.next_required_slice'));
+            $this->components->twoColumnDetail('Packet hash', (string) data_get($payload, 'agent_control_plane_chain_integrity_certification_implementation_packet_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-control-plane-chain-integrity-certification-status')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Status', (string) data_get($payload, 'agent_control_plane_chain_integrity_certification_status.status'));
+            $this->components->twoColumnDetail('Checked slices', (string) data_get($payload, 'agent_control_plane_chain_integrity_certification_status.checked_slice_count'));
+            $this->components->twoColumnDetail('Violations', (string) data_get($payload, 'agent_control_plane_chain_integrity_certification_status.violation_count'));
+            $this->components->twoColumnDetail('Warnings', (string) data_get($payload, 'agent_control_plane_chain_integrity_certification_status.warning_count'));
+            $this->components->twoColumnDetail('Invariants all true', data_get($payload, 'agent_control_plane_chain_integrity_certification_status.invariants_all_true') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Runtime safety all false', data_get($payload, 'agent_control_plane_chain_integrity_certification_status.runtime_safety_all_false') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Next required slice', (string) data_get($payload, 'agent_control_plane_chain_integrity_certification_status.current_next_required_slice'));
+            $this->components->twoColumnDetail('Expected next required slice', (string) data_get($payload, 'agent_control_plane_chain_integrity_certification_status.expected_next_required_slice'));
+            $this->components->twoColumnDetail('Next action', (string) data_get($payload, 'agent_control_plane_chain_integrity_certification_status.next_action'));
+            $this->components->twoColumnDetail('Audit hash', (string) data_get($payload, 'agent_control_plane_chain_integrity_certification_status.audit_hash'));
             $this->newLine();
             $this->line((string) $payload['human_summary']);
 

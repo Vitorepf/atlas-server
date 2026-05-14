@@ -28973,6 +28973,11 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertSame('Obras Shared Workspace', data_get($payload, 'control_plane.workspace_name'));
         $this->assertContains('durable_packet_checkout_lock', data_get($payload, 'control_plane.current_capability'));
         $this->assertContains('post_start_evidence_bridge_invariant', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_chain_integrity_certification_contract', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_chain_integrity_certification_preflight', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_chain_integrity_certification_implementation_packet', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_chain_integrity_certification_service', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_chain_integrity_certification_status_projection', data_get($payload, 'control_plane.current_capability'));
         $this->assertContains('signed_dispatch_receipt_writer_contract', data_get($payload, 'control_plane.runtime_contracts_available'));
         $this->assertContains('adapter_invocation_boundary_contract', data_get($payload, 'control_plane.runtime_contracts_available'));
         $this->assertContains('checkout_lock', data_get($payload, 'control_plane.paperclip_patterns_absorbed'));

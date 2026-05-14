@@ -44,6 +44,8 @@ class AtlasSelfImprovementHumanTrustLedgerService
     public const OUTCOME_AUTOPROMOTION_REVERTED = 'autopromotion_reverted';
     public const OUTCOME_OVERREACH_FLAGGED = 'overreach_flagged';
     public const OUTCOME_OVER_CONSERVATIVE_FLAGGED = 'over_conservative_flagged';
+    public const OUTCOME_PROPOSAL_ACCEPTED_FOR_FORGE = 'proposal_accepted_for_forge';
+    public const OUTCOME_PROPOSAL_REJECTED_FOR_FORGE = 'proposal_rejected_for_forge';
 
     /** @var list<string> */
     public const KNOWN_OUTCOMES = [
@@ -54,6 +56,8 @@ class AtlasSelfImprovementHumanTrustLedgerService
         self::OUTCOME_AUTOPROMOTION_REVERTED,
         self::OUTCOME_OVERREACH_FLAGGED,
         self::OUTCOME_OVER_CONSERVATIVE_FLAGGED,
+        self::OUTCOME_PROPOSAL_ACCEPTED_FOR_FORGE,
+        self::OUTCOME_PROPOSAL_REJECTED_FOR_FORGE,
     ];
 
     /**

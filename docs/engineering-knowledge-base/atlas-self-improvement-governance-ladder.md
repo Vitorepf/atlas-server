@@ -65,6 +65,7 @@ depends_on:
 flows_to:
   - atlas-code
   - atlas-forge-continuum-os
+  - atlas-self-improvement-activation-cockpit-v1
   - self-construction
   - rivals-learning
 unlocks:
@@ -463,11 +464,12 @@ provider. Proposal Power Gate deve retornar `rejected` ou `needs_revision`.
 
 ## Proximas Acoes
 
-Implementar os comandos e services correspondentes:
+Implementacao v1 entregue: 8 services (`AtlasSelfImprovementProposalPacketService`, `…ProposalPowerGateService`, `…DeltaScorecardService`, `…InvariantLockService`, `…RegressionSentinelService`, `…CapabilityMaturityScoreService`, `…HumanTrustLedgerService`, `…StrategyPortfolioService`), 6 CLIs (`atlas:self-improvement:proposal-gate|before-after|invariant-lock|regression-sentinel|maturity-score|trust-ledger`), `AtlasCodeSelfImprovementGovernanceController` com 8 endpoints, state projection `self_improvement_governance`, audit block `atlas_self_improvement_governance_certification` (schema `atlas.self_improvement.governance_certification.v1`, 27 invariantes), painel desktop `AtlasSelfImprovementGovernancePanel`, e suite `AtlasSelfImprovementGovernanceTest`. Read-model + diagnostic + governance — nunca chama provider externo, nunca promove Forge, nunca libera `external_rivals_certification`.
 
-- `atlas:self-improvement:proposal-gate`;
-- `atlas:self-improvement:before-after`;
-- `atlas:self-improvement:invariant-lock`;
-- `atlas:self-improvement:regression-sentinel`;
-- `atlas:self-improvement:maturity-score`;
-- `atlas:self-improvement:trust-ledger`.
+Proximos passos governados:
+
+1. Conectar Strategy Portfolio a uma colecao real de Proposal Packets persistida (hoje a ferramenta aceita lista in-memory).
+2. Plugar Decision Receipt do Atlas Decide nos `provider_topology_recommendation` quando o dispatcher real (eixo separado) emitir.
+3. Habilitar workflow human-review com signoff persistido apos `power_gate.outcome=human_review_required`.
+
+Para fechar o ciclo proposta → Obra real ver `atlas-self-improvement-forge-activation-v1.md` (closed loop com baseline + approval receipt + Intake completo, sem auto Fast Path).

@@ -26,15 +26,69 @@ final class AtlasForgeProviderInvokeCommand extends Command
         {--confirm-provider-call : Aprova invocacao de provider (necessario em execute)}
         {--confirm-budget : Aprova budget para provider externo (necessario em execute se driver chama provider externo)}
         {--confirm-runtime-dispatch : Confirma uso do runtime dispatch plan vigente}
+        {--driver-status : Imprime apenas status dos drivers (nao chama provider)}
+        {--plan-driver : Imprime driver plan packet (nao chama provider)}
+        {--provider-timeout=120 : Timeout do driver runtime em segundos (1..3600); alias de --timeout}
         {--timeout=120 : Timeout em segundos (1..3600)}
         {--max-output-chars=12000 : Limite de excerpt para output capturado}
-        {--json : Imprime JSON canonico atlas.forge.provider_invocation.v1}
+        {--redact-output=1 : Redact secrets do excerpt antes de imprimir (default true)}
+        {--json : Imprime JSON canonico}
         {--strict : Exit non-zero se status nao for planned (dry_run) ou executed (execute)}';
 
     protected $description = 'Atlas Forge Governed Provider Invocation · plan-only por padrao; execute exige aprovacao explicita.';
 
-    public function handle(AtlasForgeProviderInvocationService $service): int
-    {
+    public function handle(
+        AtlasForgeProviderInvocationService $service,
+        \App\Services\Ai\Programming\AtlasForgeProviderInvocationDriverRouter $router,
+    ): int {
+        // Sub-mode: --driver-status (no provider call ever)
+        if ((bool) $this->option('driver-status')) {
+            $status = $router->driverStatus();
+            if ((bool) $this->option('json')) {
+                $this->line($this->encode($status));
+            } else {
+                foreach ((array) ($status['drivers'] ?? []) as $entry) {
+                    $this->components->twoColumnDetail(
+                        (string) ($entry['provider'] ?? '—'),
+                        sprintf('configured=%s runtime=%s auth=%s', $entry['configured'] ? 'yes' : 'no', $entry['runtime_present'] ? 'yes' : 'no', (string) ($entry['auth_state'] ?? '—')),
+                    );
+                }
+            }
+
+            return self::SUCCESS;
+        }
+
+        // Sub-mode: --plan-driver (no provider call ever, returns driver plan packet)
+        if ((bool) $this->option('plan-driver')) {
+            $obraId = $this->stringOption('obra');
+            if ($obraId === null && (bool) $this->option('strict')) {
+                $payload = ['status' => 'blocked', 'blocker' => 'obra_required', 'note' => 'plan-driver --strict requires --obra'];
+                $this->line($this->encode($payload));
+
+                return self::FAILURE;
+            }
+            $payload = $service->invoke([
+                'obra_id' => $obraId,
+                'role' => $this->stringOption('role'),
+                'mode' => 'dry_run',
+                'dispatch_id' => $this->stringOption('dispatch'),
+                'timeout_seconds' => $this->resolveTimeout(),
+                'max_output_chars' => (int) $this->option('max-output-chars'),
+            ]);
+            $payload['driver_status'] = $router->driverStatus($payload['provider'] ?? null);
+            $payload['driver_plan'] = $router->driverPlan($payload['provider'] ?? null, [
+                'model' => $payload['model'] ?? null,
+                'cwd' => null,
+            ]);
+            if ((bool) $this->option('json')) {
+                $this->line($this->encode($payload));
+            } else {
+                $this->renderHuman($payload);
+            }
+
+            return $this->resolveExit($payload, (bool) $this->option('strict'));
+        }
+
         $payload = $service->invoke([
             'obra_id' => $this->stringOption('obra'),
             'role' => $this->stringOption('role'),
@@ -43,7 +97,7 @@ final class AtlasForgeProviderInvokeCommand extends Command
             'confirm_provider_call' => (bool) $this->option('confirm-provider-call'),
             'confirm_budget' => (bool) $this->option('confirm-budget'),
             'confirm_runtime_dispatch' => (bool) $this->option('confirm-runtime-dispatch'),
-            'timeout_seconds' => (int) $this->option('timeout'),
+            'timeout_seconds' => $this->resolveTimeout(),
             'max_output_chars' => (int) $this->option('max-output-chars'),
         ]);
 
@@ -54,6 +108,14 @@ final class AtlasForgeProviderInvokeCommand extends Command
         }
 
         return $this->resolveExit($payload, (bool) $this->option('strict'));
+    }
+
+    private function resolveTimeout(): int
+    {
+        $providerTimeout = (int) $this->option('provider-timeout');
+        $timeout = (int) $this->option('timeout');
+
+        return $providerTimeout > 0 && $providerTimeout !== 120 ? $providerTimeout : $timeout;
     }
 
     /**

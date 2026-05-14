@@ -463,7 +463,8 @@ class AtlasCodeForgeFastPathService
         $planCompiler = app(PlanCompiler::class);
         $taskCompiler = app(TaskCompiler::class);
 
-        $request = Request::create('/_fast-path/spec-plan', 'POST', []);
+        $workItem = $this->applyWorkIntakeToWorkItem($project, $workItem);
+        $request = Request::create('/_fast-path/spec-plan', 'POST', $this->specPlanRequestPayload($project, $workItem));
 
         try {
             $response = app(AtlasCodeProgrammingWorkItemController::class)
@@ -697,7 +698,8 @@ class AtlasCodeForgeFastPathService
         ?string $fastPathRunId = null,
         ?string $startedAt = null,
     ): array {
-        $statuses = array_map(static fn (array $s): string => (string) ($s['status'] ?? 'blocked'), $stages);
+        $reportStages = $this->sanitizeStagesForReport($stages);
+        $statuses = array_map(static fn (array $s): string => (string) ($s['status'] ?? 'blocked'), $reportStages);
 
         $status = match (true) {
             in_array('obra_required', $blockers, true), in_array('obra_not_found', $blockers, true) => 'blocked',
@@ -712,8 +714,8 @@ class AtlasCodeForgeFastPathService
 
         $runId = $fastPathRunId ?? (string) Str::ulid();
         $startedAt ??= now()->toIso8601String();
-        $progressPercent = $this->computeProgress($stages);
-        $currentStage = $this->resolveCurrentStage($stages, $status);
+        $progressPercent = $this->computeProgress($reportStages);
+        $currentStage = $this->resolveCurrentStage($reportStages, $status);
 
         $report = [
             'schema_version' => self::SCHEMA_VERSION,
@@ -735,7 +737,7 @@ class AtlasCodeForgeFastPathService
             'checkpoint_id' => $checkpointId,
             'current_stage' => $currentStage,
             'progress_percent' => $progressPercent,
-            'stages' => $stages,
+            'stages' => $reportStages,
             'blockers' => array_values(array_unique($blockers)),
             'evidence_refs' => array_values(array_unique($evidenceRefs)),
             'commands' => array_filter($commands, static fn (mixed $v): bool => $v !== null),
@@ -794,8 +796,11 @@ class AtlasCodeForgeFastPathService
     private function rememberFastPath(AtlasProject $project, array $report): void
     {
         $metadata = is_array($project->metadata) ? $project->metadata : [];
+        $report = $this->sanitizeReportForStorage($report);
+
         $history = collect((array) ($metadata['atlas_code_forge_fast_path_history'] ?? []))
             ->filter(fn (mixed $entry): bool => is_array($entry))
+            ->map(fn (array $entry): array => $this->sanitizeReportForStorage($entry))
             ->values()
             ->all();
 
@@ -854,6 +859,230 @@ class AtlasCodeForgeFastPathService
         ];
     }
 
+    /**
+     * @return array<string,mixed>
+     */
+    private function specPlanRequestPayload(AtlasProject $project, AtlasProgrammingWorkItem $workItem): array
+    {
+        $metadata = is_array($project->metadata) ? $project->metadata : [];
+        $intake = (array) data_get($metadata, 'latest_atlas_code_forge_work_intake', []);
+        $canonicalDocs = $this->stringList(data_get($intake, 'canonical_docs', []));
+        $acceptance = $this->stringList(data_get($intake, 'acceptance_criteria', []));
+
+        $likelyFiles = $canonicalDocs !== []
+            ? $canonicalDocs
+            : [
+                'docs/engineering-knowledge-base/atlas-programming-forge-flow.md',
+                'docs/engineering-knowledge-base/atlas-forge-continuum-os.md',
+            ];
+
+        $validationCommands = $this->defaultValidationCommands($project, $workItem);
+
+        return array_filter([
+            'likely_files' => $likelyFiles,
+            'validation_commands' => $validationCommands,
+            'acceptance_criteria' => $acceptance !== [] ? $acceptance : [
+                'Forge Fast Path compila spec/plan/tasks ou retorna blocker honesto.',
+                'Nenhum provider externo e chamado.',
+                'Nenhum completion claim e promovido sem review/evidence.',
+            ],
+            'evidence_required' => [
+                'fast_path_run_status',
+                'forge_workspace_binding',
+                'validation_command_output',
+            ],
+            'context_stack' => 'atlas-code-forge',
+            'context_packages' => [
+                'atlas.code.forge.v1',
+                'atlas.code.forge_work_intake.v1',
+                'atlas.forge.continuum_os.v1',
+            ],
+        ], static fn (mixed $value): bool => $value !== null && $value !== []);
+    }
+
+    private function applyWorkIntakeToWorkItem(AtlasProject $project, AtlasProgrammingWorkItem $workItem): AtlasProgrammingWorkItem
+    {
+        $metadata = is_array($project->metadata) ? $project->metadata : [];
+        $intake = (array) data_get($metadata, 'latest_atlas_code_forge_work_intake', []);
+        if ((string) ($intake['readiness_status'] ?? '') !== 'ready') {
+            return $workItem;
+        }
+
+        $objective = $this->stringOrNull(data_get($intake, 'objective'));
+        if ($objective === null) {
+            return $workItem;
+        }
+
+        $workItemMetadata = is_array($workItem->metadata_json) ? $workItem->metadata_json : [];
+        $workItemMetadata['atlas_code_forge_work_intake'] = [
+            'schema_version' => 'atlas.code.forge_work_intake_projection.v1',
+            'intake_id' => $this->stringOrNull(data_get($intake, 'intake_id')),
+            'business_rule' => $this->stringOrNull(data_get($intake, 'business_rule')),
+            'scope_in' => $this->stringList(data_get($intake, 'scope_in', [])),
+            'scope_out' => $this->stringList(data_get($intake, 'scope_out', [])),
+            'acceptance_criteria' => $this->stringList(data_get($intake, 'acceptance_criteria', [])),
+            'canonical_docs' => $this->stringList(data_get($intake, 'canonical_docs', [])),
+            'operator_notes' => $this->stringOrNull(data_get($intake, 'operator_notes')),
+            'source_authority' => 'AtlasCodeForgeWorkIntakeService::save',
+            'projected_at' => now()->toIso8601String(),
+        ];
+
+        $riskLevel = $this->stringOrNull(data_get($intake, 'risk_level')) ?? (string) $workItem->risk_level;
+
+        $workItem->forceFill([
+            'intent_text' => $objective,
+            'risk_level' => in_array($riskLevel, ['low', 'medium', 'high', 'critical'], true) ? $riskLevel : (string) $workItem->risk_level,
+            'metadata_json' => $workItemMetadata,
+        ])->save();
+
+        return $workItem->refresh();
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function defaultValidationCommands(AtlasProject $project, AtlasProgrammingWorkItem $workItem): array
+    {
+        $obraId = (string) $project->getKey();
+
+        return [
+            "php artisan atlas:code:forge-fast-path-status --obra={$obraId} --run=<fast_path_run_id> --json --strict",
+            "php artisan atlas:forge:continuum-certify --obra={$obraId} --json --strict",
+            'php artisan atlas:forge:provider-capacity --json --strict',
+            'php artisan atlas:engineering:knowledge docs-health --json',
+        ];
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $stages
+     * @return array<int,array<string,mixed>>
+     */
+    private function sanitizeStagesForReport(array $stages): array
+    {
+        return array_map(fn (array $stage): array => $this->sanitizeStageForReport($stage), $stages);
+    }
+
+    /**
+     * @param  array<string,mixed>  $stage
+     * @return array<string,mixed>
+     */
+    private function sanitizeStageForReport(array $stage): array
+    {
+        $sanitized = [];
+        foreach ($stage as $key => $value) {
+            if ($key === 'project' && $value instanceof AtlasProject) {
+                $sanitized['project_id'] = (string) $value->getKey();
+                $sanitized['project_title'] = $this->truncateString((string) ($value->title ?? ''), 160);
+                continue;
+            }
+            if ($key === 'project' && is_array($value)) {
+                $sanitized['project_id'] = $this->stringOrNull(data_get($value, 'id'));
+                $sanitized['project_title'] = $this->truncateString((string) data_get($value, 'title', ''), 160);
+                continue;
+            }
+
+            if ($key === 'work_item' && $value instanceof AtlasProgrammingWorkItem) {
+                $sanitized['work_item'] = $this->workItemSummary($value);
+                continue;
+            }
+            if ($key === 'work_item' && is_array($value)) {
+                $sanitized['work_item'] = [
+                    'id' => $this->stringOrNull(data_get($value, 'id')),
+                    'code' => $this->stringOrNull(data_get($value, 'code')),
+                    'status' => $this->stringOrNull(data_get($value, 'status')),
+                    'current_stage' => $this->stringOrNull(data_get($value, 'current_stage')),
+                    'risk_level' => $this->stringOrNull(data_get($value, 'risk_level')),
+                    'spec_hash' => data_get($value, 'spec_hash'),
+                    'plan_hash' => data_get($value, 'plan_hash'),
+                    'task_count' => count((array) data_get($value, 'tasks_json', [])),
+                ];
+                continue;
+            }
+
+            $sanitized[$key] = $this->sanitizeValueForReport($value);
+        }
+
+        return $sanitized;
+    }
+
+    /**
+     * @param  array<string,mixed>  $report
+     * @return array<string,mixed>
+     */
+    private function sanitizeReportForStorage(array $report): array
+    {
+        if (isset($report['stages']) && is_array($report['stages'])) {
+            $report['stages'] = $this->sanitizeStagesForReport((array) $report['stages']);
+        }
+
+        return $this->sanitizeValueForReport($report, 0);
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function workItemSummary(AtlasProgrammingWorkItem $workItem): array
+    {
+        return [
+            'id' => (string) $workItem->id,
+            'code' => (string) $workItem->code,
+            'status' => (string) $workItem->status,
+            'current_stage' => (string) $workItem->current_stage,
+            'risk_level' => (string) $workItem->risk_level,
+            'spec_hash' => $workItem->spec_hash,
+            'plan_hash' => $workItem->plan_hash,
+            'task_count' => count((array) $workItem->tasks_json),
+        ];
+    }
+
+    private function sanitizeValueForReport(mixed $value, int $depth = 0): mixed
+    {
+        if ($value instanceof AtlasProject) {
+            return [
+                'project_id' => (string) $value->getKey(),
+                'title' => $this->truncateString((string) ($value->title ?? ''), 160),
+            ];
+        }
+
+        if ($value instanceof AtlasProgrammingWorkItem) {
+            return $this->workItemSummary($value);
+        }
+
+        if (is_string($value)) {
+            return $this->truncateString($value, 2000);
+        }
+
+        if (! is_array($value)) {
+            return $value;
+        }
+
+        if ($depth >= 6) {
+            return ['truncated' => true, 'reason' => 'max_depth'];
+        }
+
+        $out = [];
+        $count = 0;
+        foreach ($value as $key => $nested) {
+            if ($count >= 120) {
+                $out['truncated'] = true;
+                $out['truncated_reason'] = 'max_items';
+                break;
+            }
+
+            $out[$key] = $this->sanitizeValueForReport($nested, $depth + 1);
+            $count++;
+        }
+
+        return $out;
+    }
+
+    private function truncateString(string $value, int $maxLength): string
+    {
+        return strlen($value) > $maxLength
+            ? substr($value, 0, $maxLength).'...'
+            : $value;
+    }
+
     private function normalizeMode(mixed $mode): string
     {
         $value = is_string($mode) ? trim($mode) : '';
@@ -871,6 +1100,18 @@ class AtlasCodeForgeFastPathService
         $value = trim($value);
 
         return $value === '' ? null : $value;
+    }
+
+    /**
+     * @param  mixed  $value
+     * @return list<string>
+     */
+    private function stringList(mixed $value): array
+    {
+        return array_values(array_filter(
+            array_map(static fn (mixed $item): string => is_string($item) ? trim($item) : '', (array) $value),
+            static fn (string $item): bool => $item !== '',
+        ));
     }
 
     private function intentFromProject(AtlasProject $project): ?string

@@ -43190,9 +43190,9 @@ final class AtlasSelfConstructionReadinessService
                 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_real_invoker_release_preflight_gate_invoker_service',
             ];
         } else {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_signed_real_invoker_release_gate_contract';
+            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_actual_process_start_rehearsal_gate_contract';
             $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_signed_real_invoker_release_gate_contract',
+                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_actual_process_start_rehearsal_gate_contract',
             ];
         }
         $currentCapabilities = [
@@ -43206,6 +43206,11 @@ final class AtlasSelfConstructionReadinessService
             'multi_session_readiness_projection',
             'continuation_summary_projection',
             'post_start_evidence_bridge_invariant',
+            'agent_control_plane_chain_integrity_certification_contract',
+            'agent_control_plane_chain_integrity_certification_preflight',
+            'agent_control_plane_chain_integrity_certification_implementation_packet',
+            'agent_control_plane_chain_integrity_certification_service',
+            'agent_control_plane_chain_integrity_certification_status_projection',
         ];
         $notYetRuntimeCapable = [
             'database_backed_agent_runs',
@@ -44514,7 +44519,7 @@ final class AtlasSelfConstructionReadinessService
                 'adapter_execution_runtime',
                 'automatic_cost_import_runtime',
                 'automatic_work_product_collection_runtime',
-                'automatic_dispatch_scheduler_codex_real_invoker_post_start_signed_real_invoker_release_gate_contract_runtime',
+                'automatic_dispatch_scheduler_codex_real_invoker_post_start_actual_process_start_rehearsal_gate_contract_runtime',
             ];
         }
 
@@ -72782,6 +72787,281 @@ final class AtlasSelfConstructionReadinessService
             'human_summary' => $schemaReady
                 ? 'Agent Control Plane runtime schema preflight is ready: runtime tables exist; next slice is governed provider adapter invocation runtime policy.'
                 : 'Agent Control Plane runtime schema preflight is ready: migration contract exists, but runtime tables are missing; apply the migration before activating runtime writers.',
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneChainIntegrityCertificationContract(array $options = []): array
+    {
+        $contract = [
+            'status' => 'agent_control_plane_chain_integrity_certification_contract_ready',
+            'contract_id' => 'AGENT-CONTROL-PLANE-CHAIN-INTEGRITY-CERTIFICATION-CONTRACT-SELF-CONSTRUCTION-0001',
+            'parent_program' => 'Atlas Self-Construction OS',
+            'submodule' => 'Atlas Agent Control Plane',
+            'certification_version' => AgentControlPlaneChainIntegrityAuditService::SCHEMA_VERSION,
+            'audit_service' => AgentControlPlaneChainIntegrityAuditService::class,
+            'audit_service_method' => 'audit',
+            'invariants' => [
+                'audit_is_read_only' => true,
+                'audit_does_not_start_codex' => true,
+                'audit_does_not_call_codex_cli_or_app' => true,
+                'audit_does_not_spawn_subprocess' => true,
+                'audit_does_not_invoke_adapter' => true,
+                'audit_does_not_execute_adapter' => true,
+                'audit_does_not_call_provider' => true,
+                'audit_does_not_dispatch_work' => true,
+                'audit_does_not_spend_tokens' => true,
+                'audit_does_not_enable_self_programming' => true,
+                'audit_does_not_write_ledger' => true,
+                'audit_does_not_advance_pointer' => true,
+                'audit_does_not_mark_runtime_flags_true' => true,
+                'audit_does_not_promote_completion_claim' => true,
+            ],
+            'allowed_future_inspection' => [
+                'audit_canonical_chain',
+                'audit_capability_surface',
+                'audit_cli_surface',
+                'audit_readiness_surface',
+                'audit_invoker_surface',
+                'audit_documentation',
+                'audit_global_pointers',
+                'audit_runtime_safety',
+            ],
+            'forbidden_even_after_contract' => [
+                'mutate_agent_control_plane',
+                'advance_next_required_slice',
+                'mark_runtime_capable',
+                'invoke_codex',
+                'dispatch_work',
+                'spawn_subprocess',
+                'enable_self_programming',
+            ],
+            'next_required_slice' => 'activate_agent_control_plane_chain_integrity_certification_preflight',
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_control_plane_chain_integrity_certification_contract.v1',
+            'status' => (string) $contract['status'],
+            'mode' => 'read_only_agent_control_plane_chain_integrity_certification_contract',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'agent_control_plane_chain_integrity_certification_contract' => $contract,
+            'agent_control_plane_chain_integrity_certification_contract_hash' => $this->stableHash($contract),
+            'non_execution_guarantees' => [
+                'agent_control_plane_chain_integrity_certification_contract_does_not_start_codex',
+                'agent_control_plane_chain_integrity_certification_contract_does_not_advance_pointer',
+                'agent_control_plane_chain_integrity_certification_contract_does_not_dispatch_work',
+                'agent_control_plane_chain_integrity_certification_contract_does_not_execute_adapter',
+                'agent_control_plane_chain_integrity_certification_contract_does_not_enable_self_programming',
+            ],
+            'human_summary' => 'Agent Control Plane Chain Integrity Certification contract is ready: it authorizes a read-only structural audit of the Self-Construction chain; it does not advance pointers, dispatch work or enable runtime.',
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneChainIntegrityCertificationPreflight(array $options = []): array
+    {
+        $contractPayload = $this->agentControlPlaneChainIntegrityCertificationContract($options);
+        $contract = (array) data_get($contractPayload, 'agent_control_plane_chain_integrity_certification_contract', []);
+        $contractHash = (string) data_get($contractPayload, 'agent_control_plane_chain_integrity_certification_contract_hash');
+
+        $checks = [
+            'contract_ready' => data_get($contractPayload, 'status') === 'agent_control_plane_chain_integrity_certification_contract_ready',
+            'contract_hash_present' => $contractHash !== '',
+            'audit_service_class_exists' => class_exists(AgentControlPlaneChainIntegrityAuditService::class),
+            'audit_service_method_exists' => class_exists(AgentControlPlaneChainIntegrityAuditService::class)
+                && method_exists(AgentControlPlaneChainIntegrityAuditService::class, 'audit'),
+            'agent_control_plane_method_exists' => method_exists($this, 'agentControlPlane'),
+            'contract_declares_read_only_audit' => (bool) data_get($contract, 'invariants.audit_is_read_only', false),
+            'contract_forbids_advance_pointer' => (bool) data_get($contract, 'invariants.audit_does_not_advance_pointer', false),
+            'contract_forbids_runtime_writes' => (bool) data_get($contract, 'invariants.audit_does_not_mark_runtime_flags_true', false),
+        ];
+        $blockingReasons = array_values(array_keys(array_filter($checks, static fn (bool $passed): bool => ! $passed)));
+
+        $preflight = [
+            'status' => $blockingReasons === [] ? 'agent_control_plane_chain_integrity_certification_preflight_ready' : 'blocked',
+            'preflight_id' => 'AGENT-CONTROL-PLANE-CHAIN-INTEGRITY-CERTIFICATION-PREFLIGHT-SELF-CONSTRUCTION-0001',
+            'source_contract_hash' => $contractHash,
+            'preflight_checks' => $checks,
+            'blocking_count' => count($blockingReasons),
+            'blocking_reasons' => $blockingReasons,
+            'implementation_requirements' => [
+                'create_agent_control_plane_chain_integrity_audit_service',
+                'expose_quartet_methods_on_readiness_service',
+                'add_cli_options_for_contract_preflight_implementation_packet_status',
+                'register_capabilities_in_agent_control_plane',
+                'cover_25_plus_assertions_in_dedicated_test_suite',
+                'document_certification_in_agent_control_plane_contract_doc',
+                'preserve_runtime_disabled_invariants',
+                'never_advance_pointer_by_optimism',
+            ],
+            'runtime_policy' => [
+                'preflight_is_read_only' => true,
+                'audit_service_call_allowed_by_future_status' => true,
+                'pointer_mutation_allowed_here' => false,
+                'runtime_flags_mutation_allowed_here' => false,
+            ],
+            'next_required_slice' => 'activate_agent_control_plane_chain_integrity_certification_implementation_packet',
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_control_plane_chain_integrity_certification_preflight.v1',
+            'status' => (string) $preflight['status'],
+            'mode' => 'read_only_agent_control_plane_chain_integrity_certification_preflight',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'agent_control_plane_chain_integrity_certification_preflight' => $preflight,
+            'agent_control_plane_chain_integrity_certification_preflight_hash' => $this->stableHash($preflight),
+            'non_execution_guarantees' => [
+                'agent_control_plane_chain_integrity_certification_preflight_does_not_start_codex',
+                'agent_control_plane_chain_integrity_certification_preflight_does_not_advance_pointer',
+                'agent_control_plane_chain_integrity_certification_preflight_does_not_dispatch_work',
+                'agent_control_plane_chain_integrity_certification_preflight_does_not_execute_adapter',
+                'agent_control_plane_chain_integrity_certification_preflight_does_not_enable_self_programming',
+            ],
+            'human_summary' => $blockingReasons === []
+                ? 'Agent Control Plane Chain Integrity Certification preflight is ready; audit service can be invoked through the status projection.'
+                : 'Agent Control Plane Chain Integrity Certification preflight is blocked until audit service and quartet are in place.',
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneChainIntegrityCertificationImplementationPacket(array $options = []): array
+    {
+        $preflightPayload = $this->agentControlPlaneChainIntegrityCertificationPreflight($options);
+        $preflightHash = (string) data_get($preflightPayload, 'agent_control_plane_chain_integrity_certification_preflight_hash');
+
+        $packet = [
+            'status' => 'ready_for_scoped_agent_control_plane_chain_integrity_certification_implementation',
+            'packet_id' => 'AGENT-CONTROL-PLANE-CHAIN-INTEGRITY-CERTIFICATION-IMPLEMENTATION-PACKET-SELF-CONSTRUCTION-0001',
+            'source_preflight_hash' => $preflightHash,
+            'allowed_files' => [
+                'app/Services/Ai/SelfConstruction/AgentControlPlaneChainIntegrityAuditService.php',
+                'app/Services/Ai/SelfConstruction/AtlasSelfConstructionReadinessService.php',
+                'app/Console/Commands/AtlasAiSelfConstructionCommand.php',
+                'tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneChainIntegrityAuditTest.php',
+                'tests/Feature/Ai/AtlasAiSelfConstructionCommandTest.php',
+                'docs/engineering-knowledge-base/self-construction/agent-control-plane-contract.md',
+            ],
+            'task_count' => 6,
+            'acceptance_criteria' => [
+                'audit_service_returns_schema_v1',
+                'audit_service_is_read_only',
+                'audit_service_detects_synthetic_broken_slice_when_chain_overridden',
+                'audit_service_reports_runtime_safety_all_false',
+                'audit_service_aligns_next_required_slice_with_not_yet_runtime_capable_slot_3',
+                'readiness_service_exposes_quartet_methods',
+                'cli_exposes_quartet_options',
+                'capabilities_registered_in_agent_control_plane',
+                'documentation_describes_certification_section',
+                'dedicated_test_suite_has_thirty_plus_assertions',
+            ],
+            'non_goals' => [
+                'mutate_agent_control_plane',
+                'advance_next_required_slice',
+                'enable_runtime_flags',
+                'invoke_codex_or_provider',
+                'dispatch_work',
+                'spawn_subprocess',
+                'enable_self_programming',
+            ],
+            'implementation_policy' => [
+                'audit_is_read_only' => true,
+                'pointer_mutation_allowed_by_packet' => false,
+                'runtime_flag_mutation_allowed_by_packet' => false,
+                'provider_invocation_allowed_by_packet' => false,
+                'adapter_invocation_allowed_by_packet' => false,
+                'dispatch_allowed_by_packet' => false,
+                'token_spend_allowed_by_packet' => false,
+                'self_programming_allowed_by_packet' => false,
+            ],
+            'next_required_slice' => 'activate_agent_control_plane_chain_integrity_certification_service',
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_control_plane_chain_integrity_certification_implementation_packet.v1',
+            'status' => (string) $packet['status'],
+            'mode' => 'read_only_agent_control_plane_chain_integrity_certification_implementation_packet',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'agent_control_plane_chain_integrity_certification_implementation_packet' => $packet,
+            'agent_control_plane_chain_integrity_certification_implementation_packet_hash' => $this->stableHash($packet),
+            'non_execution_guarantees' => [
+                'agent_control_plane_chain_integrity_certification_implementation_packet_does_not_start_codex',
+                'agent_control_plane_chain_integrity_certification_implementation_packet_does_not_advance_pointer',
+                'agent_control_plane_chain_integrity_certification_implementation_packet_does_not_dispatch_work',
+                'agent_control_plane_chain_integrity_certification_implementation_packet_does_not_execute_adapter',
+                'agent_control_plane_chain_integrity_certification_implementation_packet_does_not_enable_self_programming',
+            ],
+            'human_summary' => 'Agent Control Plane Chain Integrity Certification implementation packet is ready: scope is the audit service, readiness quartet, CLI surface, capabilities, docs and tests; no runtime activation allowed.',
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneChainIntegrityCertificationStatus(array $options = []): array
+    {
+        $auditService = new AgentControlPlaneChainIntegrityAuditService($this);
+        $audit = $auditService->audit($options);
+
+        $status = [
+            'status' => (string) data_get($audit, 'status', 'unknown'),
+            'audit_schema_version' => (string) data_get($audit, 'schema_version', ''),
+            'generated_at' => (string) data_get($audit, 'generated_at', ''),
+            'checked_slice_count' => (int) data_get($audit, 'checked_slice_count', 0),
+            'chain_length' => (int) data_get($audit, 'chain_length', 0),
+            'violation_count' => count((array) data_get($audit, 'violations', [])),
+            'warning_count' => count((array) data_get($audit, 'warnings', [])),
+            'invariants_all_true' => (bool) data_get($audit, 'invariants_all_true', false),
+            'runtime_safety_all_false' => (bool) data_get($audit, 'runtime_safety.runtime_safety_all_false', false),
+            'current_next_required_slice' => (string) data_get($audit, 'current_next_required_slice', ''),
+            'expected_next_required_slice' => (string) data_get($audit, 'expected_next_required_slice', ''),
+            'next_action' => (string) data_get($audit, 'next_action', 'verify_alignment'),
+            'audit_hash' => (string) data_get($audit, 'agent_control_plane_chain_integrity_certification_hash', ''),
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_control_plane_chain_integrity_certification_status.v1',
+            'status' => (string) $status['status'],
+            'mode' => 'read_only_agent_control_plane_chain_integrity_certification_status',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'agent_control_plane_chain_integrity_certification_status' => $status,
+            'agent_control_plane_chain_integrity_certification' => $audit,
+            'agent_control_plane_chain_integrity_certification_status_hash' => $this->stableHash($status),
+            'non_execution_guarantees' => [
+                'agent_control_plane_chain_integrity_certification_status_does_not_start_codex',
+                'agent_control_plane_chain_integrity_certification_status_does_not_advance_pointer',
+                'agent_control_plane_chain_integrity_certification_status_does_not_dispatch_work',
+                'agent_control_plane_chain_integrity_certification_status_does_not_execute_adapter',
+                'agent_control_plane_chain_integrity_certification_status_does_not_enable_self_programming',
+            ],
+            'human_summary' => match ($status['status']) {
+                'available' => 'Agent Control Plane Chain Integrity Certification status is available and aligned with the current horizon.',
+                'degraded' => 'Agent Control Plane Chain Integrity Certification status is degraded; review violations before advancing.',
+                'blocked' => 'Agent Control Plane Chain Integrity Certification status is blocked; audit service is not callable yet.',
+                'missing_artifacts' => 'Agent Control Plane Chain Integrity Certification status is missing artifacts; canonical chain cannot be certified.',
+                default => 'Agent Control Plane Chain Integrity Certification status is unknown.',
+            },
         ];
     }
 

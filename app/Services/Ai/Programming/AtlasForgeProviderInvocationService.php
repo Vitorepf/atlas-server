@@ -195,7 +195,9 @@ class AtlasForgeProviderInvocationService
                 // do not block local executions on budget.
                 $blockers[] = self::BLOCKER_BUDGET_APPROVAL_REQUIRED;
             }
-            if (! $this->driverRouter->supports($provider) || ! $this->driverRouter->hasRuntimeDriver($provider)) {
+            if (! $this->driverRouter->supports($provider)) {
+                $blockers[] = self::BLOCKER_PROVIDER_DRIVER_MISSING;
+            } elseif (! $this->driverRouter->hasRuntimeDriver($provider) || ! $this->driverRouter->isConfigured($provider)) {
                 $blockers[] = self::BLOCKER_PROVIDER_DRIVER_MISSING;
             }
         }
