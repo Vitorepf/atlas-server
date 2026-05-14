@@ -49,6 +49,7 @@ related_paths:
   - docs/engineering-knowledge-base/research-self-improvement/
   - docs/engineering-knowledge-base/atlas-ai-spec-operating-system.md
   - docs/engineering-knowledge-base/atlas-programming-governance-system.md
+  - docs/engineering-knowledge-base/atlas-programming-forge-flow.md
   - docs/engineering-knowledge-base/atlas-forge-operating-system.md
   - docs/engineering-knowledge-base/spec-operating-system/
   - docs/engineering-knowledge-base/atlas-ai-self-construction-os.md
@@ -151,6 +152,7 @@ Layer 0.56 Cartographic Knowledge OS: visual truth navigation and semantic zoom
 Layer 0.6 Research Intelligence and source-backed evolution governance
 Layer 0.7 Spec Operating System / SDD governance
 Layer 0.72 Programming Governance System: placement, spec before code, task contracts, Code Intelligence, evidence and cartography
+Layer 0.74 Programming Forge Flow: canonical heavy programming taxonomy, flow, graphs, tools, repair and evidence
 Layer 0.75 Forge Operating System: AI software factory over governed programming
 Layer 0.8 Self-Construction OS / governed self-programming
 Layer 1   Kernel contracts: envelope, receipt, ledger, SDKs, tests, SLOs
@@ -181,6 +183,7 @@ Layer -1 wins every conflict. Kernel wins executable contracts. Master Architect
 | Research Intelligence and governed self-improvement | `atlas-ai-research-self-improvement-runtime.md` |
 | Spec Operating System / SDD | `atlas-ai-spec-operating-system.md` |
 | Programming Governance System / placement, spec before code, task contracts, Code Intelligence, evidence and cartography | `atlas-programming-governance-system.md` |
+| Programming Forge Flow / heavy programming taxonomy, graphs, tools, repair and evidence | `atlas-programming-forge-flow.md` |
 | Forge Operating System / AI software factory and multi-agent implementation | `atlas-forge-operating-system.md` |
 | SDD data model and services | `spec-operating-system/data-model-and-services.md` |
 | SDD agents and MCP | `spec-operating-system/agents-and-mcp-contract.md` |

@@ -20,6 +20,7 @@ capabilities:
 decisions:
   - The canonical name is Obras Shared Workspace, with Portuguese label Workspace Compartilhado de Obras.
   - Forge Workspace is the Programming/Atlas Forge specialization of Obras Shared Workspace.
+  - Forge Workspace is the environment of the heavy programming flow, not the whole flow.
   - Providers do not pass context to each other by loose chat; they exchange governed artifacts through the workspace.
   - Context is compiled once into canonical artifacts, then sliced per provider role to control token cost and quality.
   - Obras Shared Workspace complements Kernel, Forge, Self-Construction OS and Provider Drivers; it replaces ad hoc cross-provider copy/paste, not those systems.
@@ -30,6 +31,7 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-ai-obras-operating-system.md
   - docs/engineering-knowledge-base/atlas-ai-flow-visual-map.md
   - docs/engineering-knowledge-base/domains/programming.md
+  - docs/engineering-knowledge-base/atlas-programming-forge-flow.md
   - docs/engineering-knowledge-base/atlas-ai-self-construction-os.md
   - docs/engineering-knowledge-base/self-construction/paperclip-control-plane-benchmark.md
   - docs/engineering-knowledge-base/self-construction/multi-provider-agent-orchestration-contract.md
@@ -138,6 +140,9 @@ Obra = operational production unit / production graph.
 Obras Shared Workspace = shared office inside an Obra for long or multi-agent work.
 Forge Workspace = programming specialization of that shared office.
 ```
+
+For the full heavy programming flow, use `atlas-programming-forge-flow.md`.
+This doc owns the workspace boundary only.
 
 Do not collapse these concepts. A chat, terminal, SDD pane or provider session
 is not an Obra by itself; it becomes governed production work only when linked

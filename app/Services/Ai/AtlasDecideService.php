@@ -346,9 +346,14 @@ class AtlasDecideService
     {
         $payload = is_array($options['payload'] ?? null) ? $options['payload'] : [];
         $sourceType = strtolower((string) ($options['source_type'] ?? data_get($payload, 'source_type', '')));
+        $surfaceId = strtolower((string) data_get($payload, 'surface_id', ''));
         $surface = strtolower((string) (data_get($payload, 'app_surface') ?? $policy['surface'] ?? ''));
         $workflow = strtolower((string) (data_get($payload, 'atlas_workflow_mode') ?? data_get($payload, 'mode') ?? $policy['mode'] ?? ''));
         $routingTask = strtolower((string) (data_get($payload, 'routing_task') ?? data_get($payload, 'programming_flow') ?? ''));
+
+        if ($surfaceId === 'atlas_code' || $surface === 'atlas_code') {
+            return 'atlas_code';
+        }
 
         if ($sourceType === 'app' || $surface === 'atlas_app' || $surface === 'app') {
             return 'atlas_app';
@@ -606,6 +611,7 @@ class AtlasDecideService
     {
         $payload = is_array($options['payload'] ?? null) ? $options['payload'] : [];
         $signals = $this->signals($options);
+        $obraId = $this->obraId($options, $payload);
         $input = trim((string) ($options['input_text'] ?? ''));
         $inputLower = Str::lower($input);
         $workflowMode = $this->cleanString(data_get($payload, 'atlas_workflow_mode') ?: ($options['mode'] ?? null));
@@ -672,6 +678,7 @@ class AtlasDecideService
             'wide_code_context_signal' => $wideCodeContext,
             'route_mode' => $workflowMode ?: ($options['mode'] ?? 'direct'),
             'routing_domain' => data_get($payload, 'routing_domain'),
+            'obra_id' => $obraId,
             'source_type' => $options['source_type'] ?? null,
             'input_chars' => mb_strlen($input),
             'attachment_count' => $attachmentCount,
@@ -933,6 +940,7 @@ class AtlasDecideService
             'atlas_workflow_mode' => data_get($payload, 'atlas_workflow_mode'),
             'routing_task' => data_get($payload, 'routing_task'),
             'routing_domain' => data_get($payload, 'routing_domain'),
+            'obra_id' => $this->obraId($options, $payload),
             'task_type' => data_get($payload, 'task_type'),
             'has_visual_input' => $this->visualInputCount($payload) > 0,
             'has_file_input' => $this->fileInputCount($payload) > 0,
@@ -940,6 +948,27 @@ class AtlasDecideService
             'context_strategy_hint' => data_get($payload, 'context_strategy_hint'),
             'source_type' => $options['source_type'] ?? null,
         ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $options
+     * @param  array<string,mixed>  $payload
+     */
+    private function obraId(array $options, array $payload): ?string
+    {
+        $value = data_get($payload, 'obra_id')
+            ?: data_get($payload, 'forge_workspace.obra_id')
+            ?: data_get($payload, 'work_id')
+            ?: data_get($payload, 'project_id')
+            ?: ($options['source_id'] ?? null);
+
+        if (! is_scalar($value)) {
+            return null;
+        }
+
+        $value = trim((string) $value);
+
+        return $value !== '' ? $value : null;
     }
 
     /**

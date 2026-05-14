@@ -19,6 +19,8 @@ capabilities:
   - programming_governance_ui
 decisions:
   - Esta fatia implementa SCOR-1 Thin Slice, nao o Forge OS completo.
+  - Atlas Code SCOR-1 e versao da surface desktop, nao nome do setor ou do flow pesado.
+  - Atlas Code SCOR-1 tem modo unico Forge; toda intencao nasce com `surface_id=atlas_code`, `flow_id=programming.forge`, `routing_task=forge`, `programming_profile=forge`, `obra_id` e `forge_workspace`.
   - A UI deve evoluir a surface existente em atlas-desktop, nao criar tela paralela.
   - A fonte primaria da fatia e /atlas-code/works/{id}/state, expandida com programming_governance quando existir.
   - Ausencia de dado real vira empty/degraded state honesto; mock e proibido.
@@ -29,6 +31,7 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-code-long-session-programming-cockpit.md
   - docs/engineering-knowledge-base/atlas-desktop-code-surface.md
   - docs/engineering-knowledge-base/atlas-desktop-backend-contract.md
+  - docs/engineering-knowledge-base/atlas-programming-forge-flow.md
   - docs/engineering-knowledge-base/atlas-programming-governance-system-runbook.md
   - ../atlas-desktop/packages/atlas-domain/src/index.ts
   - ../atlas-desktop/apps/desktop/src/lib/bridge.ts
@@ -140,14 +143,15 @@ sem runtime paralelo e sem mock.
 ## Papel no Atlas
 
 Esta fatia faz Atlas Code deixar de ser apenas conversa com receipt e passar a
-ser cockpit visivel de programacao governada:
+ser cockpit visivel de programacao governada, sempre dentro do Forge:
 
 ```text
-Obra -> WorkItem -> SDD -> Spec -> Plan -> Tasks -> Verify -> Evidence -> Review
+Atlas Code -> Obra -> Forge Workspace -> programming.forge -> WorkItem -> SDD -> Spec -> Plan -> Tasks -> Verify -> Evidence -> Review
 ```
 
 Ela nao conclui Forge OS, Cartografia automatica, DSL completa ou execucao
-multiagente. Ela prepara a UI para esses sistemas.
+multiagente. SCOR-1 e versao da surface; o fluxo pesado completo continua em
+`atlas-programming-forge-flow.md`.
 
 ## Onde Se Encaixa
 
@@ -338,14 +342,12 @@ UI mostra empty state honesto.
 
 ### 6. Main Stage
 
-`MainStage` deve continuar com conversa como modo inicial, mas precisa ganhar
-modo visual para objetos SCOR-1:
+`MainStage` nao deve expor modos alternativos para o operador. Atlas Code
+SCOR-1 tem um unico modo de surface: `MainStageMode = 'forge'`.
 
-```ts
-MainStageMode = 'conversation' | 'spec' | 'plan' | 'diff' | 'replay' | 'repair'
-```
-
-Se o modo `spec` ou `plan` ja existir como tipo, implementar render basico:
+Spec, Plan, Diff, Replay e Repair sao etapas/artefatos governados do Forge,
+nao modos de surface. Quando esses objetos existirem, renderizar como paineis,
+cards ou trilhas dentro de Forge:
 
 - `spec`: cards de objective, context, expected_behavior, likely_files, risks,
   tests, evidence_required, rollback, completion_criteria.
@@ -430,7 +432,7 @@ Implementar nesta ordem:
 3. Exposicao em `useBridge.ts`.
 4. Passar props por `CodeSurface.tsx`.
 5. `WorkItemInspector` no Plan panel.
-6. `Spec/Plan/Tasks` render basico no MainStage ou Plan panel.
+6. `Spec/Plan/Tasks` render basico dentro do Forge ou no Plan panel.
 7. `VerifyPanel` com gate runs reais.
 8. `EvidencePanel` com receipts reais e degraded storage.
 9. Ajustar SDD mini para hashes/gate runs quando governance existir.
@@ -512,6 +514,4 @@ spec/plan hashes, gates com blocking/reason e receipts com persistencia real.
 ## Proximas Acoes
 
 1. Entregar esta thin slice.
-2. Depois criar AP para comandos `atlas:programming:*` via UI.
-3. Depois criar AP para streaming SSE de artefatos.
-4. Depois criar AP para Scope Guard/Diff real.
+2. Depois criar APs para comandos `atlas:programming:*`, streaming SSE e Scope Guard/Diff real.

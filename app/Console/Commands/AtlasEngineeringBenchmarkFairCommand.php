@@ -35,11 +35,13 @@ class AtlasEngineeringBenchmarkFairCommand extends Command
         {--claude-code-baseline-binary= : Claude Code CLI binary override}
         {--claude-code-baseline-timeout=900 : Seconds to wait for Claude Code baseline run}
         {--claude-code-baseline-validation-timeout=300 : Seconds to wait for baseline deterministic validation}
+        {--case-timeout=1800 : Maximum wall-clock seconds budgeted per paired Fair Claude case}
         {--max-attempts=3 : Maximum Atlas repair attempts}
         {--permission=auto : auto, read, write or danger}
         {--sandbox=workspace : workspace, worktree or docker}
         {--provider-runtime=host : host, docker or auto for atlas:cli:dev execution}
         {--provider-timeout=600 : Seconds to wait for Atlas provider execution before aborting}
+        {--test-timeout=300 : Seconds to wait for each deterministic test command before aborting}
         {--gate-profile=strict : Release gate profile: release, smoke, strict, advisory or off}
         {--keep-workspace : Keep isolated execution workspace after the run for debugging}
         {--no-auto-test : Disable auto-test for run and run-atlas}
@@ -522,6 +524,8 @@ class AtlasEngineeringBenchmarkFairCommand extends Command
             .' --model='.$this->fairModelOption()
             .' --model-policy='.($this->stringOption('model-policy') ?: 'fixed')
             .' --provider-timeout='.($this->intOption('provider-timeout') ?: 600)
+            .' --case-timeout='.($this->intOption('case-timeout') ?: 1800)
+            .' --test-timeout='.($this->intOption('test-timeout') ?: 300)
             .' --gate-profile='.$this->shellArg($this->stringOption('gate-profile') ?: 'strict')
             .' --quality-changed-only'
             .' --confirm-runbook-reviewed --confirm-provider-cost';
@@ -723,10 +727,12 @@ class AtlasEngineeringBenchmarkFairCommand extends Command
             '--claude-code-baseline-workspace' => $this->stringOption('claude-code-baseline-workspace'),
             '--claude-code-baseline-timeout' => $this->intOption('claude-code-baseline-timeout') ?: 900,
             '--claude-code-baseline-validation-timeout' => $this->intOption('claude-code-baseline-validation-timeout') ?: 300,
+            '--case-timeout' => $this->intOption('case-timeout') ?: 1800,
             '--permission' => $this->stringOption('permission') ?: 'auto',
             '--sandbox' => $this->stringOption('sandbox') ?: 'workspace',
             '--provider-runtime' => $this->stringOption('provider-runtime') ?: 'host',
             '--provider-timeout' => $this->intOption('provider-timeout') ?: 600,
+            '--test-timeout' => $this->intOption('test-timeout') ?: 300,
             '--max-attempts' => $this->intOption('max-attempts') ?: 3,
             '--test-command' => $this->stringOption('test-command'),
             '--complete' => ! $noProvider,

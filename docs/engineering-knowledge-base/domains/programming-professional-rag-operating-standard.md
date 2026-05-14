@@ -27,6 +27,7 @@ maintenance:
   - Atualize este standard antes de alterar arquitetura de RAG, code graph, context pack, verifier, test impact, sandbox, repair ou learning.
   - Nao reduza a barra profissional para acomodar entrega incompleta; registre pendencia e bloqueio explicito.
 related_paths:
+  - docs/engineering-knowledge-base/atlas-programming-forge-flow.md
   - docs/engineering-knowledge-base/domains/programming-agentic-rag-professional-spec.md
   - docs/engineering-knowledge-base/domains/programming-enterprise-implementation-plan.md
   - docs/engineering-knowledge-base/domains/programming-professional-completion-audit.md
@@ -109,6 +110,11 @@ Este standard e a regra curta para operadores, agentes e revisores. A spec
 `programming-enterprise-implementation-plan.md` organiza a implementacao. A
 auditoria `programming-professional-completion-audit.md` decide se a frente
 pode ser considerada concluida.
+
+No fluxo pesado, este standard e consumido por `atlas-programming-forge-flow.md`.
+Ele define Agentic RAG, Semantic Code Graph, context pack, stage receipts,
+patch verifier, test impact, sandbox, repair e learning; ele nao substitui
+Forge OS, Forge Workspace ou Engineering Harness Runner.
 
 ## Onde Se Encaixa
 

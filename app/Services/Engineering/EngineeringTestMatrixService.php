@@ -101,6 +101,7 @@ class EngineeringTestMatrixService
                 $control = $this->controlForSlug($entry['control_slug'] ?? null);
                 $type = $this->typeForCommand($command);
                 $caseCode = $this->caseCode($type, $command);
+                $timeoutSeconds = max(30, (int) ($entry['timeout_seconds'] ?? $options['test_timeout_seconds'] ?? 900));
 
                 return AtlasEngineeringTestCase::query()->updateOrCreate(
                     [
@@ -115,10 +116,11 @@ class EngineeringTestMatrixService
                         'priority' => (bool) ($entry['required'] ?? false) ? 'p0' : 'p2',
                         'command' => $command,
                         'expected_signal' => 'exit_code_0',
-                        'timeout_seconds' => 900,
+                        'timeout_seconds' => $timeoutSeconds,
                         'required' => (bool) ($entry['required'] ?? false),
                         'metadata' => array_filter([
                             'blueprint_id' => $blueprint['blueprint_id'] ?? null,
+                            'timeout_seconds' => $timeoutSeconds,
                             'verification_methods' => collect((array) ($blueprint['acceptance_matrix'] ?? []))
                                 ->pluck('verification_method')
                                 ->unique()

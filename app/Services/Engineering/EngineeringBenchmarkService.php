@@ -46,6 +46,8 @@ class EngineeringBenchmarkService
         'provider_docker_app_dir',
         'provider_docker_workspace_dir',
         'provider_timeout_seconds',
+        'case_timeout_seconds',
+        'test_timeout_seconds',
         'max_attempts',
         'test_command',
         'visual_e2e',
@@ -506,11 +508,15 @@ class EngineeringBenchmarkService
                 throw new InvalidArgumentException('Benchmark case precisa de workspace no run, na suite ou no case.');
             }
 
+            $caseDeadline = $this->caseDeadline($startedAt, $runnerOptions);
+            $runnerOptions = $this->capCaseTimeouts($runnerOptions, $caseDeadline);
             $paired = $this->preparePairedBaselineWorkspace($case, $runnerOptions);
             $runnerOptions = $paired['runner_options'];
             $pairedBaselineWorktreePlan = $paired['baseline_plan'];
             $pairedWorkspaces = $paired['artifact'];
 
+            $this->assertCaseDeadline($caseDeadline, 'before_claude_code_baseline');
+            $runnerOptions = $this->capCaseTimeouts($runnerOptions, $caseDeadline);
             $claudeCodeBaseline = $this->claudeCodeBaseline->capture($case, $task, $runnerOptions);
             if ($pairedBaselineWorktreePlan !== null) {
                 $pairedWorkspaces['claude_code_baseline']['release'] = $this->releasePairedBaselineWorkspace(
@@ -520,6 +526,8 @@ class EngineeringBenchmarkService
                 $pairedBaselineWorktreePlan = null;
             }
 
+            $this->assertCaseDeadline($caseDeadline, 'before_atlas_provider');
+            $runnerOptions = $this->capCaseTimeouts($runnerOptions, $caseDeadline);
             $atlasStartedAt = microtime(true);
             $payload = $this->runner->run($task, $runnerOptions);
             $engineeringRunId = $this->nonEmptyString(data_get($payload, 'run.id'));
@@ -1816,6 +1824,59 @@ class EngineeringBenchmarkService
                 'benchmark_suite_id' => $case->suite_id,
             ],
         ]);
+    }
+
+    /**
+     * @param  array<string,mixed>  $runnerOptions
+     */
+    private function caseDeadline(float $startedAt, array $runnerOptions): ?float
+    {
+        $timeout = $this->nullableInt($runnerOptions['case_timeout_seconds'] ?? null);
+        if ($timeout === null || $timeout <= 0) {
+            return null;
+        }
+
+        return $startedAt + $timeout;
+    }
+
+    private function assertCaseDeadline(?float $deadline, string $phase): void
+    {
+        if ($deadline === null || microtime(true) < $deadline) {
+            return;
+        }
+
+        throw new \RuntimeException("Benchmark case timeout exceeded before {$phase}.");
+    }
+
+    /**
+     * @param  array<string,mixed>  $runnerOptions
+     * @return array<string,mixed>
+     */
+    private function capCaseTimeouts(array $runnerOptions, ?float $deadline): array
+    {
+        if ($deadline === null) {
+            return $runnerOptions;
+        }
+
+        $remaining = (int) floor($deadline - microtime(true));
+        if ($remaining <= 0) {
+            return $runnerOptions;
+        }
+
+        foreach ([
+            'provider_timeout_seconds',
+            'claude_code_baseline_timeout',
+            'claude_code_baseline_validation_timeout',
+            'baseline_timeout_seconds',
+            'baseline_validation_timeout_seconds',
+        ] as $key) {
+            $value = $this->nullableInt($runnerOptions[$key] ?? null);
+            if ($value === null || $value <= 0 || $value > $remaining) {
+                $runnerOptions[$key] = max(1, $remaining);
+            }
+        }
+
+        return $runnerOptions;
     }
 
     /**

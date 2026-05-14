@@ -164,6 +164,24 @@ class ClaudeCliProvider implements AiProvider
                 continue;
             }
 
+            // Extended thinking: emit dedicated event so the Atlas Code
+            // Live Cockpit can show what the model is reasoning about.
+            $thinking = $this->extractClaudeDeltaThinking($decoded);
+            if ($thinking !== '') {
+                $events[] = [
+                    'type' => 'token',
+                    'name' => 'claude_thinking_block',
+                    'content' => $thinking,
+                    'metadata' => [
+                        'parser' => 'claude_stream_json',
+                        'event_type' => $decoded['type'] ?? null,
+                        'checkpoint' => 'provider_thinking',
+                    ],
+                    'channel' => 'assistant',
+                ];
+                continue;
+            }
+
             $text = $this->extractClaudeDeltaText($decoded);
             if ($text === '') {
                 continue;
@@ -176,6 +194,7 @@ class ClaudeCliProvider implements AiProvider
                 'metadata' => [
                     'parser' => 'claude_stream_json',
                     'event_type' => $decoded['type'] ?? null,
+                    'checkpoint' => 'provider',
                 ],
                 'channel' => 'assistant',
             ];
@@ -197,6 +216,27 @@ class ClaudeCliProvider implements AiProvider
             return $payload['delta']['text'];
         }
 
+        return '';
+    }
+
+    /**
+     * Extended thinking blocks from Claude. Payload may shape as either:
+     *   { type: 'content_block_delta', delta: { type: 'thinking_delta', thinking: '...' } }
+     *   { type: 'content_block_delta', delta: { thinking: '...' } }
+     */
+    private function extractClaudeDeltaThinking(array $payload): string
+    {
+        if (($payload['type'] ?? null) !== 'content_block_delta') {
+            return '';
+        }
+        $delta = is_array($payload['delta'] ?? null) ? $payload['delta'] : [];
+        $kind = $delta['type'] ?? null;
+        if ($kind === 'thinking_delta' && is_string($delta['thinking'] ?? null)) {
+            return $delta['thinking'];
+        }
+        if ($kind !== 'thinking_delta' && is_string($delta['thinking'] ?? null)) {
+            return $delta['thinking'];
+        }
         return '';
     }
 

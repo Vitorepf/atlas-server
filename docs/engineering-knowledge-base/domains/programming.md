@@ -25,6 +25,7 @@ decisions:
   - O dominio consome Core, Super Tool Runtime, Memory/Open Brain, Code Intelligence e Evidence Ledger; nao deve duplicar essas capacidades.
   - Especialistas tecnicos como frontend, backend-api, mobile e performance vivem como specialist profiles dentro de Programming, nao como dominios paralelos.
   - Atlas Programming Governance System governa placement, spec antes do codigo, task contracts, Code Intelligence, evidence, learning e cartografia dentro dos fluxos de programacao.
+  - Atlas Programming Forge Flow e a pagina-mae de taxonomia e fluxo para programacao pesada.
   - Atlas Forge Operating System e o patamar acima para trabalho pesado, multiagente ou multiprovider sobre `programming.forge`.
   - O standard operacional de RAG/Agentic RAG profissional vive em programming-professional-rag-operating-standard.md.
   - Os oito saltos enterprise de programacao vivem em programming-enterprise-implementation-plan.md.
@@ -44,6 +45,7 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-ai-operating-system.md
   - docs/engineering-knowledge-base/engineering-blueprint.md
   - docs/engineering-knowledge-base/atlas-programming-governance-system.md
+  - docs/engineering-knowledge-base/atlas-programming-forge-flow.md
   - docs/engineering-knowledge-base/atlas-forge-operating-system.md
   - docs/engineering-knowledge-base/programming-power-tools-catalog.md
   - docs/engineering-knowledge-base/domains/programming-specialist-profiles.md
@@ -161,6 +163,29 @@ Policy, Super Tool Runtime, Evidence Ledger e Learning.
   UI.
 - `programming.forge`: modo pesado com Engineering Harness, gates mais fortes,
   tool runtime e pacote final de evidencia.
+
+## Heavy Programming Canon
+
+Para trabalho pesado, longo, multiagente, multiprovider, com repair loop forte,
+Agentic RAG, graphs, tools ou harness, a primeira leitura e
+`atlas-programming-forge-flow.md`.
+
+Taxonomia curta:
+
+```text
+Programming Domain = setor de programacao.
+programming.forge = flow pesado.
+Atlas Forge Operating System = fabrica operacional.
+Forge Workspace = ambiente/escritorio compartilhado.
+Engineering Harness Runner = motor executor.
+Atlas Code = surface desktop.
+Atlas Code SCOR-1 = versao da surface.
+```
+
+`programming.forge` nao e produto paralelo e nao substitui o Programming Domain.
+Forge Workspace nao e o fluxo inteiro. Engineering Harness Runner nao e o Forge
+OS inteiro. Agentic RAG, Semantic Code Graph, Tool Runtime, Repair Loop,
+Evidence Ledger, Learning e Cartography sao camadas estruturais do fluxo pesado.
 
 ## Surfaces
 

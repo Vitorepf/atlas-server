@@ -93,6 +93,7 @@ class AiInteractionController extends Controller
 
         $data = $this->applyThreadRuntimePolicy($data);
         $data = $this->applySurfaceDomainCatalogSelection($data, $domainSelection);
+        $data = $this->applyAtlasCodeForgeObraBinding($data);
 
         try {
             $trace = $gateway->enqueueInteraction((string) $data['input_text'], $data);
@@ -431,6 +432,63 @@ class AiInteractionController extends Controller
     }
 
     /**
+     * @param  array<string,mixed>  $data
+     * @return array<string,mixed>
+     */
+    private function applyAtlasCodeForgeObraBinding(array $data): array
+    {
+        $payload = is_array($data['payload'] ?? null) ? $data['payload'] : [];
+        $surface = $this->stringValue(data_get($payload, 'surface_id'))
+            ?? $this->stringValue(data_get($payload, 'app_surface'));
+
+        if ($surface !== 'atlas_code') {
+            return $data;
+        }
+
+        $payload['requires_obra'] = true;
+        $obraId = $this->stringValue(data_get($payload, 'obra_id'))
+            ?? $this->stringValue(data_get($payload, 'forge_workspace.obra_id'))
+            ?? $this->stringValue(data_get($payload, 'work_id'))
+            ?? $this->stringValue(data_get($payload, 'project_id'))
+            ?? $this->stringValue($data['source_id'] ?? null);
+
+        if ($obraId === null) {
+            $payload['forge_workspace_blocker'] = [
+                'schema_version' => 'atlas.forge_workspace_blocker.v1',
+                'reason' => 'missing_obra_binding',
+                'requires_obra' => true,
+                'surface_id' => 'atlas_code',
+                'flow_id' => 'programming.forge',
+                'remediation' => 'Selecione ou crie uma Obra antes de despachar Forge.',
+            ];
+            unset($payload['forge_workspace']);
+            $data['payload'] = $payload;
+
+            return $data;
+        }
+
+        unset($payload['forge_workspace_blocker']);
+        $data['source_id'] = $obraId;
+        $payload['obra_id'] = $obraId;
+        $payload['work_id'] = $this->stringValue(data_get($payload, 'work_id')) ?? $obraId;
+        $payload['project_id'] = $this->stringValue(data_get($payload, 'project_id')) ?? $obraId;
+
+        $forgeWorkspace = is_array(data_get($payload, 'forge_workspace'))
+            ? (array) data_get($payload, 'forge_workspace')
+            : [];
+        $forgeWorkspace['schema_version'] = $this->stringValue(data_get($forgeWorkspace, 'schema_version'))
+            ?? 'atlas.forge_workspace_binding.v1';
+        $forgeWorkspace['workspace_kind'] = 'obras_shared_workspace';
+        $forgeWorkspace['specialization'] = 'forge_workspace';
+        $forgeWorkspace['obra_id'] = $obraId;
+        $forgeWorkspace['source'] = $this->stringValue(data_get($forgeWorkspace, 'source')) ?? 'atlas_code';
+        $payload['forge_workspace'] = $forgeWorkspace;
+        $data['payload'] = $payload;
+
+        return $data;
+    }
+
+    /**
      * @param  array<string,mixed>  $payload
      */
     private function payloadRequestsDomainCatalogSelection(array $payload): bool
@@ -482,6 +540,10 @@ class AiInteractionController extends Controller
 
         $appSurface = $this->metadataString($payload, 'app_surface');
         if ($appSurface) {
+            if ($appSurface === 'atlas_code') {
+                return 'atlas_code';
+            }
+
             return 'atlas_app';
         }
 
@@ -525,6 +587,17 @@ class AiInteractionController extends Controller
         $value = $metadata[$key] ?? null;
 
         return is_string($value) && trim($value) !== '' ? trim($value) : null;
+    }
+
+    private function stringValue(mixed $value): ?string
+    {
+        if (! is_scalar($value)) {
+            return null;
+        }
+
+        $value = trim((string) $value);
+
+        return $value !== '' ? $value : null;
     }
 
     /**

@@ -35,6 +35,7 @@ class AtlasEngineeringBenchmarkCommand extends Command
         {--claude-code-baseline-workspace= : Separate workspace for claude-code-baseline=run}
         {--claude-code-baseline-timeout=900 : Seconds to wait for Claude Code baseline run}
         {--claude-code-baseline-validation-timeout=300 : Seconds to wait for Claude Code baseline deterministic validation}
+        {--case-timeout= : Maximum wall-clock seconds budgeted per benchmark case}
         {--permission=auto : auto, read, write or danger}
         {--sandbox=workspace : workspace, worktree or docker}
         {--docker-service= : Docker Compose service used for sandbox=docker}
@@ -53,6 +54,7 @@ class AtlasEngineeringBenchmarkCommand extends Command
         {--provider-docker-app-dir=/app : Atlas app directory inside provider runtime container}
         {--provider-docker-workspace-dir=/workspace : Workspace mount path inside provider runtime container}
         {--provider-timeout= : Seconds to wait for Atlas provider execution before aborting}
+        {--test-timeout= : Seconds to wait for each deterministic test command before aborting}
         {--max-attempts=1 : Maximum attempts for the underlying dev workflow}
         {--test-command= : Explicit validation command}
         {--visual-e2e=auto : auto, off or required visual/E2E test discovery}
@@ -121,6 +123,7 @@ class AtlasEngineeringBenchmarkCommand extends Command
                 'claude_code_baseline_workspace' => is_string($this->option('claude-code-baseline-workspace')) ? $this->option('claude-code-baseline-workspace') : null,
                 'claude_code_baseline_timeout' => (int) $this->option('claude-code-baseline-timeout'),
                 'claude_code_baseline_validation_timeout' => (int) $this->option('claude-code-baseline-validation-timeout'),
+                'case_timeout_seconds' => $this->option('case-timeout') ? (int) $this->option('case-timeout') : null,
                 'permission' => (string) $this->option('permission'),
                 'sandbox' => (string) $this->option('sandbox'),
                 'docker_service' => is_string($this->option('docker-service')) ? $this->option('docker-service') : null,
@@ -139,6 +142,7 @@ class AtlasEngineeringBenchmarkCommand extends Command
                 'provider_docker_app_dir' => is_string($this->option('provider-docker-app-dir')) ? $this->option('provider-docker-app-dir') : null,
                 'provider_docker_workspace_dir' => is_string($this->option('provider-docker-workspace-dir')) ? $this->option('provider-docker-workspace-dir') : null,
                 'provider_timeout_seconds' => $this->option('provider-timeout') ? (int) $this->option('provider-timeout') : null,
+                'test_timeout_seconds' => $this->option('test-timeout') ? (int) $this->option('test-timeout') : null,
                 'max_attempts' => (int) $this->option('max-attempts'),
                 'test_command' => is_string($this->option('test-command')) ? $this->option('test-command') : null,
                 'visual_e2e' => is_string($this->option('visual-e2e')) ? $this->option('visual-e2e') : 'auto',

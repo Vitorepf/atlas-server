@@ -25,10 +25,12 @@ decisions:
   - Tools execute under policy, sandbox, privacy, approval and provider-safe constraints.
   - Evidence, normalizers, gates, approvals and waivers are shared across Harness, CLI, API and app.
   - External coding agents are governed executors inside Atlas, not replacement control-planes.
+  - Tool Runtime e camada de evidence/execution do fluxo pesado, nao decisor nem flow inteiro.
 maintenance:
   - Keep this parent compact; edit focused specs under tool-runtime/.
   - Full historical source is archived in archive/source-material/super-tool-runtime-core-full-2026-05-08.md.
 related_paths:
+  - docs/engineering-knowledge-base/atlas-programming-forge-flow.md
   - docs/engineering-knowledge-base/tool-runtime/README.md
   - docs/engineering-knowledge-base/tool-runtime/contracts.md
   - docs/engineering-knowledge-base/tool-runtime/evidence-gates.md
@@ -154,6 +156,11 @@ Implemented foundation includes:
 
 Tools do not decide. Tools produce evidence. Atlas Kernel, policy, gates,
 Decision Receipt and operator review decide what the evidence means.
+
+No fluxo pesado de programacao, a posicao completa do Tool Runtime vive em
+`atlas-programming-forge-flow.md`. Tool Runtime Gateway conecta tools, agentes e
+harnesses ao Evidence Ledger, mas nao substitui Atlas Decide, Programming
+Governance, Forge OS ou Repair Loop.
 
 ## Tool Lifecycle
 

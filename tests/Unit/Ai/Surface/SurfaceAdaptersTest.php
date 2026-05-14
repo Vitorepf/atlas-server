@@ -10,6 +10,7 @@ use App\Services\Ai\Kernel\Surface\SurfaceDomainFlowHintKey;
 use App\Services\Ai\Kernel\Surface\SurfaceHintKey;
 use App\Services\Ai\Surface\Adapters\AtlasApiInteractionSurfaceAdapter;
 use App\Services\Ai\Surface\Adapters\AtlasAppSurfaceAdapter;
+use App\Services\Ai\Surface\Adapters\AtlasCodeSurfaceAdapter;
 use App\Services\Ai\Surface\Adapters\AtlasCliChatSurfaceAdapter;
 use App\Services\Ai\Surface\Adapters\AtlasCliDevSurfaceAdapter;
 use App\Services\Ai\Surface\Adapters\AtlasCliForgeSurfaceAdapter;
@@ -34,6 +35,7 @@ class SurfaceAdaptersTest extends TestCase
             'cli dev' => [new AtlasCliDevSurfaceAdapter, 'atlas_cli_dev'],
             'cli chat' => [new AtlasCliChatSurfaceAdapter, 'atlas_cli_chat'],
             'cli forge' => [new AtlasCliForgeSurfaceAdapter, 'atlas_cli_forge'],
+            'atlas code' => [new AtlasCodeSurfaceAdapter, 'atlas_code'],
             'api interaction' => [new AtlasApiInteractionSurfaceAdapter, 'atlas_api_interaction'],
             'app' => [new AtlasAppSurfaceAdapter, 'atlas_app'],
             'worker' => [new AtlasWorkerSurfaceAdapter, 'atlas_worker'],
@@ -219,7 +221,7 @@ class SurfaceAdaptersTest extends TestCase
 
     public function test_domain_flow_capable_adapters_expose_selection_hints(): void
     {
-        foreach ([new AtlasCliDevSurfaceAdapter, new AtlasCliForgeSurfaceAdapter, new AtlasApiInteractionSurfaceAdapter, new AtlasAppSurfaceAdapter, new AtlasVoiceRealtimeSurfaceAdapter] as $adapter) {
+        foreach ([new AtlasCliDevSurfaceAdapter, new AtlasCliForgeSurfaceAdapter, new AtlasCodeSurfaceAdapter, new AtlasApiInteractionSurfaceAdapter, new AtlasAppSurfaceAdapter, new AtlasVoiceRealtimeSurfaceAdapter] as $adapter) {
             $hints = $adapter->supportedDomainFlowHints();
 
             $this->assertSame($adapter->surfaceId(), $hints[SurfaceDomainFlowHintKey::SURFACE_ID]);
@@ -232,6 +234,11 @@ class SurfaceAdaptersTest extends TestCase
         $this->assertSame('programming.forge', $forgeHints[SurfaceDomainFlowHintKey::TASK_FLOW_MAP]['heavy']);
         $this->assertContains('programming.forge', $forgeHints[SurfaceDomainFlowHintKey::SUPPORTED_FLOW_IDS]);
 
+        $atlasCodeHints = (new AtlasCodeSurfaceAdapter)->supportedDomainFlowHints();
+        $this->assertSame('programming.forge', $atlasCodeHints[SurfaceDomainFlowHintKey::DEFAULT_FLOW_ID]);
+        $this->assertSame('programming.forge', $atlasCodeHints[SurfaceDomainFlowHintKey::TASK_FLOW_MAP]['direct']);
+        $this->assertSame(['programming.forge'], $atlasCodeHints[SurfaceDomainFlowHintKey::SUPPORTED_FLOW_IDS]);
+
         $voiceHints = (new AtlasVoiceRealtimeSurfaceAdapter)->supportedDomainFlowHints();
         $this->assertSame('general.answer', $voiceHints[SurfaceDomainFlowHintKey::DEFAULT_FLOW_ID]);
         $this->assertSame('programming.repair', $voiceHints[SurfaceDomainFlowHintKey::TASK_FLOW_MAP]['debug']);
@@ -243,11 +250,12 @@ class SurfaceAdaptersTest extends TestCase
         $this->assertContains(SurfaceCapability::IMAGE_PASTE, (new AtlasCliDevSurfaceAdapter)->supportedCapabilities());
         $this->assertContains(SurfaceCapability::IMAGE_PASTE, (new AtlasCliChatSurfaceAdapter)->supportedCapabilities());
         $this->assertContains(SurfaceCapability::IMAGE_PASTE, (new AtlasCliForgeSurfaceAdapter)->supportedCapabilities());
+        $this->assertContains(SurfaceCapability::IMAGE_PASTE, (new AtlasCodeSurfaceAdapter)->supportedCapabilities());
     }
 
     public function test_surface_adapters_declare_memory_context_and_tool_runtime_parity(): void
     {
-        foreach ([new AtlasCliDevSurfaceAdapter, new AtlasCliChatSurfaceAdapter, new AtlasCliForgeSurfaceAdapter, new AtlasApiInteractionSurfaceAdapter, new AtlasWorkerSurfaceAdapter] as $adapter) {
+        foreach ([new AtlasCliDevSurfaceAdapter, new AtlasCliChatSurfaceAdapter, new AtlasCliForgeSurfaceAdapter, new AtlasCodeSurfaceAdapter, new AtlasApiInteractionSurfaceAdapter, new AtlasWorkerSurfaceAdapter] as $adapter) {
             $this->assertContains(SurfaceCapability::MEMORY_RECALL, $adapter->supportedCapabilities());
             $this->assertContains(SurfaceCapability::CONTEXT_COMPOSE, $adapter->supportedCapabilities());
             $this->assertContains(SurfaceCapability::TOOLS_RUNTIME, $adapter->supportedCapabilities());
@@ -392,6 +400,7 @@ class SurfaceAdaptersTest extends TestCase
             'atlas_cli_dev',
             'atlas_cli_chat',
             'atlas_cli_forge',
+            'atlas_code',
             'atlas_api_interaction',
             'atlas_app',
             'atlas_worker',
@@ -405,6 +414,9 @@ class SurfaceAdaptersTest extends TestCase
             'atlas_cli' => 'atlas_cli_dev',
             'atlas_dev' => 'atlas_cli_dev',
             'atlas_forge' => 'atlas_cli_forge',
+            'atlas_desktop_code' => 'atlas_code',
+            'atlas_code_scor_1' => 'atlas_code',
+            'code' => 'atlas_code',
             'atlas_fix' => 'atlas_cli_dev',
             'atlas_continue' => 'atlas_cli_dev',
             'atlas_ask' => 'atlas_cli_chat',
@@ -426,6 +438,9 @@ class SurfaceAdaptersTest extends TestCase
         $this->assertSame('atlas_cli_dev', $registry->canonicalSurfaceId('atlas_fix'));
         $this->assertSame('atlas_cli_dev', $registry->canonicalSurfaceId('atlas_continue'));
         $this->assertSame('atlas_cli_forge', $registry->canonicalSurfaceId('atlas_forge'));
+        $this->assertSame('atlas_code', $registry->canonicalSurfaceId('atlas_desktop_code'));
+        $this->assertSame('atlas_code', $registry->canonicalSurfaceId('atlas_code_scor_1'));
+        $this->assertSame('atlas_code', $registry->canonicalSurfaceId('code'));
         $this->assertSame('atlas_api_interaction', $registry->canonicalSurfaceId('atlas_api'));
         $this->assertSame('atlas_vault', $registry->canonicalSurfaceId('obsidian'));
         $this->assertSame('atlas_vault', $registry->canonicalSurfaceId('atlasvault'));
@@ -435,6 +450,7 @@ class SurfaceAdaptersTest extends TestCase
         $this->assertSame('atlas_cli_dev', $registry->get('atlas_cli')->surfaceId());
         $this->assertSame('atlas_cli_chat', $registry->get('atlas_ask')->surfaceId());
         $this->assertSame('atlas_cli_dev', $registry->get('atlas_cli_continue')->surfaceId());
+        $this->assertSame('atlas_code', $registry->get('atlas_desktop_code')->surfaceId());
         $this->assertSame('atlas_api_interaction', $registry->get('atlas_api')->surfaceId());
         $this->assertSame('atlas_worker', $registry->get('atlas_worker')->surfaceId());
         $this->assertSame('atlas_mcp_readonly', $registry->get('atlas_mcp_readonly')->surfaceId());
@@ -458,15 +474,17 @@ class SurfaceAdaptersTest extends TestCase
 
         $this->assertTrue($report['ok'], implode("\n", $report['errors']));
         $this->assertSame([], $report['errors']);
-        $this->assertSame(9, $report['count']);
+        $this->assertSame(10, $report['count']);
         $this->assertSame('atlas_cli_chat', $report['aliases']['atlas_ask']);
         $this->assertSame('atlas_cli_dev', $report['aliases']['atlas_cli_continue']);
+        $this->assertSame('atlas_code', $report['aliases']['atlas_desktop_code']);
         $this->assertSame('atlas_vault', $report['aliases']['obsidian']);
         $this->assertSame('voice_realtime', $report['aliases']['voice']);
         $this->assertSame([
             'atlas_cli_dev',
             'atlas_cli_chat',
             'atlas_cli_forge',
+            'atlas_code',
             'atlas_api_interaction',
             'atlas_app',
             'atlas_worker',

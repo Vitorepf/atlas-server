@@ -5,6 +5,7 @@ namespace App\Services\Ai\Surface;
 use App\Services\Ai\Kernel\Surface\SurfaceAdapter;
 use App\Services\Ai\Surface\Adapters\AtlasApiInteractionSurfaceAdapter;
 use App\Services\Ai\Surface\Adapters\AtlasAppSurfaceAdapter;
+use App\Services\Ai\Surface\Adapters\AtlasCodeSurfaceAdapter;
 use App\Services\Ai\Surface\Adapters\AtlasCliChatSurfaceAdapter;
 use App\Services\Ai\Surface\Adapters\AtlasCliDevSurfaceAdapter;
 use App\Services\Ai\Surface\Adapters\AtlasCliForgeSurfaceAdapter;
@@ -23,6 +24,7 @@ class SurfaceAdapterRegistry
         AtlasCliDevSurfaceAdapter::class,
         AtlasCliChatSurfaceAdapter::class,
         AtlasCliForgeSurfaceAdapter::class,
+        AtlasCodeSurfaceAdapter::class,
         AtlasApiInteractionSurfaceAdapter::class,
         AtlasAppSurfaceAdapter::class,
         AtlasWorkerSurfaceAdapter::class,
@@ -39,6 +41,9 @@ class SurfaceAdapterRegistry
         'atlas_cli' => 'atlas_cli_dev',
         'atlas_dev' => 'atlas_cli_dev',
         'atlas_forge' => 'atlas_cli_forge',
+        'atlas_desktop_code' => 'atlas_code',
+        'atlas_code_scor_1' => 'atlas_code',
+        'code' => 'atlas_code',
         'atlas_fix' => 'atlas_cli_dev',
         'atlas_continue' => 'atlas_cli_dev',
         'atlas_ask' => 'atlas_cli_chat',

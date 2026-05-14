@@ -24,6 +24,7 @@ decisions:
 maintenance:
   - Atualize quando fluxo, modulos, DoD, telemetry ou cartografia do Forge mudarem.
 related_paths:
+  - docs/engineering-knowledge-base/atlas-programming-forge-flow.md
   - docs/engineering-knowledge-base/atlas-forge-operating-system.md
   - docs/engineering-knowledge-base/atlas-forge-operating-system-contracts.md
   - docs/engineering-knowledge-base/atlas-programming-governance-system.md
@@ -132,8 +133,9 @@ next_actions:
 ## Resumo
 
 Este documento define o fluxo operacional do Forge OS. Contratos persistentes
-vivem em `atlas-forge-operating-system-contracts.md`; o indice canonico vive em
-`atlas-forge-operating-system.md`.
+vivem em `atlas-forge-operating-system-contracts.md`, o indice canonico vive em
+`atlas-forge-operating-system.md` e a taxonomia completa de programacao pesada
+vive em `atlas-programming-forge-flow.md`.
 
 ## Papel no Atlas
 
@@ -160,6 +162,10 @@ que Forge completo e necessario.
 O fluxo detalhado esta nas secoes de modulos e no fluxo final integrado. A regra
 curta e: intake decide, spec orienta, splitter divide, packet limita, runner
 executa, verifier prova, integration queue converge e release gate fecha.
+
+O fluxo inteiro de programacao pesada fica em `atlas-programming-forge-flow.md`.
+Quando houver divergencia de nomenclatura, aquele doc vence a taxonomia; este
+runbook vence a ordem operacional interna do Forge OS.
 
 ## Regras para IA
 

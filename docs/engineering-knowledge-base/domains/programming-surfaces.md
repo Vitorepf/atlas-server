@@ -98,6 +98,7 @@ next_actions:
 
 | Surface | Flow contract |
 |---|---|
+| `Atlas Code` / `Atlas Code SCOR-1` | `atlas_code`, `programming.forge` only, `routing_task=forge`, `programming_profile=forge`, `obra_id` required, Forge Workspace binding, evidence required |
 | `atlas dev` | `programming.dev` |
 | `atlas forge` | `programming.forge`, `atlas_cli_forge`, `engineering_harness`, evidence required |
 | `atlas fix` | thin alias of `atlas dev --repair`, `programming.repair`, `dev_repair_executor` |

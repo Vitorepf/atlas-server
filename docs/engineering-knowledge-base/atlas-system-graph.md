@@ -234,9 +234,9 @@ ObraOS, L4 Atlas Foundry and L5 Atlas Sovereign OS.
 Role: specialized programming engine for heavy code work, multi-agent work,
 SDD, implementation packets and integration.
 
-Initial nodes: Programming Domain, SDD Core, Forge Workspace, Atlas Agent
-Control Plane, Work Splitter, Scope Validator, AI Implementation Packet,
-Execution Workspace and Quality/Integration Gates.
+Initial nodes: Programming Domain, Atlas Programming Forge Flow, SDD Core,
+Forge Workspace, Atlas Agent Control Plane, Work Splitter, Scope Validator,
+AI Implementation Packet, Execution Workspace and Quality/Integration Gates.
 
 ## Support Systems
 

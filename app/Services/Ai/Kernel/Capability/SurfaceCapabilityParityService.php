@@ -135,7 +135,7 @@ class SurfaceCapabilityParityService
     {
         return $this->surfaceAdapterMap ?? [
             'atlas_cli' => ['atlas_cli_dev', 'atlas_cli_chat', 'atlas_cli_forge'],
-            'atlas_app' => ['atlas_app'],
+            'atlas_app' => ['atlas_app', 'atlas_code'],
             'atlas_api' => ['atlas_api_interaction'],
             'atlas_worker' => ['atlas_worker'],
             'atlas_mcp_readonly' => ['atlas_mcp_readonly'],

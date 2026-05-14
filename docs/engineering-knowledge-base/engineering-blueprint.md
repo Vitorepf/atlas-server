@@ -23,6 +23,7 @@ capabilities:
 decisions:
   - Atlas absorve a disciplina de engenharia do SWE-ATLAS sem depender de Claude Code.
   - Blueprint define o que construir e como provar; Harness Runner executa, mede e registra.
+  - Harness Runner e motor executor do fluxo pesado, nao o nome do fluxo inteiro.
   - Docs versionados descrevem o contrato; blueprints, tasks, evidencias e runs vivem no Postgres operacional.
   - Uma task tecnica nao deve ser considerada pronta sem contrato, blueprint atual, evidencias e gates resolvidos.
 maintenance:
@@ -46,6 +47,7 @@ related_paths:
   - docs/engineering-knowledge-base/engineering-blueprint-quality-gates.md
   - docs/engineering-knowledge-base/engineering-blueprint-runbook.md
   - docs/engineering-knowledge-base/engineering-blueprint-maturity-dod.md
+  - docs/engineering-knowledge-base/atlas-programming-forge-flow.md
   - docs/engineering-knowledge-base/archive/source-material/atlas-engineering-blueprint-7-itens-2026-05-01.md
 doc_schema: atlas_canonical_module_doc.v1
 
@@ -193,6 +195,12 @@ mesmo estado para automacoes e futuras interfaces.
 | Code Intelligence | Liga docs ao codigo real, simbolos, rotas, comandos, migrations e testes | Substituir leitura critica do codigo |
 | Atlas-Bench | Mede estrategias, providers, regressao e maturidade do Harness | Ser criterio unico de pronto para uma task real |
 | Memory Core | Preserva decisoes, feedback, recall e contexto multi-provider | Guardar segredo ou log bruto sem politica |
+
+Para a hierarquia completa de programacao pesada, leia
+`atlas-programming-forge-flow.md`. Engineering Blueprint e Engineering Harness
+Runner sao camadas de contrato tecnico e execucao; eles nao substituem
+Programming Domain, `programming.forge`, Forge OS, Forge Workspace, Agentic RAG,
+Tool Runtime, Repair Loop, Evidence ou Cartography.
 
 ## Estado Atual No Codigo
 

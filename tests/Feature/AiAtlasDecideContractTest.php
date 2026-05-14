@@ -11,6 +11,7 @@ use App\Services\Ai\AtlasDecideService;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 use ReflectionClass;
 use Tests\TestCase;
 
@@ -144,6 +145,49 @@ class AiAtlasDecideContractTest extends TestCase
             ->assertJsonPath('decision.selection_explanation.confidence_band', 'high')
             ->assertJsonPath('decision.receipt_v2.provider_selection.selection_explanation.selected_provider', 'codex_cli')
             ->assertJsonPath('decision.was_overridden', false);
+    }
+
+    public function test_decision_preview_keeps_atlas_code_bound_to_atlas_code_forge_surface(): void
+    {
+        config([
+            'atlas.ai.default_provider' => 'claude_cli',
+            'atlas.ai.providers.codex_cli.allow_auto' => true,
+        ]);
+
+        $obraId = (string) Str::uuid();
+
+        $this
+            ->withHeader('X-Atlas-Token', 'testing-atlas-token-with-enough-length')
+            ->postJson('/ai/decisions/preview', [
+                'input_text' => 'Refatore o fluxo do Atlas Code pelo Forge',
+                'source_type' => 'app',
+                'source_id' => $obraId,
+                'payload' => [
+                    'app_surface' => 'atlas_code',
+                    'surface_id' => 'atlas_code',
+                    'atlas_workflow_mode' => 'forge',
+                    'flow_id' => 'programming.forge',
+                    'routing_task' => 'forge',
+                    'programming_profile' => 'forge',
+                    'requires_obra' => true,
+                    'obra_id' => $obraId,
+                    'forge_workspace' => [
+                        'schema_version' => 'atlas.forge_workspace_binding.v1',
+                        'workspace_kind' => 'obras_shared_workspace',
+                        'specialization' => 'forge_workspace',
+                        'obra_id' => $obraId,
+                        'source' => 'atlas_code',
+                    ],
+                    'dev_execution_plan' => [
+                        'programming_profile' => 'forge',
+                    ],
+                ],
+            ])
+            ->assertOk()
+            ->assertJsonPath('decision.kernel_contracts.surface.surface_id', 'atlas_code')
+            ->assertJsonPath('decision.task_profile.obra_id', $obraId)
+            ->assertJsonPath('decision.signals.obra_id', $obraId)
+            ->assertJsonPath('decision.receipt_v2.metadata.kernel_contracts.surface.surface_id', 'atlas_code');
     }
 
     public function test_decision_preview_infers_programming_from_natural_language_refactor_request(): void

@@ -50,6 +50,7 @@ class AiGatewayService
         private readonly AtlasEvidenceLedger $ledger,
         private readonly AtlasFileAttachmentService $fileAttachments,
         private readonly YouTubeKnowledgeIngestionService $youtubeKnowledge,
+        private readonly AiStreamRecorder $stream,
     ) {}
 
     public function enqueueInteraction(string $input, array $options = []): AiTrace
@@ -321,8 +322,101 @@ class AiGatewayService
 
             $this->recordAtlasDecision($trace, $options, $provider, $model, $prompt, $modelResolution);
 
+            $this->emitPipelineCheckpoints($job, $input, $prompt, $provider, $model, $options);
+
             return $trace->load($this->traceRelations());
         }, self::TRANSACTION_ATTEMPTS);
+    }
+
+    /**
+     * Atlas Code Live Cockpit · emite 4 checkpoints iniciais do pipeline.
+     *
+     * Cada checkpoint usa event_type='lifecycle' (compatível com o CHECK
+     * constraint de ai_stream_events.event_type) + metadata.checkpoint +
+     * metadata.outcome. A surface Desktop discrimina por metadata.checkpoint.
+     *
+     * Os checkpoints 'verify' e 'evidence' são emitidos pelo AiWorker quando
+     * o job realmente roda — aqui só os preparatórios (Intent → Context →
+     * Plan → Provider) que já são conhecidos no momento do enqueue.
+     */
+    private function emitPipelineCheckpoints(AiJob $job, string $input, AiPrompt $prompt, string $provider, ?string $model, array $options): void
+    {
+        try {
+            $intent = $this->classifyIntent($input, $prompt);
+            $this->stream->record($job, null, 'lifecycle', '', [
+                'checkpoint' => 'intent',
+                'outcome' => 'done',
+                'intent_type' => $intent['type'],
+                'confidence' => $intent['confidence'],
+                'classifier' => $intent['classifier'],
+            ], 'system');
+
+            $contextPack = is_array($prompt->contextPack ?? null) ? $prompt->contextPack : [];
+            $docsCount = is_array($contextPack['docs'] ?? null) ? count($contextPack['docs']) : 0;
+            $symbolsCount = is_array($contextPack['symbols'] ?? null) ? count($contextPack['symbols']) : 0;
+            $tokensEstimate = (int) (data_get($contextPack, 'tokens_estimate')
+                ?? data_get($prompt->taskRequest, 'tokens_estimate')
+                ?? mb_strlen($prompt->prompt) / 4);
+            $this->stream->record($job, null, 'lifecycle', '', [
+                'checkpoint' => 'context',
+                'outcome' => 'done',
+                'docs_count' => $docsCount,
+                'symbols_count' => $symbolsCount,
+                'tokens_estimate' => $tokensEstimate,
+            ], 'system');
+
+            $planSteps = is_array($prompt->executionPlan['steps'] ?? null)
+                ? count($prompt->executionPlan['steps'])
+                : (is_array($prompt->executionPlan ?? null) ? 1 : 0);
+            $this->stream->record($job, null, 'lifecycle', '', [
+                'checkpoint' => 'plan',
+                'outcome' => 'done',
+                'steps' => $planSteps,
+                'source' => $planSteps > 0 ? 'execution_plan' : 'inline_answer',
+            ], 'system');
+
+            $fallback = is_array($options['payload']['atlas_decide']['fallback_provider'] ?? null)
+                ? $options['payload']['atlas_decide']['fallback_provider']
+                : null;
+            $this->stream->record($job, null, 'lifecycle', '', [
+                'checkpoint' => 'provider',
+                'outcome' => 'started',
+                'provider' => $provider,
+                'model' => $model,
+                'fallback' => $fallback,
+            ], 'system');
+        } catch (\Throwable $e) {
+            // Cockpit é additive — não pode bloquear o enqueue se a emissão
+            // falhar. Logar e seguir.
+            \Illuminate\Support\Facades\Log::warning('emitPipelineCheckpoints failed', [
+                'job_id' => $job->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    /**
+     * Classificador heurístico inicial. Sem LLM. Substituível por classifier
+     * dedicado em fatia futura. Confidence fixa enquanto for heurístico.
+     */
+    private function classifyIntent(string $input, AiPrompt $prompt): array
+    {
+        $trim = mb_strtolower(trim($input));
+        $type = 'task';
+        if (str_contains($trim, '?')) {
+            $type = 'question';
+        }
+        if (preg_match('/\b(intake|spec|plan|receipt|verify)\b/u', $trim) === 1) {
+            $type = 'sdd';
+        }
+        if (is_string($prompt->intent ?? null) && $prompt->intent !== '') {
+            $type = $prompt->intent;
+        }
+        return [
+            'type' => $type,
+            'confidence' => 0.85,
+            'classifier' => 'heuristic_v1',
+        ];
     }
 
     public function recordFeedback(AiTrace $trace, array $data): AiTrace

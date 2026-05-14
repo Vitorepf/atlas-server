@@ -1,0 +1,141 @@
+<?php
+
+namespace App\Services\Ai\SelfConstruction;
+
+use Illuminate\Support\Arr;
+use InvalidArgumentException;
+
+final class AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartEvidenceAcceptanceBridgeInvoker
+{
+    public function __construct(
+        private readonly AgentCodexRealInvokerPostStartEvidenceAcceptanceBridge $postStartEvidenceAcceptanceBridge,
+    ) {}
+
+    /**
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function acceptCodexRealInvokerPostStartEvidence(array $input): array
+    {
+        $normalized = $this->normalize($input);
+        $result = $this->postStartEvidenceAcceptanceBridge->acceptPostStartEvidence($normalized);
+
+        return [
+            'status' => 'one_shot_scheduler_codex_real_invoker_post_start_evidence_acceptance_recorded',
+            'codex_real_invoker_post_start_evidence_acceptance_bridge_invoked' => true,
+            'codex_real_invoker_post_start_evidence_acceptance_bridge_invocation_count' => 1,
+            'codex_real_invoker_post_start_evidence_acceptance_bridge_result' => $result,
+            'post_start_evidence_acceptance_bridge_id' => data_get($result, 'post_start_evidence_acceptance_bridge_id'),
+            'post_start_operator_start_handoff_id' => data_get($result, 'post_start_operator_start_handoff_id'),
+            'post_start_receipt_contract_id' => data_get($result, 'post_start_receipt_contract_id'),
+            'post_start_evidence_receipt_id' => data_get($result, 'post_start_evidence_receipt_id'),
+            'operator_start_handoff_id' => data_get($result, 'operator_start_handoff_id'),
+            'manual_start_executor_receipt_id' => data_get($result, 'manual_start_executor_receipt_id'),
+            'codex_execution_id' => data_get($result, 'codex_execution_id'),
+            'agent_run_id' => data_get($result, 'agent_run_id'),
+            'run_key' => data_get($result, 'run_key'),
+            'run_status' => data_get($result, 'run_status'),
+            'post_start_receipt_contract_built' => true,
+            'post_start_evidence_receipt_recorded' => true,
+            'post_start_evidence_acceptance_recorded' => true,
+            'operator_external_start_attested' => true,
+            'atlas_process_spawned' => false,
+            'actual_process_start_allowed' => false,
+            'external_process_started' => true,
+            'external_process_evidence_accepted' => true,
+            'provider_started' => true,
+            'adapter_execution_allowed' => false,
+            'token_spend_allowed' => false,
+            'self_programming_allowed' => false,
+            'dispatch_allowed' => false,
+            'idempotent' => data_get($result, 'idempotent'),
+            'next_required_slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_liveness_monitor_contract',
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    private function normalize(array $input): array
+    {
+        $required = [
+            'run_key',
+            'post_start_evidence_acceptance_bridge_id',
+            'post_start_operator_start_handoff_id',
+            'post_start_receipt_contract_id',
+            'post_start_evidence_receipt_id',
+            'codex_execution_id',
+            'real_invoker_process_starter_readiness_gate_id',
+            'real_invoker_start_execution_gate_id',
+            'manual_start_executor_receipt_id',
+            'operator_start_handoff_id',
+            'handoff_packet_hash',
+            'operator_runbook_hash',
+            'external_terminal_handoff_hash',
+            'post_start_liveness_probe_contract_hash',
+            'post_start_receipt_contract_hash',
+            'failure_escalation_contract_hash',
+            'external_process_identity_contract_hash',
+            'startup_evidence_contract_hash',
+            'terminal_pid_capture_contract_hash',
+            'post_start_cost_meter_contract_hash',
+            'external_process_identity_evidence_hash',
+            'startup_evidence_hash',
+            'terminal_pid_capture_hash',
+            'post_start_liveness_probe_hash',
+            'post_start_cost_meter_evidence_hash',
+            'operator_external_start_attestation_hash',
+            'no_atlas_process_spawn_attestation_hash',
+            'actor',
+            'session',
+            'reason',
+        ];
+
+        foreach ($required as $field) {
+            if (! Arr::has($input, $field) || $input[$field] === null || $input[$field] === '') {
+                throw new InvalidArgumentException('missing_'.$field);
+            }
+        }
+
+        $hashFields = [
+            'handoff_packet_hash',
+            'operator_runbook_hash',
+            'external_terminal_handoff_hash',
+            'post_start_liveness_probe_contract_hash',
+            'post_start_receipt_contract_hash',
+            'failure_escalation_contract_hash',
+            'external_process_identity_contract_hash',
+            'startup_evidence_contract_hash',
+            'terminal_pid_capture_contract_hash',
+            'post_start_cost_meter_contract_hash',
+            'external_process_identity_evidence_hash',
+            'startup_evidence_hash',
+            'terminal_pid_capture_hash',
+            'post_start_liveness_probe_hash',
+            'post_start_cost_meter_evidence_hash',
+            'operator_external_start_attestation_hash',
+            'no_atlas_process_spawn_attestation_hash',
+        ];
+
+        foreach ($hashFields as $hashField) {
+            $hash = strtolower(trim((string) $input[$hashField]));
+
+            if (preg_match('/^[a-f0-9]{64}$/', $hash) !== 1) {
+                throw new InvalidArgumentException('invalid_'.$hashField);
+            }
+
+            $input[$hashField] = $hash;
+        }
+
+        return array_reduce(
+            $required,
+            static function (array $carry, string $field) use ($input): array {
+                $carry[$field] = (string) $input[$field];
+
+                return $carry;
+            },
+            [],
+        );
+    }
+}

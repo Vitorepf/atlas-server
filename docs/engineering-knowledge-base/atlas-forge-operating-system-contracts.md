@@ -24,6 +24,7 @@ decisions:
 maintenance:
   - Atualize quando contratos, objetos, gates, provider governance ou boundaries humanos do Forge mudarem.
 related_paths:
+  - docs/engineering-knowledge-base/atlas-programming-forge-flow.md
   - docs/engineering-knowledge-base/atlas-forge-operating-system.md
   - docs/engineering-knowledge-base/atlas-forge-operating-system-runbook.md
   - docs/engineering-knowledge-base/atlas-programming-governance-system.md
@@ -138,8 +139,9 @@ next_actions:
 ## Resumo
 
 Este documento contem os contratos persistentes do Forge OS. O indice canonico
-fica em `atlas-forge-operating-system.md`; o fluxo operacional fica em
-`atlas-forge-operating-system-runbook.md`.
+fica em `atlas-forge-operating-system.md`, o fluxo operacional fica em
+`atlas-forge-operating-system-runbook.md` e o mapa inteiro de programacao pesada
+fica em `atlas-programming-forge-flow.md`.
 
 ## Papel no Atlas
 
@@ -514,6 +516,4 @@ ser explicitamente registrado como decisao do sistema.
 
 ## Proximas Acoes
 
-1. Reusar estes contratos em AP futura de Forge runtime.
-2. Manter provider governance fail-closed.
-3. Atualizar o runbook quando um contrato ganhar comando ou surface real.
+1. Reusar estes contratos em AP futura de Forge runtime e atualizar o runbook quando um contrato ganhar comando ou surface real.

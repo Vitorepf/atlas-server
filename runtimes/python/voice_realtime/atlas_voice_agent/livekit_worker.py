@@ -142,6 +142,14 @@ class AtlasLiveKitWorker:
         kernel_response = result.kernel_response
         envelope_id = _string_or_none(_deep_get(kernel_response, ["turn", "operation_envelope", "envelope_id"]))
         receipt_hash = _string_or_none(receipt.get("receipt_hash"))
+        artifacts: dict[str, Any] = {}
+        # ADR 0002 Option B: preserve `transient` mapping (e.g. `tts_input_text`)
+        # so the runtime LLM bridge can hand it off to TTS in-memory. Forbidden
+        # keys (`response_text`, `raw_response_text`, `tts_text`) are still
+        # rejected by `_reject_forbidden_worker_return_fields`.
+        transient = kernel_response.get("transient") if isinstance(kernel_response, Mapping) else None
+        if isinstance(transient, Mapping):
+            artifacts["transient"] = dict(transient)
         payload = _worker_return_payload({
             "schema_version": "atlas.voice_realtime.worker_return.v1",
             "envelope_id": envelope_id,
@@ -150,7 +158,7 @@ class AtlasLiveKitWorker:
             "blocked": result.blocked,
             "receipt_id": receipt.get("receipt_id"),
             "dry_run": receipt.get("dry_run"),
-            "artifacts": {},
+            "artifacts": artifacts,
             "metrics": {},
             "evidence_refs": _evidence_refs(kernel_response.get("evidence_ledger")),
             "errors": [],

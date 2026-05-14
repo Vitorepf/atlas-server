@@ -165,6 +165,23 @@ class DomainCatalogSurfaceSelectionServiceTest extends TestCase
         $this->assertSame('programming.forge', data_get($selection, 'surface_hints.task_flow_map.heavy'));
     }
 
+    public function test_atlas_code_is_forge_only_programming_surface(): void
+    {
+        $selection = $this->service()->select([
+            'surface_id' => 'atlas_code',
+            'mode' => 'forge',
+            'task' => 'direct',
+        ]);
+
+        $this->assertSame('ok', $selection['status']);
+        $this->assertSame('atlas_code', $selection['surface_id']);
+        $this->assertSame('programming', data_get($selection, 'domain.id'));
+        $this->assertSame('programming.forge', data_get($selection, 'flow.id'));
+        $this->assertSame('engineering_harness', data_get($selection, 'flow.executor_preference'));
+        $this->assertSame(['programming.forge'], data_get($selection, 'surface_hints.supported_flow_ids'));
+        $this->assertSame('programming.forge', data_get($selection, 'surface_hints.task_flow_map.review'));
+    }
+
     public function test_app_and_api_surfaces_accept_catalog_domain_flow_selection_without_catalog_duplication(): void
     {
         foreach (['atlas_app', 'atlas_api_interaction'] as $surfaceId) {

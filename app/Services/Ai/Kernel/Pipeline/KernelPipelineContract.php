@@ -15,7 +15,7 @@ final readonly class KernelPipelineContract
      */
     public static function programmingSurfaces(): array
     {
-        return ['atlas_cli_dev', 'atlas_cli_forge', 'atlas_ai_chat'];
+        return ['atlas_cli_dev', 'atlas_cli_forge', 'atlas_code', 'atlas_ai_chat'];
     }
 
     /**

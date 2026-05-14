@@ -480,7 +480,14 @@ class AtlasCodeContractTest extends TestCase
                     return ($options['source_type'] ?? null) === 'app'
                         && ($options['source_id'] ?? null) === $projectId
                         && ($options['new_thread'] ?? null) === true
-                        && ($options['kind'] ?? null) === 'interaction';
+                        && ($options['kind'] ?? null) === 'interaction'
+                        && data_get($options, 'payload.surface_id') === 'atlas_code'
+                        && data_get($options, 'payload.flow_id') === 'programming.forge'
+                        && data_get($options, 'payload.routing_task') === 'forge'
+                        && data_get($options, 'payload.requires_obra') === true
+                        && data_get($options, 'payload.obra_id') === $projectId
+                        && data_get($options, 'payload.forge_workspace.obra_id') === $projectId
+                        && data_get($options, 'payload.forge_workspace.workspace_kind') === 'obras_shared_workspace';
                 }))
                 ->andReturn(tap(new AiTrace, fn (AiTrace $trace) => $trace->forceFill([
                     'id' => $traceId,
@@ -506,6 +513,38 @@ class AtlasCodeContractTest extends TestCase
             'source_id' => $projectId,
             'new_thread' => true,
             'kind' => 'interaction',
+            'payload' => [
+                'app_surface' => 'atlas_code',
+                'surface_id' => 'atlas_code',
+                'atlas_mode' => 'forge',
+                'current_mode' => 'forge',
+                'atlas_workflow_mode' => 'forge',
+                'domain_id' => 'programming',
+                'flow_id' => 'programming.forge',
+                'routing_domain' => 'programming',
+                'routing_task' => 'forge',
+                'programming_profile' => 'forge',
+                'programming_flow' => 'programming.forge',
+                'requires_obra' => true,
+                'obra_id' => $projectId,
+                'work_id' => $projectId,
+                'project_id' => $projectId,
+                'forge_workspace' => [
+                    'schema_version' => 'atlas.forge_workspace_binding.v1',
+                    'workspace_kind' => 'obras_shared_workspace',
+                    'specialization' => 'forge_workspace',
+                    'obra_id' => $projectId,
+                    'source' => 'atlas_code',
+                ],
+                'dev_execution_plan' => [
+                    'programming_profile' => 'forge',
+                    'programming_flow' => 'programming.forge',
+                    'operator_options' => [
+                        'complete' => true,
+                        'auto_test' => true,
+                    ],
+                ],
+            ],
         ]);
 
         $response
@@ -515,6 +554,71 @@ class AtlasCodeContractTest extends TestCase
             ->assertJsonPath('trace.source_id', $projectId);
 
         $this->assertSame($projectId, $capturedOptions['source_id'] ?? null);
+        $this->assertSame('atlas_code', data_get($capturedOptions, 'payload.domain_catalog_selection.surface_id'));
+        $this->assertSame('programming.forge', data_get($capturedOptions, 'payload.domain_catalog_selection.flow.id'));
+    }
+
+    public function test_atlas_code_fails_closed_without_obra(): void
+    {
+        $capturedOptions = null;
+
+        $this->mock(AiGatewayService::class, function (MockInterface $mock) use (&$capturedOptions): void {
+            $mock
+                ->shouldReceive('enqueueInteraction')
+                ->once()
+                ->with('Refatorar Decide sem Obra', \Mockery::on(function (array $options) use (&$capturedOptions): bool {
+                    $capturedOptions = $options;
+
+                    return data_get($options, 'payload.surface_id') === 'atlas_code'
+                        && data_get($options, 'payload.requires_obra') === true
+                        && data_get($options, 'payload.forge_workspace_blocker.reason') === 'missing_obra_binding'
+                        && data_get($options, 'payload.forge_workspace_blocker.surface_id') === 'atlas_code'
+                        && data_get($options, 'payload.forge_workspace_blocker.flow_id') === 'programming.forge'
+                        && data_get($options, 'payload.forge_workspace') === null;
+                }))
+                ->andReturn(tap(new AiTrace, fn (AiTrace $trace) => $trace->forceFill([
+                    'id' => (string) Str::uuid(),
+                    'trace_key' => 'trace_atlas_code_blocked',
+                    'thread_id' => null,
+                    'source_type' => 'app',
+                    'source_id' => null,
+                    'status' => 'queued',
+                    'operator_input' => 'Refatorar Decide sem Obra',
+                    'agent_slug' => 'orquestrador',
+                    'provider' => 'claude_cli',
+                    'skill_versions' => [],
+                    'context_refs' => [],
+                    'metadata' => ['atlas_code' => true, 'forge_blocked' => true],
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ])));
+        });
+
+        $response = $this->withHeaders($this->headers())->postJson('/ai/interactions', [
+            'input_text' => 'Refatorar Decide sem Obra',
+            'source_type' => 'app',
+            'new_thread' => true,
+            'kind' => 'interaction',
+            'payload' => [
+                'app_surface' => 'atlas_code',
+                'surface_id' => 'atlas_code',
+                'atlas_mode' => 'forge',
+                'current_mode' => 'forge',
+                'atlas_workflow_mode' => 'forge',
+                'domain_id' => 'programming',
+                'flow_id' => 'programming.forge',
+                'routing_domain' => 'programming',
+                'routing_task' => 'forge',
+                'programming_profile' => 'forge',
+                'programming_flow' => 'programming.forge',
+            ],
+        ]);
+
+        $response->assertAccepted();
+
+        $this->assertSame('missing_obra_binding', data_get($capturedOptions, 'payload.forge_workspace_blocker.reason'));
+        $this->assertTrue(data_get($capturedOptions, 'payload.requires_obra'));
+        $this->assertNull(data_get($capturedOptions, 'payload.forge_workspace'));
     }
 
     public function test_ai_interaction_stream_returns_real_sse_frames(): void

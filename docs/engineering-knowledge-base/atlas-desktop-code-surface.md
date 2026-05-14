@@ -26,6 +26,10 @@ capabilities:
 decisions:
   - Atlas Code materializes the Engineering Operations System category: the MES of software construction.
   - A primeira versao enterprise do Atlas Code se chama Atlas Code SCOR-1, Software Construction Operating Room v1.
+  - Atlas Code e surface desktop de programacao, nao o Programming Domain nem o fluxo pesado inteiro.
+  - Atlas Code SCOR-1 tem um unico modo operacional de surface: Forge.
+  - Toda intencao do Atlas Code deve carregar `surface_id=atlas_code`, `flow_id=programming.forge`, `routing_task=forge`, `programming_profile=forge`, `obra_id` e `forge_workspace`.
+  - Atlas Code nao inicia Forge sem Obra vinculada; conversa sem `obra_id` e rascunho, nao execucao Forge.
   - The Code surface is a window into the Kernel, not an editor. Vitor directs; Atlas programs.
   - All 11 canonical axes must be honored; no axis-invariant is skipped for UI simplicity.
   - Atlas Decide owns provider routing. The surface displays the decision; it never lets the user pick provider by dropdown without `manual_override` audit.
@@ -67,6 +71,7 @@ related_paths:
   - docs/engineering-knowledge-base/engineering-blueprint-quality-gates.md
   - docs/engineering-knowledge-base/engineering-blueprint-contracts.md
   - docs/engineering-knowledge-base/domains/programming.md
+  - docs/engineering-knowledge-base/atlas-programming-forge-flow.md
   - docs/engineering-knowledge-base/domains/programming-surfaces.md
   - docs/engineering-knowledge-base/domains/programming-specialist-profiles.md
   - docs/engineering-knowledge-base/domains/programming-repair-contract.md
@@ -181,6 +186,15 @@ Atlas Code materializa o Engineering Operations System: humano dirige,
 Kernel decide, IAs executam, evidencia prova. Ele deve substituir o padrao
 Cursor/Claude Code/Codex chat-wrapper por uma sala de operacao governada.
 
+Atlas Code nao e o setor de programacao. O setor e Programming Domain. Para o
+fluxo pesado completo, leia `atlas-programming-forge-flow.md`; Atlas Code apenas
+exibe e opera esse fluxo como surface.
+
+Regra de surface: Atlas Code SCOR-1 nao tem modos concorrentes como conversa,
+spec, plan, replay ou repair. O unico modo operacional e Forge; conversa,
+spec, plan, verify, evidence, replay e repair sao etapas/artefatos dentro de
+`programming.forge`.
+
 ## Onde Se Encaixa
 
 Pai: `atlas-desktop`. Dependencias principais: Spec OS, Self-Construction OS,
@@ -220,6 +234,11 @@ partir de eventos/artefatos, nao apenas aparecer como resposta textual final.
 Intencao humana passa por contexto, spec, critica, plano, tarefas, receipt,
 execucao multiagente, gates, repair, evidence e learning proposal. A tela deve
 mostrar esse fluxo de forma navegavel e verificavel.
+
+Payload minimo do composer/bridge: `surface_id=atlas_code`,
+`app_surface=atlas_code`, `flow_id=programming.forge`,
+`routing_task=forge`, `programming_profile=forge`, `requires_obra=true`,
+`obra_id=<obra>`, `work_id=<obra>` e `forge_workspace.obra_id=<obra>`.
 
 ## Regras para IA
 

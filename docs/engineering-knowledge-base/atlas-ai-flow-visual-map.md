@@ -232,6 +232,10 @@ Esse e o nome canonico do escritorio compartilhado. Em Programming, sua
 especializacao e `Forge Workspace`. Ele alimenta Context Builder e Runtime com
 artefatos governados, mas Kernel/Decide continuam sendo autoridade.
 
+Quando o diagrama representar programacao pesada, use
+`atlas-programming-forge-flow.md` como mapa da hierarquia completa. Forge
+Workspace e o ambiente; nao e o fluxo inteiro nem o executor.
+
 ## Evidence And Learning
 
 Lado direito laranja:

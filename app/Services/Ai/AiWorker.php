@@ -276,6 +276,14 @@ class AiWorker
                 'policy_contract_enforcement' => $policyViolation,
             ], null, $onStream);
 
+            // Live Cockpit · verify falhou no contrato de policy.
+            $this->emitStreamEvent($job, $attempt, 'lifecycle', 'pipeline_verify_failed', '', [
+                'checkpoint' => 'verify',
+                'outcome' => 'failed',
+                'gate_name' => 'policy_contract',
+                'reason' => (string) ($policyViolation['message'] ?? 'policy_contract_blocked'),
+            ], 'system', $onStream);
+
             $result = new AiProviderResult(
                 ok: false,
                 output: '',
@@ -1506,6 +1514,23 @@ class AiWorker
         }
 
         if ($result->ok) {
+            // Live Cockpit · verify (provider produziu resposta válida) +
+            // evidence (output persistido no AiJob). São os 2 checkpoints
+            // finais do pipeline antes do `response` terminal.
+            $this->emitStreamEvent($job, $attempt, 'lifecycle', 'pipeline_verify_passed', '', [
+                'checkpoint' => 'verify',
+                'outcome' => 'done',
+                'gate_name' => 'provider_output',
+                'duration_ms' => $result->durationMs,
+            ], 'system');
+            $this->emitStreamEvent($job, $attempt, 'lifecycle', 'pipeline_evidence_appended', '', [
+                'checkpoint' => 'evidence',
+                'outcome' => 'done',
+                'kind' => 'response',
+                'response_hash' => $responseHash,
+                'artifact_count' => 1,
+            ], 'system');
+
             $job->update([
                 'status' => 'succeeded',
                 'result_text' => $result->output,

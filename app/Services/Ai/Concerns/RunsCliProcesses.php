@@ -539,6 +539,7 @@ trait RunsCliProcesses
         return AtlasSecurity::processEnv([
             'PATH' => $this->providerPath(),
             'HOME' => (string) ($_SERVER['HOME'] ?? getenv('HOME') ?: ''),
+            'PYTHONDONTWRITEBYTECODE' => '1',
         ], 'provider');
     }
 

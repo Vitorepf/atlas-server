@@ -19,6 +19,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
+use Symfony\Component\Process\Exception\ProcessTimedOutException;
 use Symfony\Component\Process\Process;
 
 class EngineeringHarnessRunnerService
@@ -341,6 +342,7 @@ class EngineeringHarnessRunnerService
                 'quality_scan' => $qualityScan,
                 'quality_profile' => $qualityProfile,
                 'quality_changed_only' => $qualityChangedOnly,
+                'test_timeout_seconds' => $options['test_timeout_seconds'] ?? null,
             ],
         );
         $testRuns = $autoTest && (($dockerHealthchecks['status'] ?? null) !== 'failed')
@@ -1454,19 +1456,29 @@ class EngineeringHarnessRunnerService
             $hostCommand[] = '--allow-unsandboxed';
         }
 
+        $timeoutSeconds = max(60, (int) ($providerOptions['timeout_seconds'] ?? 1800));
+        $hostCommand[] = '--timeout='.$timeoutSeconds;
+
         $runtimeCommand = $this->providerRuntimes->command($hostCommand, $workspacePlan, $providerRuntimePlan);
         $stdout = '';
         $stderr = '';
         $exitCode = 1;
+        $timedOut = false;
+        $startedAt = microtime(true);
 
         try {
-            $process = new Process($runtimeCommand['command'], $runtimeCommand['cwd'], AtlasSecurity::processEnv(profile: 'provider_runner'));
-            $process->setTimeout(max(60, (int) ($providerOptions['timeout_seconds'] ?? 1800)));
+            $process = new Process($runtimeCommand['command'], $runtimeCommand['cwd'], AtlasSecurity::processEnv([
+                'PYTHONDONTWRITEBYTECODE' => '1',
+            ], 'provider_runner'));
+            $process->setTimeout($timeoutSeconds);
             $process->run();
 
             $exitCode = $process->getExitCode() ?? 1;
             $stdout = AtlasSecurity::redactString($process->getOutput());
             $stderr = AtlasSecurity::redactString($process->getErrorOutput());
+        } catch (ProcessTimedOutException $exception) {
+            $timedOut = true;
+            $stderr = AtlasSecurity::redactString($exception->getMessage());
         } catch (\Throwable $exception) {
             $stderr = AtlasSecurity::redactString($exception->getMessage());
         }
@@ -1478,6 +1490,9 @@ class EngineeringHarnessRunnerService
             'exit_code' => $exitCode,
             'stdout' => $stdout,
             'stderr' => $stderr,
+            'duration_ms' => max(0, (int) round((microtime(true) - $startedAt) * 1000)),
+            'timed_out' => $timedOut,
+            'timeout_seconds' => $timeoutSeconds,
             'trace_id' => is_string($traceId) && $traceId !== '' ? $traceId : null,
             'decoded' => is_array($decoded) ? $decoded : null,
             'runtime' => $runtimeCommand['runtime'],

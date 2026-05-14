@@ -50,12 +50,17 @@ class ProgrammingProfessionalCompletionAuditService
         $verificationEvidence = $this->verificationEvidence($rivals);
         $powerScorecard = $this->powerScorecard($localReady, $claimReady, $artifactCoverage, $verificationEvidence);
 
+        $forgeCertification = $this->forgeRuntimeCertification($checklist);
+        $externalRivalsCertification = $this->externalRivalsCertification($verificationEvidence);
+
         return [
             'schema_version' => 'atlas.programming.professional_completion_audit.v1',
             'status' => $missing === [] ? 'complete' : 'blocked',
             'generated_at' => now()->toJSON(),
             'objective' => 'Implement professional programming documentation and enterprise runtime for RAG, Agentic RAG, quality gates, receipts and Rivals-Programming integrity.',
             'completion_allowed' => $missing === [],
+            'forge_runtime_certification' => $forgeCertification,
+            'external_rivals_certification' => $externalRivalsCertification,
             'audit_protocol' => $this->auditProtocol(),
             'artifact_coverage' => $artifactCoverage,
             'verification_evidence' => $verificationEvidence,
@@ -1152,6 +1157,102 @@ class ProgrammingProfessionalCompletionAuditService
             'missing_files' => file_exists($absolutePath) ? [] : [$bootstrapPath],
             'required_classes' => array_keys($commands),
             'checks' => $checks,
+        ];
+    }
+
+    /**
+     * Items do checklist que pertencem ao Atlas Forge Runtime core
+     * (programming foundation + governance + harness + evidence).
+     * Itens de Rivals externo ficam fora — sao certificados separadamente.
+     *
+     * @var array<int,string>
+     */
+    private const FORGE_CORE_ITEMS = [
+        'professional_operating_standard',
+        'professional_spec',
+        'enterprise_plan',
+        'completion_audit_doc',
+        'agentic_rag_context_pack',
+        'hybrid_retrieval_and_gap_critic',
+        'semantic_code_graph',
+        'stage_receipts_resume',
+        'tool_runtime_manifests',
+        'patch_verifier',
+        'test_impact',
+        'sandbox_repair_learning',
+        'python_runtime',
+        'local_benchmarks',
+        'programming_cli_commands',
+    ];
+
+    /**
+     * @param  array<int,array<string,mixed>>  $checklist
+     * @return array<string,mixed>
+     */
+    private function forgeRuntimeCertification(array $checklist): array
+    {
+        $forgeItems = collect($checklist)
+            ->filter(fn (array $item): bool => in_array((string) ($item['id'] ?? ''), self::FORGE_CORE_ITEMS, true))
+            ->values();
+
+        $blockers = $forgeItems
+            ->filter(fn (array $item): bool => ($item['status'] ?? null) !== 'passed')
+            ->map(fn (array $item): array => [
+                'id' => (string) ($item['id'] ?? ''),
+                'blocker' => (string) ($item['blocker'] ?? 'unknown'),
+            ])
+            ->values()
+            ->all();
+
+        $status = $blockers === [] ? 'passed' : 'blocked';
+
+        return [
+            'schema_version' => 'atlas.forge_runtime_certification.v1',
+            'status' => $status,
+            'evidence_command' => 'php artisan atlas:forge:runtime-certify --json',
+            'core_artifact_group_count' => $forgeItems->count(),
+            'passed_count' => $forgeItems->count() - count($blockers),
+            'blocked_count' => count($blockers),
+            'blockers' => $blockers,
+            'note' => 'Forge core e certificado pelo command atlas:forge:runtime-certify e por este audit local. Bateria Rivals externo NAO afeta este eixo.',
+            'separated_from' => 'external_rivals_certification',
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $verificationEvidence
+     * @return array<string,mixed>
+     */
+    private function externalRivalsCertification(array $verificationEvidence): array
+    {
+        $claim = is_array($verificationEvidence['rivals_external_claim'] ?? null)
+            ? $verificationEvidence['rivals_external_claim']
+            : [];
+
+        $rawStatus = (string) ($claim['status'] ?? 'unknown');
+        $claimReady = (bool) ($claim['claim_ready'] ?? false);
+        $needsOperatorApproval = ! $claimReady;
+
+        $blockingReasons = is_array($claim['blocking_reasons'] ?? null)
+            ? array_values(array_filter(array_map(static fn (mixed $v): string => is_string($v) ? $v : '', $claim['blocking_reasons']), static fn (string $v): bool => $v !== ''))
+            : [];
+
+        $status = match (true) {
+            $claimReady => 'passed',
+            in_array($rawStatus, ['external_battery_invalid', 'invalid_battery_no_comparable_score', 'no_valid_comparable_score'], true) => 'blocked_requires_operator_approval',
+            default => 'blocked',
+        };
+
+        return [
+            'schema_version' => 'atlas.programming.rivals_readiness.v1',
+            'status' => $status,
+            'requires_operator_approval' => $needsOperatorApproval,
+            'raw_status' => $rawStatus,
+            'claim_ready' => $claimReady,
+            'comparable_case_count' => (int) ($claim['comparable_case_count'] ?? 0),
+            'blocking_reasons' => $blockingReasons,
+            'note' => 'Bateria Rivals externo exige custo provider + autorizacao operador; mantida isolada do Forge core.',
+            'separated_from' => 'forge_runtime_certification',
         ];
     }
 

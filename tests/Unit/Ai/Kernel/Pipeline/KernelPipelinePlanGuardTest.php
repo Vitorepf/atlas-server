@@ -53,6 +53,7 @@ class KernelPipelinePlanGuardTest extends TestCase
         $this->assertContains('kernel_pipeline.surface_binding.command is not recognized.', $report['errors']);
         $this->assertContains('atlas_cli_dev', KernelPipelineContract::programmingSurfaces());
         $this->assertContains('atlas_cli_forge', KernelPipelineContract::programmingSurfaces());
+        $this->assertContains('atlas_code', KernelPipelineContract::programmingSurfaces());
         $this->assertContains('programming.dev', KernelPipelineContract::programmingFlows());
         $this->assertContains('one_shot', KernelPipelineContract::programmingInputModes());
         $this->assertContains('atlas:cli:dev', KernelPipelineContract::programmingCommands());

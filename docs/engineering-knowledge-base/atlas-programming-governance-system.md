@@ -36,6 +36,7 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-programming-governance-system-contracts.md
   - docs/engineering-knowledge-base/atlas-programming-governance-system-runbook.md
   - docs/engineering-knowledge-base/domains/programming.md
+  - docs/engineering-knowledge-base/atlas-programming-forge-flow.md
   - docs/engineering-knowledge-base/atlas-ai-spec-operating-system.md
   - docs/engineering-knowledge-base/engineering-blueprint.md
   - docs/engineering-knowledge-base/engineering-blueprint-contracts.md
@@ -174,6 +175,11 @@ Atlas Programming Governance System e o sistema que governa programacao por IA
 no Atlas. Ele nao e um editor, prompt ou ferramenta isolada. Ele define como uma
 IA transforma intencao em codigo seguro: placement, contexto, spec, contrato,
 execucao, evidence, learning e cartografia.
+
+Para programacao pesada em `programming.forge`, leia tambem
+`atlas-programming-forge-flow.md`. Governance define as regras; o Forge Flow
+amarra essas regras ao Forge OS, Forge Workspace, Agentic RAG, Tool Runtime,
+Engineering Harness Runner, Repair Loop, Evidence Ledger e Cartography.
 
 Este arquivo e o indice canonico. Os detalhes foram separados para reduzir
 drift documental:

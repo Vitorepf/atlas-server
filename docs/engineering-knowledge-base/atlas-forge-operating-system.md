@@ -20,6 +20,7 @@ capabilities:
   - integration_queue
   - forge_evidence_loop
 decisions:
+  - Atlas Programming Forge Flow e a pagina-mae para entender o fluxo pesado inteiro antes de ler os filhos do Forge.
   - Atlas Forge Operating System e o patamar acima do Programming Governance System.
   - Programming Governance System define as regras; Forge OS opera a fabrica que executa essas regras em escala.
   - Forge OS deve transformar uma spec-mae em packets seguros, agentes coordenados, evidence normalizada, integracao e learning.
@@ -29,6 +30,7 @@ maintenance:
   - Atualize este indice quando Forge Workspace, Self-Construction OS, Agent Control Plane, multi-provider orchestration, Programming Governance ou Evidence Ledger mudarem.
   - Mantenha este arquivo como indice curto; detalhes vivem nos child docs de contratos e runbook.
 related_paths:
+  - docs/engineering-knowledge-base/atlas-programming-forge-flow.md
   - docs/engineering-knowledge-base/atlas-forge-operating-system-contracts.md
   - docs/engineering-knowledge-base/atlas-forge-operating-system-runbook.md
   - docs/engineering-knowledge-base/atlas-programming-governance-system.md
@@ -182,6 +184,12 @@ Ele fica acima do Programming Governance System: nao define apenas regras, mas
 transforma uma spec-mae em packets, agentes, escopo reservado, evidence,
 integracao, release gate, cartografia e learning.
 
+Se a pergunta for sobre o fluxo inteiro de programacao pesada, leia primeiro
+`atlas-programming-forge-flow.md`. Este arquivo e o indice do Forge OS; o fluxo
+inteiro tambem inclui Programming Domain, `programming.forge`, Atlas Decide,
+Agentic RAG, Semantic Code Graph, Tool Runtime, Engineering Harness Runner,
+Repair Loop, Evidence Ledger, Learning e Cartography.
+
 Este arquivo e o indice canonico do Forge. Os detalhes foram separados para
 reduzir drift documental:
 
@@ -208,6 +216,21 @@ Forge OS nao e mais um chat. Ele e um sistema operacional de producao de
 software, com estado, permissao, escopo, evidence e release.
 
 ## Onde Se Encaixa
+
+```text
+Programming Domain
+-> programming.forge
+-> Atlas Programming Forge Flow
+-> Programming Governance System
+-> Forge Operating System
+-> Forge Workspace / Obras Shared Workspace
+-> Work Packets / Agents / Tools
+-> Engineering Harness Runner quando executor pesado for exigido
+-> Integration Queue
+-> Evidence / Learning / Cartography
+```
+
+Camada macro:
 
 ```text
 Sovereign OS

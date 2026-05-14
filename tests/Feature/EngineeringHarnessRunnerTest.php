@@ -3685,6 +3685,8 @@ class EngineeringHarnessRunnerTest extends TestCase
         $this->assertStringContainsString('--model=opus', (string) data_get($payload, 'commands.run_full_paired_battery'));
         $this->assertStringContainsString('--quality-changed-only', (string) data_get($payload, 'commands.run_full_paired_battery'));
         $this->assertStringContainsString('--provider-timeout=600', (string) data_get($payload, 'commands.run_full_paired_battery'));
+        $this->assertStringContainsString('--case-timeout=1800', (string) data_get($payload, 'commands.run_full_paired_battery'));
+        $this->assertStringContainsString('--test-timeout=300', (string) data_get($payload, 'commands.run_full_paired_battery'));
         $this->assertStringContainsString('--quality-changed-only', (string) data_get($payload, 'commands.run_atlas_arm_only'));
         $this->assertStringContainsString('--confirm-runbook-reviewed', (string) data_get($payload, 'commands.run_full_paired_battery'));
         $this->assertStringContainsString('--confirm-provider-cost', (string) data_get($payload, 'commands.run_full_paired_battery'));

@@ -28,6 +28,7 @@ capabilities:
   - research_intelligence_runtime
   - spec_operating_system
   - programming_governance_system
+  - programming_forge_flow
   - forge_operating_system
   - self_construction_os
   - qualitative_levels_roadmap
@@ -70,6 +71,7 @@ decisions:
   - Toda IA nova deve ler Atlas AI Research Intelligence And Self-Improvement Runtime antes de pesquisa longa, source quality, promocao de pesquisa para docs, planejamento automatico, implementacao baseada em pesquisa ou aceleracao de autoaprimoramento.
   - Toda IA nova deve ler Atlas AI Spec Operating System antes de alterar SDD, Programming harness, spec compiler, task compiler, Decision Receipt de execucao, drift detector, code-agent prompts, MCP SDD, context packages, data model ou fluxo de one-shot implementation.
   - Toda IA nova deve ler Atlas Programming Governance System antes de implementar ou alterar placement, spec antes do codigo, task contracts, Code Intelligence, evidence, learning ou cartografia de programacao.
+  - Toda IA nova deve ler Atlas Programming Forge Flow antes de explicar, planejar ou alterar programacao pesada, programming.forge, Forge Workspace, Engineering Harness, Agentic RAG, graphs, tools, repair loop, Evidence ou cartografia de codigo.
   - Toda IA nova deve ler Atlas Forge Operating System antes de planejar trabalho pesado, longo, multiagente, multiprovider, integration queue, packets, evidence normalization ou fabrica de software por IA.
   - Toda IA nova deve ler Atlas AI Self-Construction OS antes de alterar self-programming, Meta-SDD, maturity ladder, build graph, priority engine, autonomous loop, safety contract ou qualquer fluxo do Atlas construindo Atlas.
   - Toda IA nova que va implementar em paralelo deve ler o Multi-Provider Agent Orchestration Contract: Codex, Claude, Gemini, agentes locais e futuros providers consomem o mesmo pacote universal; adapters nao podem ampliar escopo.
@@ -111,6 +113,7 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-ai-content-intelligence-curation.md
   - docs/engineering-knowledge-base/atlas-ai-research-self-improvement-runtime.md
   - docs/engineering-knowledge-base/atlas-programming-governance-system.md
+  - docs/engineering-knowledge-base/atlas-programming-forge-flow.md
   - docs/engineering-knowledge-base/atlas-forge-operating-system.md
   - docs/engineering-knowledge-base/atlas-ai-self-construction-os.md
   - docs/engineering-knowledge-base/atlas-ai-obras-operating-system.md
