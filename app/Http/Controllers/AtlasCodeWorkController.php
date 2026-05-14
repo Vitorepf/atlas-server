@@ -10,10 +10,15 @@ use App\Models\AiTrace;
 use App\Models\AtlasEngineeringEvidence;
 use App\Models\AtlasEngineeringRun;
 use App\Models\AtlasLedgerEvent;
+use App\Models\AtlasProgrammingWorkItem;
 use App\Models\AtlasProject;
 use App\Models\AtlasToolRun;
+use App\Services\Ai\Programming\AtlasCodeEnterpriseCertificationService;
+use App\Services\Ai\Programming\Governance\ProgrammingScopeMode;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
+use Throwable;
 
 /**
  * Atlas Code · normalized "Obras" surface.
@@ -42,15 +47,21 @@ final class AtlasCodeWorkController extends Controller
 
         $query = AtlasProject::query()
             ->orderByDesc('updated_at')
-            ->limit($limit);
+            ->limit(max($limit * 4, 100));
         if (! empty($data['status'])) {
             $query->where('status', $data['status']);
         }
 
+        $projects = $query->get()
+            ->reject(fn (AtlasProject $project): bool => $this->isSystemCertificationProject($project))
+            ->take($limit)
+            ->values();
+
         return response()->json([
-            'data' => $query->get()->map(fn (AtlasProject $p): array => $this->shape($p))->all(),
+            'data' => $projects->map(fn (AtlasProject $p): array => $this->shape($p))->all(),
             'meta' => [
-                'total' => $query->count(),
+                'total' => $projects->count(),
+                'system_certification_hidden' => true,
             ],
         ]);
     }
@@ -120,6 +131,9 @@ final class AtlasCodeWorkController extends Controller
         $latestDecision = $traceIds === []
             ? null
             : AiDecision::query()->whereIn('trace_id', $traceIds)->latest('created_at')->first();
+        $forgeLiveExecution = $this->forgeLiveExecutionForWork($project);
+        $forgeLiveExecutionHistory = $this->forgeLiveExecutionHistoryForWork($project);
+        $programmingGovernance = $this->programmingGovernanceForWork($project);
 
         return response()->json([
             'work' => $this->shape($project, withDetail: true),
@@ -136,6 +150,19 @@ final class AtlasCodeWorkController extends Controller
             'receipt' => $latestDecision ? $this->receiptShape($latestDecision, $project) : null,
             'gates' => $this->gateRunsForWork($project),
             'evidence' => $this->evidenceForWork($project),
+            'programming_governance' => $programmingGovernance,
+            'forge_task_queue' => $this->forgeTaskQueueForWork($project, $programmingGovernance, $forgeLiveExecution, $forgeLiveExecutionHistory),
+            'forge_fast_path' => $this->forgeFastPathForWork($project),
+            'forge_live_execution' => $forgeLiveExecution,
+            'forge_live_execution_async' => $this->forgeLiveExecutionAsyncForWork($project),
+            'forge_live_execution_history' => $forgeLiveExecutionHistory,
+            'forge_review' => $this->forgeReviewForWork($project),
+            'forge_review_history' => $this->forgeReviewHistoryForWork($project),
+            'forge_review_packet' => $this->forgeReviewPacketForWork($project),
+            'forge_completion_claim' => $this->forgeCompletionClaimForWork($project),
+            'forge_work_intake' => $this->forgeWorkIntakeForWork($project),
+            'checkpoint' => $this->checkpointForWork($project),
+            'atlas_code_enterprise_certification' => $this->atlasCodeEnterpriseCertificationForProduct(),
             'repair' => [],
             'learning_proposals' => [],
             'generated_at' => now()->toJSON(),
@@ -169,6 +196,11 @@ final class AtlasCodeWorkController extends Controller
             'last_touched_at' => $project->last_touched_at?->toJSON(),
             'next_review_at' => $project->next_review_at?->toJSON(),
         ]);
+    }
+
+    private function isSystemCertificationProject(AtlasProject $project): bool
+    {
+        return (string) data_get($project->metadata, 'origin', '') === 'atlas-code-enterprise-certification';
     }
 
     private function mapStatus(string $status): string
@@ -430,5 +462,774 @@ final class AtlasCodeWorkController extends Controller
             ->sortByDesc(fn (array $item): string => (string) ($item['createdAt'] ?? ''))
             ->values()
             ->all();
+    }
+
+    /**
+     * @return array<string,mixed>|null
+     */
+    private function forgeLiveExecutionForWork(AtlasProject $project): ?array
+    {
+        $metadataSnapshot = data_get($project->metadata, 'latest_forge_live_execution');
+        if (is_array($metadataSnapshot)) {
+            return $metadataSnapshot;
+        }
+
+        if (! Schema::hasTable('atlas_engineering_evidence')
+            || ! Schema::hasColumn('atlas_engineering_evidence', 'project_id')
+        ) {
+            return null;
+        }
+
+        $query = AtlasEngineeringEvidence::query()
+            ->where('project_id', $project->getKey());
+
+        if (Schema::hasColumn('atlas_engineering_evidence', 'evidence_type')) {
+            $query->where('evidence_type', 'forge_live_execution');
+        }
+
+        if (Schema::hasColumn('atlas_engineering_evidence', 'recorded_at')) {
+            $query->orderByDesc('recorded_at');
+        }
+        $evidence = $query->orderByDesc('created_at')->first();
+        if (! $evidence) {
+            return null;
+        }
+
+        $snapshot = data_get($evidence->metadata, 'snapshot');
+        if (is_array($snapshot)) {
+            $snapshot['evidence_id'] = (string) $evidence->id;
+
+            return $snapshot;
+        }
+
+        return [
+            'schema_version' => 'atlas.code.forge_live_execution.snapshot.v1',
+            'status' => (string) ($evidence->status ?? 'unknown'),
+            'obra_id' => (string) $project->getKey(),
+            'command' => (string) ($evidence->command ?? ''),
+            'last_run_at' => ($evidence->recorded_at ?? $evidence->created_at)?->toJSON(),
+            'evidence_id' => (string) $evidence->id,
+            'summary' => (string) ($evidence->summary ?? ''),
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>|null
+     */
+    private function forgeLiveExecutionAsyncForWork(AtlasProject $project): ?array
+    {
+        $execution = data_get($project->metadata, 'latest_forge_live_execution_async');
+
+        return is_array($execution) ? $execution : null;
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function forgeLiveExecutionHistoryForWork(AtlasProject $project): array
+    {
+        $metadataHistory = collect((array) data_get($project->metadata, 'atlas_code_forge_live_execution_history', []))
+            ->filter(fn (mixed $entry): bool => is_array($entry))
+            ->map(fn (array $entry): array => $this->forgeLiveExecutionHistoryEntry($entry))
+            ->values();
+
+        $source = 'AtlasProject.metadata.atlas_code_forge_live_execution_history';
+        $entries = $metadataHistory;
+
+        if ($entries->isEmpty()) {
+            $source = 'atlas_engineering_evidence';
+            $entries = $this->forgeLiveExecutionHistoryFromEvidence($project);
+        }
+
+        return [
+            'schema_version' => 'atlas.code.forge_live_execution_history.v1',
+            'obra_id' => (string) $project->getKey(),
+            'source_authority' => $entries->isEmpty() ? 'none' : $source,
+            'total' => $entries->count(),
+            'latest_entry_id' => (string) data_get($entries->first(), 'history_id', ''),
+            'entries' => $entries->take(20)->values()->all(),
+        ];
+    }
+
+    /**
+     * @return \Illuminate\Support\Collection<int,array<string,mixed>>
+     */
+    private function forgeLiveExecutionHistoryFromEvidence(AtlasProject $project): \Illuminate\Support\Collection
+    {
+        if (! Schema::hasTable('atlas_engineering_evidence')
+            || ! Schema::hasColumn('atlas_engineering_evidence', 'project_id')
+        ) {
+            return collect();
+        }
+
+        $query = AtlasEngineeringEvidence::query()
+            ->where('project_id', $project->getKey());
+
+        if (Schema::hasColumn('atlas_engineering_evidence', 'evidence_type')) {
+            $query->where('evidence_type', 'forge_live_execution');
+        }
+
+        if (Schema::hasColumn('atlas_engineering_evidence', 'recorded_at')) {
+            $query->orderByDesc('recorded_at');
+        }
+
+        return $query
+            ->orderByDesc('created_at')
+            ->limit(20)
+            ->get()
+            ->map(function (AtlasEngineeringEvidence $evidence): array {
+                $snapshot = data_get($evidence->metadata, 'snapshot');
+                $entry = is_array($snapshot) ? $snapshot : [
+                    'status' => (string) ($evidence->status ?? 'unknown'),
+                    'command' => (string) ($evidence->command ?? ''),
+                    'last_run_at' => ($evidence->recorded_at ?? $evidence->created_at)?->toJSON(),
+                ];
+
+                $entry['history_id'] = 'evidence:' . (string) $evidence->id;
+                $entry['evidence_id'] = $entry['evidence_id'] ?? (string) $evidence->id;
+
+                return $this->forgeLiveExecutionHistoryEntry($entry);
+            })
+            ->values();
+    }
+
+    /**
+     * @param  array<string,mixed>  $entry
+     * @return array<string,mixed>
+     */
+    private function forgeLiveExecutionHistoryEntry(array $entry): array
+    {
+        return [
+            'schema_version' => 'atlas.code.forge_live_execution.history_entry.v1',
+            'history_id' => (string) ($entry['history_id'] ?? hash('sha256', json_encode($entry) ?: 'forge-live-execution')),
+            'run_id' => $entry['run_id'] ?? null,
+            'evidence_id' => $entry['evidence_id'] ?? null,
+            'status' => (string) ($entry['status'] ?? 'unknown'),
+            'obra_id' => $entry['obra_id'] ?? null,
+            'last_run_at' => $entry['last_run_at'] ?? null,
+            'command' => $entry['command'] ?? null,
+            'strict_command' => $entry['strict_command'] ?? null,
+            'simulate_failure' => (bool) ($entry['simulate_failure'] ?? false),
+            'stage_count' => $entry['stage_count'] ?? null,
+            'context_pack_hash' => $entry['context_pack_hash'] ?? data_get($entry, 'context_pack.context_pack_hash'),
+            'context_completeness' => $entry['context_completeness'] ?? data_get($entry, 'context_pack.context_completeness'),
+            'task_contract_status' => $entry['task_contract_status'] ?? data_get($entry, 'task_contract.status'),
+            'diff_scope_status' => $entry['diff_scope_status'] ?? data_get($entry, 'diff_scope.status'),
+            'scope_status' => $entry['scope_status'] ?? data_get($entry, 'diff_scope.scope_status'),
+            'completion_claim_allowed' => (bool) ($entry['completion_claim_allowed'] ?? data_get($entry, 'diff_scope.completion_gate.completion_claim_allowed', false)),
+            'repair_status' => $entry['repair_status'] ?? data_get($entry, 'repair_loop.status'),
+            'repair_triggered' => (bool) ($entry['repair_triggered'] ?? data_get($entry, 'repair_loop.triggered', false)),
+            'evidence_ref_count' => $entry['evidence_ref_count'] ?? null,
+            'ledger_event_count' => $entry['ledger_event_count'] ?? null,
+            'evidence_pack_digest' => $entry['evidence_pack_digest'] ?? $this->forgeEvidencePackDigest($entry),
+            'promotion_status' => $entry['promotion_status'] ?? data_get($entry, 'governed_execution.promotion_status'),
+            'promotion_id' => $entry['promotion_id'] ?? data_get($entry, 'governed_execution.promotion.promotion_id'),
+            'promotion_evidence_id' => $entry['promotion_evidence_id'] ?? data_get($entry, 'governed_execution.promotion.evidence_id'),
+            'promotion_receipt_id' => $entry['promotion_receipt_id'] ?? data_get($entry, 'governed_execution.promotion.receipt_id'),
+            'rollback_id' => $entry['rollback_id'] ?? data_get($entry, 'governed_execution.promotion.rollback_id'),
+            'rollback_evidence_id' => $entry['rollback_evidence_id'] ?? data_get($entry, 'governed_execution.promotion.rollback_evidence_id'),
+            'live_workspace_mutated' => (bool) ($entry['live_workspace_mutated'] ?? data_get($entry, 'governed_execution.live_workspace_mutated', false)),
+            'remaining_blockers' => array_values((array) ($entry['remaining_blockers'] ?? [])),
+            'external_provider_call' => (bool) ($entry['external_provider_call'] ?? false),
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $entry
+     * @return array<string,mixed>|null
+     */
+    private function forgeEvidencePackDigest(array $entry): ?array
+    {
+        $pack = data_get($entry, 'evidence_pack');
+        if (! is_array($pack)) {
+            return null;
+        }
+
+        $stageReceiptIds = collect((array) ($pack['stage_receipts'] ?? []))
+            ->filter(fn (mixed $receipt): bool => is_array($receipt))
+            ->map(fn (array $receipt): string => (string) ($receipt['receipt_id'] ?? ''))
+            ->filter(fn (string $receiptId): bool => $receiptId !== '')
+            ->values()
+            ->all();
+
+        $ledgerEventIds = collect((array) ($pack['ledger_events'] ?? []))
+            ->filter(fn (mixed $event): bool => is_array($event))
+            ->map(fn (array $event): string => (string) ($event['event_id'] ?? ''))
+            ->filter(fn (string $eventId): bool => $eventId !== '')
+            ->values()
+            ->all();
+
+        return [
+            'schema_version' => 'atlas.code.forge_live_execution.evidence_pack_digest.v1',
+            'status' => (string) ($pack['status'] ?? data_get($entry, 'status', 'unknown')),
+            'stage_receipt_count' => (int) ($pack['stage_receipt_count'] ?? count($stageReceiptIds)),
+            'stage_receipt_ids' => $stageReceiptIds,
+            'ledger_event_count' => (int) ($pack['ledger_event_count'] ?? count($ledgerEventIds)),
+            'ledger_event_ids' => $ledgerEventIds,
+            'changed_files' => array_values((array) ($pack['changed_files'] ?? [])),
+            'engineering_run_id' => data_get($pack, 'persistence.engineering_run_id'),
+            'engineering_evidence_id' => data_get($pack, 'persistence.engineering_evidence_id'),
+            'engineering_run_persisted' => (bool) data_get($pack, 'persistence.engineering_run_persisted', false),
+            'engineering_evidence_persisted' => (bool) data_get($pack, 'persistence.engineering_evidence_persisted', false),
+            'report_hash' => data_get($pack, 'integrity.report_hash'),
+            'stage_timeline_hash' => data_get($pack, 'integrity.stage_timeline_hash'),
+            'evidence_pack_hash' => data_get($pack, 'integrity.evidence_pack_hash'),
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>|null
+     */
+    private function forgeReviewForWork(AtlasProject $project): ?array
+    {
+        $review = data_get($project->metadata, 'latest_atlas_code_forge_review');
+
+        return is_array($review) ? $review : null;
+    }
+
+    /**
+     * @return array<string,mixed>|null
+     */
+    private function forgeReviewPacketForWork(AtlasProject $project): ?array
+    {
+        $packet = data_get($project->metadata, 'latest_atlas_code_forge_review_packet');
+        if (! is_array($packet)) {
+            return null;
+        }
+
+        $runId = (string) ($packet['fast_path_run_id'] ?? '');
+        if ($runId === '') {
+            return null;
+        }
+
+        try {
+            $service = app(\App\Services\Ai\Programming\AtlasCodeForgeReviewCompletionService::class);
+            $payload = $service->packet($project, $runId);
+            unset($payload['http_status']);
+
+            return $payload;
+        } catch (\Throwable) {
+            return $packet;
+        }
+    }
+
+    /**
+     * @return array<string,mixed>|null
+     */
+    private function forgeWorkIntakeForWork(AtlasProject $project): ?array
+    {
+        try {
+            return app(\App\Services\Ai\Programming\AtlasCodeForgeWorkIntakeService::class)->get($project);
+        } catch (\Throwable) {
+            $latest = data_get($project->metadata, 'latest_atlas_code_forge_work_intake');
+
+            return is_array($latest) ? $latest : null;
+        }
+    }
+
+    /**
+     * @return array<string,mixed>|null
+     */
+    private function forgeCompletionClaimForWork(AtlasProject $project): ?array
+    {
+        $latestClaim = data_get($project->metadata, 'latest_atlas_code_forge_completion_claim');
+        if (is_array($latestClaim)) {
+            $runId = (string) ($latestClaim['fast_path_run_id'] ?? '');
+            if ($runId !== '') {
+                try {
+                    $service = app(\App\Services\Ai\Programming\AtlasCodeForgeReviewCompletionService::class);
+
+                    return $service->completionClaim($project, $runId);
+                } catch (\Throwable) {
+                    return $latestClaim;
+                }
+            }
+
+            return $latestClaim;
+        }
+
+        return null;
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function forgeReviewHistoryForWork(AtlasProject $project): array
+    {
+        $reviews = collect((array) data_get($project->metadata, 'atlas_code_forge_review_history', []))
+            ->filter(fn (mixed $entry): bool => is_array($entry))
+            ->map(fn (array $review): array => $this->forgeReviewHistoryEntry($project, $review))
+            ->values();
+
+        return [
+            'schema_version' => 'atlas.code.forge_review_history.v1',
+            'obra_id' => (string) $project->getKey(),
+            'source_authority' => $reviews->isEmpty() ? 'none' : 'AtlasProject.metadata.atlas_code_forge_review_history',
+            'total' => $reviews->count(),
+            'latest_review_id' => (string) data_get($reviews->first(), 'review_id', ''),
+            'entries' => $reviews->take(20)->values()->all(),
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $review
+     * @return array<string,mixed>
+     */
+    private function forgeReviewHistoryEntry(AtlasProject $project, array $review): array
+    {
+        $historyId = (string) ($review['history_id'] ?? '');
+        $run = $this->forgeLiveExecutionHistoryEntryFor($project, $historyId);
+        $digest = is_array(data_get($run, 'evidence_pack_digest')) ? (array) data_get($run, 'evidence_pack_digest') : [];
+
+        return [
+            'schema_version' => 'atlas.code.forge_review_history_entry.v1',
+            'review_id' => (string) ($review['review_id'] ?? ''),
+            'history_id' => $historyId !== '' ? $historyId : null,
+            'execution_id' => $review['execution_id'] ?? null,
+            'obra_id' => (string) ($review['obra_id'] ?? $project->getKey()),
+            'decision' => (string) ($review['decision'] ?? 'unknown'),
+            'status' => (string) ($review['status'] ?? 'unknown'),
+            'comment' => $review['comment'] ?? null,
+            'reviewed_at' => $review['reviewed_at'] ?? null,
+            'reviewer_id' => $review['reviewer_id'] ?? null,
+            'approval_effective' => (bool) ($review['approval_effective'] ?? false),
+            'final_completion_allowed' => (bool) data_get($review, 'review_gate.final_completion_allowed', false),
+            'completion_claim_allowed' => (bool) data_get($review, 'review_gate.completion_claim_allowed', false),
+            'human_approved' => (bool) data_get($review, 'review_gate.human_approved', false),
+            'live_execution_status' => (string) ($review['live_execution_status'] ?? data_get($run, 'status', 'unknown')),
+            'run_id' => $review['run_id'] ?? data_get($run, 'run_id'),
+            'run_evidence_id' => $review['run_evidence_id'] ?? data_get($run, 'evidence_id'),
+            'review_evidence_id' => $review['review_evidence_id'] ?? $review['evidence_id'] ?? null,
+            'promotion' => is_array($review['promotion'] ?? null) ? $review['promotion'] : null,
+            'rollback' => is_array($review['rollback'] ?? null) ? $review['rollback'] : null,
+            'promotion_status' => data_get($review, 'promotion.promotion_status'),
+            'rollback_id' => data_get($review, 'promotion.rollback_execution.rollback_id'),
+            'rollback_evidence_id' => data_get($review, 'promotion.rollback_execution.evidence.engineering_evidence_id'),
+            'live_workspace_mutated' => (bool) data_get($review, 'promotion.live_workspace_mutated', false),
+            'stage_receipt_count' => (int) ($review['stage_receipt_count'] ?? data_get($digest, 'stage_receipt_count', 0)),
+            'ledger_event_count' => (int) ($review['ledger_event_count'] ?? data_get($digest, 'ledger_event_count', 0)),
+            'report_hash' => $review['report_hash'] ?? data_get($digest, 'report_hash'),
+            'stage_timeline_hash' => $review['stage_timeline_hash'] ?? data_get($digest, 'stage_timeline_hash'),
+            'evidence_pack_hash' => $review['evidence_pack_hash'] ?? data_get($digest, 'evidence_pack_hash'),
+            'blockers' => array_values((array) data_get($review, 'review_gate.blockers', [])),
+            'source_authority' => (string) ($review['source_authority'] ?? 'AtlasProject.metadata.atlas_code_forge_review_history'),
+            'summary' => $review['summary'] ?? null,
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>|null
+     */
+    private function forgeLiveExecutionHistoryEntryFor(AtlasProject $project, string $historyId): ?array
+    {
+        if ($historyId === '') {
+            return null;
+        }
+
+        $history = collect((array) data_get($project->metadata, 'atlas_code_forge_live_execution_history', []))
+            ->filter(fn (mixed $entry): bool => is_array($entry));
+        $entry = $history->first(fn (array $entry): bool => (string) ($entry['history_id'] ?? '') === $historyId);
+
+        return is_array($entry) ? $this->forgeLiveExecutionHistoryEntry($entry) : null;
+    }
+
+    /**
+     * @return array<string,mixed>|null
+     */
+    private function checkpointForWork(AtlasProject $project): ?array
+    {
+        $checkpoint = data_get($project->metadata, 'latest_atlas_code_checkpoint');
+
+        return is_array($checkpoint) ? $checkpoint : null;
+    }
+
+    /**
+     * @return array<string,mixed>|null
+     */
+    private function forgeFastPathForWork(AtlasProject $project): ?array
+    {
+        $fastPath = data_get($project->metadata, 'latest_atlas_code_forge_fast_path');
+
+        return is_array($fastPath) ? $fastPath : null;
+    }
+
+    /**
+     * @return array<string,mixed>|null
+     */
+    private function atlasCodeEnterpriseCertificationForProduct(): ?array
+    {
+        return app(AtlasCodeEnterpriseCertificationService::class)->latest();
+    }
+
+    /**
+     * @return array<string,mixed>|null
+     */
+    private function programmingGovernanceForWork(AtlasProject $project): ?array
+    {
+        if (! Schema::hasTable('atlas_programming_work_items')) {
+            return null;
+        }
+
+        try {
+            $workItem = $this->programmingWorkItemForWork($project);
+            if (! $workItem) {
+                return null;
+            }
+
+            return [
+                'schema_version' => 'atlas.code.programming_governance_snapshot.v1',
+                'source_authority' => 'atlas_programming_work_items',
+                'work_item' => $this->programmingWorkItemShape($workItem),
+                'spec' => $this->nonEmptyArrayOrNull($workItem->spec_json),
+                'plan' => $this->nonEmptyArrayOrNull($workItem->plan_json),
+                'tasks' => array_values((array) $workItem->tasks_json),
+                'gate_runs' => $this->programmingGateRunsForWorkItem($workItem),
+                'reviews' => $this->programmingReviewsForWorkItem($workItem),
+                'evidence_refs' => array_values((array) $workItem->evidence_refs_json),
+                'artifacts' => array_values((array) data_get($workItem->metadata_json, 'artifacts', [])),
+                'degraded' => false,
+                'degraded_reason' => null,
+            ];
+        } catch (Throwable $e) {
+            return [
+                'schema_version' => 'atlas.code.programming_governance_snapshot.v1',
+                'source_authority' => 'atlas_programming_work_items',
+                'work_item' => null,
+                'spec' => null,
+                'plan' => null,
+                'tasks' => [],
+                'gate_runs' => [],
+                'reviews' => [],
+                'evidence_refs' => [],
+                'artifacts' => [],
+                'degraded' => true,
+                'degraded_reason' => $e->getMessage(),
+            ];
+        }
+    }
+
+    private function programmingWorkItemForWork(AtlasProject $project): ?AtlasProgrammingWorkItem
+    {
+        $metadata = is_array($project->metadata) ? $project->metadata : [];
+        $explicitId = (string) data_get($metadata, 'programming_work_item_id', '');
+        if ($explicitId !== '') {
+            $item = AtlasProgrammingWorkItem::query()->where('id', $explicitId)->first();
+            if ($item) {
+                return $item;
+            }
+        }
+
+        $explicitCode = (string) data_get($metadata, 'programming_work_item_code', '');
+        if ($explicitCode !== '') {
+            $item = AtlasProgrammingWorkItem::query()->where('code', $explicitCode)->first();
+            if ($item) {
+                return $item;
+            }
+        }
+
+        $projectId = (string) $project->getKey();
+        $workspace = trim((string) data_get($metadata, 'workspace_path', ''));
+
+        return AtlasProgrammingWorkItem::query()
+            ->orderByDesc('updated_at')
+            ->orderByDesc('created_at')
+            ->limit(50)
+            ->get()
+            ->first(function (AtlasProgrammingWorkItem $item) use ($projectId, $workspace): bool {
+                $itemMetadata = is_array($item->metadata_json) ? $item->metadata_json : [];
+                if ((string) data_get($itemMetadata, 'obra_id', '') === $projectId
+                    || (string) data_get($itemMetadata, 'atlas_project_id', '') === $projectId
+                ) {
+                    return true;
+                }
+
+                return $workspace !== '' && trim((string) ($item->workspace ?? '')) === $workspace;
+            });
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function programmingWorkItemShape(AtlasProgrammingWorkItem $workItem): array
+    {
+        $scopeMode = ProgrammingScopeMode::tryFrom((string) $workItem->scope_mode) ?? ProgrammingScopeMode::Compact;
+
+        return [
+            'id' => (string) $workItem->id,
+            'code' => (string) $workItem->code,
+            'intent_text' => (string) $workItem->intent_text,
+            'intent_type' => (string) $workItem->intent_type,
+            'scope_mode' => $scopeMode->value,
+            'risk_level' => (string) $workItem->risk_level,
+            'status' => (string) $workItem->status,
+            'current_stage' => (string) $workItem->current_stage,
+            'spec_hash' => $workItem->spec_hash,
+            'plan_hash' => $workItem->plan_hash,
+            'required_gates' => $scopeMode->requiredGates(),
+            'gaps' => array_values((array) $workItem->gaps_json),
+            'created_at' => $workItem->created_at?->toJSON(),
+            'updated_at' => $workItem->updated_at?->toJSON(),
+        ];
+    }
+
+    /**
+     * @return array<int,array<string,mixed>>
+     */
+    private function programmingGateRunsForWorkItem(AtlasProgrammingWorkItem $workItem): array
+    {
+        if (! Schema::hasTable('atlas_programming_gate_runs')) {
+            return [];
+        }
+
+        return $workItem->gateRuns()
+            ->orderBy('created_at')
+            ->get()
+            ->map(static fn ($run): array => [
+                'id' => (string) $run->id,
+                'gate_name' => (string) $run->gate_name,
+                'status' => (string) $run->status,
+                'blocking' => (bool) $run->blocking,
+                'reason' => $run->reason,
+                'waiver_reason' => $run->waiver_reason ?? null,
+                'payload' => $run->payload_json ?? null,
+                'created_at' => $run->created_at?->toJSON(),
+            ])
+            ->all();
+    }
+
+    /**
+     * @return array<int,array<string,mixed>>
+     */
+    private function programmingReviewsForWorkItem(AtlasProgrammingWorkItem $workItem): array
+    {
+        if (! Schema::hasTable('atlas_programming_reviews')) {
+            return [];
+        }
+
+        return $workItem->reviews()
+            ->orderBy('created_at')
+            ->get()
+            ->map(static fn ($review): array => [
+                'id' => (string) $review->id,
+                'result' => (string) $review->result,
+                'summary' => $review->summary,
+                'risk_notes' => $review->risk_notes,
+                'decided_by' => $review->decided_by,
+                'created_at' => $review->created_at?->toJSON(),
+            ])
+            ->all();
+    }
+
+    private function nonEmptyArrayOrNull(mixed $value): ?array
+    {
+        if (! is_array($value) || $value === []) {
+            return null;
+        }
+
+        return $value;
+    }
+
+    /**
+     * @param  array<string,mixed>|null  $programmingGovernance
+     * @param  array<string,mixed>|null  $forgeLiveExecution
+     * @param  array<string,mixed>  $forgeLiveExecutionHistory
+     * @return array<string,mixed>
+     */
+    private function forgeTaskQueueForWork(
+        AtlasProject $project,
+        ?array $programmingGovernance,
+        ?array $forgeLiveExecution,
+        array $forgeLiveExecutionHistory,
+    ): array {
+        $entries = [];
+        $sourceAuthority = 'none';
+        $workItem = is_array(data_get($programmingGovernance, 'work_item'))
+            ? (array) data_get($programmingGovernance, 'work_item')
+            : null;
+
+        $governanceTasks = collect((array) data_get($programmingGovernance, 'tasks', []))
+            ->filter(fn (mixed $task): bool => is_array($task))
+            ->values();
+
+        if ($governanceTasks->isNotEmpty() && $workItem !== null) {
+            $sourceAuthority = 'programming_governance.tasks_json';
+            $gateBlockers = $this->programmingGateBlockers($programmingGovernance);
+            $entries = $governanceTasks
+                ->map(fn (array $task, int $index): array => $this->forgeTaskQueueEntryFromGovernanceTask($task, $index, $workItem, $gateBlockers))
+                ->all();
+        } elseif (is_array(data_get($forgeLiveExecution, 'task_contract'))) {
+            $sourceAuthority = 'latest_forge_live_execution.task_contract';
+            $entries[] = $this->forgeTaskQueueEntryFromLiveExecution(
+                (array) data_get($forgeLiveExecution, 'task_contract'),
+                $forgeLiveExecution ?? [],
+                (string) data_get($forgeLiveExecutionHistory, 'latest_entry_id', '')
+            );
+        }
+
+        $total = count($entries);
+        $active = collect($entries)->first(fn (array $entry): bool => ! in_array($entry['status'], ['verified'], true));
+
+        return [
+            'schema_version' => 'atlas.code.forge_task_queue.v1',
+            'obra_id' => (string) $project->getKey(),
+            'source_authority' => $sourceAuthority,
+            'work_item_id' => $workItem['id'] ?? null,
+            'work_item_code' => $workItem['code'] ?? null,
+            'spec_hash' => $workItem['spec_hash'] ?? null,
+            'plan_hash' => $workItem['plan_hash'] ?? null,
+            'requires_spec' => $workItem !== null && ($workItem['spec_hash'] ?? null) === null,
+            'requires_plan' => $workItem !== null && $governanceTasks->isEmpty(),
+            'total' => $total,
+            'ready_count' => collect($entries)->where('status', 'ready')->count(),
+            'blocked_count' => collect($entries)->where('status', 'blocked')->count(),
+            'verified_count' => collect($entries)->where('status', 'verified')->count(),
+            'needs_review_count' => collect($entries)->where('status', 'needs_review')->count(),
+            'pending_count' => collect($entries)->where('status', 'pending')->count(),
+            'active_task_id' => is_array($active) ? (string) $active['task_id'] : null,
+            'latest_history_id' => data_get($forgeLiveExecutionHistory, 'latest_entry_id'),
+            'entries' => $entries,
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>|null  $programmingGovernance
+     * @return array<int,string>
+     */
+    private function programmingGateBlockers(?array $programmingGovernance): array
+    {
+        return collect((array) data_get($programmingGovernance, 'gate_runs', []))
+            ->filter(fn (mixed $gate): bool => is_array($gate)
+                && (bool) ($gate['blocking'] ?? false)
+                && in_array((string) ($gate['status'] ?? ''), ['failed', 'blocked'], true))
+            ->map(fn (array $gate): string => (string) ($gate['reason'] ?? $gate['gate_name'] ?? 'programming_gate_blocked'))
+            ->filter(fn (string $reason): bool => $reason !== '')
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @param  array<string,mixed>  $task
+     * @param  array<string,mixed>  $workItem
+     * @param  array<int,string>  $gateBlockers
+     * @return array<string,mixed>
+     */
+    private function forgeTaskQueueEntryFromGovernanceTask(array $task, int $index, array $workItem, array $gateBlockers): array
+    {
+        $status = $this->forgeTaskStatusFromGovernance((string) ($workItem['status'] ?? 'open'), $gateBlockers);
+        $taskId = (string) ($task['task_id'] ?? $task['id'] ?? sprintf('%s-task-%02d', (string) ($workItem['code'] ?? 'work'), $index + 1));
+
+        return [
+            'schema_version' => 'atlas.code.forge_task_queue_entry.v1',
+            'task_id' => $taskId,
+            'sequence' => $index + 1,
+            'title' => (string) ($task['title'] ?? $task['objective'] ?? $workItem['intent_text'] ?? 'Programming task'),
+            'objective' => (string) ($task['objective'] ?? $workItem['intent_text'] ?? ''),
+            'status' => $status,
+            'owner' => $task['owner'] ?? data_get($workItem, 'owner'),
+            'risk_level' => $task['risk_level'] ?? data_get($workItem, 'risk_level'),
+            'allowed_files' => array_values((array) ($task['allowed_files'] ?? [])),
+            'forbidden_files' => array_values((array) ($task['forbidden_files'] ?? [])),
+            'expected_files' => array_values((array) ($task['expected_files'] ?? [])),
+            'validation_commands' => array_values((array) ($task['validation_commands'] ?? [])),
+            'acceptance_criteria' => array_values((array) ($task['acceptance_criteria'] ?? [])),
+            'evidence_required' => array_values((array) ($task['evidence_required'] ?? [])),
+            'docs_required' => array_values((array) ($task['docs_required'] ?? [])),
+            'blockers' => $gateBlockers,
+            'source' => 'programming_governance.tasks_json',
+            'work_item_id' => $workItem['id'] ?? null,
+            'work_item_code' => $workItem['code'] ?? null,
+            'run_history_id' => null,
+            'evidence_pack_hash' => null,
+            'stage_timeline_hash' => null,
+            'completion_claim_allowed' => $status === 'verified',
+        ];
+    }
+
+    /**
+     * @param  array<int,string>  $gateBlockers
+     */
+    private function forgeTaskStatusFromGovernance(string $workItemStatus, array $gateBlockers): string
+    {
+        if ($gateBlockers !== [] || $workItemStatus === 'blocked') {
+            return 'blocked';
+        }
+
+        return match ($workItemStatus) {
+            'closed' => 'verified',
+            'review' => 'needs_review',
+            'executing', 'verifying', 'open' => 'ready',
+            default => 'pending',
+        };
+    }
+
+    /**
+     * @param  array<string,mixed>  $task
+     * @param  array<string,mixed>  $snapshot
+     * @return array<string,mixed>
+     */
+    private function forgeTaskQueueEntryFromLiveExecution(array $task, array $snapshot, string $historyId): array
+    {
+        $blockers = array_values(array_unique(array_filter(array_merge(
+            (array) data_get($snapshot, 'remaining_blockers', []),
+            (array) data_get($snapshot, 'diff_scope.blocking_reasons', []),
+            (array) data_get($snapshot, 'diff_scope.completion_gate.reasons', [])
+        ), fn (mixed $value): bool => is_string($value) && $value !== '')));
+
+        $status = $this->forgeTaskStatusFromLiveExecution($task, $snapshot, $blockers);
+
+        return [
+            'schema_version' => 'atlas.code.forge_task_queue_entry.v1',
+            'task_id' => (string) ($task['task_id'] ?? 'latest-forge-live-task'),
+            'sequence' => 1,
+            'title' => (string) ($task['title'] ?? $task['objective'] ?? 'Forge Live task'),
+            'objective' => (string) ($task['objective'] ?? ''),
+            'status' => $status,
+            'owner' => $task['owner'] ?? null,
+            'risk_level' => $task['risk_level'] ?? null,
+            'allowed_files' => array_values((array) ($task['allowed_files'] ?? [])),
+            'forbidden_files' => array_values((array) ($task['forbidden_files'] ?? [])),
+            'expected_files' => array_values((array) ($task['expected_files'] ?? [])),
+            'validation_commands' => array_values((array) ($task['validation_commands'] ?? [])),
+            'acceptance_criteria' => array_values((array) ($task['acceptance_criteria'] ?? [])),
+            'evidence_required' => array_values((array) ($task['evidence_required'] ?? [])),
+            'docs_required' => array_values((array) ($task['docs_required'] ?? [])),
+            'blockers' => $blockers,
+            'source' => 'latest_forge_live_execution.task_contract',
+            'work_item_id' => null,
+            'work_item_code' => null,
+            'run_history_id' => $historyId !== '' ? $historyId : null,
+            'evidence_pack_hash' => data_get($snapshot, 'evidence_pack.integrity.evidence_pack_hash'),
+            'stage_timeline_hash' => data_get($snapshot, 'evidence_pack.integrity.stage_timeline_hash'),
+            'completion_claim_allowed' => (bool) data_get($snapshot, 'diff_scope.completion_gate.completion_claim_allowed', false),
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $task
+     * @param  array<string,mixed>  $snapshot
+     * @param  array<int,string>  $blockers
+     */
+    private function forgeTaskStatusFromLiveExecution(array $task, array $snapshot, array $blockers): string
+    {
+        if ($blockers !== []
+            || (string) data_get($snapshot, 'diff_scope.status', '') === 'blocked'
+            || (string) data_get($snapshot, 'status', '') === 'blocked'
+        ) {
+            return 'blocked';
+        }
+
+        if ((string) ($task['status'] ?? '') === 'verified'
+            && (bool) data_get($snapshot, 'diff_scope.completion_gate.completion_claim_allowed', false)
+        ) {
+            return 'verified';
+        }
+
+        if ((string) ($task['status'] ?? '') === 'needs_review'
+            || (string) data_get($snapshot, 'status', '') === 'degraded'
+        ) {
+            return 'needs_review';
+        }
+
+        return 'ready';
     }
 }

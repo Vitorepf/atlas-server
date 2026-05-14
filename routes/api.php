@@ -42,9 +42,18 @@ use App\Http\Controllers\AtlasAiVoiceRealtimeController;
 use App\Http\Controllers\AtlasCalendarBlockController;
 use App\Http\Controllers\AtlasCartographyController;
 use App\Http\Controllers\AtlasCodeBootController;
+use App\Http\Controllers\AtlasCodeCheckpointController;
 use App\Http\Controllers\AtlasCodeDiffController;
 use App\Http\Controllers\AtlasCodeEvidenceController;
+use App\Http\Controllers\AtlasCodeEnterpriseCertificationController;
+use App\Http\Controllers\AtlasCodeForgeExecutionController;
+use App\Http\Controllers\AtlasCodeForgeFastPathController;
+use App\Http\Controllers\AtlasCodeForgeFastPathStatusController;
+use App\Http\Controllers\AtlasCodeForgeReviewCompletionController;
+use App\Http\Controllers\AtlasCodeForgeReviewController;
+use App\Http\Controllers\AtlasCodeForgeWorkIntakeController;
 use App\Http\Controllers\AtlasCodeMcpStatusController;
+use App\Http\Controllers\AtlasCodeProgrammingWorkItemController;
 use App\Http\Controllers\AtlasCodeReceiptController;
 use App\Http\Controllers\AtlasCodeReceiptShowController;
 use App\Http\Controllers\AtlasCodeSessionController;
@@ -529,8 +538,28 @@ Route::prefix('atlas-code')->group(function () {
     // WORKS · normalized Obra surface
     Route::get('/works', [AtlasCodeWorkController::class, 'index']);
     Route::post('/works', [AtlasCodeWorkController::class, 'store']);
+    Route::get('/certification', [AtlasCodeEnterpriseCertificationController::class, 'show']);
+    Route::post('/certification', [AtlasCodeEnterpriseCertificationController::class, 'store']);
     Route::get('/works/{project}', [AtlasCodeWorkController::class, 'show']);
     Route::get('/works/{project}/state', [AtlasCodeWorkController::class, 'state']);
+    Route::post('/works/{project}/forge/live-executions', [AtlasCodeForgeExecutionController::class, 'store']);
+    Route::post('/works/{project}/forge/live-executions/async', [AtlasCodeForgeExecutionController::class, 'startAsync']);
+    Route::get('/works/{project}/forge/live-executions/history/{historyId}', [AtlasCodeForgeExecutionController::class, 'showHistory']);
+    Route::get('/works/{project}/forge/live-executions/{executionId}', [AtlasCodeForgeExecutionController::class, 'showAsync']);
+    Route::post('/works/{project}/forge/reviews', [AtlasCodeForgeReviewController::class, 'store']);
+    Route::post('/works/{project}/forge/promotions/{promotionId}/rollback', [AtlasCodeForgeReviewController::class, 'rollback']);
+    Route::post('/works/{project}/forge/fast-path', [AtlasCodeForgeFastPathController::class, 'store']);
+    Route::get('/works/{project}/forge/fast-path/{run}/status', [AtlasCodeForgeFastPathStatusController::class, 'show']);
+    Route::post('/works/{project}/forge/fast-path/{run}/resume', [AtlasCodeForgeFastPathStatusController::class, 'resume']);
+    Route::get('/works/{project}/forge/fast-path/{run}/review', [AtlasCodeForgeReviewCompletionController::class, 'show']);
+    Route::post('/works/{project}/forge/fast-path/{run}/review/approve', [AtlasCodeForgeReviewCompletionController::class, 'approve']);
+    Route::post('/works/{project}/forge/fast-path/{run}/review/reject', [AtlasCodeForgeReviewCompletionController::class, 'reject']);
+    Route::post('/works/{project}/forge/fast-path/{run}/review/rollback', [AtlasCodeForgeReviewCompletionController::class, 'rollback']);
+    Route::get('/works/{project}/forge/intake', [AtlasCodeForgeWorkIntakeController::class, 'show']);
+    Route::post('/works/{project}/forge/intake', [AtlasCodeForgeWorkIntakeController::class, 'store']);
+    Route::post('/works/{project}/checkpoints', [AtlasCodeCheckpointController::class, 'store']);
+    Route::post('/works/{project}/programming/work-items', [AtlasCodeProgrammingWorkItemController::class, 'store']);
+    Route::post('/works/{project}/programming/work-items/{workItem}/spec', [AtlasCodeProgrammingWorkItemController::class, 'compileSpecPlan']);
 
     // 4 · sessions for an obra (project) · NEW
     Route::get('/works/{project}/sessions', [AtlasCodeSessionController::class, 'indexForWork']);

@@ -123,6 +123,8 @@ Contrato de status:
 - Nao usar benchmark local como substituto de provider real.
 - Nao executar provider externo sem aceite explicito de custo.
 - Nao gastar nova bateria paga quando a ultima bateria real estiver invalida; primeiro corrigir protocolo, gates e escopo do workspace.
+- **Atlas arm em Rivals = Forge obrigatorio**: qualquer run Atlas fora do Forge e invalido para score Rivals. Ver `atlas-forge-native-rivals-protocol-v1.md`.
+- Dry-run e preflight do Forge-Native Rivals NUNCA promovem o claim; `external_rivals_certification` continua sendo o eixo que governa o claim Rivals final.
 
 ## Escopo de Implementacao
 
@@ -151,6 +153,14 @@ receipts, runtime local, benchmarks e integridade de Rivals-Programming.
 | Python runtime governado | `runtimes/python/programming_intelligence` e `ProgrammingPythonRuntimeExecutor` | implementado localmente |
 | Benchmarks locais | retrieval, test impact, patch verifier | verificado com gate local |
 | Rivals-Programming readiness | `ProgrammingRivalsReadinessService`, `atlas:programming:rivals-readiness` | implementado |
+| Forge-Native Rivals protocolo (Atlas arm = Forge obrigatorio) | `AtlasForgeNativeRivalsProtocolService`, doc `atlas-forge-native-rivals-protocol-v1.md`, schema `atlas.programming.forge_native_rivals_protocol.v1` | implementado |
+| Forge-Native Rivals case manifest | `AtlasForgeNativeRivalsCaseManifestService`, schema `atlas.programming.forge_native_rivals_case_manifest.v1` | implementado |
+| Forge-Native Rivals preflight | `AtlasForgeNativeRivalsPreflightService` + `atlas:programming:rivals-forge-preflight`, schema `atlas.programming.forge_native_rivals_preflight.v1` | implementado |
+| Forge-Native Rivals dry-run sem provider | `AtlasForgeNativeRivalsDryRunService` + `atlas:programming:rivals-forge-dry-run`, schema `atlas.programming.forge_native_rivals_dry_run.v1`, `external_provider_call=false` | implementado |
+| Forge-Native Rivals certification (separada de external_rivals_certification) | `forge_native_rivals_certification` em `atlas:programming:completion-audit`, schema `atlas.programming.forge_native_rivals_certification.v1` | implementado |
+| Rivals One-Shot Enterprise rubric | `AtlasRivalsOneShotEnterpriseRubricService`, schema `atlas.programming.rivals_one_shot_enterprise_rubric.v1`, 13 dimensoes pesadas (soma=100), tempo secundario | implementado |
+| Rivals One-Shot Enterprise evaluation | `AtlasRivalsOneShotEnterpriseEvaluationService` + `atlas:programming:rivals-one-shot-evaluate`, schema `atlas.programming.rivals_one_shot_enterprise_evaluation.v1`, diagnostico local sem provider | implementado |
+| Rivals One-Shot Enterprise certification (separada de external_rivals_certification) | `rivals_one_shot_enterprise_evaluation_certification` em `atlas:programming:completion-audit`, schema `atlas.programming.rivals_one_shot_enterprise_evaluation_certification.v1` | implementado |
 | Completion audit executavel | `ProgrammingProfessionalCompletionAuditService`, `atlas:programming:completion-audit` | implementado |
 | Audit protocol | `atlas.programming.professional_completion_audit_protocol.v1` restata objetivo, criterios de sucesso e mapa prompt-artefato-evidencia | implementado |
 | Verification evidence | `atlas.programming.professional_completion_verification_evidence.v1` expõe métricas locais, runtime cache por benchmark, status externo e segurança do operador em formato direto | implementado |
@@ -231,6 +241,7 @@ Evidencia local mais recente:
 - Current local recheck evidence: `atlas.programming.current_local_recheck_evidence.v1` separa rechecks locais atuais da falha historica do Rivals, inclui `quality_changed_only` e `visual_smoke`, exige evidencia do mesmo workspace hash e opera fail-closed: se faltar evidencia obrigatoria, o status fica `unknown`/`incomplete`, nao `passed`. Quando o manifesto fisico do quality-scan ja foi limpo, o readiness pode usar `source=tool_runtime_evidence` dos `atlas_tool_runs` para nao perder evidencia persistida.
 - Operator triage command: `atlas:programming:rivals-readiness --triage` emite `atlas.programming.rivals_invalid_battery_operator_triage.v1`, focado em seguranca, score admission, workspace atual, rechecks locais, checklist de triagem, falhas historicas e comandos diagnosticos sem provider.
 - Completion audit triage coverage: `artifact_coverage.rivals_operator_triage_command` prova que o comando `--triage` existe, declara schema, nao despacha provider, nao gasta tokens, nao cria benchmark, bloqueia score sintetico, expoe comandos diagnosticos e inclui template de run bloqueado.
+- External Rivals certification state: `external_rivals_certification` nao pode ser so um semaforo generico. Ele expõe `operational_state`, `invalid_battery_triage.status`, `current_workspace_preflight`, `current_local_rechecks`, `provider_budget_policy` e `fresh_provider_rerun_preconditions`, para diferenciar bateria historica ainda nao triada, bateria quarentenada aguardando workspace limpa, bateria pronta para rerun pago com aprovacao humana, e claim realmente admitida.
 - Quarantine checklist semantics: quando uma bateria invalida ja foi quarentenada, `triage_checklist[*].status=quarantined_diagnostic` e `scope=historical_quarantined_diagnostic`; falhas antigas continuam visiveis como evidencia diagnostica, mas nao aparecem como `current_rerun_blocker`. O bloqueio atual deve vir de pre-condicoes atuais, como workspace sujo, rechecks locais ausentes ou falta de aprovacao de custo.
 - Rivals real quick executado em 2026-05-13: 2 runs pareados oficiais encontrados, 0 casos comparaveis, 2 casos invalidos por `atlas_protocol_invalid`, baseline Claude Code verificado, Atlas sem pass verificado. Isto e evidencia diagnostica real, nao placar valido.
 - Falha da ultima bateria real: final packet invalido, protocol_valid=false, release gate failed, 3 testes/gates falhos e diff amplo. A bateria historica foi quarentenada em 2026-05-13 com fingerprint auditavel; o readiness deve continuar bloqueando score/claim, mas a proxima trava de rerun passa a ser workspace Atlas limpo, baseline separado limpo, rechecks locais atuais e aprovacao explicita de custo.

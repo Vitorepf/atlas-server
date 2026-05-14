@@ -91,6 +91,9 @@ use App\Console\Commands\AtlasProgrammingPatchVerifierBenchmarkCommand;
 use App\Console\Commands\AtlasProgrammingRepairLoopBenchmarkCommand;
 use App\Console\Commands\AtlasProgrammingResumeCommand;
 use App\Console\Commands\AtlasProgrammingRetrievalBenchmarkCommand;
+use App\Console\Commands\AtlasProgrammingRivalsForgeDryRunCommand;
+use App\Console\Commands\AtlasProgrammingRivalsForgePreflightCommand;
+use App\Console\Commands\AtlasProgrammingRivalsOneShotEvaluateCommand;
 use App\Console\Commands\AtlasProgrammingRivalsReadinessCommand;
 use App\Console\Commands\AtlasProgrammingTestImpactBenchmarkCommand;
 use App\Console\Commands\AtlasProposalCommand;
@@ -183,6 +186,9 @@ return Application::configure(basePath: dirname(__DIR__))
         AtlasProgrammingPatchVerifierBenchmarkCommand::class,
         AtlasProgrammingRepairLoopBenchmarkCommand::class,
         AtlasProgrammingRetrievalBenchmarkCommand::class,
+        AtlasProgrammingRivalsForgeDryRunCommand::class,
+        AtlasProgrammingRivalsForgePreflightCommand::class,
+        AtlasProgrammingRivalsOneShotEvaluateCommand::class,
         AtlasProgrammingRivalsReadinessCommand::class,
         AtlasProgrammingResumeCommand::class,
         AtlasProgrammingTestImpactBenchmarkCommand::class,

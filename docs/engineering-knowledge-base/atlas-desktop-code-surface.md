@@ -30,6 +30,7 @@ decisions:
   - Atlas Code SCOR-1 tem um unico modo operacional de surface: Forge.
   - Toda intencao do Atlas Code deve carregar `surface_id=atlas_code`, `flow_id=programming.forge`, `routing_task=forge`, `programming_profile=forge`, `obra_id` e `forge_workspace`.
   - Atlas Code nao inicia Forge sem Obra vinculada; conversa sem `obra_id` e rascunho, nao execucao Forge.
+  - Atlas Code dispara execucao Forge real somente por Obra via `/atlas-code/works/{id}/forge/live-executions`, persistindo snapshot em `forge_live_execution`.
   - The Code surface is a window into the Kernel, not an editor. Vitor directs; Atlas programs.
   - All 11 canonical axes must be honored; no axis-invariant is skipped for UI simplicity.
   - Atlas Decide owns provider routing. The surface displays the decision; it never lets the user pick provider by dropdown without `manual_override` audit.
@@ -44,6 +45,7 @@ maintenance:
   - Keep ≤ 360 lines; if it grows, split per zone of the surface into child specs.
   - Bidirectional `related_paths` must stay in sync with each axis owner doc.
 related_paths:
+  - docs/engineering-knowledge-base/atlas-code-forge-live-execution-surface-contract.md
   - docs/engineering-knowledge-base/atlas-code-scor-1-implementation-contract.md
   - docs/engineering-knowledge-base/atlas-code-long-session-programming-cockpit.md
   - docs/engineering-knowledge-base/atlas-desktop-backend-contract.md
@@ -108,6 +110,7 @@ line_limit: 360
 repo_paths:
   - docs/engineering-knowledge-base/atlas-desktop-code-surface.md
   - docs/engineering-knowledge-base/atlas-desktop-backend-contract.md
+  - app/Http/Controllers/AtlasCodeForgeExecutionController.php
   - ../atlas-desktop/apps/desktop/src/App.tsx
   - ../atlas-desktop/apps/desktop/src/lib/bridge.ts
   - ../atlas-desktop/packages/atlas-domain/src/cartography.ts
@@ -147,8 +150,6 @@ next_actions:
 visual_tags:
   - module
   - surface
-  - surface
-
 ai_entrypoints:
   - Leia Resumo, Contratos, Regras para IA, Evidencias e Riscos antes de implementar.
 
@@ -192,20 +193,16 @@ exibe e opera esse fluxo como surface.
 
 Regra de surface: Atlas Code SCOR-1 nao tem modos concorrentes como conversa,
 spec, plan, replay ou repair. O unico modo operacional e Forge; conversa,
-spec, plan, verify, evidence, replay e repair sao etapas/artefatos dentro de
-`programming.forge`.
+spec, plan, verify, evidence, replay, repair e review ledger sao etapas/artefatos
+dentro de `programming.forge`.
 
 ## Onde Se Encaixa
 
-Pai: `atlas-desktop`. Dependencias principais: Spec OS, Self-Construction OS,
-Programming Domain, Documentation OS, Atlas Decide, Evidence Ledger e backend
-real do `atlas-server`.
+Pai: `atlas-desktop`. Dependencias principais: Spec OS, Self-Construction OS, Programming Domain, Documentation OS, Atlas Decide, Evidence Ledger e backend real do `atlas-server`.
 
 ## Contratos
 
-Sem receipt, nao executa. Sem spec, nao planeja. Sem evidence, nao promove.
-Sem fonte real, mostra vazio honesto. O usuario nao escolhe provider por gosto;
-Atlas Decide escolhe e qualquer override precisa auditoria.
+Sem receipt, nao executa. Sem spec, nao planeja. Sem evidence, nao promove. Sem fonte real, mostra vazio honesto. Atlas Decide escolhe provider; override exige auditoria.
 
 Para sessoes longas e dificeis, Atlas Code deve cumprir tambem
 `atlas-code-long-session-programming-cockpit.md`: contexto visivel, spec/plan/tasks
@@ -239,6 +236,11 @@ Payload minimo do composer/bridge: `surface_id=atlas_code`,
 `app_surface=atlas_code`, `flow_id=programming.forge`,
 `routing_task=forge`, `programming_profile=forge`, `requires_obra=true`,
 `obra_id=<obra>`, `work_id=<obra>` e `forge_workspace.obra_id=<obra>`.
+
+Acao operacional real da surface: `POST /atlas-code/works/{obra_id}/forge/live-executions`
+chama `AtlasForgeLiveExecutionService`, persiste `atlas.code.forge_live_execution.snapshot.v1`
+e reaparece em `GET /atlas-code/works/{obra_id}/state` como `forge_live_execution`.
+Detalhe canonico: `atlas-code-forge-live-execution-surface-contract.md`.
 
 ## Regras para IA
 

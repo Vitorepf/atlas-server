@@ -23,16 +23,20 @@ decisions:
   - Atlas Code SCOR-1 tem modo unico Forge; toda intencao nasce com `surface_id=atlas_code`, `flow_id=programming.forge`, `routing_task=forge`, `programming_profile=forge`, `obra_id` e `forge_workspace`.
   - A UI deve evoluir a surface existente em atlas-desktop, nao criar tela paralela.
   - A fonte primaria da fatia e /atlas-code/works/{id}/state, expandida com programming_governance quando existir.
+  - A acao Forge Live Execution da surface e /atlas-code/works/{id}/forge/live-executions; review ledger e replay historico sao read-models da mesma Obra; sem Obra, nao ha botao executavel.
   - Ausencia de dado real vira empty/degraded state honesto; mock e proibido.
 maintenance:
   - Atualizar antes de mudar bridge, WorkStateSnapshot, RightRail, MainStage ou endpoints /atlas-code/works/{id}/state.
   - Atualizar junto com atlas-code-long-session-programming-cockpit.md quando novos artefatos SCOR-1 virarem runtime.
 related_paths:
+  - docs/engineering-knowledge-base/atlas-code-forge-live-execution-surface-contract.md
   - docs/engineering-knowledge-base/atlas-code-long-session-programming-cockpit.md
   - docs/engineering-knowledge-base/atlas-desktop-code-surface.md
   - docs/engineering-knowledge-base/atlas-desktop-backend-contract.md
   - docs/engineering-knowledge-base/atlas-programming-forge-flow.md
+  - docs/engineering-knowledge-base/atlas-forge-live-execution-e2e-v1.md
   - docs/engineering-knowledge-base/atlas-programming-governance-system-runbook.md
+  - app/Http/Controllers/AtlasCodeForgeExecutionController.php
   - ../atlas-desktop/packages/atlas-domain/src/index.ts
   - ../atlas-desktop/apps/desktop/src/lib/bridge.ts
   - ../atlas-desktop/apps/desktop/src/hooks/useBridge.ts
@@ -223,7 +227,8 @@ O backend pode retornar snake_case ou camelCase. O bridge deve aceitar ambos.
     "artifacts": [],
     "degraded": false,
     "degraded_reason": null
-  }
+  },
+  "forge_live_execution": { "schema_version": "atlas.code.forge_live_execution.snapshot.v1", "status": "passed", "obra_id": "obra-id" }
 }
 ```
 
@@ -311,17 +316,23 @@ Expandir `WorkStateSnapshot` com:
 
 ```ts
 programmingGovernance: ProgrammingGovernanceSnapshot | null
+forgeLiveExecution: ForgeLiveExecutionSnapshot | null
 ```
+
+`ForgeLiveExecutionSnapshot` aceita status, Obra, comando, context pack, repair loop, counts e blockers; detalhe em `atlas-code-forge-live-execution-surface-contract.md`.
 
 ### 4. Bridge
 
 Em `bridge.ts`, expandir `adaptWorkState(raw)`:
 
 - ler `programming_governance` ou `programmingGovernance`;
+- ler `forge_live_execution` ou `forgeLiveExecution`;
 - normalizar snake_case para camelCase;
 - preservar `null` quando ausente;
 - nunca preencher arrays com exemplos inventados;
 - quando `degraded=true`, preservar `degradedReason`.
+
+Adicionar `runForgeLiveExecution(obraId)` chamando `POST /atlas-code/works/{obraId}/forge/live-executions`; resposta canonica `atlas.code.forge_live_execution_response.v1`.
 
 ### 5. useBridge
 
@@ -363,6 +374,7 @@ aguardando plan governado
 ### 7. Right Rail
 
 RightRail deve receber `programmingGovernance`.
+RightRail tambem recebe `forgeLiveExecution` e `onRunForgeLiveExecution` para o banner do Forge Workspace em Plan, Verify e Evidence.
 
 Painel `Plan`:
 
@@ -462,7 +474,8 @@ Fora do escopo:
 
 - criar WorkItem pela UI;
 - gerar spec/plan automaticamente;
-- rodar `atlas:programming:*` pela UI;
+- rodar `atlas:programming:*` pela UI, exceto a acao certificada
+  `atlas:forge:live-execute` via Obra;
 - streaming SSE completo;
 - Atlas Operational Artifact DSL completa;
 - Forge OS/multi-provider.
@@ -494,19 +507,7 @@ Ao terminar, a IA deve reportar:
 
 ## Exemplos
 
-Exemplo de receipt degradado que deve aparecer como alerta:
-
-```json
-{
-  "receipt_id": "abc",
-  "command": "vendor/bin/phpunit",
-  "output": "OK",
-  "storage": {
-    "persisted": false,
-    "reason": "engineering_evidence_write_failed"
-  }
-}
-```
+Exemplo de receipt degradado que deve aparecer como alerta: `storage.persisted=false` com `reason=engineering_evidence_write_failed`.
 
 Exemplo visual correto: `WORKITEM REF-ABC12345` mostra mode/risk/status,
 spec/plan hashes, gates com blocking/reason e receipts com persistencia real.

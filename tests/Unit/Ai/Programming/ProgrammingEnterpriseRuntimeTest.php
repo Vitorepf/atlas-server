@@ -757,6 +757,27 @@ class ProgrammingEnterpriseRuntimeTest extends TestCase
         $this->assertSame('atlas.programming.invalid_battery_triage_packet.v1', data_get($report, 'rivals_readiness.invalid_battery_triage_packet.schema_version'));
         $this->assertSame('claim_blocked', data_get($report, 'rivals_readiness.integrity_assurance.status'));
         $this->assertFalse(data_get($report, 'rivals_readiness.operator_execution_packet.provider_dispatches_now'));
+        $this->assertSame('atlas.programming.rivals_readiness.v1', data_get($report, 'external_rivals_certification.schema_version'));
+        $this->assertIsString(data_get($report, 'external_rivals_certification.operational_state'));
+        $this->assertSame('atlas.code.enterprise_certification.v1', data_get($report, 'atlas_code_enterprise_certification.schema_version'));
+        $this->assertSame('available', data_get($report, 'atlas_code_enterprise_certification.status'));
+        $this->assertTrue(data_get($report, 'atlas_code_enterprise_certification.artifacts.controller.present'));
+        $this->assertContains(
+            'test_atlas_code_enterprise_certification_api_exposes_product_proof_packet',
+            data_get($report, 'atlas_code_enterprise_certification.test_coverage.expected_methods'),
+        );
+        $this->assertSame('GET /atlas-code/certification', data_get($report, 'atlas_code_enterprise_certification.api_surface.read_model_endpoint'));
+        $this->assertTrue(data_get($report, 'atlas_code_enterprise_certification.contract_invariants.api_read_model_does_not_create_obra'));
+        $this->assertSame(
+            data_get($report, 'verification_evidence.invalid_battery_triage_packet.status'),
+            data_get($report, 'external_rivals_certification.invalid_battery_triage.status'),
+        );
+        $this->assertSame(
+            (bool) data_get($report, 'verification_evidence.current_workspace_preflight.ready_for_provider_battery'),
+            data_get($report, 'external_rivals_certification.current_workspace_preflight.ready_for_provider_battery'),
+        );
+        $this->assertIsBool(data_get($report, 'external_rivals_certification.provider_budget_policy.spend_more_provider_tokens_now'));
+        $this->assertIsArray(data_get($report, 'external_rivals_certification.fresh_provider_rerun_preconditions.blocking_reasons'));
 
         $exitCode = Artisan::call('atlas:programming:completion-audit', [
             '--workspace' => base_path(),

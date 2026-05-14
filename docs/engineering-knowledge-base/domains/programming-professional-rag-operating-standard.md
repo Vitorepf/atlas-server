@@ -313,7 +313,8 @@ Aceite:
 - baseline separado e limpo;
 - provider/model auditados;
 - replay/export verificados;
-- score admitido apenas quando o protocolo e valido.
+- score admitido apenas quando o protocolo e valido;
+- **Atlas arm = runtime Forge obrigatorio**: qualquer run Atlas fora do Forge e invalido para score Rivals. Canon: `atlas-forge-native-rivals-protocol-v1.md` (schema `atlas.programming.forge_native_rivals_protocol.v1`). Atlas Code Fast Path (`atlas:code:forge-fast-path`) e o gateway canonico do Atlas arm.
 
 ## Dependencias
 
@@ -340,6 +341,8 @@ php artisan atlas:programming:retrieval-benchmark --json
 php artisan atlas:programming:test-impact-benchmark --json
 php artisan atlas:programming:patch-verifier-benchmark --json
 php artisan atlas:programming:rivals-readiness --json
+php artisan atlas:programming:rivals-forge-preflight --json --strict
+php artisan atlas:programming:rivals-forge-dry-run --json --strict
 php artisan atlas:programming:completion-audit --json
 ```
 

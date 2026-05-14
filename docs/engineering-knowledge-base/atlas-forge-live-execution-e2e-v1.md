@@ -19,12 +19,14 @@ capabilities:
   - harness_real_test_run
   - repair_loop_plan
   - evidence_ledger_recording
+  - governed_workspace_promotion
 decisions:
   - Live Execution E2E v1 prova execucao real local controlada sem chamar provider externo.
   - Patch e teste sao fixtures determinísticos; nao substituem provider real para producao.
   - Sandbox sempre limpa apos execucao; rollback receipt obrigatorio.
   - Evidence Ledger e gravado quando a tabela atlas_ledger_events existe; degrade honesto quando ausente.
   - Repair loop usa ProgrammingRepairExecutor canonico; nao implementa retry solto.
+  - Quando Atlas Code tem WorkItem real, patch governado so chega ao workspace vivo apos review humano e promotion artifact com hash/rollback.
 maintenance:
   - Atualize quando harness/sandbox/patch verifier/repair executor/Evidence Ledger mudarem.
   - Rode atlas:forge:live-execute --json --strict apos qualquer alteracao nesses componentes.
@@ -33,6 +35,9 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-forge-runtime-certification-one-shot.md
   - docs/engineering-knowledge-base/obras/shared-workspace-and-forge.md
   - app/Services/Ai/Programming/AtlasForgeLiveExecutionService.php
+  - app/Services/Ai/Programming/AtlasForgeGovernedPromotionService.php
+  - app/Http/Controllers/AtlasCodeForgeExecutionController.php
+  - app/Http/Controllers/AtlasCodeProgrammingWorkItemController.php
   - app/Console/Commands/AtlasForgeLiveExecuteCommand.php
   - tests/Feature/Ai/Programming/AtlasForgeLiveExecutionTest.php
 doc_schema: atlas_canonical_module_doc.v1
@@ -48,6 +53,7 @@ owner: programming
 repo_paths:
   - docs/engineering-knowledge-base/atlas-forge-live-execution-e2e-v1.md
   - app/Services/Ai/Programming/AtlasForgeLiveExecutionService.php
+  - app/Http/Controllers/AtlasCodeForgeExecutionController.php
   - app/Console/Commands/AtlasForgeLiveExecuteCommand.php
   - tests/Feature/Ai/Programming/AtlasForgeLiveExecutionTest.php
 allowed_changes:
@@ -74,7 +80,7 @@ evidence:
   - tests/Feature/Ai/Programming/AtlasForgeLiveExecutionTest.php
 required_tests:
   - "php artisan test --filter AtlasForgeLiveExecutionTest"
-  - "php artisan atlas:forge:live-execute --json --strict"
+  - "php artisan atlas:forge:live-execute --obra=<uuid> --json --strict"
 requires_evidence: true
 risk_level: high
 visual_tags:
@@ -84,7 +90,7 @@ visual_tags:
 ai_entrypoints:
   - Leia este doc antes de alterar AtlasForgeLiveExecutionService, sandbox manager, patch verifier, repair executor ou Evidence Ledger.
 ai_usage_notes:
-  - Nao declare live_execution passed sem rodar o comando atlas:forge:live-execute --json --strict.
+  - Nao declare live_execution passed sem rodar o comando atlas:forge:live-execute --obra=<uuid> --json --strict.
 quality_gates:
   - live-execution-passed
   - sandbox-cleanup-confirmed
@@ -154,6 +160,8 @@ declarados em `programming-professional-rag-operating-standard.md`.
 - `atlas:forge:live-execute --obra=<uuid> --json --strict` deve retornar
   `forge_live_execution_status=passed` apos toda alteracao em harness,
   sandbox, patch verifier, repair executor ou Evidence Ledger.
+- Na surface Atlas Code, execucao profissional parte de WorkItem com Spec/Plan/Tasks:
+  a fila governada vem antes do fallback `latest_forge_live_execution.task_contract`.
 - **Context Pack minimo** nao pode ter `ranked_refs` vazio:
   - `context_completeness=canonical_minimum` quando todos os refs estao presentes
   - `canonical_minimum_partial` quando faltam refs canonicos
@@ -216,6 +224,25 @@ Implementado em:
 - `app/Console/Commands/AtlasForgeLiveExecuteCommand.php`
 - `tests/Feature/Ai/Programming/AtlasForgeLiveExecutionTest.php`
 
+Exposto para Atlas Code em:
+
+- `POST /atlas-code/works/{obra_id}/forge/live-executions`
+- `app/Http/Controllers/AtlasCodeForgeExecutionController.php`
+- `GET /atlas-code/works/{obra_id}/state` como `forge_live_execution`
+- `atlas.code.forge_live_execution.snapshot.v1`
+
+Quando a Obra esta vinculada a um WorkItem com tasks reais, o controller
+tambem executa `AtlasForgeGovernedExecutionService` como sidecar governado:
+ele resolve workspace real, copia arquivo permitido para sandbox sombra, gera
+diff artifact, roda validation command permitido, grava receipt endurecido via
+`ProgrammingEvidenceLedger`, anexa evidence ao WorkItem e roda
+`evidence-required` + `scope-guard`. O live fixture continua provando a cadeia
+canonica; o sidecar prova que a task governada nao foge de `allowed_files`.
+Depois do review aprovado, `AtlasForgeGovernedPromotionService` pode promover
+o patch ao workspace vivo e executar rollback por promotion id. Rollback valida
+drift/hash contra o arquivo promovido, restaura o backup, grava
+`forge_workspace_rollback` e atualiza review/state/history como `rolled_back`.
+
 Bloco `forge_live_execution_certification` aparece em
 `atlas:programming:completion-audit --json` ao lado de
 `forge_runtime_certification` e `external_rivals_certification`.
@@ -227,11 +254,15 @@ Bloco `forge_live_execution_certification` aparece em
 - `ProgrammingRepairExecutor` — plano de repair canonico.
 - `ProgrammingStageReceiptStore` — stage receipts.
 - `AtlasEvidenceLedger` + `LedgerEventType` — eventos.
+- `AtlasForgeGovernedExecutionService` — WorkItem -> diff/scope/evidence governado.
 
 ## Evidencias
 
-- `tests/Feature/Ai/Programming/AtlasForgeLiveExecutionTest.php` (5 testes).
-- `php artisan atlas:forge:live-execute --json --strict` (exit 0).
+- `tests/Feature/Ai/Programming/AtlasForgeLiveExecutionTest.php` (9 testes).
+- `tests/Feature/AtlasCodeContractTest.php` prova a rota Atlas Code -> Forge Live.
+- O mesmo contrato prova shadow patch sem mutacao e promocao governada apos review humano.
+- `php artisan atlas:forge:live-execute --obra=<uuid> --json --strict` (exit 0).
+- `php artisan atlas:forge:live-execute --json --strict` (exit 1 esperado: fail-closed sem Obra).
 - `php artisan atlas:programming:completion-audit --json`
   (`forge_live_execution_certification.status=available`).
 
@@ -240,6 +271,8 @@ Bloco `forge_live_execution_certification` aparece em
 - Comando passar mas sandbox nao limpar (vazamento).
 - Comando passar com `evidence_ledger=degraded` silencioso.
 - Patch fixture nao representar patch real LLM (esperado, mas declarar).
+- Promotion artifact com hash driftar antes do review; nesse caso review deve bloquear.
+- Rollback com workspace driftado deve bloquear, nao sobrescrever estado vivo.
 - Mudancas em sandbox/harness/repair nao acionarem este comando.
 
 ## Exemplos
@@ -260,7 +293,8 @@ Saida tipica passed:
 ## Proximas Acoes
 
 1. Manter este doc sincronizado com cada novo stage canonico do live execution.
-2. Rodar `atlas:forge:live-execute --json --strict` antes de promover qualquer
-   alteracao em harness, sandbox, patch verifier, repair executor ou Evidence
-   Ledger.
+2. Rodar `atlas:forge:live-execute --obra=<uuid> --json --strict` antes de
+   promover qualquer alteracao em harness, sandbox, patch verifier, repair
+   executor ou Evidence Ledger; rodar tambem sem `--obra` para provar
+   fail-closed.
 3. Garantir que o eixo `external_rivals_certification` continue separado.

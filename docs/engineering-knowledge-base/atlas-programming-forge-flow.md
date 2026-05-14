@@ -253,10 +253,9 @@ Surface (`atlas_code` / Atlas Code SCOR-1)
 -> Semantic Code Graph / Programming Graph RAG
 -> context pack provider-safe
 -> Programming Governance
--> Forge Intake
--> Constitution / Steering
--> Mother Spec
--> Spec lookup / delta
+-> Forge Intake / WorkItem binding
+-> Spec Compiler / Mother Spec / Spec delta
+-> Plan Compiler / Task Compiler / Forge Task Queue
 -> Code Intelligence Loader
 -> Work Splitter
 -> Dependency DAG
@@ -499,12 +498,22 @@ Dois niveis de certificacao replayable, sem provider externo. **Obra e obrigator
 - **Nivel 1** — contratos: `php artisan atlas:forge:runtime-certify --obra=<uuid> --json` (schema `atlas.forge_runtime_certification.v1`).
 - **Nivel 2** — execucao real: `php artisan atlas:forge:live-execute --obra=<uuid> --json --strict` (schema `atlas.forge_live_execution_certification.v1`). Sem `--obra` em strict, o exit code e non-zero e nenhum sandbox e provisionado. Detalhes em `atlas-forge-live-execution-e2e-v1.md`.
 
-`atlas:programming:completion-audit --json` retorna `forge_runtime_certification`, `forge_live_execution_certification` e `external_rivals_certification` **separados**. `forge_live_execution_certification` distingue `available`, `requires_operator_run` e `missing_artifacts` — nunca substitui benchmark externo nem garante `completion_allowed`.
+`atlas:programming:completion-audit --json` retorna `forge_runtime_certification`, `forge_live_execution_certification`, `atlas_code_enterprise_certification`, `forge_fast_path_certification`, `forge_native_rivals_certification` e `external_rivals_certification` separados. Nivel 2/Fast Path distinguem `available`, `requires_operator_run` e `missing_artifacts` — nunca substituem Rivals nem liberam `completion_allowed`.
+
+**Forge-Native Rivals (Atlas arm = Forge obrigatorio):** Rivals avalia o runtime Forge do Atlas contra um baseline externo isolado — runs Atlas non-Forge sao invalidos para score. Canon em `atlas-forge-native-rivals-protocol-v1.md`. Comandos: `atlas:programming:rivals-forge-preflight --json --strict` (read-only) e `atlas:programming:rivals-forge-dry-run --case=<id> --json --strict` (plano sem provider). `forge_native_rivals_certification` no completion audit fica separado de `external_rivals_certification`; nem preflight nem dry-run promovem claim. Avaliacao diagnostica de qualidade one-shot vive em `atlas-rivals-one-shot-enterprise-evaluation-v1.md` (`atlas:programming:rivals-one-shot-evaluate`).
+
+### Forge Operator Fast Path v2
+
+`php artisan atlas:code:forge-fast-path --obra=<uuid> --mode=execute_async --json --strict` (schema `atlas.code.forge_fast_path.v1`) dispara o run; cada Fast Path emite `fast_path_run_id` ULID com lifecycle: prepared → queued → running → passed → review_required → completed (ou degraded → repair → failed). `GET /atlas-code/works/{obra}/forge/fast-path/{run}/status` (schema `atlas.code.forge_fast_path_run_status.v1`) e `POST .../resume` reconstroem o estado real. Review e completion seguem o gate canonico (`atlas.code.forge_review_packet.v1` + `atlas.code.forge_completion_claim.v1`) via `GET .../review` + `POST .../review/{approve|reject|rollback}` e `atlas:code:forge-review`. Detalhes em `atlas-code-forge-fast-path-v1.md` e `atlas-code-forge-review-completion-gate-v1.md`.
+
+`external_rivals_certification` expoe `blocked_until_invalid_battery_triaged`, `blocked_until_clean_worktree`, `ready_for_operator_paid_rerun` ou `claim_ready` com quarentena, preflight e policy de gasto provider.
+
+Na surface Atlas Code, o operador vincula WorkItem, compila Spec/Plan/Tasks (`POST /atlas-code/works/{obra}/programming/work-items/{wi}/spec`) e roda `POST /atlas-code/works/{obra}/forge/live-executions`. Com task contract real, a execucao inclui `governed_execution`: patch dry-run em workspace sombra, diff artifact, validation command, promotion artifact, hardened receipt e `scope-guard` contra `allowed_files`. Aprovacao humana promove o patch para o workspace vivo somente se hash, scope e completion gate continuarem verdes; rollback restaura backup com drift/hash check, evidence propria, review `rolled_back` e state/history sincronizados.
 
 ## Proximas Acoes
 
 1. Manter este doc como primeira leitura para qualquer alteracao de Forge pesado.
 2. Atualizar os docs filhos quando runtime Forge sair de future/building para implemented.
 3. Fazer docs-health apos qualquer mudanca de taxonomia, graph, repair ou evidence.
-4. Rodar `atlas:forge:runtime-certify --json` apos mudancas em surface adapter, controller binding, governance ou docs canonicas.
-5. Rodar `atlas:forge:live-execute --json --strict` apos mudancas em harness, patch verifier, sandbox manager, repair executor ou Evidence Ledger.
+4. Rodar `atlas:forge:runtime-certify --obra=<uuid> --json --strict` e `atlas:forge:live-execute --obra=<uuid> --json --strict` apos mudancas no runtime.
+5. Rodar `atlas:code:enterprise-certify --json --strict` apos mudancas no produto Atlas Code, review, promotion, rollback ou checkpoint.
