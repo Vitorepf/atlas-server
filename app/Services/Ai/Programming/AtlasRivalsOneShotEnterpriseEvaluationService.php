@@ -184,6 +184,16 @@ class AtlasRivalsOneShotEnterpriseEvaluationService
             $fails[] = 'dirty_workspace_for_claim';
         }
 
+        if (($evidencePack['workspace_after_clean_check_ran'] ?? false) === true
+            && ($evidencePack['workspace_after_clean_check_clean'] ?? null) === false
+        ) {
+            $fails[] = 'dirty_workspace_after_run';
+        }
+
+        if (($evidencePack['tracked_python_bytecode_in_workspace'] ?? false) === true) {
+            $fails[] = 'tracked_python_bytecode_in_workspace';
+        }
+
         if (($evidencePack['synthetic_score_admitted_as_real_claim'] ?? false) === true) {
             $fails[] = 'synthetic_score_used_as_real_claim';
         }

@@ -16,11 +16,31 @@ class AtlasRivalsEvidencePackVerifierService
 {
     public const SCHEMA_VERSION = 'atlas.programming.rivals_evidence_pack_verification.v1';
 
+    public const MODE_DIAGNOSTIC_LOCAL = 'diagnostic_local';
+
+    public const MODE_REAL_RUN = 'real_run';
+
+    /** @var list<string> Fields a real-run pack MUST carry to be admitted as Rivals evidence. */
+    public const REQUIRED_FIELDS_FOR_REAL_RUN = [
+        'workspace.before_status_hash',
+        'workspace.after_clean_check.ran',
+        'workspace.after_clean_check.clean',
+        'replay_manifest.state',
+        'provider_receipt.exit_code',
+        'provider_receipt.stdout_hash',
+        'provider_receipt.model',
+        'provider_receipt.binary_resolved',
+        'timeline_events',
+        'human_intervention.count',
+        'human_intervention.source',
+        'final_gates',
+    ];
+
     /**
      * @param  array<string,mixed>  $pack
      * @return array<string,mixed>
      */
-    public function verify(array $pack): array
+    public function verify(array $pack, string $mode = self::MODE_DIAGNOSTIC_LOCAL): array
     {
         $blockers = [];
         $warnings = [];
@@ -59,22 +79,65 @@ class AtlasRivalsEvidencePackVerifierService
         $blockers = array_merge($blockers, $this->verifyMissingEvidenceCoherence($pack));
         $blockers = array_merge($blockers, $this->verifyCommandExitCodesCoherence($pack));
 
+        $missingRealRunFields = [];
+        if ($mode === self::MODE_REAL_RUN) {
+            $missingRealRunFields = $this->collectMissingRealRunFields($pack);
+            if ($missingRealRunFields !== []) {
+                $blockers[] = 'invalid_missing_evidence_for_real_run';
+            }
+            if (data_get($pack, 'workspace.after_clean_check.clean') === false) {
+                $blockers[] = 'dirty_workspace_after_run';
+            }
+            if (data_get($pack, 'replay_manifest.state') !== 'executed') {
+                $blockers[] = 'replay_manifest_not_promoted_to_executed';
+            }
+        }
+
         $blockers = array_values(array_unique($blockers));
         $status = $blockers === [] ? 'passed' : 'blocked';
+        if ($mode === self::MODE_REAL_RUN && in_array('invalid_missing_evidence_for_real_run', $blockers, true)) {
+            $status = 'invalid_missing_evidence';
+        }
 
         return [
             'schema_version' => self::SCHEMA_VERSION,
             'verified_at' => now()->toJSON(),
             'status' => $status,
+            'mode' => $mode,
             'evidence_pack_schema_version' => $pack['schema_version'] ?? null,
             'evidence_pack_id' => $pack['evidence_pack_id'] ?? null,
             'case_id' => $pack['case_id'] ?? null,
             'blockers' => $blockers,
+            'missing_real_run_fields' => $missingRealRunFields,
             'warnings' => $warnings,
             'verifier_blocks_fake_evidence' => true,
             'no_provider_call' => true,
             'separated_from_external_rivals_certification' => true,
         ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $pack
+     * @return list<string>
+     */
+    private function collectMissingRealRunFields(array $pack): array
+    {
+        $missing = [];
+        foreach (self::REQUIRED_FIELDS_FOR_REAL_RUN as $path) {
+            $value = data_get($pack, $path);
+            if ($value === null) {
+                $missing[] = $path;
+                continue;
+            }
+            if (is_array($value) && $value === []) {
+                $missing[] = $path;
+            }
+            if (is_string($value) && trim($value) === '') {
+                $missing[] = $path;
+            }
+        }
+
+        return array_values(array_unique($missing));
     }
 
     /**

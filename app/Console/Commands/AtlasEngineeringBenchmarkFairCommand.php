@@ -27,7 +27,8 @@ class AtlasEngineeringBenchmarkFairCommand extends Command
         {--domain= : Restrict execution to a corpus domain}
         {--risk= : Restrict execution to a risk profile}
         {--curation-status= : Restrict execution to a curation status}
-        {--model=opus : Fair Claude model lock. Only opus is accepted.}
+        {--model=opus : Fair Claude model lock. Accepts opus or sonnet.}
+        {--baseline-model= : Claude Code baseline model lock. Defaults to --model when omitted. Allowlist [opus, sonnet].}
         {--model-policy=fixed : Fair Claude model policy. Only fixed is accepted.}
         {--test-command= : Explicit deterministic validation command}
         {--quality-changed-only : Force fair quality scan to changed files for patch-scoped A/B validity}
@@ -577,9 +578,10 @@ class AtlasEngineeringBenchmarkFairCommand extends Command
             ],
             'protocol' => [
                 'atlas_provider_lock' => 'claude_cli',
-                'atlas_model_lock' => 'opus',
+                'atlas_model_lock' => $this->fairModelOption(),
                 'baseline_provider_lock' => 'claude_code_cli',
-                'baseline_model_lock' => 'opus',
+                'baseline_model_lock' => $this->fairBaselineModelOption(),
+                'allowed_model_aliases' => FairClaudePolicy::MODEL_LOCK_ALLOWLIST,
                 'forbidden_in_fair_mode' => ['codex_cli', 'gemini_cli', 'claude_codex', 'atlas_decide', 'fallback', 'council'],
                 'pass_without_human_requires' => ['provider_lock', 'model_lock', 'deterministic_gates_passed', 'human_intervention_count_zero'],
             ],
@@ -722,7 +724,7 @@ class AtlasEngineeringBenchmarkFairCommand extends Command
             '--no-decide' => ! $noProvider,
             '--fallback-disabled' => ! $noProvider,
             '--claude-code-baseline' => $baselineMode,
-            '--claude-code-baseline-model' => 'opus',
+            '--claude-code-baseline-model' => $this->fairBaselineModelOption(),
             '--claude-code-baseline-binary' => $this->stringOption('claude-code-baseline-binary'),
             '--claude-code-baseline-workspace' => $this->stringOption('claude-code-baseline-workspace'),
             '--claude-code-baseline-timeout' => $this->intOption('claude-code-baseline-timeout') ?: 900,
@@ -1037,10 +1039,19 @@ class AtlasEngineeringBenchmarkFairCommand extends Command
      */
     private function validateFairModelLock(FairClaudePolicy $fairClaude): ?array
     {
-        if ($this->fairModelOption() !== FairClaudePolicy::MODEL_LOCK) {
+        $requested = $this->fairModelOption();
+        if (! in_array($requested, FairClaudePolicy::MODEL_LOCK_ALLOWLIST, true)) {
             return $fairClaude->violation(
-                message: 'Fair Claude benchmark mode only accepts --model=opus.',
-                details: ['model' => $this->stringOption('model')],
+                message: sprintf(
+                    'Fair Claude benchmark mode only accepts --model in [%s]; got "%s".',
+                    implode(', ', FairClaudePolicy::MODEL_LOCK_ALLOWLIST),
+                    $requested,
+                ),
+                details: [
+                    'sub_error' => FairClaudePolicy::MODEL_NOT_AVAILABLE_ERROR,
+                    'model' => $this->stringOption('model'),
+                    'allowed_aliases' => FairClaudePolicy::MODEL_LOCK_ALLOWLIST,
+                ],
             );
         }
 
@@ -1049,6 +1060,22 @@ class AtlasEngineeringBenchmarkFairCommand extends Command
             return $fairClaude->violation(
                 message: 'Fair Claude benchmark mode requires --model-policy=fixed.',
                 details: ['model_policy' => $this->stringOption('model-policy')],
+            );
+        }
+
+        $baseline = $this->fairBaselineModelOption();
+        if (! in_array($baseline, FairClaudePolicy::MODEL_LOCK_ALLOWLIST, true)) {
+            return $fairClaude->violation(
+                message: sprintf(
+                    'Fair Claude benchmark baseline only accepts --baseline-model in [%s]; got "%s".',
+                    implode(', ', FairClaudePolicy::MODEL_LOCK_ALLOWLIST),
+                    $baseline,
+                ),
+                details: [
+                    'sub_error' => FairClaudePolicy::MODEL_NOT_AVAILABLE_ERROR,
+                    'baseline_model' => $this->stringOption('baseline-model'),
+                    'allowed_aliases' => FairClaudePolicy::MODEL_LOCK_ALLOWLIST,
+                ],
             );
         }
 
@@ -1074,6 +1101,13 @@ class AtlasEngineeringBenchmarkFairCommand extends Command
     private function fairModelOption(): string
     {
         return $this->normalizeModelLock($this->stringOption('model') ?: FairClaudePolicy::MODEL_LOCK);
+    }
+
+    private function fairBaselineModelOption(): string
+    {
+        $explicit = $this->stringOption('baseline-model');
+
+        return $this->normalizeModelLock($explicit !== null && $explicit !== '' ? $explicit : $this->fairModelOption());
     }
 
     private function normalizeModelLock(string $value): string

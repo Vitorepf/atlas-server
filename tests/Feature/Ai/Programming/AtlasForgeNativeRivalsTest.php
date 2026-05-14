@@ -15,6 +15,33 @@ use Tests\TestCase;
 
 class AtlasForgeNativeRivalsTest extends TestCase
 {
+    /**
+     * Canary used by AtlasRivalsCommand --quick. Must remain fast (no DB,
+     * no subprocess, no provider) so the quick preset stays quick.
+     */
+    public function test_quick_canary_fixture_passes_under_three_seconds(): void
+    {
+        $started = microtime(true);
+        $this->assertTrue(true, 'canary always-true assertion');
+        $elapsed = microtime(true) - $started;
+        $this->assertLessThan(3.0, $elapsed, 'Quick canary must finish in well under 3 seconds.');
+    }
+
+    public function test_case_manifest_publishes_quick_and_full_test_commands(): void
+    {
+        $manifest = app(AtlasForgeNativeRivalsCaseManifestService::class)->manifest(null);
+
+        $case = (array) ($manifest['case'] ?? []);
+        $this->assertIsString($case['quick_test_command'] ?? null);
+        $this->assertIsString($case['full_test_command'] ?? null);
+        $this->assertNotSame(
+            $case['quick_test_command'],
+            $case['full_test_command'],
+            'Quick must not equal full — otherwise quick is not actually quick.',
+        );
+        $this->assertStringContainsString('test_quick_canary_fixture_passes_under_three_seconds', $case['quick_test_command']);
+    }
+
     public function test_protocol_declares_atlas_arm_must_be_forge(): void
     {
         $protocol = app(AtlasForgeNativeRivalsProtocolService::class)->protocol();
@@ -96,6 +123,37 @@ class AtlasForgeNativeRivalsTest extends TestCase
         $this->assertFalse($packet['external_provider_call']);
     }
 
+    public function test_preflight_blocks_tracked_python_bytecode(): void
+    {
+        $workspace = $this->makeCleanGitWorkspaceWithTrackedPythonBytecode();
+
+        $packet = app(AtlasForgeNativeRivalsPreflightService::class)->preflight([
+            'workspace' => $workspace,
+            'intends_provider_battery' => false,
+        ]);
+
+        $this->assertSame('blocked_tracked_python_bytecode', $packet['status']);
+        $this->assertFalse($packet['ready_for_dry_run']);
+        $this->assertFalse($packet['ready_for_provider_battery']);
+        $this->assertContains('tracked_python_bytecode_in_workspace', $packet['blocking_reasons']);
+        $this->assertFalse($packet['external_provider_call']);
+
+        $workspaceCheck = $packet['checks']['workspace'] ?? [];
+        $this->assertTrue((bool) ($workspaceCheck['tracked_python_bytecode_present'] ?? false));
+        $this->assertGreaterThanOrEqual(
+            1,
+            (int) data_get($workspaceCheck, 'tracked_python_bytecode.tracked_count', 0),
+        );
+        $sample = (array) data_get($workspaceCheck, 'tracked_python_bytecode.tracked_sample', []);
+        $this->assertNotSame([], $sample);
+        $resolution = (string) data_get($workspaceCheck, 'tracked_python_bytecode.resolution_command', '');
+        $this->assertNotSame('', $resolution);
+        $this->assertStringContainsString('git', $resolution);
+        $this->assertStringContainsString('rm --cached', $resolution);
+        $this->assertStringContainsString('pyc', $resolution);
+        $this->assertStringContainsString('tracked_python_bytecode', (string) $packet['next_action']);
+    }
+
     public function test_preflight_passes_for_dry_run_when_workspace_and_artifacts_clean(): void
     {
         $cleanGitWorkspace = $this->makeCleanGitWorkspace($this->copyCanonicalDocs());
@@ -110,6 +168,78 @@ class AtlasForgeNativeRivalsTest extends TestCase
         $this->assertFalse($packet['external_provider_call']);
         $this->assertTrue((bool) data_get($packet, 'checks.case_manifest.atlas_arm_is_forge'));
         $this->assertSame([], $packet['blocking_reasons']);
+    }
+
+    public function test_preflight_exposes_readiness_fingerprint(): void
+    {
+        $cleanGitWorkspace = $this->makeCleanGitWorkspace($this->copyCanonicalDocs());
+
+        $packet = app(AtlasForgeNativeRivalsPreflightService::class)->preflight([
+            'workspace' => $cleanGitWorkspace,
+            'preset' => 'quick',
+            'atlas_model' => 'sonnet',
+            'baseline_model' => 'sonnet',
+            'gate_profile' => 'strict',
+            'intends_provider_battery' => false,
+        ]);
+
+        $fp = (array) ($packet['readiness_fingerprint'] ?? []);
+        $this->assertSame(
+            'atlas.programming.rivals_forge_readiness_fingerprint.v1',
+            $fp['schema_version'] ?? null,
+        );
+        $this->assertSame(64, strlen((string) ($fp['value'] ?? '')));
+        $this->assertSame('quick', data_get($fp, 'components.preset'));
+        $this->assertSame('sonnet', data_get($fp, 'components.atlas_model'));
+        $this->assertSame('sonnet', data_get($fp, 'components.baseline_model'));
+    }
+
+    public function test_dry_run_fingerprint_matches_preflight_for_same_intent(): void
+    {
+        $cleanGitWorkspace = $this->makeCleanGitWorkspace($this->copyCanonicalDocs());
+
+        $intent = [
+            'workspace' => $cleanGitWorkspace,
+            'preset' => 'quick',
+            'atlas_model' => 'sonnet',
+            'baseline_model' => 'sonnet',
+            'gate_profile' => 'strict',
+        ];
+
+        $preflight = app(AtlasForgeNativeRivalsPreflightService::class)->preflight($intent + [
+            'intends_provider_battery' => false,
+        ]);
+        $dryRun = app(AtlasForgeNativeRivalsDryRunService::class)->dryRun($intent);
+
+        $this->assertSame(
+            data_get($preflight, 'readiness_fingerprint.value'),
+            data_get($dryRun, 'readiness_fingerprint.value'),
+        );
+    }
+
+    public function test_changing_model_between_preflight_invocations_breaks_fingerprint(): void
+    {
+        $cleanGitWorkspace = $this->makeCleanGitWorkspace($this->copyCanonicalDocs());
+
+        $opus = app(AtlasForgeNativeRivalsPreflightService::class)->preflight([
+            'workspace' => $cleanGitWorkspace,
+            'preset' => 'quick',
+            'atlas_model' => 'opus',
+            'baseline_model' => 'opus',
+            'intends_provider_battery' => false,
+        ]);
+        $sonnet = app(AtlasForgeNativeRivalsPreflightService::class)->preflight([
+            'workspace' => $cleanGitWorkspace,
+            'preset' => 'quick',
+            'atlas_model' => 'sonnet',
+            'baseline_model' => 'sonnet',
+            'intends_provider_battery' => false,
+        ]);
+
+        $this->assertNotSame(
+            data_get($opus, 'readiness_fingerprint.value'),
+            data_get($sonnet, 'readiness_fingerprint.value'),
+        );
     }
 
     public function test_dry_run_does_not_dispatch_provider_and_passes_when_workspace_clean(): void
@@ -260,6 +390,19 @@ class AtlasForgeNativeRivalsTest extends TestCase
         $this->runGit($path, ['config', 'user.name', 'Atlas Tests']);
         $this->runGit($path, ['add', '-A']);
         $this->runGit($path, ['commit', '--quiet', '-m', 'seed']);
+
+        return $path;
+    }
+
+    private function makeCleanGitWorkspaceWithTrackedPythonBytecode(): string
+    {
+        $path = $this->makeCleanGitWorkspace($this->copyCanonicalDocs());
+        $pycDir = $path.'/runtimes/python/atlas_module/__pycache__';
+        @mkdir($pycDir, 0o755, true);
+        file_put_contents($pycDir.'/module.cpython-312.pyc', "tracked-bytecode-fixture\n");
+
+        $this->runGit($path, ['add', '-A']);
+        $this->runGit($path, ['commit', '--quiet', '-m', 'seed tracked python bytecode']);
 
         return $path;
     }

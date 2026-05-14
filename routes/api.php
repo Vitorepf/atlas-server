@@ -589,6 +589,15 @@ Route::prefix('atlas-code')->group(function () {
     Route::post('/self-improvement/forge-activations/{activation}/reject', [\App\Http\Controllers\AtlasCodeSelfImprovementForgeActivationController::class, 'reject']);
     Route::get('/self-improvement/activation-cockpit', [\App\Http\Controllers\AtlasCodeSelfImprovementActivationCockpitController::class, 'index']);
     Route::get('/self-improvement/activation-cockpit/{activation}', [\App\Http\Controllers\AtlasCodeSelfImprovementActivationCockpitController::class, 'show']);
+    Route::get('/self-improvement/proposals', [\App\Http\Controllers\AtlasCodeSelfImprovementProposalBacklogController::class, 'index']);
+    Route::post('/self-improvement/proposals', [\App\Http\Controllers\AtlasCodeSelfImprovementProposalBacklogController::class, 'store']);
+    Route::get('/self-improvement/proposals/{proposal}', [\App\Http\Controllers\AtlasCodeSelfImprovementProposalBacklogController::class, 'show']);
+    Route::post('/self-improvement/proposals/{proposal}/evaluate', [\App\Http\Controllers\AtlasCodeSelfImprovementProposalBacklogController::class, 'evaluate']);
+    Route::post('/self-improvement/proposals/{proposal}/prioritize', [\App\Http\Controllers\AtlasCodeSelfImprovementProposalBacklogController::class, 'prioritize']);
+    Route::get('/self-improvement/proposals/{proposal}/closed-loop', [\App\Http\Controllers\AtlasCodeSelfImprovementClosedLoopController::class, 'show']);
+    Route::post('/self-improvement/proposals/{proposal}/measure-result', [\App\Http\Controllers\AtlasCodeSelfImprovementResultLedgerController::class, 'measureResult']);
+    Route::get('/self-improvement/result-ledger', [\App\Http\Controllers\AtlasCodeSelfImprovementResultLedgerController::class, 'index']);
+    Route::get('/self-improvement/next-cycle-recommendations', [\App\Http\Controllers\AtlasCodeSelfImprovementNextCycleController::class, 'index']);
     Route::post('/works/{project}/checkpoints', [AtlasCodeCheckpointController::class, 'store']);
     Route::post('/works/{project}/programming/work-items', [AtlasCodeProgrammingWorkItemController::class, 'store']);
     Route::post('/works/{project}/programming/work-items/{workItem}/spec', [AtlasCodeProgrammingWorkItemController::class, 'compileSpecPlan']);

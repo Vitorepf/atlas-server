@@ -39,6 +39,8 @@ class AtlasRivalsOneShotEnterpriseRubricService
         'fake_evidence',
         'provider_call_without_approval',
         'dirty_workspace_for_claim',
+        'dirty_workspace_after_run',
+        'tracked_python_bytecode_in_workspace',
         'synthetic_score_used_as_real_claim',
     ];
 

@@ -52,6 +52,7 @@ class AtlasCodeObraCommandCenterService
 
     public function __construct(
         private readonly AtlasCodeForgeUxOrchestratorService $orchestrator,
+        private readonly ?\App\Services\Ai\SelfImprovement\AtlasSelfImprovementResultLedgerService $resultLedger = null,
     ) {}
 
     /**
@@ -86,6 +87,7 @@ class AtlasCodeObraCommandCenterService
         $trustSummary = $this->trustSummary($signals);
         $evidenceDigest = $this->evidenceDigest($project, $signals);
         $blockerSummary = $this->blockerSummary($state, $ux, $signals);
+        $selfImprovementOrigin = $this->resolveSelfImprovementOrigin($project);
 
         $status = $this->resolveStatus($state, $blockerSummary);
         [$currentPhase, $nextPhase] = $this->derivePhaseCursor($phases);
@@ -119,6 +121,7 @@ class AtlasCodeObraCommandCenterService
             'operational_health' => $operationalHealth,
             'trust_summary' => $trustSummary,
             'evidence_digest' => $evidenceDigest,
+            'self_improvement_origin' => $selfImprovementOrigin,
             'provider_summary' => (array) ($ux['provider_summary'] ?? []),
             'safety_summary' => array_merge(
                 (array) ($ux['safety_summary'] ?? []),
@@ -202,6 +205,7 @@ class AtlasCodeObraCommandCenterService
                 'system_certifications_separated' => true,
                 'note' => 'Provas desta Obra sao distintas das Certificacoes do sistema Atlas.',
             ],
+            'self_improvement_origin' => null,
             'provider_summary' => [
                 'provider' => null,
                 'model' => null,
@@ -224,6 +228,91 @@ class AtlasCodeObraCommandCenterService
             'review_gate_preserved' => true,
             'separated_from' => 'external_rivals_certification',
             'note' => 'Atlas Code Obra Command Center v1: sem Obra ativa. Bind no rail esquerdo.',
+        ];
+    }
+
+    /**
+     * Resolve the self-improvement origin block for an Obra.
+     *
+     * When the Obra was materialised through `AtlasSelfImprovementForgeActivationService::accept`,
+     * its metadata carries a `self_improvement_activation` block. This
+     * method projects that block PLUS the latest matching result entry
+     * (if any) so the Command Center can show "Esta Obra veio de
+     * Self-Improvement. Resultado medido / regressão detectada / ainda
+     * não medido."
+     *
+     * Returns `null` for manually-created Obras.
+     *
+     * @return array<string,mixed>|null
+     */
+    private function resolveSelfImprovementOrigin(AtlasProject $project): ?array
+    {
+        $metadata = is_array($project->metadata ?? null) ? $project->metadata : [];
+        $activationBlock = is_array($metadata['self_improvement_activation'] ?? null)
+            ? $metadata['self_improvement_activation']
+            : null;
+        if ($activationBlock === null) {
+            return null;
+        }
+
+        $obraId = (string) $project->getKey();
+        $proposalId = $this->stringOrNull($activationBlock['proposal_id'] ?? null);
+        $activationId = $this->stringOrNull($activationBlock['activation_id'] ?? null);
+
+        $latestEntry = null;
+        $deltaGrade = null;
+        $resultEntryId = null;
+        if ($this->resultLedger !== null) {
+            try {
+                $entries = $this->resultLedger->listForObra($obraId);
+                $latestEntry = $entries[0] ?? null;
+            } catch (\Throwable) {
+                $latestEntry = null;
+            }
+        }
+        if (is_array($latestEntry)) {
+            $deltaGrade = $this->stringOrNull($latestEntry['delta_grade'] ?? null);
+            $resultEntryId = $this->stringOrNull($latestEntry['result_entry_id'] ?? null);
+        }
+
+        $humanMessage = match (true) {
+            $deltaGrade === null => 'Esta Obra veio de Self-Improvement. Resultado ainda não medido.',
+            $deltaGrade === 'major_improvement' => 'Esta Obra veio de Self-Improvement. Major improvement medido.',
+            $deltaGrade === 'improved' => 'Esta Obra veio de Self-Improvement. Improvement medido.',
+            $deltaGrade === 'neutral' => 'Esta Obra veio de Self-Improvement. Resultado neutro — coletar mais evidência.',
+            $deltaGrade === 'regressed' => 'Esta Obra veio de Self-Improvement. Regressão detectada.',
+            $deltaGrade === 'invalid' => 'Esta Obra veio de Self-Improvement. Evidência insuficiente.',
+            default => 'Esta Obra veio de Self-Improvement.',
+        };
+
+        $measureAction = [
+            'enabled' => $latestEntry === null,
+            'label' => $latestEntry === null ? 'Medir resultado' : 'Resultado já medido',
+            'command_hint' => 'php artisan atlas:self-improvement:measure-result --proposal='
+                .($proposalId ?? '<id>')
+                .' --obra='.$obraId
+                .' --before=@before.json --after=@after.json --reviewer=<who> --reason=<why> --json --strict',
+        ];
+
+        return [
+            'schema_version' => 'atlas.code.obra_command_center_self_improvement_origin.v1',
+            'proposal_id' => $proposalId,
+            'activation_id' => $activationId,
+            'before_snapshot_hash' => $this->stringOrNull($activationBlock['power_gate_hash'] ?? null),
+            'target_capability' => $this->stringOrNull($activationBlock['target_capability'] ?? null),
+            'expected_power_gain' => $this->stringOrNull($activationBlock['expected_power_gain'] ?? null),
+            'strategy_bucket' => $this->stringOrNull($activationBlock['strategy_bucket'] ?? null),
+            'reviewer' => $this->stringOrNull($activationBlock['reviewer'] ?? null),
+            'approved_at' => $this->stringOrNull($activationBlock['approved_at'] ?? null),
+            'result_entry_id' => $resultEntryId,
+            'delta_grade' => $deltaGrade,
+            'human_message' => $humanMessage,
+            'measure_result_action' => $measureAction,
+            'external_provider_call' => false,
+            'provider_tokens_spent' => false,
+            'auto_fast_path_executed' => false,
+            'completion_claim_promoted' => false,
+            'separated_from' => 'external_rivals_certification',
         ];
     }
 

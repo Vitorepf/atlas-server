@@ -47,6 +47,19 @@ class AtlasSelfImprovementHumanTrustLedgerService
     public const OUTCOME_PROPOSAL_ACCEPTED_FOR_FORGE = 'proposal_accepted_for_forge';
     public const OUTCOME_PROPOSAL_REJECTED_FOR_FORGE = 'proposal_rejected_for_forge';
 
+    /*
+     * Self-Improvement Closed Loop Level 7 v1 outcomes — emitted by
+     * `AtlasSelfImprovementResultLedgerService::record()` after a measure-result
+     * run produces a Delta Scorecard grade. They feed `trust_band` derivation
+     * (high_trust/medium/low) per Obra and globally; they NEVER promote
+     * completion claim and NEVER call a provider.
+     */
+    public const OUTCOME_SELF_IMPROVEMENT_MAJOR_IMPROVEMENT = 'self_improvement_major_improvement';
+    public const OUTCOME_SELF_IMPROVEMENT_IMPROVED = 'self_improvement_improved';
+    public const OUTCOME_SELF_IMPROVEMENT_NEUTRAL = 'self_improvement_neutral';
+    public const OUTCOME_SELF_IMPROVEMENT_REGRESSED = 'self_improvement_regressed';
+    public const OUTCOME_SELF_IMPROVEMENT_INVALID_EVIDENCE = 'self_improvement_invalid_evidence';
+
     /** @var list<string> */
     public const KNOWN_OUTCOMES = [
         self::OUTCOME_PROPOSAL_APPROVED,
@@ -58,6 +71,11 @@ class AtlasSelfImprovementHumanTrustLedgerService
         self::OUTCOME_OVER_CONSERVATIVE_FLAGGED,
         self::OUTCOME_PROPOSAL_ACCEPTED_FOR_FORGE,
         self::OUTCOME_PROPOSAL_REJECTED_FOR_FORGE,
+        self::OUTCOME_SELF_IMPROVEMENT_MAJOR_IMPROVEMENT,
+        self::OUTCOME_SELF_IMPROVEMENT_IMPROVED,
+        self::OUTCOME_SELF_IMPROVEMENT_NEUTRAL,
+        self::OUTCOME_SELF_IMPROVEMENT_REGRESSED,
+        self::OUTCOME_SELF_IMPROVEMENT_INVALID_EVIDENCE,
     ];
 
     /**

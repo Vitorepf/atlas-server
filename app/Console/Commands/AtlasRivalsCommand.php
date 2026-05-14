@@ -3,6 +3,12 @@
 namespace App\Console\Commands;
 
 use App\Models\AtlasEngineeringBenchmarkSuite;
+use App\Services\Ai\Programming\AtlasForgeNativeRivalsDryRunService;
+use App\Services\Ai\Programming\AtlasForgeNativeRivalsPreflightService;
+use App\Services\Ai\Programming\AtlasRivalsInvalidBatteryTriageRegistry;
+use App\Services\Ai\Programming\AtlasRivalsRunOrchestrator;
+use App\Services\Ai\Programming\RivalsForgeReadinessFingerprintService;
+use App\Services\Ai\Programming\RivalsForgeRunLogStreamService;
 use App\Services\Engineering\EngineeringBenchmarkService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Artisan;
@@ -12,7 +18,7 @@ use Symfony\Component\Console\Output\BufferedOutput;
 class AtlasRivalsCommand extends Command
 {
     protected $signature = 'atlas:engineering:benchmark:rivals
-        {action=readiness : readiness, run, quick, medium, full, run-atlas, run-claude-code, prepare, report, runbook, replay, verify or triage-invalid-battery}
+        {action=readiness : readiness, preflight, dry-run, run, quick, medium, full, run-atlas, run-claude-code, prepare, report, runbook, replay, verify or triage-invalid-battery}
         {run? : Benchmark run id for replay}
         {--profile=fair-claude : Rivals benchmark profile. Only fair-claude is supported.}
         {--preset= : Battery size: quick, medium or full}
@@ -29,7 +35,8 @@ class AtlasRivalsCommand extends Command
         {--domain= : Restrict execution to a corpus domain}
         {--risk= : Restrict execution to a risk profile}
         {--curation-status= : Restrict execution to a curation status}
-        {--model=opus : Fair Claude model lock. Only opus is accepted.}
+        {--model=opus : Fair Claude model lock. Allowlist [opus, sonnet].}
+        {--baseline-model= : Claude Code baseline model lock. Defaults to --model when omitted. Allowlist [opus, sonnet].}
         {--model-policy=fixed : Fair Claude model policy. Only fixed is accepted.}
         {--test-command= : Explicit deterministic validation command}
         {--claude-code-baseline-workspace= : Separate workspace for claude-code baseline run}
@@ -50,6 +57,7 @@ class AtlasRivalsCommand extends Command
         {--run-id= : Benchmark run id for replay; alias for the positional run argument}
         {--output-dir= : Write or verify report.json, evidence.json, claim.md and manifest.json for report/readiness/verify}
         {--markdown : Print audit-ready Markdown for report/readiness}
+        {--strict : Exit non-zero when canon preflight/dry-run is blocked}
         {--json : Print machine-readable JSON}';
 
     protected $description = 'Atlas Rivals: prove Atlas outperforms Claude Code CLI on your codebase.';
@@ -69,10 +77,10 @@ class AtlasRivalsCommand extends Command
             'tier' => 'release',
             'curation_status' => 'curated',
             'max_attempts' => 1,
-            'baseline_timeout' => 1200,
-            'baseline_validation_timeout' => 300,
+            'baseline_timeout' => 300,
+            'baseline_validation_timeout' => 120,
             'gate_profile' => 'strict',
-            'estimated_time' => '10-25 min',
+            'estimated_time' => '3-8 min',
         ],
         'medium' => [
             'label' => 'medium',
@@ -133,6 +141,18 @@ class AtlasRivalsCommand extends Command
             return $this->runbook($preset);
         }
 
+        if ($action === 'preflight') {
+            return $this->canonPreflight();
+        }
+
+        if ($action === 'dry-run' || $action === 'dryrun') {
+            return $this->canonDryRun($preset);
+        }
+
+        if ($action === 'replay' || $action === 'replay-latest') {
+            return $this->canonReplay();
+        }
+
         if ($this->shouldRenderDashboard($action)) {
             $this->renderStartDashboard($benchmarks, $action, $preset);
         }
@@ -164,6 +184,7 @@ class AtlasRivalsCommand extends Command
             '--risk' => $this->stringOption('risk'),
             '--curation-status' => $this->presetStringOption('curation-status', $preset, 'curation_status'),
             '--model' => $this->stringOption('model') ?: 'opus',
+            '--baseline-model' => $this->stringOption('baseline-model'),
             '--model-policy' => $this->stringOption('model-policy') ?: 'fixed',
             '--test-command' => $this->stringOption('test-command'),
             '--claude-code-baseline-workspace' => $this->stringOption('claude-code-baseline-workspace'),
@@ -210,6 +231,9 @@ class AtlasRivalsCommand extends Command
             'q', 'quick', 'smoke' => 'run',
             'm', 'medium' => 'run',
             'f', 'full', 'complete', 'release' => 'run',
+            'pre', 'preflight-check' => 'preflight',
+            'dryrun', 'plan' => 'dry-run',
+            'replay-latest' => 'replay',
             default => $action,
         };
     }
@@ -296,6 +320,153 @@ class AtlasRivalsCommand extends Command
             && ! (bool) $this->option('no-dashboard');
     }
 
+    private function canonPreflight(): int
+    {
+        $service = app(AtlasForgeNativeRivalsPreflightService::class);
+        $packet = $service->preflight([
+            'workspace' => $this->stringOption('workspace') ?: base_path(),
+            'baseline_workspace' => $this->stringOption('claude-code-baseline-workspace'),
+            'case_id' => $this->firstCase(),
+            'suite_id' => $this->stringOption('suite') ?: 'atlas-fair-claude-v1',
+            'preset' => $this->detectPreset(),
+            'atlas_model' => $this->stringOption('model') ?: 'opus',
+            'baseline_model' => $this->stringOption('baseline-model') ?: ($this->stringOption('model') ?: 'opus'),
+            'gate_profile' => $this->stringOption('gate-profile'),
+            'test_command' => $this->stringOption('test-command'),
+            'intends_provider_battery' => (bool) $this->option('confirm-runbook-reviewed') && (bool) $this->option('confirm-provider-cost'),
+            'provider_cost_approved' => (bool) $this->option('confirm-provider-cost'),
+            'runbook_reviewed' => (bool) $this->option('confirm-runbook-reviewed'),
+        ]);
+
+        if ((bool) $this->option('json')) {
+            $this->line(json_encode($packet, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+
+            $status = (string) ($packet['status'] ?? 'blocked');
+            $ok = $status === 'ready_for_dry_run' || $status === 'ready_for_provider_battery';
+
+            return $ok ? self::SUCCESS : self::FAILURE;
+        }
+
+        $this->components->twoColumnDetail('<fg=bright-blue;options=bold>Atlas Rivals Preflight</>', (string) ($packet['status'] ?? 'unknown'));
+        $this->components->twoColumnDetail('Atlas workspace', (string) ($packet['inputs']['workspace'] ?? '-'));
+        $this->components->twoColumnDetail('Baseline workspace', (string) ($packet['inputs']['baseline_workspace'] ?? '-'));
+        $this->components->twoColumnDetail('Atlas model', (string) ($this->stringOption('model') ?: 'opus'));
+        $this->components->twoColumnDetail('Baseline model', (string) ($this->stringOption('baseline-model') ?: ($this->stringOption('model') ?: 'opus')));
+        $this->components->twoColumnDetail('Fingerprint', substr((string) data_get($packet, 'readiness_fingerprint.value', '-'), 0, 16).'...');
+        foreach ((array) ($packet['blocking_reasons'] ?? []) as $reason) {
+            $this->warn('Blocking: '.(string) $reason);
+        }
+
+        $status = (string) ($packet['status'] ?? 'blocked');
+        $ok = $status === 'ready_for_dry_run' || $status === 'ready_for_provider_battery';
+
+        return ((bool) $this->option('strict')) && ! $ok ? self::FAILURE : self::SUCCESS;
+    }
+
+    private function canonDryRun(?string $preset): int
+    {
+        $service = app(AtlasForgeNativeRivalsDryRunService::class);
+        $report = $service->dryRun([
+            'workspace' => $this->stringOption('workspace') ?: base_path(),
+            'baseline_workspace' => $this->stringOption('claude-code-baseline-workspace'),
+            'case_id' => $this->firstCase(),
+            'suite_id' => $this->stringOption('suite') ?: 'atlas-fair-claude-v1',
+            'preset' => $preset ?? $this->detectPreset(),
+            'atlas_model' => $this->stringOption('model') ?: 'opus',
+            'baseline_model' => $this->stringOption('baseline-model') ?: ($this->stringOption('model') ?: 'opus'),
+            'gate_profile' => $this->stringOption('gate-profile'),
+            'test_command' => $this->stringOption('test-command'),
+        ]);
+
+        if ((bool) $this->option('json')) {
+            $this->line(json_encode($report, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+
+            $ok = ($report['status'] ?? 'dry_run_blocked') === 'dry_run_passed';
+
+            return $ok ? self::SUCCESS : self::FAILURE;
+        }
+
+        $this->components->twoColumnDetail('<fg=bright-blue;options=bold>Atlas Rivals Dry-Run</>', (string) ($report['status'] ?? 'unknown'));
+        $this->components->twoColumnDetail('Atlas arm', 'forge / '.($this->stringOption('model') ?: 'opus'));
+        $this->components->twoColumnDetail('Replay manifest', (string) data_get($report, 'replay_manifest.state', '-'));
+        $this->components->twoColumnDetail('Fingerprint', substr((string) data_get($report, 'readiness_fingerprint.value', '-'), 0, 16).'...');
+        foreach ((array) ($report['blocking_reasons'] ?? []) as $reason) {
+            $this->warn('Blocking: '.(string) $reason);
+        }
+        $ok = ($report['status'] ?? '') === 'dry_run_passed';
+
+        return ((bool) $this->option('strict')) && ! $ok ? self::FAILURE : self::SUCCESS;
+    }
+
+    private function canonReplay(): int
+    {
+        $stream = app(RivalsForgeRunLogStreamService::class);
+        $runId = $this->stringOption('run-id') ?: $stream->latestRunId();
+        if ($runId === null) {
+            $payload = [
+                'status' => 'no_run_available',
+                'message' => 'No Rivals run logs were found under storage/app/rivals-forge-runs.',
+                'commands' => [
+                    'preflight' => 'php artisan atlas:engineering:benchmark:rivals preflight --json',
+                    'dry_run' => 'php artisan atlas:engineering:benchmark:rivals dry-run --json',
+                ],
+            ];
+            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+
+            return self::FAILURE;
+        }
+
+        $events = $stream->tail($runId);
+        $finalReport = collect($events)->last(fn (array $e): bool => ($e['kind'] ?? null) === 'final_report');
+        $payload = [
+            'schema_version' => RivalsForgeRunLogStreamService::SCHEMA_VERSION,
+            'run_id' => $runId,
+            'event_count' => count($events),
+            'kinds' => array_values(array_unique(array_map(static fn (array $e): string => (string) ($e['kind'] ?? 'unknown'), $events))),
+            'final_report' => $finalReport['payload'] ?? null,
+            'events' => $events,
+        ];
+
+        if ((bool) $this->option('json')) {
+            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+
+            return $finalReport === null ? self::FAILURE : self::SUCCESS;
+        }
+
+        $this->components->twoColumnDetail('<fg=bright-blue;options=bold>Atlas Rivals Replay</>', $runId);
+        $this->components->twoColumnDetail('Events', (string) count($events));
+        $this->components->twoColumnDetail('Verdict', (string) data_get($finalReport, 'payload.verdict', '-'));
+
+        return $finalReport === null ? self::FAILURE : self::SUCCESS;
+    }
+
+    private function firstCase(): ?string
+    {
+        $cases = (array) $this->option('case');
+        foreach ($cases as $case) {
+            if (is_string($case) && trim($case) !== '') {
+                return trim($case);
+            }
+        }
+
+        return null;
+    }
+
+    private function detectPreset(): ?string
+    {
+        if ((bool) $this->option('quick')) {
+            return 'quick';
+        }
+        if ((bool) $this->option('medium')) {
+            return 'medium';
+        }
+        if ((bool) $this->option('full')) {
+            return 'full';
+        }
+
+        return $this->stringOption('preset');
+    }
+
     private function runbook(?string $preset): int
     {
         $args = $this->forwardArgs('runbook', $preset);
@@ -374,8 +545,10 @@ class AtlasRivalsCommand extends Command
         $this->components->twoColumnDetail('Command', 'atlas rivals '.$action);
         $this->components->twoColumnDetail('Preset', $presetConfig ? (string) $presetConfig['label'] : 'custom');
         $this->components->twoColumnDetail('Estimated time', $presetConfig ? (string) $presetConfig['estimated_time'] : 'depends on filters');
-        $this->components->twoColumnDetail('Atlas arm', 'claude_cli / opus');
-        $this->components->twoColumnDetail('Baseline arm', 'Claude Code CLI / opus');
+        $atlasModel = $this->stringOption('model') ?: 'opus';
+        $baselineModel = $this->stringOption('baseline-model') ?: $atlasModel;
+        $this->components->twoColumnDetail('Atlas arm', 'Atlas Forge / '.$atlasModel);
+        $this->components->twoColumnDetail('Baseline arm', 'Claude Code CLI / '.$baselineModel);
         $this->components->twoColumnDetail('Workspace', $this->stringOption('workspace') ?: getcwd() ?: '-');
         if ($presetConfig) {
             $this->components->twoColumnDetail('Scope', $this->presetScopeLabel($preset));

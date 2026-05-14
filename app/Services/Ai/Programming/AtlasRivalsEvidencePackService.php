@@ -33,6 +33,7 @@ class AtlasRivalsEvidencePackService
     public function __construct(
         private readonly AtlasForgeNativeRivalsCaseManifestService $caseManifest,
         private readonly AtlasForgeNativeRivalsDryRunService $dryRun,
+        private readonly WorkspaceHygieneService $workspaceHygiene,
     ) {}
 
     /**
@@ -47,18 +48,33 @@ class AtlasRivalsEvidencePackService
         $testCommand = $this->stringOpt($options, 'test_command');
         $runQuality = (bool) ($options['run_quality'] ?? false);
         $qualityCommand = $this->stringOpt($options, 'quality_command');
+        $preset = $this->stringOpt($options, 'preset');
+        $testCommandOrigin = 'preset_default';
+        if ($testCommand !== null) {
+            $testCommandOrigin = 'operator_explicit';
+        }
 
         $caseManifestPacket = $this->caseManifest->manifest($caseId);
+        if ($testCommand === null && $preset !== null) {
+            $caseRecord = $caseManifestPacket['case'] ?? null;
+            $presetField = $preset === 'quick' ? 'quick_test_command' : ($preset === 'full' ? 'full_test_command' : null);
+            if ($presetField !== null && is_array($caseRecord) && isset($caseRecord[$presetField]) && is_string($caseRecord[$presetField])) {
+                $testCommand = $caseRecord[$presetField];
+                $testCommandOrigin = 'preset_default';
+            }
+        }
         $dryRunPacket = $this->dryRun->dryRun(['case_id' => $caseId, 'workspace' => $workspace]);
         $replayManifest = $dryRunPacket['replay_manifest'] ?? data_get($dryRunPacket, 'planned.replay_manifest');
         $replayManifestEvidence = $this->buildReplayManifestEvidence($replayManifest);
 
-        $workspaceState = $this->buildWorkspaceState($workspace);
+        $workspaceBeforeSnapshot = $this->workspaceHygiene->snapshot($workspace);
         $businessRule = $this->buildBusinessRule($caseManifestPacket);
         $canonicalDocs = $this->buildCanonicalDocs($workspace);
-        $patchDiff = $this->buildPatchDiff($workspace, $workspaceState);
-        $tests = $this->buildTestsEvidence($workspace, $runTests, $testCommand);
+        $tests = $this->buildTestsEvidence($workspace, $runTests, $testCommand, $testCommandOrigin);
         $qualityScan = $this->buildQualityEvidence($workspace, $runQuality, $qualityCommand);
+        $afterCleanCheck = $this->buildAfterCleanCheck($workspace, $workspaceBeforeSnapshot, $runTests || $runQuality);
+        $workspaceState = $this->buildWorkspaceState($workspace, $afterCleanCheck);
+        $patchDiff = $this->buildPatchDiff($workspace, $workspaceState);
         $acceptanceGates = $this->buildAcceptanceGates($replayManifest);
         $humanIntervention = $this->buildHumanIntervention();
         $reviewCost = $this->buildReviewCostEstimate();
@@ -119,6 +135,190 @@ class AtlasRivalsEvidencePackService
         ];
     }
 
+    /**
+     * Build an evidence pack for a real-provider run (slice F of the
+     * lockdown). Promotes the dry-run replay manifest to `state=executed`,
+     * folds in the provider receipt, timeline JSONL summary, per-arm git
+     * diffs, human intervention log and final gate results. The result is
+     * intended for `AtlasRivalsEvidencePackVerifierService::verify(..., MODE_REAL_RUN)`.
+     *
+     * @param  array<string,mixed>  $context
+     * @return array<string,mixed>
+     */
+    public function generateForRealRun(array $context): array
+    {
+        $caseId = $this->stringOpt($context, 'case_id');
+        $atlasWorkspace = $this->resolveWorkspace($context['atlas_workspace'] ?? null);
+        $baselineWorkspace = $this->resolveOptionalWorkspace($context['baseline_workspace'] ?? null);
+        $preset = $this->stringOpt($context, 'preset');
+
+        $localPack = $this->generate([
+            'case_id' => $caseId,
+            'workspace' => $atlasWorkspace,
+            'preset' => $preset,
+            'run_tests' => false,
+            'run_quality' => false,
+        ]);
+
+        $providerReceipt = $this->normalizeProviderReceipt($context['provider_receipt'] ?? null);
+        $timelineEvents = $this->normalizeTimelineEvents($context['timeline_events'] ?? null);
+        $humanIntervention = $this->normalizeHumanIntervention($context['human_intervention'] ?? null);
+        $finalGates = $this->normalizeFinalGates($context['final_gates'] ?? null);
+
+        $beforeSnapshot = is_array($context['workspace_before'] ?? null) ? $context['workspace_before'] : null;
+        $afterSnapshot = is_array($context['workspace_after'] ?? null) ? $context['workspace_after'] : null;
+        if ($beforeSnapshot === null) {
+            $beforeSnapshot = $this->workspaceHygiene->snapshot($atlasWorkspace);
+        }
+        if ($afterSnapshot === null) {
+            $afterSnapshot = $this->workspaceHygiene->dirtyAfterRun($beforeSnapshot, $atlasWorkspace);
+        }
+
+        $localPack['workspace']['before_status_hash'] = (string) ($beforeSnapshot['status_hash'] ?? '');
+        $localPack['workspace']['before_head_sha'] = $beforeSnapshot['head_sha'] ?? null;
+        $localPack['workspace']['after_clean_check'] = $afterSnapshot;
+
+        $atlasDiff = $this->buildDiffForArm($atlasWorkspace);
+        $baselineDiff = $baselineWorkspace !== null ? $this->buildDiffForArm($baselineWorkspace) : null;
+
+        $replayManifest = $localPack['replay_manifest'] ?? [];
+        if (is_array($replayManifest)) {
+            $replayManifest['state'] = 'executed';
+            $replayManifest['executed_at'] = now()->toJSON();
+            $replayManifest['provider_receipt_hash'] = $providerReceipt['stdout_hash'] ?? null;
+            $localPack['replay_manifest'] = $replayManifest;
+        }
+
+        $localPack['provider_receipt'] = $providerReceipt;
+        $localPack['timeline_events'] = $timelineEvents;
+        $localPack['human_intervention'] = $humanIntervention;
+        $localPack['final_gates'] = $finalGates;
+        $localPack['per_arm_diff'] = [
+            'atlas' => $atlasDiff,
+            'baseline' => $baselineDiff,
+        ];
+        $localPack['evaluation_mode'] = 'real_run_evaluation';
+
+        return $localPack;
+    }
+
+    /**
+     * @param  mixed  $raw
+     * @return array<string,mixed>
+     */
+    private function normalizeProviderReceipt($raw): array
+    {
+        if (! is_array($raw)) {
+            return [
+                'present' => false,
+                'reason_missing' => 'provider_receipt_not_supplied',
+            ];
+        }
+
+        return [
+            'present' => true,
+            'exit_code' => (int) ($raw['exit_code'] ?? -1),
+            'stdout_hash' => isset($raw['stdout_hash']) && is_string($raw['stdout_hash']) ? $raw['stdout_hash'] : null,
+            'stderr_hash' => isset($raw['stderr_hash']) && is_string($raw['stderr_hash']) ? $raw['stderr_hash'] : null,
+            'model' => isset($raw['model']) && is_string($raw['model']) ? $raw['model'] : null,
+            'binary_resolved' => isset($raw['binary_resolved']) && is_string($raw['binary_resolved']) ? $raw['binary_resolved'] : null,
+            'duration_ms' => isset($raw['duration_ms']) ? (int) $raw['duration_ms'] : null,
+            'source' => 'provider_process_runner',
+        ];
+    }
+
+    /**
+     * @param  mixed  $raw
+     * @return list<array<string,mixed>>
+     */
+    private function normalizeTimelineEvents($raw): array
+    {
+        if (! is_array($raw)) {
+            return [];
+        }
+        $events = [];
+        foreach ($raw as $event) {
+            if (! is_array($event)) {
+                continue;
+            }
+            $events[] = [
+                'ts' => $event['ts'] ?? null,
+                'kind' => (string) ($event['kind'] ?? 'unknown'),
+                'monotonic_ms_since_start' => $event['monotonic_ms_since_start'] ?? null,
+            ];
+        }
+
+        return $events;
+    }
+
+    /**
+     * @param  mixed  $raw
+     * @return array<string,mixed>
+     */
+    private function normalizeHumanIntervention($raw): array
+    {
+        if (! is_array($raw)) {
+            return [
+                'count' => 0,
+                'source' => 'not_supplied',
+                'log_hash' => null,
+                'reason_missing' => 'human_intervention_log_not_supplied',
+            ];
+        }
+
+        $count = (int) ($raw['count'] ?? 0);
+        $source = (string) ($raw['source'] ?? 'orchestrator_runtime');
+        $hash = isset($raw['log_hash']) && is_string($raw['log_hash']) ? $raw['log_hash'] : hash('sha256', json_encode($raw, JSON_UNESCAPED_SLASHES) ?: '');
+
+        return [
+            'count' => $count,
+            'source' => $source,
+            'log_hash' => $hash,
+            'entries' => is_array($raw['entries'] ?? null) ? $raw['entries'] : [],
+        ];
+    }
+
+    /**
+     * @param  mixed  $raw
+     * @return array<string,mixed>
+     */
+    private function normalizeFinalGates($raw): array
+    {
+        if (! is_array($raw)) {
+            return [
+                'present' => false,
+                'gates' => [],
+                'reason_missing' => 'final_gates_not_supplied',
+            ];
+        }
+
+        return [
+            'present' => true,
+            'gates' => $raw['gates'] ?? $raw,
+            'decision_reasons' => $raw['decision_reasons'] ?? [],
+            'release_gate_status' => $raw['release_gate_status'] ?? null,
+            'source' => 'paired_scorecard',
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function buildDiffForArm(string $workspace): array
+    {
+        $state = $this->workspaceHygiene->snapshot($workspace);
+        $diff = $this->runProcess(['git', 'diff', '--no-color'], $workspace);
+        $output = $diff['ok'] ? $diff['stdout'] : '';
+
+        return [
+            'is_git' => (bool) ($state['is_git'] ?? false),
+            'present' => $diff['ok'] && $output !== '',
+            'size_bytes' => strlen($output),
+            'hash' => $output !== '' ? hash('sha256', $output) : null,
+            'reason_missing' => $output === '' ? 'no_diff_in_workspace' : null,
+        ];
+    }
+
     public function defaultTestCommand(): string
     {
         return "php artisan test --filter='AtlasRivalsOneShotEnterpriseEvaluationTest|AtlasForgeNativeRivalsTest'";
@@ -146,6 +346,10 @@ class AtlasRivalsEvidencePackService
         $intervention = (array) ($pack['human_intervention'] ?? []);
         $review = (array) ($pack['review_cost_estimate'] ?? []);
 
+        $afterCleanCheck = (array) ($workspace['after_clean_check'] ?? []);
+        $afterRan = (bool) ($afterCleanCheck['ran'] ?? false);
+        $afterClean = $afterCleanCheck['clean'] ?? null;
+
         return [
             'business_rule_check' => ($pack['business_rule']['present'] ?? false) ? 'passed' : 'missing',
             'canonical_docs_required' => true,
@@ -161,6 +365,9 @@ class AtlasRivalsEvidencePackService
             'file_count_by_layer' => $this->fileCountByLayer($patch),
             'preflight_status' => data_get($pack, 'replay_manifest.valid') ? 'ready_for_dry_run' : null,
             'workspace_state_for_claim' => ($workspace['clean'] ?? false) ? 'clean' : 'dirty',
+            'workspace_after_clean_check_ran' => $afterRan,
+            'workspace_after_clean_check_clean' => $afterClean,
+            'workspace_after_clean_check' => $afterCleanCheck,
             'quality_scan_log' => ($quality['present'] ?? false) ? ($quality['passed'] === true ? 'passed' : ($quality['passed'] === false ? 'failed' : 'warnings')) : null,
             'command_signature' => '{--case=} {--json} {--strict}',
             'evidence_paths' => (array) ($pack['evidence_paths'] ?? []),
@@ -171,9 +378,10 @@ class AtlasRivalsEvidencePackService
     }
 
     /**
+     * @param  array<string,mixed>  $afterCleanCheck
      * @return array<string,mixed>
      */
-    private function buildWorkspaceState(string $workspace): array
+    private function buildWorkspaceState(string $workspace, array $afterCleanCheck): array
     {
         if (! is_dir($workspace)) {
             return [
@@ -185,6 +393,7 @@ class AtlasRivalsEvidencePackService
                 'dirty_files_sample' => [],
                 'head_sha' => null,
                 'branch' => null,
+                'after_clean_check' => $afterCleanCheck,
             ];
         }
 
@@ -200,6 +409,7 @@ class AtlasRivalsEvidencePackService
                 'dirty_files_sample' => [],
                 'head_sha' => null,
                 'branch' => null,
+                'after_clean_check' => $afterCleanCheck,
             ];
         }
 
@@ -227,7 +437,30 @@ class AtlasRivalsEvidencePackService
             'dirty_files_truncated' => $dirtyLines->count() > 20,
             'head_sha' => $headRevision['ok'] ? trim($headRevision['stdout']) : null,
             'branch' => $branch['ok'] ? trim($branch['stdout']) : null,
+            'after_clean_check' => $afterCleanCheck,
         ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $beforeSnapshot
+     * @return array<string,mixed>
+     */
+    private function buildAfterCleanCheck(string $workspace, array $beforeSnapshot, bool $ranSubprocess): array
+    {
+        if (! $ranSubprocess) {
+            return [
+                'ran' => false,
+                'clean' => null,
+                'hash_before' => (string) ($beforeSnapshot['status_hash'] ?? ''),
+                'hash_after' => null,
+                'dirty_files' => [],
+                'dirty_files_truncated' => false,
+                'head_changed' => false,
+                'reason_not_run' => 'no_subprocess_invoked_by_evidence_pack',
+            ];
+        }
+
+        return $this->workspaceHygiene->dirtyAfterRun($beforeSnapshot, $workspace);
     }
 
     /**
@@ -370,13 +603,14 @@ class AtlasRivalsEvidencePackService
     /**
      * @return array<string,mixed>
      */
-    private function buildTestsEvidence(string $workspace, bool $runTests, ?string $testCommand): array
+    private function buildTestsEvidence(string $workspace, bool $runTests, ?string $testCommand, string $commandOrigin = 'preset_default'): array
     {
         if (! $runTests) {
             return [
                 'present' => false,
                 'source' => 'not_run',
                 'command' => $testCommand ?? $this->defaultTestCommand(),
+                'command_origin' => $commandOrigin,
                 'exit_code' => null,
                 'passed' => null,
                 'log_hash' => null,
@@ -397,6 +631,7 @@ class AtlasRivalsEvidencePackService
             'present' => true,
             'source' => 'command',
             'command' => $command,
+            'command_origin' => $commandOrigin,
             'exit_code' => $result['exit_code'],
             'passed' => $passed,
             'log_hash' => hash('sha256', $output),
@@ -608,6 +843,13 @@ class AtlasRivalsEvidencePackService
         return is_string($raw) && trim((string) $raw) !== '' ? trim((string) $raw) : base_path();
     }
 
+    private function resolveOptionalWorkspace(mixed $raw): ?string
+    {
+        $trimmed = is_string($raw) ? trim((string) $raw) : '';
+
+        return $trimmed === '' ? null : $trimmed;
+    }
+
     /**
      * @param  array<string,mixed>  $options
      */
@@ -641,11 +883,13 @@ class AtlasRivalsEvidencePackService
     }
 
     /**
+     * @param  array<string,string>|null  $env
      * @return array{ok:bool,stdout:string,stderr:string,exit_code:int}
      */
-    private function runShellCommand(string $command, string $cwd, int $timeout = 600): array
+    private function runShellCommand(string $command, string $cwd, int $timeout = 600, ?array $env = null): array
     {
-        $process = Process::fromShellCommandline($command, $cwd);
+        $env ??= $this->workspaceHygiene->forceBytecodeDisabledEnv();
+        $process = Process::fromShellCommandline($command, $cwd, $env);
         $process->setTimeout($timeout);
         $process->run();
 

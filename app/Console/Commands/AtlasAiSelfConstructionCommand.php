@@ -75,6 +75,22 @@ class AtlasAiSelfConstructionCommand extends Command
         {--agent-control-plane-chain-integrity-certification-preflight : Generate the read-only Agent Control Plane Chain Integrity Certification preflight without auditing live state}
         {--agent-control-plane-chain-integrity-certification-implementation-packet : Generate the read-only Agent Control Plane Chain Integrity Certification implementation packet without auditing live state}
         {--agent-control-plane-chain-integrity-certification-status : Run the read-only Agent Control Plane Chain Integrity Certification audit and return its full diagnostic}
+        {--agent-control-plane-deterministic-chain-replay-contract : Generate the read-only Agent Control Plane Deterministic Chain Replay contract without replaying live state}
+        {--agent-control-plane-deterministic-chain-replay-preflight : Generate the read-only Agent Control Plane Deterministic Chain Replay preflight without replaying live state}
+        {--agent-control-plane-deterministic-chain-replay-implementation-packet : Generate the read-only Agent Control Plane Deterministic Chain Replay implementation packet without replaying live state}
+        {--agent-control-plane-deterministic-chain-replay-status : Run the read-only Agent Control Plane Deterministic Chain Replay and return the proof bundle and deterministic hashes}
+        {--agent-control-plane-replay-snapshot-store-contract : Generate the read-only Agent Control Plane Replay Snapshot Store contract without writing snapshots}
+        {--agent-control-plane-replay-snapshot-store-preflight : Generate the read-only Agent Control Plane Replay Snapshot Store preflight without writing snapshots}
+        {--agent-control-plane-replay-snapshot-store-implementation-packet : Generate the read-only Agent Control Plane Replay Snapshot Store implementation packet without writing snapshots}
+        {--agent-control-plane-replay-snapshot-store-status : Return the read-only Agent Control Plane Replay Snapshot Store registry status without writing snapshots}
+        {--agent-control-plane-replay-diff-contract : Generate the read-only Agent Control Plane Replay Diff contract without diffing live state}
+        {--agent-control-plane-replay-diff-preflight : Generate the read-only Agent Control Plane Replay Diff preflight without diffing live state}
+        {--agent-control-plane-replay-diff-implementation-packet : Generate the read-only Agent Control Plane Replay Diff implementation packet without diffing live state}
+        {--agent-control-plane-replay-diff-status : Run the read-only Agent Control Plane Replay Diff between the latest snapshot and a fresh replay}
+        {--agent-control-plane-macro-sprint-promotion-gate-contract : Generate the read-only Agent Control Plane Macro-Sprint Promotion Gate contract}
+        {--agent-control-plane-macro-sprint-promotion-gate-preflight : Generate the read-only Agent Control Plane Macro-Sprint Promotion Gate preflight}
+        {--agent-control-plane-macro-sprint-promotion-gate-implementation-packet : Generate the read-only Agent Control Plane Macro-Sprint Promotion Gate implementation packet}
+        {--agent-control-plane-macro-sprint-promotion-gate-status : Run the read-only Agent Control Plane Macro-Sprint Promotion Gate and return blockers/warnings/promotion_allowed}
         {--agent-run-sync : Materialize reservation ledger state into Agent Control Plane runtime runs when schema is available}
         {--agent-heartbeat : Record a heartbeat for a synced Agent Control Plane run}
         {--agent-run-liveness : Inspect synced Agent Control Plane runs for active, stale, expired and terminal liveness}
@@ -1530,6 +1546,22 @@ class AtlasAiSelfConstructionCommand extends Command
             (bool) $this->option('agent-run-liveness') => $readiness->agentRunLiveness($options),
             (bool) $this->option('agent-heartbeat') => $readiness->agentHeartbeat($options),
             (bool) $this->option('agent-run-sync') => $readiness->agentRunSync($options),
+            (bool) $this->option('agent-control-plane-macro-sprint-promotion-gate-status') => $readiness->agentControlPlaneMacroSprintPromotionGateStatus($options),
+            (bool) $this->option('agent-control-plane-macro-sprint-promotion-gate-implementation-packet') => $readiness->agentControlPlaneMacroSprintPromotionGateImplementationPacket($options),
+            (bool) $this->option('agent-control-plane-macro-sprint-promotion-gate-preflight') => $readiness->agentControlPlaneMacroSprintPromotionGatePreflight($options),
+            (bool) $this->option('agent-control-plane-macro-sprint-promotion-gate-contract') => $readiness->agentControlPlaneMacroSprintPromotionGateContract($options),
+            (bool) $this->option('agent-control-plane-replay-diff-status') => $readiness->agentControlPlaneReplayDiffStatus($options),
+            (bool) $this->option('agent-control-plane-replay-diff-implementation-packet') => $readiness->agentControlPlaneReplayDiffImplementationPacket($options),
+            (bool) $this->option('agent-control-plane-replay-diff-preflight') => $readiness->agentControlPlaneReplayDiffPreflight($options),
+            (bool) $this->option('agent-control-plane-replay-diff-contract') => $readiness->agentControlPlaneReplayDiffContract($options),
+            (bool) $this->option('agent-control-plane-replay-snapshot-store-status') => $readiness->agentControlPlaneReplaySnapshotStoreStatus($options),
+            (bool) $this->option('agent-control-plane-replay-snapshot-store-implementation-packet') => $readiness->agentControlPlaneReplaySnapshotStoreImplementationPacket($options),
+            (bool) $this->option('agent-control-plane-replay-snapshot-store-preflight') => $readiness->agentControlPlaneReplaySnapshotStorePreflight($options),
+            (bool) $this->option('agent-control-plane-replay-snapshot-store-contract') => $readiness->agentControlPlaneReplaySnapshotStoreContract($options),
+            (bool) $this->option('agent-control-plane-deterministic-chain-replay-status') => $readiness->agentControlPlaneDeterministicChainReplayStatus($options),
+            (bool) $this->option('agent-control-plane-deterministic-chain-replay-implementation-packet') => $readiness->agentControlPlaneDeterministicChainReplayImplementationPacket($options),
+            (bool) $this->option('agent-control-plane-deterministic-chain-replay-preflight') => $readiness->agentControlPlaneDeterministicChainReplayPreflight($options),
+            (bool) $this->option('agent-control-plane-deterministic-chain-replay-contract') => $readiness->agentControlPlaneDeterministicChainReplayContract($options),
             (bool) $this->option('agent-control-plane-chain-integrity-certification-status') => $readiness->agentControlPlaneChainIntegrityCertificationStatus($options),
             (bool) $this->option('agent-control-plane-chain-integrity-certification-implementation-packet') => $readiness->agentControlPlaneChainIntegrityCertificationImplementationPacket($options),
             (bool) $this->option('agent-control-plane-chain-integrity-certification-preflight') => $readiness->agentControlPlaneChainIntegrityCertificationPreflight($options),
@@ -5681,6 +5713,231 @@ class AtlasAiSelfConstructionCommand extends Command
             $this->components->twoColumnDetail('Expected next required slice', (string) data_get($payload, 'agent_control_plane_chain_integrity_certification_status.expected_next_required_slice'));
             $this->components->twoColumnDetail('Next action', (string) data_get($payload, 'agent_control_plane_chain_integrity_certification_status.next_action'));
             $this->components->twoColumnDetail('Audit hash', (string) data_get($payload, 'agent_control_plane_chain_integrity_certification_status.audit_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-control-plane-deterministic-chain-replay-contract')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Replay version', (string) data_get($payload, 'agent_control_plane_deterministic_chain_replay_contract.replay_version'));
+            $this->components->twoColumnDetail('Replay service', (string) data_get($payload, 'agent_control_plane_deterministic_chain_replay_contract.replay_service'));
+            $this->components->twoColumnDetail('Next required slice', (string) data_get($payload, 'agent_control_plane_deterministic_chain_replay_contract.next_required_slice'));
+            $this->components->twoColumnDetail('Contract hash', (string) data_get($payload, 'agent_control_plane_deterministic_chain_replay_contract_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-control-plane-deterministic-chain-replay-preflight')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Status', (string) data_get($payload, 'agent_control_plane_deterministic_chain_replay_preflight.status'));
+            $this->components->twoColumnDetail('Blocking count', (string) data_get($payload, 'agent_control_plane_deterministic_chain_replay_preflight.blocking_count'));
+            $this->components->twoColumnDetail('Next required slice', (string) data_get($payload, 'agent_control_plane_deterministic_chain_replay_preflight.next_required_slice'));
+            $this->components->twoColumnDetail('Preflight hash', (string) data_get($payload, 'agent_control_plane_deterministic_chain_replay_preflight_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-control-plane-deterministic-chain-replay-implementation-packet')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Packet ID', (string) data_get($payload, 'agent_control_plane_deterministic_chain_replay_implementation_packet.packet_id'));
+            $this->components->twoColumnDetail('Allowed files', (string) count((array) data_get($payload, 'agent_control_plane_deterministic_chain_replay_implementation_packet.allowed_files', [])));
+            $this->components->twoColumnDetail('Acceptance criteria', (string) count((array) data_get($payload, 'agent_control_plane_deterministic_chain_replay_implementation_packet.acceptance_criteria', [])));
+            $this->components->twoColumnDetail('Next required slice', (string) data_get($payload, 'agent_control_plane_deterministic_chain_replay_implementation_packet.next_required_slice'));
+            $this->components->twoColumnDetail('Packet hash', (string) data_get($payload, 'agent_control_plane_deterministic_chain_replay_implementation_packet_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-control-plane-deterministic-chain-replay-status')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Status', (string) data_get($payload, 'agent_control_plane_deterministic_chain_replay_status.status'));
+            $this->components->twoColumnDetail('Replayed slices', (string) data_get($payload, 'agent_control_plane_deterministic_chain_replay_status.replayed_slice_count'));
+            $this->components->twoColumnDetail('Replayed edges', (string) data_get($payload, 'agent_control_plane_deterministic_chain_replay_status.replayed_edge_count'));
+            $this->components->twoColumnDetail('Violations', (string) data_get($payload, 'agent_control_plane_deterministic_chain_replay_status.violation_count'));
+            $this->components->twoColumnDetail('Warnings', (string) data_get($payload, 'agent_control_plane_deterministic_chain_replay_status.warning_count'));
+            $this->components->twoColumnDetail('Invariants all true', data_get($payload, 'agent_control_plane_deterministic_chain_replay_status.invariants_all_true') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Runtime safety all false', data_get($payload, 'agent_control_plane_deterministic_chain_replay_status.runtime_safety_all_false') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Current pointer', (string) data_get($payload, 'agent_control_plane_deterministic_chain_replay_status.current_pointer'));
+            $this->components->twoColumnDetail('Next safe macro batch', (string) data_get($payload, 'agent_control_plane_deterministic_chain_replay_status.next_safe_macro_batch'));
+            $this->components->twoColumnDetail('Replay hash', (string) data_get($payload, 'agent_control_plane_deterministic_chain_replay_status.replay_hash'));
+            $this->components->twoColumnDetail('Deterministic hash', (string) data_get($payload, 'agent_control_plane_deterministic_chain_replay_status.deterministic_replay_hash'));
+            $this->components->twoColumnDetail('Proof bundle hash', (string) data_get($payload, 'agent_control_plane_deterministic_chain_replay_status.proof_bundle_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-control-plane-replay-snapshot-store-contract')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Status', (string) data_get($payload, 'agent_control_plane_replay_snapshot_store_contract.status'));
+            $this->components->twoColumnDetail('Schema', (string) data_get($payload, 'agent_control_plane_replay_snapshot_store_contract.snapshot_schema_version'));
+            $this->components->twoColumnDetail('Store class', (string) data_get($payload, 'agent_control_plane_replay_snapshot_store_contract.snapshot_store_class'));
+            $this->components->twoColumnDetail('Storage prefix', (string) data_get($payload, 'agent_control_plane_replay_snapshot_store_contract.storage_prefix'));
+            $this->components->twoColumnDetail('Keep default', (string) data_get($payload, 'agent_control_plane_replay_snapshot_store_contract.keep_default'));
+            $this->components->twoColumnDetail('Next required slice', (string) data_get($payload, 'agent_control_plane_replay_snapshot_store_contract.next_required_slice'));
+            $this->components->twoColumnDetail('Contract hash', (string) data_get($payload, 'agent_control_plane_replay_snapshot_store_contract_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-control-plane-replay-snapshot-store-preflight')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Status', (string) data_get($payload, 'agent_control_plane_replay_snapshot_store_preflight.status'));
+            $this->components->twoColumnDetail('Blocking count', (string) data_get($payload, 'agent_control_plane_replay_snapshot_store_preflight.blocking_count'));
+            $this->components->twoColumnDetail('Next required slice', (string) data_get($payload, 'agent_control_plane_replay_snapshot_store_preflight.next_required_slice'));
+            $this->components->twoColumnDetail('Preflight hash', (string) data_get($payload, 'agent_control_plane_replay_snapshot_store_preflight_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-control-plane-replay-snapshot-store-implementation-packet')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Status', (string) data_get($payload, 'agent_control_plane_replay_snapshot_store_implementation_packet.status'));
+            $this->components->twoColumnDetail('Packet ID', (string) data_get($payload, 'agent_control_plane_replay_snapshot_store_implementation_packet.packet_id'));
+            $this->components->twoColumnDetail('Allowed files', (string) count((array) data_get($payload, 'agent_control_plane_replay_snapshot_store_implementation_packet.allowed_files', [])));
+            $this->components->twoColumnDetail('Acceptance criteria', (string) count((array) data_get($payload, 'agent_control_plane_replay_snapshot_store_implementation_packet.acceptance_criteria', [])));
+            $this->components->twoColumnDetail('Next required slice', (string) data_get($payload, 'agent_control_plane_replay_snapshot_store_implementation_packet.next_required_slice'));
+            $this->components->twoColumnDetail('Packet hash', (string) data_get($payload, 'agent_control_plane_replay_snapshot_store_implementation_packet_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-control-plane-replay-snapshot-store-status')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Status', (string) data_get($payload, 'agent_control_plane_replay_snapshot_store_status.status'));
+            $this->components->twoColumnDetail('Entry count', (string) data_get($payload, 'agent_control_plane_replay_snapshot_store_status.entry_count'));
+            $this->components->twoColumnDetail('Latest snapshot', (string) data_get($payload, 'agent_control_plane_replay_snapshot_store_status.latest_snapshot_id'));
+            $this->components->twoColumnDetail('Latest deterministic hash', (string) data_get($payload, 'agent_control_plane_replay_snapshot_store_status.latest_deterministic_replay_hash'));
+            $this->components->twoColumnDetail('Latest pointer', (string) data_get($payload, 'agent_control_plane_replay_snapshot_store_status.latest_current_pointer'));
+            $this->components->twoColumnDetail('Status hash', (string) data_get($payload, 'agent_control_plane_replay_snapshot_store_status_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-control-plane-replay-diff-contract')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Status', (string) data_get($payload, 'agent_control_plane_replay_diff_contract.status'));
+            $this->components->twoColumnDetail('Schema', (string) data_get($payload, 'agent_control_plane_replay_diff_contract.diff_schema_version'));
+            $this->components->twoColumnDetail('Diff service', (string) data_get($payload, 'agent_control_plane_replay_diff_contract.diff_service_class'));
+            $this->components->twoColumnDetail('Next required slice', (string) data_get($payload, 'agent_control_plane_replay_diff_contract.next_required_slice'));
+            $this->components->twoColumnDetail('Contract hash', (string) data_get($payload, 'agent_control_plane_replay_diff_contract_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-control-plane-replay-diff-preflight')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Status', (string) data_get($payload, 'agent_control_plane_replay_diff_preflight.status'));
+            $this->components->twoColumnDetail('Blocking count', (string) data_get($payload, 'agent_control_plane_replay_diff_preflight.blocking_count'));
+            $this->components->twoColumnDetail('Next required slice', (string) data_get($payload, 'agent_control_plane_replay_diff_preflight.next_required_slice'));
+            $this->components->twoColumnDetail('Preflight hash', (string) data_get($payload, 'agent_control_plane_replay_diff_preflight_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-control-plane-replay-diff-implementation-packet')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Status', (string) data_get($payload, 'agent_control_plane_replay_diff_implementation_packet.status'));
+            $this->components->twoColumnDetail('Packet ID', (string) data_get($payload, 'agent_control_plane_replay_diff_implementation_packet.packet_id'));
+            $this->components->twoColumnDetail('Allowed files', (string) count((array) data_get($payload, 'agent_control_plane_replay_diff_implementation_packet.allowed_files', [])));
+            $this->components->twoColumnDetail('Acceptance criteria', (string) count((array) data_get($payload, 'agent_control_plane_replay_diff_implementation_packet.acceptance_criteria', [])));
+            $this->components->twoColumnDetail('Next required slice', (string) data_get($payload, 'agent_control_plane_replay_diff_implementation_packet.next_required_slice'));
+            $this->components->twoColumnDetail('Packet hash', (string) data_get($payload, 'agent_control_plane_replay_diff_implementation_packet_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-control-plane-replay-diff-status')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Status', (string) data_get($payload, 'agent_control_plane_replay_diff_status.status'));
+            $this->components->twoColumnDetail('Changed', data_get($payload, 'agent_control_plane_replay_diff_status.changed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Regressions', (string) data_get($payload, 'agent_control_plane_replay_diff_status.regression_count'));
+            $this->components->twoColumnDetail('Improvements', (string) data_get($payload, 'agent_control_plane_replay_diff_status.improvement_count'));
+            $this->components->twoColumnDetail('Before deterministic hash', (string) data_get($payload, 'agent_control_plane_replay_diff_status.before_deterministic_replay_hash'));
+            $this->components->twoColumnDetail('After deterministic hash', (string) data_get($payload, 'agent_control_plane_replay_diff_status.after_deterministic_replay_hash'));
+            $this->components->twoColumnDetail('Diff hash', (string) data_get($payload, 'agent_control_plane_replay_diff_status.diff_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-control-plane-macro-sprint-promotion-gate-contract')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Status', (string) data_get($payload, 'agent_control_plane_macro_sprint_promotion_gate_contract.status'));
+            $this->components->twoColumnDetail('Schema', (string) data_get($payload, 'agent_control_plane_macro_sprint_promotion_gate_contract.gate_schema_version'));
+            $this->components->twoColumnDetail('Gate service', (string) data_get($payload, 'agent_control_plane_macro_sprint_promotion_gate_contract.gate_service_class'));
+            $this->components->twoColumnDetail('Next required slice', (string) data_get($payload, 'agent_control_plane_macro_sprint_promotion_gate_contract.next_required_slice'));
+            $this->components->twoColumnDetail('Contract hash', (string) data_get($payload, 'agent_control_plane_macro_sprint_promotion_gate_contract_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-control-plane-macro-sprint-promotion-gate-preflight')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Status', (string) data_get($payload, 'agent_control_plane_macro_sprint_promotion_gate_preflight.status'));
+            $this->components->twoColumnDetail('Blocking count', (string) data_get($payload, 'agent_control_plane_macro_sprint_promotion_gate_preflight.blocking_count'));
+            $this->components->twoColumnDetail('Next required slice', (string) data_get($payload, 'agent_control_plane_macro_sprint_promotion_gate_preflight.next_required_slice'));
+            $this->components->twoColumnDetail('Preflight hash', (string) data_get($payload, 'agent_control_plane_macro_sprint_promotion_gate_preflight_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-control-plane-macro-sprint-promotion-gate-implementation-packet')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Status', (string) data_get($payload, 'agent_control_plane_macro_sprint_promotion_gate_implementation_packet.status'));
+            $this->components->twoColumnDetail('Packet ID', (string) data_get($payload, 'agent_control_plane_macro_sprint_promotion_gate_implementation_packet.packet_id'));
+            $this->components->twoColumnDetail('Allowed files', (string) count((array) data_get($payload, 'agent_control_plane_macro_sprint_promotion_gate_implementation_packet.allowed_files', [])));
+            $this->components->twoColumnDetail('Acceptance criteria', (string) count((array) data_get($payload, 'agent_control_plane_macro_sprint_promotion_gate_implementation_packet.acceptance_criteria', [])));
+            $this->components->twoColumnDetail('Next required slice', (string) data_get($payload, 'agent_control_plane_macro_sprint_promotion_gate_implementation_packet.next_required_slice'));
+            $this->components->twoColumnDetail('Packet hash', (string) data_get($payload, 'agent_control_plane_macro_sprint_promotion_gate_implementation_packet_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-control-plane-macro-sprint-promotion-gate-status')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Status', (string) data_get($payload, 'agent_control_plane_macro_sprint_promotion_gate_status.status'));
+            $this->components->twoColumnDetail('Promotion allowed', data_get($payload, 'agent_control_plane_macro_sprint_promotion_gate_status.promotion_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Completion claim allowed', data_get($payload, 'agent_control_plane_macro_sprint_promotion_gate_status.completion_claim_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Runtime execution allowed', data_get($payload, 'agent_control_plane_macro_sprint_promotion_gate_status.runtime_execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Blocker count', (string) data_get($payload, 'agent_control_plane_macro_sprint_promotion_gate_status.blocker_count'));
+            $this->components->twoColumnDetail('Warning count', (string) data_get($payload, 'agent_control_plane_macro_sprint_promotion_gate_status.warning_count'));
+            $this->components->twoColumnDetail('Next action', (string) data_get($payload, 'agent_control_plane_macro_sprint_promotion_gate_status.next_action'));
+            $this->components->twoColumnDetail('Gate hash', (string) data_get($payload, 'agent_control_plane_macro_sprint_promotion_gate_status.gate_hash'));
             $this->newLine();
             $this->line((string) $payload['human_summary']);
 

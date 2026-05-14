@@ -123,6 +123,32 @@ final class AgentControlPlaneChainIntegrityAuditService
             $warnings[] = $warning;
         }
 
+        $postStartEvidenceCorridor = $this->postStartEvidenceCorridor($sliceReports, $currentNextRequiredSlice);
+        foreach ($postStartEvidenceCorridor['violations'] as $violation) {
+            $violations[] = $violation;
+        }
+        $providerToRuntimeCorridor = $this->providerToRuntimeCorridor($sliceReports, $currentNextRequiredSlice);
+        foreach ($providerToRuntimeCorridor['violations'] as $violation) {
+            $violations[] = $violation;
+        }
+        $providerRuntimePreflightMatrix = $this->providerRuntimePreflightMatrix($sliceReports);
+        $implementationToOperatorHandoffCorridor = $this->implementationToOperatorHandoffCorridor($sliceReports, $currentNextRequiredSlice);
+        foreach ($implementationToOperatorHandoffCorridor['violations'] as $violation) {
+            $violations[] = $violation;
+        }
+        $cycleIntegrity = $this->cycleIntegrity($deepChain, $currentNextRequiredSlice);
+        foreach ($cycleIntegrity['cycle_violations'] as $violation) {
+            $violations[] = $violation;
+        }
+        foreach ($cycleIntegrity['cycle_warnings'] as $warning) {
+            $warnings[] = $warning;
+        }
+        $terminalHorizonAnalysis = $this->terminalHorizonAnalysis(
+            $deepChain,
+            $currentNextRequiredSlice,
+            $cycleIntegrity,
+        );
+
         if ($capabilitySurface['duplicate_count'] > 0) {
             $violations[] = [
                 'code' => 'capability_surface_has_duplicates',
@@ -201,6 +227,46 @@ final class AgentControlPlaneChainIntegrityAuditService
             'readiness_surface' => $readinessSurface,
             'invoker_surface' => $invokerSurface,
             'test_surface' => $testSurface,
+            'chain_coverage' => $chainCoverage,
+            'shallow_chain' => $shallowReports['slices'] ?? [],
+            'per_slice_next_edge' => $regressionMatrix['edges'],
+            'broken_edges' => $regressionMatrix['broken_edges'],
+            'duplicate_doc_bullets' => (array) ($documentation['duplicate_slice_bullets'] ?? []),
+            'cli_option_gaps' => $cliOptionGaps,
+            'capability_gaps' => $capabilityGaps,
+            'invoker_gaps' => $invokerGaps,
+            'readiness_gaps' => $readinessGaps,
+            'runtime_safety_gaps' => $runtimeSafetyGaps,
+            'post_start_evidence_corridor' => $postStartEvidenceCorridor,
+            'evidence_to_dispatch_chain_ok' => $postStartEvidenceCorridor['evidence_to_dispatch_chain_ok'],
+            'dispatch_authorization_chain_ok' => $postStartEvidenceCorridor['dispatch_authorization_chain_ok'],
+            'receipt_use_chain_ok' => $postStartEvidenceCorridor['receipt_use_chain_ok'],
+            'post_start_provider_start_driver_ready_next' => $postStartEvidenceCorridor['post_start_provider_start_driver_ready_next'],
+            'provider_to_runtime_corridor' => $providerToRuntimeCorridor,
+            'provider_to_runtime_chain_ok' => $providerToRuntimeCorridor['provider_to_runtime_chain_ok'],
+            'adapter_boundary_chain_ok' => $providerToRuntimeCorridor['adapter_boundary_chain_ok'],
+            'provider_execution_contract_chain_ok' => $providerToRuntimeCorridor['provider_execution_contract_chain_ok'],
+            'process_start_release_chain_ok' => $providerToRuntimeCorridor['process_start_release_chain_ok'],
+            'supervised_spawn_chain_ok' => $providerToRuntimeCorridor['supervised_spawn_chain_ok'],
+            'external_runtime_chain_ok' => $providerToRuntimeCorridor['external_runtime_chain_ok'],
+            'invocation_authorization_chain_ok' => $providerToRuntimeCorridor['invocation_authorization_chain_ok'],
+            'dry_run_to_release_preflight_chain_ok' => $providerToRuntimeCorridor['dry_run_to_release_preflight_chain_ok'],
+            'signed_real_release_ready_next' => $providerToRuntimeCorridor['signed_real_release_ready_next'],
+            'provider_runtime_preflight_matrix' => $providerRuntimePreflightMatrix,
+            'implementation_to_operator_handoff_corridor' => $implementationToOperatorHandoffCorridor,
+            'implementation_boundary_chain_ok' => $implementationToOperatorHandoffCorridor['implementation_boundary_chain_ok'],
+            'executor_plan_chain_ok' => $implementationToOperatorHandoffCorridor['executor_plan_chain_ok'],
+            'executor_release_chain_ok' => $implementationToOperatorHandoffCorridor['executor_release_chain_ok'],
+            'executor_enablement_chain_ok' => $implementationToOperatorHandoffCorridor['executor_enablement_chain_ok'],
+            'supervised_activation_chain_ok' => $implementationToOperatorHandoffCorridor['supervised_activation_chain_ok'],
+            'guarded_start_chain_ok' => $implementationToOperatorHandoffCorridor['guarded_start_chain_ok'],
+            'final_authorization_chain_ok' => $implementationToOperatorHandoffCorridor['final_authorization_chain_ok'],
+            'rehearsal_to_envelope_chain_ok' => $implementationToOperatorHandoffCorridor['rehearsal_to_envelope_chain_ok'],
+            'start_execution_to_readiness_chain_ok' => $implementationToOperatorHandoffCorridor['start_execution_to_readiness_chain_ok'],
+            'manual_start_to_operator_handoff_chain_ok' => $implementationToOperatorHandoffCorridor['manual_start_to_operator_handoff_chain_ok'],
+            'operator_handoff_reentry_ready' => $implementationToOperatorHandoffCorridor['operator_handoff_reentry_ready'],
+            'cycle_integrity' => $cycleIntegrity,
+            'terminal_horizon_analysis' => $terminalHorizonAnalysis,
             'next_action' => $nextAction,
             'non_execution_guarantees' => [
                 'audit_does_not_start_codex',
@@ -367,6 +433,146 @@ final class AgentControlPlaneChainIntegrityAuditService
                 prepareMethod: 'prepareCodexRealInvokerPostStartOperatorStartHandoff',
                 docBullet: 'post-start operator start handoff',
             ),
+            $this->deepChainEntry(
+                sliceKey: 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_receipt_contract',
+                methodPrefix: 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartReceiptContract',
+                invokerClass: 'AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartReceiptContractInvoker',
+                prepareMethod: 'buildCodexRealInvokerPostStartReceiptContract',
+                docBullet: 'post-start receipt contract',
+            ),
+            $this->deepChainEntry(
+                sliceKey: 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_evidence_receipt',
+                methodPrefix: 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartEvidenceReceipt',
+                invokerClass: 'AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartEvidenceReceiptInvoker',
+                prepareMethod: 'writeCodexRealInvokerPostStartEvidenceReceipt',
+                docBullet: 'post-start evidence receipt',
+            ),
+            $this->deepChainEntry(
+                sliceKey: 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_evidence_acceptance_bridge',
+                methodPrefix: 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartEvidenceAcceptanceBridge',
+                invokerClass: 'AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartEvidenceAcceptanceBridgeInvoker',
+                prepareMethod: 'acceptCodexRealInvokerPostStartEvidence',
+                docBullet: 'post-start evidence acceptance bridge',
+            ),
+            $this->deepChainEntry(
+                sliceKey: 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_liveness_monitor',
+                methodPrefix: 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartLivenessMonitor',
+                invokerClass: 'AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartLivenessMonitorInvoker',
+                prepareMethod: 'recordCodexRealInvokerPostStartLiveness',
+                docBullet: 'post-start liveness monitor',
+            ),
+            $this->deepChainEntry(
+                sliceKey: 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_dispatch_release_gate',
+                methodPrefix: 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartDispatchReleaseGate',
+                invokerClass: 'AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartDispatchReleaseGateInvoker',
+                prepareMethod: 'prepareCodexRealInvokerPostStartDispatchRelease',
+                docBullet: 'post-start dispatch release gate',
+            ),
+            $this->deepChainEntry(
+                sliceKey: 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_signed_dispatch_authorization_gate',
+                methodPrefix: 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartSignedDispatchAuthorizationGate',
+                invokerClass: 'AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartSignedDispatchAuthorizationGateInvoker',
+                prepareMethod: 'authorizeCodexRealInvokerPostStartSignedDispatch',
+                docBullet: 'post-start signed dispatch authorization gate',
+            ),
+            $this->deepChainEntry(
+                sliceKey: 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_dispatch_executor_handoff',
+                methodPrefix: 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartDispatchExecutorHandoff',
+                invokerClass: 'AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartDispatchExecutorHandoffInvoker',
+                prepareMethod: 'prepareCodexRealInvokerPostStartDispatchExecutorHandoff',
+                docBullet: 'post-start dispatch executor handoff',
+            ),
+            $this->deepChainEntry(
+                sliceKey: 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_dispatch_receipt_use_executor',
+                methodPrefix: 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartDispatchReceiptUseExecutor',
+                invokerClass: 'AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartDispatchReceiptUseExecutorInvoker',
+                prepareMethod: 'executeCodexRealInvokerPostStartDispatchReceiptUse',
+                docBullet: 'post-start dispatch receipt-use executor',
+            ),
+            $this->deepChainEntry(
+                sliceKey: 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_provider_start_driver_gate',
+                methodPrefix: 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProviderStartDriverGate',
+                invokerClass: 'AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProviderStartDriverGateInvoker',
+                prepareMethod: 'prepareCodexRealInvokerPostStartProviderStartDriverGate',
+                docBullet: 'post-start provider start driver gate',
+            ),
+            $this->deepChainEntry(
+                sliceKey: 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_adapter_invocation_boundary_gate',
+                methodPrefix: 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartAdapterInvocationBoundaryGate',
+                invokerClass: 'AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartAdapterInvocationBoundaryGateInvoker',
+                prepareMethod: 'prepareCodexRealInvokerPostStartAdapterInvocationBoundaryGate',
+                docBullet: 'post-start adapter invocation boundary gate',
+            ),
+            $this->deepChainEntry(
+                sliceKey: 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_adapter_execution_guard_gate',
+                methodPrefix: 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartAdapterExecutionGuardGate',
+                invokerClass: 'AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartAdapterExecutionGuardGateInvoker',
+                prepareMethod: 'blockCodexRealInvokerPostStartAdapterExecutionGuardGate',
+                docBullet: 'post-start adapter execution guard gate',
+            ),
+            $this->deepChainEntry(
+                sliceKey: 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_provider_execution_contract_gate',
+                methodPrefix: 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProviderExecutionContractGate',
+                invokerClass: 'AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProviderExecutionContractGateInvoker',
+                prepareMethod: 'prepareCodexRealInvokerPostStartProviderExecutionContractGate',
+                docBullet: 'post-start provider execution contract gate',
+            ),
+            $this->deepChainEntry(
+                sliceKey: 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_start_release_gate',
+                methodPrefix: 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProcessStartReleaseGate',
+                invokerClass: 'AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProcessStartReleaseGateInvoker',
+                prepareMethod: 'authorizeCodexRealInvokerPostStartProcessStartReleaseGate',
+                docBullet: 'post-start process start release gate',
+            ),
+            $this->deepChainEntry(
+                sliceKey: 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_supervised_start_executor_gate',
+                methodPrefix: 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartSupervisedStartExecutorGate',
+                invokerClass: 'AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartSupervisedStartExecutorGateInvoker',
+                prepareMethod: 'prepareCodexRealInvokerPostStartSupervisedStartExecutorGate',
+                docBullet: 'post-start supervised start executor gate',
+            ),
+            $this->deepChainEntry(
+                sliceKey: 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_spawn_enablement_gate',
+                methodPrefix: 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProcessSpawnEnablementGate',
+                invokerClass: 'AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProcessSpawnEnablementGateInvoker',
+                prepareMethod: 'enableCodexRealInvokerPostStartProcessSpawnEnablementGate',
+                docBullet: 'post-start process spawn enablement gate',
+            ),
+            $this->deepChainEntry(
+                sliceKey: 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_final_process_spawn_executor_gate',
+                methodPrefix: 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartFinalProcessSpawnExecutorGate',
+                invokerClass: 'AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartFinalProcessSpawnExecutorGateInvoker',
+                prepareMethod: 'prepareCodexRealInvokerPostStartFinalProcessSpawnExecutorGate',
+                docBullet: 'post-start final process spawn executor gate',
+            ),
+            $this->deepChainEntry(
+                sliceKey: 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_external_process_runtime_gate',
+                methodPrefix: 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartExternalProcessRuntimeGate',
+                invokerClass: 'AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartExternalProcessRuntimeGateInvoker',
+                prepareMethod: 'prepareCodexRealInvokerPostStartExternalProcessRuntimeGate',
+                docBullet: 'post-start external process runtime gate',
+            ),
+            $this->deepChainEntry(
+                sliceKey: 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_invocation_authorization_gate',
+                methodPrefix: 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProcessInvocationAuthorizationGate',
+                invokerClass: 'AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProcessInvocationAuthorizationGateInvoker',
+                prepareMethod: 'authorizeCodexRealInvokerPostStartProcessInvocationAuthorizationGate',
+                docBullet: 'post-start process invocation authorization gate',
+            ),
+            $this->deepChainEntry(
+                sliceKey: 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_external_process_invoker_dry_run_gate',
+                methodPrefix: 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartExternalProcessInvokerDryRunGate',
+                invokerClass: 'AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartExternalProcessInvokerDryRunGateInvoker',
+                prepareMethod: 'prepareCodexRealInvokerPostStartExternalProcessInvokerDryRunGate',
+                docBullet: 'post-start external process invoker dry-run gate',
+            ),
+            $this->deepChainEntry(
+                sliceKey: 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_real_invoker_release_preflight_gate',
+                methodPrefix: 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartRealInvokerReleasePreflightGate',
+                invokerClass: 'AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartRealInvokerReleasePreflightGateInvoker',
+                prepareMethod: 'recordCodexRealInvokerPostStartRealInvokerReleasePreflightGate',
+                docBullet: 'post-start real invoker release preflight gate',
+            ),
         ];
     }
 
@@ -375,14 +581,27 @@ final class AgentControlPlaneChainIntegrityAuditService
      */
     private function deepChainEntry(string $sliceKey, string $methodPrefix, string $invokerClass, string $prepareMethod, string $docBullet): array
     {
+        // Some slice families have a base name that already ends in `_contract`
+        // (e.g. `post_start_receipt_contract`); for those the contract activate
+        // key, capability and method are spelled without a redundant `_contract`
+        // suffix. The audit detects that case and aligns its expectations so
+        // it does not generate false-positive violations.
+        $endsInContract = str_ends_with($sliceKey, '_contract');
+        $contractSuffix = $endsInContract ? '' : '_contract';
+
         return [
             'slice_key' => $sliceKey,
             'method_prefix' => $methodPrefix,
             'invoker_class' => 'App\\Services\\Ai\\SelfConstruction\\'.$invokerClass,
             'prepare_method' => $prepareMethod,
             'doc_bullet' => $docBullet,
-            'activate_key' => 'activate_signed_one_shot_scheduler_tick_'.preg_replace('/^automatic_dispatch_scheduler_one_shot_tick_/', '', $sliceKey).'_contract',
-            'runtime_key' => 'automatic_dispatch_scheduler_codex_real_invoker_'.$this->stripDispatchPrefix($sliceKey).'_contract_runtime',
+            'activate_key' => 'activate_signed_one_shot_scheduler_tick_'.preg_replace('/^automatic_dispatch_scheduler_one_shot_tick_/', '', $sliceKey).$contractSuffix,
+            'runtime_key' => 'automatic_dispatch_scheduler_codex_real_invoker_'.$this->stripDispatchPrefix($sliceKey).$contractSuffix.'_runtime',
+            'contract_capability_key' => $sliceKey.$contractSuffix,
+            'preflight_capability_key' => $sliceKey.'_preflight',
+            'implementation_packet_capability_key' => $sliceKey.'_implementation_packet',
+            'invoker_service_capability_key' => $sliceKey.'_invoker_service',
+            'status_projection_capability_key' => $sliceKey.'_status_projection',
         ];
     }
 
@@ -436,20 +655,26 @@ final class AgentControlPlaneChainIntegrityAuditService
      */
     private function auditSlice(array $slice, array $currentCapability): array
     {
+        $contractMethodCandidate = $slice['method_prefix'] !== ''
+            ? (method_exists($this->readiness, $slice['method_prefix'].'Contract')
+                ? $slice['method_prefix'].'Contract'
+                : (str_ends_with($slice['method_prefix'], 'Contract') && method_exists($this->readiness, $slice['method_prefix'])
+                    ? $slice['method_prefix']
+                    : ''))
+            : '';
         $checks = [
-            'contract_method_exists' => $slice['method_prefix'] !== ''
-                && method_exists($this->readiness, $slice['method_prefix'].'Contract'),
+            'contract_method_exists' => $contractMethodCandidate !== '',
             'preflight_method_exists' => $slice['method_prefix'] !== ''
                 && method_exists($this->readiness, $slice['method_prefix'].'Preflight'),
             'implementation_packet_method_exists' => $slice['method_prefix'] !== ''
                 && method_exists($this->readiness, $slice['method_prefix'].'ImplementationPacket'),
             'status_method_exists' => $slice['method_prefix'] !== ''
                 && method_exists($this->readiness, $slice['method_prefix'].'Status'),
-            'capability_contract_registered' => in_array($slice['slice_key'].'_contract', $currentCapability, true),
-            'capability_preflight_registered' => in_array($slice['slice_key'].'_preflight', $currentCapability, true),
-            'capability_implementation_packet_registered' => in_array($slice['slice_key'].'_implementation_packet', $currentCapability, true),
-            'capability_invoker_service_registered' => in_array($slice['slice_key'].'_invoker_service', $currentCapability, true),
-            'capability_status_projection_registered' => in_array($slice['slice_key'].'_status_projection', $currentCapability, true),
+            'capability_contract_registered' => in_array((string) ($slice['contract_capability_key'] ?? $slice['slice_key'].'_contract'), $currentCapability, true),
+            'capability_preflight_registered' => in_array((string) ($slice['preflight_capability_key'] ?? $slice['slice_key'].'_preflight'), $currentCapability, true),
+            'capability_implementation_packet_registered' => in_array((string) ($slice['implementation_packet_capability_key'] ?? $slice['slice_key'].'_implementation_packet'), $currentCapability, true),
+            'capability_invoker_service_registered' => in_array((string) ($slice['invoker_service_capability_key'] ?? $slice['slice_key'].'_invoker_service'), $currentCapability, true),
+            'capability_status_projection_registered' => in_array((string) ($slice['status_projection_capability_key'] ?? $slice['slice_key'].'_status_projection'), $currentCapability, true),
             'invoker_class_exists' => $slice['invoker_class'] !== ''
                 && class_exists($slice['invoker_class']),
             'invoker_prepare_method_exists' => $slice['invoker_class'] !== ''
@@ -621,35 +846,31 @@ final class AgentControlPlaneChainIntegrityAuditService
                 && (bool) data_get($persistentRuntime, 'adapter_invocation_contract_enabled', true) === false,
         ];
 
-        $allFalseConstraints = [
-            'actual_process_start_allowed_anywhere' => $executionAllowed === false,
-            'provider_process_call_allowed_anywhere' => $dispatchAllowed === false,
-            'adapter_invocation_allowed_anywhere' => $flags['dispatch_allowed'] === false,
-            'adapter_execution_allowed_anywhere' => $flags['execution_allowed'] === false,
-            'dispatch_allowed_anywhere' => $flags['dispatch_allowed'] === false,
-            'token_spend_allowed_anywhere' => $flags['execution_allowed'] === false,
-            'self_programming_allowed_anywhere' => $flags['execution_allowed'] === false,
-            'external_process_started_by_atlas' => $flags['execution_allowed'] === false,
-            'codex_cli_invoked' => $flags['execution_allowed'] === false,
-            'shell_spawned_by_runtime' => $flags['execution_allowed'] === false,
-            'ledger_write_disabled_at_projection' => $flags['ledger_write_allowed'] === false,
-            'completion_not_claimed_by_projection' => $flags['completion_allowed'] === false,
-            'claim_not_persisted_by_projection' => $flags['claim_persisted'] === false,
+        // Each runtime-safety flag describes whether a forbidden runtime
+        // capability has been observed anywhere in the control-plane
+        // projection. They are derived directly from the canonical
+        // execution_allowed / dispatch_allowed / ledger_write_allowed gates
+        // so that synthetic overrides can flip a flag and the audit can
+        // honestly report it.
+        $observedFlags = [
+            'actual_process_start_allowed_anywhere' => $flags['execution_allowed'] === true,
+            'provider_process_call_allowed_anywhere' => $flags['dispatch_allowed'] === true,
+            'adapter_invocation_allowed_anywhere' => $flags['dispatch_allowed'] === true,
+            'adapter_execution_allowed_anywhere' => $flags['execution_allowed'] === true,
+            'dispatch_allowed_anywhere' => $flags['dispatch_allowed'] === true,
+            'token_spend_allowed_anywhere' => $flags['execution_allowed'] === true,
+            'self_programming_allowed_anywhere' => $flags['execution_allowed'] === true,
+            'external_process_started_by_atlas' => $flags['execution_allowed'] === true,
+            'codex_cli_invoked' => $flags['execution_allowed'] === true,
+            'shell_spawned_by_runtime' => $flags['execution_allowed'] === true,
         ];
 
-        $allFalse = ! in_array(false, $allFalseConstraints, true);
+        $allFalse = ! in_array(true, $observedFlags, true)
+            && $flags['ledger_write_allowed'] === false
+            && $flags['completion_allowed'] === false
+            && $flags['claim_persisted'] === false;
 
-        return [
-            'actual_process_start_allowed_anywhere' => false,
-            'provider_process_call_allowed_anywhere' => false,
-            'adapter_invocation_allowed_anywhere' => false,
-            'adapter_execution_allowed_anywhere' => false,
-            'dispatch_allowed_anywhere' => false,
-            'token_spend_allowed_anywhere' => false,
-            'self_programming_allowed_anywhere' => false,
-            'external_process_started_by_atlas' => false,
-            'codex_cli_invoked' => false,
-            'shell_spawned_by_runtime' => false,
+        return $observedFlags + [
             'runtime_safety_all_false' => $allFalse,
             'control_plane_execution_allowed_observed' => $flags['execution_allowed'],
             'control_plane_dispatch_allowed_observed' => $flags['dispatch_allowed'],
@@ -712,11 +933,15 @@ final class AgentControlPlaneChainIntegrityAuditService
             'agent-control-plane-chain-integrity-certification-implementation-packet',
         ];
         foreach ($deepChain as $slice) {
-            $cliBase = $this->cliBaseForSlice((string) $slice['slice_key']);
+            $sliceKey = (string) $slice['slice_key'];
+            $cliBase = $this->cliBaseForSlice($sliceKey);
             if ($cliBase === '') {
                 continue;
             }
-            $expectedOptions[] = $cliBase;
+            // For slice families whose base already ends in `_contract`, the CLI
+            // contract option uses the base CLI key (no extra `-contract` suffix)
+            // — the rest of the quintet keeps the suffix convention.
+            $expectedOptions[] = str_ends_with($sliceKey, '_contract') ? $cliBase : ($cliBase.'-contract');
             $expectedOptions[] = $cliBase.'-preflight';
             $expectedOptions[] = $cliBase.'-implementation-packet';
             $expectedOptions[] = $cliBase.'-status';
@@ -866,19 +1091,42 @@ final class AgentControlPlaneChainIntegrityAuditService
      */
     private function buildShallowChain(array $currentCapability): array
     {
-        $shallow = [];
+        $suffixes = ['_contract', '_preflight', '_implementation_packet', '_invoker_service', '_status_projection'];
+        $candidates = [];
         foreach ($currentCapability as $capability) {
             if (! is_string($capability)) {
                 continue;
             }
-            if (! str_starts_with($capability, 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_')) {
+            if (! str_starts_with($capability, 'automatic_dispatch_scheduler_one_shot_tick_')) {
                 continue;
             }
-            foreach (['_contract', '_preflight', '_implementation_packet', '_invoker_service', '_status_projection'] as $suffix) {
+            foreach ($suffixes as $suffix) {
                 if (str_ends_with($capability, $suffix)) {
-                    $shallow[] = substr($capability, 0, -strlen($suffix));
+                    $candidate = substr($capability, 0, -strlen($suffix));
+                    if ($candidate !== '') {
+                        $candidates[$candidate] = true;
+                    }
                     break;
                 }
+            }
+        }
+
+        // A slice family is only canonical when *every* one of its five
+        // quintet members is registered in the capability list. This avoids
+        // false positives when a slice key legitimately ends in `_contract`
+        // (e.g. `post_start_receipt_contract`) and would otherwise be split
+        // into a shorter family without the full quintet.
+        $shallow = [];
+        foreach (array_keys($candidates) as $candidate) {
+            $allFive = true;
+            foreach ($suffixes as $suffix) {
+                if (! in_array($candidate.$suffix, $currentCapability, true)) {
+                    $allFive = false;
+                    break;
+                }
+            }
+            if ($allFive) {
+                $shallow[] = $candidate;
             }
         }
 
@@ -1003,7 +1251,7 @@ final class AgentControlPlaneChainIntegrityAuditService
 
     private function statusBlockKey(string $sliceKey): string
     {
-        return $sliceKey.'_status';
+        return 'agent_'.$sliceKey.'_status';
     }
 
     /**
@@ -1125,6 +1373,691 @@ final class AgentControlPlaneChainIntegrityAuditService
         }
 
         return $gaps;
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $sliceReports
+     * @return array{
+     *     evidence_to_dispatch_chain_ok: bool,
+     *     dispatch_authorization_chain_ok: bool,
+     *     receipt_use_chain_ok: bool,
+     *     post_start_provider_start_driver_ready_next: bool,
+     *     corridor_slice_keys: list<string>,
+     *     corridor_slice_status: array<string, array<string, bool>>,
+     *     violations: list<array<string, mixed>>,
+     * }
+     */
+    private function postStartEvidenceCorridor(array $sliceReports, string $currentNextRequiredSlice): array
+    {
+        $corridor = [
+            'post_start_receipt_contract' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_receipt_contract',
+            'post_start_evidence_receipt' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_evidence_receipt',
+            'post_start_evidence_acceptance_bridge' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_evidence_acceptance_bridge',
+            'post_start_liveness_monitor' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_liveness_monitor',
+            'post_start_dispatch_release_gate' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_dispatch_release_gate',
+            'post_start_signed_dispatch_authorization_gate' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_signed_dispatch_authorization_gate',
+            'post_start_dispatch_executor_handoff' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_dispatch_executor_handoff',
+            'post_start_dispatch_receipt_use_executor' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_dispatch_receipt_use_executor',
+        ];
+        $reportsByKey = [];
+        foreach ($sliceReports as $report) {
+            $reportsByKey[(string) ($report['slice_key'] ?? '')] = $report;
+        }
+        $sliceStatus = [];
+        $violations = [];
+        $okCount = 0;
+        foreach ($corridor as $logicalName => $sliceKey) {
+            $report = $reportsByKey[$sliceKey] ?? null;
+            $checks = (array) ($report['checks'] ?? []);
+            $ok = ($report['ok'] ?? false) === true;
+            $sliceStatus[$logicalName] = [
+                'slice_key' => $sliceKey,
+                'present_in_deep_chain' => $report !== null,
+                'all_artifacts_ok' => $ok,
+                'contract_method_exists' => (bool) ($checks['contract_method_exists'] ?? false),
+                'preflight_method_exists' => (bool) ($checks['preflight_method_exists'] ?? false),
+                'implementation_packet_method_exists' => (bool) ($checks['implementation_packet_method_exists'] ?? false),
+                'status_method_exists' => (bool) ($checks['status_method_exists'] ?? false),
+                'invoker_class_exists' => (bool) ($checks['invoker_class_exists'] ?? false),
+                'invoker_prepare_method_exists' => (bool) ($checks['invoker_prepare_method_exists'] ?? false),
+            ];
+            if ($report === null) {
+                $violations[] = [
+                    'code' => 'corridor_slice_missing_from_deep_chain',
+                    'slice_key' => $sliceKey,
+                    'detail' => 'Evidence-to-dispatch corridor slice is not present in the deep chain.',
+                ];
+
+                continue;
+            }
+            if ($ok) {
+                $okCount++;
+            }
+        }
+
+        // Sub-chain readiness flags
+        $evidenceCorridorPrefix = ['post_start_receipt_contract', 'post_start_evidence_receipt', 'post_start_evidence_acceptance_bridge', 'post_start_liveness_monitor'];
+        $dispatchCorridorPrefix = ['post_start_dispatch_release_gate', 'post_start_signed_dispatch_authorization_gate'];
+        $receiptUseCorridorPrefix = ['post_start_dispatch_executor_handoff', 'post_start_dispatch_receipt_use_executor'];
+
+        $evidenceOk = $this->allCorridorSlicesOk($evidenceCorridorPrefix, $sliceStatus);
+        $dispatchOk = $this->allCorridorSlicesOk($dispatchCorridorPrefix, $sliceStatus);
+        $receiptUseOk = $this->allCorridorSlicesOk($receiptUseCorridorPrefix, $sliceStatus);
+
+        $providerStartReadyNext = $evidenceOk && $dispatchOk && $receiptUseOk
+            && $currentNextRequiredSlice === 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_provider_start_driver_gate_contract';
+
+        return [
+            'evidence_to_dispatch_chain_ok' => $evidenceOk,
+            'dispatch_authorization_chain_ok' => $dispatchOk,
+            'receipt_use_chain_ok' => $receiptUseOk,
+            'post_start_provider_start_driver_ready_next' => $providerStartReadyNext,
+            'corridor_slice_keys' => array_values($corridor),
+            'corridor_slice_status' => $sliceStatus,
+            'violations' => $violations,
+            'corridor_ok_count' => $okCount,
+            'corridor_total_count' => count($corridor),
+        ];
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $sliceReports
+     * @return array<string, mixed>
+     */
+    private function providerToRuntimeCorridor(array $sliceReports, string $currentNextRequiredSlice): array
+    {
+        $corridor = [
+            'post_start_provider_start_driver_gate' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_provider_start_driver_gate',
+            'post_start_adapter_invocation_boundary_gate' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_adapter_invocation_boundary_gate',
+            'post_start_adapter_execution_guard_gate' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_adapter_execution_guard_gate',
+            'post_start_provider_execution_contract_gate' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_provider_execution_contract_gate',
+            'post_start_process_start_release_gate' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_start_release_gate',
+            'post_start_supervised_start_executor_gate' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_supervised_start_executor_gate',
+            'post_start_process_spawn_enablement_gate' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_spawn_enablement_gate',
+            'post_start_final_process_spawn_executor_gate' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_final_process_spawn_executor_gate',
+            'post_start_external_process_runtime_gate' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_external_process_runtime_gate',
+            'post_start_process_invocation_authorization_gate' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_invocation_authorization_gate',
+            'post_start_external_process_invoker_dry_run_gate' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_external_process_invoker_dry_run_gate',
+            'post_start_real_invoker_release_preflight_gate' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_real_invoker_release_preflight_gate',
+            'post_start_signed_real_invoker_release_gate' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_signed_real_invoker_release_gate',
+        ];
+        $reportsByKey = [];
+        foreach ($sliceReports as $report) {
+            $reportsByKey[(string) ($report['slice_key'] ?? '')] = $report;
+        }
+        $sliceStatus = [];
+        $violations = [];
+        $okCount = 0;
+        $edges = [];
+        $previous = null;
+        foreach ($corridor as $logicalName => $sliceKey) {
+            $report = $reportsByKey[$sliceKey] ?? null;
+            $checks = (array) ($report['checks'] ?? []);
+            $ok = ($report['ok'] ?? false) === true;
+            $sliceStatus[$logicalName] = [
+                'slice_key' => $sliceKey,
+                'present_in_deep_chain' => $report !== null,
+                'all_artifacts_ok' => $ok,
+                'contract_method_exists' => (bool) ($checks['contract_method_exists'] ?? false),
+                'preflight_method_exists' => (bool) ($checks['preflight_method_exists'] ?? false),
+                'implementation_packet_method_exists' => (bool) ($checks['implementation_packet_method_exists'] ?? false),
+                'status_method_exists' => (bool) ($checks['status_method_exists'] ?? false),
+                'invoker_class_exists' => (bool) ($checks['invoker_class_exists'] ?? false),
+                'invoker_prepare_method_exists' => (bool) ($checks['invoker_prepare_method_exists'] ?? false),
+            ];
+            if ($previous !== null) {
+                $edges[] = [
+                    'from_slice' => $previous,
+                    'to_slice' => $sliceKey,
+                    'edge_ok' => isset($reportsByKey[$previous]) && isset($reportsByKey[$sliceKey])
+                        && ($reportsByKey[$previous]['ok'] ?? false) === true
+                        && ($reportsByKey[$sliceKey]['ok'] ?? false) === true,
+                ];
+            }
+            $previous = $sliceKey;
+            if ($report === null) {
+                $violations[] = [
+                    'code' => 'provider_to_runtime_corridor_slice_missing_from_deep_chain',
+                    'slice_key' => $sliceKey,
+                    'detail' => 'Provider-to-real-invoker corridor slice is not present in the deep chain.',
+                ];
+
+                continue;
+            }
+            if ($ok) {
+                $okCount++;
+            }
+        }
+
+        $providerChain = ['post_start_provider_start_driver_gate'];
+        $adapterChain = ['post_start_adapter_invocation_boundary_gate', 'post_start_adapter_execution_guard_gate'];
+        $providerExecChain = ['post_start_provider_execution_contract_gate'];
+        $releaseChain = ['post_start_process_start_release_gate'];
+        $supervisedSpawnChain = ['post_start_supervised_start_executor_gate', 'post_start_process_spawn_enablement_gate', 'post_start_final_process_spawn_executor_gate'];
+        $runtimeChain = ['post_start_external_process_runtime_gate'];
+        $invocationChain = ['post_start_process_invocation_authorization_gate'];
+        $dryRunReleasePreflightChain = ['post_start_external_process_invoker_dry_run_gate', 'post_start_real_invoker_release_preflight_gate'];
+
+        $providerOk = $this->allCorridorSlicesOk($providerChain, $sliceStatus);
+        $adapterOk = $this->allCorridorSlicesOk($adapterChain, $sliceStatus);
+        $providerExecutionOk = $this->allCorridorSlicesOk($providerExecChain, $sliceStatus);
+        $processReleaseOk = $this->allCorridorSlicesOk($releaseChain, $sliceStatus);
+        $supervisedSpawnOk = $this->allCorridorSlicesOk($supervisedSpawnChain, $sliceStatus);
+        $externalRuntimeOk = $this->allCorridorSlicesOk($runtimeChain, $sliceStatus);
+        $invocationAuthOk = $this->allCorridorSlicesOk($invocationChain, $sliceStatus);
+        $dryRunReleaseOk = $this->allCorridorSlicesOk($dryRunReleasePreflightChain, $sliceStatus);
+        $signedReleaseOk = $this->allCorridorSlicesOk(['post_start_signed_real_invoker_release_gate'], $sliceStatus);
+
+        $providerToRuntimeOk = $providerOk && $adapterOk && $providerExecutionOk && $processReleaseOk
+            && $supervisedSpawnOk && $externalRuntimeOk && $invocationAuthOk && $dryRunReleaseOk && $signedReleaseOk;
+
+        $signedRealReleaseReadyNext = $providerToRuntimeOk
+            && $currentNextRequiredSlice === 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_implementation_boundary_gate_contract';
+
+        $gapSummary = [
+            'provider_chain_gap' => ! $providerOk,
+            'adapter_chain_gap' => ! $adapterOk,
+            'provider_execution_contract_chain_gap' => ! $providerExecutionOk,
+            'process_start_release_chain_gap' => ! $processReleaseOk,
+            'supervised_spawn_chain_gap' => ! $supervisedSpawnOk,
+            'external_runtime_chain_gap' => ! $externalRuntimeOk,
+            'invocation_authorization_chain_gap' => ! $invocationAuthOk,
+            'dry_run_to_release_preflight_chain_gap' => ! $dryRunReleaseOk,
+            'signed_real_release_chain_gap' => ! $signedReleaseOk,
+        ];
+
+        return [
+            'provider_to_runtime_chain_ok' => $providerToRuntimeOk,
+            'adapter_boundary_chain_ok' => $adapterOk,
+            'provider_execution_contract_chain_ok' => $providerExecutionOk,
+            'process_start_release_chain_ok' => $processReleaseOk,
+            'supervised_spawn_chain_ok' => $supervisedSpawnOk,
+            'external_runtime_chain_ok' => $externalRuntimeOk,
+            'invocation_authorization_chain_ok' => $invocationAuthOk,
+            'dry_run_to_release_preflight_chain_ok' => $dryRunReleaseOk,
+            'signed_real_release_ready_next' => $signedRealReleaseReadyNext,
+            'corridor_slice_keys' => array_values($corridor),
+            'corridor_slice_status' => $sliceStatus,
+            'corridor_edge_status' => $edges,
+            'corridor_gap_summary' => $gapSummary,
+            'violations' => $violations,
+            'corridor_ok_count' => $okCount,
+            'corridor_total_count' => count($corridor),
+        ];
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $sliceReports
+     * @return array<string, mixed>
+     */
+    private function providerRuntimePreflightMatrix(array $sliceReports): array
+    {
+        $reportsByKey = [];
+        foreach ($sliceReports as $report) {
+            $reportsByKey[(string) ($report['slice_key'] ?? '')] = $report;
+        }
+
+        // Static contract-level expectations per slice. Each flag asserts that
+        // the canonical contract metadata REQUIRES a given upstream metadata
+        // class — it is not a runtime probe.
+        $matrixSchema = [
+            'post_start_provider_start_driver_gate' => [
+                'accepted_evidence_required' => true,
+                'provider_start_projection_required' => true,
+                'sandbox_binding_required' => true,
+                'heartbeat_required' => true,
+                'prerequisite_metadata_present' => true,
+                'runtime_flags_false' => true,
+            ],
+            'post_start_adapter_invocation_boundary_gate' => [
+                'accepted_evidence_required' => true,
+                'provider_start_projection_required' => true,
+                'heartbeat_required' => true,
+                'adapter_descriptor_required' => true,
+                'prerequisite_metadata_present' => true,
+                'runtime_flags_false' => true,
+            ],
+            'post_start_adapter_execution_guard_gate' => [
+                'accepted_evidence_required' => true,
+                'provider_start_projection_required' => true,
+                'adapter_descriptor_required' => true,
+                'adapter_guard_required' => true,
+                'prerequisite_metadata_present' => true,
+                'runtime_flags_false' => true,
+            ],
+            'post_start_provider_execution_contract_gate' => [
+                'accepted_evidence_required' => true,
+                'provider_start_projection_required' => true,
+                'adapter_guard_required' => true,
+                'provider_execution_contract_required' => true,
+                'sandbox_binding_required' => true,
+                'prerequisite_metadata_present' => true,
+                'runtime_flags_false' => true,
+            ],
+            'post_start_process_start_release_gate' => [
+                'accepted_evidence_required' => true,
+                'provider_start_projection_required' => true,
+                'provider_execution_contract_required' => true,
+                'process_release_receipt_required' => true,
+                'prerequisite_metadata_present' => true,
+                'runtime_flags_false' => true,
+            ],
+            'post_start_supervised_start_executor_gate' => [
+                'accepted_evidence_required' => true,
+                'provider_start_projection_required' => true,
+                'process_release_receipt_required' => true,
+                'supervised_start_contract_required' => true,
+                'prerequisite_metadata_present' => true,
+                'runtime_flags_false' => true,
+            ],
+            'post_start_process_spawn_enablement_gate' => [
+                'accepted_evidence_required' => true,
+                'provider_start_projection_required' => true,
+                'supervised_start_contract_required' => true,
+                'spawn_enablement_contract_required' => true,
+                'prerequisite_metadata_present' => true,
+                'runtime_flags_false' => true,
+            ],
+            'post_start_final_process_spawn_executor_gate' => [
+                'accepted_evidence_required' => true,
+                'provider_start_projection_required' => true,
+                'spawn_enablement_contract_required' => true,
+                'stdout_stderr_sink_required' => true,
+                'prerequisite_metadata_present' => true,
+                'runtime_flags_false' => true,
+            ],
+            'post_start_external_process_runtime_gate' => [
+                'accepted_evidence_required' => true,
+                'provider_start_projection_required' => true,
+                'runtime_environment_contract_required' => true,
+                'stdout_stderr_sink_required' => true,
+                'prerequisite_metadata_present' => true,
+                'runtime_flags_false' => true,
+            ],
+            'post_start_process_invocation_authorization_gate' => [
+                'accepted_evidence_required' => true,
+                'provider_start_projection_required' => true,
+                'runtime_environment_contract_required' => true,
+                'invocation_authorization_required' => true,
+                'prerequisite_metadata_present' => true,
+                'runtime_flags_false' => true,
+            ],
+            'post_start_external_process_invoker_dry_run_gate' => [
+                'accepted_evidence_required' => true,
+                'provider_start_projection_required' => true,
+                'invocation_authorization_required' => true,
+                'dry_run_receipt_required' => true,
+                'prerequisite_metadata_present' => true,
+                'runtime_flags_false' => true,
+            ],
+            'post_start_real_invoker_release_preflight_gate' => [
+                'accepted_evidence_required' => true,
+                'provider_start_projection_required' => true,
+                'dry_run_receipt_required' => true,
+                'release_preflight_receipt_required' => true,
+                'prerequisite_metadata_present' => true,
+                'runtime_flags_false' => true,
+            ],
+            'post_start_signed_real_invoker_release_gate' => [
+                'accepted_evidence_required' => true,
+                'provider_start_projection_required' => true,
+                'release_preflight_receipt_required' => true,
+                'signed_release_receipt_required' => true,
+                'prerequisite_metadata_present' => true,
+                'runtime_flags_false' => true,
+            ],
+        ];
+
+        $rows = [];
+        $allTrue = true;
+        $rowCount = 0;
+        $checkCount = 0;
+        $checkOkCount = 0;
+        foreach ($matrixSchema as $logicalName => $checks) {
+            $sliceKey = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_'.$logicalName;
+            $report = $reportsByKey[$sliceKey] ?? null;
+            // A row's checks are honest only when the underlying slice is OK
+            // in the deep chain. Otherwise we flip them to false so callers
+            // can distinguish missing artifacts from satisfied preflight
+            // requirements.
+            $sliceOk = ($report['ok'] ?? false) === true;
+            $rowChecks = [];
+            foreach ($checks as $checkName => $expected) {
+                $value = $sliceOk && $expected === true;
+                $rowChecks[$checkName] = $value;
+                $checkCount++;
+                if ($value === true) {
+                    $checkOkCount++;
+                }
+                if ($value !== true) {
+                    $allTrue = false;
+                }
+            }
+            $rowOk = ! in_array(false, $rowChecks, true);
+            $rows[$logicalName] = [
+                'slice_key' => $sliceKey,
+                'present_in_deep_chain' => $report !== null,
+                'slice_ok' => $sliceOk,
+                'checks' => $rowChecks,
+                'row_ok' => $rowOk,
+            ];
+            $rowCount++;
+        }
+
+        return [
+            'matrix_name' => 'provider_runtime_preflight_matrix',
+            'matrix_version' => 'v1',
+            'rows' => $rows,
+            'row_count' => $rowCount,
+            'check_count' => $checkCount,
+            'check_ok_count' => $checkOkCount,
+            'all_true' => $allTrue,
+        ];
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $sliceReports
+     * @return array<string, mixed>
+     */
+    private function implementationToOperatorHandoffCorridor(array $sliceReports, string $currentNextRequiredSlice): array
+    {
+        $corridor = [
+            'post_start_implementation_boundary_gate' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_implementation_boundary_gate',
+            'post_start_executor_plan_gate' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_executor_plan_gate',
+            'post_start_executor_fresh_release_gate' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_executor_fresh_release_gate',
+            'post_start_executor_enablement_gate' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_executor_enablement_gate',
+            'post_start_supervised_start_activation_gate' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_supervised_start_activation_gate',
+            'post_start_guarded_process_start_executor_gate' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_guarded_process_start_executor_gate',
+            'post_start_final_process_start_authorization_gate' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_final_process_start_authorization_gate',
+            'post_start_actual_process_start_rehearsal_gate' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_actual_process_start_rehearsal_gate',
+            'post_start_process_start_envelope_gate' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_start_envelope_gate',
+            'post_start_start_execution_gate' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_start_execution_gate',
+            'post_start_process_starter_readiness_gate' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_starter_readiness_gate',
+            'post_start_manual_start_executor_receipt' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_manual_start_executor_receipt',
+            'post_start_operator_start_handoff' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_operator_start_handoff',
+        ];
+        $reportsByKey = [];
+        foreach ($sliceReports as $report) {
+            $reportsByKey[(string) ($report['slice_key'] ?? '')] = $report;
+        }
+        $sliceStatus = [];
+        $violations = [];
+        $okCount = 0;
+        $edges = [];
+        $previous = null;
+        foreach ($corridor as $logicalName => $sliceKey) {
+            $report = $reportsByKey[$sliceKey] ?? null;
+            $checks = (array) ($report['checks'] ?? []);
+            $ok = ($report['ok'] ?? false) === true;
+            $sliceStatus[$logicalName] = [
+                'slice_key' => $sliceKey,
+                'present_in_deep_chain' => $report !== null,
+                'all_artifacts_ok' => $ok,
+                'contract_method_exists' => (bool) ($checks['contract_method_exists'] ?? false),
+                'preflight_method_exists' => (bool) ($checks['preflight_method_exists'] ?? false),
+                'implementation_packet_method_exists' => (bool) ($checks['implementation_packet_method_exists'] ?? false),
+                'status_method_exists' => (bool) ($checks['status_method_exists'] ?? false),
+                'invoker_class_exists' => (bool) ($checks['invoker_class_exists'] ?? false),
+                'invoker_prepare_method_exists' => (bool) ($checks['invoker_prepare_method_exists'] ?? false),
+            ];
+            if ($previous !== null) {
+                $edges[] = [
+                    'from_slice' => $previous,
+                    'to_slice' => $sliceKey,
+                    'edge_ok' => isset($reportsByKey[$previous]) && isset($reportsByKey[$sliceKey])
+                        && ($reportsByKey[$previous]['ok'] ?? false) === true
+                        && ($reportsByKey[$sliceKey]['ok'] ?? false) === true,
+                ];
+            }
+            $previous = $sliceKey;
+            if ($report === null) {
+                $violations[] = [
+                    'code' => 'implementation_to_operator_handoff_corridor_slice_missing_from_deep_chain',
+                    'slice_key' => $sliceKey,
+                    'detail' => 'Implementation-to-operator-handoff corridor slice is not present in the deep chain.',
+                ];
+
+                continue;
+            }
+            if ($ok) {
+                $okCount++;
+            }
+        }
+
+        $boundaryChain = ['post_start_implementation_boundary_gate'];
+        $planChain = ['post_start_executor_plan_gate'];
+        $releaseChain = ['post_start_executor_fresh_release_gate'];
+        $enablementChain = ['post_start_executor_enablement_gate'];
+        $supervisedChain = ['post_start_supervised_start_activation_gate'];
+        $guardedChain = ['post_start_guarded_process_start_executor_gate'];
+        $finalAuthChain = ['post_start_final_process_start_authorization_gate'];
+        $rehearsalEnvelopeChain = ['post_start_actual_process_start_rehearsal_gate', 'post_start_process_start_envelope_gate'];
+        $startExecReadinessChain = ['post_start_start_execution_gate', 'post_start_process_starter_readiness_gate'];
+        $manualHandoffChain = ['post_start_manual_start_executor_receipt', 'post_start_operator_start_handoff'];
+
+        $boundaryOk = $this->allCorridorSlicesOk($boundaryChain, $sliceStatus);
+        $planOk = $this->allCorridorSlicesOk($planChain, $sliceStatus);
+        $releaseOk = $this->allCorridorSlicesOk($releaseChain, $sliceStatus);
+        $enablementOk = $this->allCorridorSlicesOk($enablementChain, $sliceStatus);
+        $supervisedOk = $this->allCorridorSlicesOk($supervisedChain, $sliceStatus);
+        $guardedOk = $this->allCorridorSlicesOk($guardedChain, $sliceStatus);
+        $finalAuthOk = $this->allCorridorSlicesOk($finalAuthChain, $sliceStatus);
+        $rehearsalEnvelopeOk = $this->allCorridorSlicesOk($rehearsalEnvelopeChain, $sliceStatus);
+        $startExecReadinessOk = $this->allCorridorSlicesOk($startExecReadinessChain, $sliceStatus);
+        $manualHandoffOk = $this->allCorridorSlicesOk($manualHandoffChain, $sliceStatus);
+
+        $allOk = $boundaryOk && $planOk && $releaseOk && $enablementOk && $supervisedOk
+            && $guardedOk && $finalAuthOk && $rehearsalEnvelopeOk && $startExecReadinessOk
+            && $manualHandoffOk;
+
+        // The operator handoff completes the release cycle; the next horizon
+        // is an explicit intentional reentry into post_start_receipt_contract
+        // so the evidence corridor can ingest the new run.
+        $operatorHandoffReentryReady = $allOk
+            && $currentNextRequiredSlice === 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_receipt_contract';
+
+        $gapSummary = [
+            'implementation_boundary_chain_gap' => ! $boundaryOk,
+            'executor_plan_chain_gap' => ! $planOk,
+            'executor_release_chain_gap' => ! $releaseOk,
+            'executor_enablement_chain_gap' => ! $enablementOk,
+            'supervised_activation_chain_gap' => ! $supervisedOk,
+            'guarded_start_chain_gap' => ! $guardedOk,
+            'final_authorization_chain_gap' => ! $finalAuthOk,
+            'rehearsal_to_envelope_chain_gap' => ! $rehearsalEnvelopeOk,
+            'start_execution_to_readiness_chain_gap' => ! $startExecReadinessOk,
+            'manual_start_to_operator_handoff_chain_gap' => ! $manualHandoffOk,
+        ];
+
+        return [
+            'implementation_to_operator_handoff_chain_ok' => $allOk,
+            'implementation_boundary_chain_ok' => $boundaryOk,
+            'executor_plan_chain_ok' => $planOk,
+            'executor_release_chain_ok' => $releaseOk,
+            'executor_enablement_chain_ok' => $enablementOk,
+            'supervised_activation_chain_ok' => $supervisedOk,
+            'guarded_start_chain_ok' => $guardedOk,
+            'final_authorization_chain_ok' => $finalAuthOk,
+            'rehearsal_to_envelope_chain_ok' => $rehearsalEnvelopeOk,
+            'start_execution_to_readiness_chain_ok' => $startExecReadinessOk,
+            'manual_start_to_operator_handoff_chain_ok' => $manualHandoffOk,
+            'operator_handoff_reentry_ready' => $operatorHandoffReentryReady,
+            'corridor_slice_keys' => array_values($corridor),
+            'corridor_slice_status' => $sliceStatus,
+            'corridor_edge_status' => $edges,
+            'corridor_gap_summary' => $gapSummary,
+            'violations' => $violations,
+            'corridor_ok_count' => $okCount,
+            'corridor_total_count' => count($corridor),
+        ];
+    }
+
+    /**
+     * @param  list<array<string, string>>  $deepChain
+     * @return array<string, mixed>
+     */
+    private function cycleIntegrity(array $deepChain, string $currentNextRequiredSlice): array
+    {
+        // Canonical activate key that marks the explicit reentry point.
+        $intentionalReentryActivateKey = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_receipt_contract';
+        $intentionalReentryTargetSliceKey = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_receipt_contract';
+        $intentionalReentryReason = 'operator_handoff_completes_release_cycle_and_reenters_post_start_evidence_corridor';
+        $intentionalReentryDetected = $currentNextRequiredSlice === $intentionalReentryActivateKey;
+
+        $sliceKeys = array_map(static fn (array $entry): string => (string) $entry['slice_key'], $deepChain);
+        $sliceKeySet = array_count_values($sliceKeys);
+        $repeatedSliceFamilies = [];
+        foreach ($sliceKeySet as $key => $count) {
+            if ($count >= 2) {
+                $repeatedSliceFamilies[] = ['slice_key' => $key, 'count' => $count];
+            }
+        }
+
+        $reentryEdges = [];
+        $cycleDetected = false;
+        if ($intentionalReentryDetected) {
+            $reentryEdges[] = [
+                'from_slice' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_operator_start_handoff',
+                'to_slice' => $intentionalReentryTargetSliceKey,
+                'intentional' => true,
+                'reason' => $intentionalReentryReason,
+            ];
+            $cycleDetected = true;
+        }
+
+        // Slices considered "previously certified" once the
+        // implementation-to-operator-handoff corridor has produced its
+        // operator handoff. A regression is a pointer that lands inside
+        // this set WITHOUT the intentional reentry justification.
+        $previouslyCertifiedActivateKeys = [
+            'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_evidence_receipt_contract',
+            'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_evidence_acceptance_bridge_contract',
+            'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_liveness_monitor_contract',
+            'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_release_gate_contract',
+            'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_signed_dispatch_authorization_gate_contract',
+            'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_executor_handoff_contract',
+            'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_receipt_use_executor_contract',
+            'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_provider_start_driver_gate_contract',
+            'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_adapter_invocation_boundary_gate_contract',
+            'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_adapter_execution_guard_gate_contract',
+            'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_provider_execution_contract_gate_contract',
+            'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_start_release_gate_contract',
+            'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_supervised_start_executor_gate_contract',
+            'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_spawn_enablement_gate_contract',
+            'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_final_process_spawn_executor_gate_contract',
+            'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_external_process_runtime_gate_contract',
+            'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_invocation_authorization_gate_contract',
+            'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_external_process_invoker_dry_run_gate_contract',
+            'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_real_invoker_release_preflight_gate_contract',
+            'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_signed_real_invoker_release_gate_contract',
+        ];
+
+        $regressions = [];
+        $cycleViolations = [];
+        $cycleWarnings = [];
+        $unintentionalCycleDetected = false;
+        if (! $intentionalReentryDetected && in_array($currentNextRequiredSlice, $previouslyCertifiedActivateKeys, true)) {
+            $regressions[] = [
+                'code' => 'pointer_regressed_into_previously_certified_slice_without_reentry',
+                'current_pointer' => $currentNextRequiredSlice,
+                'detail' => 'Pointer regressed into a previously certified slice without an intentional_reentry justification.',
+            ];
+            $cycleViolations[] = $regressions[count($regressions) - 1];
+            $unintentionalCycleDetected = true;
+        }
+
+        $cycleOk = $cycleViolations === [] && ! $unintentionalCycleDetected;
+        $status = $cycleOk
+            ? 'ok'
+            : ($unintentionalCycleDetected ? 'blocked' : 'warning');
+
+        return [
+            'schema_version' => 'atlas.self_construction.agent_control_plane_cycle_integrity.v1',
+            'status' => $status,
+            'cycle_detected' => $cycleDetected,
+            'unintentional_cycle_detected' => $unintentionalCycleDetected,
+            'intentional_reentry_detected' => $intentionalReentryDetected,
+            'intentional_reentry_target' => $intentionalReentryDetected ? $intentionalReentryTargetSliceKey : null,
+            'intentional_reentry_reason' => $intentionalReentryDetected ? $intentionalReentryReason : null,
+            'intentional_reentry_activate_key' => $intentionalReentryDetected ? $intentionalReentryActivateKey : null,
+            'repeated_slice_families' => $repeatedSliceFamilies,
+            'repeated_slice_count' => count($repeatedSliceFamilies),
+            'reentry_edges' => $reentryEdges,
+            'regressions' => $regressions,
+            'regression_count' => count($regressions),
+            'cycle_warnings' => $cycleWarnings,
+            'cycle_violations' => $cycleViolations,
+            'cycle_ok' => $cycleOk,
+            'terminal_horizon' => $intentionalReentryActivateKey,
+            'terminal_horizon_reason' => 'reentry_into_post_start_evidence_corridor_after_operator_handoff_completes_release_cycle',
+        ];
+    }
+
+    /**
+     * @param  list<array<string, string>>  $deepChain
+     * @param  array<string, mixed>  $cycleIntegrity
+     * @return array<string, mixed>
+     */
+    private function terminalHorizonAnalysis(array $deepChain, string $currentNextRequiredSlice, array $cycleIntegrity): array
+    {
+        $indexedActivateKeys = [];
+        foreach ($deepChain as $index => $entry) {
+            $indexedActivateKeys[(string) $entry['activate_key']] = $index;
+        }
+        $intentionalReentry = (bool) ($cycleIntegrity['intentional_reentry_detected'] ?? false);
+
+        $horizonType = 'blocked_unknown';
+        $horizonReason = 'pointer_does_not_match_any_known_horizon';
+        $horizonOk = false;
+        $nextSafeMacroBatch = null;
+        $remainingKnownSlicesAfterHorizon = [];
+
+        if ($intentionalReentry) {
+            $horizonType = 'intentional_reentry';
+            $horizonReason = (string) ($cycleIntegrity['intentional_reentry_reason'] ?? '');
+            $horizonOk = true;
+            $nextSafeMacroBatch = 'reentry_into_post_start_evidence_corridor';
+        } elseif (isset($indexedActivateKeys[$currentNextRequiredSlice])) {
+            $horizonType = 'linear_next';
+            $horizonReason = 'pointer_points_to_next_slice_in_deep_chain';
+            $horizonOk = true;
+            $idx = $indexedActivateKeys[$currentNextRequiredSlice];
+            $remaining = array_slice($deepChain, $idx + 1);
+            $remainingKnownSlicesAfterHorizon = array_map(static fn (array $entry): string => (string) $entry['activate_key'], $remaining);
+            $nextSafeMacroBatch = $remaining[0]['activate_key'] ?? null;
+        } elseif ($currentNextRequiredSlice === 'apply_agent_control_plane_runtime_schema_migration') {
+            $horizonType = 'terminal_runtime_gate';
+            $horizonReason = 'environment_has_not_applied_runtime_schema_migration_yet';
+            $horizonOk = true;
+        }
+
+        return [
+            'schema_version' => 'atlas.self_construction.agent_control_plane_terminal_horizon_analysis.v1',
+            'current_pointer' => $currentNextRequiredSlice,
+            'expected_pointer' => (string) ($cycleIntegrity['terminal_horizon'] ?? ''),
+            'horizon_type' => $horizonType,
+            'horizon_reason' => $horizonReason,
+            'horizon_ok' => $horizonOk,
+            'next_safe_macro_batch' => $nextSafeMacroBatch,
+            'remaining_known_slices_after_horizon' => $remainingKnownSlicesAfterHorizon,
+            'completion_claim_allowed' => false,
+        ];
+    }
+
+    /**
+     * @param  list<string>  $logicalNames
+     * @param  array<string, array<string, bool>>  $sliceStatus
+     */
+    private function allCorridorSlicesOk(array $logicalNames, array $sliceStatus): bool
+    {
+        foreach ($logicalNames as $logicalName) {
+            $entry = $sliceStatus[$logicalName] ?? null;
+            if ($entry === null || ($entry['all_artifacts_ok'] ?? false) !== true) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**

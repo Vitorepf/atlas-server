@@ -69,6 +69,68 @@ class AtlasRivalsOneShotEnterpriseEvaluationTest extends TestCase
         $this->assertFalse($report['claim_ready']);
     }
 
+    public function test_dirty_workspace_after_run_is_global_hard_fail(): void
+    {
+        $rubric = app(AtlasRivalsOneShotEnterpriseRubricService::class)->rubric();
+
+        $this->assertContains(
+            'dirty_workspace_after_run',
+            (array) $rubric['global_hard_fail_conditions'],
+        );
+        $this->assertContains(
+            'tracked_python_bytecode_in_workspace',
+            (array) $rubric['global_hard_fail_conditions'],
+        );
+    }
+
+    public function test_evaluation_hard_fails_when_workspace_dirty_after_run(): void
+    {
+        $evidence = $this->richEvidencePack();
+        $evidence['workspace_after_clean_check_ran'] = true;
+        $evidence['workspace_after_clean_check_clean'] = false;
+        $evidence['workspace_after_clean_check'] = [
+            'ran' => true,
+            'clean' => false,
+            'hash_before' => str_repeat('a', 64),
+            'hash_after' => str_repeat('b', 64),
+            'dirty_files' => ['runtimes/python/atlas_module/__pycache__/foo.cpython-312.pyc'],
+            'dirty_files_truncated' => false,
+            'head_changed' => false,
+        ];
+
+        $report = app(AtlasRivalsOneShotEnterpriseEvaluationService::class)->evaluate([
+            'replay_manifest' => $this->validForgeReplayManifest(),
+            'case_manifest' => $this->caseManifestPacket(),
+            'evidence_pack' => $evidence,
+            'review_packet' => ['architecture_review' => 'passed', 'review_status' => 'approved'],
+            'completion_claim' => ['human_approved' => true, 'auto_completed' => false],
+        ]);
+
+        $this->assertSame(AtlasRivalsOneShotEnterpriseEvaluationService::GRADE_INVALID, $report['grade']);
+        $this->assertContains('dirty_workspace_after_run', $report['hard_fails']);
+        $this->assertNull($report['diagnostic_score']);
+        $this->assertFalse($report['claim_ready']);
+        $this->assertFalse($report['promotes_external_rivals_claim']);
+    }
+
+    public function test_evaluation_hard_fails_when_tracked_python_bytecode_flagged(): void
+    {
+        $evidence = $this->richEvidencePack();
+        $evidence['tracked_python_bytecode_in_workspace'] = true;
+
+        $report = app(AtlasRivalsOneShotEnterpriseEvaluationService::class)->evaluate([
+            'replay_manifest' => $this->validForgeReplayManifest(),
+            'case_manifest' => $this->caseManifestPacket(),
+            'evidence_pack' => $evidence,
+            'review_packet' => ['architecture_review' => 'passed', 'review_status' => 'approved'],
+            'completion_claim' => ['human_approved' => true, 'auto_completed' => false],
+        ]);
+
+        $this->assertSame(AtlasRivalsOneShotEnterpriseEvaluationService::GRADE_INVALID, $report['grade']);
+        $this->assertContains('tracked_python_bytecode_in_workspace', $report['hard_fails']);
+        $this->assertNull($report['diagnostic_score']);
+    }
+
     public function test_evaluation_hard_fails_when_atlas_arm_is_not_forge(): void
     {
         $report = app(AtlasRivalsOneShotEnterpriseEvaluationService::class)->evaluate([

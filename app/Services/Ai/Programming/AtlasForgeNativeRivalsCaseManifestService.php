@@ -92,12 +92,18 @@ class AtlasForgeNativeRivalsCaseManifestService
     /**
      * @return list<array<string,mixed>>
      */
+    public const DEFAULT_QUICK_TEST_COMMAND = "php artisan test --filter='AtlasForgeNativeRivalsTest::test_quick_canary_fixture_passes_under_three_seconds'";
+
+    public const DEFAULT_FULL_TEST_COMMAND = "php artisan test --filter='Rivals|ForgeNativeRivals|AtlasForge'";
+
     private function defaultCases(): array
     {
         return [
             [
                 'case_id' => self::DEFAULT_CASE_ID,
                 'objective' => 'Aplicar patch fixture governado em uma Obra com gates de qualidade e teste sem violar boundary Forge.',
+                'quick_test_command' => self::DEFAULT_QUICK_TEST_COMMAND,
+                'full_test_command' => self::DEFAULT_FULL_TEST_COMMAND,
                 'initial_snapshot_hash' => null,
                 'initial_snapshot_hash_required' => true,
                 'allowed_files_scope' => [

@@ -82,6 +82,7 @@ flows_to:
   - atlas-code
   - atlas-forge-continuum-os
   - atlas-self-improvement-activation-cockpit-v1
+  - atlas-self-improvement-closed-loop-level7-v1
 unlocks:
   - governed_self_improvement_to_obra_loop
 governs:

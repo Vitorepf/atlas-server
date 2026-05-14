@@ -93,6 +93,7 @@ flows_to:
   - evidence-ledger
   - rivals-learning
   - atlas-self-improvement-activation-cockpit-v1
+  - atlas-self-improvement-closed-loop-level7-v1
 unlocks:
   - enterprise-ai-programming
   - autonomous-provider-continuity

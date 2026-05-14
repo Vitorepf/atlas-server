@@ -28978,6 +28978,11 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('agent_control_plane_chain_integrity_certification_implementation_packet', data_get($payload, 'control_plane.current_capability'));
         $this->assertContains('agent_control_plane_chain_integrity_certification_service', data_get($payload, 'control_plane.current_capability'));
         $this->assertContains('agent_control_plane_chain_integrity_certification_status_projection', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_deterministic_chain_replay_contract', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_deterministic_chain_replay_preflight', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_deterministic_chain_replay_implementation_packet', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_deterministic_chain_replay_service', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_deterministic_chain_replay_status_projection', data_get($payload, 'control_plane.current_capability'));
         $this->assertContains('signed_dispatch_receipt_writer_contract', data_get($payload, 'control_plane.runtime_contracts_available'));
         $this->assertContains('adapter_invocation_boundary_contract', data_get($payload, 'control_plane.runtime_contracts_available'));
         $this->assertContains('checkout_lock', data_get($payload, 'control_plane.paperclip_patterns_absorbed'));

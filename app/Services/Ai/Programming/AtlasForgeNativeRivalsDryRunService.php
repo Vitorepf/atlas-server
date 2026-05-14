@@ -48,6 +48,12 @@ class AtlasForgeNativeRivalsDryRunService
             'provider_cost_approved' => false,
             'runbook_reviewed' => false,
             'intends_provider_battery' => false,
+            'preset' => $options['preset'] ?? null,
+            'atlas_model' => $options['atlas_model'] ?? null,
+            'baseline_model' => $options['baseline_model'] ?? null,
+            'gate_profile' => $options['gate_profile'] ?? null,
+            'test_command' => $options['test_command'] ?? null,
+            'case_ids' => $options['case_ids'] ?? null,
         ]);
 
         $protocol = $this->protocol->protocol();
@@ -115,6 +121,7 @@ class AtlasForgeNativeRivalsDryRunService
                 'execution_plan' => $this->executionPlan(is_array($manifestPacket['case'] ?? null) ? $manifestPacket['case'] : null),
             ],
             'preflight' => $preflightPacket,
+            'readiness_fingerprint' => $preflightPacket['readiness_fingerprint'] ?? null,
             'blocking_reasons' => $blockingReasons,
             'safety' => [
                 'dry_run_dispatches_provider' => false,

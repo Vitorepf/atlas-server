@@ -106,6 +106,7 @@ depends_on:
 flows_to:
   - atlas-code
   - atlas-self-improvement-forge-activation-v1
+  - atlas-self-improvement-closed-loop-level7-v1
 unlocks:
   - human_visibility_of_governed_activation_lifecycle
 governs:

@@ -66,6 +66,7 @@ flows_to:
   - atlas-code
   - atlas-forge-continuum-os
   - atlas-self-improvement-activation-cockpit-v1
+  - atlas-self-improvement-closed-loop-level7-v1
   - self-construction
   - rivals-learning
 unlocks:

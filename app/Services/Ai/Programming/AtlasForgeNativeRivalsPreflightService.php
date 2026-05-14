@@ -28,6 +28,8 @@ class AtlasForgeNativeRivalsPreflightService
     public function __construct(
         private readonly AtlasForgeNativeRivalsProtocolService $protocol,
         private readonly AtlasForgeNativeRivalsCaseManifestService $caseManifest,
+        private readonly WorkspaceHygieneService $workspaceHygiene,
+        private readonly RivalsForgeReadinessFingerprintService $fingerprint,
     ) {}
 
     /**
@@ -43,6 +45,27 @@ class AtlasForgeNativeRivalsPreflightService
         $providerApproved = (bool) ($options['provider_cost_approved'] ?? false);
         $runbookReviewed = (bool) ($options['runbook_reviewed'] ?? false);
         $intendsProviderBattery = (bool) ($options['intends_provider_battery'] ?? false);
+
+        $preset = is_string($options['preset'] ?? null) ? (string) $options['preset'] : null;
+        $atlasModel = is_string($options['atlas_model'] ?? null) ? (string) $options['atlas_model'] : null;
+        $baselineModel = is_string($options['baseline_model'] ?? null) ? (string) $options['baseline_model'] : null;
+        $gateProfile = is_string($options['gate_profile'] ?? null) ? (string) $options['gate_profile'] : null;
+        $testCommand = is_string($options['test_command'] ?? null) ? (string) $options['test_command'] : null;
+        $caseIdsIntent = is_array($options['case_ids'] ?? null)
+            ? $options['case_ids']
+            : (is_string($caseId) ? [$caseId] : []);
+
+        $readinessFingerprint = $this->fingerprint->compute([
+            'suite_id' => $suiteId,
+            'preset' => $preset,
+            'atlas_model' => $atlasModel,
+            'baseline_model' => $baselineModel,
+            'atlas_workspace' => $workspace,
+            'baseline_workspace' => $baselineWorkspace,
+            'case_ids' => $caseIdsIntent,
+            'gate_profile' => $gateProfile,
+            'test_command' => $testCommand,
+        ]);
 
         $workspaceCheck = $this->checkWorkspace($workspace);
         $baselineCheck = $this->checkBaselineWorkspace($workspace, $baselineWorkspace, $intendsProviderBattery);
@@ -96,6 +119,7 @@ class AtlasForgeNativeRivalsPreflightService
                 'operator_approval' => $approvalCheck,
             ],
             'blocking_reasons' => $blockingReasons,
+            'readiness_fingerprint' => $readinessFingerprint,
             'safety' => [
                 'preflight_dispatches_provider' => false,
                 'preflight_spends_provider_tokens' => false,
@@ -127,15 +151,26 @@ class AtlasForgeNativeRivalsPreflightService
         $git = $this->gitWorkspaceState($workspace);
         $isGit = (bool) ($git['is_git'] ?? false);
         $clean = (bool) ($git['clean'] ?? false);
+        $bytecode = $this->workspaceHygiene->trackedPythonBytecode($workspace);
+        $hasTrackedBytecode = (int) ($bytecode['tracked_count'] ?? 0) > 0;
+
+        $status = 'blocked';
+        if ($isGit && $clean && ! $hasTrackedBytecode) {
+            $status = 'passed';
+        } elseif ($isGit && $clean && $hasTrackedBytecode) {
+            $status = 'blocked_tracked_python_bytecode';
+        }
 
         return [
-            'status' => $isGit && $clean ? 'passed' : 'blocked',
+            'status' => $status,
             'is_git' => $isGit,
             'clean' => $clean,
             'dirty_count' => (int) ($git['dirty_count'] ?? 0),
             'dirty_files_sample' => (array) ($git['dirty_files_sample'] ?? []),
             'workspace_path' => $workspace,
             'workspace_hash' => hash('sha256', $workspace),
+            'tracked_python_bytecode' => $bytecode,
+            'tracked_python_bytecode_present' => $hasTrackedBytecode,
         ];
     }
 
@@ -362,7 +397,11 @@ class AtlasForgeNativeRivalsPreflightService
         }
 
         if (($workspace['status'] ?? null) !== 'passed') {
-            $reasons[] = 'workspace_dirty_or_not_git';
+            if (($workspace['status'] ?? null) === 'blocked_tracked_python_bytecode') {
+                $reasons[] = 'tracked_python_bytecode_in_workspace';
+            } else {
+                $reasons[] = 'workspace_dirty_or_not_git';
+            }
         }
         if (($baseline['status'] ?? null) === 'blocked') {
             $reasons[] = (string) ($baseline['blocking_reason'] ?? 'baseline_workspace_invalid');
@@ -383,6 +422,9 @@ class AtlasForgeNativeRivalsPreflightService
         }
         if (in_array('canonical_docs_missing', $blockingReasons, true)) {
             return 'blocked_protocol_invalid';
+        }
+        if (in_array('tracked_python_bytecode_in_workspace', $blockingReasons, true)) {
+            return 'blocked_tracked_python_bytecode';
         }
         if (in_array('workspace_dirty_or_not_git', $blockingReasons, true)) {
             return 'blocked_dirty_workspace';
@@ -412,6 +454,7 @@ class AtlasForgeNativeRivalsPreflightService
             'blocked_missing_forge_runtime' => 'Install/repair Atlas Forge runtime services and commands before retrying preflight.',
             'blocked_protocol_invalid' => 'Fix protocol violations (case manifest must use Forge for the Atlas arm and reference canonical docs).',
             'blocked_dirty_workspace' => 'Clean the Atlas workspace (commit/stash) or use a separate clean worktree before retrying.',
+            'blocked_tracked_python_bytecode' => 'Workspace tracks Python bytecode (.pyc/__pycache__). Every Python run regenerates those bytes and would mark the worktree dirty. Run the resolution_command shown in checks.workspace.tracked_python_bytecode and commit the cleanup before retrying preflight.',
             'blocked_missing_baseline_workspace' => 'Provide a clean baseline worktree distinct from the Atlas workspace via --baseline-workspace.',
             'blocked_requires_operator_approval' => 'Operator must review the runbook and confirm provider cost via --confirm-runbook-reviewed and --confirm-provider-cost.',
             default => 'Inspect blocking_reasons and re-run preflight: '.implode(', ', $blockingReasons),

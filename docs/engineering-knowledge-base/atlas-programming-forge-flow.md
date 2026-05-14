@@ -95,6 +95,7 @@ flows_to:
   - atlas-code
   - atlas-cartographic-knowledge-os
   - atlas-self-improvement-activation-cockpit-v1
+  - atlas-self-improvement-closed-loop-level7-v1
 unlocks:
   - heavy-programming-canonical-context
   - forge-documentation-alignment

@@ -8,9 +8,19 @@ class FairClaudePolicy
 
     public const PROVIDER_LOCK = 'claude_cli';
 
+    /**
+     * Default model when a caller omits an explicit --model option. Stays
+     * `opus` for backwards-compatibility with the original Fair Claude lock;
+     * sonnet is opt-in via {@see MODEL_LOCK_ALLOWLIST} and an explicit flag.
+     */
     public const MODEL_LOCK = 'opus';
 
+    /** @var list<string> Model aliases the Fair Claude lock will accept for Rivals batteries. */
+    public const MODEL_LOCK_ALLOWLIST = ['opus', 'sonnet'];
+
     public const ERROR_CODE = 'fair_mode_violation';
+
+    public const MODEL_NOT_AVAILABLE_ERROR = 'provider_model_not_available';
 
     /**
      * @param  array<string,mixed>  $flags
@@ -84,18 +94,28 @@ class FairClaudePolicy
         $alias = $this->normalize((string) ($modelSelection['alias'] ?? ''));
         $tier = $this->normalize((string) ($modelSelection['tier'] ?? ''));
 
-        if ($alias !== self::MODEL_LOCK || $tier !== 'premium') {
+        if (! $this->isAliasAllowed($alias) || $tier !== 'premium') {
             return $this->violation(
-                message: 'Fair Claude mode requires the configured Claude Opus premium model.',
+                message: sprintf(
+                    'Fair Claude mode requires a Claude model in the allowlist [%s] at premium tier.',
+                    implode(', ', self::MODEL_LOCK_ALLOWLIST),
+                ),
                 details: [
+                    'sub_error' => self::MODEL_NOT_AVAILABLE_ERROR,
                     'model' => $modelSelection['model'] ?? null,
                     'alias' => $modelSelection['alias'] ?? null,
                     'tier' => $modelSelection['tier'] ?? null,
+                    'allowed_aliases' => self::MODEL_LOCK_ALLOWLIST,
                 ],
             );
         }
 
         return ['ok' => true];
+    }
+
+    public function isAliasAllowed(string $alias): bool
+    {
+        return in_array($this->normalize($alias), self::MODEL_LOCK_ALLOWLIST, true);
     }
 
     /**
@@ -238,22 +258,29 @@ class FairClaudePolicy
         $tier = data_get($payload, 'requested_model_tier')
             ?: data_get($payload, 'dev_execution_plan.selected_model.tier');
 
-        if ($alias !== null && $this->normalize((string) $alias) !== self::MODEL_LOCK) {
+        if ($alias !== null && ! $this->isAliasAllowed((string) $alias)) {
             return $this->violation(
-                message: 'Fair Claude mode requires the configured Claude Opus premium model.',
+                message: sprintf(
+                    'Fair Claude mode requires a Claude model in the allowlist [%s] at premium tier.',
+                    implode(', ', self::MODEL_LOCK_ALLOWLIST),
+                ),
                 details: [
+                    'sub_error' => self::MODEL_NOT_AVAILABLE_ERROR,
                     'model_alias' => $alias,
                     'model_tier' => $tier,
+                    'allowed_aliases' => self::MODEL_LOCK_ALLOWLIST,
                 ],
             );
         }
 
         if ($tier !== null && $this->normalize((string) $tier) !== 'premium') {
             return $this->violation(
-                message: 'Fair Claude mode requires the configured Claude Opus premium model.',
+                message: 'Fair Claude mode requires a Claude model at premium tier.',
                 details: [
+                    'sub_error' => self::MODEL_NOT_AVAILABLE_ERROR,
                     'model_alias' => $alias,
                     'model_tier' => $tier,
+                    'allowed_aliases' => self::MODEL_LOCK_ALLOWLIST,
                 ],
             );
         }

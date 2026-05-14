@@ -118,6 +118,82 @@ class FairClaudePolicyTest extends TestCase
         $this->assertSame('claude-opus-4-7', data_get($result, 'details.expected_model'));
     }
 
+    public function test_accepts_claude_cli_with_sonnet_premium_selection(): void
+    {
+        $result = app(FairClaudePolicy::class)->validate('claude_cli', [
+            'provider' => 'claude_cli',
+            'model' => 'claude-sonnet-4-6',
+            'alias' => 'sonnet',
+            'tier' => 'premium',
+        ]);
+
+        $this->assertTrue($result['ok']);
+    }
+
+    public function test_validate_rejects_unallowed_alias_with_provider_model_not_available_sub_error(): void
+    {
+        $result = app(FairClaudePolicy::class)->validate('claude_cli', [
+            'provider' => 'claude_cli',
+            'model' => 'claude-haiku',
+            'alias' => 'haiku',
+            'tier' => 'premium',
+        ]);
+
+        $this->assertFalse($result['ok']);
+        $this->assertSame(FairClaudePolicy::ERROR_CODE, $result['error']);
+        $this->assertSame(
+            FairClaudePolicy::MODEL_NOT_AVAILABLE_ERROR,
+            data_get($result, 'details.sub_error'),
+        );
+        $this->assertSame(
+            FairClaudePolicy::MODEL_LOCK_ALLOWLIST,
+            data_get($result, 'details.allowed_aliases'),
+        );
+    }
+
+    public function test_invocation_accepts_sonnet_alias(): void
+    {
+        $result = app(FairClaudePolicy::class)->validateInvocation(
+            'claude_cli',
+            'claude-sonnet-4-6',
+            [
+                'fair_mode' => app(FairClaudePolicy::class)->metadata(),
+                'requested_model' => 'claude-sonnet-4-6',
+                'requested_model_alias' => 'sonnet',
+                'requested_model_tier' => 'premium',
+            ],
+        );
+
+        $this->assertTrue($result['ok']);
+    }
+
+    public function test_invocation_rejects_unallowed_alias(): void
+    {
+        $result = app(FairClaudePolicy::class)->validateInvocation(
+            'claude_cli',
+            'claude-haiku-3-5',
+            [
+                'fair_mode' => app(FairClaudePolicy::class)->metadata(),
+                'requested_model' => 'claude-haiku-3-5',
+                'requested_model_alias' => 'haiku',
+                'requested_model_tier' => 'premium',
+            ],
+        );
+
+        $this->assertFalse($result['ok']);
+        $this->assertSame(
+            FairClaudePolicy::MODEL_NOT_AVAILABLE_ERROR,
+            data_get($result, 'details.sub_error'),
+        );
+    }
+
+    public function test_model_lock_allowlist_contains_opus_and_sonnet(): void
+    {
+        $this->assertContains('opus', FairClaudePolicy::MODEL_LOCK_ALLOWLIST);
+        $this->assertContains('sonnet', FairClaudePolicy::MODEL_LOCK_ALLOWLIST);
+        $this->assertNotContains('haiku', FairClaudePolicy::MODEL_LOCK_ALLOWLIST);
+    }
+
     public function test_runtime_override_locks_effective_policy_to_claude_only(): void
     {
         $override = app(FairClaudePolicy::class)->runtimeOverride([
