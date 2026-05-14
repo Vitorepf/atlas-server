@@ -272,6 +272,70 @@ simple intent
 
 without making the user manually write spec, plan and tasks.
 
+## Implementacao Atual (Status: building)
+
+End-to-end SDD pipeline em runtime sob `atlas:sdd:run` e REST `/atlas-code/sdd/*`.
+
+### Tabelas Postgres
+`atlas_operations`, `atlas_specs`, `atlas_requirements`,
+`atlas_acceptance_criteria`, `atlas_assumptions`, `atlas_plans`,
+`atlas_sdd_tasks`, `atlas_decision_receipts`, `atlas_spec_traceability`,
+`atlas_sdd_drift_reports`, `atlas_sdd_learning_proposals` —
+todas alinhadas a `data-model-and-services.md` (Core Tables).
+
+### Servicos canonicos (`app/Services/Ai/Programming/Sdd/`)
+
+| Componente | Papel |
+|---|---|
+| `IntentRouter` | OperationEnvelope → Intent (domain, risk, ConfidenceClass) + persiste `atlas_operations` |
+| `ContextBuilder` | Intent → ContextPack versionado (digest sha256, packages, payload) |
+| `ProgrammingSpecCompiler` (reuso) + `Compilers/SpecCritic` | spec scaffold + critic standalone com clarification questions |
+| `Compilers/PlanCompiler` | spec → Plan (target_files, forbidden_files, hot_file_ownership, technical_approach, test_plan, rollback_plan) |
+| `Compilers/TaskCompiler` | plan → ordered tasks (code, type, allowed_files, depends_on, acceptance_refs) |
+| `AssumptionLedger` + `Gates/SddClarificationGate` | assumptions com ConfidenceClass; bloqueia receipt enquanto há blocking_ambiguity |
+| `DecisionEngine` | DecisionReceipt assinado (autonomy_level, allowed_actions, forbidden_actions, allowed/forbidden_files, required_gates, signature, expires_at) |
+| `RuntimeExecutor` | runtime bounded ao receipt — rejeita writes fora do escopo, suporta callable de comando |
+| `RepairLoop` | repete validation commands sem alargar escopo |
+| `SpecDriftDetector` | inspeciona spec/req/plan/trace/evidence; output `atlas.sdd_drift.v1` (status pass/warn/fail + recommended_action) |
+| `LearningSignals` | gera `AtlasSddLearningProposal` proposal-only (nunca muta kernel/policy/provider/memory) |
+| `AtlasSddPipeline` | orchestrator master: intent → context → spec → critic → plan → tasks → receipt → execute → repair → drift → learning |
+
+### Enums (`Sdd/Enums/`)
+`AutonomyLevel` (L0..L5), `ConfidenceClass` (confirmed_fact|strong_inference|hypothesis|blocking_ambiguity), `SpecStatus` (draft|critiqued|approved|implemented|superseded|rejected).
+
+### CLI
+| Comando | Papel |
+|---|---|
+| `atlas:sdd:run "<intent>" [--workspace] [--user] [--autonomy] [--write path::content] [--command] [--strict] [--json]` | Roda pipeline completo |
+| `atlas:ai:task-orchestration-report --json` | Read-only promotion check (counts + unsafe flags) |
+| `atlas:ai:task-orchestration-backfill-receipts [--write] --json` | Repair signature/hash chain |
+| `atlas:ai:long-running-work-report --json` | Baseline + unsafe flags |
+| `atlas:ai:long-running-work-declare-baseline [--apply] --json` | Manifest declarativo (nunca dispatch automático) |
+
+### REST surface (`/atlas-code/sdd/*` sob `atlas.token`)
+`operations`, `specs`, `specs/{id}`, `specs/{id}/traceability`,
+`decision-receipts`, `decision-receipts/{receiptId}`, `drift-reports`,
+`learning-proposals`, `mcp/resources`, `agent-roles`, `agent-roles/{name}`.
+
+### MCP read-only resources
+`mcp:atlas/operations`, `mcp:atlas/specs`, `mcp:atlas/requirements`,
+`mcp:atlas/traceability`, `mcp:atlas/decision-receipts`,
+`mcp:atlas/evidence`, `mcp:atlas/drift-reports`,
+`mcp:atlas/learning-proposals`. Catalog em `/atlas-code/sdd/mcp/resources`.
+
+### Agent Role Registry (14 papéis canônicos)
+ContextScout, ProductAnalyst, BusinessRuleMiner, SpecCompiler, SpecCritic,
+ArchitectureAgent, PlanCompiler, TaskCompiler, ExecutionAgent, QAAgent,
+SecurityAgent, DriftDetector, EvidenceAgent, LearningCurator. Cada um declara
+input/output, allowed/forbidden actions, required evidence, required gates.
+
+### Hard laws aplicadas em runtime
+- "MCP is a surface, not authority" — REST + MCP catalog são read-only
+- "Runtime may edit only what the receipt allows" — `RuntimeExecutor` valida cada path
+- "Learning cannot silently alter Kernel/Policy/provider/memory" — `LearningSignals.proposalForType()` declara `forbidden_targets`
+- "No execution without Decision Receipt" — `AtlasSddPipeline` sempre cria receipt antes do executor
+- "No SDD runtime treats markdown as authoritative without structured record" — `content_json` é fonte; `content_markdown` projection
+
 ## Resumo
 
 Canonical SDD layer that compiles simple user intent into context-grounded specs, plans, tasks, receipts, execution, gates, evidence and learning.

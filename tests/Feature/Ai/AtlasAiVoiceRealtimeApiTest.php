@@ -25,6 +25,7 @@ final class AtlasAiVoiceRealtimeApiTest extends TestCase
         config()->set('atlas.token', 'test-token-with-enough-length-123');
         config()->set('atlas.voice.livekit.token_issuer_enabled', false);
         config()->set('atlas.voice.livekit.url', '');
+        config()->set('atlas.voice.livekit.public_url', '');
         config()->set('atlas.voice.livekit.api_key', '');
         config()->set('atlas.voice.livekit.api_secret', '');
         Schema::dropIfExists('mobile_pairing_codes');
@@ -43,7 +44,7 @@ final class AtlasAiVoiceRealtimeApiTest extends TestCase
         parent::tearDown();
     }
 
-    public function test_voice_health_exposes_mobile_first_scaffold_contract(): void
+    public function test_voice_health_exposes_mobile_first_realtime_contract(): void
     {
         $this->getJson('/ai/voice/health', $this->headers)
             ->assertOk()
@@ -77,15 +78,16 @@ final class AtlasAiVoiceRealtimeApiTest extends TestCase
             'participant_identity' => 'mobile:vitor',
         ], $this->headers)
             ->assertOk()
-            ->assertJsonPath('status', 'session_started_scaffold')
+            ->assertJsonPath('status', 'session_blocked')
             ->assertJsonPath('session.session_id', 'voice_session_api')
             ->assertJsonPath('session.surface_id', 'voice_realtime')
             ->assertJsonPath('session.client_surface', 'mobile')
             ->assertJsonPath('session_lease.schema_version', 'atlas.voice.session_lease.v1')
-            ->assertJsonPath('session_lease.mode', 'mobile_push_to_talk')
+            ->assertJsonPath('session_lease.mode', 'livekit_webrtc')
             ->assertJsonPath('session_lease.room_name', 'atlas-voice-voice-session-api')
             ->assertJsonPath('session_lease.participant_identity', 'mobile:vitor')
             ->assertJsonPath('session_lease.token_status', 'not_issued_scaffold')
+            ->assertJsonPath('participant_token', null)
             ->assertJsonPath('session_lease.kernel_decision_required_per_turn', true)
             ->assertJsonPath('session_lease.raw_audio_persistence_allowed', false)
             ->assertJsonPath('session_lease.activation_governance.first_product_surface', 'mobile')
@@ -138,6 +140,7 @@ final class AtlasAiVoiceRealtimeApiTest extends TestCase
     {
         config()->set('atlas.voice.livekit.token_issuer_enabled', true);
         config()->set('atlas.voice.livekit.url', 'http://livekit.test');
+        config()->set('atlas.voice.livekit.public_url', 'ws://livekit-public.test');
         config()->set('atlas.voice.livekit.api_key', 'livekit-test-key');
         config()->set('atlas.voice.livekit.api_secret', 'livekit-test-secret');
         config()->set('atlas.voice.livekit.token_ttl_seconds', 600);
@@ -152,15 +155,20 @@ final class AtlasAiVoiceRealtimeApiTest extends TestCase
             'participant_identity' => 'mobile:vitor',
         ], $this->headers)
             ->assertOk()
+            ->assertJsonPath('status', 'session_ready')
+            ->assertJsonPath('livekit_url', 'ws://livekit-public.test')
+            ->assertJsonPath('room_name', 'atlas-voice-voice-session-livekit')
+            ->assertJsonPath('participant_identity', 'mobile:vitor')
             ->assertJsonPath('session_lease.token_status', 'issued')
             ->assertJsonPath('session_lease.token_issuer', 'atlas_voice_livekit_token_issuer')
             ->assertJsonPath('session_lease.ttl_seconds', 600)
-            ->assertJsonPath('session_lease.livekit_url', 'http://livekit.test')
+            ->assertJsonPath('session_lease.livekit_url', 'ws://livekit-public.test')
             ->assertJsonPath('session_lease.grant.room_join', true)
             ->assertJsonPath('session_lease.grant.room', 'atlas-voice-voice-session-livekit');
 
         $token = (string) $response->json('session_lease.access_token');
         $this->assertNotSame('', $token);
+        $this->assertSame($token, $response->json('participant_token'));
         $this->assertCount(3, explode('.', $token));
 
         $claims = $this->decodeJwtClaims($token);
@@ -186,6 +194,7 @@ final class AtlasAiVoiceRealtimeApiTest extends TestCase
     {
         config()->set('atlas.voice.livekit.token_issuer_enabled', true);
         config()->set('atlas.voice.livekit.url', '');
+        config()->set('atlas.voice.livekit.public_url', '');
         config()->set('atlas.voice.livekit.api_key', 'livekit-test-key');
         config()->set('atlas.voice.livekit.api_secret', 'livekit-test-secret');
 
@@ -365,7 +374,7 @@ final class AtlasAiVoiceRealtimeApiTest extends TestCase
     {
         $this->getJson('/ai/voice/eclipse/active?privacy_class=p4_secret&privacy[private_meeting]=1', $this->headers)
             ->assertOk()
-            ->assertJsonPath('schema_version', 'atlas.voice_realtime.scaffold.v1')
+            ->assertJsonPath('schema_version', AtlasVoiceRealtimeService::SCHEMA_VERSION)
             ->assertJsonPath('status', 'ok')
             ->assertJsonPath('eclipse.schema_version', 'atlas.voice.eclipse.v1')
             ->assertJsonPath('eclipse.active', true)
@@ -435,9 +444,9 @@ final class AtlasAiVoiceRealtimeApiTest extends TestCase
             ->assertJsonPath('allowlists.privacy_classes.2', 'p3_audio')
             ->assertJsonPath('kernel_is_decision_authority', true)
             ->assertJsonPath('activation_governance.schema_version', 'atlas.voice_realtime.activation_governance.v1')
-            ->assertJsonPath('activation_governance.status', 'scaffold_fail_closed')
+            ->assertJsonPath('activation_governance.status', 'livekit_realtime_ready')
             ->assertJsonPath('activation_governance.first_product_surface', 'mobile')
-            ->assertJsonPath('activation_governance.mobile_push_to_talk_required', true)
+            ->assertJsonPath('activation_governance.mobile_push_to_talk_required', false)
             ->assertJsonPath('activation_governance.livekit_agents_direct_provider_allowed', false)
             ->assertJsonPath('activation_governance.kernel_webhook_required', true)
             ->assertJsonPath('activation_governance.decision_receipt_required_per_turn', true)
@@ -445,7 +454,7 @@ final class AtlasAiVoiceRealtimeApiTest extends TestCase
             ->assertJsonPath('activation_governance.production_audio_streaming_allowed_now', false)
             ->assertJsonPath('activation_governance.always_on_listening_allowed_now', false)
             ->assertJsonPath('activation_governance.swift_native_mac_phase', 'future_after_mobile_voice')
-            ->assertJsonPath('activation_governance.promotion_requires.0', 'mobile_push_to_talk_operational')
+            ->assertJsonPath('activation_governance.promotion_requires.0', 'livekit_mobile_room_connected')
             ->assertJsonPath('activation_governance.blocked_shortcuts.0', 'swift_mac_before_mobile')
             ->assertJsonPath('session_lease.schema_version', 'atlas.voice.session_lease.v1')
             ->assertJsonPath('session_lease.default_mode', 'mobile_push_to_talk')
@@ -727,8 +736,10 @@ final class AtlasAiVoiceRealtimeApiTest extends TestCase
             ->assertJsonPath('mobile_first', true)
             ->assertJsonPath('requirements_file', 'runtimes/python/voice_realtime/requirements-livekit.txt')
             ->assertJsonPath('expected_packages.0', 'livekit-agents')
-            ->assertJsonPath('expected_requirements.0', 'livekit-agents>=1.3.12,<2.0.0')
-            ->assertJsonPath('requirements_packages.0', 'livekit-agents>=1.3.12,<2.0.0')
+            ->assertJsonPath('expected_requirements.0', 'livekit-agents>=1.5,<2.0')
+            ->assertJsonPath('expected_requirements.1', 'livekit-plugins-openai>=1.5,<2.0')
+            ->assertJsonPath('requirements_packages.0', 'livekit-agents>=1.5,<2.0')
+            ->assertJsonPath('requirements_packages.1', 'livekit-plugins-openai>=1.5,<2.0')
             ->assertJsonPath('missing_requirements', [])
             ->assertJsonPath('unsafe_requirements', [])
             ->assertJsonPath('gates.requirements_file_exists', true)

@@ -226,6 +226,18 @@ class AtlasAiSelfConstructionCommand extends Command
         {--agent-automatic-dispatch-scheduler-one-shot-tick-codex-real-invoker-actual-process-start-rehearsal-executor-preflight : Preflight one-shot scheduler tick Codex real invoker actual process start rehearsal executor prerequisites without starting Codex}
         {--agent-automatic-dispatch-scheduler-one-shot-tick-codex-real-invoker-actual-process-start-rehearsal-executor-implementation-packet : Generate the scoped one-shot scheduler tick Codex real invoker actual process start rehearsal executor implementation packet without creating invoker files}
         {--agent-automatic-dispatch-scheduler-one-shot-tick-codex-real-invoker-actual-process-start-rehearsal-executor-status : Inspect one-shot scheduler tick Codex real invoker actual process start rehearsal executor service status without starting Codex}
+        {--agent-automatic-dispatch-scheduler-one-shot-tick-codex-real-invoker-process-start-envelope-builder-contract : Project the one-shot scheduler tick Codex real invoker process start envelope builder contract without starting Codex}
+        {--agent-automatic-dispatch-scheduler-one-shot-tick-codex-real-invoker-process-start-envelope-builder-preflight : Preflight one-shot scheduler tick Codex real invoker process start envelope builder prerequisites without starting Codex}
+        {--agent-automatic-dispatch-scheduler-one-shot-tick-codex-real-invoker-process-start-envelope-builder-implementation-packet : Generate the scoped one-shot scheduler tick Codex real invoker process start envelope builder implementation packet without creating invoker files}
+        {--agent-automatic-dispatch-scheduler-one-shot-tick-codex-real-invoker-process-start-envelope-builder-status : Inspect one-shot scheduler tick Codex real invoker process start envelope builder service status without starting Codex}
+        {--agent-automatic-dispatch-scheduler-one-shot-tick-codex-real-invoker-start-execution-gate-contract : Project the one-shot scheduler tick Codex real invoker start execution gate contract without starting Codex}
+        {--agent-automatic-dispatch-scheduler-one-shot-tick-codex-real-invoker-start-execution-gate-preflight : Preflight one-shot scheduler tick Codex real invoker start execution gate prerequisites without starting Codex}
+        {--agent-automatic-dispatch-scheduler-one-shot-tick-codex-real-invoker-start-execution-gate-implementation-packet : Generate the scoped one-shot scheduler tick Codex real invoker start execution gate implementation packet without creating invoker files}
+        {--agent-automatic-dispatch-scheduler-one-shot-tick-codex-real-invoker-start-execution-gate-status : Inspect one-shot scheduler tick Codex real invoker start execution gate service status without starting Codex}
+        {--agent-automatic-dispatch-scheduler-one-shot-tick-codex-real-invoker-process-starter-readiness-gate-contract : Project the one-shot scheduler tick Codex real invoker process starter readiness gate contract without starting Codex}
+        {--agent-automatic-dispatch-scheduler-one-shot-tick-codex-real-invoker-process-starter-readiness-gate-preflight : Preflight one-shot scheduler tick Codex real invoker process starter readiness gate prerequisites without starting Codex}
+        {--agent-automatic-dispatch-scheduler-one-shot-tick-codex-real-invoker-process-starter-readiness-gate-implementation-packet : Generate the scoped one-shot scheduler tick Codex real invoker process starter readiness gate implementation packet without creating invoker files}
+        {--agent-automatic-dispatch-scheduler-one-shot-tick-codex-real-invoker-process-starter-readiness-gate-status : Inspect one-shot scheduler tick Codex real invoker process starter readiness gate service status without starting Codex}
         {--agent-provider-adapter-registry-contract-template : Generate the read-only provider adapter registry contract template}
         {--agent-provider-adapter-registry-preflight : Verify provider adapter registry prerequisites without calling providers}
         {--agent-provider-adapter-registry-implementation-packet : Generate the scoped provider adapter registry implementation packet without creating registry files}
@@ -1100,6 +1112,18 @@ class AtlasAiSelfConstructionCommand extends Command
             (bool) $this->option('agent-automatic-dispatch-scheduler-one-shot-tick-codex-real-invoker-actual-process-start-rehearsal-executor-implementation-packet') => $readiness->agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerActualProcessStartRehearsalExecutorImplementationPacket($options),
             (bool) $this->option('agent-automatic-dispatch-scheduler-one-shot-tick-codex-real-invoker-actual-process-start-rehearsal-executor-preflight') => $readiness->agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerActualProcessStartRehearsalExecutorPreflight($options),
             (bool) $this->option('agent-automatic-dispatch-scheduler-one-shot-tick-codex-real-invoker-actual-process-start-rehearsal-executor-contract') => $readiness->agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerActualProcessStartRehearsalExecutorContract($options),
+            (bool) $this->option('agent-automatic-dispatch-scheduler-one-shot-tick-codex-real-invoker-process-start-envelope-builder-status') => $readiness->agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerProcessStartEnvelopeBuilderStatus($options),
+            (bool) $this->option('agent-automatic-dispatch-scheduler-one-shot-tick-codex-real-invoker-process-start-envelope-builder-implementation-packet') => $readiness->agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerProcessStartEnvelopeBuilderImplementationPacket($options),
+            (bool) $this->option('agent-automatic-dispatch-scheduler-one-shot-tick-codex-real-invoker-process-start-envelope-builder-preflight') => $readiness->agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerProcessStartEnvelopeBuilderPreflight($options),
+            (bool) $this->option('agent-automatic-dispatch-scheduler-one-shot-tick-codex-real-invoker-process-start-envelope-builder-contract') => $readiness->agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerProcessStartEnvelopeBuilderContract($options),
+            (bool) $this->option('agent-automatic-dispatch-scheduler-one-shot-tick-codex-real-invoker-start-execution-gate-status') => $readiness->agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerStartExecutionGateStatus($options),
+            (bool) $this->option('agent-automatic-dispatch-scheduler-one-shot-tick-codex-real-invoker-start-execution-gate-implementation-packet') => $readiness->agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerStartExecutionGateImplementationPacket($options),
+            (bool) $this->option('agent-automatic-dispatch-scheduler-one-shot-tick-codex-real-invoker-start-execution-gate-preflight') => $readiness->agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerStartExecutionGatePreflight($options),
+            (bool) $this->option('agent-automatic-dispatch-scheduler-one-shot-tick-codex-real-invoker-start-execution-gate-contract') => $readiness->agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerStartExecutionGateContract($options),
+            (bool) $this->option('agent-automatic-dispatch-scheduler-one-shot-tick-codex-real-invoker-process-starter-readiness-gate-status') => $readiness->agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerProcessStarterReadinessGateStatus($options),
+            (bool) $this->option('agent-automatic-dispatch-scheduler-one-shot-tick-codex-real-invoker-process-starter-readiness-gate-implementation-packet') => $readiness->agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerProcessStarterReadinessGateImplementationPacket($options),
+            (bool) $this->option('agent-automatic-dispatch-scheduler-one-shot-tick-codex-real-invoker-process-starter-readiness-gate-preflight') => $readiness->agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerProcessStarterReadinessGatePreflight($options),
+            (bool) $this->option('agent-automatic-dispatch-scheduler-one-shot-tick-codex-real-invoker-process-starter-readiness-gate-contract') => $readiness->agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerProcessStarterReadinessGateContract($options),
             (bool) $this->option('agent-automatic-dispatch-scheduler-one-shot-tick-codex-process-invocation-authorization-status') => $readiness->agentAutomaticDispatchSchedulerOneShotTickCodexProcessInvocationAuthorizationStatus($options),
             (bool) $this->option('agent-automatic-dispatch-scheduler-one-shot-tick-codex-process-invocation-authorization-implementation-packet') => $readiness->agentAutomaticDispatchSchedulerOneShotTickCodexProcessInvocationAuthorizationImplementationPacket($options),
             (bool) $this->option('agent-automatic-dispatch-scheduler-one-shot-tick-codex-process-invocation-authorization-preflight') => $readiness->agentAutomaticDispatchSchedulerOneShotTickCodexProcessInvocationAuthorizationPreflight($options),
@@ -7220,6 +7244,174 @@ class AtlasAiSelfConstructionCommand extends Command
             $this->components->twoColumnDetail('Status', (string) data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_actual_process_start_rehearsal_executor_status.status'));
             $this->components->twoColumnDetail('Rehearsal count', (string) data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_actual_process_start_rehearsal_executor_status.codex_real_invoker_actual_process_start_rehearsal_prepared_run_count'));
             $this->components->twoColumnDetail('Status hash', (string) data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_actual_process_start_rehearsal_executor_status_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-automatic-dispatch-scheduler-one-shot-tick-codex-real-invoker-process-start-envelope-builder-contract')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Actual process start allowed', data_get($payload, 'actual_process_start_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Contract status', (string) data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_process_start_envelope_builder_contract.status'));
+            $this->components->twoColumnDetail('Method', (string) data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_process_start_envelope_builder_contract.release_boundary.scheduler_invoker_method'));
+            $this->components->twoColumnDetail('Contract hash', (string) data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_process_start_envelope_builder_contract_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-automatic-dispatch-scheduler-one-shot-tick-codex-real-invoker-process-start-envelope-builder-preflight')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Actual process start allowed', data_get($payload, 'actual_process_start_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Preflight status', (string) data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_process_start_envelope_builder_preflight.status'));
+            $this->components->twoColumnDetail('Blocking count', (string) data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_process_start_envelope_builder_preflight.blocking_count'));
+            $this->components->twoColumnDetail('Preflight hash', (string) data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_process_start_envelope_builder_preflight_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-automatic-dispatch-scheduler-one-shot-tick-codex-real-invoker-process-start-envelope-builder-implementation-packet')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Actual process start allowed', data_get($payload, 'actual_process_start_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Packet status', (string) data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_process_start_envelope_builder_implementation_packet.status'));
+            $this->components->twoColumnDetail('Task count', (string) data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_process_start_envelope_builder_implementation_packet.task_count'));
+            $this->components->twoColumnDetail('Packet hash', (string) data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_process_start_envelope_builder_implementation_packet_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-automatic-dispatch-scheduler-one-shot-tick-codex-real-invoker-process-start-envelope-builder-status')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Actual process start allowed', data_get($payload, 'actual_process_start_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Status', (string) data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_process_start_envelope_builder_status.status'));
+            $this->components->twoColumnDetail('Envelope count', (string) data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_process_start_envelope_builder_status.codex_real_invoker_process_start_envelope_built_run_count'));
+            $this->components->twoColumnDetail('Status hash', (string) data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_process_start_envelope_builder_status_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-automatic-dispatch-scheduler-one-shot-tick-codex-real-invoker-start-execution-gate-contract')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Actual process start allowed', data_get($payload, 'actual_process_start_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Contract status', (string) data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_start_execution_gate_contract.status'));
+            $this->components->twoColumnDetail('Method', (string) data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_start_execution_gate_contract.release_boundary.scheduler_invoker_method'));
+            $this->components->twoColumnDetail('Contract hash', (string) data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_start_execution_gate_contract_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-automatic-dispatch-scheduler-one-shot-tick-codex-real-invoker-start-execution-gate-preflight')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Actual process start allowed', data_get($payload, 'actual_process_start_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Preflight status', (string) data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_start_execution_gate_preflight.status'));
+            $this->components->twoColumnDetail('Blocking count', (string) data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_start_execution_gate_preflight.blocking_count'));
+            $this->components->twoColumnDetail('Preflight hash', (string) data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_start_execution_gate_preflight_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-automatic-dispatch-scheduler-one-shot-tick-codex-real-invoker-start-execution-gate-implementation-packet')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Actual process start allowed', data_get($payload, 'actual_process_start_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Packet status', (string) data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_start_execution_gate_implementation_packet.status'));
+            $this->components->twoColumnDetail('Task count', (string) data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_start_execution_gate_implementation_packet.task_count'));
+            $this->components->twoColumnDetail('Packet hash', (string) data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_start_execution_gate_implementation_packet_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-automatic-dispatch-scheduler-one-shot-tick-codex-real-invoker-start-execution-gate-status')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Actual process start allowed', data_get($payload, 'actual_process_start_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Status', (string) data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_start_execution_gate_status.status'));
+            $this->components->twoColumnDetail('Start gate count', (string) data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_start_execution_gate_status.codex_real_invoker_start_execution_gate_authorized_run_count'));
+            $this->components->twoColumnDetail('Status hash', (string) data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_start_execution_gate_status_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-automatic-dispatch-scheduler-one-shot-tick-codex-real-invoker-process-starter-readiness-gate-contract')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Actual process start allowed', data_get($payload, 'actual_process_start_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Contract status', (string) data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_process_starter_readiness_gate_contract.status'));
+            $this->components->twoColumnDetail('Method', (string) data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_process_starter_readiness_gate_contract.release_boundary.scheduler_invoker_method'));
+            $this->components->twoColumnDetail('Contract hash', (string) data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_process_starter_readiness_gate_contract_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-automatic-dispatch-scheduler-one-shot-tick-codex-real-invoker-process-starter-readiness-gate-preflight')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Actual process start allowed', data_get($payload, 'actual_process_start_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Preflight status', (string) data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_process_starter_readiness_gate_preflight.status'));
+            $this->components->twoColumnDetail('Blocking count', (string) data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_process_starter_readiness_gate_preflight.blocking_count'));
+            $this->components->twoColumnDetail('Preflight hash', (string) data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_process_starter_readiness_gate_preflight_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-automatic-dispatch-scheduler-one-shot-tick-codex-real-invoker-process-starter-readiness-gate-implementation-packet')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Actual process start allowed', data_get($payload, 'actual_process_start_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Packet status', (string) data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_process_starter_readiness_gate_implementation_packet.status'));
+            $this->components->twoColumnDetail('Task count', (string) data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_process_starter_readiness_gate_implementation_packet.task_count'));
+            $this->components->twoColumnDetail('Packet hash', (string) data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_process_starter_readiness_gate_implementation_packet_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-automatic-dispatch-scheduler-one-shot-tick-codex-real-invoker-process-starter-readiness-gate-status')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Execution allowed', data_get($payload, 'execution_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Dispatch allowed', data_get($payload, 'dispatch_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Actual process start allowed', data_get($payload, 'actual_process_start_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Status', (string) data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_process_starter_readiness_gate_status.status'));
+            $this->components->twoColumnDetail('Readiness count', (string) data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_process_starter_readiness_gate_status.codex_real_invoker_process_starter_readiness_gate_prepared_run_count'));
+            $this->components->twoColumnDetail('Status hash', (string) data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_process_starter_readiness_gate_status_hash'));
             $this->newLine();
             $this->line((string) $payload['human_summary']);
 

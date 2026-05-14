@@ -113,6 +113,7 @@ class ProgrammingRetrievalExecutor
         array $requiredSources,
         int $maxRefs = 40,
         int $maxChars = 20000,
+        array $graphRagRefs = [],
     ): array {
         $legacyPack = $this->contextPack($graph, $previousReceipts, $maxRefs * 2, $maxChars);
         $semanticRefs = $this->localVectorIndex->search(
@@ -122,7 +123,7 @@ class ProgrammingRetrievalExecutor
             limit: max($maxRefs, 32),
         );
 
-        $refs = array_merge((array) ($legacyPack['ranked_refs'] ?? []), $semanticRefs);
+        $refs = array_merge((array) ($legacyPack['ranked_refs'] ?? []), $graphRagRefs, $semanticRefs);
         $refs = array_merge($refs, $this->professionalCompanionRefs($workspace, $objective, $flow, $refs));
         $refs = array_merge($refs, $this->auditedEmptySourceRefs($requiredSources, $previousReceipts));
         $reranked = $this->professionalReranker->rerank($refs, $requiredSources, $flow, $maxRefs);
@@ -146,7 +147,9 @@ class ProgrammingRetrievalExecutor
         return [
             'schema_version' => 'atlas.programming.context_pack.professional.v1',
             'context_pack_hash' => $contextPackHash,
-            'retrieval_strategy' => 'hybrid_graph_semantic',
+            'retrieval_strategy' => $graphRagRefs === []
+                ? 'hybrid_graph_semantic'
+                : 'promoted_programming_graph_rag_semantic',
             'status' => $rankedRefs === [] ? 'empty' : ($truncated ? 'truncated' : 'ready'),
             'provider_safe' => collect($rankedRefs)->every(fn (array $ref): bool => ($ref['privacy'] ?? 'provider_safe') === 'provider_safe'),
             'ranked_ref_count' => count($rankedRefs),
@@ -155,6 +158,7 @@ class ProgrammingRetrievalExecutor
             'source_counts' => $sourceCounts,
             'metrics' => array_merge($reranked['metrics'], [
                 'legacy_ref_count' => (int) ($legacyPack['ranked_ref_count'] ?? 0),
+                'graph_rag_ref_count' => count($graphRagRefs),
                 'semantic_ref_count' => count($semanticRefs),
                 'retrieval_channels' => collect($rankedRefs)
                     ->pluck('retrieval_channel')

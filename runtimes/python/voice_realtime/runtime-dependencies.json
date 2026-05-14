@@ -42,9 +42,17 @@
         "pip": "livekit-agents",
         "import": "livekit.agents",
         "required_for": "product_loop_daemon",
-        "minimum_version": "1.3.12",
-        "version_specifier": ">=1.3.12,<2.0.0",
+        "minimum_version": "1.5",
+        "version_specifier": ">=1.5,<2.0",
         "purpose": "Real LiveKit Agents SDK worker loop, room callbacks, turn detection and plugin orchestration."
+      },
+      {
+        "pip": "livekit-plugins-openai",
+        "import": "livekit.plugins.openai",
+        "required_for": "openai_realtime_voice_agent",
+        "minimum_version": "1.5",
+        "version_specifier": ">=1.5,<2.0",
+        "purpose": "OpenAI Realtime model integration for speech-to-speech Atlas voice sessions."
       }
     ],
     "requirements_file": "runtimes/python/voice_realtime/requirements-livekit.txt",

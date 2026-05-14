@@ -360,7 +360,7 @@ final class AtlasAiVoiceRealtimeCommandTest extends TestCase
         $this->assertFalse($payload['sdk_imported']);
         $this->assertFalse($payload['daemon_started']);
         $this->assertSame('runtimes/python/voice_realtime/requirements-livekit.txt', $payload['requirements_file']);
-        $this->assertSame(['livekit-agents'], $payload['expected_packages']);
+        $this->assertSame(['livekit-agents', 'livekit-plugins-openai'], $payload['expected_packages']);
         $this->assertSame([], $payload['missing_requirements']);
         $this->assertSame([], $payload['unsafe_requirements']);
         $this->assertTrue(data_get($payload, 'gates.requirements_file_exists'));
@@ -679,8 +679,10 @@ final class AtlasAiVoiceRealtimeCommandTest extends TestCase
         $this->assertSame('livekit.agents', data_get($payload, 'package_checks.0.import'));
         $this->assertSame('product_loop_daemon', data_get($payload, 'package_checks.0.required_for'));
         $this->assertSame('version_specifier_required', data_get($payload, 'package_checks.0.version_policy'));
-        $this->assertSame('1.3.12', data_get($payload, 'package_checks.0.minimum_version'));
-        $this->assertSame('>=1.3.12,<2.0.0', data_get($payload, 'package_checks.0.version_specifier'));
+        $this->assertSame('1.5', data_get($payload, 'package_checks.0.minimum_version'));
+        $this->assertSame('>=1.5,<2.0', data_get($payload, 'package_checks.0.version_specifier'));
+        $this->assertSame('livekit-plugins-openai', data_get($payload, 'package_checks.1.pip'));
+        $this->assertSame('livekit.plugins.openai', data_get($payload, 'package_checks.1.import'));
         $this->assertStringContainsString('importlib metadata/spec only', data_get($payload, 'dependency_manifest.probe_policy'));
         $this->assertFalse(data_get($payload, 'contract.raw_audio_persistence_allowed'));
     }

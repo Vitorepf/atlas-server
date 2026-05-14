@@ -35,9 +35,12 @@ class ProgrammingRetrievalBenchmarkService
         $recall = collect($results)->avg('recall_at_k') ?? 0.0;
         $precision = collect($results)->avg('precision_at_k') ?? 0.0;
         $blocked = collect($results)->where('status', 'failed')->count();
+        $graphRagPromoted = collect($results)->every(fn (array $result): bool => data_get($result, 'graph_rag_runtime.status') === 'promoted'
+            && data_get($result, 'graph_rag_runtime.runtime_scope') === 'programming_only'
+            && (int) data_get($result, 'graph_rag_runtime.evidence_ref_count', 0) > 0);
         $minimumRecall = 0.9;
         $minimumPrecision = 0.2;
-        $status = $blocked === 0 && $recall >= $minimumRecall && $precision >= $minimumPrecision ? 'passed' : 'failed';
+        $status = $blocked === 0 && $recall >= $minimumRecall && $precision >= $minimumPrecision && $graphRagPromoted ? 'passed' : 'failed';
 
         $report = [
             'schema_version' => 'atlas.programming.retrieval_benchmark.v1',
@@ -57,10 +60,12 @@ class ProgrammingRetrievalBenchmarkService
             ],
             'promotion_gate' => [
                 'professional_promotion_allowed' => $status === 'passed',
+                'graph_rag_runtime_promoted' => $graphRagPromoted,
+                'graph_rag_runtime_scope' => 'programming_only',
                 'requires_rivals_programming' => true,
                 'reason' => $status === 'passed'
-                    ? 'local_retrieval_golden_set_passed_rivals_programming_still_required'
-                    : 'local_retrieval_golden_set_failed',
+                    ? 'local_retrieval_and_programming_graph_rag_runtime_passed_rivals_programming_still_required'
+                    : ($graphRagPromoted ? 'local_retrieval_golden_set_failed' : 'programming_graph_rag_runtime_not_promoted'),
             ],
             'cases' => $results,
             'runtime_cache' => $this->runtimeCachePacket(hit: false, refresh: $refresh),
@@ -129,6 +134,13 @@ class ProgrammingRetrievalBenchmarkService
             'precision_at_k' => round($precision, 4),
             'context_pack_hash' => data_get($plan, 'professional_context_pack.context_pack_hash'),
             'gap_critic_status' => data_get($plan, 'gap_critic.status'),
+            'graph_rag_runtime' => [
+                'schema_version' => data_get($plan, 'graph_rag_runtime.schema_version'),
+                'status' => data_get($plan, 'graph_rag_runtime.status'),
+                'runtime_scope' => data_get($plan, 'graph_rag_runtime.runtime_scope'),
+                'evidence_ref_count' => data_get($plan, 'graph_rag_runtime.evidence_ref_count'),
+                'artifact_hash' => data_get($plan, 'graph_rag_runtime.artifact_hash'),
+            ],
         ];
     }
 

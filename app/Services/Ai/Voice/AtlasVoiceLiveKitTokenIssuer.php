@@ -117,6 +117,17 @@ final class AtlasVoiceLiveKitTokenIssuer
         return $url !== '' ? $url : null;
     }
 
+    public function publicLiveKitUrl(): ?string
+    {
+        if ($this->liveKitUrl() === null) {
+            return null;
+        }
+
+        $url = rtrim(trim((string) config('atlas.voice.livekit.public_url', '')), '/');
+
+        return $url !== '' ? $url : $this->liveKitUrl();
+    }
+
     /**
      * @return array<string,mixed>
      */

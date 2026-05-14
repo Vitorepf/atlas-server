@@ -556,5 +556,18 @@ Route::prefix('atlas-code')->group(function () {
         Route::get('/programming/work-items/{code}', [\App\Http\Controllers\AtlasProgrammingGovernanceController::class, 'show']);
         Route::get('/programming/work-items/{code}/gate-runs', [\App\Http\Controllers\AtlasProgrammingGovernanceController::class, 'gateRuns']);
         Route::get('/programming/work-items/{code}/spec-compile', [\App\Http\Controllers\AtlasProgrammingGovernanceController::class, 'compileSpec']);
+
+        // SDD · read-only surface for specs, requirements, decision receipts, traceability, drift, learning
+        Route::get('/sdd/operations', [\App\Http\Controllers\AtlasSddController::class, 'operations']);
+        Route::get('/sdd/specs', [\App\Http\Controllers\AtlasSddController::class, 'specs']);
+        Route::get('/sdd/specs/{id}', [\App\Http\Controllers\AtlasSddController::class, 'showSpec']);
+        Route::get('/sdd/specs/{id}/traceability', [\App\Http\Controllers\AtlasSddController::class, 'traceability']);
+        Route::get('/sdd/decision-receipts', [\App\Http\Controllers\AtlasSddController::class, 'decisionReceipts']);
+        Route::get('/sdd/decision-receipts/{receiptId}', [\App\Http\Controllers\AtlasSddController::class, 'showDecisionReceipt']);
+        Route::get('/sdd/drift-reports', [\App\Http\Controllers\AtlasSddController::class, 'driftReports']);
+        Route::get('/sdd/learning-proposals', [\App\Http\Controllers\AtlasSddController::class, 'learningProposals']);
+        Route::get('/sdd/mcp/resources', \App\Http\Controllers\AtlasSddMcpResourceController::class);
+        Route::get('/sdd/agent-roles', [\App\Http\Controllers\AtlasSddAgentRoleController::class, 'index']);
+        Route::get('/sdd/agent-roles/{name}', [\App\Http\Controllers\AtlasSddAgentRoleController::class, 'show']);
     });
 });

@@ -4015,16 +4015,24 @@ class EngineeringBenchmarkService
     private function fairClaudeInvalidBatteryTriageState(AtlasEngineeringBenchmarkSuite $suite, string $fingerprint): array
     {
         $record = $this->arrayValue(data_get($suite->metadata ?? [], 'rivals_invalid_battery_triage', []));
-        $accepted = ($record['status'] ?? null) === 'triaged_quarantined'
-            && is_string($record['invalid_battery_fingerprint'] ?? null)
-            && hash_equals((string) $record['invalid_battery_fingerprint'], $fingerprint);
+        $records = collect((array) ($record['records'] ?? []))
+            ->filter(fn (mixed $entry): bool => is_array($entry))
+            ->values();
+        if ($records->isEmpty() && $record !== []) {
+            $records = collect([$record]);
+        }
+        $acceptedRecord = $records
+            ->first(fn (array $entry): bool => ($entry['status'] ?? null) === 'triaged_quarantined'
+                && is_string($entry['invalid_battery_fingerprint'] ?? null)
+                && hash_equals((string) $entry['invalid_battery_fingerprint'], $fingerprint));
+        $accepted = is_array($acceptedRecord);
 
         return [
             'schema_version' => 'atlas.fair_claude.invalid_battery_triage.v1',
             'status' => $accepted ? 'triaged_quarantined' : 'triage_required',
             'required_before_rerun' => ! $accepted,
             'invalid_battery_fingerprint' => $fingerprint,
-            'accepted_record' => $accepted ? Arr::only($record, [
+            'accepted_record' => $accepted ? Arr::only($acceptedRecord, [
                 'status',
                 'invalid_battery_fingerprint',
                 'reason',
@@ -4032,6 +4040,13 @@ class EngineeringBenchmarkService
                 'triaged_by',
                 'policy',
             ]) : null,
+            'accepted_fingerprints' => $records
+                ->pluck('invalid_battery_fingerprint')
+                ->filter()
+                ->unique()
+                ->values()
+                ->all(),
+            'accepted_record_count' => $records->count(),
             'policy' => [
                 'quarantine_does_not_delete_history' => true,
                 'quarantined_cases_stay_out_of_win_loss_math' => true,

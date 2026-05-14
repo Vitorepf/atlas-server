@@ -291,7 +291,15 @@ class AtlasEngineeringBenchmarkFairCommand extends Command
         }
 
         $metadata = is_array($suite->metadata) ? $suite->metadata : [];
-        $metadata['rivals_invalid_battery_triage'] = [
+        $previousTriage = is_array($metadata['rivals_invalid_battery_triage'] ?? null)
+            ? $metadata['rivals_invalid_battery_triage']
+            : [];
+        $records = collect((array) ($previousTriage['records'] ?? []))
+            ->filter(fn (mixed $record): bool => is_array($record))
+            ->reject(fn (array $record): bool => (string) ($record['invalid_battery_fingerprint'] ?? '') === $fingerprint)
+            ->values()
+            ->all();
+        $record = [
             'schema_version' => 'atlas.fair_claude.invalid_battery_triage.v1',
             'status' => 'triaged_quarantined',
             'invalid_battery_fingerprint' => $fingerprint,
@@ -314,6 +322,17 @@ class AtlasEngineeringBenchmarkFairCommand extends Command
                 ->values()
                 ->all(),
         ];
+        $records[] = $record;
+        $metadata['rivals_invalid_battery_triage'] = array_merge($record, [
+            'records' => $records,
+            'record_count' => count($records),
+            'accepted_fingerprints' => collect($records)
+                ->pluck('invalid_battery_fingerprint')
+                ->filter()
+                ->unique()
+                ->values()
+                ->all(),
+        ]);
         $suite->forceFill(['metadata' => $metadata])->save();
 
         $payload = [
@@ -321,6 +340,7 @@ class AtlasEngineeringBenchmarkFairCommand extends Command
             'status' => 'triaged_quarantined',
             'suite' => data_get($report, 'suite'),
             'invalid_battery_fingerprint' => $fingerprint,
+            'accepted_fingerprints' => $metadata['rivals_invalid_battery_triage']['accepted_fingerprints'],
             'record' => $metadata['rivals_invalid_battery_triage'],
             'safety' => [
                 'no_provider_call' => true,

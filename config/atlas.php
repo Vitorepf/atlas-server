@@ -165,6 +165,7 @@ return [
         'livekit' => [
             'token_issuer_enabled' => (bool) env('ATLAS_VOICE_LIVEKIT_TOKEN_ISSUER_ENABLED', false),
             'url' => env('LIVEKIT_URL'),
+            'public_url' => env('ATLAS_VOICE_LIVEKIT_PUBLIC_URL', env('LIVEKIT_PUBLIC_URL', env('LIVEKIT_URL'))),
             'api_key' => env('LIVEKIT_API_KEY'),
             'api_secret' => env('LIVEKIT_API_SECRET'),
             'token_ttl_seconds' => (int) env('ATLAS_VOICE_LIVEKIT_TOKEN_TTL_SECONDS', 900),

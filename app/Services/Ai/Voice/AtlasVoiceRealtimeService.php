@@ -1860,7 +1860,7 @@ final class AtlasVoiceRealtimeService
             'agent_name' => (string) config('atlas.voice.livekit.agent_name', 'atlas-voice-agent'),
             'runtime_id' => 'livekit_agents_sdk',
             'transport' => 'livekit_webrtc',
-            'livekit_url' => $this->liveKitTokens->liveKitUrl(),
+            'livekit_url' => $this->liveKitTokens->publicLiveKitUrl(),
             'token_status' => 'not_issued_scaffold',
             'token_issuer' => 'livekit_pending',
             'expires_at' => $expiresAt,
@@ -2286,9 +2286,9 @@ final class AtlasVoiceRealtimeService
     {
         return [
             'schema_version' => 'atlas.voice_realtime.activation_governance.v1',
-            'status' => 'scaffold_fail_closed',
+            'status' => 'livekit_realtime_ready',
             'first_product_surface' => 'mobile',
-            'mobile_push_to_talk_required' => true,
+            'mobile_push_to_talk_required' => false,
             'livekit_agents_sdk_allowed' => true,
             'livekit_agents_direct_provider_allowed' => false,
             'kernel_webhook_required' => true,
@@ -2299,7 +2299,11 @@ final class AtlasVoiceRealtimeService
             'mac_edge_first_product_allowed' => false,
             'swift_native_mac_phase' => 'future_after_mobile_voice',
             'promotion_requires' => [
-                'mobile_push_to_talk_operational',
+                'livekit_mobile_room_connected',
+                'mobile_microphone_published',
+                'voice_agent_joined_room',
+                'audible_agent_response',
+                'barge_in_verified',
                 'eclipse_guard_active',
                 'runtime_certification_green',
                 'callback_loop_green',

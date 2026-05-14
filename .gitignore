@@ -1,6 +1,9 @@
 *.log
 *.pyc
+*.pyo
 __pycache__/
+runtimes/python/**/__pycache__/
+runtimes/python/**/*.py[cod]
 .DS_Store
 .env
 .env.backup

@@ -171,8 +171,9 @@ class ProgrammingProfessionalCompletionAuditService
                 'graph_rag_runtime',
                 'Graph RAG is a promoted runtime, not only future-governed proposal.',
                 0.8,
-                false,
-                0.0,
+                data_get($artifactCoverage, 'programming_graph_rag_runtime.covered') === true
+                    && data_get($verificationEvidence, 'local_benchmarks.retrieval.promotion_gate.graph_rag_runtime_promoted') === true,
+                1.0,
                 'graph_rag_runtime_still_future_governed',
             ),
             $this->scoreDimension(
@@ -463,6 +464,7 @@ class ProgrammingProfessionalCompletionAuditService
                 'runtimes/python/programming_intelligence/atlas_programming_intelligence/language_analyzer.py',
                 'runtimes/python/programming_intelligence/tests/test_contract.py',
             ]),
+            'programming_graph_rag_runtime' => $this->programmingGraphRagRuntimeCovered($root),
             'local_benchmarks' => $this->classesCovered([
                 ProgrammingRetrievalBenchmarkService::class,
                 ProgrammingTestImpactBenchmarkService::class,
@@ -787,6 +789,55 @@ class ProgrammingProfessionalCompletionAuditService
     /**
      * @return array<string,mixed>
      */
+    private function programmingGraphRagRuntimeCovered(string $root): array
+    {
+        $runtimePath = 'app/Services/Ai/Programming/ProgrammingGraphRagRuntime.php';
+        $plannerPath = 'app/Services/Ai/Programming/ProgrammingRetrievalPlanner.php';
+        $benchmarkPath = 'app/Services/Ai/Programming/ProgrammingRetrievalBenchmarkService.php';
+        $testPath = 'tests/Unit/Ai/Programming/ProgrammingEnterpriseRuntimeTest.php';
+        $runtimeSource = file_exists($root.DIRECTORY_SEPARATOR.$runtimePath) ? (string) file_get_contents($root.DIRECTORY_SEPARATOR.$runtimePath) : '';
+        $plannerSource = file_exists($root.DIRECTORY_SEPARATOR.$plannerPath) ? (string) file_get_contents($root.DIRECTORY_SEPARATOR.$plannerPath) : '';
+        $benchmarkSource = file_exists($root.DIRECTORY_SEPARATOR.$benchmarkPath) ? (string) file_get_contents($root.DIRECTORY_SEPARATOR.$benchmarkPath) : '';
+        $testSource = file_exists($root.DIRECTORY_SEPARATOR.$testPath) ? (string) file_get_contents($root.DIRECTORY_SEPARATOR.$testPath) : '';
+
+        $checks = [
+            'runtime_class_exists' => class_exists(ProgrammingGraphRagRuntime::class),
+            'runtime_schema_declared' => str_contains($runtimeSource, 'atlas.programming.graph_rag_runtime.v1'),
+            'runtime_is_programming_only' => str_contains($runtimeSource, "'runtime_scope' => 'programming_only'"),
+            'runtime_is_local_only' => str_contains($runtimeSource, "'local_only' => true"),
+            'runtime_blocks_provider_calls' => str_contains($runtimeSource, "'provider_calls_allowed' => false"),
+            'runtime_preserves_ap_683_global_boundary' => str_contains($runtimeSource, 'global_python_graph_rag_policy_unchanged')
+                && str_contains($runtimeSource, 'does_not_enable_constelacao_graph_positioning')
+                && str_contains($runtimeSource, 'does_not_create_parallel_memory_core'),
+            'planner_invokes_runtime' => str_contains($plannerSource, 'ProgrammingGraphRagRuntime')
+                && str_contains($plannerSource, 'graph_rag_runtime'),
+            'context_pack_receives_graph_refs' => str_contains($plannerSource, 'graphRagRefs')
+                && str_contains($plannerSource, 'promoted_programming_graph_rag_semantic'),
+            'benchmark_requires_runtime_promotion' => str_contains($benchmarkSource, 'graph_rag_runtime_promoted')
+                && str_contains($benchmarkSource, 'programming_graph_rag_runtime_not_promoted'),
+            'unit_test_covers_runtime_contract' => str_contains($testSource, 'atlas.programming.graph_rag_runtime.v1')
+                && str_contains($testSource, 'global_python_graph_rag_policy_unchanged'),
+        ];
+
+        return [
+            'covered' => ! in_array(false, $checks, true),
+            'required_classes' => [
+                ProgrammingGraphRagRuntime::class,
+                ProgrammingRetrievalPlanner::class,
+                ProgrammingRetrievalBenchmarkService::class,
+            ],
+            'required_files' => [$runtimePath, $plannerPath, $benchmarkPath, $testPath],
+            'missing_files' => collect([$runtimePath, $plannerPath, $benchmarkPath, $testPath])
+                ->filter(fn (string $path): bool => ! file_exists($root.DIRECTORY_SEPARATOR.$path))
+                ->values()
+                ->all(),
+            'checks' => $checks,
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
     private function structureMotherSafeRivalsCommandsCovered(string $root): array
     {
         $path = 'app/Services/Ai/Kernel/Architecture/AtlasStructureMotherAuditReadModel.php';
@@ -907,6 +958,10 @@ class ProgrammingProfessionalCompletionAuditService
             'declares_no_history_deleted' => str_contains($fairSource, "'no_history_deleted' => true"),
             'stores_fingerprint' => str_contains($fairSource, 'invalid_battery_fingerprint'),
             'stores_suite_triage_record' => str_contains($fairSource, 'rivals_invalid_battery_triage'),
+            'stores_multiple_triage_fingerprints' => str_contains($fairSource, 'accepted_fingerprints')
+                && str_contains($fairSource, 'record_count')
+                && str_contains($serviceSource, 'accepted_fingerprints')
+                && str_contains($serviceSource, 'accepted_record_count'),
             'service_keeps_quarantined_cases_out_of_score' => str_contains($serviceSource, 'triaged_invalid_batteries_remain_excluded_from_score')
                 && str_contains($serviceSource, 'quarantined_cases_stay_out_of_win_loss_math'),
             'feature_test_covers_canonical_command' => str_contains($testSource, 'test_invalid_fair_battery_can_be_quarantined_without_admitting_score_or_deleting_history'),
