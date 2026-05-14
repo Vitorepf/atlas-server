@@ -336,24 +336,57 @@ evidencias separados.
 Exemplo de conclusao invalida: `certified=true` enquanto docs-health,
 completion-audit, E2E ou evidence refs seguem vermelhos.
 
-## Comando Canonico Implementado
+## Comandos Canonicos Implementados
 
-O comando `atlas:forge:runtime-certify` materializa este protocolo:
+Dois niveis. Ambos sao replayable e sem provider externo.
+
+### Nivel 1 — Forge Runtime contracts
 
 ```bash
 php artisan atlas:forge:runtime-certify --json
-php artisan atlas:forge:runtime-certify --obra=<uuid> --json
-php artisan atlas:forge:runtime-certify --obra=<uuid> --strict
+php artisan atlas:forge:runtime-certify --obra=<uuid> --json --strict
 ```
 
 Schema canonico: `atlas.forge_runtime_certification.v1`.
 Service: `app/Services/Ai/Programming/AtlasForgeRuntimeCertificationService.php`.
 Testes: `tests/Feature/Ai/Programming/AtlasForgeRuntimeCertificationTest.php`.
 
-O bloco `forge_runtime_certification` aparece tambem em
-`atlas:programming:completion-audit --json`, isolado de
-`external_rivals_certification`. Sessoes futuras devem usar este comando como
-fonte de `forge_core_status` para o Forge Runtime Real v1.
+### Nivel 2 — Forge Live Execution E2E v1
+
+```bash
+php artisan atlas:forge:live-execute --obra=<uuid> --json --strict
+php artisan atlas:forge:live-execute --obra=<uuid> --simulate-failure --json
+php artisan atlas:forge:live-execute --json --strict
+```
+
+Schema canonico: `atlas.forge_live_execution_certification.v1`.
+Service: `app/Services/Ai/Programming/AtlasForgeLiveExecutionService.php`.
+Testes: `tests/Feature/Ai/Programming/AtlasForgeLiveExecutionTest.php`.
+Doc: `atlas-forge-live-execution-e2e-v1.md`.
+
+Contratos canonicos do Nivel 2:
+
+- **Obra obrigatoria.** Sem `--obra`, o comando falha fechado:
+  `forge_live_execution_status=blocked`, `obra_binding.status=blocked`,
+  `remaining_blockers=['obra_required']`, exit non-zero em `--strict`.
+- **Sandbox nao e provisionado sem Obra.** Patch nao e aplicado. Teste nao roda.
+- **Context Pack canonico minimo.** `ranked_refs` jamais vazio em fluxo
+  passed; cada ref tem `path`, `kind`, `reason`, `evidence_marker`,
+  `content_hash`.
+- **Repair Loop honesto.** Estados distintos: `skipped_not_needed` (sem
+  falha), `passed` (plan canonico), `degraded`, `blocked`. `--simulate-failure`
+  forca cenario controlado e valida `ProgrammingRepairExecutor::attemptPlan()`.
+- **Completion Audit nao e benchmark externo.** O bloco
+  `forge_live_execution_certification` reporta `available`,
+  `requires_operator_run` ou `missing_artifacts` — separado de
+  `external_rivals_certification` que continua exigindo aprovacao operador
+  para custo provider.
+
+Os blocos `forge_runtime_certification`, `forge_live_execution_certification`
+e `external_rivals_certification` aparecem em
+`atlas:programming:completion-audit --json` separados. Sessoes futuras devem
+usar estes dois comandos como fonte canonica de status para o Forge Runtime
+Real v1.
 
 ## Proximas Acoes
 

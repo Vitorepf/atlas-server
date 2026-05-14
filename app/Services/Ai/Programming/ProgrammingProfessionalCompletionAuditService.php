@@ -51,6 +51,7 @@ class ProgrammingProfessionalCompletionAuditService
         $powerScorecard = $this->powerScorecard($localReady, $claimReady, $artifactCoverage, $verificationEvidence);
 
         $forgeCertification = $this->forgeRuntimeCertification($checklist);
+        $forgeLiveExecution = $this->forgeLiveExecutionCertification();
         $externalRivalsCertification = $this->externalRivalsCertification($verificationEvidence);
 
         return [
@@ -60,6 +61,7 @@ class ProgrammingProfessionalCompletionAuditService
             'objective' => 'Implement professional programming documentation and enterprise runtime for RAG, Agentic RAG, quality gates, receipts and Rivals-Programming integrity.',
             'completion_allowed' => $missing === [],
             'forge_runtime_certification' => $forgeCertification,
+            'forge_live_execution_certification' => $forgeLiveExecution,
             'external_rivals_certification' => $externalRivalsCertification,
             'audit_protocol' => $this->auditProtocol(),
             'artifact_coverage' => $artifactCoverage,
@@ -1217,6 +1219,123 @@ class ProgrammingProfessionalCompletionAuditService
             'note' => 'Forge core e certificado pelo command atlas:forge:runtime-certify e por este audit local. Bateria Rivals externo NAO afeta este eixo.',
             'separated_from' => 'external_rivals_certification',
         ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function forgeLiveExecutionCertification(): array
+    {
+        $serviceClass = \App\Services\Ai\Programming\AtlasForgeLiveExecutionService::class;
+        $commandClass = \App\Console\Commands\AtlasForgeLiveExecuteCommand::class;
+        $testFile = base_path('tests/Feature/Ai/Programming/AtlasForgeLiveExecutionTest.php');
+        $docFile = base_path('docs/engineering-knowledge-base/atlas-forge-live-execution-e2e-v1.md');
+
+        $serviceExists = class_exists($serviceClass);
+        $commandExists = class_exists($commandClass);
+        $testExists = is_file($testFile);
+        $docExists = is_file($docFile);
+
+        $expectedTestMethods = [
+            'test_live_execution_fails_closed_without_obra',
+            'test_live_execution_runs_full_chain_with_obra',
+            'test_context_pack_has_canonical_minimum_with_non_empty_ranked_refs',
+            'test_repair_loop_is_skipped_not_needed_when_test_passes',
+            'test_repair_loop_is_triggered_when_test_simulated_failure',
+        ];
+
+        $testCoverage = $this->scanTestCoverage($testFile, $expectedTestMethods);
+
+        $missingArtifacts = [];
+        if (! $serviceExists) {
+            $missingArtifacts[] = 'service_class_missing';
+        }
+        if (! $commandExists) {
+            $missingArtifacts[] = 'command_class_missing';
+        }
+        if (! $testExists) {
+            $missingArtifacts[] = 'test_file_missing';
+        }
+        if (! $docExists) {
+            $missingArtifacts[] = 'doc_file_missing';
+        }
+
+        $missingMethods = $testCoverage['missing_methods'];
+
+        $status = match (true) {
+            $missingArtifacts !== [] => 'missing_artifacts',
+            $missingMethods !== [] => 'requires_operator_run',
+            default => 'available',
+        };
+
+        return [
+            'schema_version' => 'atlas.forge_live_execution_certification.v1',
+            'status' => $status,
+            'evidence_command' => 'php artisan atlas:forge:live-execute --obra=<uuid> --json --strict',
+            'evidence_command_failure_path' => 'php artisan atlas:forge:live-execute --obra=<uuid> --simulate-failure --json',
+            'fail_closed_command' => 'php artisan atlas:forge:live-execute --json --strict',
+            'fail_closed_expected_exit_code' => 1,
+            'artifacts' => [
+                'service' => ['class' => $serviceClass, 'present' => $serviceExists],
+                'command' => ['class' => $commandClass, 'present' => $commandExists],
+                'test' => ['path' => 'tests/Feature/Ai/Programming/AtlasForgeLiveExecutionTest.php', 'present' => $testExists],
+                'doc' => ['path' => 'docs/engineering-knowledge-base/atlas-forge-live-execution-e2e-v1.md', 'present' => $docExists],
+            ],
+            'test_coverage' => [
+                'expected_methods' => $expectedTestMethods,
+                'present_methods' => $testCoverage['present_methods'],
+                'missing_methods' => $missingMethods,
+                'coverage_complete' => $missingMethods === [],
+            ],
+            'stages_proven' => [
+                'obra_binding',
+                'sandbox_provision',
+                'context_pack',
+                'patch_apply',
+                'action_manifest',
+                'patch_verifier',
+                'test_run',
+                'stage_receipts',
+                'repair_loop',
+                'evidence_ledger',
+                'sandbox_rollback',
+            ],
+            'contract_invariants' => [
+                'obra_required' => true,
+                'fail_closed_without_obra' => true,
+                'context_pack_canonical_minimum_required' => true,
+                'repair_loop_states' => ['skipped_not_needed', 'passed', 'degraded', 'blocked'],
+                'evidence_ledger_required_when_table_present' => true,
+            ],
+            'external_provider_call' => false,
+            'is_external_benchmark' => false,
+            'note' => 'Status=available significa artefatos + cobertura de teste presentes; passed exige operador rodar atlas:forge:live-execute --strict e anexar evidencia recente. requires_operator_run aparece quando metodos canonicos de teste estao faltando.',
+            'separated_from' => 'external_rivals_certification',
+        ];
+    }
+
+    /**
+     * @param  array<int,string>  $expectedMethods
+     * @return array{present_methods:array<int,string>,missing_methods:array<int,string>}
+     */
+    private function scanTestCoverage(string $testFile, array $expectedMethods): array
+    {
+        if (! is_file($testFile)) {
+            return ['present_methods' => [], 'missing_methods' => $expectedMethods];
+        }
+
+        $source = (string) file_get_contents($testFile);
+        $present = [];
+        $missing = [];
+        foreach ($expectedMethods as $method) {
+            if (str_contains($source, 'function '.$method.'(')) {
+                $present[] = $method;
+            } else {
+                $missing[] = $method;
+            }
+        }
+
+        return ['present_methods' => $present, 'missing_methods' => $missing];
     }
 
     /**

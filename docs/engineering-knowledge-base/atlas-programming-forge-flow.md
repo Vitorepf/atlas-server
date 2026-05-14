@@ -494,14 +494,12 @@ Engineering Harness Runner e o executor.
 
 ## Certificacao Runtime
 
-Prova replayable da cadeia ponta-a-ponta:
+Dois niveis de certificacao replayable, sem provider externo. **Obra e obrigatoria nos dois.**
 
-```bash
-php artisan atlas:forge:runtime-certify --json
-php artisan atlas:forge:runtime-certify --obra=<uuid> --json
-```
+- **Nivel 1** — contratos: `php artisan atlas:forge:runtime-certify --obra=<uuid> --json` (schema `atlas.forge_runtime_certification.v1`).
+- **Nivel 2** — execucao real: `php artisan atlas:forge:live-execute --obra=<uuid> --json --strict` (schema `atlas.forge_live_execution_certification.v1`). Sem `--obra` em strict, o exit code e non-zero e nenhum sandbox e provisionado. Detalhes em `atlas-forge-live-execution-e2e-v1.md`.
 
-Schema: `atlas.forge_runtime_certification.v1`. Stages: `surface_adapter_resolution`, `obra_binding_payload`, `domain_catalog_selection`, `governance_route`, `evidence_policy`. Sem `--obra`, retorna `forge_core_status=blocked_missing_obra_binding` (fail-closed honesto). O bloco `forge_runtime_certification` tambem aparece em `atlas:programming:completion-audit --json`, separado de `external_rivals_certification`.
+`atlas:programming:completion-audit --json` retorna `forge_runtime_certification`, `forge_live_execution_certification` e `external_rivals_certification` **separados**. `forge_live_execution_certification` distingue `available`, `requires_operator_run` e `missing_artifacts` — nunca substitui benchmark externo nem garante `completion_allowed`.
 
 ## Proximas Acoes
 
@@ -509,3 +507,4 @@ Schema: `atlas.forge_runtime_certification.v1`. Stages: `surface_adapter_resolut
 2. Atualizar os docs filhos quando runtime Forge sair de future/building para implemented.
 3. Fazer docs-health apos qualquer mudanca de taxonomia, graph, repair ou evidence.
 4. Rodar `atlas:forge:runtime-certify --json` apos mudancas em surface adapter, controller binding, governance ou docs canonicas.
+5. Rodar `atlas:forge:live-execute --json --strict` apos mudancas em harness, patch verifier, sandbox manager, repair executor ou Evidence Ledger.

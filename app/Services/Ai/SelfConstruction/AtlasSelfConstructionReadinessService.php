@@ -41393,6 +41393,21 @@ final class AtlasSelfConstructionReadinessService
         $codexRealInvokerPostStartAdapterExecutionGuardGateImplementationPacketReady = method_exists($this, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartAdapterExecutionGuardGateImplementationPacket');
         $codexRealInvokerPostStartAdapterExecutionGuardGateInvokerServiceReady = class_exists(AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartAdapterExecutionGuardGateInvoker::class);
         $codexRealInvokerPostStartAdapterExecutionGuardGateStatusReady = method_exists($this, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartAdapterExecutionGuardGateStatus');
+        $codexRealInvokerPostStartProviderExecutionContractGateContractReady = method_exists($this, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProviderExecutionContractGateContract');
+        $codexRealInvokerPostStartProviderExecutionContractGatePreflightReady = method_exists($this, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProviderExecutionContractGatePreflight');
+        $codexRealInvokerPostStartProviderExecutionContractGateImplementationPacketReady = method_exists($this, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProviderExecutionContractGateImplementationPacket');
+        $codexRealInvokerPostStartProviderExecutionContractGateInvokerServiceReady = class_exists(AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProviderExecutionContractGateInvoker::class);
+        $codexRealInvokerPostStartProviderExecutionContractGateStatusReady = method_exists($this, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProviderExecutionContractGateStatus');
+        $codexRealInvokerPostStartProcessStartReleaseGateContractReady = method_exists($this, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProcessStartReleaseGateContract');
+        $codexRealInvokerPostStartProcessStartReleaseGatePreflightReady = method_exists($this, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProcessStartReleaseGatePreflight');
+        $codexRealInvokerPostStartProcessStartReleaseGateImplementationPacketReady = method_exists($this, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProcessStartReleaseGateImplementationPacket');
+        $codexRealInvokerPostStartProcessStartReleaseGateInvokerServiceReady = class_exists(AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProcessStartReleaseGateInvoker::class);
+        $codexRealInvokerPostStartProcessStartReleaseGateStatusReady = method_exists($this, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProcessStartReleaseGateStatus');
+        $codexRealInvokerPostStartSupervisedStartExecutorGateContractReady = method_exists($this, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartSupervisedStartExecutorGateContract');
+        $codexRealInvokerPostStartSupervisedStartExecutorGatePreflightReady = method_exists($this, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartSupervisedStartExecutorGatePreflight');
+        $codexRealInvokerPostStartSupervisedStartExecutorGateImplementationPacketReady = method_exists($this, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartSupervisedStartExecutorGateImplementationPacket');
+        $codexRealInvokerPostStartSupervisedStartExecutorGateInvokerServiceReady = class_exists(AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartSupervisedStartExecutorGateInvoker::class);
+        $codexRealInvokerPostStartSupervisedStartExecutorGateStatusReady = method_exists($this, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartSupervisedStartExecutorGateStatus');
         if (! $allRuntimeTablesReady) {
             $nextRequiredSlice = 'apply_agent_control_plane_runtime_schema_migration';
             $nextBuildSlices = [
@@ -42214,10 +42229,70 @@ final class AtlasSelfConstructionReadinessService
             $nextBuildSlices = [
                 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_adapter_execution_guard_gate_invoker_service',
             ];
-        } else {
+        } elseif (! $codexRealInvokerPostStartProviderExecutionContractGateContractReady) {
             $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_provider_execution_contract_gate_contract';
             $nextBuildSlices = [
                 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_provider_execution_contract_gate_contract',
+            ];
+        } elseif (! $codexRealInvokerPostStartProviderExecutionContractGatePreflightReady) {
+            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_provider_execution_contract_gate_preflight';
+            $nextBuildSlices = [
+                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_provider_execution_contract_gate_preflight',
+            ];
+        } elseif (! $codexRealInvokerPostStartProviderExecutionContractGateImplementationPacketReady) {
+            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_provider_execution_contract_gate_implementation_packet';
+            $nextBuildSlices = [
+                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_provider_execution_contract_gate_implementation_packet',
+            ];
+        } elseif (! $codexRealInvokerPostStartProviderExecutionContractGateInvokerServiceReady || ! $codexRealInvokerPostStartProviderExecutionContractGateStatusReady) {
+            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_provider_execution_contract_gate_invoker_service';
+            $nextBuildSlices = [
+                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_provider_execution_contract_gate_invoker_service',
+            ];
+        } elseif (! $codexRealInvokerPostStartProcessStartReleaseGateContractReady) {
+            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_start_release_gate_contract';
+            $nextBuildSlices = [
+                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_start_release_gate_contract',
+            ];
+        } elseif (! $codexRealInvokerPostStartProcessStartReleaseGatePreflightReady) {
+            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_start_release_gate_preflight';
+            $nextBuildSlices = [
+                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_start_release_gate_preflight',
+            ];
+        } elseif (! $codexRealInvokerPostStartProcessStartReleaseGateImplementationPacketReady) {
+            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_start_release_gate_implementation_packet';
+            $nextBuildSlices = [
+                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_start_release_gate_implementation_packet',
+            ];
+        } elseif (! $codexRealInvokerPostStartProcessStartReleaseGateInvokerServiceReady || ! $codexRealInvokerPostStartProcessStartReleaseGateStatusReady) {
+            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_start_release_gate_invoker_service';
+            $nextBuildSlices = [
+                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_start_release_gate_invoker_service',
+            ];
+        } elseif (! $codexRealInvokerPostStartSupervisedStartExecutorGateContractReady) {
+            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_supervised_start_executor_gate_contract';
+            $nextBuildSlices = [
+                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_supervised_start_executor_gate_contract',
+            ];
+        } elseif (! $codexRealInvokerPostStartSupervisedStartExecutorGatePreflightReady) {
+            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_supervised_start_executor_gate_preflight';
+            $nextBuildSlices = [
+                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_supervised_start_executor_gate_preflight',
+            ];
+        } elseif (! $codexRealInvokerPostStartSupervisedStartExecutorGateImplementationPacketReady) {
+            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_supervised_start_executor_gate_implementation_packet';
+            $nextBuildSlices = [
+                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_supervised_start_executor_gate_implementation_packet',
+            ];
+        } elseif (! $codexRealInvokerPostStartSupervisedStartExecutorGateInvokerServiceReady || ! $codexRealInvokerPostStartSupervisedStartExecutorGateStatusReady) {
+            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_supervised_start_executor_gate_invoker_service';
+            $nextBuildSlices = [
+                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_supervised_start_executor_gate_invoker_service',
+            ];
+        } else {
+            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_spawn_enablement_gate_contract';
+            $nextBuildSlices = [
+                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_spawn_enablement_gate_contract',
             ];
         }
         $currentCapabilities = [
@@ -43075,11 +43150,71 @@ final class AtlasSelfConstructionReadinessService
                 $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_adapter_execution_guard_gate_status_projection';
             }
 
+            if ($codexRealInvokerPostStartProviderExecutionContractGateContractReady) {
+                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_provider_execution_contract_gate_contract';
+            }
+
+            if ($codexRealInvokerPostStartProviderExecutionContractGatePreflightReady) {
+                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_provider_execution_contract_gate_preflight';
+            }
+
+            if ($codexRealInvokerPostStartProviderExecutionContractGateImplementationPacketReady) {
+                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_provider_execution_contract_gate_implementation_packet';
+            }
+
+            if ($codexRealInvokerPostStartProviderExecutionContractGateInvokerServiceReady) {
+                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_provider_execution_contract_gate_invoker_service';
+            }
+
+            if ($codexRealInvokerPostStartProviderExecutionContractGateStatusReady) {
+                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_provider_execution_contract_gate_status_projection';
+            }
+
+            if ($codexRealInvokerPostStartProcessStartReleaseGateContractReady) {
+                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_start_release_gate_contract';
+            }
+
+            if ($codexRealInvokerPostStartProcessStartReleaseGatePreflightReady) {
+                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_start_release_gate_preflight';
+            }
+
+            if ($codexRealInvokerPostStartProcessStartReleaseGateImplementationPacketReady) {
+                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_start_release_gate_implementation_packet';
+            }
+
+            if ($codexRealInvokerPostStartProcessStartReleaseGateInvokerServiceReady) {
+                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_start_release_gate_invoker_service';
+            }
+
+            if ($codexRealInvokerPostStartProcessStartReleaseGateStatusReady) {
+                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_start_release_gate_status_projection';
+            }
+
+            if ($codexRealInvokerPostStartSupervisedStartExecutorGateContractReady) {
+                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_supervised_start_executor_gate_contract';
+            }
+
+            if ($codexRealInvokerPostStartSupervisedStartExecutorGatePreflightReady) {
+                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_supervised_start_executor_gate_preflight';
+            }
+
+            if ($codexRealInvokerPostStartSupervisedStartExecutorGateImplementationPacketReady) {
+                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_supervised_start_executor_gate_implementation_packet';
+            }
+
+            if ($codexRealInvokerPostStartSupervisedStartExecutorGateInvokerServiceReady) {
+                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_supervised_start_executor_gate_invoker_service';
+            }
+
+            if ($codexRealInvokerPostStartSupervisedStartExecutorGateStatusReady) {
+                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_supervised_start_executor_gate_status_projection';
+            }
+
             $notYetRuntimeCapable = [
                 'adapter_execution_runtime',
                 'automatic_cost_import_runtime',
                 'automatic_work_product_collection_runtime',
-                'automatic_dispatch_scheduler_codex_real_invoker_post_start_provider_execution_contract_gate_contract_runtime',
+                'automatic_dispatch_scheduler_codex_real_invoker_post_start_process_spawn_enablement_gate_contract_runtime',
             ];
         }
 
@@ -60654,6 +60789,1268 @@ final class AtlasSelfConstructionReadinessService
             'human_summary' => $statusReady
                 ? 'Automatic dispatch scheduler one-shot tick Codex real invoker post-start adapter execution guard gate service is ready and inspectable; provider execution contract gate remains separate.'
                 : 'Automatic dispatch scheduler one-shot tick Codex real invoker post-start adapter execution guard gate service is blocked until invoker, generic gate, guard, registry and storage are ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProviderExecutionContractGateContract(array $options = []): array
+    {
+        $guardStatusPayload = $this->agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartAdapterExecutionGuardGateStatus($options);
+        $guardStatus = (array) data_get($guardStatusPayload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_adapter_execution_guard_gate_status', []);
+        $providerExecutionPayload = $this->agentCodexRealInvokerPostStartProviderExecutionContractGateContractTemplate($options);
+
+        $contract = [
+            'status' => 'one_shot_tick_codex_real_invoker_post_start_provider_execution_contract_gate_contract_ready',
+            'contract_id' => 'AGENT-AUTOMATIC-DISPATCH-SCHEDULER-ONE-SHOT-TICK-CODEX-REAL-INVOKER-POST-START-PROVIDER-EXECUTION-CONTRACT-GATE-CONTRACT-SELF-CONSTRUCTION-0001',
+            'parent_program' => 'Atlas Self-Construction OS',
+            'submodule' => 'Atlas Agent Control Plane',
+            'provider' => 'codex',
+            'adapter' => 'codex',
+            'source_codex_real_invoker_post_start_adapter_execution_guard_gate_status' => data_get($guardStatus, 'status'),
+            'source_codex_real_invoker_post_start_adapter_execution_guard_gate_status_hash' => data_get($guardStatusPayload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_adapter_execution_guard_gate_status_hash'),
+            'source_codex_real_invoker_post_start_provider_execution_contract_gate_status' => data_get($providerExecutionPayload, 'status'),
+            'source_codex_real_invoker_post_start_provider_execution_contract_gate_hash' => data_get($providerExecutionPayload, 'codex_real_invoker_post_start_provider_execution_contract_gate_contract_template_hash'),
+            'provider_execution_contract' => [
+                'canonical_post_start_provider_execution_contract_gate' => AgentCodexRealInvokerPostStartProviderExecutionContractGate::class,
+                'canonical_post_start_provider_execution_contract_gate_method' => 'preparePostStartProviderExecutionContract',
+                'scheduler_invoker' => AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProviderExecutionContractGateInvoker::class,
+                'scheduler_invoker_method' => 'prepareCodexRealInvokerPostStartProviderExecutionContractGate',
+                'codex_provider_execution_driver' => AgentCodexProviderExecutionDriver::class,
+                'codex_provider_execution_driver_method' => 'prepareCodexExecution',
+                'provider_execution_contract_effect' => 'record_codex_provider_execution_contract_without_starting_codex',
+                'post_start_adapter_execution_guard_required_before_contract' => true,
+                'post_start_evidence_acceptance_bridge_required_before_contract' => true,
+                'provider_start_run_with_provider_adapter_execution_guard_required_before_contract' => true,
+                'active_sandbox_binding_required_by_codex_driver' => true,
+                'context_pack_and_continuation_summary_hashes_required_from_boundary' => true,
+                'process_start_release_required_before_any_later_process_start' => true,
+                'gate_delegates_to_codex_provider_execution_driver' => true,
+                'gate_records_codex_provider_execution_metadata_on_provider_start_run' => true,
+                'gate_records_bridge_metadata_on_observed_run' => true,
+                'provider_specific_execution_contract_ready_after_gate' => true,
+                'actual_process_start_allowed_by_contract' => false,
+                'provider_process_call_allowed_by_contract' => false,
+                'adapter_invocation_allowed_by_contract' => false,
+                'adapter_execution_allowed_by_contract' => false,
+                'token_spend_allowed_by_contract' => false,
+                'dispatch_allowed_by_contract' => false,
+                'idempotency_key' => 'codex_execution_id',
+            ],
+            'required_input_fields_for_future_invoker' => [
+                'run_key',
+                'provider_execution_contract_gate_id',
+                'codex_execution_id',
+                'adapter_execution_guard_gate_id',
+                'execution_guard_id',
+                'adapter_invocation_boundary_gate_id',
+                'adapter_invocation_id',
+                'provider_start_driver_gate_id',
+                'provider_start_attempt_id',
+                'dispatch_executor_handoff_id',
+                'signed_dispatch_authorization_id',
+                'post_start_evidence_acceptance_bridge_id',
+                'signed_dispatch_receipt_hash',
+                'command',
+                'cwd',
+                'context_pack_hash',
+                'continuation_summary_hash',
+                'actor',
+                'session',
+                'max_runtime_minutes',
+                'max_cost_usd',
+                'reason',
+            ],
+            'allowed_future_mutations' => [
+                'record_codex_provider_execution_metadata_on_provider_start_run',
+                'append_codex_provider_execution_contract_evidence_event',
+                'record_codex_real_invoker_post_start_provider_execution_contract_metadata_on_observed_run',
+            ],
+            'forbidden_even_after_contract' => [
+                'spawn_codex_process',
+                'call_codex_cli_or_codex_app',
+                'dispatch_work_to_codex',
+                'send_prompt_to_provider',
+                'call_provider_process',
+                'enable_adapter_execution',
+                'authorize_process_start_release',
+                'spend_provider_tokens',
+                'mark_observed_run_running_or_terminal',
+                'enable_self_programming',
+            ],
+            'next_required_slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_provider_execution_contract_gate_preflight',
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_provider_execution_contract_gate_contract.v1',
+            'status' => (string) $contract['status'],
+            'mode' => 'read_only_agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_provider_execution_contract_gate_contract',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'post_start_provider_execution_contract_gate_allowed' => false,
+            'actual_process_start_allowed' => false,
+            'provider_process_call_allowed' => false,
+            'adapter_invocation_allowed' => false,
+            'adapter_execution_allowed' => false,
+            'token_spend_allowed' => false,
+            'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_provider_execution_contract_gate_contract' => $contract,
+            'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_provider_execution_contract_gate_contract_hash' => $this->stableHash($contract),
+            'non_execution_guarantees' => [
+                'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_provider_execution_contract_gate_contract_does_not_start_codex',
+                'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_provider_execution_contract_gate_contract_does_not_call_codex',
+                'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_provider_execution_contract_gate_contract_does_not_execute_adapter',
+                'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_provider_execution_contract_gate_contract_does_not_spend_tokens',
+                'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_provider_execution_contract_gate_contract_does_not_dispatch_work',
+                'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_provider_execution_contract_gate_contract_does_not_enable_self_programming',
+            ],
+            'human_summary' => 'Automatic dispatch scheduler one-shot tick Codex real invoker post-start provider execution contract gate contract is ready; it prepares the Codex-specific execution contract without starting Codex.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProviderExecutionContractGatePreflight(array $options = []): array
+    {
+        $contractPayload = $this->agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProviderExecutionContractGateContract($options);
+        $contract = (array) data_get($contractPayload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_provider_execution_contract_gate_contract', []);
+        $contractHash = (string) data_get($contractPayload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_provider_execution_contract_gate_contract_hash');
+        $gateReady = class_exists(AgentCodexRealInvokerPostStartProviderExecutionContractGate::class)
+            && method_exists(AgentCodexRealInvokerPostStartProviderExecutionContractGate::class, 'preparePostStartProviderExecutionContract');
+        $invokerReady = class_exists(AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProviderExecutionContractGateInvoker::class)
+            && method_exists(AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProviderExecutionContractGateInvoker::class, 'prepareCodexRealInvokerPostStartProviderExecutionContractGate');
+        $driverReady = class_exists(AgentCodexProviderExecutionDriver::class)
+            && method_exists(AgentCodexProviderExecutionDriver::class, 'prepareCodexExecution');
+        $guardGateReady = class_exists(AgentCodexRealInvokerPostStartAdapterExecutionGuardGate::class)
+            && method_exists(AgentCodexRealInvokerPostStartAdapterExecutionGuardGate::class, 'blockPostStartAdapterExecution');
+        $registryReady = class_exists(AgentProviderAdapterRegistry::class)
+            && method_exists(AgentProviderAdapterRegistry::class, 'resolve');
+        $runsTableReady = Schema::hasTable('atlas_self_construction_agent_runs');
+        $sandboxBindingTableReady = Schema::hasTable('atlas_self_construction_agent_sandbox_bindings');
+        $ledgerTableReady = Schema::hasTable('atlas_ledger_events');
+
+        $checks = [
+            'post_start_provider_execution_contract_gate_contract_ready' => data_get($contractPayload, 'status') === 'one_shot_tick_codex_real_invoker_post_start_provider_execution_contract_gate_contract_ready',
+            'post_start_provider_execution_contract_gate_contract_hash_present' => $contractHash !== '',
+            'post_start_adapter_execution_guard_gate_status_ready' => data_get($contract, 'source_codex_real_invoker_post_start_adapter_execution_guard_gate_status') === 'one_shot_tick_codex_real_invoker_post_start_adapter_execution_guard_gate_service_ready',
+            'generic_post_start_provider_execution_contract_gate_template_ready' => data_get($contract, 'source_codex_real_invoker_post_start_provider_execution_contract_gate_status') === 'codex_real_invoker_post_start_provider_execution_contract_gate_contract_template_ready',
+            'codex_real_invoker_post_start_provider_execution_contract_gate_ready' => $gateReady,
+            'codex_real_invoker_post_start_provider_execution_contract_gate_invoker_ready' => $invokerReady,
+            'codex_provider_execution_driver_ready' => $driverReady,
+            'codex_real_invoker_post_start_adapter_execution_guard_gate_ready' => $guardGateReady,
+            'provider_adapter_registry_ready' => $registryReady,
+            'canonical_post_start_provider_execution_contract_gate_method_ready' => data_get($contract, 'provider_execution_contract.canonical_post_start_provider_execution_contract_gate_method') === 'preparePostStartProviderExecutionContract',
+            'scheduler_invoker_method_ready' => data_get($contract, 'provider_execution_contract.scheduler_invoker_method') === 'prepareCodexRealInvokerPostStartProviderExecutionContractGate',
+            'contract_requires_adapter_execution_guard' => data_get($contract, 'provider_execution_contract.post_start_adapter_execution_guard_required_before_contract') === true,
+            'contract_requires_post_start_evidence_acceptance_bridge' => data_get($contract, 'provider_execution_contract.post_start_evidence_acceptance_bridge_required_before_contract') === true,
+            'contract_delegates_to_codex_provider_execution_driver' => data_get($contract, 'provider_execution_contract.gate_delegates_to_codex_provider_execution_driver') === true,
+            'contract_requires_process_start_release' => data_get($contract, 'provider_execution_contract.process_start_release_required_before_any_later_process_start') === true,
+            'contract_sets_provider_specific_execution_contract_ready' => data_get($contract, 'provider_execution_contract.provider_specific_execution_contract_ready_after_gate') === true,
+            'contract_keeps_actual_process_start_disabled' => data_get($contract, 'provider_execution_contract.actual_process_start_allowed_by_contract') === false,
+            'contract_keeps_adapter_execution_disabled' => data_get($contract, 'provider_execution_contract.adapter_execution_allowed_by_contract') === false,
+            'contract_does_not_dispatch_work' => data_get($contract, 'provider_execution_contract.dispatch_allowed_by_contract') === false,
+            'contract_does_not_spend_tokens' => data_get($contract, 'provider_execution_contract.token_spend_allowed_by_contract') === false,
+            'agent_runs_table_ready' => $runsTableReady,
+            'sandbox_bindings_table_ready' => $sandboxBindingTableReady,
+            'ledger_table_ready' => $ledgerTableReady,
+            'self_programming_forbidden' => in_array('enable_self_programming', (array) data_get($contract, 'forbidden_even_after_contract', []), true),
+        ];
+        $blockingReasons = array_values(array_keys(array_filter($checks, static fn (bool $passed): bool => ! $passed)));
+
+        $preflight = [
+            'status' => $blockingReasons === [] ? 'one_shot_tick_codex_real_invoker_post_start_provider_execution_contract_gate_preflight_ready' : 'blocked',
+            'preflight_id' => 'AGENT-AUTOMATIC-DISPATCH-SCHEDULER-ONE-SHOT-TICK-CODEX-REAL-INVOKER-POST-START-PROVIDER-EXECUTION-CONTRACT-GATE-PREFLIGHT-SELF-CONSTRUCTION-0001',
+            'source_post_start_provider_execution_contract_gate_contract_hash' => $contractHash,
+            'preflight_checks' => $checks,
+            'blocking_count' => count($blockingReasons),
+            'blocking_reasons' => $blockingReasons,
+            'implementation_requirements' => [
+                'use_one_shot_scheduler_codex_real_invoker_post_start_provider_execution_contract_gate_invoker',
+                'delegate_to_agent_codex_real_invoker_post_start_provider_execution_contract_gate',
+                'require_codex_real_invoker_post_start_adapter_execution_guard_metadata',
+                'require_provider_start_run_with_provider_adapter_execution_guard_metadata',
+                'record_codex_provider_execution_contract_without_starting_codex',
+                'preserve_process_start_disabled_until_codex_process_start_release_gate',
+            ],
+            'runtime_policy' => [
+                'preflight_is_read_only' => true,
+                'post_start_provider_execution_contract_gate_call_allowed_here' => false,
+                'provider_execution_contract_allowed_by_future_invoker' => true,
+                'codex_provider_execution_driver_allowed_by_future_invoker' => true,
+                'provider_specific_execution_contract_ready_after_future_invoker' => true,
+                'process_start_release_required_before_process_start' => true,
+                'provider_external_process_start_allowed_here' => false,
+                'provider_process_call_allowed_here' => false,
+                'adapter_invocation_allowed_here' => false,
+                'adapter_execution_allowed_here' => false,
+                'dispatch_allowed_here' => false,
+                'token_spend_allowed_here' => false,
+                'self_programming_allowed_here' => false,
+            ],
+            'next_required_slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_provider_execution_contract_gate_implementation_packet',
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_provider_execution_contract_gate_preflight.v1',
+            'status' => (string) $preflight['status'],
+            'mode' => 'read_only_agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_provider_execution_contract_gate_preflight',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'post_start_provider_execution_contract_gate_allowed' => false,
+            'actual_process_start_allowed' => false,
+            'provider_process_call_allowed' => false,
+            'adapter_invocation_allowed' => false,
+            'adapter_execution_allowed' => false,
+            'token_spend_allowed' => false,
+            'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_provider_execution_contract_gate_preflight' => $preflight,
+            'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_provider_execution_contract_gate_preflight_hash' => $this->stableHash($preflight),
+            'non_execution_guarantees' => [
+                'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_provider_execution_contract_gate_preflight_does_not_start_codex',
+                'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_provider_execution_contract_gate_preflight_does_not_call_codex',
+                'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_provider_execution_contract_gate_preflight_does_not_execute_adapter',
+                'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_provider_execution_contract_gate_preflight_does_not_spend_tokens',
+                'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_provider_execution_contract_gate_preflight_does_not_dispatch_work',
+                'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_provider_execution_contract_gate_preflight_does_not_enable_self_programming',
+            ],
+            'human_summary' => $blockingReasons === []
+                ? 'Automatic dispatch scheduler one-shot tick Codex real invoker post-start provider execution contract gate preflight is ready.'
+                : 'Automatic dispatch scheduler one-shot tick Codex real invoker post-start provider execution contract gate preflight is blocked until guard, driver, sandbox and storage prerequisites are ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProviderExecutionContractGateImplementationPacket(array $options = []): array
+    {
+        $preflightPayload = $this->agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProviderExecutionContractGatePreflight($options);
+        $preflight = (array) data_get($preflightPayload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_provider_execution_contract_gate_preflight', []);
+        $preflightHash = (string) data_get($preflightPayload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_provider_execution_contract_gate_preflight_hash');
+
+        $packet = [
+            'status' => 'ready_for_scoped_one_shot_tick_codex_real_invoker_post_start_provider_execution_contract_gate_invoker_implementation',
+            'packet_id' => 'AGENT-AUTOMATIC-DISPATCH-SCHEDULER-ONE-SHOT-TICK-CODEX-REAL-INVOKER-POST-START-PROVIDER-EXECUTION-CONTRACT-GATE-IMPLEMENTATION-PACKET-SELF-CONSTRUCTION-0001',
+            'parent_program' => 'Atlas Self-Construction OS',
+            'submodule' => 'Atlas Agent Control Plane',
+            'provider' => 'codex',
+            'adapter' => 'codex',
+            'source_codex_real_invoker_post_start_provider_execution_contract_gate_preflight_status' => data_get($preflight, 'status'),
+            'source_codex_real_invoker_post_start_provider_execution_contract_gate_preflight_hash' => $preflightHash,
+            'allowed_files' => [
+                'app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProviderExecutionContractGateInvoker.php',
+                'tests/Feature/Ai/AtlasAiSelfConstructionAgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProviderExecutionContractGateInvokerTest.php',
+                'app/Services/Ai/SelfConstruction/AtlasSelfConstructionReadinessService.php',
+                'app/Console/Commands/AtlasAiSelfConstructionCommand.php',
+                'tests/Feature/Ai/AtlasAiSelfConstructionCommandTest.php',
+                'docs/engineering-knowledge-base/self-construction/agent-control-plane-contract.md',
+            ],
+            'tasks' => [
+                ['id' => 'T1', 'title' => 'Expose one-shot scheduler Codex real invoker post-start provider execution contract gate invoker', 'type' => 'service', 'acceptance' => 'Invoker validates provider execution contract input and delegates to AgentCodexRealInvokerPostStartProviderExecutionContractGate.'],
+                ['id' => 'T2', 'title' => 'Preserve process-start release boundary', 'type' => 'service_logic', 'acceptance' => 'Invoker records Codex provider execution contract readiness while process start, provider calls, adapter execution, dispatch and token spend remain false.'],
+                ['id' => 'T3', 'title' => 'Add Codex real invoker post-start provider execution contract gate invoker tests', 'type' => 'test', 'acceptance' => 'Tests cover successful preparation, idempotent retry, missing guard metadata, forbidden dispatch, missing sandbox binding and invalid hash rejection.'],
+                ['id' => 'T4', 'title' => 'Expose Codex real invoker post-start provider execution contract gate status', 'type' => 'command_surface', 'acceptance' => 'Command/readiness reports invoker readiness and next process start release gate without recording provider execution metadata in status mode.'],
+            ],
+            'task_count' => 4,
+            'acceptance_criteria' => [
+                'codex_real_invoker_post_start_provider_execution_contract_gate_invoker_prepares_contract_without_starting_codex',
+                'codex_real_invoker_post_start_provider_execution_contract_gate_invoker_requires_adapter_execution_guard_metadata',
+                'codex_real_invoker_post_start_provider_execution_contract_gate_invoker_requires_active_sandbox_binding_through_driver',
+                'codex_real_invoker_post_start_provider_execution_contract_gate_invoker_keeps_process_start_disabled',
+                'codex_real_invoker_post_start_provider_execution_contract_gate_invoker_never_dispatches_or_spends_tokens',
+            ],
+            'implementation_policy' => [
+                'implementation_allowed_by_packet' => true,
+                'post_start_provider_execution_contract_gate_call_allowed_by_future_invoker' => true,
+                'codex_provider_execution_driver_allowed_by_future_invoker' => true,
+                'provider_specific_execution_contract_ready_after_future_invoker' => true,
+                'actual_process_start_allowed_by_packet' => false,
+                'provider_external_process_start_allowed_by_packet' => false,
+                'provider_process_call_allowed_by_packet' => false,
+                'adapter_invocation_allowed_by_packet' => false,
+                'adapter_execution_allowed_by_packet' => false,
+                'dispatch_allowed_by_packet' => false,
+                'token_spend_allowed_by_packet' => false,
+                'self_programming_allowed_by_packet' => false,
+            ],
+            'next_required_slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_provider_execution_contract_gate_invoker_service',
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_provider_execution_contract_gate_implementation_packet.v1',
+            'status' => (string) $packet['status'],
+            'mode' => 'read_only_agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_provider_execution_contract_gate_implementation_packet',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'post_start_provider_execution_contract_gate_allowed' => false,
+            'actual_process_start_allowed' => false,
+            'provider_process_call_allowed' => false,
+            'adapter_invocation_allowed' => false,
+            'adapter_execution_allowed' => false,
+            'token_spend_allowed' => false,
+            'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_provider_execution_contract_gate_implementation_packet' => $packet,
+            'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_provider_execution_contract_gate_implementation_packet_hash' => $this->stableHash($packet),
+            'non_execution_guarantees' => [
+                'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_provider_execution_contract_gate_implementation_packet_does_not_start_codex',
+                'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_provider_execution_contract_gate_implementation_packet_does_not_call_codex',
+                'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_provider_execution_contract_gate_implementation_packet_does_not_execute_adapter',
+                'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_provider_execution_contract_gate_implementation_packet_does_not_spend_tokens',
+                'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_provider_execution_contract_gate_implementation_packet_does_not_dispatch_work',
+                'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_provider_execution_contract_gate_implementation_packet_does_not_enable_self_programming',
+            ],
+            'human_summary' => 'Automatic dispatch scheduler one-shot tick Codex real invoker post-start provider execution contract gate implementation packet is ready; it scopes the provider-specific contract before process start release.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProviderExecutionContractGateStatus(array $options = []): array
+    {
+        $runsTableReady = Schema::hasTable('atlas_self_construction_agent_runs');
+        $sandboxBindingTableReady = Schema::hasTable('atlas_self_construction_agent_sandbox_bindings');
+        $ledgerTableReady = Schema::hasTable('atlas_ledger_events');
+        $gateReady = class_exists(AgentCodexRealInvokerPostStartProviderExecutionContractGate::class)
+            && method_exists(AgentCodexRealInvokerPostStartProviderExecutionContractGate::class, 'preparePostStartProviderExecutionContract');
+        $invokerReady = class_exists(AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProviderExecutionContractGateInvoker::class)
+            && method_exists(AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProviderExecutionContractGateInvoker::class, 'prepareCodexRealInvokerPostStartProviderExecutionContractGate');
+        $driverReady = class_exists(AgentCodexProviderExecutionDriver::class)
+            && method_exists(AgentCodexProviderExecutionDriver::class, 'prepareCodexExecution');
+        $guardGateReady = class_exists(AgentCodexRealInvokerPostStartAdapterExecutionGuardGate::class)
+            && method_exists(AgentCodexRealInvokerPostStartAdapterExecutionGuardGate::class, 'blockPostStartAdapterExecution');
+        $registryReady = class_exists(AgentProviderAdapterRegistry::class)
+            && method_exists(AgentProviderAdapterRegistry::class, 'resolve');
+
+        $observedProviderExecutionRunsQuery = $runsTableReady
+            ? AtlasSelfConstructionAgentRun::query()
+                ->whereNotNull('metadata->codex_real_invoker_post_start_provider_execution_contract->codex_execution_id')
+            : null;
+        $providerRunsWithCodexExecutionQuery = $runsTableReady
+            ? AtlasSelfConstructionAgentRun::query()
+                ->where('run_key', 'like', 'provider-start:%')
+                ->where('status', 'adapter_invocation_prepared')
+                ->whereNotNull('metadata->codex_provider_execution->codex_execution_id')
+            : null;
+
+        $statusReady = $runsTableReady
+            && $sandboxBindingTableReady
+            && $ledgerTableReady
+            && $gateReady
+            && $invokerReady
+            && $driverReady
+            && $guardGateReady
+            && $registryReady;
+        $status = [
+            'status' => $statusReady ? 'one_shot_tick_codex_real_invoker_post_start_provider_execution_contract_gate_service_ready' : 'blocked',
+            'provider' => 'codex',
+            'adapter' => 'codex',
+            'invoker_service' => AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProviderExecutionContractGateInvoker::class,
+            'invoker_service_ready' => $invokerReady,
+            'invoker_canonical_method' => 'prepareCodexRealInvokerPostStartProviderExecutionContractGate',
+            'generic_post_start_provider_execution_contract_gate_service' => AgentCodexRealInvokerPostStartProviderExecutionContractGate::class,
+            'generic_post_start_provider_execution_contract_gate_service_ready' => $gateReady,
+            'generic_post_start_provider_execution_contract_gate_canonical_method' => 'preparePostStartProviderExecutionContract',
+            'codex_provider_execution_driver_service' => AgentCodexProviderExecutionDriver::class,
+            'codex_provider_execution_driver_ready' => $driverReady,
+            'post_start_adapter_execution_guard_gate_service' => AgentCodexRealInvokerPostStartAdapterExecutionGuardGate::class,
+            'post_start_adapter_execution_guard_gate_ready' => $guardGateReady,
+            'provider_adapter_registry_service' => AgentProviderAdapterRegistry::class,
+            'provider_adapter_registry_ready' => $registryReady,
+            'agent_runs_table_ready' => $runsTableReady,
+            'agent_sandbox_bindings_table_ready' => $sandboxBindingTableReady,
+            'ledger_table_ready' => $ledgerTableReady,
+            'codex_real_invoker_post_start_provider_execution_contract_recorded_run_count' => $observedProviderExecutionRunsQuery === null ? null : (clone $observedProviderExecutionRunsQuery)->count(),
+            'provider_start_runs_with_codex_provider_execution_count' => $providerRunsWithCodexExecutionQuery === null ? null : (clone $providerRunsWithCodexExecutionQuery)->count(),
+            'runtime_policy' => [
+                'status_projection_is_read_only' => true,
+                'invoker_may_record_provider_execution_contract_when_called_with_signed_input' => true,
+                'provider_execution_contract_is_not_process_start' => true,
+                'process_start_release_required_before_process_start' => true,
+                'atlas_process_spawn_allowed_here' => false,
+                'provider_external_process_start_allowed_here' => false,
+                'provider_process_call_allowed_here' => false,
+                'adapter_invocation_allowed_here' => false,
+                'adapter_execution_allowed_here' => false,
+                'dispatch_allowed_here' => false,
+                'token_spend_allowed_here' => false,
+                'self_programming_allowed_here' => false,
+            ],
+            'next_required_slice' => $statusReady
+                ? 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_start_release_gate_contract'
+                : 'repair_one_shot_scheduler_tick_codex_real_invoker_post_start_provider_execution_contract_gate_service_blockers',
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_provider_execution_contract_gate_status.v1',
+            'status' => (string) $status['status'],
+            'mode' => 'read_only_agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_provider_execution_contract_gate_status',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'post_start_provider_execution_contract_gate_allowed' => false,
+            'actual_process_start_allowed' => false,
+            'provider_process_call_allowed' => false,
+            'adapter_invocation_allowed' => false,
+            'adapter_execution_allowed' => false,
+            'token_spend_allowed' => false,
+            'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_provider_execution_contract_gate_status' => $status,
+            'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_provider_execution_contract_gate_status_hash' => $this->stableHash($status),
+            'non_execution_guarantees' => [
+                'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_provider_execution_contract_gate_status_does_not_call_provider_execution_contract_gate',
+                'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_provider_execution_contract_gate_status_does_not_start_codex',
+                'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_provider_execution_contract_gate_status_does_not_execute_adapter',
+                'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_provider_execution_contract_gate_status_does_not_spend_tokens',
+                'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_provider_execution_contract_gate_status_does_not_dispatch_work',
+                'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_provider_execution_contract_gate_status_does_not_enable_self_programming',
+            ],
+            'human_summary' => $statusReady
+                ? 'Automatic dispatch scheduler one-shot tick Codex real invoker post-start provider execution contract gate service is ready and inspectable; process start release remains separate.'
+                : 'Automatic dispatch scheduler one-shot tick Codex real invoker post-start provider execution contract gate service is blocked until invoker, generic gate, driver, guard, registry and storage are ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProcessStartReleaseGateContract(array $options = []): array
+    {
+        $providerExecutionPayload = $this->agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProviderExecutionContractGateStatus($options);
+        $providerExecutionStatus = (array) data_get($providerExecutionPayload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_provider_execution_contract_gate_status', []);
+        $processStartReleasePayload = $this->agentCodexRealInvokerPostStartProcessStartReleaseGateContractTemplate($options);
+
+        $contract = [
+            'status' => 'one_shot_tick_codex_real_invoker_post_start_process_start_release_gate_contract_ready',
+            'contract_id' => 'AGENT-AUTOMATIC-DISPATCH-SCHEDULER-ONE-SHOT-TICK-CODEX-REAL-INVOKER-POST-START-PROCESS-START-RELEASE-GATE-CONTRACT-SELF-CONSTRUCTION-0001',
+            'parent_program' => 'Atlas Self-Construction OS',
+            'submodule' => 'Atlas Agent Control Plane',
+            'provider' => 'codex',
+            'adapter' => 'codex',
+            'source_codex_real_invoker_post_start_provider_execution_contract_gate_status' => data_get($providerExecutionStatus, 'status'),
+            'source_codex_real_invoker_post_start_provider_execution_contract_gate_status_hash' => data_get($providerExecutionPayload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_provider_execution_contract_gate_status_hash'),
+            'source_codex_real_invoker_post_start_process_start_release_gate_status' => data_get($processStartReleasePayload, 'status'),
+            'source_codex_real_invoker_post_start_process_start_release_gate_hash' => data_get($processStartReleasePayload, 'codex_real_invoker_post_start_process_start_release_gate_contract_template_hash'),
+            'process_start_release' => [
+                'canonical_post_start_process_start_release_gate' => AgentCodexRealInvokerPostStartProcessStartReleaseGate::class,
+                'canonical_post_start_process_start_release_gate_method' => 'authorizePostStartProcessStartRelease',
+                'scheduler_invoker' => AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProcessStartReleaseGateInvoker::class,
+                'scheduler_invoker_method' => 'authorizeCodexRealInvokerPostStartProcessStartReleaseGate',
+                'codex_process_start_release_gate' => AgentCodexProcessStartReleaseGate::class,
+                'codex_process_start_release_gate_method' => 'authorizeCodexProcessStart',
+                'process_start_release_effect' => 'authorize_codex_process_start_release_without_starting_codex',
+                'post_start_provider_execution_contract_required_before_release' => true,
+                'post_start_evidence_acceptance_bridge_required_before_release' => true,
+                'provider_start_run_with_codex_provider_execution_required_before_release' => true,
+                'operator_release_receipt_hash_required' => true,
+                'codex_execution_contract_hash_required' => true,
+                'gate_delegates_to_codex_process_start_release_gate' => true,
+                'gate_records_codex_process_start_release_metadata_on_provider_start_run' => true,
+                'gate_records_bridge_metadata_on_observed_run' => true,
+                'supervised_start_executor_required_after_release' => true,
+                'release_authorization_is_not_process_start' => true,
+                'actual_process_start_allowed_by_contract' => false,
+                'provider_process_call_allowed_by_contract' => false,
+                'adapter_invocation_allowed_by_contract' => false,
+                'adapter_execution_allowed_by_contract' => false,
+                'token_spend_allowed_by_contract' => false,
+                'dispatch_allowed_by_contract' => false,
+                'idempotency_key' => 'process_start_release_id',
+            ],
+            'required_input_fields_for_future_invoker' => [
+                'run_key',
+                'post_start_process_start_release_gate_id',
+                'process_start_release_id',
+                'provider_execution_contract_gate_id',
+                'codex_execution_id',
+                'adapter_execution_guard_gate_id',
+                'execution_guard_id',
+                'adapter_invocation_boundary_gate_id',
+                'adapter_invocation_id',
+                'provider_start_driver_gate_id',
+                'provider_start_attempt_id',
+                'post_start_evidence_acceptance_bridge_id',
+                'signed_dispatch_receipt_hash',
+                'operator_release_receipt_hash',
+                'codex_execution_contract_hash',
+                'actor',
+                'session',
+                'reason',
+            ],
+            'allowed_future_mutations' => [
+                'record_codex_process_start_release_metadata_on_provider_start_run',
+                'append_codex_process_start_release_authorization_evidence_event',
+                'record_codex_real_invoker_post_start_process_start_release_metadata_on_observed_run',
+            ],
+            'forbidden_even_after_contract' => [
+                'spawn_codex_process',
+                'call_codex_cli_or_codex_app',
+                'run_supervised_start_executor',
+                'dispatch_work_to_codex',
+                'send_prompt_to_provider',
+                'call_provider_process',
+                'enable_adapter_execution',
+                'spend_provider_tokens',
+                'mark_observed_run_running_or_terminal',
+                'enable_self_programming',
+            ],
+            'next_required_slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_start_release_gate_preflight',
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_start_release_gate_contract.v1',
+            'status' => (string) $contract['status'],
+            'mode' => 'read_only_agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_start_release_gate_contract',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'post_start_process_start_release_gate_allowed' => false,
+            'actual_process_start_allowed' => false,
+            'provider_process_call_allowed' => false,
+            'adapter_invocation_allowed' => false,
+            'adapter_execution_allowed' => false,
+            'token_spend_allowed' => false,
+            'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_start_release_gate_contract' => $contract,
+            'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_start_release_gate_contract_hash' => $this->stableHash($contract),
+            'non_execution_guarantees' => [
+                'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_start_release_gate_contract_does_not_start_codex',
+                'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_start_release_gate_contract_does_not_call_codex',
+                'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_start_release_gate_contract_does_not_execute_adapter',
+                'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_start_release_gate_contract_does_not_spend_tokens',
+                'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_start_release_gate_contract_does_not_dispatch_work',
+                'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_start_release_gate_contract_does_not_enable_self_programming',
+            ],
+            'human_summary' => 'Automatic dispatch scheduler one-shot tick Codex real invoker post-start process start release gate contract is ready; it authorizes only a later supervised path and does not start Codex.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProcessStartReleaseGatePreflight(array $options = []): array
+    {
+        $contractPayload = $this->agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProcessStartReleaseGateContract($options);
+        $contract = (array) data_get($contractPayload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_start_release_gate_contract', []);
+        $contractHash = (string) data_get($contractPayload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_start_release_gate_contract_hash');
+        $gateReady = class_exists(AgentCodexRealInvokerPostStartProcessStartReleaseGate::class)
+            && method_exists(AgentCodexRealInvokerPostStartProcessStartReleaseGate::class, 'authorizePostStartProcessStartRelease');
+        $invokerReady = class_exists(AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProcessStartReleaseGateInvoker::class)
+            && method_exists(AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProcessStartReleaseGateInvoker::class, 'authorizeCodexRealInvokerPostStartProcessStartReleaseGate');
+        $codexReleaseGateReady = class_exists(AgentCodexProcessStartReleaseGate::class)
+            && method_exists(AgentCodexProcessStartReleaseGate::class, 'authorizeCodexProcessStart');
+        $providerExecutionGateReady = class_exists(AgentCodexRealInvokerPostStartProviderExecutionContractGate::class)
+            && method_exists(AgentCodexRealInvokerPostStartProviderExecutionContractGate::class, 'preparePostStartProviderExecutionContract');
+        $runsTableReady = Schema::hasTable('atlas_self_construction_agent_runs');
+        $ledgerTableReady = Schema::hasTable('atlas_ledger_events');
+
+        $checks = [
+            'post_start_process_start_release_gate_contract_ready' => data_get($contractPayload, 'status') === 'one_shot_tick_codex_real_invoker_post_start_process_start_release_gate_contract_ready',
+            'post_start_process_start_release_gate_contract_hash_present' => $contractHash !== '',
+            'post_start_provider_execution_contract_gate_status_ready' => data_get($contract, 'source_codex_real_invoker_post_start_provider_execution_contract_gate_status') === 'one_shot_tick_codex_real_invoker_post_start_provider_execution_contract_gate_service_ready',
+            'generic_post_start_process_start_release_gate_template_ready' => data_get($contract, 'source_codex_real_invoker_post_start_process_start_release_gate_status') === 'codex_real_invoker_post_start_process_start_release_gate_contract_template_ready',
+            'codex_real_invoker_post_start_process_start_release_gate_ready' => $gateReady,
+            'codex_real_invoker_post_start_process_start_release_gate_invoker_ready' => $invokerReady,
+            'codex_process_start_release_gate_ready' => $codexReleaseGateReady,
+            'codex_real_invoker_post_start_provider_execution_contract_gate_ready' => $providerExecutionGateReady,
+            'canonical_post_start_process_start_release_gate_method_ready' => data_get($contract, 'process_start_release.canonical_post_start_process_start_release_gate_method') === 'authorizePostStartProcessStartRelease',
+            'scheduler_invoker_method_ready' => data_get($contract, 'process_start_release.scheduler_invoker_method') === 'authorizeCodexRealInvokerPostStartProcessStartReleaseGate',
+            'contract_requires_provider_execution_contract' => data_get($contract, 'process_start_release.post_start_provider_execution_contract_required_before_release') === true,
+            'contract_requires_post_start_evidence_acceptance_bridge' => data_get($contract, 'process_start_release.post_start_evidence_acceptance_bridge_required_before_release') === true,
+            'contract_delegates_to_codex_process_start_release_gate' => data_get($contract, 'process_start_release.gate_delegates_to_codex_process_start_release_gate') === true,
+            'contract_requires_supervised_start_executor_after_release' => data_get($contract, 'process_start_release.supervised_start_executor_required_after_release') === true,
+            'contract_declares_release_is_not_process_start' => data_get($contract, 'process_start_release.release_authorization_is_not_process_start') === true,
+            'contract_keeps_actual_process_start_disabled' => data_get($contract, 'process_start_release.actual_process_start_allowed_by_contract') === false,
+            'contract_keeps_adapter_execution_disabled' => data_get($contract, 'process_start_release.adapter_execution_allowed_by_contract') === false,
+            'contract_does_not_dispatch_work' => data_get($contract, 'process_start_release.dispatch_allowed_by_contract') === false,
+            'contract_does_not_spend_tokens' => data_get($contract, 'process_start_release.token_spend_allowed_by_contract') === false,
+            'agent_runs_table_ready' => $runsTableReady,
+            'ledger_table_ready' => $ledgerTableReady,
+            'self_programming_forbidden' => in_array('enable_self_programming', (array) data_get($contract, 'forbidden_even_after_contract', []), true),
+        ];
+        $blockingReasons = array_values(array_keys(array_filter($checks, static fn (bool $passed): bool => ! $passed)));
+
+        $preflight = [
+            'status' => $blockingReasons === [] ? 'one_shot_tick_codex_real_invoker_post_start_process_start_release_gate_preflight_ready' : 'blocked',
+            'preflight_id' => 'AGENT-AUTOMATIC-DISPATCH-SCHEDULER-ONE-SHOT-TICK-CODEX-REAL-INVOKER-POST-START-PROCESS-START-RELEASE-GATE-PREFLIGHT-SELF-CONSTRUCTION-0001',
+            'source_post_start_process_start_release_gate_contract_hash' => $contractHash,
+            'preflight_checks' => $checks,
+            'blocking_count' => count($blockingReasons),
+            'blocking_reasons' => $blockingReasons,
+            'implementation_requirements' => [
+                'use_one_shot_scheduler_codex_real_invoker_post_start_process_start_release_gate_invoker',
+                'delegate_to_agent_codex_real_invoker_post_start_process_start_release_gate',
+                'require_codex_real_invoker_post_start_provider_execution_contract_metadata',
+                'require_post_start_evidence_acceptance_bridge_metadata',
+                'record_process_start_release_authorization_without_starting_codex',
+                'preserve_actual_process_start_disabled_until_supervised_start_executor_gate',
+            ],
+            'runtime_policy' => [
+                'preflight_is_read_only' => true,
+                'post_start_process_start_release_gate_call_allowed_here' => false,
+                'process_start_release_authorization_allowed_by_future_invoker' => true,
+                'codex_process_start_release_gate_allowed_by_future_invoker' => true,
+                'release_authorization_is_not_process_start' => true,
+                'supervised_start_executor_required_after_future_invoker' => true,
+                'actual_process_start_allowed_here' => false,
+                'provider_process_call_allowed_here' => false,
+                'adapter_invocation_allowed_here' => false,
+                'adapter_execution_allowed_here' => false,
+                'dispatch_allowed_here' => false,
+                'token_spend_allowed_here' => false,
+                'self_programming_allowed_here' => false,
+            ],
+            'next_required_slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_start_release_gate_implementation_packet',
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_start_release_gate_preflight.v1',
+            'status' => (string) $preflight['status'],
+            'mode' => 'read_only_agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_start_release_gate_preflight',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'post_start_process_start_release_gate_allowed' => false,
+            'actual_process_start_allowed' => false,
+            'provider_process_call_allowed' => false,
+            'adapter_invocation_allowed' => false,
+            'adapter_execution_allowed' => false,
+            'token_spend_allowed' => false,
+            'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_start_release_gate_preflight' => $preflight,
+            'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_start_release_gate_preflight_hash' => $this->stableHash($preflight),
+            'non_execution_guarantees' => [
+                'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_start_release_gate_preflight_does_not_start_codex',
+                'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_start_release_gate_preflight_does_not_call_codex',
+                'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_start_release_gate_preflight_does_not_execute_adapter',
+                'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_start_release_gate_preflight_does_not_spend_tokens',
+                'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_start_release_gate_preflight_does_not_dispatch_work',
+                'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_start_release_gate_preflight_does_not_enable_self_programming',
+            ],
+            'human_summary' => $blockingReasons === []
+                ? 'Automatic dispatch scheduler one-shot tick Codex real invoker post-start process start release gate preflight is ready.'
+                : 'Automatic dispatch scheduler one-shot tick Codex real invoker post-start process start release gate preflight is blocked until provider execution, release gate and storage prerequisites are ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProcessStartReleaseGateImplementationPacket(array $options = []): array
+    {
+        $preflightPayload = $this->agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProcessStartReleaseGatePreflight($options);
+        $preflight = (array) data_get($preflightPayload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_start_release_gate_preflight', []);
+        $preflightHash = (string) data_get($preflightPayload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_start_release_gate_preflight_hash');
+
+        $packet = [
+            'status' => 'ready_for_scoped_one_shot_tick_codex_real_invoker_post_start_process_start_release_gate_invoker_implementation',
+            'packet_id' => 'AGENT-AUTOMATIC-DISPATCH-SCHEDULER-ONE-SHOT-TICK-CODEX-REAL-INVOKER-POST-START-PROCESS-START-RELEASE-GATE-IMPLEMENTATION-PACKET-SELF-CONSTRUCTION-0001',
+            'parent_program' => 'Atlas Self-Construction OS',
+            'submodule' => 'Atlas Agent Control Plane',
+            'provider' => 'codex',
+            'adapter' => 'codex',
+            'source_codex_real_invoker_post_start_process_start_release_gate_preflight_status' => data_get($preflight, 'status'),
+            'source_codex_real_invoker_post_start_process_start_release_gate_preflight_hash' => $preflightHash,
+            'allowed_files' => [
+                'app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProcessStartReleaseGateInvoker.php',
+                'tests/Feature/Ai/AtlasAiSelfConstructionAgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProcessStartReleaseGateInvokerTest.php',
+                'app/Services/Ai/SelfConstruction/AtlasSelfConstructionReadinessService.php',
+                'app/Console/Commands/AtlasAiSelfConstructionCommand.php',
+                'tests/Feature/Ai/AtlasAiSelfConstructionCommandTest.php',
+                'docs/engineering-knowledge-base/self-construction/agent-control-plane-contract.md',
+            ],
+            'tasks' => [
+                ['id' => 'T1', 'title' => 'Expose one-shot scheduler Codex real invoker post-start process start release gate invoker', 'type' => 'service', 'acceptance' => 'Invoker validates process start release input and delegates to AgentCodexRealInvokerPostStartProcessStartReleaseGate.'],
+                ['id' => 'T2', 'title' => 'Preserve supervised-start boundary', 'type' => 'service_logic', 'acceptance' => 'Invoker authorizes only the release bridge while actual process start, provider calls, adapter execution, dispatch and token spend remain false.'],
+                ['id' => 'T3', 'title' => 'Add Codex real invoker post-start process start release gate invoker tests', 'type' => 'test', 'acceptance' => 'Tests cover successful authorization, idempotent retry, invalid hash, missing provider execution contract, forbidden dispatch and missing provider execution metadata.'],
+                ['id' => 'T4', 'title' => 'Expose Codex real invoker post-start process start release gate status', 'type' => 'command_surface', 'acceptance' => 'Command/readiness reports invoker readiness and next supervised start executor gate without authorizing release in status mode.'],
+            ],
+            'task_count' => 4,
+            'acceptance_criteria' => [
+                'codex_real_invoker_post_start_process_start_release_gate_invoker_authorizes_release_without_starting_codex',
+                'codex_real_invoker_post_start_process_start_release_gate_invoker_requires_provider_execution_contract_metadata',
+                'codex_real_invoker_post_start_process_start_release_gate_invoker_requires_operator_release_receipt_hash',
+                'codex_real_invoker_post_start_process_start_release_gate_invoker_keeps_actual_process_start_disabled',
+                'codex_real_invoker_post_start_process_start_release_gate_invoker_never_dispatches_or_spends_tokens',
+            ],
+            'implementation_policy' => [
+                'implementation_allowed_by_packet' => true,
+                'post_start_process_start_release_gate_call_allowed_by_future_invoker' => true,
+                'codex_process_start_release_gate_allowed_by_future_invoker' => true,
+                'process_start_release_authorized_after_future_invoker' => true,
+                'supervised_start_executor_required_after_future_invoker' => true,
+                'actual_process_start_allowed_by_packet' => false,
+                'provider_process_call_allowed_by_packet' => false,
+                'adapter_invocation_allowed_by_packet' => false,
+                'adapter_execution_allowed_by_packet' => false,
+                'dispatch_allowed_by_packet' => false,
+                'token_spend_allowed_by_packet' => false,
+                'self_programming_allowed_by_packet' => false,
+            ],
+            'next_required_slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_start_release_gate_invoker_service',
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_start_release_gate_implementation_packet.v1',
+            'status' => (string) $packet['status'],
+            'mode' => 'read_only_agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_start_release_gate_implementation_packet',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'post_start_process_start_release_gate_allowed' => false,
+            'actual_process_start_allowed' => false,
+            'provider_process_call_allowed' => false,
+            'adapter_invocation_allowed' => false,
+            'adapter_execution_allowed' => false,
+            'token_spend_allowed' => false,
+            'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_start_release_gate_implementation_packet' => $packet,
+            'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_start_release_gate_implementation_packet_hash' => $this->stableHash($packet),
+            'non_execution_guarantees' => [
+                'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_start_release_gate_implementation_packet_does_not_start_codex',
+                'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_start_release_gate_implementation_packet_does_not_call_codex',
+                'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_start_release_gate_implementation_packet_does_not_execute_adapter',
+                'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_start_release_gate_implementation_packet_does_not_spend_tokens',
+                'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_start_release_gate_implementation_packet_does_not_dispatch_work',
+                'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_start_release_gate_implementation_packet_does_not_enable_self_programming',
+            ],
+            'human_summary' => 'Automatic dispatch scheduler one-shot tick Codex real invoker post-start process start release gate implementation packet is ready; it scopes release authorization before supervised start.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProcessStartReleaseGateStatus(array $options = []): array
+    {
+        $runsTableReady = Schema::hasTable('atlas_self_construction_agent_runs');
+        $ledgerTableReady = Schema::hasTable('atlas_ledger_events');
+        $gateReady = class_exists(AgentCodexRealInvokerPostStartProcessStartReleaseGate::class)
+            && method_exists(AgentCodexRealInvokerPostStartProcessStartReleaseGate::class, 'authorizePostStartProcessStartRelease');
+        $invokerReady = class_exists(AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProcessStartReleaseGateInvoker::class)
+            && method_exists(AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProcessStartReleaseGateInvoker::class, 'authorizeCodexRealInvokerPostStartProcessStartReleaseGate');
+        $codexReleaseGateReady = class_exists(AgentCodexProcessStartReleaseGate::class)
+            && method_exists(AgentCodexProcessStartReleaseGate::class, 'authorizeCodexProcessStart');
+        $providerExecutionGateReady = class_exists(AgentCodexRealInvokerPostStartProviderExecutionContractGate::class)
+            && method_exists(AgentCodexRealInvokerPostStartProviderExecutionContractGate::class, 'preparePostStartProviderExecutionContract');
+
+        $observedReleaseRunsQuery = $runsTableReady
+            ? AtlasSelfConstructionAgentRun::query()
+                ->whereNotNull('metadata->codex_real_invoker_post_start_process_start_release->process_start_release_id')
+            : null;
+        $providerRunsWithProcessReleaseQuery = $runsTableReady
+            ? AtlasSelfConstructionAgentRun::query()
+                ->where('run_key', 'like', 'provider-start:%')
+                ->where('status', 'adapter_invocation_prepared')
+                ->whereNotNull('metadata->codex_process_start_release->process_start_release_id')
+            : null;
+
+        $statusReady = $runsTableReady
+            && $ledgerTableReady
+            && $gateReady
+            && $invokerReady
+            && $codexReleaseGateReady
+            && $providerExecutionGateReady;
+        $status = [
+            'status' => $statusReady ? 'one_shot_tick_codex_real_invoker_post_start_process_start_release_gate_service_ready' : 'blocked',
+            'provider' => 'codex',
+            'adapter' => 'codex',
+            'invoker_service' => AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProcessStartReleaseGateInvoker::class,
+            'invoker_service_ready' => $invokerReady,
+            'invoker_canonical_method' => 'authorizeCodexRealInvokerPostStartProcessStartReleaseGate',
+            'generic_post_start_process_start_release_gate_service' => AgentCodexRealInvokerPostStartProcessStartReleaseGate::class,
+            'generic_post_start_process_start_release_gate_service_ready' => $gateReady,
+            'generic_post_start_process_start_release_gate_canonical_method' => 'authorizePostStartProcessStartRelease',
+            'codex_process_start_release_gate_service' => AgentCodexProcessStartReleaseGate::class,
+            'codex_process_start_release_gate_ready' => $codexReleaseGateReady,
+            'codex_process_start_release_gate_canonical_method' => 'authorizeCodexProcessStart',
+            'post_start_provider_execution_contract_gate_service' => AgentCodexRealInvokerPostStartProviderExecutionContractGate::class,
+            'post_start_provider_execution_contract_gate_ready' => $providerExecutionGateReady,
+            'agent_runs_table_ready' => $runsTableReady,
+            'ledger_table_ready' => $ledgerTableReady,
+            'codex_real_invoker_post_start_process_start_release_recorded_run_count' => $observedReleaseRunsQuery === null ? null : (clone $observedReleaseRunsQuery)->count(),
+            'provider_start_runs_with_codex_process_start_release_count' => $providerRunsWithProcessReleaseQuery === null ? null : (clone $providerRunsWithProcessReleaseQuery)->count(),
+            'runtime_policy' => [
+                'status_projection_is_read_only' => true,
+                'invoker_may_authorize_process_start_release_when_called_with_signed_input' => true,
+                'process_start_release_authorization_is_not_process_start' => true,
+                'supervised_start_executor_required_before_process_start' => true,
+                'atlas_process_spawn_allowed_here' => false,
+                'actual_process_start_allowed_here' => false,
+                'provider_process_call_allowed_here' => false,
+                'adapter_invocation_allowed_here' => false,
+                'adapter_execution_allowed_here' => false,
+                'dispatch_allowed_here' => false,
+                'token_spend_allowed_here' => false,
+                'self_programming_allowed_here' => false,
+            ],
+            'next_required_slice' => $statusReady
+                ? 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_supervised_start_executor_gate_contract'
+                : 'repair_one_shot_scheduler_tick_codex_real_invoker_post_start_process_start_release_gate_service_blockers',
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_start_release_gate_status.v1',
+            'status' => (string) $status['status'],
+            'mode' => 'read_only_agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_start_release_gate_status',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'post_start_process_start_release_gate_allowed' => false,
+            'actual_process_start_allowed' => false,
+            'provider_process_call_allowed' => false,
+            'adapter_invocation_allowed' => false,
+            'adapter_execution_allowed' => false,
+            'token_spend_allowed' => false,
+            'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_start_release_gate_status' => $status,
+            'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_start_release_gate_status_hash' => $this->stableHash($status),
+            'non_execution_guarantees' => [
+                'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_start_release_gate_status_does_not_call_process_start_release_gate',
+                'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_start_release_gate_status_does_not_start_codex',
+                'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_start_release_gate_status_does_not_execute_adapter',
+                'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_start_release_gate_status_does_not_spend_tokens',
+                'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_start_release_gate_status_does_not_dispatch_work',
+                'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_start_release_gate_status_does_not_enable_self_programming',
+            ],
+            'human_summary' => $statusReady
+                ? 'Automatic dispatch scheduler one-shot tick Codex real invoker post-start process start release gate service is ready and inspectable; supervised start remains separate.'
+                : 'Automatic dispatch scheduler one-shot tick Codex real invoker post-start process start release gate service is blocked until invoker, generic gate, release gate and storage are ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartSupervisedStartExecutorGateContract(array $options = []): array
+    {
+        $processStartReleasePayload = $this->agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProcessStartReleaseGateStatus($options);
+        $processStartReleaseStatus = (array) data_get($processStartReleasePayload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_start_release_gate_status', []);
+        $supervisedStartPayload = $this->agentCodexRealInvokerPostStartSupervisedStartExecutorGateContractTemplate($options);
+
+        $contract = [
+            'status' => 'one_shot_tick_codex_real_invoker_post_start_supervised_start_executor_gate_contract_ready',
+            'contract_id' => 'AGENT-AUTOMATIC-DISPATCH-SCHEDULER-ONE-SHOT-TICK-CODEX-REAL-INVOKER-POST-START-SUPERVISED-START-EXECUTOR-GATE-CONTRACT-SELF-CONSTRUCTION-0001',
+            'parent_program' => 'Atlas Self-Construction OS',
+            'submodule' => 'Atlas Agent Control Plane',
+            'provider' => 'codex',
+            'adapter' => 'codex',
+            'source_codex_real_invoker_post_start_process_start_release_gate_status' => data_get($processStartReleaseStatus, 'status'),
+            'source_codex_real_invoker_post_start_process_start_release_gate_status_hash' => data_get($processStartReleasePayload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_start_release_gate_status_hash'),
+            'source_codex_real_invoker_post_start_supervised_start_executor_gate_status' => data_get($supervisedStartPayload, 'status'),
+            'source_codex_real_invoker_post_start_supervised_start_executor_gate_hash' => data_get($supervisedStartPayload, 'codex_real_invoker_post_start_supervised_start_executor_gate_contract_template_hash'),
+            'supervised_start' => [
+                'canonical_post_start_supervised_start_executor_gate' => AgentCodexRealInvokerPostStartSupervisedStartExecutorGate::class,
+                'canonical_post_start_supervised_start_executor_gate_method' => 'preparePostStartSupervisedStart',
+                'scheduler_invoker' => AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartSupervisedStartExecutorGateInvoker::class,
+                'scheduler_invoker_method' => 'prepareCodexRealInvokerPostStartSupervisedStartExecutorGate',
+                'codex_supervised_start_executor' => AgentCodexSupervisedStartExecutor::class,
+                'codex_supervised_start_executor_method' => 'prepareSupervisedStart',
+                'supervised_start_effect' => 'prepare_codex_supervised_start_without_spawning_codex',
+                'post_start_process_start_release_required_before_supervised_start' => true,
+                'post_start_evidence_acceptance_bridge_required_before_supervised_start' => true,
+                'provider_start_run_with_codex_process_start_release_required_before_supervised_start' => true,
+                'stdout_stderr_sanitizer_hash_required' => true,
+                'ready_probe_plan_hash_required' => true,
+                'rollback_plan_hash_required' => true,
+                'gate_delegates_to_codex_supervised_start_executor' => true,
+                'gate_records_codex_supervised_start_metadata_on_provider_start_run' => true,
+                'gate_records_bridge_metadata_on_observed_run' => true,
+                'process_spawn_enablement_required_after_supervised_start' => true,
+                'supervised_start_preparation_is_not_process_spawn' => true,
+                'actual_process_start_allowed_by_contract' => false,
+                'provider_process_call_allowed_by_contract' => false,
+                'adapter_invocation_allowed_by_contract' => false,
+                'adapter_execution_allowed_by_contract' => false,
+                'token_spend_allowed_by_contract' => false,
+                'dispatch_allowed_by_contract' => false,
+                'idempotency_key' => 'supervised_start_id',
+            ],
+            'required_input_fields_for_future_invoker' => [
+                'run_key',
+                'post_start_supervised_start_gate_id',
+                'post_start_process_start_release_gate_id',
+                'process_start_release_id',
+                'provider_execution_contract_gate_id',
+                'codex_execution_id',
+                'supervised_start_id',
+                'adapter_execution_guard_gate_id',
+                'execution_guard_id',
+                'adapter_invocation_boundary_gate_id',
+                'adapter_invocation_id',
+                'provider_start_driver_gate_id',
+                'provider_start_attempt_id',
+                'post_start_evidence_acceptance_bridge_id',
+                'signed_dispatch_receipt_hash',
+                'operator_release_receipt_hash',
+                'codex_execution_contract_hash',
+                'stdout_stderr_sanitizer_hash',
+                'ready_probe_plan_hash',
+                'rollback_plan_hash',
+                'actor',
+                'session',
+                'reason',
+            ],
+            'allowed_future_mutations' => [
+                'record_codex_supervised_start_metadata_on_provider_start_run',
+                'append_codex_supervised_start_preparation_evidence_event',
+                'record_codex_real_invoker_post_start_supervised_start_metadata_on_observed_run',
+            ],
+            'forbidden_even_after_contract' => [
+                'spawn_codex_process',
+                'call_codex_cli_or_codex_app',
+                'run_process_spawn_enablement',
+                'dispatch_work_to_codex',
+                'send_prompt_to_provider',
+                'call_provider_process',
+                'enable_adapter_execution',
+                'spend_provider_tokens',
+                'mark_observed_run_running_or_terminal',
+                'enable_self_programming',
+            ],
+            'next_required_slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_supervised_start_executor_gate_preflight',
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_supervised_start_executor_gate_contract.v1',
+            'status' => (string) $contract['status'],
+            'mode' => 'read_only_agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_supervised_start_executor_gate_contract',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'post_start_supervised_start_executor_gate_allowed' => false,
+            'actual_process_start_allowed' => false,
+            'provider_process_call_allowed' => false,
+            'adapter_invocation_allowed' => false,
+            'adapter_execution_allowed' => false,
+            'token_spend_allowed' => false,
+            'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_supervised_start_executor_gate_contract' => $contract,
+            'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_supervised_start_executor_gate_contract_hash' => $this->stableHash($contract),
+            'non_execution_guarantees' => [
+                'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_supervised_start_executor_gate_contract_does_not_start_codex',
+                'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_supervised_start_executor_gate_contract_does_not_call_codex',
+                'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_supervised_start_executor_gate_contract_does_not_execute_adapter',
+                'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_supervised_start_executor_gate_contract_does_not_spend_tokens',
+                'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_supervised_start_executor_gate_contract_does_not_dispatch_work',
+                'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_supervised_start_executor_gate_contract_does_not_enable_self_programming',
+            ],
+            'human_summary' => 'Automatic dispatch scheduler one-shot tick Codex real invoker post-start supervised start executor gate contract is ready; it prepares supervised start and still does not spawn Codex.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartSupervisedStartExecutorGatePreflight(array $options = []): array
+    {
+        $contractPayload = $this->agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartSupervisedStartExecutorGateContract($options);
+        $contract = (array) data_get($contractPayload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_supervised_start_executor_gate_contract', []);
+        $contractHash = (string) data_get($contractPayload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_supervised_start_executor_gate_contract_hash');
+        $gateReady = class_exists(AgentCodexRealInvokerPostStartSupervisedStartExecutorGate::class)
+            && method_exists(AgentCodexRealInvokerPostStartSupervisedStartExecutorGate::class, 'preparePostStartSupervisedStart');
+        $invokerReady = class_exists(AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartSupervisedStartExecutorGateInvoker::class)
+            && method_exists(AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartSupervisedStartExecutorGateInvoker::class, 'prepareCodexRealInvokerPostStartSupervisedStartExecutorGate');
+        $supervisedStartReady = class_exists(AgentCodexSupervisedStartExecutor::class)
+            && method_exists(AgentCodexSupervisedStartExecutor::class, 'prepareSupervisedStart');
+        $processStartReleaseGateReady = class_exists(AgentCodexRealInvokerPostStartProcessStartReleaseGate::class)
+            && method_exists(AgentCodexRealInvokerPostStartProcessStartReleaseGate::class, 'authorizePostStartProcessStartRelease');
+        $runsTableReady = Schema::hasTable('atlas_self_construction_agent_runs');
+        $ledgerTableReady = Schema::hasTable('atlas_ledger_events');
+
+        $checks = [
+            'post_start_supervised_start_executor_gate_contract_ready' => data_get($contractPayload, 'status') === 'one_shot_tick_codex_real_invoker_post_start_supervised_start_executor_gate_contract_ready',
+            'post_start_supervised_start_executor_gate_contract_hash_present' => $contractHash !== '',
+            'post_start_process_start_release_gate_status_ready' => data_get($contract, 'source_codex_real_invoker_post_start_process_start_release_gate_status') === 'one_shot_tick_codex_real_invoker_post_start_process_start_release_gate_service_ready',
+            'generic_post_start_supervised_start_executor_gate_template_ready' => data_get($contract, 'source_codex_real_invoker_post_start_supervised_start_executor_gate_status') === 'codex_real_invoker_post_start_supervised_start_executor_gate_contract_template_ready',
+            'codex_real_invoker_post_start_supervised_start_executor_gate_ready' => $gateReady,
+            'codex_real_invoker_post_start_supervised_start_executor_gate_invoker_ready' => $invokerReady,
+            'codex_supervised_start_executor_ready' => $supervisedStartReady,
+            'codex_real_invoker_post_start_process_start_release_gate_ready' => $processStartReleaseGateReady,
+            'canonical_post_start_supervised_start_executor_gate_method_ready' => data_get($contract, 'supervised_start.canonical_post_start_supervised_start_executor_gate_method') === 'preparePostStartSupervisedStart',
+            'scheduler_invoker_method_ready' => data_get($contract, 'supervised_start.scheduler_invoker_method') === 'prepareCodexRealInvokerPostStartSupervisedStartExecutorGate',
+            'contract_requires_process_start_release' => data_get($contract, 'supervised_start.post_start_process_start_release_required_before_supervised_start') === true,
+            'contract_requires_post_start_evidence_acceptance_bridge' => data_get($contract, 'supervised_start.post_start_evidence_acceptance_bridge_required_before_supervised_start') === true,
+            'contract_requires_provider_start_run_release' => data_get($contract, 'supervised_start.provider_start_run_with_codex_process_start_release_required_before_supervised_start') === true,
+            'contract_requires_stdout_stderr_sanitizer_hash' => data_get($contract, 'supervised_start.stdout_stderr_sanitizer_hash_required') === true,
+            'contract_requires_ready_probe_plan_hash' => data_get($contract, 'supervised_start.ready_probe_plan_hash_required') === true,
+            'contract_requires_rollback_plan_hash' => data_get($contract, 'supervised_start.rollback_plan_hash_required') === true,
+            'contract_delegates_to_codex_supervised_start_executor' => data_get($contract, 'supervised_start.gate_delegates_to_codex_supervised_start_executor') === true,
+            'contract_requires_process_spawn_enablement_after_supervised_start' => data_get($contract, 'supervised_start.process_spawn_enablement_required_after_supervised_start') === true,
+            'contract_declares_supervised_start_is_not_process_spawn' => data_get($contract, 'supervised_start.supervised_start_preparation_is_not_process_spawn') === true,
+            'contract_keeps_actual_process_start_disabled' => data_get($contract, 'supervised_start.actual_process_start_allowed_by_contract') === false,
+            'contract_keeps_adapter_execution_disabled' => data_get($contract, 'supervised_start.adapter_execution_allowed_by_contract') === false,
+            'contract_does_not_dispatch_work' => data_get($contract, 'supervised_start.dispatch_allowed_by_contract') === false,
+            'contract_does_not_spend_tokens' => data_get($contract, 'supervised_start.token_spend_allowed_by_contract') === false,
+            'agent_runs_table_ready' => $runsTableReady,
+            'ledger_table_ready' => $ledgerTableReady,
+            'self_programming_forbidden' => in_array('enable_self_programming', (array) data_get($contract, 'forbidden_even_after_contract', []), true),
+        ];
+        $blockingReasons = array_values(array_keys(array_filter($checks, static fn (bool $passed): bool => ! $passed)));
+
+        $preflight = [
+            'status' => $blockingReasons === [] ? 'one_shot_tick_codex_real_invoker_post_start_supervised_start_executor_gate_preflight_ready' : 'blocked',
+            'preflight_id' => 'AGENT-AUTOMATIC-DISPATCH-SCHEDULER-ONE-SHOT-TICK-CODEX-REAL-INVOKER-POST-START-SUPERVISED-START-EXECUTOR-GATE-PREFLIGHT-SELF-CONSTRUCTION-0001',
+            'source_post_start_supervised_start_executor_gate_contract_hash' => $contractHash,
+            'preflight_checks' => $checks,
+            'blocking_count' => count($blockingReasons),
+            'blocking_reasons' => $blockingReasons,
+            'implementation_requirements' => [
+                'use_one_shot_scheduler_codex_real_invoker_post_start_supervised_start_executor_gate_invoker',
+                'delegate_to_agent_codex_real_invoker_post_start_supervised_start_executor_gate',
+                'require_codex_real_invoker_post_start_process_start_release_metadata',
+                'require_post_start_evidence_acceptance_bridge_metadata',
+                'record_supervised_start_preparation_without_spawning_codex',
+                'preserve_actual_process_start_disabled_until_process_spawn_enablement_gate',
+            ],
+            'runtime_policy' => [
+                'preflight_is_read_only' => true,
+                'post_start_supervised_start_executor_gate_call_allowed_here' => false,
+                'post_start_supervised_start_preparation_allowed_by_future_invoker' => true,
+                'codex_supervised_start_executor_allowed_by_future_invoker' => true,
+                'supervised_start_preparation_is_not_process_spawn' => true,
+                'process_spawn_enablement_required_after_future_invoker' => true,
+                'actual_process_start_allowed_here' => false,
+                'provider_process_call_allowed_here' => false,
+                'adapter_invocation_allowed_here' => false,
+                'adapter_execution_allowed_here' => false,
+                'dispatch_allowed_here' => false,
+                'token_spend_allowed_here' => false,
+                'self_programming_allowed_here' => false,
+            ],
+            'next_required_slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_supervised_start_executor_gate_implementation_packet',
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_supervised_start_executor_gate_preflight.v1',
+            'status' => (string) $preflight['status'],
+            'mode' => 'read_only_agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_supervised_start_executor_gate_preflight',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'post_start_supervised_start_executor_gate_allowed' => false,
+            'actual_process_start_allowed' => false,
+            'provider_process_call_allowed' => false,
+            'adapter_invocation_allowed' => false,
+            'adapter_execution_allowed' => false,
+            'token_spend_allowed' => false,
+            'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_supervised_start_executor_gate_preflight' => $preflight,
+            'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_supervised_start_executor_gate_preflight_hash' => $this->stableHash($preflight),
+            'non_execution_guarantees' => [
+                'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_supervised_start_executor_gate_preflight_does_not_start_codex',
+                'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_supervised_start_executor_gate_preflight_does_not_call_codex',
+                'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_supervised_start_executor_gate_preflight_does_not_execute_adapter',
+                'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_supervised_start_executor_gate_preflight_does_not_spend_tokens',
+                'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_supervised_start_executor_gate_preflight_does_not_dispatch_work',
+                'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_supervised_start_executor_gate_preflight_does_not_enable_self_programming',
+            ],
+            'human_summary' => $blockingReasons === []
+                ? 'Automatic dispatch scheduler one-shot tick Codex real invoker post-start supervised start executor gate preflight is ready.'
+                : 'Automatic dispatch scheduler one-shot tick Codex real invoker post-start supervised start executor gate preflight is blocked until release, supervised executor and storage prerequisites are ready.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartSupervisedStartExecutorGateImplementationPacket(array $options = []): array
+    {
+        $preflightPayload = $this->agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartSupervisedStartExecutorGatePreflight($options);
+        $preflight = (array) data_get($preflightPayload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_supervised_start_executor_gate_preflight', []);
+        $preflightHash = (string) data_get($preflightPayload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_supervised_start_executor_gate_preflight_hash');
+
+        $packet = [
+            'status' => 'ready_for_scoped_one_shot_tick_codex_real_invoker_post_start_supervised_start_executor_gate_invoker_implementation',
+            'packet_id' => 'AGENT-AUTOMATIC-DISPATCH-SCHEDULER-ONE-SHOT-TICK-CODEX-REAL-INVOKER-POST-START-SUPERVISED-START-EXECUTOR-GATE-IMPLEMENTATION-PACKET-SELF-CONSTRUCTION-0001',
+            'parent_program' => 'Atlas Self-Construction OS',
+            'submodule' => 'Atlas Agent Control Plane',
+            'provider' => 'codex',
+            'adapter' => 'codex',
+            'source_codex_real_invoker_post_start_supervised_start_executor_gate_preflight_status' => data_get($preflight, 'status'),
+            'source_codex_real_invoker_post_start_supervised_start_executor_gate_preflight_hash' => $preflightHash,
+            'allowed_files' => [
+                'app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartSupervisedStartExecutorGateInvoker.php',
+                'tests/Feature/Ai/AtlasAiSelfConstructionAgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartSupervisedStartExecutorGateInvokerTest.php',
+                'app/Services/Ai/SelfConstruction/AtlasSelfConstructionReadinessService.php',
+                'app/Console/Commands/AtlasAiSelfConstructionCommand.php',
+                'tests/Feature/Ai/AtlasAiSelfConstructionCommandTest.php',
+                'docs/engineering-knowledge-base/self-construction/agent-control-plane-contract.md',
+            ],
+            'tasks' => [
+                ['id' => 'T1', 'title' => 'Expose one-shot scheduler Codex real invoker post-start supervised start executor gate invoker', 'type' => 'service', 'acceptance' => 'Invoker validates supervised start input and delegates to AgentCodexRealInvokerPostStartSupervisedStartExecutorGate.'],
+                ['id' => 'T2', 'title' => 'Preserve process-spawn boundary', 'type' => 'service_logic', 'acceptance' => 'Invoker prepares only the supervised start bridge while actual process start, provider calls, adapter execution, dispatch and token spend remain false.'],
+                ['id' => 'T3', 'title' => 'Add Codex real invoker post-start supervised start executor gate invoker tests', 'type' => 'test', 'acceptance' => 'Tests cover successful preparation, idempotent retry, invalid supervision hash, missing process release metadata, forbidden dispatch and missing provider release metadata.'],
+                ['id' => 'T4', 'title' => 'Expose Codex real invoker post-start supervised start executor gate status', 'type' => 'command_surface', 'acceptance' => 'Command/readiness reports invoker readiness and next process spawn enablement gate without preparing supervised start in status mode.'],
+            ],
+            'task_count' => 4,
+            'acceptance_criteria' => [
+                'codex_real_invoker_post_start_supervised_start_executor_gate_invoker_prepares_supervised_start_without_spawning_codex',
+                'codex_real_invoker_post_start_supervised_start_executor_gate_invoker_requires_process_start_release_metadata',
+                'codex_real_invoker_post_start_supervised_start_executor_gate_invoker_requires_supervision_hashes',
+                'codex_real_invoker_post_start_supervised_start_executor_gate_invoker_keeps_actual_process_start_disabled',
+                'codex_real_invoker_post_start_supervised_start_executor_gate_invoker_never_dispatches_or_spends_tokens',
+            ],
+            'implementation_policy' => [
+                'implementation_allowed_by_packet' => true,
+                'post_start_supervised_start_executor_gate_call_allowed_by_future_invoker' => true,
+                'codex_supervised_start_executor_allowed_by_future_invoker' => true,
+                'post_start_supervised_start_prepared_after_future_invoker' => true,
+                'process_spawn_enablement_required_after_future_invoker' => true,
+                'actual_process_start_allowed_by_packet' => false,
+                'provider_process_call_allowed_by_packet' => false,
+                'adapter_invocation_allowed_by_packet' => false,
+                'adapter_execution_allowed_by_packet' => false,
+                'dispatch_allowed_by_packet' => false,
+                'token_spend_allowed_by_packet' => false,
+                'self_programming_allowed_by_packet' => false,
+            ],
+            'next_required_slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_supervised_start_executor_gate_invoker_service',
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_supervised_start_executor_gate_implementation_packet.v1',
+            'status' => (string) $packet['status'],
+            'mode' => 'read_only_agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_supervised_start_executor_gate_implementation_packet',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'post_start_supervised_start_executor_gate_allowed' => false,
+            'actual_process_start_allowed' => false,
+            'provider_process_call_allowed' => false,
+            'adapter_invocation_allowed' => false,
+            'adapter_execution_allowed' => false,
+            'token_spend_allowed' => false,
+            'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_supervised_start_executor_gate_implementation_packet' => $packet,
+            'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_supervised_start_executor_gate_implementation_packet_hash' => $this->stableHash($packet),
+            'non_execution_guarantees' => [
+                'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_supervised_start_executor_gate_implementation_packet_does_not_start_codex',
+                'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_supervised_start_executor_gate_implementation_packet_does_not_call_codex',
+                'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_supervised_start_executor_gate_implementation_packet_does_not_execute_adapter',
+                'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_supervised_start_executor_gate_implementation_packet_does_not_spend_tokens',
+                'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_supervised_start_executor_gate_implementation_packet_does_not_dispatch_work',
+                'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_supervised_start_executor_gate_implementation_packet_does_not_enable_self_programming',
+            ],
+            'human_summary' => 'Automatic dispatch scheduler one-shot tick Codex real invoker post-start supervised start executor gate implementation packet is ready; it scopes supervised start before process spawn enablement.',
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    public function agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartSupervisedStartExecutorGateStatus(array $options = []): array
+    {
+        $runsTableReady = Schema::hasTable('atlas_self_construction_agent_runs');
+        $ledgerTableReady = Schema::hasTable('atlas_ledger_events');
+        $gateReady = class_exists(AgentCodexRealInvokerPostStartSupervisedStartExecutorGate::class)
+            && method_exists(AgentCodexRealInvokerPostStartSupervisedStartExecutorGate::class, 'preparePostStartSupervisedStart');
+        $invokerReady = class_exists(AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartSupervisedStartExecutorGateInvoker::class)
+            && method_exists(AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartSupervisedStartExecutorGateInvoker::class, 'prepareCodexRealInvokerPostStartSupervisedStartExecutorGate');
+        $supervisedStartReady = class_exists(AgentCodexSupervisedStartExecutor::class)
+            && method_exists(AgentCodexSupervisedStartExecutor::class, 'prepareSupervisedStart');
+        $processStartReleaseGateReady = class_exists(AgentCodexRealInvokerPostStartProcessStartReleaseGate::class)
+            && method_exists(AgentCodexRealInvokerPostStartProcessStartReleaseGate::class, 'authorizePostStartProcessStartRelease');
+
+        $observedSupervisedRunsQuery = $runsTableReady
+            ? AtlasSelfConstructionAgentRun::query()
+                ->whereNotNull('metadata->codex_real_invoker_post_start_supervised_start->supervised_start_id')
+            : null;
+        $providerRunsWithSupervisedStartQuery = $runsTableReady
+            ? AtlasSelfConstructionAgentRun::query()
+                ->where('run_key', 'like', 'provider-start:%')
+                ->where('status', 'adapter_invocation_prepared')
+                ->whereNotNull('metadata->codex_supervised_start->supervised_start_id')
+            : null;
+
+        $statusReady = $runsTableReady
+            && $ledgerTableReady
+            && $gateReady
+            && $invokerReady
+            && $supervisedStartReady
+            && $processStartReleaseGateReady;
+        $status = [
+            'status' => $statusReady ? 'one_shot_tick_codex_real_invoker_post_start_supervised_start_executor_gate_service_ready' : 'blocked',
+            'provider' => 'codex',
+            'adapter' => 'codex',
+            'invoker_service' => AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartSupervisedStartExecutorGateInvoker::class,
+            'invoker_service_ready' => $invokerReady,
+            'invoker_canonical_method' => 'prepareCodexRealInvokerPostStartSupervisedStartExecutorGate',
+            'generic_post_start_supervised_start_executor_gate_service' => AgentCodexRealInvokerPostStartSupervisedStartExecutorGate::class,
+            'generic_post_start_supervised_start_executor_gate_service_ready' => $gateReady,
+            'generic_post_start_supervised_start_executor_gate_canonical_method' => 'preparePostStartSupervisedStart',
+            'codex_supervised_start_executor_service' => AgentCodexSupervisedStartExecutor::class,
+            'codex_supervised_start_executor_ready' => $supervisedStartReady,
+            'codex_supervised_start_executor_canonical_method' => 'prepareSupervisedStart',
+            'post_start_process_start_release_gate_service' => AgentCodexRealInvokerPostStartProcessStartReleaseGate::class,
+            'post_start_process_start_release_gate_ready' => $processStartReleaseGateReady,
+            'agent_runs_table_ready' => $runsTableReady,
+            'ledger_table_ready' => $ledgerTableReady,
+            'codex_real_invoker_post_start_supervised_start_recorded_run_count' => $observedSupervisedRunsQuery === null ? null : (clone $observedSupervisedRunsQuery)->count(),
+            'provider_start_runs_with_codex_supervised_start_count' => $providerRunsWithSupervisedStartQuery === null ? null : (clone $providerRunsWithSupervisedStartQuery)->count(),
+            'runtime_policy' => [
+                'status_projection_is_read_only' => true,
+                'invoker_may_prepare_supervised_start_when_called_with_signed_input' => true,
+                'supervised_start_preparation_is_not_process_spawn' => true,
+                'process_spawn_enablement_required_before_process_spawn' => true,
+                'atlas_process_spawn_allowed_here' => false,
+                'actual_process_start_allowed_here' => false,
+                'provider_process_call_allowed_here' => false,
+                'adapter_invocation_allowed_here' => false,
+                'adapter_execution_allowed_here' => false,
+                'dispatch_allowed_here' => false,
+                'token_spend_allowed_here' => false,
+                'self_programming_allowed_here' => false,
+            ],
+            'next_required_slice' => $statusReady
+                ? 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_spawn_enablement_gate_contract'
+                : 'repair_one_shot_scheduler_tick_codex_real_invoker_post_start_supervised_start_executor_gate_service_blockers',
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction_agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_supervised_start_executor_gate_status.v1',
+            'status' => (string) $status['status'],
+            'mode' => 'read_only_agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_supervised_start_executor_gate_status',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'post_start_supervised_start_executor_gate_allowed' => false,
+            'actual_process_start_allowed' => false,
+            'provider_process_call_allowed' => false,
+            'adapter_invocation_allowed' => false,
+            'adapter_execution_allowed' => false,
+            'token_spend_allowed' => false,
+            'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_supervised_start_executor_gate_status' => $status,
+            'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_supervised_start_executor_gate_status_hash' => $this->stableHash($status),
+            'non_execution_guarantees' => [
+                'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_supervised_start_executor_gate_status_does_not_call_supervised_start_executor_gate',
+                'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_supervised_start_executor_gate_status_does_not_start_codex',
+                'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_supervised_start_executor_gate_status_does_not_execute_adapter',
+                'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_supervised_start_executor_gate_status_does_not_spend_tokens',
+                'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_supervised_start_executor_gate_status_does_not_dispatch_work',
+                'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_supervised_start_executor_gate_status_does_not_enable_self_programming',
+            ],
+            'human_summary' => $statusReady
+                ? 'Automatic dispatch scheduler one-shot tick Codex real invoker post-start supervised start executor gate service is ready and inspectable; process spawn enablement remains separate.'
+                : 'Automatic dispatch scheduler one-shot tick Codex real invoker post-start supervised start executor gate service is blocked until invoker, generic gate, supervised executor and storage are ready.',
         ];
     }
 

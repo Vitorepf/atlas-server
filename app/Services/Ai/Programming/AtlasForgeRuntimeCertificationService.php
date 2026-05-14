@@ -81,6 +81,8 @@ class AtlasForgeRuntimeCertificationService
             'external_rivals_status' => 'blocked_requires_operator_approval',
             'external_rivals_reason' => 'Bateria externa Rivals exige autorizacao operador e custo provider; mantida isolada do Forge core conforme atlas-forge-runtime-certification-one-shot.md.',
             'e2e_command' => 'php artisan atlas:forge:runtime-certify --json',
+            'live_execution_command' => 'php artisan atlas:forge:live-execute --json',
+            'live_execution_schema' => 'atlas.forge_live_execution_certification.v1',
             'inputs' => [
                 'surface_id' => 'atlas_code',
                 'requested_flow_id' => 'programming.forge',
@@ -331,10 +333,13 @@ class AtlasForgeRuntimeCertificationService
             'tests/Unit/Ai/Kernel/Pipeline/KernelPipelinePlanGuardTest.php',
             'tests/Feature/Ai/SurfaceDomainCatalogInteractionApiTest.php',
             'tests/Feature/Ai/Programming/AtlasForgeRuntimeCertificationTest.php',
+            'tests/Feature/Ai/Programming/AtlasForgeLiveExecutionTest.php',
             'app/Services/Ai/Surface/Adapters/AtlasCodeSurfaceAdapter.php',
             'app/Http/Controllers/AiInteractionController.php',
             'app/Services/Ai/Programming/AtlasForgeRuntimeCertificationService.php',
+            'app/Services/Ai/Programming/AtlasForgeLiveExecutionService.php',
             'app/Console/Commands/AtlasForgeRuntimeCertifyCommand.php',
+            'app/Console/Commands/AtlasForgeLiveExecuteCommand.php',
         ];
     }
 
