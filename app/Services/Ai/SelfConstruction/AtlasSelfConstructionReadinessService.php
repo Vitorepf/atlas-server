@@ -26,7 +26,7 @@ final class AtlasSelfConstructionReadinessService
      */
     public function snapshot(array $options = []): array
     {
-        $workspace = $options['workspace'] ?: base_path();
+        $workspace = ($options['workspace'] ?? null) ?: base_path();
         $requiredDocs = $this->requiredDocs();
         $docs = array_map(fn (string $path): array => $this->docStatus($path), $requiredDocs);
         $missing = array_values(array_filter($docs, fn (array $doc): bool => ! $doc['exists']));
@@ -129,7 +129,7 @@ final class AtlasSelfConstructionReadinessService
     public function metaSddPacket(array $options = []): array
     {
         $snapshot = $this->snapshot($options);
-        $target = $options['target'] ?: 'meta_sdd_artifact_generator';
+        $target = ($options['target'] ?? null) ?: 'meta_sdd_artifact_generator';
 
         return [
             'schema_version' => 'atlas.self_construction_meta_sdd.v1',
@@ -1801,7 +1801,7 @@ final class AtlasSelfConstructionReadinessService
      */
     public function implementationPacket(array $options = []): array
     {
-        $target = $options['target'] ?: 'ai_implementation_packet_runtime_read_only';
+        $target = ($options['target'] ?? null) ?: 'ai_implementation_packet_runtime_read_only';
         $docs = $this->snapshot($options);
 
         $packet = [
@@ -43190,9 +43190,9 @@ final class AtlasSelfConstructionReadinessService
                 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_real_invoker_release_preflight_gate_invoker_service',
             ];
         } else {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_receipt_contract';
+            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_starter_readiness_gate_contract';
             $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_receipt_contract',
+                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_starter_readiness_gate_contract',
             ];
         }
         $currentCapabilities = [
@@ -43286,6 +43286,81 @@ final class AtlasSelfConstructionReadinessService
             'agent_control_plane_certification_status_batch_implementation_packet',
             'agent_control_plane_certification_status_batch_service',
             'agent_control_plane_certification_status_batch_status_projection',
+            'atlas_self_construction_os_completion_audit_contract',
+            'atlas_self_construction_os_completion_audit_preflight',
+            'atlas_self_construction_os_completion_audit_implementation_packet',
+            'atlas_self_construction_os_completion_audit_service',
+            'atlas_self_construction_os_completion_audit_status_projection',
+            'atlas_self_construction_final_evidence_bundle_contract',
+            'atlas_self_construction_final_evidence_bundle_preflight',
+            'atlas_self_construction_final_evidence_bundle_implementation_packet',
+            'atlas_self_construction_final_evidence_bundle_service',
+            'atlas_self_construction_final_evidence_bundle_status_projection',
+            'atlas_self_construction_completion_audit_blocker_explainer_contract',
+            'atlas_self_construction_completion_audit_blocker_explainer_preflight',
+            'atlas_self_construction_completion_audit_blocker_explainer_implementation_packet',
+            'atlas_self_construction_completion_audit_blocker_explainer_service',
+            'atlas_self_construction_completion_audit_blocker_explainer_status_projection',
+            'atlas_self_construction_runtime_promotion_evidence_dossier_contract',
+            'atlas_self_construction_runtime_promotion_evidence_dossier_preflight',
+            'atlas_self_construction_runtime_promotion_evidence_dossier_implementation_packet',
+            'atlas_self_construction_runtime_promotion_evidence_dossier_service',
+            'atlas_self_construction_runtime_promotion_evidence_dossier_status_projection',
+            'atlas_self_construction_human_completion_receipt_dossier_contract',
+            'atlas_self_construction_human_completion_receipt_dossier_preflight',
+            'atlas_self_construction_human_completion_receipt_dossier_implementation_packet',
+            'atlas_self_construction_human_completion_receipt_dossier_service',
+            'atlas_self_construction_human_completion_receipt_dossier_status_projection',
+            'atlas_self_construction_real_provider_smoke_evidence_dossier_contract',
+            'atlas_self_construction_real_provider_smoke_evidence_dossier_preflight',
+            'atlas_self_construction_real_provider_smoke_evidence_dossier_implementation_packet',
+            'atlas_self_construction_real_provider_smoke_evidence_dossier_service',
+            'atlas_self_construction_real_provider_smoke_evidence_dossier_status_projection',
+            'agent_control_plane_runtime_evidence_journal_contract',
+            'agent_control_plane_runtime_evidence_journal_preflight',
+            'agent_control_plane_runtime_evidence_journal_implementation_packet',
+            'agent_control_plane_runtime_evidence_journal_service',
+            'agent_control_plane_runtime_evidence_journal_status_projection',
+            'agent_control_plane_execution_workspace_runtime_contract',
+            'agent_control_plane_execution_workspace_runtime_preflight',
+            'agent_control_plane_execution_workspace_runtime_implementation_packet',
+            'agent_control_plane_execution_workspace_runtime_service',
+            'agent_control_plane_execution_workspace_runtime_status_projection',
+            'agent_control_plane_governance_approval_runtime_contract',
+            'agent_control_plane_governance_approval_runtime_preflight',
+            'agent_control_plane_governance_approval_runtime_implementation_packet',
+            'agent_control_plane_governance_approval_runtime_service',
+            'agent_control_plane_governance_approval_runtime_status_projection',
+            'agent_control_plane_automatic_cost_import_runtime_contract',
+            'agent_control_plane_automatic_cost_import_runtime_preflight',
+            'agent_control_plane_automatic_cost_import_runtime_implementation_packet',
+            'agent_control_plane_automatic_cost_import_runtime_service',
+            'agent_control_plane_automatic_cost_import_runtime_status_projection',
+            'agent_control_plane_automatic_work_product_collection_runtime_contract',
+            'agent_control_plane_automatic_work_product_collection_runtime_preflight',
+            'agent_control_plane_automatic_work_product_collection_runtime_implementation_packet',
+            'agent_control_plane_automatic_work_product_collection_runtime_service',
+            'agent_control_plane_automatic_work_product_collection_runtime_status_projection',
+            'agent_control_plane_adapter_execution_runtime_boundary_contract',
+            'agent_control_plane_adapter_execution_runtime_boundary_preflight',
+            'agent_control_plane_adapter_execution_runtime_boundary_implementation_packet',
+            'agent_control_plane_adapter_execution_runtime_boundary_service',
+            'agent_control_plane_adapter_execution_runtime_boundary_status_projection',
+            'agent_control_plane_dispatch_planner_runtime_contract',
+            'agent_control_plane_dispatch_planner_runtime_preflight',
+            'agent_control_plane_dispatch_planner_runtime_implementation_packet',
+            'agent_control_plane_dispatch_planner_runtime_service',
+            'agent_control_plane_dispatch_planner_runtime_status_projection',
+            'agent_control_plane_validation_gate_runtime_contract',
+            'agent_control_plane_validation_gate_runtime_preflight',
+            'agent_control_plane_validation_gate_runtime_implementation_packet',
+            'agent_control_plane_validation_gate_runtime_service',
+            'agent_control_plane_validation_gate_runtime_status_projection',
+            'agent_control_plane_merge_review_runtime_contract',
+            'agent_control_plane_merge_review_runtime_preflight',
+            'agent_control_plane_merge_review_runtime_implementation_packet',
+            'agent_control_plane_merge_review_runtime_service',
+            'agent_control_plane_merge_review_runtime_status_projection',
             'agent_control_plane_task_packet_builder_contract',
             'agent_control_plane_task_packet_builder_preflight',
             'agent_control_plane_task_packet_builder_implementation_packet',
@@ -43361,6 +43436,56 @@ final class AtlasSelfConstructionReadinessService
             'agent_control_plane_task_queue_lease_certification_implementation_packet',
             'agent_control_plane_task_queue_lease_certification_service',
             'agent_control_plane_task_queue_lease_certification_status_projection',
+            'agent_control_plane_agent_runtime_registry_contract',
+            'agent_control_plane_agent_runtime_registry_preflight',
+            'agent_control_plane_agent_runtime_registry_implementation_packet',
+            'agent_control_plane_agent_runtime_registry_service',
+            'agent_control_plane_agent_runtime_registry_status_projection',
+            'agent_control_plane_agent_runtime_registry_heartbeat_contract',
+            'agent_control_plane_agent_runtime_registry_heartbeat_preflight',
+            'agent_control_plane_agent_runtime_registry_heartbeat_implementation_packet',
+            'agent_control_plane_agent_runtime_registry_heartbeat_service',
+            'agent_control_plane_agent_runtime_registry_heartbeat_status_projection',
+            'agent_control_plane_agent_runtime_registry_capability_catalog_contract',
+            'agent_control_plane_agent_runtime_registry_capability_catalog_preflight',
+            'agent_control_plane_agent_runtime_registry_capability_catalog_implementation_packet',
+            'agent_control_plane_agent_runtime_registry_capability_catalog_service',
+            'agent_control_plane_agent_runtime_registry_capability_catalog_status_projection',
+            'agent_control_plane_agent_runtime_registry_availability_contract',
+            'agent_control_plane_agent_runtime_registry_availability_preflight',
+            'agent_control_plane_agent_runtime_registry_availability_implementation_packet',
+            'agent_control_plane_agent_runtime_registry_availability_service',
+            'agent_control_plane_agent_runtime_registry_availability_status_projection',
+            'agent_control_plane_agent_runtime_registry_task_matcher_contract',
+            'agent_control_plane_agent_runtime_registry_task_matcher_preflight',
+            'agent_control_plane_agent_runtime_registry_task_matcher_implementation_packet',
+            'agent_control_plane_agent_runtime_registry_task_matcher_service',
+            'agent_control_plane_agent_runtime_registry_task_matcher_status_projection',
+            'agent_control_plane_agent_runtime_registry_load_balancing_contract',
+            'agent_control_plane_agent_runtime_registry_load_balancing_preflight',
+            'agent_control_plane_agent_runtime_registry_load_balancing_implementation_packet',
+            'agent_control_plane_agent_runtime_registry_load_balancing_service',
+            'agent_control_plane_agent_runtime_registry_load_balancing_status_projection',
+            'agent_control_plane_agent_runtime_registry_quarantine_contract',
+            'agent_control_plane_agent_runtime_registry_quarantine_preflight',
+            'agent_control_plane_agent_runtime_registry_quarantine_implementation_packet',
+            'agent_control_plane_agent_runtime_registry_quarantine_service',
+            'agent_control_plane_agent_runtime_registry_quarantine_status_projection',
+            'agent_control_plane_agent_runtime_registry_handoff_contract',
+            'agent_control_plane_agent_runtime_registry_handoff_preflight',
+            'agent_control_plane_agent_runtime_registry_handoff_implementation_packet',
+            'agent_control_plane_agent_runtime_registry_handoff_service',
+            'agent_control_plane_agent_runtime_registry_handoff_status_projection',
+            'agent_control_plane_agent_runtime_registry_orchestrator_contract',
+            'agent_control_plane_agent_runtime_registry_orchestrator_preflight',
+            'agent_control_plane_agent_runtime_registry_orchestrator_implementation_packet',
+            'agent_control_plane_agent_runtime_registry_orchestrator_service',
+            'agent_control_plane_agent_runtime_registry_orchestrator_status_projection',
+            'agent_control_plane_agent_runtime_registry_certification_contract',
+            'agent_control_plane_agent_runtime_registry_certification_preflight',
+            'agent_control_plane_agent_runtime_registry_certification_implementation_packet',
+            'agent_control_plane_agent_runtime_registry_certification_service',
+            'agent_control_plane_agent_runtime_registry_certification_status_projection',
         ];
         $notYetRuntimeCapable = [
             'database_backed_agent_runs',
@@ -44669,7 +44794,7 @@ final class AtlasSelfConstructionReadinessService
                 'adapter_execution_runtime',
                 'automatic_cost_import_runtime',
                 'automatic_work_product_collection_runtime',
-                'automatic_dispatch_scheduler_codex_real_invoker_post_start_receipt_contract_runtime',
+                'automatic_dispatch_scheduler_codex_real_invoker_post_start_process_starter_readiness_gate_contract_runtime',
             ];
         }
 
@@ -73785,6 +73910,106 @@ final class AtlasSelfConstructionReadinessService
      * @param  array<string, mixed>  $options
      * @return array<string, mixed>
      */
+    public function agentControlPlaneReplaySnapshotStoreCapture(array $options = []): array
+    {
+        $store = new AgentControlPlaneReplaySnapshotStore;
+        $auditService = new AgentControlPlaneChainIntegrityAuditService($this);
+        $replayService = new AgentControlPlaneDeterministicChainReplayService($auditService, $this);
+        $diffService = new AgentControlPlaneReplayDiffService($store, $replayService);
+        $gate = new AgentControlPlaneMacroSprintPromotionGate($diffService, $auditService, $replayService);
+        $baselineService = new AgentControlPlaneCertificationBaselineService(
+            $this,
+            $auditService,
+            $replayService,
+            $store,
+            $diffService,
+            $gate,
+        );
+
+        $baseline = $baselineService->build($options);
+        $replay = $replayService->replay($options);
+        $diff = $diffService->diff();
+        $gatePayload = $gate->evaluate($options);
+        $readiness = (new AgentControlPlaneBaselineCaptureReadinessService($store))->assess($baseline, $replay, $diff, $gatePayload);
+        $registryBefore = $store->registry();
+
+        $snapshotWritePerformed = false;
+        $snapshotResult = null;
+        if ((bool) data_get($readiness, 'can_capture_snapshot', false)
+            && (bool) data_get($readiness, 'snapshot_capture_required', false)) {
+            $snapshotResult = $store->put($replay, [
+                'label' => (string) data_get($readiness, 'capture_plan.recommended_label', 'completion-baseline'),
+                'keep' => (int) data_get($readiness, 'capture_plan.recommended_keep', AgentControlPlaneReplaySnapshotStore::DEFAULT_KEEP),
+            ]);
+            $snapshotWritePerformed = true;
+        }
+
+        $registryAfter = $store->registry();
+        $latest = $store->latest();
+        $status = match (true) {
+            (string) data_get($readiness, 'status') === 'blocked' => 'blocked',
+            $snapshotWritePerformed => 'captured',
+            (string) data_get($readiness, 'snapshot_state') === 'current' => 'already_current',
+            default => 'not_captured',
+        };
+
+        $payload = [
+            'schema_version' => 'atlas.self_construction_agent_control_plane_replay_snapshot_store_capture.v1',
+            'status' => $status,
+            'mode' => 'explicit_agent_control_plane_replay_snapshot_store_capture',
+            'read_only' => false,
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'external_provider_call' => false,
+            'token_spend' => false,
+            'process_started' => false,
+            'provider_call_allowed' => false,
+            'adapter_execution_allowed' => false,
+            'self_programming_allowed' => false,
+            'completion_claim_allowed' => false,
+            'snapshot_write_allowed' => true,
+            'snapshot_write_performed' => $snapshotWritePerformed,
+            'snapshot_id' => (string) data_get($snapshotResult, 'snapshot_id', data_get($latest, 'snapshot_id', '')),
+            'snapshot_path' => (string) data_get($snapshotResult, 'path', ''),
+            'registry_entry_count_before' => (int) data_get($registryBefore, 'entry_count', 0),
+            'registry_entry_count_after' => (int) data_get($registryAfter, 'entry_count', 0),
+            'latest_snapshot_id' => (string) data_get($latest, 'snapshot_id', ''),
+            'latest_deterministic_replay_hash' => (string) data_get($latest, 'deterministic_replay_hash', ''),
+            'baseline_capture_readiness_status' => (string) data_get($readiness, 'status'),
+            'baseline_snapshot_state_before_capture' => (string) data_get($readiness, 'snapshot_state'),
+            'baseline_capture_readiness_hash' => (string) data_get($readiness, 'baseline_capture_readiness_hash'),
+            'current_deterministic_replay_hash' => (string) data_get($replay, 'deterministic_replay_hash', ''),
+            'non_execution_guarantees' => [
+                'snapshot_capture_does_not_start_codex',
+                'snapshot_capture_does_not_call_codex_cli_or_app',
+                'snapshot_capture_does_not_spawn_subprocess',
+                'snapshot_capture_does_not_invoke_adapter',
+                'snapshot_capture_does_not_execute_adapter',
+                'snapshot_capture_does_not_call_provider',
+                'snapshot_capture_does_not_dispatch_work',
+                'snapshot_capture_does_not_spend_tokens',
+                'snapshot_capture_does_not_write_ledger',
+                'snapshot_capture_does_not_mutate_pointer',
+                'snapshot_capture_does_not_promote_completion_claim',
+            ],
+            'human_summary' => match ($status) {
+                'captured' => 'Replay snapshot baseline captured explicitly; rerun replay diff and promotion gate.',
+                'already_current' => 'Replay snapshot baseline is already current; no new snapshot was written.',
+                'blocked' => 'Replay snapshot baseline capture is blocked by readiness checks.',
+                default => 'Replay snapshot baseline was not captured; inspect capture readiness.',
+            },
+        ];
+        $payload['agent_control_plane_replay_snapshot_store_capture_hash'] = $this->stableHash($payload);
+
+        return $payload;
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
     public function agentControlPlaneReplayDiffContract(array $options = []): array
     {
         $contract = [
@@ -74619,6 +74844,11 @@ final class AtlasSelfConstructionReadinessService
                 'dossier_id' => (string) data_get($result, 'dossier_id'),
                 'release_dossier_hash' => (string) data_get($result, 'release_dossier_hash'),
                 'baseline_hash' => (string) data_get($result, 'baseline_hash'),
+                'baseline_capture_readiness_hash' => (string) data_get($result, 'baseline_capture_readiness_hash'),
+                'baseline_capture_readiness_status' => (string) data_get($result, 'baseline_capture_readiness_status'),
+                'baseline_snapshot_state' => (string) data_get($result, 'baseline_snapshot_state'),
+                'baseline_snapshot_capture_required' => (bool) data_get($result, 'baseline_snapshot_capture_required'),
+                'baseline_snapshot_can_capture' => (bool) data_get($result, 'baseline_snapshot_can_capture'),
                 'risk_classification' => (string) data_get($result, 'risk_classification'),
                 'promotion_gate_status' => (string) data_get($result, 'promotion_gate_status'),
                 'scenario_detection_rate' => (float) data_get($result, 'scenario_detection_rate'),
@@ -75134,6 +75364,1090 @@ final class AtlasSelfConstructionReadinessService
             ]),
             'non_execution_guarantees' => [],
             'human_summary' => 'Status batch self-echo (no recursion).',
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function atlasSelfConstructionOsCompletionAuditContract(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_os_completion_audit', 'Atlas Self-Construction OS Completion Audit', AtlasSelfConstructionOsCompletionAuditService::SCHEMA_VERSION, AtlasSelfConstructionOsCompletionAuditService::class, 'contract');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function atlasSelfConstructionOsCompletionAuditPreflight(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_os_completion_audit', 'Atlas Self-Construction OS Completion Audit', AtlasSelfConstructionOsCompletionAuditService::SCHEMA_VERSION, AtlasSelfConstructionOsCompletionAuditService::class, 'preflight');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function atlasSelfConstructionOsCompletionAuditImplementationPacket(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_os_completion_audit', 'Atlas Self-Construction OS Completion Audit', AtlasSelfConstructionOsCompletionAuditService::SCHEMA_VERSION, AtlasSelfConstructionOsCompletionAuditService::class, 'implementation_packet');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function atlasSelfConstructionOsCompletionAuditStatus(array $options = []): array
+    {
+        $result = (new AtlasSelfConstructionOsCompletionAuditService($this))->audit($options);
+
+        return $this->wrapCertificationWorkbenchStatus(
+            keyPrefix: 'atlas_self_construction_os_completion_audit',
+            label: 'Atlas Self-Construction OS Completion Audit',
+            payload: $result,
+            statusKey: 'status',
+            extraStatusFields: [
+                'completion_audit_hash' => (string) data_get($result, 'completion_audit_hash'),
+                'completion_allowed' => (bool) data_get($result, 'completion_allowed', false),
+                'criteria_count' => (int) data_get($result, 'criteria_count'),
+                'passed_count' => (int) data_get($result, 'passed_count'),
+                'failed_count' => (int) data_get($result, 'failed_count'),
+                'current_pointer' => (string) data_get($result, 'current_pointer'),
+            ],
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function atlasSelfConstructionOsCompletionOperatorActionPacketContract(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_os_completion_operator_action_packet', 'Atlas Self-Construction OS Completion Operator Action Packet', AtlasSelfConstructionCompletionOperatorActionPacketService::SCHEMA_VERSION, AtlasSelfConstructionCompletionOperatorActionPacketService::class, 'contract');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function atlasSelfConstructionOsCompletionOperatorActionPacketPreflight(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_os_completion_operator_action_packet', 'Atlas Self-Construction OS Completion Operator Action Packet', AtlasSelfConstructionCompletionOperatorActionPacketService::SCHEMA_VERSION, AtlasSelfConstructionCompletionOperatorActionPacketService::class, 'preflight');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function atlasSelfConstructionOsCompletionOperatorActionPacketImplementationPacket(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_os_completion_operator_action_packet', 'Atlas Self-Construction OS Completion Operator Action Packet', AtlasSelfConstructionCompletionOperatorActionPacketService::SCHEMA_VERSION, AtlasSelfConstructionCompletionOperatorActionPacketService::class, 'implementation_packet');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function atlasSelfConstructionOsCompletionOperatorActionPacketStatus(array $options = []): array
+    {
+        $evidence = $this->atlasSelfConstructionOsCompletionEvidenceStatus($options);
+        $result = (array) data_get($evidence, 'operator_action_packet', []);
+
+        return $this->wrapCertificationWorkbenchStatus(
+            keyPrefix: 'atlas_self_construction_os_completion_operator_action_packet',
+            label: 'Atlas Self-Construction OS Completion Operator Action Packet',
+            payload: $result,
+            statusKey: 'status',
+            extraStatusFields: [
+                'operator_action_packet_hash' => (string) data_get($result, 'operator_action_packet_hash'),
+                'missing_operator_artifact_count' => count((array) data_get($result, 'missing_operator_artifacts', [])),
+                'missing_operator_artifacts' => (array) data_get($result, 'missing_operator_artifacts', []),
+            ],
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function atlasSelfConstructionFinalEvidenceBundleContract(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_final_evidence_bundle', 'Atlas Self-Construction Final Evidence Bundle', AtlasSelfConstructionFinalEvidenceBundleService::SCHEMA_VERSION, AtlasSelfConstructionFinalEvidenceBundleService::class, 'contract');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function atlasSelfConstructionFinalEvidenceBundlePreflight(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_final_evidence_bundle', 'Atlas Self-Construction Final Evidence Bundle', AtlasSelfConstructionFinalEvidenceBundleService::SCHEMA_VERSION, AtlasSelfConstructionFinalEvidenceBundleService::class, 'preflight');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function atlasSelfConstructionFinalEvidenceBundleImplementationPacket(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_final_evidence_bundle', 'Atlas Self-Construction Final Evidence Bundle', AtlasSelfConstructionFinalEvidenceBundleService::SCHEMA_VERSION, AtlasSelfConstructionFinalEvidenceBundleService::class, 'implementation_packet');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function atlasSelfConstructionFinalEvidenceBundleStatus(array $options = []): array
+    {
+        $result = (new AtlasSelfConstructionFinalEvidenceBundleService($this))->build($options);
+
+        return $this->wrapCertificationWorkbenchStatus(
+            keyPrefix: 'atlas_self_construction_final_evidence_bundle',
+            label: 'Atlas Self-Construction Final Evidence Bundle',
+            payload: $result,
+            statusKey: 'status',
+            extraStatusFields: [
+                'bundle_hash' => (string) data_get($result, 'bundle_identity.bundle_hash'),
+                'missing_component_count' => (int) data_get($result, 'machine_status.missing_component_count', 0),
+                'blocker_count' => (int) data_get($result, 'machine_status.blocker_count', 0),
+                'completion_claim_allowed' => (bool) data_get($result, 'machine_status.completion_claim_allowed', false),
+                'final_completion_allowed' => (bool) data_get($result, 'final_readiness_map.final_completion_allowed', false),
+            ],
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function atlasSelfConstructionCompletionAuditBlockerExplainerContract(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_completion_audit_blocker_explainer', 'Atlas Self-Construction Completion Audit Blocker Explainer', AtlasSelfConstructionCompletionAuditBlockerExplainerService::SCHEMA_VERSION, AtlasSelfConstructionCompletionAuditBlockerExplainerService::class, 'contract');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function atlasSelfConstructionCompletionAuditBlockerExplainerPreflight(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_completion_audit_blocker_explainer', 'Atlas Self-Construction Completion Audit Blocker Explainer', AtlasSelfConstructionCompletionAuditBlockerExplainerService::SCHEMA_VERSION, AtlasSelfConstructionCompletionAuditBlockerExplainerService::class, 'preflight');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function atlasSelfConstructionCompletionAuditBlockerExplainerImplementationPacket(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_completion_audit_blocker_explainer', 'Atlas Self-Construction Completion Audit Blocker Explainer', AtlasSelfConstructionCompletionAuditBlockerExplainerService::SCHEMA_VERSION, AtlasSelfConstructionCompletionAuditBlockerExplainerService::class, 'implementation_packet');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function atlasSelfConstructionCompletionAuditBlockerExplainerStatus(array $options = []): array
+    {
+        $audit = (new AtlasSelfConstructionOsCompletionAuditService($this))->audit($options);
+        $result = (new AtlasSelfConstructionCompletionAuditBlockerExplainerService)->build($audit);
+
+        return $this->wrapCertificationWorkbenchStatus(
+            keyPrefix: 'atlas_self_construction_completion_audit_blocker_explainer',
+            label: 'Atlas Self-Construction Completion Audit Blocker Explainer',
+            payload: $result,
+            statusKey: 'status',
+            extraStatusFields: [
+                'explainer_hash' => (string) data_get($result, 'explainer_hash'),
+                'remaining_blocker_count' => (int) data_get($result, 'remaining_blocker_count', 0),
+                'human_required' => (bool) data_get($result, 'machine_status.human_required', false),
+                'real_provider_required' => (bool) data_get($result, 'machine_status.real_provider_required', false),
+                'can_close_automatically' => (bool) data_get($result, 'machine_status.can_close_automatically', false),
+            ],
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function atlasSelfConstructionRuntimePromotionEvidenceDossierContract(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_runtime_promotion_evidence_dossier', 'Atlas Self-Construction Runtime Promotion Evidence Dossier', AtlasSelfConstructionRuntimePromotionEvidenceDossierService::SCHEMA_VERSION, AtlasSelfConstructionRuntimePromotionEvidenceDossierService::class, 'contract');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function atlasSelfConstructionRuntimePromotionEvidenceDossierPreflight(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_runtime_promotion_evidence_dossier', 'Atlas Self-Construction Runtime Promotion Evidence Dossier', AtlasSelfConstructionRuntimePromotionEvidenceDossierService::SCHEMA_VERSION, AtlasSelfConstructionRuntimePromotionEvidenceDossierService::class, 'preflight');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function atlasSelfConstructionRuntimePromotionEvidenceDossierImplementationPacket(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_runtime_promotion_evidence_dossier', 'Atlas Self-Construction Runtime Promotion Evidence Dossier', AtlasSelfConstructionRuntimePromotionEvidenceDossierService::SCHEMA_VERSION, AtlasSelfConstructionRuntimePromotionEvidenceDossierService::class, 'implementation_packet');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function atlasSelfConstructionRuntimePromotionEvidenceDossierStatus(array $options = []): array
+    {
+        $result = (new AtlasSelfConstructionRuntimePromotionEvidenceDossierService($this))->build($options);
+
+        return $this->wrapCertificationWorkbenchStatus(
+            keyPrefix: 'atlas_self_construction_runtime_promotion_evidence_dossier',
+            label: 'Atlas Self-Construction Runtime Promotion Evidence Dossier',
+            payload: $result,
+            statusKey: 'status',
+            extraStatusFields: [
+                'dossier_hash' => (string) data_get($result, 'machine_verification.dossier_hash'),
+                'gap_count' => (int) data_get($result, 'machine_verification.gap_count', 0),
+                'candidate_count' => (int) data_get($result, 'machine_verification.candidate_count', 0),
+                'runtime_enabled_count' => (int) data_get($result, 'machine_verification.runtime_enabled_count', 0),
+                'promotion_receipt_required' => (bool) data_get($result, 'machine_verification.promotion_receipt_required', false),
+            ],
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function atlasSelfConstructionHumanCompletionReceiptDossierContract(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_human_completion_receipt_dossier', 'Atlas Self-Construction Human Completion Receipt Dossier', AtlasSelfConstructionHumanCompletionReceiptDossierService::SCHEMA_VERSION, AtlasSelfConstructionHumanCompletionReceiptDossierService::class, 'contract');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function atlasSelfConstructionHumanCompletionReceiptDossierPreflight(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_human_completion_receipt_dossier', 'Atlas Self-Construction Human Completion Receipt Dossier', AtlasSelfConstructionHumanCompletionReceiptDossierService::SCHEMA_VERSION, AtlasSelfConstructionHumanCompletionReceiptDossierService::class, 'preflight');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function atlasSelfConstructionHumanCompletionReceiptDossierImplementationPacket(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_human_completion_receipt_dossier', 'Atlas Self-Construction Human Completion Receipt Dossier', AtlasSelfConstructionHumanCompletionReceiptDossierService::SCHEMA_VERSION, AtlasSelfConstructionHumanCompletionReceiptDossierService::class, 'implementation_packet');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function atlasSelfConstructionHumanCompletionReceiptDossierStatus(array $options = []): array
+    {
+        $result = (new AtlasSelfConstructionHumanCompletionReceiptDossierService($this))->build($options);
+
+        return $this->wrapCertificationWorkbenchStatus(
+            keyPrefix: 'atlas_self_construction_human_completion_receipt_dossier',
+            label: 'Atlas Self-Construction Human Completion Receipt Dossier',
+            payload: $result,
+            statusKey: 'status',
+            extraStatusFields: [
+                'dossier_hash' => (string) data_get($result, 'dossier_hash'),
+                'completion_audit_status' => (string) data_get($result, 'completion_audit_snapshot.status'),
+                'failed_count' => (int) data_get($result, 'completion_audit_snapshot.failed_count', 0),
+                'stale_snapshot_detected' => (bool) data_get($result, 'release_dossier_snapshot.stale_snapshot_detected', false),
+                'receipt_verification_status' => (string) data_get($result, 'receipt_verification.status'),
+            ],
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function atlasSelfConstructionRealProviderSmokeEvidenceDossierContract(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_real_provider_smoke_evidence_dossier', 'Atlas Self-Construction Real Provider Smoke Evidence Dossier', AtlasSelfConstructionRealProviderSmokeEvidenceDossierService::SCHEMA_VERSION, AtlasSelfConstructionRealProviderSmokeEvidenceDossierService::class, 'contract');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function atlasSelfConstructionRealProviderSmokeEvidenceDossierPreflight(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_real_provider_smoke_evidence_dossier', 'Atlas Self-Construction Real Provider Smoke Evidence Dossier', AtlasSelfConstructionRealProviderSmokeEvidenceDossierService::SCHEMA_VERSION, AtlasSelfConstructionRealProviderSmokeEvidenceDossierService::class, 'preflight');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function atlasSelfConstructionRealProviderSmokeEvidenceDossierImplementationPacket(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_real_provider_smoke_evidence_dossier', 'Atlas Self-Construction Real Provider Smoke Evidence Dossier', AtlasSelfConstructionRealProviderSmokeEvidenceDossierService::SCHEMA_VERSION, AtlasSelfConstructionRealProviderSmokeEvidenceDossierService::class, 'implementation_packet');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function atlasSelfConstructionRealProviderSmokeEvidenceDossierStatus(array $options = []): array
+    {
+        $result = (new AtlasSelfConstructionRealProviderSmokeEvidenceDossierService)->build([
+            'real_provider_smoke' => (array) ($options['real_provider_smoke'] ?? $this->decodeJsonOption($options['real_provider_smoke_json'] ?? null)),
+        ]);
+
+        return $this->wrapCertificationWorkbenchStatus(
+            keyPrefix: 'atlas_self_construction_real_provider_smoke_evidence_dossier',
+            label: 'Atlas Self-Construction Real Provider Smoke Evidence Dossier',
+            payload: $result,
+            statusKey: 'status',
+            extraStatusFields: [
+                'dossier_hash' => (string) data_get($result, 'dossier_hash'),
+                'ready_for_operator_execution' => (bool) data_get($result, 'machine_status.ready_for_operator_execution', false),
+                'ready_for_persistence' => (bool) data_get($result, 'machine_status.ready_for_persistence', false),
+                'certification_would_pass' => (bool) data_get($result, 'machine_status.certification_would_pass', false),
+                'certification_error_count' => count((array) data_get($result, 'machine_status.certification_errors', [])),
+            ],
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function atlasSelfConstructionRealProviderSmokeRunbookContract(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_real_provider_smoke_runbook', 'Atlas Self-Construction Real Provider Smoke Runbook', AtlasSelfConstructionRealProviderSmokeRunbookService::SCHEMA_VERSION, AtlasSelfConstructionRealProviderSmokeRunbookService::class, 'contract');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function atlasSelfConstructionRealProviderSmokeRunbookPreflight(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_real_provider_smoke_runbook', 'Atlas Self-Construction Real Provider Smoke Runbook', AtlasSelfConstructionRealProviderSmokeRunbookService::SCHEMA_VERSION, AtlasSelfConstructionRealProviderSmokeRunbookService::class, 'preflight');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function atlasSelfConstructionRealProviderSmokeRunbookImplementationPacket(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_real_provider_smoke_runbook', 'Atlas Self-Construction Real Provider Smoke Runbook', AtlasSelfConstructionRealProviderSmokeRunbookService::SCHEMA_VERSION, AtlasSelfConstructionRealProviderSmokeRunbookService::class, 'implementation_packet');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function atlasSelfConstructionRealProviderSmokeRunbookStatus(array $options = []): array
+    {
+        $evidence = $this->atlasSelfConstructionOsCompletionEvidenceStatus($options);
+        $result = (array) data_get($evidence, 'operator_action_packet.real_provider_smoke_runbook', []);
+
+        return $this->wrapCertificationWorkbenchStatus(
+            keyPrefix: 'atlas_self_construction_real_provider_smoke_runbook',
+            label: 'Atlas Self-Construction Real Provider Smoke Runbook',
+            payload: $result,
+            statusKey: 'status',
+            extraStatusFields: [
+                'runbook_hash' => (string) data_get($result, 'runbook_hash'),
+                'required_evidence_field_count' => count((array) data_get($result, 'required_evidence_fields', [])),
+                'required_observation_flag_count' => count((array) data_get($result, 'required_observation_flags', [])),
+            ],
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function atlasSelfConstructionHumanCompletionReceiptRunbookContract(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_human_completion_receipt_runbook', 'Atlas Self-Construction Human Completion Receipt Runbook', AtlasSelfConstructionHumanCompletionReceiptRunbookService::SCHEMA_VERSION, AtlasSelfConstructionHumanCompletionReceiptRunbookService::class, 'contract');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function atlasSelfConstructionHumanCompletionReceiptRunbookPreflight(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_human_completion_receipt_runbook', 'Atlas Self-Construction Human Completion Receipt Runbook', AtlasSelfConstructionHumanCompletionReceiptRunbookService::SCHEMA_VERSION, AtlasSelfConstructionHumanCompletionReceiptRunbookService::class, 'preflight');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function atlasSelfConstructionHumanCompletionReceiptRunbookImplementationPacket(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_human_completion_receipt_runbook', 'Atlas Self-Construction Human Completion Receipt Runbook', AtlasSelfConstructionHumanCompletionReceiptRunbookService::SCHEMA_VERSION, AtlasSelfConstructionHumanCompletionReceiptRunbookService::class, 'implementation_packet');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function atlasSelfConstructionHumanCompletionReceiptRunbookStatus(array $options = []): array
+    {
+        $evidence = $this->atlasSelfConstructionOsCompletionEvidenceStatus($options);
+        $result = (array) data_get($evidence, 'operator_action_packet.human_completion_receipt_runbook', []);
+
+        return $this->wrapCertificationWorkbenchStatus(
+            keyPrefix: 'atlas_self_construction_human_completion_receipt_runbook',
+            label: 'Atlas Self-Construction Human Completion Receipt Runbook',
+            payload: $result,
+            statusKey: 'status',
+            extraStatusFields: [
+                'runbook_hash' => (string) data_get($result, 'runbook_hash'),
+                'required_evidence_field_count' => count((array) data_get($result, 'required_evidence_fields', [])),
+                'required_acknowledgement_count' => count((array) data_get($result, 'required_acknowledgements', [])),
+            ],
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function atlasSelfConstructionRuntimePromotionReceiptRunbookContract(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_runtime_promotion_receipt_runbook', 'Atlas Self-Construction Runtime Promotion Receipt Runbook', AtlasSelfConstructionRuntimePromotionReceiptRunbookService::SCHEMA_VERSION, AtlasSelfConstructionRuntimePromotionReceiptRunbookService::class, 'contract');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function atlasSelfConstructionRuntimePromotionReceiptRunbookPreflight(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_runtime_promotion_receipt_runbook', 'Atlas Self-Construction Runtime Promotion Receipt Runbook', AtlasSelfConstructionRuntimePromotionReceiptRunbookService::SCHEMA_VERSION, AtlasSelfConstructionRuntimePromotionReceiptRunbookService::class, 'preflight');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function atlasSelfConstructionRuntimePromotionReceiptRunbookImplementationPacket(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_runtime_promotion_receipt_runbook', 'Atlas Self-Construction Runtime Promotion Receipt Runbook', AtlasSelfConstructionRuntimePromotionReceiptRunbookService::SCHEMA_VERSION, AtlasSelfConstructionRuntimePromotionReceiptRunbookService::class, 'implementation_packet');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function atlasSelfConstructionRuntimePromotionReceiptRunbookStatus(array $options = []): array
+    {
+        $evidence = $this->atlasSelfConstructionOsCompletionEvidenceStatus($options);
+        $result = (array) data_get($evidence, 'operator_action_packet.runtime_promotion_receipt_runbook', []);
+
+        return $this->wrapCertificationWorkbenchStatus(
+            keyPrefix: 'atlas_self_construction_runtime_promotion_receipt_runbook',
+            label: 'Atlas Self-Construction Runtime Promotion Receipt Runbook',
+            payload: $result,
+            statusKey: 'status',
+            extraStatusFields: [
+                'runbook_hash' => (string) data_get($result, 'runbook_hash'),
+                'required_evidence_field_count' => count((array) data_get($result, 'required_evidence_fields', [])),
+                'required_acknowledgement_count' => count((array) data_get($result, 'required_acknowledgements', [])),
+                'forbidden_flag_count' => count((array) data_get($result, 'forbidden_flags', [])),
+            ],
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function atlasSelfConstructionOsCompletionEvidenceStatus(array $options = []): array
+    {
+        $runtimePromotionReceiptInput = (array) ($options['runtime_promotion_receipt'] ?? $this->decodeJsonOption($options['runtime_promotion_receipt_json'] ?? null));
+        $runtimeGapMatrix = (new AtlasSelfConstructionRuntimeGapMatrixService($this))->matrix([
+            'runtime_promotion_receipt' => $runtimePromotionReceiptInput,
+            'persist_runtime_promotion_receipt' => (bool) ($options['persist_runtime_promotion_receipt'] ?? false),
+        ]);
+        $receiptInput = (array) ($options['completion_receipt'] ?? $this->decodeJsonOption($options['completion_receipt_json'] ?? null));
+        $smokeInput = (array) ($options['real_provider_smoke'] ?? $this->decodeJsonOption($options['real_provider_smoke_json'] ?? null));
+        $persistEvidence = (bool) ($options['persist_completion_evidence'] ?? false);
+        $humanReceiptService = new AtlasSelfConstructionHumanSignedCompletionReceiptService;
+        $realProviderSmokeService = new AtlasSelfConstructionRealProviderSmokeCertificationService;
+        $humanReceipt = $persistEvidence && $receiptInput !== []
+            ? $humanReceiptService->persist($receiptInput)
+            : $humanReceiptService->verify($receiptInput);
+        $realProviderSmoke = $persistEvidence && $smokeInput !== []
+            ? $realProviderSmokeService->persist($smokeInput)
+            : $realProviderSmokeService->certify($smokeInput);
+        $forgeSmoke = (new AtlasSelfConstructionForgeSelfImprovementIntegrationSmokeService)->certify($options);
+        $operatorActionPacket = (new AtlasSelfConstructionCompletionOperatorActionPacketService($this))->build($runtimeGapMatrix, $humanReceipt, $realProviderSmoke);
+        $checks = [
+            'runtime_gap_matrix_all_runtime_y' => (bool) data_get($runtimeGapMatrix, 'all_runtime_y', false),
+            'human_signed_os_complete_receipt_present' => (string) data_get($humanReceipt, 'status') === 'passed',
+            'end_to_end_real_provider_smoke_green' => (string) data_get($realProviderSmoke, 'status') === 'passed',
+            'forge_self_improvement_integration_smoke_green' => (string) data_get($forgeSmoke, 'status') === 'passed',
+        ];
+        $failed = array_keys(array_filter($checks, static fn (bool $passed): bool => ! $passed));
+        $payload = [
+            'schema_version' => 'atlas.self_construction_agent_control_plane_completion_evidence_status.v1',
+            'status' => $failed === [] ? 'passed' : 'blocked',
+            'mode' => 'read_only_agent_control_plane_completion_evidence_status',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'completion_claim_allowed' => false,
+            'checks' => $checks,
+            'failed_checks' => $failed,
+            'failed_count' => count($failed),
+            'persist_completion_evidence_requested' => $persistEvidence,
+            'runtime_gap_matrix' => $runtimeGapMatrix,
+            'human_signed_completion_receipt' => $humanReceipt,
+            'real_provider_smoke' => $realProviderSmoke,
+            'forge_self_improvement_integration_smoke' => $forgeSmoke,
+            'operator_action_packet' => $operatorActionPacket,
+            'non_execution_guarantees' => [
+                'completion_evidence_status_does_not_start_codex',
+                'completion_evidence_status_does_not_call_provider',
+                'completion_evidence_status_does_not_dispatch_work',
+                'completion_evidence_status_does_not_spend_tokens',
+                'completion_evidence_status_does_not_enable_self_programming',
+            ],
+            'human_summary' => $failed === []
+                ? 'Atlas Self-Construction OS completion evidence is present, but the full completion audit must still pass before any claim.'
+                : 'Atlas Self-Construction OS completion evidence is still missing required artifacts.',
+        ];
+        $payload['completion_evidence_status_hash'] = $this->stableHash($payload);
+
+        return $payload;
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneRuntimeEvidenceJournalContract(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('runtime_evidence_journal', 'Runtime Evidence Journal', AgentRuntimeEvidenceCertificationService::SCHEMA_VERSION, AgentRuntimeEvidenceCertificationService::class, 'contract');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneRuntimeEvidenceJournalPreflight(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('runtime_evidence_journal', 'Runtime Evidence Journal', AgentRuntimeEvidenceCertificationService::SCHEMA_VERSION, AgentRuntimeEvidenceCertificationService::class, 'preflight');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneRuntimeEvidenceJournalImplementationPacket(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('runtime_evidence_journal', 'Runtime Evidence Journal', AgentRuntimeEvidenceCertificationService::SCHEMA_VERSION, AgentRuntimeEvidenceCertificationService::class, 'implementation_packet');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneRuntimeEvidenceJournalStatus(array $options = []): array
+    {
+        $result = (new AgentRuntimeEvidenceCertificationService)->certify($options);
+
+        return $this->wrapCertificationWorkbenchStatus(
+            keyPrefix: 'runtime_evidence_journal',
+            label: 'Runtime Evidence Journal',
+            payload: $result,
+            statusKey: 'status',
+            extraStatusFields: [
+                'certification_hash' => (string) data_get($result, 'certification_hash'),
+                'invariants_all_true' => (bool) data_get($result, 'invariants_all_true', false),
+                'violation_count' => (int) data_get($result, 'violation_count', 0),
+                'journal_entry_count' => (int) data_get($result, 'journal_summary.entry_count', 0),
+                'sample_receipt_hash' => (string) data_get($result, 'sample_receipt_hash'),
+                'complete_continuity_index_hash' => (string) data_get($result, 'complete_continuity_index_hash'),
+                'runtime_safety_all_false' => (bool) data_get($result, 'runtime_safety.runtime_safety_all_false', false),
+            ],
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneExecutionWorkspaceRuntimeContract(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('execution_workspace_runtime', 'Execution Workspace Runtime', AgentControlPlaneExecutionWorkspaceCertificationService::SCHEMA_VERSION, AgentControlPlaneExecutionWorkspaceCertificationService::class, 'contract');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneExecutionWorkspaceRuntimePreflight(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('execution_workspace_runtime', 'Execution Workspace Runtime', AgentControlPlaneExecutionWorkspaceCertificationService::SCHEMA_VERSION, AgentControlPlaneExecutionWorkspaceCertificationService::class, 'preflight');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneExecutionWorkspaceRuntimeImplementationPacket(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('execution_workspace_runtime', 'Execution Workspace Runtime', AgentControlPlaneExecutionWorkspaceCertificationService::SCHEMA_VERSION, AgentControlPlaneExecutionWorkspaceCertificationService::class, 'implementation_packet');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneExecutionWorkspaceRuntimeStatus(array $options = []): array
+    {
+        $result = (new AgentControlPlaneExecutionWorkspaceCertificationService)->certify($options);
+
+        return $this->wrapCertificationWorkbenchStatus(
+            keyPrefix: 'execution_workspace_runtime',
+            label: 'Execution Workspace Runtime',
+            payload: $result,
+            statusKey: 'status',
+            extraStatusFields: [
+                'certification_hash' => (string) data_get($result, 'certification_hash'),
+                'invariants_all_true' => (bool) data_get($result, 'invariants_all_true', false),
+                'violation_count' => (int) data_get($result, 'violation_count', 0),
+                'workspace_plan_status' => (string) data_get($result, 'workspace_plan.status'),
+                'diff_preview_status' => (string) data_get($result, 'diff_artifact_preview.status'),
+                'rollback_plan_status' => (string) data_get($result, 'rollback_plan.status'),
+                'runtime_safety_all_false' => (bool) data_get($result, 'runtime_safety.runtime_safety_all_false', false),
+            ],
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneGovernanceApprovalRuntimeContract(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('governance_approval_runtime', 'Governance Approval Runtime', AgentControlPlaneGovernanceApprovalCertificationService::SCHEMA_VERSION, AgentControlPlaneGovernanceApprovalCertificationService::class, 'contract');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneGovernanceApprovalRuntimePreflight(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('governance_approval_runtime', 'Governance Approval Runtime', AgentControlPlaneGovernanceApprovalCertificationService::SCHEMA_VERSION, AgentControlPlaneGovernanceApprovalCertificationService::class, 'preflight');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneGovernanceApprovalRuntimeImplementationPacket(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('governance_approval_runtime', 'Governance Approval Runtime', AgentControlPlaneGovernanceApprovalCertificationService::SCHEMA_VERSION, AgentControlPlaneGovernanceApprovalCertificationService::class, 'implementation_packet');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneGovernanceApprovalRuntimeStatus(array $options = []): array
+    {
+        $result = (new AgentControlPlaneGovernanceApprovalCertificationService)->certify($options);
+
+        return $this->wrapCertificationWorkbenchStatus(
+            keyPrefix: 'governance_approval_runtime',
+            label: 'Governance Approval Runtime',
+            payload: $result,
+            statusKey: 'status',
+            extraStatusFields: [
+                'certification_hash' => (string) data_get($result, 'certification_hash'),
+                'invariants_all_true' => (bool) data_get($result, 'invariants_all_true', false),
+                'violation_count' => (int) data_get($result, 'violation_count', 0),
+                'policy_blocked_status' => (string) data_get($result, 'policy_blocked_sample.status'),
+                'policy_clear_status' => (string) data_get($result, 'policy_clear_sample.status'),
+                'approval_receipt_plan_status' => (string) data_get($result, 'approval_receipt_plan.status'),
+                'runtime_safety_all_false' => (bool) data_get($result, 'runtime_safety.runtime_safety_all_false', false),
+            ],
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneAutomaticCostImportRuntimeContract(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('automatic_cost_import_runtime', 'Automatic Cost Import Runtime', AgentControlPlaneAutomaticCostImportRuntimeCertificationService::SCHEMA_VERSION, AgentControlPlaneAutomaticCostImportRuntimeCertificationService::class, 'contract');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneAutomaticCostImportRuntimePreflight(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('automatic_cost_import_runtime', 'Automatic Cost Import Runtime', AgentControlPlaneAutomaticCostImportRuntimeCertificationService::SCHEMA_VERSION, AgentControlPlaneAutomaticCostImportRuntimeCertificationService::class, 'preflight');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneAutomaticCostImportRuntimeImplementationPacket(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('automatic_cost_import_runtime', 'Automatic Cost Import Runtime', AgentControlPlaneAutomaticCostImportRuntimeCertificationService::SCHEMA_VERSION, AgentControlPlaneAutomaticCostImportRuntimeCertificationService::class, 'implementation_packet');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneAutomaticCostImportRuntimeStatus(array $options = []): array
+    {
+        $result = (new AgentControlPlaneAutomaticCostImportRuntimeCertificationService)->certify($options);
+
+        return $this->wrapCertificationWorkbenchStatus(
+            keyPrefix: 'automatic_cost_import_runtime',
+            label: 'Automatic Cost Import Runtime',
+            payload: $result,
+            statusKey: 'status',
+            extraStatusFields: [
+                'certification_hash' => (string) data_get($result, 'certification_hash'),
+                'invariants_all_true' => (bool) data_get($result, 'invariants_all_true', false),
+                'violation_count' => (int) data_get($result, 'violation_count', 0),
+                'normalized_cost_events_hash' => (string) data_get($result, 'cost_event_normalization.normalized_cost_events_hash'),
+                'cost_import_receipt_plan_hash' => (string) data_get($result, 'cost_import_receipt_plan.cost_import_receipt_plan_hash'),
+                'reconciliation_dry_run_hash' => (string) data_get($result, 'cost_import_reconciliation_dry_run.reconciliation_dry_run_hash'),
+                'runtime_safety_all_false' => (bool) data_get($result, 'runtime_safety.runtime_safety_all_false', false),
+            ],
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneAutomaticWorkProductCollectionRuntimeContract(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('automatic_work_product_collection_runtime', 'Automatic Work Product Collection Runtime', AgentControlPlaneAutomaticWorkProductCollectionCertificationService::SCHEMA_VERSION, AgentControlPlaneAutomaticWorkProductCollectionCertificationService::class, 'contract');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneAutomaticWorkProductCollectionRuntimePreflight(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('automatic_work_product_collection_runtime', 'Automatic Work Product Collection Runtime', AgentControlPlaneAutomaticWorkProductCollectionCertificationService::SCHEMA_VERSION, AgentControlPlaneAutomaticWorkProductCollectionCertificationService::class, 'preflight');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneAutomaticWorkProductCollectionRuntimeImplementationPacket(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('automatic_work_product_collection_runtime', 'Automatic Work Product Collection Runtime', AgentControlPlaneAutomaticWorkProductCollectionCertificationService::SCHEMA_VERSION, AgentControlPlaneAutomaticWorkProductCollectionCertificationService::class, 'implementation_packet');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneAutomaticWorkProductCollectionRuntimeStatus(array $options = []): array
+    {
+        $result = (new AgentControlPlaneAutomaticWorkProductCollectionCertificationService)->certify($options);
+
+        return $this->wrapCertificationWorkbenchStatus(
+            keyPrefix: 'automatic_work_product_collection_runtime',
+            label: 'Automatic Work Product Collection Runtime',
+            payload: $result,
+            statusKey: 'status',
+            extraStatusFields: [
+                'certification_hash' => (string) data_get($result, 'certification_hash'),
+                'invariants_all_true' => (bool) data_get($result, 'invariants_all_true', false),
+                'violation_count' => (int) data_get($result, 'violation_count', 0),
+                'normalized_work_products_hash' => (string) data_get($result, 'work_product_normalization.normalized_work_products_hash'),
+                'work_product_collection_receipt_plan_hash' => (string) data_get($result, 'work_product_collection_receipt_plan.work_product_collection_receipt_plan_hash'),
+                'manifest_reconciliation_hash' => (string) data_get($result, 'work_product_manifest_reconciliation.manifest_reconciliation_hash'),
+                'runtime_safety_all_false' => (bool) data_get($result, 'runtime_safety.runtime_safety_all_false', false),
+            ],
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneAdapterExecutionRuntimeBoundaryContract(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('adapter_execution_runtime_boundary', 'Adapter Execution Runtime Boundary', AgentControlPlaneAdapterExecutionRuntimeBoundaryCertificationService::SCHEMA_VERSION, AgentControlPlaneAdapterExecutionRuntimeBoundaryCertificationService::class, 'contract');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneAdapterExecutionRuntimeBoundaryPreflight(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('adapter_execution_runtime_boundary', 'Adapter Execution Runtime Boundary', AgentControlPlaneAdapterExecutionRuntimeBoundaryCertificationService::SCHEMA_VERSION, AgentControlPlaneAdapterExecutionRuntimeBoundaryCertificationService::class, 'preflight');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneAdapterExecutionRuntimeBoundaryImplementationPacket(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('adapter_execution_runtime_boundary', 'Adapter Execution Runtime Boundary', AgentControlPlaneAdapterExecutionRuntimeBoundaryCertificationService::SCHEMA_VERSION, AgentControlPlaneAdapterExecutionRuntimeBoundaryCertificationService::class, 'implementation_packet');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneAdapterExecutionRuntimeBoundaryStatus(array $options = []): array
+    {
+        $result = (new AgentControlPlaneAdapterExecutionRuntimeBoundaryCertificationService)->certify($options);
+
+        return $this->wrapCertificationWorkbenchStatus(
+            keyPrefix: 'adapter_execution_runtime_boundary',
+            label: 'Adapter Execution Runtime Boundary',
+            payload: $result,
+            statusKey: 'status',
+            extraStatusFields: [
+                'certification_hash' => (string) data_get($result, 'certification_hash'),
+                'violation_count' => (int) data_get($result, 'violation_count', 0),
+                'adapter_descriptor_hash' => (string) data_get($result, 'adapter_descriptor_hash'),
+                'execution_envelope_hash' => (string) data_get($result, 'execution_envelope_dry_run.execution_envelope_hash'),
+                'guardrail_matrix_hash' => (string) data_get($result, 'guardrail_matrix_hash'),
+                'failure_taxonomy_hash' => (string) data_get($result, 'failure_taxonomy_hash'),
+                'runtime_safety_all_false' => (bool) data_get($result, 'runtime_safety.runtime_safety_all_false', false),
+            ],
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneDispatchPlannerRuntimeContract(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('dispatch_planner_runtime', 'Dispatch Planner Runtime', AgentDispatchPlannerCertificationService::SCHEMA_VERSION, AgentDispatchPlannerCertificationService::class, 'contract');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneDispatchPlannerRuntimePreflight(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('dispatch_planner_runtime', 'Dispatch Planner Runtime', AgentDispatchPlannerCertificationService::SCHEMA_VERSION, AgentDispatchPlannerCertificationService::class, 'preflight');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneDispatchPlannerRuntimeImplementationPacket(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('dispatch_planner_runtime', 'Dispatch Planner Runtime', AgentDispatchPlannerCertificationService::SCHEMA_VERSION, AgentDispatchPlannerCertificationService::class, 'implementation_packet');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneDispatchPlannerRuntimeStatus(array $options = []): array
+    {
+        $result = (new AgentDispatchPlannerCertificationService)->certify($options);
+
+        return $this->wrapCertificationWorkbenchStatus(
+            keyPrefix: 'dispatch_planner_runtime',
+            label: 'Dispatch Planner Runtime',
+            payload: $result,
+            statusKey: 'status',
+            extraStatusFields: [
+                'certification_hash' => (string) data_get($result, 'certification_hash'),
+                'invariants_all_true' => (bool) data_get($result, 'invariants_all_true', false),
+                'violation_count' => (int) data_get($result, 'violation_count', 0),
+                'warning_count' => (int) data_get($result, 'warning_count', 0),
+                'runtime_safety_all_false' => (bool) data_get($result, 'runtime_safety.runtime_safety_all_false', false),
+                'dispatch_allowed' => (bool) data_get($result, 'runtime_safety.dispatch_allowed', false),
+                'claim_real_allowed' => (bool) data_get($result, 'runtime_safety.claim_real_allowed', false),
+            ],
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneValidationGateRuntimeContract(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('validation_gate_runtime', 'Validation Gate Runtime', AgentValidationGateCertificationService::SCHEMA_VERSION, AgentValidationGateCertificationService::class, 'contract');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneValidationGateRuntimePreflight(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('validation_gate_runtime', 'Validation Gate Runtime', AgentValidationGateCertificationService::SCHEMA_VERSION, AgentValidationGateCertificationService::class, 'preflight');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneValidationGateRuntimeImplementationPacket(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('validation_gate_runtime', 'Validation Gate Runtime', AgentValidationGateCertificationService::SCHEMA_VERSION, AgentValidationGateCertificationService::class, 'implementation_packet');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneValidationGateRuntimeStatus(array $options = []): array
+    {
+        $context = (array) ($options['validation_context'] ?? []);
+        $inputs = (array) ($options['synthetic_inputs'] ?? $this->agentControlPlaneValidationGateRuntimeSyntheticPassInputs($context));
+        $result = (new AgentValidationGateCertificationService)->certify($context, $inputs);
+
+        return $this->wrapCertificationWorkbenchStatus(
+            keyPrefix: 'validation_gate_runtime',
+            label: 'Validation Gate Runtime',
+            payload: $result,
+            statusKey: 'status',
+            extraStatusFields: [
+                'certification_hash' => (string) data_get($result, 'certification_hash'),
+                'invariants_all_true' => (bool) data_get($result, 'invariants_all_true', false),
+                'violation_count' => (int) data_get($result, 'violation_count', 0),
+                'overall_evaluation' => (string) data_get($result, 'summary.overall_evaluation'),
+                'failure_count' => (int) data_get($result, 'summary.failure_count', 0),
+                'human_required_count' => (int) data_get($result, 'summary.human_required_count', 0),
+                'runtime_safety_all_false' => (bool) data_get($result, 'runtime_safety.runtime_safety_all_false', false),
+            ],
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $context
+     * @return array<string, array<string, mixed>>
+     */
+    private function agentControlPlaneValidationGateRuntimeSyntheticPassInputs(array $context = []): array
+    {
+        $plan = (new AgentValidationGatePlanBuilder)->buildPlan($context);
+        $inputs = [];
+        foreach ((array) ($plan['ordered_runs'] ?? []) as $run) {
+            $gateId = (string) ($run['gate_id'] ?? '');
+            if ($gateId === '') {
+                continue;
+            }
+            $inputs[$gateId] = [
+                'status' => 'pass',
+                'evidence_artifact' => (string) ($run['expected_artifact'] ?? 'synthetic_validation_evidence'),
+            ];
+        }
+
+        return $inputs;
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneMergeReviewRuntimeContract(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('merge_review_runtime', 'Merge Review Runtime', AgentMergeReviewCertificationService::SCHEMA_VERSION, AgentMergeReviewCertificationService::class, 'contract');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneMergeReviewRuntimePreflight(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('merge_review_runtime', 'Merge Review Runtime', AgentMergeReviewCertificationService::SCHEMA_VERSION, AgentMergeReviewCertificationService::class, 'preflight');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneMergeReviewRuntimeImplementationPacket(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('merge_review_runtime', 'Merge Review Runtime', AgentMergeReviewCertificationService::SCHEMA_VERSION, AgentMergeReviewCertificationService::class, 'implementation_packet');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneMergeReviewRuntimeStatus(array $options = []): array
+    {
+        [$diffManifest, $artifactManifest, $declaredScope, $context] = $this->agentControlPlaneMergeReviewRuntimeCleanArgs();
+        $result = (new AgentMergeReviewCertificationService)->certify($diffManifest, $artifactManifest, $declaredScope, $context, $options);
+
+        return $this->wrapCertificationWorkbenchStatus(
+            keyPrefix: 'merge_review_runtime',
+            label: 'Merge Review Runtime',
+            payload: $result,
+            statusKey: 'status',
+            extraStatusFields: [
+                'certification_hash' => (string) data_get($result, 'certification_hash'),
+                'invariants_all_true' => (bool) data_get($result, 'invariants_all_true', false),
+                'violation_count' => (int) data_get($result, 'violation_count', 0),
+                'promotion_allowed' => (bool) data_get($result, 'promotion_allowed', true),
+                'completion_claim_allowed' => (bool) data_get($result, 'completion_claim_allowed', true),
+                'approval_plan_status' => (string) data_get($result, 'inputs.approval_plan.status'),
+                'promotion_dry_run_status' => (string) data_get($result, 'inputs.promotion_dry_run.status'),
+                'runtime_safety_all_false' => (bool) data_get($result, 'runtime_safety.runtime_safety_all_false', false),
+            ],
+        );
+    }
+
+    /**
+     * @return array{0: array<string, mixed>, 1: array<string, mixed>, 2: array<string, mixed>, 3: array<string, mixed>}
+     */
+    private function agentControlPlaneMergeReviewRuntimeCleanArgs(): array
+    {
+        return [
+            [
+                'source' => 'agent_control_plane_merge_review_runtime_synthetic_diff',
+                'base_revision' => 'baseline-runtime-certification',
+                'head_revision' => 'head-runtime-certification',
+                'files' => [
+                    ['path' => 'app/Services/Ai/SelfConstruction/SyntheticSlice.php', 'change_kind' => 'modified', 'lines_added' => 12, 'lines_deleted' => 4, 'hunk_count' => 3, 'content_hash' => str_repeat('a', 64)],
+                    ['path' => 'tests/Feature/Ai/SelfConstruction/SyntheticSliceTest.php', 'change_kind' => 'added', 'lines_added' => 25, 'lines_deleted' => 0, 'hunk_count' => 1, 'content_hash' => str_repeat('b', 64)],
+                ],
+            ],
+            ['artifacts' => [
+                ['kind' => 'test', 'name' => 'focused-self-construction', 'status' => 'passed', 'evidence_hash' => str_repeat('c', 64)],
+                ['kind' => 'lint', 'name' => 'php-lint', 'status' => 'passed', 'evidence_hash' => str_repeat('d', 64)],
+            ]],
+            ['allowed_files' => ['app/Services/Ai/SelfConstruction/', 'tests/Feature/Ai/SelfConstruction/']],
+            ['packet_id' => 'merge-review-runtime-certification', 'claim_id' => 'claim-merge-review-runtime', 'task_packet_id' => 'task-merge-review-runtime', 'generated_at' => '2026-05-14T00:00:00+00:00'],
         ];
     }
 
@@ -75981,6 +77295,546 @@ final class AtlasSelfConstructionReadinessService
             new AgentControlPlaneClaimLeaseRepository,
             new AgentControlPlaneEvidenceLedgerDryRun,
             new AgentControlPlaneContinuationSummaryBuilder,
+        );
+    }
+
+    /**
+     * Task packet shape understood by the Agent Runtime Registry orchestrator.
+     * Returns a registry-specific payload — distinct from defaultRuntimePilotInput()
+     * because the registry consumes scalar workspace_policy, required_capabilities[]
+     * and requires_lease.
+     *
+     * @return array<string, mixed>
+     */
+    private function defaultAgentRuntimeRegistryTaskPacket(): array
+    {
+        return [
+            'task_packet_id' => 'AGENT-CONTROL-PLANE-REGISTRY-PROBE-0001',
+            'objective' => 'Agent Runtime Registry orchestrator readiness projection',
+            'risk_level' => 'low',
+            'workspace_policy' => 'none',
+            'requires_lease' => false,
+            'required_capabilities' => [],
+        ];
+    }
+
+    // ---------- Agent Runtime Registry quartets (integrated surface) ----------
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneAgentRuntimeRegistryContract(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('agent_runtime_registry', 'Agent Runtime Registry', AgentRuntimeRegistryRepository::SCHEMA_VERSION, AgentRuntimeRegistryRepository::class, 'contract');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneAgentRuntimeRegistryPreflight(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('agent_runtime_registry', 'Agent Runtime Registry', AgentRuntimeRegistryRepository::SCHEMA_VERSION, AgentRuntimeRegistryRepository::class, 'preflight');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneAgentRuntimeRegistryImplementationPacket(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('agent_runtime_registry', 'Agent Runtime Registry', AgentRuntimeRegistryRepository::SCHEMA_VERSION, AgentRuntimeRegistryRepository::class, 'implementation_packet');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneAgentRuntimeRegistryStatus(array $options = []): array
+    {
+        $repo = new AgentRuntimeRegistryRepository;
+        $registry = $repo->registry();
+        $status = $repo->isAvailable() ? 'available' : 'blocked';
+
+        return $this->wrapCertificationWorkbenchStatus(
+            keyPrefix: 'agent_runtime_registry',
+            label: 'Agent Runtime Registry',
+            payload: array_merge($registry, ['status' => $status]),
+            statusKey: 'status',
+            extraStatusFields: [
+                'storage_prefix' => (string) data_get($registry, 'storage_prefix'),
+                'entry_count' => (int) data_get($registry, 'entry_count'),
+                'total_count' => (int) data_get($registry, 'total_count'),
+                'corrupt' => (bool) data_get($registry, 'corrupt', false),
+                'registry_available' => $repo->isAvailable(),
+            ],
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneAgentRuntimeRegistryHeartbeatContract(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('agent_runtime_registry_heartbeat', 'Agent Runtime Registry Heartbeat', AgentRuntimeRegistryHeartbeatRepository::SCHEMA_VERSION, AgentRuntimeRegistryHeartbeatRepository::class, 'contract');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneAgentRuntimeRegistryHeartbeatPreflight(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('agent_runtime_registry_heartbeat', 'Agent Runtime Registry Heartbeat', AgentRuntimeRegistryHeartbeatRepository::SCHEMA_VERSION, AgentRuntimeRegistryHeartbeatRepository::class, 'preflight');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneAgentRuntimeRegistryHeartbeatImplementationPacket(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('agent_runtime_registry_heartbeat', 'Agent Runtime Registry Heartbeat', AgentRuntimeRegistryHeartbeatRepository::SCHEMA_VERSION, AgentRuntimeRegistryHeartbeatRepository::class, 'implementation_packet');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneAgentRuntimeRegistryHeartbeatStatus(array $options = []): array
+    {
+        $repo = new AgentRuntimeRegistryHeartbeatRepository;
+        $available = $repo->isAvailable();
+        $stale = $repo->staleAgents();
+        $status = $available ? 'available' : 'blocked';
+
+        $payload = [
+            'schema_version' => AgentRuntimeRegistryHeartbeatRepository::SCHEMA_VERSION,
+            'status' => $status,
+            'storage_prefix' => AgentRuntimeRegistryHeartbeatRepository::STORAGE_PREFIX,
+            'default_ttl_seconds' => AgentRuntimeRegistryHeartbeatRepository::DEFAULT_TTL_SECONDS,
+            'default_per_agent_cap' => AgentRuntimeRegistryHeartbeatRepository::DEFAULT_PER_AGENT_CAP,
+            'heartbeat_repository_available' => $available,
+            'stale_agent_count' => (int) data_get($stale, 'stale_count', 0),
+            'runtime_safety' => $repo->runtimeFlags(),
+        ];
+
+        return $this->wrapCertificationWorkbenchStatus(
+            keyPrefix: 'agent_runtime_registry_heartbeat',
+            label: 'Agent Runtime Registry Heartbeat',
+            payload: $payload,
+            statusKey: 'status',
+            extraStatusFields: [
+                'storage_prefix' => (string) $payload['storage_prefix'],
+                'heartbeat_repository_available' => (bool) $payload['heartbeat_repository_available'],
+                'default_ttl_seconds' => (int) $payload['default_ttl_seconds'],
+                'stale_agent_count' => (int) $payload['stale_agent_count'],
+            ],
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneAgentRuntimeRegistryCapabilityCatalogContract(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('agent_runtime_registry_capability_catalog', 'Agent Runtime Registry Capability Catalog', AgentRuntimeRegistryCapabilityCatalog::SCHEMA_VERSION, AgentRuntimeRegistryCapabilityCatalog::class, 'contract');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneAgentRuntimeRegistryCapabilityCatalogPreflight(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('agent_runtime_registry_capability_catalog', 'Agent Runtime Registry Capability Catalog', AgentRuntimeRegistryCapabilityCatalog::SCHEMA_VERSION, AgentRuntimeRegistryCapabilityCatalog::class, 'preflight');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneAgentRuntimeRegistryCapabilityCatalogImplementationPacket(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('agent_runtime_registry_capability_catalog', 'Agent Runtime Registry Capability Catalog', AgentRuntimeRegistryCapabilityCatalog::SCHEMA_VERSION, AgentRuntimeRegistryCapabilityCatalog::class, 'implementation_packet');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneAgentRuntimeRegistryCapabilityCatalogStatus(array $options = []): array
+    {
+        $catalog = (new AgentRuntimeRegistryCapabilityCatalog)->catalog();
+        $status = (int) ($catalog['capability_count'] ?? 0) > 0 ? 'available' : 'blocked';
+
+        return $this->wrapCertificationWorkbenchStatus(
+            keyPrefix: 'agent_runtime_registry_capability_catalog',
+            label: 'Agent Runtime Registry Capability Catalog',
+            payload: array_merge($catalog, ['status' => $status]),
+            statusKey: 'status',
+            extraStatusFields: [
+                'capability_count' => (int) data_get($catalog, 'capability_count', 0),
+                'catalog_hash' => (string) data_get($catalog, 'catalog_hash', ''),
+            ],
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneAgentRuntimeRegistryAvailabilityContract(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('agent_runtime_registry_availability', 'Agent Runtime Registry Availability Planner', AgentRuntimeRegistryAvailabilityPlanner::SCHEMA_VERSION, AgentRuntimeRegistryAvailabilityPlanner::class, 'contract');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneAgentRuntimeRegistryAvailabilityPreflight(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('agent_runtime_registry_availability', 'Agent Runtime Registry Availability Planner', AgentRuntimeRegistryAvailabilityPlanner::SCHEMA_VERSION, AgentRuntimeRegistryAvailabilityPlanner::class, 'preflight');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneAgentRuntimeRegistryAvailabilityImplementationPacket(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('agent_runtime_registry_availability', 'Agent Runtime Registry Availability Planner', AgentRuntimeRegistryAvailabilityPlanner::SCHEMA_VERSION, AgentRuntimeRegistryAvailabilityPlanner::class, 'implementation_packet');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneAgentRuntimeRegistryAvailabilityStatus(array $options = []): array
+    {
+        $planner = new AgentRuntimeRegistryAvailabilityPlanner;
+        $plan = $planner->plan([], [], (array) ($options['planner_options'] ?? []));
+        $available = method_exists($planner, 'plan');
+
+        return $this->wrapCertificationWorkbenchStatus(
+            keyPrefix: 'agent_runtime_registry_availability',
+            label: 'Agent Runtime Registry Availability Planner',
+            payload: array_merge($plan, ['status' => $available ? 'available' : 'blocked']),
+            statusKey: 'status',
+            extraStatusFields: [
+                'default_ttl_seconds' => AgentRuntimeRegistryAvailabilityPlanner::DEFAULT_TTL_SECONDS,
+                'available_agent_count' => count((array) data_get($plan, 'available_agents', [])),
+                'planner_available' => $available,
+            ],
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneAgentRuntimeRegistryTaskMatcherContract(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('agent_runtime_registry_task_matcher', 'Agent Runtime Registry Task Matcher', AgentRuntimeRegistryTaskMatcher::SCHEMA_VERSION, AgentRuntimeRegistryTaskMatcher::class, 'contract');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneAgentRuntimeRegistryTaskMatcherPreflight(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('agent_runtime_registry_task_matcher', 'Agent Runtime Registry Task Matcher', AgentRuntimeRegistryTaskMatcher::SCHEMA_VERSION, AgentRuntimeRegistryTaskMatcher::class, 'preflight');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneAgentRuntimeRegistryTaskMatcherImplementationPacket(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('agent_runtime_registry_task_matcher', 'Agent Runtime Registry Task Matcher', AgentRuntimeRegistryTaskMatcher::SCHEMA_VERSION, AgentRuntimeRegistryTaskMatcher::class, 'implementation_packet');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneAgentRuntimeRegistryTaskMatcherStatus(array $options = []): array
+    {
+        $matcher = new AgentRuntimeRegistryTaskMatcher;
+        $match = $matcher->match([], []);
+
+        return $this->wrapCertificationWorkbenchStatus(
+            keyPrefix: 'agent_runtime_registry_task_matcher',
+            label: 'Agent Runtime Registry Task Matcher',
+            payload: array_merge($match, ['status' => 'available']),
+            statusKey: 'status',
+            extraStatusFields: [
+                'risk_levels' => AgentRuntimeRegistryTaskMatcher::RISK_LEVELS,
+                'matcher_available' => true,
+            ],
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneAgentRuntimeRegistryLoadBalancingContract(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('agent_runtime_registry_load_balancing', 'Agent Runtime Registry Load Balancing Policy', AgentRuntimeRegistryLoadBalancingPolicy::SCHEMA_VERSION, AgentRuntimeRegistryLoadBalancingPolicy::class, 'contract');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneAgentRuntimeRegistryLoadBalancingPreflight(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('agent_runtime_registry_load_balancing', 'Agent Runtime Registry Load Balancing Policy', AgentRuntimeRegistryLoadBalancingPolicy::SCHEMA_VERSION, AgentRuntimeRegistryLoadBalancingPolicy::class, 'preflight');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneAgentRuntimeRegistryLoadBalancingImplementationPacket(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('agent_runtime_registry_load_balancing', 'Agent Runtime Registry Load Balancing Policy', AgentRuntimeRegistryLoadBalancingPolicy::SCHEMA_VERSION, AgentRuntimeRegistryLoadBalancingPolicy::class, 'implementation_packet');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneAgentRuntimeRegistryLoadBalancingStatus(array $options = []): array
+    {
+        $policy = new AgentRuntimeRegistryLoadBalancingPolicy;
+        $ranking = $policy->rank([]);
+
+        return $this->wrapCertificationWorkbenchStatus(
+            keyPrefix: 'agent_runtime_registry_load_balancing',
+            label: 'Agent Runtime Registry Load Balancing Policy',
+            payload: array_merge($ranking, ['status' => 'available']),
+            statusKey: 'status',
+            extraStatusFields: [
+                'policies' => AgentRuntimeRegistryLoadBalancingPolicy::POLICIES,
+                'policy_available' => true,
+            ],
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneAgentRuntimeRegistryQuarantineContract(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('agent_runtime_registry_quarantine', 'Agent Runtime Registry Quarantine', AgentRuntimeRegistryQuarantineRepository::SCHEMA_VERSION, AgentRuntimeRegistryQuarantineRepository::class, 'contract');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneAgentRuntimeRegistryQuarantinePreflight(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('agent_runtime_registry_quarantine', 'Agent Runtime Registry Quarantine', AgentRuntimeRegistryQuarantineRepository::SCHEMA_VERSION, AgentRuntimeRegistryQuarantineRepository::class, 'preflight');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneAgentRuntimeRegistryQuarantineImplementationPacket(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('agent_runtime_registry_quarantine', 'Agent Runtime Registry Quarantine', AgentRuntimeRegistryQuarantineRepository::SCHEMA_VERSION, AgentRuntimeRegistryQuarantineRepository::class, 'implementation_packet');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneAgentRuntimeRegistryQuarantineStatus(array $options = []): array
+    {
+        $repo = new AgentRuntimeRegistryQuarantineRepository;
+        $available = $repo->isAvailable();
+        $active = $repo->activeAgentIds();
+
+        $payload = [
+            'schema_version' => AgentRuntimeRegistryQuarantineRepository::SCHEMA_VERSION,
+            'status' => $available ? 'available' : 'blocked',
+            'storage_prefix' => AgentRuntimeRegistryQuarantineRepository::STORAGE_PREFIX,
+            'quarantine_repository_available' => $available,
+            'active_quarantine_count' => count($active),
+            'reasons' => AgentRuntimeRegistryQuarantineRepository::REASONS,
+            'runtime_safety' => $repo->runtimeFlags(),
+        ];
+
+        return $this->wrapCertificationWorkbenchStatus(
+            keyPrefix: 'agent_runtime_registry_quarantine',
+            label: 'Agent Runtime Registry Quarantine',
+            payload: $payload,
+            statusKey: 'status',
+            extraStatusFields: [
+                'storage_prefix' => (string) $payload['storage_prefix'],
+                'active_quarantine_count' => (int) $payload['active_quarantine_count'],
+                'quarantine_repository_available' => (bool) $payload['quarantine_repository_available'],
+            ],
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneAgentRuntimeRegistryHandoffContract(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('agent_runtime_registry_handoff', 'Agent Runtime Registry Handoff Protocol', AgentRuntimeRegistryHandoffProtocolBuilder::SCHEMA_VERSION, AgentRuntimeRegistryHandoffProtocolBuilder::class, 'contract');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneAgentRuntimeRegistryHandoffPreflight(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('agent_runtime_registry_handoff', 'Agent Runtime Registry Handoff Protocol', AgentRuntimeRegistryHandoffProtocolBuilder::SCHEMA_VERSION, AgentRuntimeRegistryHandoffProtocolBuilder::class, 'preflight');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneAgentRuntimeRegistryHandoffImplementationPacket(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('agent_runtime_registry_handoff', 'Agent Runtime Registry Handoff Protocol', AgentRuntimeRegistryHandoffProtocolBuilder::SCHEMA_VERSION, AgentRuntimeRegistryHandoffProtocolBuilder::class, 'implementation_packet');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneAgentRuntimeRegistryHandoffStatus(array $options = []): array
+    {
+        $builder = new AgentRuntimeRegistryHandoffProtocolBuilder;
+        $protocol = $builder->build([], [], []);
+
+        return $this->wrapCertificationWorkbenchStatus(
+            keyPrefix: 'agent_runtime_registry_handoff',
+            label: 'Agent Runtime Registry Handoff Protocol',
+            payload: array_merge($protocol, ['status' => 'available']),
+            statusKey: 'status',
+            extraStatusFields: [
+                'handoff_runtime_execution_allowed' => false,
+                'builder_available' => true,
+            ],
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneAgentRuntimeRegistryOrchestratorContract(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('agent_runtime_registry_orchestrator', 'Agent Runtime Registry Orchestrator', AgentRuntimeRegistryOrchestrator::SCHEMA_VERSION, AgentRuntimeRegistryOrchestrator::class, 'contract');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneAgentRuntimeRegistryOrchestratorPreflight(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('agent_runtime_registry_orchestrator', 'Agent Runtime Registry Orchestrator', AgentRuntimeRegistryOrchestrator::SCHEMA_VERSION, AgentRuntimeRegistryOrchestrator::class, 'preflight');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneAgentRuntimeRegistryOrchestratorImplementationPacket(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('agent_runtime_registry_orchestrator', 'Agent Runtime Registry Orchestrator', AgentRuntimeRegistryOrchestrator::SCHEMA_VERSION, AgentRuntimeRegistryOrchestrator::class, 'implementation_packet');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneAgentRuntimeRegistryOrchestratorStatus(array $options = []): array
+    {
+        $orchestrator = new AgentRuntimeRegistryOrchestrator;
+        $taskPacket = (array) ($options['task_packet'] ?? $this->defaultAgentRuntimeRegistryTaskPacket());
+        $plan = $orchestrator->planAssignment($taskPacket, (array) ($options['planner_options'] ?? []));
+
+        return $this->wrapCertificationWorkbenchStatus(
+            keyPrefix: 'agent_runtime_registry_orchestrator',
+            label: 'Agent Runtime Registry Orchestrator',
+            payload: array_merge($plan, ['status' => 'available']),
+            statusKey: 'status',
+            extraStatusFields: [
+                'event' => (string) data_get($plan, 'event', 'plan_assignment'),
+                'blocker_count' => count((array) data_get($plan, 'blockers', [])),
+                'available_agent_count' => count((array) data_get($plan, 'availability_plan.available_agents', [])),
+            ],
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneAgentRuntimeRegistryCertificationContract(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('agent_runtime_registry_certification', 'Agent Runtime Registry Certification', AgentRuntimeRegistryCertificationService::SCHEMA_VERSION, AgentRuntimeRegistryCertificationService::class, 'contract');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneAgentRuntimeRegistryCertificationPreflight(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('agent_runtime_registry_certification', 'Agent Runtime Registry Certification', AgentRuntimeRegistryCertificationService::SCHEMA_VERSION, AgentRuntimeRegistryCertificationService::class, 'preflight');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneAgentRuntimeRegistryCertificationImplementationPacket(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('agent_runtime_registry_certification', 'Agent Runtime Registry Certification', AgentRuntimeRegistryCertificationService::SCHEMA_VERSION, AgentRuntimeRegistryCertificationService::class, 'implementation_packet');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneAgentRuntimeRegistryCertificationStatus(array $options = []): array
+    {
+        $svc = new AgentRuntimeRegistryCertificationService;
+        $result = $svc->certify($options);
+
+        return $this->wrapCertificationWorkbenchStatus(
+            keyPrefix: 'agent_runtime_registry_certification',
+            label: 'Agent Runtime Registry Certification',
+            payload: $result,
+            statusKey: 'status',
+            extraStatusFields: [
+                'invariants_all_true' => (bool) data_get($result, 'invariants_all_true', false),
+                'violation_count' => (int) data_get($result, 'violation_count', 0),
+                'warning_count' => (int) data_get($result, 'warning_count', 0),
+                'certification_hash' => (string) data_get($result, 'certification_hash', ''),
+                'runtime_safety_all_false' => (bool) data_get($result, 'runtime_safety.runtime_safety_all_false', false),
+            ],
         );
     }
 
@@ -78860,7 +80714,7 @@ final class AtlasSelfConstructionReadinessService
     {
         $contractPayload = $this->agentDispatchExecutorContractTemplate($options);
         $contract = (array) data_get($contractPayload, 'dispatch_executor_contract_template', []);
-        $workspaceRoot = (string) ($options['workspace'] ?: base_path());
+        $workspaceRoot = (string) (($options['workspace'] ?? null) ?: base_path());
 
         $template = [
             'status' => 'agent_dispatch_executor_sandbox_binding_contract_template_ready',
@@ -96778,10 +98632,17 @@ final class AtlasSelfConstructionReadinessService
      */
     private function changedFiles(): array
     {
+        static $cached = null;
+
+        if (is_array($cached)) {
+            return $cached;
+        }
+
         $root = base_path();
+        $limit = 500;
         $commands = [
-            'git -C '.escapeshellarg($root).' diff --name-only',
-            'git -C '.escapeshellarg($root).' ls-files --others --exclude-standard',
+            'git -C '.escapeshellarg($root).' diff --name-only | head -n '.((string) $limit),
+            'git -C '.escapeshellarg($root).' ls-files --others --exclude-standard | head -n '.((string) $limit),
         ];
 
         $files = [];
@@ -96795,7 +98656,9 @@ final class AtlasSelfConstructionReadinessService
             }
         }
 
-        return array_values(array_unique($files));
+        $cached = array_values(array_unique($files));
+
+        return $cached;
     }
 
     /**
@@ -96837,13 +98700,21 @@ final class AtlasSelfConstructionReadinessService
      */
     private function docStatus(string $path): array
     {
+        static $cached = [];
+
+        if (isset($cached[$path])) {
+            return $cached[$path];
+        }
+
         $absolutePath = base_path($path);
 
-        return [
+        $cached[$path] = [
             'path' => $path,
             'exists' => is_file($absolutePath),
             'line_count' => is_file($absolutePath) ? count(file($absolutePath, FILE_IGNORE_NEW_LINES)) : null,
         ];
+
+        return $cached[$path];
     }
 
     private function docContent(string $path): string
@@ -96851,6 +98722,31 @@ final class AtlasSelfConstructionReadinessService
         $absolutePath = base_path($path);
 
         return is_file($absolutePath) ? (string) file_get_contents($absolutePath) : '';
+    }
+
+    /** @return array<string, mixed> */
+    private function decodeJsonOption(mixed $value): array
+    {
+        $raw = trim((string) $value);
+        if ($raw === '') {
+            return [];
+        }
+        if (str_starts_with($raw, '@')) {
+            $path = substr($raw, 1);
+            $absolutePath = str_starts_with($path, DIRECTORY_SEPARATOR) ? $path : base_path($path);
+            if (! is_file($absolutePath)) {
+                return [];
+            }
+            $raw = (string) file_get_contents($absolutePath);
+        }
+
+        try {
+            $decoded = json_decode($raw, true, flags: JSON_THROW_ON_ERROR);
+        } catch (\JsonException) {
+            return [];
+        }
+
+        return is_array($decoded) ? $decoded : [];
     }
 
     /**

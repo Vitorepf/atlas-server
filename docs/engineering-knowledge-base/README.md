@@ -22,6 +22,7 @@ capabilities:
   - epistemic_operating_system
   - cartographic_knowledge_os
   - provider_evolution_intelligence
+  - claude_code_subscription_governance
   - runtime_language_boundaries
   - native_mac_agent
   - local_ai_performance_strategy
@@ -76,6 +77,7 @@ capabilities:
 decisions:
   - Atlas AI Session Bootstrap e o primeiro pacote curto para novas sessoes responderem o que e Atlas, o que existe, o que falta e como evoluir.
   - Atlas AI Provider Evolution Intelligence define como absorver lancamentos de Claude, ChatGPT, Gemini, Codex e labs sem virar wrapper fragil.
+  - Atlas Claude Code Subscription Governance define o modo seguro para usar Claude Code com assinatura do operador sem API, sem creditos extras e sem converter Claude em worker/headless backend.
   - Atlas AI Documentation Operating System define limites de tamanho, ownership, anti-hallucination, promocao e sync/index para documentacao de alta performance.
   - Atlas Canonical Module Doc v1 define o formato forte para docs tecnicos que alimentam Cartografia, Atlas Code e IAs implementadoras com grafo, escopo, evidencias e testes.
   - Atlas System Graph define o mapa visual/navegavel do Atlas para humanos e IAs: sistemas, programas, modulos, artefatos, dependencias, status, riscos, unlocks e projecao gerenciada para AtlasVault/Obsidian.
@@ -123,6 +125,7 @@ decisions:
 maintenance:
   - Leia atlas-ai-session-bootstrap.md no inicio de qualquer sessao nova.
   - Leia atlas-ai-provider-evolution-intelligence.md antes de reagir a lancamento de provider, vertical agents, connectors, realtime, model release ou skill pack externo.
+  - Leia atlas-claude-code-subscription-governance-v1.md antes de alterar Claude CLI, Claude Code, AI workers, Forge Provider Invocation, Agent SDK, `claude -p` ou qualquer fluxo Anthropic subscription-only.
   - Rode `php artisan atlas:ai:session-bootstrap --task="<task>" --json` e `php artisan atlas:ai:place-feature "<feature>" --json` antes de implementacao estrutural.
   - Leia atlas-ai-documentation-operating-system.md antes de criar, dividir, promover, arquivar ou expandir docs canonicos.
   - Leia atlas-canonical-module-doc-v1.md antes de criar ou migrar doc tecnico que precise aparecer na Cartografia, orientar Atlas Code ou guiar implementacao por IA.
@@ -173,6 +176,7 @@ maintenance:
 related_paths:
   - docs/engineering-knowledge-base/atlas-ai-session-bootstrap.md
   - docs/engineering-knowledge-base/atlas-ai-provider-evolution-intelligence.md
+  - docs/engineering-knowledge-base/atlas-claude-code-subscription-governance-v1.md
   - docs/engineering-knowledge-base/atlas-ai-documentation-operating-system.md
   - docs/engineering-knowledge-base/atlas-canonical-module-doc-v1.md
   - docs/engineering-knowledge-base/atlas-system-graph.md

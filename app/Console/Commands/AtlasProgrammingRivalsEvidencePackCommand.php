@@ -30,10 +30,30 @@ class AtlasProgrammingRivalsEvidencePackCommand extends Command
 
     protected $description = 'Build a local, replayable Rivals evidence pack for a case. Never dispatches providers and never promotes the Rivals claim.';
 
+    /**
+     * Canonical v2 entrypoint that supersedes this command operationally.
+     * Slice 0 emits a deprecation banner; Slice 6 flips FORWARD_TO_CANONICAL_ENABLED
+     * to delegate execution to `atlas:forge:rivals` directly.
+     */
+    private const CANONICAL_COMMAND = 'atlas:forge:rivals';
+
+    private const CANONICAL_PRIMARY_ACTION = 'collect-evidence';
+
+    private const FORWARD_TO_CANONICAL_ENABLED = false;
+
     public function handle(
         AtlasRivalsEvidencePackService $service,
         AtlasRivalsEvidencePackVerifierService $verifier,
     ): int {
+        app(\App\Services\Ai\Programming\ForgeRivals\ForgeRivalsDeprecationNotifier::class)
+            ->notify('atlas:programming:rivals-evidence-pack', self::CANONICAL_PRIMARY_ACTION);
+
+        if (self::FORWARD_TO_CANONICAL_ENABLED) {
+            // Slice 6: forward to atlas:forge:rivals collect-evidence --run-id=...
+            // via \Illuminate\Support\Facades\Artisan::call(self::CANONICAL_COMMAND, $args, $this->output);
+            // Slice 0 keeps the legacy logic executing below.
+        }
+
         $pack = $service->generate([
             'case_id' => $this->option('case'),
             'workspace' => $this->option('workspace'),

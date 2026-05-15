@@ -121,6 +121,32 @@ final class AgentControlPlaneCertificationCoverageReportService
             '--agent-control-plane-release-dossier-exporter-status',
             '--agent-control-plane-certification-coverage-report-status',
             '--agent-control-plane-certification-status-batch-status',
+            '--agent-control-plane-runtime-evidence-journal-status',
+            '--agent-control-plane-execution-workspace-runtime-status',
+            '--agent-control-plane-governance-approval-runtime-status',
+            '--agent-control-plane-automatic-cost-import-runtime-status',
+            '--agent-control-plane-automatic-work-product-collection-runtime-status',
+            '--agent-control-plane-adapter-execution-runtime-boundary-status',
+            '--agent-control-plane-dispatch-planner-runtime-status',
+            '--agent-control-plane-validation-gate-runtime-status',
+            '--agent-control-plane-merge-review-runtime-status',
+            '--agent-control-plane-task-packet-queue-status',
+            '--agent-control-plane-claim-lease-runtime-status',
+            '--agent-control-plane-scope-lock-runtime-validator-status',
+            '--agent-control-plane-task-queue-orchestrator-status',
+            '--agent-control-plane-task-queue-lease-certification-status',
+            '--agent-control-plane-runtime-pilot-orchestrator-status',
+            '--agent-control-plane-runtime-pilot-certification-status',
+            '--agent-control-plane-agent-runtime-registry-status',
+            '--agent-control-plane-agent-runtime-registry-heartbeat-status',
+            '--agent-control-plane-agent-runtime-registry-capability-catalog-status',
+            '--agent-control-plane-agent-runtime-registry-availability-status',
+            '--agent-control-plane-agent-runtime-registry-task-matcher-status',
+            '--agent-control-plane-agent-runtime-registry-load-balancing-status',
+            '--agent-control-plane-agent-runtime-registry-quarantine-status',
+            '--agent-control-plane-agent-runtime-registry-handoff-status',
+            '--agent-control-plane-agent-runtime-registry-orchestrator-status',
+            '--agent-control-plane-agent-runtime-registry-certification-status',
         ];
         $statusOptionCount = count($statusFlags);
         $command = $registry['atlas:ai:self-construction'] ?? null;
@@ -146,6 +172,44 @@ final class AgentControlPlaneCertificationCoverageReportService
         }
         $proofCoverage = count($expectedProofKinds) > 0 ? round($proofPresent / count($expectedProofKinds), 4) : 0.0;
 
+        $integratedSurfaceMethods = [
+            'agentControlPlaneTaskPacketQueueStatus',
+            'agentControlPlaneClaimLeaseRuntimeStatus',
+            'agentControlPlaneScopeLockRuntimeValidatorStatus',
+            'agentControlPlaneTaskQueueOrchestratorStatus',
+            'agentControlPlaneTaskQueueLeaseCertificationStatus',
+            'agentControlPlaneRuntimeEvidenceJournalStatus',
+            'agentControlPlaneExecutionWorkspaceRuntimeStatus',
+            'agentControlPlaneGovernanceApprovalRuntimeStatus',
+            'agentControlPlaneAutomaticCostImportRuntimeStatus',
+            'agentControlPlaneAutomaticWorkProductCollectionRuntimeStatus',
+            'agentControlPlaneAdapterExecutionRuntimeBoundaryStatus',
+            'agentControlPlaneDispatchPlannerRuntimeStatus',
+            'agentControlPlaneValidationGateRuntimeStatus',
+            'agentControlPlaneMergeReviewRuntimeStatus',
+            'agentControlPlaneRuntimePilotOrchestratorStatus',
+            'agentControlPlaneRuntimePilotCertificationStatus',
+            'agentControlPlaneAgentRuntimeRegistryStatus',
+            'agentControlPlaneAgentRuntimeRegistryHeartbeatStatus',
+            'agentControlPlaneAgentRuntimeRegistryCapabilityCatalogStatus',
+            'agentControlPlaneAgentRuntimeRegistryAvailabilityStatus',
+            'agentControlPlaneAgentRuntimeRegistryTaskMatcherStatus',
+            'agentControlPlaneAgentRuntimeRegistryLoadBalancingStatus',
+            'agentControlPlaneAgentRuntimeRegistryQuarantineStatus',
+            'agentControlPlaneAgentRuntimeRegistryHandoffStatus',
+            'agentControlPlaneAgentRuntimeRegistryOrchestratorStatus',
+            'agentControlPlaneAgentRuntimeRegistryCertificationStatus',
+        ];
+        $integratedSurfacePresent = 0;
+        foreach ($integratedSurfaceMethods as $method) {
+            if (method_exists(AtlasSelfConstructionReadinessService::class, $method)) {
+                $integratedSurfacePresent++;
+            }
+        }
+        $integratedRuntimeCoverage = count($integratedSurfaceMethods) > 0
+            ? round($integratedSurfacePresent / count($integratedSurfaceMethods), 4)
+            : 0.0;
+
         $coverageBlocks = [
             'slice_coverage' => $sliceCoverage,
             'edge_coverage' => $edgeCoverage,
@@ -158,6 +222,7 @@ final class AgentControlPlaneCertificationCoverageReportService
             'fuzz_coverage' => $fuzzCoverage,
             'command_status_coverage' => $commandStatusCoverage,
             'proof_bundle_coverage' => $proofCoverage,
+            'integrated_runtime_coverage' => $integratedRuntimeCoverage,
         ];
 
         $weights = array_fill_keys(array_keys($coverageBlocks), 1.0);
@@ -227,6 +292,8 @@ final class AgentControlPlaneCertificationCoverageReportService
                 'command_status_flag_present' => $statusFlagPresent,
                 'proof_bundle_kinds_present' => $proofPresent,
                 'proof_bundle_kinds_expected' => count($expectedProofKinds),
+                'integrated_surface_present' => $integratedSurfacePresent,
+                'integrated_surface_expected' => count($integratedSurfaceMethods),
             ],
             'options_applied' => [
                 'skip_fuzz' => $skipFuzz,

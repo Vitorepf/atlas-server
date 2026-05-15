@@ -27,8 +27,28 @@ class AtlasProgrammingRivalsForgeDryRunCommand extends Command
 
     protected $description = 'Plan a Forge-Native Rivals case without dispatching providers (Atlas arm must be Forge).';
 
+    /**
+     * Canonical v2 entrypoint that supersedes this command operationally.
+     * Slice 0 emits a deprecation banner; Slice 6 flips FORWARD_TO_CANONICAL_ENABLED
+     * to delegate execution to `atlas:forge:rivals` directly.
+     */
+    private const CANONICAL_COMMAND = 'atlas:forge:rivals';
+
+    private const CANONICAL_PRIMARY_ACTION = 'dry-run';
+
+    private const FORWARD_TO_CANONICAL_ENABLED = false;
+
     public function handle(AtlasForgeNativeRivalsDryRunService $dryRun): int
     {
+        app(\App\Services\Ai\Programming\ForgeRivals\ForgeRivalsDeprecationNotifier::class)
+            ->notify('atlas:programming:rivals-forge-dry-run', self::CANONICAL_PRIMARY_ACTION);
+
+        if (self::FORWARD_TO_CANONICAL_ENABLED) {
+            // Slice 6: forward to atlas:forge:rivals dry-run --mode=diagnostic
+            // via \Illuminate\Support\Facades\Artisan::call(self::CANONICAL_COMMAND, $args, $this->output);
+            // Slice 0 keeps the legacy logic executing below.
+        }
+
         $report = $dryRun->dryRun([
             'case_id' => $this->option('case'),
             'suite_id' => is_string($this->option('suite')) && $this->option('suite') !== ''

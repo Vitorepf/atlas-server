@@ -39,6 +39,15 @@ final class AgentControlPlaneCertificationStatusBatchService
         'release_dossier_exporter' => 'agentControlPlaneReleaseDossierExporterStatus',
         'certification_coverage_report' => 'agentControlPlaneCertificationCoverageReportStatus',
         'certification_status_batch' => 'agentControlPlaneCertificationStatusBatchSelfStatus',
+        'runtime_evidence_journal' => 'agentControlPlaneRuntimeEvidenceJournalStatus',
+        'execution_workspace_runtime' => 'agentControlPlaneExecutionWorkspaceRuntimeStatus',
+        'governance_approval_runtime' => 'agentControlPlaneGovernanceApprovalRuntimeStatus',
+        'automatic_cost_import_runtime' => 'agentControlPlaneAutomaticCostImportRuntimeStatus',
+        'automatic_work_product_collection_runtime' => 'agentControlPlaneAutomaticWorkProductCollectionRuntimeStatus',
+        'adapter_execution_runtime_boundary' => 'agentControlPlaneAdapterExecutionRuntimeBoundaryStatus',
+        'dispatch_planner_runtime' => 'agentControlPlaneDispatchPlannerRuntimeStatus',
+        'validation_gate_runtime' => 'agentControlPlaneValidationGateRuntimeStatus',
+        'merge_review_runtime' => 'agentControlPlaneMergeReviewRuntimeStatus',
         'task_packet_builder' => 'agentControlPlaneTaskPacketBuilderStatus',
         'claim_lease_simulator' => 'agentControlPlaneClaimLeaseSimulatorStatus',
         'scope_lock_planner' => 'agentControlPlaneScopeLockPlannerStatus',
@@ -54,6 +63,16 @@ final class AgentControlPlaneCertificationStatusBatchService
         'scope_lock_runtime_validator' => 'agentControlPlaneScopeLockRuntimeValidatorStatus',
         'task_queue_orchestrator' => 'agentControlPlaneTaskQueueOrchestratorStatus',
         'task_queue_lease_certification' => 'agentControlPlaneTaskQueueLeaseCertificationStatus',
+        'agent_runtime_registry' => 'agentControlPlaneAgentRuntimeRegistryStatus',
+        'agent_runtime_registry_heartbeat' => 'agentControlPlaneAgentRuntimeRegistryHeartbeatStatus',
+        'agent_runtime_registry_capability_catalog' => 'agentControlPlaneAgentRuntimeRegistryCapabilityCatalogStatus',
+        'agent_runtime_registry_availability' => 'agentControlPlaneAgentRuntimeRegistryAvailabilityStatus',
+        'agent_runtime_registry_task_matcher' => 'agentControlPlaneAgentRuntimeRegistryTaskMatcherStatus',
+        'agent_runtime_registry_load_balancing' => 'agentControlPlaneAgentRuntimeRegistryLoadBalancingStatus',
+        'agent_runtime_registry_quarantine' => 'agentControlPlaneAgentRuntimeRegistryQuarantineStatus',
+        'agent_runtime_registry_handoff' => 'agentControlPlaneAgentRuntimeRegistryHandoffStatus',
+        'agent_runtime_registry_orchestrator' => 'agentControlPlaneAgentRuntimeRegistryOrchestratorStatus',
+        'agent_runtime_registry_certification' => 'agentControlPlaneAgentRuntimeRegistryCertificationStatus',
     ];
 
     public function __construct(
@@ -67,12 +86,19 @@ final class AgentControlPlaneCertificationStatusBatchService
     public function run(array $options = []): array
     {
         $skipBatchSelf = (bool) ($options['skip_batch_self'] ?? true);
+        $onlyKeys = array_values(array_filter(
+            (array) ($options['only_keys'] ?? []),
+            static fn (mixed $key): bool => is_string($key) && $key !== '',
+        ));
         $statuses = [];
         $passed = 0;
         $failed = 0;
         $blockedStatuses = ['blocked', 'failed', 'persist_failed'];
 
         foreach (self::STATUS_PROJECTIONS as $key => $method) {
+            if ($onlyKeys !== [] && ! in_array($key, $onlyKeys, true)) {
+                continue;
+            }
             if ($key === 'certification_status_batch' && $skipBatchSelf) {
                 continue;
             }
@@ -140,6 +166,7 @@ final class AgentControlPlaneCertificationStatusBatchService
             'statuses' => $statuses,
             'options_applied' => [
                 'skip_batch_self' => $skipBatchSelf,
+                'only_keys' => $onlyKeys,
             ],
             'non_execution_guarantees' => [
                 'status_batch_does_not_start_codex',

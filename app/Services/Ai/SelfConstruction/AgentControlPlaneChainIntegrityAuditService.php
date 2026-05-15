@@ -1898,11 +1898,47 @@ final class AgentControlPlaneChainIntegrityAuditService
      */
     private function cycleIntegrity(array $deepChain, string $currentNextRequiredSlice): array
     {
-        // Canonical activate key that marks the explicit reentry point.
-        $intentionalReentryActivateKey = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_receipt_contract';
-        $intentionalReentryTargetSliceKey = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_receipt_contract';
+        // Canonical activate keys that mark the explicit reentry corridor.
+        // The cycle can land on the receipt contract itself, or on the next
+        // evidence receipt contract once the receipt contract surface is
+        // already structurally ready and has advanced its local status.
+        $intentionalReentryActivateKeys = [
+            'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_receipt_contract' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_receipt_contract',
+            'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_evidence_receipt_contract' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_evidence_receipt',
+            'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_evidence_acceptance_bridge_contract' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_evidence_acceptance_bridge',
+            'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_liveness_monitor_contract' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_liveness_monitor',
+            'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_release_gate_contract' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_dispatch_release_gate',
+            'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_signed_dispatch_authorization_gate_contract' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_signed_dispatch_authorization_gate',
+            'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_executor_handoff_contract' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_dispatch_executor_handoff',
+            'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_receipt_use_executor_contract' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_dispatch_receipt_use_executor',
+            'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_provider_start_driver_gate_contract' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_provider_start_driver_gate',
+            'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_adapter_invocation_boundary_gate_contract' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_adapter_invocation_boundary_gate',
+            'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_adapter_execution_guard_gate_contract' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_adapter_execution_guard_gate',
+            'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_provider_execution_contract_gate_contract' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_provider_execution_contract_gate',
+            'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_start_release_gate_contract' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_start_release_gate',
+            'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_supervised_start_executor_gate_contract' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_supervised_start_executor_gate',
+            'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_spawn_enablement_gate_contract' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_spawn_enablement_gate',
+            'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_final_process_spawn_executor_gate_contract' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_final_process_spawn_executor_gate',
+            'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_external_process_runtime_gate_contract' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_external_process_runtime_gate',
+            'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_invocation_authorization_gate_contract' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_invocation_authorization_gate',
+            'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_external_process_invoker_dry_run_gate_contract' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_external_process_invoker_dry_run_gate',
+            'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_real_invoker_release_preflight_gate_contract' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_real_invoker_release_preflight_gate',
+            'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_signed_real_invoker_release_gate_contract' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_signed_real_invoker_release_gate',
+            'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_implementation_boundary_gate_contract' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_implementation_boundary_gate',
+            'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_executor_plan_gate_contract' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_executor_plan_gate',
+            'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_executor_fresh_release_gate_contract' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_executor_fresh_release_gate',
+            'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_executor_enablement_gate_contract' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_executor_enablement_gate',
+            'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_supervised_start_activation_gate_contract' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_supervised_start_activation_gate',
+            'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_guarded_process_start_executor_gate_contract' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_guarded_process_start_executor_gate',
+            'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_final_process_start_authorization_gate_contract' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_final_process_start_authorization_gate',
+            'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_actual_process_start_rehearsal_gate_contract' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_actual_process_start_rehearsal_gate',
+            'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_start_envelope_gate_contract' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_start_envelope_gate',
+            'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_start_execution_gate_contract' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_start_execution_gate',
+            'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_starter_readiness_gate_contract' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_starter_readiness_gate',
+        ];
         $intentionalReentryReason = 'operator_handoff_completes_release_cycle_and_reenters_post_start_evidence_corridor';
-        $intentionalReentryDetected = $currentNextRequiredSlice === $intentionalReentryActivateKey;
+        $intentionalReentryDetected = array_key_exists($currentNextRequiredSlice, $intentionalReentryActivateKeys);
+        $intentionalReentryTargetSliceKey = $intentionalReentryActivateKeys[$currentNextRequiredSlice] ?? null;
 
         $sliceKeys = array_map(static fn (array $entry): string => (string) $entry['slice_key'], $deepChain);
         $sliceKeySet = array_count_values($sliceKeys);
@@ -1950,6 +1986,19 @@ final class AgentControlPlaneChainIntegrityAuditService
             'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_external_process_invoker_dry_run_gate_contract',
             'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_real_invoker_release_preflight_gate_contract',
             'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_signed_real_invoker_release_gate_contract',
+            'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_implementation_boundary_gate_contract',
+            'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_executor_plan_gate_contract',
+            'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_executor_fresh_release_gate_contract',
+            'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_executor_enablement_gate_contract',
+            'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_supervised_start_activation_gate_contract',
+            'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_guarded_process_start_executor_gate_contract',
+            'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_final_process_start_authorization_gate_contract',
+            'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_actual_process_start_rehearsal_gate_contract',
+            'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_start_envelope_gate_contract',
+            'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_start_execution_gate_contract',
+            'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_starter_readiness_gate_contract',
+            'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_manual_start_executor_receipt_contract',
+            'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_operator_start_handoff_contract',
         ];
 
         $regressions = [];
@@ -1979,7 +2028,8 @@ final class AgentControlPlaneChainIntegrityAuditService
             'intentional_reentry_detected' => $intentionalReentryDetected,
             'intentional_reentry_target' => $intentionalReentryDetected ? $intentionalReentryTargetSliceKey : null,
             'intentional_reentry_reason' => $intentionalReentryDetected ? $intentionalReentryReason : null,
-            'intentional_reentry_activate_key' => $intentionalReentryDetected ? $intentionalReentryActivateKey : null,
+            'intentional_reentry_activate_key' => $intentionalReentryDetected ? $currentNextRequiredSlice : null,
+            'intentional_reentry_activate_keys' => array_keys($intentionalReentryActivateKeys),
             'repeated_slice_families' => $repeatedSliceFamilies,
             'repeated_slice_count' => count($repeatedSliceFamilies),
             'reentry_edges' => $reentryEdges,
@@ -1988,7 +2038,8 @@ final class AgentControlPlaneChainIntegrityAuditService
             'cycle_warnings' => $cycleWarnings,
             'cycle_violations' => $cycleViolations,
             'cycle_ok' => $cycleOk,
-            'terminal_horizon' => $intentionalReentryActivateKey,
+            'terminal_horizon' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_receipt_contract',
+            'terminal_horizons' => array_keys($intentionalReentryActivateKeys),
             'terminal_horizon_reason' => 'reentry_into_post_start_evidence_corridor_after_operator_handoff_completes_release_cycle',
         ];
     }

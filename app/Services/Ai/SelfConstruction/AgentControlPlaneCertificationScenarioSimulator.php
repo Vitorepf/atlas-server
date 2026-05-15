@@ -256,7 +256,7 @@ final class AgentControlPlaneCertificationScenarioSimulator
     private function detectViaDiff(string $scenarioId): array
     {
         if ($scenarioId === 'snapshot_missing_baseline') {
-            $diff = $this->diff->diff();
+            $diff = $this->diff->diff('simulator_missing_baseline_snapshot_id');
             $detected = data_get($diff, 'status') === 'no_baseline';
 
             return [
@@ -435,12 +435,12 @@ final class AgentControlPlaneCertificationScenarioSimulator
             ],
             'pointer_regression' => [
                 'override_projection' => [
-                    'next_required_slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_evidence_receipt_contract',
+                    'next_required_slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_manual_start_executor_receipt_contract',
                 ],
             ],
             'pointer_unexpected_reentry' => [
                 'override_projection' => [
-                    'next_required_slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_release_gate_contract',
+                    'next_required_slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_operator_start_handoff_contract',
                 ],
             ],
             'not_yet_runtime_capable_misalignment' => [
@@ -490,7 +490,7 @@ final class AgentControlPlaneCertificationScenarioSimulator
             ],
             'cycle_unintentional' => [
                 'override_projection' => [
-                    'next_required_slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_provider_start_driver_gate_contract',
+                    'next_required_slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_manual_start_executor_receipt_contract',
                 ],
             ],
             'intentional_reentry_wrong_target' => [

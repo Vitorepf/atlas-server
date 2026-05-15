@@ -86,8 +86,28 @@ class AtlasRivalsHarnessCommand extends Command
 
     private const PRESET_ALLOWLIST = ['quick', 'medium', 'full'];
 
+    /**
+     * Canonical v2 entrypoint that supersedes this harness operationally.
+     * Slice 0 emits a deprecation banner; Slice 6 flips FORWARD_TO_CANONICAL_ENABLED
+     * to delegate execution to `atlas:forge:rivals` directly.
+     */
+    private const CANONICAL_COMMAND = 'atlas:forge:rivals';
+
+    private const CANONICAL_PRIMARY_ACTION = 'doctor';
+
+    private const FORWARD_TO_CANONICAL_ENABLED = false;
+
     public function handle(): int
     {
+        app(\App\Services\Ai\Programming\ForgeRivals\ForgeRivalsDeprecationNotifier::class)
+            ->notify('atlas:engineering:benchmark:rivals-harness', self::CANONICAL_PRIMARY_ACTION);
+
+        if (self::FORWARD_TO_CANONICAL_ENABLED) {
+            // Slice 6: build canonical args from $this->argument()/option() and call
+            // \Illuminate\Support\Facades\Artisan::call(self::CANONICAL_COMMAND, $args, $this->output);
+            // Slice 0 keeps the legacy logic executing below.
+        }
+
         $action = $this->normalizedAction();
 
         if (! in_array($action, self::SUPPORTED_ACTIONS, true)) {
@@ -258,6 +278,8 @@ class AtlasRivalsHarnessCommand extends Command
 
                 $payload['kind'] = $payload['kind'] ?? 'rivals_harness_doctor';
                 $payload['status'] = (string) ($payload['status'] ?? 'unknown');
+                $payload['external_provider_call'] = false;
+                $payload['provider_tokens_spent'] = false;
                 if ($repoBlockers !== []) {
                     $payload['blocking_reasons'] = array_values(array_unique(array_merge(
                         (array) ($payload['blocking_reasons'] ?? []),
@@ -280,6 +302,8 @@ class AtlasRivalsHarnessCommand extends Command
             // AtlasRivalsBatteryStateMachine) — keeps the command runnable
             // and informative without inventing facts.
             $payload = $this->fallbackDoctor();
+            $payload['external_provider_call'] = false;
+            $payload['provider_tokens_spent'] = false;
             if ($repoBlockers !== []) {
                 $payload['blocking_reasons'] = array_values(array_unique(array_merge(
                     (array) ($payload['blocking_reasons'] ?? []),
@@ -428,6 +452,8 @@ class AtlasRivalsHarnessCommand extends Command
             $payload = [
                 'kind' => 'rivals_harness_quick_real_plan',
                 'status' => $missingConfirmations === [] ? 'ready_to_dispatch_real_run' : 'awaiting_operator_confirmations',
+                'external_provider_call' => false,
+                'provider_tokens_spent' => false,
                 'estimated_cost' => [
                     'tokens_label' => 'conservative_upper_bound',
                     'notes' => 'Real-token spend. Cost depends on case payload + repair attempts. Treat as non-zero.',
@@ -490,6 +516,7 @@ class AtlasRivalsHarnessCommand extends Command
                 'status' => 'blocked_missing_confirmations',
                 'state' => 'blocked_operator_confirmation_required',
                 'external_provider_call' => false,
+                'provider_tokens_spent' => false,
                 'reason' => 'run-quick-real requires --confirm-runbook-reviewed --confirm-provider-cost --confirm-real-provider-call. Provider was NOT called.',
                 'missing_confirmations' => $missing,
                 'plan' => [

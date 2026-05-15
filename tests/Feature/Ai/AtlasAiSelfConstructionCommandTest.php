@@ -29053,6 +29053,51 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('agent_control_plane_certification_status_batch_implementation_packet', data_get($payload, 'control_plane.current_capability'));
         $this->assertContains('agent_control_plane_certification_status_batch_service', data_get($payload, 'control_plane.current_capability'));
         $this->assertContains('agent_control_plane_certification_status_batch_status_projection', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_runtime_evidence_journal_contract', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_runtime_evidence_journal_preflight', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_runtime_evidence_journal_implementation_packet', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_runtime_evidence_journal_service', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_runtime_evidence_journal_status_projection', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_execution_workspace_runtime_contract', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_execution_workspace_runtime_preflight', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_execution_workspace_runtime_implementation_packet', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_execution_workspace_runtime_service', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_execution_workspace_runtime_status_projection', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_governance_approval_runtime_contract', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_governance_approval_runtime_preflight', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_governance_approval_runtime_implementation_packet', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_governance_approval_runtime_service', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_governance_approval_runtime_status_projection', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_automatic_cost_import_runtime_contract', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_automatic_cost_import_runtime_preflight', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_automatic_cost_import_runtime_implementation_packet', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_automatic_cost_import_runtime_service', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_automatic_cost_import_runtime_status_projection', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_automatic_work_product_collection_runtime_contract', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_automatic_work_product_collection_runtime_preflight', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_automatic_work_product_collection_runtime_implementation_packet', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_automatic_work_product_collection_runtime_service', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_automatic_work_product_collection_runtime_status_projection', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_adapter_execution_runtime_boundary_contract', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_adapter_execution_runtime_boundary_preflight', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_adapter_execution_runtime_boundary_implementation_packet', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_adapter_execution_runtime_boundary_service', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_adapter_execution_runtime_boundary_status_projection', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_dispatch_planner_runtime_contract', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_dispatch_planner_runtime_preflight', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_dispatch_planner_runtime_implementation_packet', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_dispatch_planner_runtime_service', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_dispatch_planner_runtime_status_projection', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_validation_gate_runtime_contract', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_validation_gate_runtime_preflight', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_validation_gate_runtime_implementation_packet', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_validation_gate_runtime_service', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_validation_gate_runtime_status_projection', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_merge_review_runtime_contract', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_merge_review_runtime_preflight', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_merge_review_runtime_implementation_packet', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_merge_review_runtime_service', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_merge_review_runtime_status_projection', data_get($payload, 'control_plane.current_capability'));
         $this->assertContains('agent_control_plane_task_packet_builder_contract', data_get($payload, 'control_plane.current_capability'));
         $this->assertContains('agent_control_plane_task_packet_builder_preflight', data_get($payload, 'control_plane.current_capability'));
         $this->assertContains('agent_control_plane_task_packet_builder_implementation_packet', data_get($payload, 'control_plane.current_capability'));
@@ -29128,6 +29173,20 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('agent_control_plane_task_queue_lease_certification_implementation_packet', data_get($payload, 'control_plane.current_capability'));
         $this->assertContains('agent_control_plane_task_queue_lease_certification_service', data_get($payload, 'control_plane.current_capability'));
         $this->assertContains('agent_control_plane_task_queue_lease_certification_status_projection', data_get($payload, 'control_plane.current_capability'));
+        foreach ([
+            'agent_runtime_registry', 'agent_runtime_registry_heartbeat', 'agent_runtime_registry_capability_catalog',
+            'agent_runtime_registry_availability', 'agent_runtime_registry_task_matcher', 'agent_runtime_registry_load_balancing',
+            'agent_runtime_registry_quarantine', 'agent_runtime_registry_handoff', 'agent_runtime_registry_orchestrator',
+            'agent_runtime_registry_certification',
+        ] as $registryModule) {
+            foreach (['contract', 'preflight', 'implementation_packet', 'service', 'status_projection'] as $kind) {
+                $this->assertContains(
+                    "agent_control_plane_{$registryModule}_{$kind}",
+                    data_get($payload, 'control_plane.current_capability'),
+                    "Missing capability agent_control_plane_{$registryModule}_{$kind}",
+                );
+            }
+        }
         $this->assertContains('signed_dispatch_receipt_writer_contract', data_get($payload, 'control_plane.runtime_contracts_available'));
         $this->assertContains('adapter_invocation_boundary_contract', data_get($payload, 'control_plane.runtime_contracts_available'));
         $this->assertContains('checkout_lock', data_get($payload, 'control_plane.paperclip_patterns_absorbed'));
@@ -43739,6 +43798,119 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
             $this->assertContains($expected, $keys, "Status batch missing {$expected}");
         }
         $this->assertGreaterThanOrEqual(30, (int) data_get($payload, 'agent_control_plane_certification_status_batch.checked_count'));
+    }
+
+    public function test_agent_control_plane_agent_runtime_registry_quartets_cli(): void
+    {
+        $blocks = [
+            'agent-runtime-registry' => 'agent_runtime_registry',
+            'agent-runtime-registry-heartbeat' => 'agent_runtime_registry_heartbeat',
+            'agent-runtime-registry-capability-catalog' => 'agent_runtime_registry_capability_catalog',
+            'agent-runtime-registry-availability' => 'agent_runtime_registry_availability',
+            'agent-runtime-registry-task-matcher' => 'agent_runtime_registry_task_matcher',
+            'agent-runtime-registry-load-balancing' => 'agent_runtime_registry_load_balancing',
+            'agent-runtime-registry-quarantine' => 'agent_runtime_registry_quarantine',
+            'agent-runtime-registry-handoff' => 'agent_runtime_registry_handoff',
+            'agent-runtime-registry-orchestrator' => 'agent_runtime_registry_orchestrator',
+            'agent-runtime-registry-certification' => 'agent_runtime_registry_certification',
+        ];
+
+        foreach ($blocks as $cliKey => $payloadKey) {
+            foreach (['contract', 'preflight', 'implementation-packet', 'status'] as $stage) {
+                Artisan::call('atlas:ai:self-construction', [
+                    "--agent-control-plane-{$cliKey}-{$stage}" => true,
+                    '--json' => true,
+                ]);
+                $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+                $stageKey = str_replace('-', '_', $stage);
+                $this->assertSame(
+                    "atlas.self_construction_agent_control_plane_{$payloadKey}_{$stageKey}.v1",
+                    (string) $payload['schema_version'],
+                    "Schema mismatch for {$cliKey} {$stage}",
+                );
+                $this->assertFalse((bool) $payload['execution_allowed'], "execution_allowed must be false for {$cliKey} {$stage}");
+                $this->assertFalse((bool) $payload['dispatch_allowed'], "dispatch_allowed must be false for {$cliKey} {$stage}");
+                $this->assertFalse((bool) $payload['ledger_write_allowed'], "ledger_write_allowed must be false for {$cliKey} {$stage}");
+            }
+        }
+    }
+
+    public function test_agent_control_plane_certification_status_batch_includes_registry_blocks(): void
+    {
+        Artisan::call('atlas:ai:self-construction', [
+            '--agent-control-plane-certification-status-batch-status' => true,
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+        $statuses = (array) data_get($payload, 'agent_control_plane_certification_status_batch.statuses', []);
+        $keys = array_column($statuses, 'key');
+        foreach ([
+            'agent_runtime_registry', 'agent_runtime_registry_heartbeat', 'agent_runtime_registry_capability_catalog',
+            'agent_runtime_registry_availability', 'agent_runtime_registry_task_matcher', 'agent_runtime_registry_load_balancing',
+            'agent_runtime_registry_quarantine', 'agent_runtime_registry_handoff', 'agent_runtime_registry_orchestrator',
+            'agent_runtime_registry_certification',
+        ] as $expected) {
+            $this->assertContains($expected, $keys, "Status batch missing registry layer {$expected}");
+        }
+        $this->assertGreaterThanOrEqual(40, (int) data_get($payload, 'agent_control_plane_certification_status_batch.checked_count'));
+    }
+
+    public function test_agent_control_plane_coverage_report_includes_integrated_runtime_block(): void
+    {
+        Artisan::call('atlas:ai:self-construction', [
+            '--agent-control-plane-certification-coverage-report-status' => true,
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+        $blocks = (array) data_get($payload, 'agent_control_plane_certification_coverage_report.coverage_blocks', []);
+        $this->assertArrayHasKey('integrated_runtime_coverage', $blocks);
+        $this->assertSame(1.0, (float) $blocks['integrated_runtime_coverage']);
+        $this->assertGreaterThanOrEqual(12, (int) data_get($payload, 'agent_control_plane_certification_coverage_report.block_count'));
+        $metrics = (array) data_get($payload, 'agent_control_plane_certification_coverage_report.metrics', []);
+        $this->assertArrayHasKey('integrated_surface_present', $metrics);
+        $this->assertArrayHasKey('integrated_surface_expected', $metrics);
+        $this->assertSame($metrics['integrated_surface_expected'], $metrics['integrated_surface_present']);
+    }
+
+    public function test_agent_control_plane_release_dossier_includes_integrated_runtime_surface(): void
+    {
+        Artisan::call('atlas:ai:self-construction', [
+            '--agent-control-plane-release-dossier-status' => true,
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+        $surface = (array) data_get($payload, 'agent_control_plane_release_dossier.integrated_runtime_surface', []);
+        $this->assertTrue((bool) $surface['available']);
+        $this->assertGreaterThanOrEqual(12, (int) $surface['probe_count']);
+        $this->assertSame($surface['probe_count'], $surface['available_count']);
+        $this->assertTrue((bool) $surface['all_layers_available']);
+        $this->assertTrue((bool) $surface['runtime_safety_all_false']);
+        $this->assertSame('available', $surface['execution_workspace_runtime_status']);
+        $this->assertSame('available', $surface['governance_approval_runtime_status']);
+        $this->assertSame('available', $surface['automatic_cost_import_runtime_status']);
+        $this->assertSame('available', $surface['automatic_work_product_collection_runtime_status']);
+        $this->assertSame('available', $surface['adapter_execution_runtime_boundary_status']);
+        $this->assertSame('available', $surface['dispatch_planner_runtime_status']);
+        $this->assertSame('available', $surface['validation_gate_runtime_status']);
+        $this->assertSame('available', $surface['merge_review_runtime_status']);
+        foreach ([
+            'persistent_task_queue', 'persistent_claim_lease', 'scope_lock_runtime_validator',
+            'task_queue_orchestrator', 'task_queue_lease_certification',
+            'runtime_evidence_journal', 'execution_workspace_runtime',
+            'governance_approval_runtime', 'automatic_cost_import_runtime',
+            'automatic_work_product_collection_runtime', 'adapter_execution_runtime_boundary',
+            'dispatch_planner_runtime',
+            'validation_gate_runtime', 'merge_review_runtime',
+            'runtime_pilot_orchestrator', 'runtime_pilot_certification',
+            'agent_runtime_registry', 'agent_runtime_registry_heartbeat',
+            'agent_runtime_registry_quarantine', 'agent_runtime_registry_orchestrator',
+            'agent_runtime_registry_certification',
+        ] as $layer) {
+            $this->assertArrayHasKey($layer, $surface['layers'], "Missing integrated layer {$layer}");
+            $this->assertFalse((bool) $surface['layers'][$layer]['runtime_execution_allowed']);
+            $this->assertFalse((bool) $surface['layers'][$layer]['ledger_write_allowed']);
+            $this->assertFalse((bool) $surface['layers'][$layer]['dispatch_allowed']);
+        }
     }
 
     public function test_agent_control_plane_certification_status_batch_includes_runtime_pilot_blocks(): void

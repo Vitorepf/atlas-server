@@ -31,6 +31,7 @@ final class AgentControlPlaneReleaseDossierService
         private readonly AgentControlPlaneCertificationScenarioSimulator $simulator,
         private readonly AgentControlPlaneChainIntegrityAuditService $audit,
         private readonly AgentControlPlaneCertificationMutationGuard $mutationGuard,
+        private readonly ?AgentControlPlaneBaselineCaptureReadinessService $baselineCaptureReadiness = null,
     ) {}
 
     /**
@@ -51,6 +52,8 @@ final class AgentControlPlaneReleaseDossierService
         $chainIntegrity = $this->audit->audit();
         $mutationGuard = $this->mutationGuard->guard();
         $latestSnapshot = $this->store->latest();
+        $baselineCaptureReadiness = ($this->baselineCaptureReadiness ?? new AgentControlPlaneBaselineCaptureReadinessService($this->store))
+            ->assess($baseline, $replay, $diff, $gate);
 
         $blockers = [];
         $warnings = [];
@@ -84,6 +87,14 @@ final class AgentControlPlaneReleaseDossierService
         } elseif ($gateStatus === 'warning') {
             $warnings[] = 'promotion_gate_status_is_warning';
         }
+        if ((string) data_get($baselineCaptureReadiness, 'status') === 'blocked') {
+            $blockers[] = 'baseline_capture_readiness_blocked';
+        }
+        if ((bool) data_get($baselineCaptureReadiness, 'snapshot_capture_required', false)) {
+            $warnings[] = (string) data_get($baselineCaptureReadiness, 'snapshot_state') === 'stale'
+                ? 'baseline_snapshot_refresh_required'
+                : 'baseline_snapshot_capture_required';
+        }
 
         $status = match (true) {
             $blockers !== [] => 'blocked',
@@ -99,8 +110,8 @@ final class AgentControlPlaneReleaseDossierService
             default => 'low',
         };
 
-        $operatorSummary = $this->buildOperatorSummary($status, $riskClassification, $baseline, $replay, $gate, $simulator, $blockers, $warnings);
-        $machineSummary = $this->buildMachineSummary($baseline, $replay, $diff, $gate, $simulator, $chainIntegrity, $mutationGuard);
+        $operatorSummary = $this->buildOperatorSummary($status, $riskClassification, $baseline, $replay, $gate, $simulator, $baselineCaptureReadiness, $blockers, $warnings);
+        $machineSummary = $this->buildMachineSummary($baseline, $replay, $diff, $gate, $simulator, $chainIntegrity, $mutationGuard, $baselineCaptureReadiness);
 
         $evidenceIndex = [
             'control_plane_baseline' => 'php artisan atlas:ai:self-construction --agent-control-plane-certification-baseline-status --json',
@@ -163,8 +174,13 @@ final class AgentControlPlaneReleaseDossierService
             'gate_hash' => (string) data_get($gate, 'gate_hash'),
             'scenario_matrix_hash' => (string) data_get($simulator, 'scenario_matrix_hash'),
             'mutation_guard_hash' => (string) data_get($mutationGuard, 'mutation_hash'),
+            'baseline_capture_readiness_hash' => (string) data_get($baselineCaptureReadiness, 'baseline_capture_readiness_hash'),
             'chain_integrity_hash' => (string) data_get($chainIntegrity, 'agent_control_plane_chain_integrity_certification_hash'),
             'promotion_gate_status' => $gateStatus,
+            'baseline_capture_readiness_status' => (string) data_get($baselineCaptureReadiness, 'status'),
+            'baseline_snapshot_state' => (string) data_get($baselineCaptureReadiness, 'snapshot_state'),
+            'baseline_snapshot_capture_required' => (bool) data_get($baselineCaptureReadiness, 'snapshot_capture_required', false),
+            'baseline_snapshot_can_capture' => (bool) data_get($baselineCaptureReadiness, 'can_capture_snapshot', false),
             'scenario_detection_rate' => $detectionRate,
             'chain_integrity_status' => $chainStatus,
             'runtime_safety_all_false' => $runtimeSafetyAllFalse,
@@ -175,6 +191,8 @@ final class AgentControlPlaneReleaseDossierService
             'risk_classification' => $riskClassification,
             'operator_summary' => $operatorSummary,
             'machine_summary' => $machineSummary,
+            'baseline_capture_readiness' => $baselineCaptureReadiness,
+            'integrated_runtime_surface' => $this->buildIntegratedRuntimeSurface(),
             'evidence_index' => $evidenceIndex,
             'command_evidence' => $commandEvidence,
             'doc_evidence' => $docEvidence,
@@ -231,7 +249,7 @@ final class AgentControlPlaneReleaseDossierService
      * @param  list<string>  $warnings
      * @return array<string, mixed>
      */
-    private function buildOperatorSummary(string $status, string $risk, array $baseline, array $replay, array $gate, array $simulator, array $blockers, array $warnings): array
+    private function buildOperatorSummary(string $status, string $risk, array $baseline, array $replay, array $gate, array $simulator, array $baselineCaptureReadiness, array $blockers, array $warnings): array
     {
         return [
             'overall_status' => $status,
@@ -240,6 +258,9 @@ final class AgentControlPlaneReleaseDossierService
             'next_safe_macro_batch' => (string) data_get($replay, 'next_safe_macro_batch'),
             'replay_status' => (string) data_get($replay, 'status'),
             'promotion_gate_status' => (string) data_get($gate, 'status'),
+            'baseline_capture_readiness_status' => (string) data_get($baselineCaptureReadiness, 'status'),
+            'baseline_snapshot_state' => (string) data_get($baselineCaptureReadiness, 'snapshot_state'),
+            'baseline_snapshot_next_action' => (string) data_get($baselineCaptureReadiness, 'next_action'),
             'scenario_detection_rate' => (float) data_get($simulator, 'detection_rate', 1.0),
             'blockers' => $blockers,
             'warnings' => $warnings,
@@ -262,7 +283,7 @@ final class AgentControlPlaneReleaseDossierService
      * @param  array<string, mixed>  $mutationGuard
      * @return array<string, mixed>
      */
-    private function buildMachineSummary(array $baseline, array $replay, array $diff, array $gate, array $simulator, array $chainIntegrity, array $mutationGuard): array
+    private function buildMachineSummary(array $baseline, array $replay, array $diff, array $gate, array $simulator, array $chainIntegrity, array $mutationGuard, array $baselineCaptureReadiness): array
     {
         return [
             'baseline_hash' => (string) data_get($baseline, 'baseline_hash'),
@@ -273,15 +294,109 @@ final class AgentControlPlaneReleaseDossierService
             'gate_hash' => (string) data_get($gate, 'gate_hash'),
             'scenario_matrix_hash' => (string) data_get($simulator, 'scenario_matrix_hash'),
             'mutation_guard_hash' => (string) data_get($mutationGuard, 'mutation_hash'),
+            'baseline_capture_readiness_hash' => (string) data_get($baselineCaptureReadiness, 'baseline_capture_readiness_hash'),
             'chain_integrity_hash' => (string) data_get($chainIntegrity, 'agent_control_plane_chain_integrity_certification_hash'),
             'replay_status' => (string) data_get($replay, 'status'),
             'gate_status' => (string) data_get($gate, 'status'),
+            'baseline_capture_readiness_status' => (string) data_get($baselineCaptureReadiness, 'status'),
+            'baseline_snapshot_state' => (string) data_get($baselineCaptureReadiness, 'snapshot_state'),
+            'baseline_snapshot_capture_required' => (bool) data_get($baselineCaptureReadiness, 'snapshot_capture_required', false),
             'simulator_status' => (string) data_get($simulator, 'status'),
             'chain_integrity_status' => (string) data_get($chainIntegrity, 'status'),
             'mutation_guard_status' => (string) data_get($mutationGuard, 'status'),
             'replayed_slice_count' => (int) data_get($replay, 'replayed_slice_count'),
             'replayed_edge_count' => (int) data_get($replay, 'replayed_edge_count'),
             'scenario_count' => (int) data_get($simulator, 'scenario_count'),
+        ];
+    }
+
+    /**
+     * Summarises the cross-module Agent Control Plane runtime surface for the
+     * release dossier, calling each integrated layer's readiness projection
+     * and folding the results into a single, stable map. Every layer is
+     * read-only by contract.
+     *
+     * @return array<string, mixed>
+     */
+    private function buildIntegratedRuntimeSurface(): array
+    {
+        $surface = [];
+        try {
+            $readiness = app(AtlasSelfConstructionReadinessService::class);
+        } catch (\Throwable) {
+            return [
+                'available' => false,
+                'reason' => 'readiness_service_unavailable',
+                'runtime_safety_all_false' => true,
+            ];
+        }
+
+        $probes = [
+            'persistent_task_queue' => 'agentControlPlaneTaskPacketQueueStatus',
+            'persistent_claim_lease' => 'agentControlPlaneClaimLeaseRuntimeStatus',
+            'scope_lock_runtime_validator' => 'agentControlPlaneScopeLockRuntimeValidatorStatus',
+            'task_queue_orchestrator' => 'agentControlPlaneTaskQueueOrchestratorStatus',
+            'task_queue_lease_certification' => 'agentControlPlaneTaskQueueLeaseCertificationStatus',
+            'runtime_evidence_journal' => 'agentControlPlaneRuntimeEvidenceJournalStatus',
+            'execution_workspace_runtime' => 'agentControlPlaneExecutionWorkspaceRuntimeStatus',
+            'governance_approval_runtime' => 'agentControlPlaneGovernanceApprovalRuntimeStatus',
+            'automatic_cost_import_runtime' => 'agentControlPlaneAutomaticCostImportRuntimeStatus',
+            'automatic_work_product_collection_runtime' => 'agentControlPlaneAutomaticWorkProductCollectionRuntimeStatus',
+            'adapter_execution_runtime_boundary' => 'agentControlPlaneAdapterExecutionRuntimeBoundaryStatus',
+            'dispatch_planner_runtime' => 'agentControlPlaneDispatchPlannerRuntimeStatus',
+            'validation_gate_runtime' => 'agentControlPlaneValidationGateRuntimeStatus',
+            'merge_review_runtime' => 'agentControlPlaneMergeReviewRuntimeStatus',
+            'runtime_pilot_orchestrator' => 'agentControlPlaneRuntimePilotOrchestratorStatus',
+            'runtime_pilot_certification' => 'agentControlPlaneRuntimePilotCertificationStatus',
+            'agent_runtime_registry' => 'agentControlPlaneAgentRuntimeRegistryStatus',
+            'agent_runtime_registry_heartbeat' => 'agentControlPlaneAgentRuntimeRegistryHeartbeatStatus',
+            'agent_runtime_registry_quarantine' => 'agentControlPlaneAgentRuntimeRegistryQuarantineStatus',
+            'agent_runtime_registry_orchestrator' => 'agentControlPlaneAgentRuntimeRegistryOrchestratorStatus',
+            'agent_runtime_registry_certification' => 'agentControlPlaneAgentRuntimeRegistryCertificationStatus',
+        ];
+
+        $availableCount = 0;
+        foreach ($probes as $key => $method) {
+            if (! method_exists($readiness, $method)) {
+                $surface[$key] = ['status' => 'missing_method', 'runtime_execution_allowed' => false];
+
+                continue;
+            }
+            try {
+                $result = $readiness->{$method}();
+                $surface[$key] = [
+                    'status' => (string) data_get($result, 'status', 'unknown'),
+                    'runtime_execution_allowed' => false,
+                    'ledger_write_allowed' => false,
+                    'dispatch_allowed' => false,
+                ];
+                if (! in_array((string) ($surface[$key]['status']), ['blocked', 'failed', 'persist_failed', 'missing_method'], true)) {
+                    $availableCount++;
+                }
+            } catch (\Throwable $e) {
+                $surface[$key] = [
+                    'status' => 'exception',
+                    'error' => $e->getMessage(),
+                    'runtime_execution_allowed' => false,
+                ];
+            }
+        }
+
+        return [
+            'available' => true,
+            'probe_count' => count($probes),
+            'available_count' => $availableCount,
+            'all_layers_available' => $availableCount === count($probes),
+            'runtime_safety_all_false' => true,
+            'execution_workspace_runtime_status' => (string) data_get($surface, 'execution_workspace_runtime.status', 'unknown'),
+            'governance_approval_runtime_status' => (string) data_get($surface, 'governance_approval_runtime.status', 'unknown'),
+            'automatic_cost_import_runtime_status' => (string) data_get($surface, 'automatic_cost_import_runtime.status', 'unknown'),
+            'automatic_work_product_collection_runtime_status' => (string) data_get($surface, 'automatic_work_product_collection_runtime.status', 'unknown'),
+            'adapter_execution_runtime_boundary_status' => (string) data_get($surface, 'adapter_execution_runtime_boundary.status', 'unknown'),
+            'dispatch_planner_runtime_status' => (string) data_get($surface, 'dispatch_planner_runtime.status', 'unknown'),
+            'validation_gate_runtime_status' => (string) data_get($surface, 'validation_gate_runtime.status', 'unknown'),
+            'merge_review_runtime_status' => (string) data_get($surface, 'merge_review_runtime.status', 'unknown'),
+            'layers' => $surface,
         ];
     }
 
@@ -311,6 +426,12 @@ final class AgentControlPlaneReleaseDossierService
                 $clone['machine_summary']['gate_hash'],
                 $clone['machine_summary']['mutation_guard_hash'],
             );
+        }
+        if (isset($clone['baseline_capture_readiness']['assessed_at'])) {
+            unset($clone['baseline_capture_readiness']['assessed_at']);
+        }
+        if (isset($clone['baseline_capture_readiness']['promotion_gate_hash'])) {
+            unset($clone['baseline_capture_readiness']['promotion_gate_hash']);
         }
 
         return $this->recursivelyKsort($clone);

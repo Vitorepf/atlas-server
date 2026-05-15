@@ -75,6 +75,24 @@ final class AtlasAiSelfConstructionAgentControlPlaneReleaseDossierTest extends T
         $this->assertContains($dossier['promotion_gate_status'], ['no_baseline', 'passed', 'warning', 'blocked']);
     }
 
+    public function test_dossier_includes_baseline_capture_readiness(): void
+    {
+        $dossier = $this->dossier();
+
+        $this->assertArrayHasKey('baseline_capture_readiness', $dossier);
+        $this->assertNotEmpty($dossier['baseline_capture_readiness_status']);
+        $this->assertContains($dossier['baseline_capture_readiness_status'], [
+            'blocked',
+            'current_snapshot_present',
+            'ready_to_capture_snapshot',
+            'ready_to_refresh_snapshot',
+        ]);
+        $this->assertContains($dossier['baseline_snapshot_state'], ['missing', 'current', 'stale']);
+        $this->assertIsBool($dossier['baseline_snapshot_capture_required']);
+        $this->assertIsBool($dossier['baseline_snapshot_can_capture']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $dossier['baseline_capture_readiness_hash']);
+    }
+
     public function test_dossier_includes_scenario_detection_rate(): void
     {
         $dossier = $this->dossier();
@@ -132,6 +150,8 @@ final class AtlasAiSelfConstructionAgentControlPlaneReleaseDossierTest extends T
         $this->assertIsArray($dossier['machine_summary']);
         $this->assertArrayHasKey('baseline_hash', $dossier['machine_summary']);
         $this->assertArrayHasKey('replay_hash', $dossier['machine_summary']);
+        $this->assertArrayHasKey('baseline_capture_readiness_hash', $dossier['machine_summary']);
+        $this->assertArrayHasKey('baseline_snapshot_capture_required', $dossier['machine_summary']);
     }
 
     public function test_dossier_includes_evidence_index(): void

@@ -15,6 +15,7 @@ use App\Services\Ai\Programming\WorkspaceHygieneService;
 use Illuminate\Support\Facades\Artisan;
 use Mockery;
 use Mockery\MockInterface;
+use Symfony\Component\Console\Output\BufferedOutput;
 use Tests\TestCase;
 
 /**
@@ -664,6 +665,46 @@ class AtlasRivalsHarnessOperatorTest extends TestCase
             (bool) ($payload['external_provider_call'] ?? true),
             'full-smoke JSON must report external_provider_call=false',
         );
+    }
+
+    public function test_canonical_forge_rivals_doctor_returns_v2_envelope(): void
+    {
+        $output = new BufferedOutput;
+        $exitCode = Artisan::call('atlas:forge:rivals', [
+            'action' => 'doctor',
+            '--json' => true,
+        ], $output);
+
+        $payload = json_decode($output->fetch(), true);
+        $this->assertIsArray($payload);
+        $this->assertSame('atlas.forge.rivals.action_response.v1', $payload['schema_version'] ?? null);
+        $this->assertSame('doctor', $payload['action'] ?? null);
+        $this->assertFalse((bool) ($payload['external_provider_call'] ?? true));
+        $this->assertFalse((bool) ($payload['provider_tokens_spent'] ?? true));
+        $this->assertContains($exitCode, [0, 1]);
+    }
+
+    public function test_canonical_forge_rivals_run_real_requires_three_confirmations(): void
+    {
+        $output = new BufferedOutput;
+        $exitCode = Artisan::call('atlas:forge:rivals', [
+            'action' => 'run-real',
+            '--mode' => 'fair',
+            '--atlas-model' => 'claude_sonnet',
+            '--rival' => 'claude_sonnet',
+            '--preset' => 'smoke',
+            '--json' => true,
+            '--strict' => true,
+        ], $output);
+
+        $payload = json_decode($output->fetch(), true);
+        $this->assertIsArray($payload);
+        $this->assertSame('blocked', $payload['status'] ?? null);
+        $blockers = (array) ($payload['blockers'] ?? []);
+        $this->assertNotEmpty(array_filter($blockers, static fn ($b) => str_starts_with((string) $b, 'missing_confirmation:')));
+        $this->assertFalse((bool) ($payload['external_provider_call'] ?? true));
+        $this->assertFalse((bool) ($payload['provider_tokens_spent'] ?? true));
+        $this->assertSame(1, $exitCode);
     }
 
     // ------------------------------------------------------------------

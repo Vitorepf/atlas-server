@@ -75,6 +75,7 @@ use App\Console\Commands\AtlasEngineeringSecurityScanCommand;
 use App\Console\Commands\AtlasEngineeringVisualBaselineCommand;
 use App\Console\Commands\AtlasEngineeringVisualDriverCommand;
 use App\Console\Commands\AtlasEngineeringVisualSmokeCommand;
+use App\Console\Commands\AtlasForgeRivalsCommand;
 use App\Console\Commands\AtlasInitiativesCommand;
 use App\Console\Commands\AtlasInsightCommand;
 use App\Console\Commands\AtlasInsightWatchCommand;
@@ -218,6 +219,7 @@ return Application::configure(basePath: dirname(__DIR__))
         AtlasEngineeringBenchmarkReplayManifestCommand::class,
         AtlasEngineeringBenchmarkReportCommand::class,
         AtlasEngineeringBenchmarkSeedCommand::class,
+        AtlasForgeRivalsCommand::class,
         AtlasRivalsCommand::class,
         AtlasRivalsHarnessCommand::class,
         AtlasEngineeringApiContractCommand::class,

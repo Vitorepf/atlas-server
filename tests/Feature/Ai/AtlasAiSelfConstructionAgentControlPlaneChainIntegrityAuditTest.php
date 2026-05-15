@@ -1160,13 +1160,13 @@ final class AtlasAiSelfConstructionAgentControlPlaneChainIntegrityAuditTest exte
         $this->assertArrayHasKey('signed_real_release_ready_next', $audit);
     }
 
-    public function test_audit_pointer_advanced_to_implementation_boundary_gate_contract(): void
+    public function test_audit_pointer_advanced_to_process_starter_readiness_gate_contract(): void
     {
         $audit = $this->newService()->audit();
         $this->assertContains(
             data_get($audit, 'current_next_required_slice'),
             [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_implementation_boundary_gate_contract',
+                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_starter_readiness_gate_contract',
                 // Allow fallback for environments that have not migrated yet.
                 'apply_agent_control_plane_runtime_schema_migration',
             ],
@@ -1541,7 +1541,7 @@ final class AtlasAiSelfConstructionAgentControlPlaneChainIntegrityAuditTest exte
         $this->assertFalse((bool) data_get($th, 'completion_claim_allowed'));
     }
 
-    public function test_synthetic_reentry_target_must_be_post_start_receipt_contract(): void
+    public function test_synthetic_reentry_target_accepts_post_start_receipt_contract(): void
     {
         $audit = $this->newService()->audit([
             'override_projection' => [
@@ -1552,13 +1552,643 @@ final class AtlasAiSelfConstructionAgentControlPlaneChainIntegrityAuditTest exte
         $this->assertSame('automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_receipt_contract', data_get($audit, 'cycle_integrity.intentional_reentry_target'));
     }
 
-    public function test_synthetic_reentry_from_wrong_slice_is_violation(): void
+    public function test_synthetic_reentry_target_accepts_post_start_evidence_receipt_contract_after_receipt_ready(): void
     {
-        // Point the pointer at a previously-certified slice (signed_real_invoker_release_gate_contract)
-        // that is NOT the intentional reentry target. The audit must flag it.
+        $audit = $this->newService()->audit([
+            'override_projection' => [
+                'next_required_slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_evidence_receipt_contract',
+                'not_yet_runtime_capable' => [
+                    'adapter_execution_runtime',
+                    'automatic_cost_import_runtime',
+                    'automatic_work_product_collection_runtime',
+                    'automatic_dispatch_scheduler_codex_real_invoker_post_start_evidence_receipt_contract_runtime',
+                ],
+                'next_build_slices' => [
+                    'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_evidence_receipt_contract',
+                ],
+            ],
+        ]);
+        $this->assertSame('ok', data_get($audit, 'cycle_integrity.status'));
+        $this->assertTrue((bool) data_get($audit, 'cycle_integrity.intentional_reentry_detected'));
+        $this->assertSame('automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_evidence_receipt', data_get($audit, 'cycle_integrity.intentional_reentry_target'));
+    }
+
+    public function test_synthetic_reentry_target_accepts_post_start_evidence_acceptance_bridge_contract_after_evidence_receipt_ready(): void
+    {
+        $audit = $this->newService()->audit([
+            'override_projection' => [
+                'next_required_slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_evidence_acceptance_bridge_contract',
+                'not_yet_runtime_capable' => [
+                    'adapter_execution_runtime',
+                    'automatic_cost_import_runtime',
+                    'automatic_work_product_collection_runtime',
+                    'automatic_dispatch_scheduler_codex_real_invoker_post_start_evidence_acceptance_bridge_contract_runtime',
+                ],
+                'next_build_slices' => [
+                    'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_evidence_acceptance_bridge_contract',
+                ],
+            ],
+        ]);
+        $this->assertSame('ok', data_get($audit, 'cycle_integrity.status'));
+        $this->assertTrue((bool) data_get($audit, 'cycle_integrity.intentional_reentry_detected'));
+        $this->assertSame('automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_evidence_acceptance_bridge', data_get($audit, 'cycle_integrity.intentional_reentry_target'));
+    }
+
+    public function test_synthetic_reentry_target_accepts_post_start_liveness_monitor_contract_after_evidence_acceptance_ready(): void
+    {
+        $audit = $this->newService()->audit([
+            'override_projection' => [
+                'next_required_slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_liveness_monitor_contract',
+                'not_yet_runtime_capable' => [
+                    'adapter_execution_runtime',
+                    'automatic_cost_import_runtime',
+                    'automatic_work_product_collection_runtime',
+                    'automatic_dispatch_scheduler_codex_real_invoker_post_start_liveness_monitor_contract_runtime',
+                ],
+                'next_build_slices' => [
+                    'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_liveness_monitor_contract',
+                ],
+            ],
+        ]);
+        $this->assertSame('ok', data_get($audit, 'cycle_integrity.status'));
+        $this->assertTrue((bool) data_get($audit, 'cycle_integrity.intentional_reentry_detected'));
+        $this->assertSame('automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_liveness_monitor', data_get($audit, 'cycle_integrity.intentional_reentry_target'));
+    }
+
+    public function test_synthetic_reentry_target_accepts_post_start_dispatch_release_gate_contract_after_liveness_ready(): void
+    {
+        $audit = $this->newService()->audit([
+            'override_projection' => [
+                'next_required_slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_release_gate_contract',
+                'not_yet_runtime_capable' => [
+                    'adapter_execution_runtime',
+                    'automatic_cost_import_runtime',
+                    'automatic_work_product_collection_runtime',
+                    'automatic_dispatch_scheduler_codex_real_invoker_post_start_dispatch_release_gate_contract_runtime',
+                ],
+                'next_build_slices' => [
+                    'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_release_gate_contract',
+                ],
+            ],
+        ]);
+        $this->assertSame('ok', data_get($audit, 'cycle_integrity.status'));
+        $this->assertTrue((bool) data_get($audit, 'cycle_integrity.intentional_reentry_detected'));
+        $this->assertSame('automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_dispatch_release_gate', data_get($audit, 'cycle_integrity.intentional_reentry_target'));
+    }
+
+    public function test_synthetic_reentry_target_accepts_post_start_signed_dispatch_authorization_gate_contract_after_dispatch_release_ready(): void
+    {
+        $audit = $this->newService()->audit([
+            'override_projection' => [
+                'next_required_slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_signed_dispatch_authorization_gate_contract',
+                'not_yet_runtime_capable' => [
+                    'adapter_execution_runtime',
+                    'automatic_cost_import_runtime',
+                    'automatic_work_product_collection_runtime',
+                    'automatic_dispatch_scheduler_codex_real_invoker_post_start_signed_dispatch_authorization_gate_contract_runtime',
+                ],
+                'next_build_slices' => [
+                    'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_signed_dispatch_authorization_gate_contract',
+                ],
+            ],
+        ]);
+        $this->assertSame('ok', data_get($audit, 'cycle_integrity.status'));
+        $this->assertTrue((bool) data_get($audit, 'cycle_integrity.intentional_reentry_detected'));
+        $this->assertSame('automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_signed_dispatch_authorization_gate', data_get($audit, 'cycle_integrity.intentional_reentry_target'));
+    }
+
+    public function test_synthetic_reentry_target_accepts_post_start_dispatch_executor_handoff_contract_after_signed_authorization_ready(): void
+    {
+        $audit = $this->newService()->audit([
+            'override_projection' => [
+                'next_required_slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_executor_handoff_contract',
+                'not_yet_runtime_capable' => [
+                    'adapter_execution_runtime',
+                    'automatic_cost_import_runtime',
+                    'automatic_work_product_collection_runtime',
+                    'automatic_dispatch_scheduler_codex_real_invoker_post_start_dispatch_executor_handoff_contract_runtime',
+                ],
+                'next_build_slices' => [
+                    'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_executor_handoff_contract',
+                ],
+            ],
+        ]);
+        $this->assertSame('ok', data_get($audit, 'cycle_integrity.status'));
+        $this->assertTrue((bool) data_get($audit, 'cycle_integrity.intentional_reentry_detected'));
+        $this->assertSame('automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_dispatch_executor_handoff', data_get($audit, 'cycle_integrity.intentional_reentry_target'));
+    }
+
+    public function test_synthetic_reentry_target_accepts_post_start_dispatch_receipt_use_executor_contract_after_handoff_ready(): void
+    {
+        $audit = $this->newService()->audit([
+            'override_projection' => [
+                'next_required_slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_receipt_use_executor_contract',
+                'not_yet_runtime_capable' => [
+                    'adapter_execution_runtime',
+                    'automatic_cost_import_runtime',
+                    'automatic_work_product_collection_runtime',
+                    'automatic_dispatch_scheduler_codex_real_invoker_post_start_dispatch_receipt_use_executor_contract_runtime',
+                ],
+                'next_build_slices' => [
+                    'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_receipt_use_executor_contract',
+                ],
+            ],
+        ]);
+        $this->assertSame('ok', data_get($audit, 'cycle_integrity.status'));
+        $this->assertTrue((bool) data_get($audit, 'cycle_integrity.intentional_reentry_detected'));
+        $this->assertSame('automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_dispatch_receipt_use_executor', data_get($audit, 'cycle_integrity.intentional_reentry_target'));
+    }
+
+    public function test_synthetic_reentry_target_accepts_post_start_provider_start_driver_gate_contract_after_receipt_use_ready(): void
+    {
+        $audit = $this->newService()->audit([
+            'override_projection' => [
+                'next_required_slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_provider_start_driver_gate_contract',
+                'not_yet_runtime_capable' => [
+                    'adapter_execution_runtime',
+                    'automatic_cost_import_runtime',
+                    'automatic_work_product_collection_runtime',
+                    'automatic_dispatch_scheduler_codex_real_invoker_post_start_provider_start_driver_gate_contract_runtime',
+                ],
+                'next_build_slices' => [
+                    'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_provider_start_driver_gate_contract',
+                ],
+            ],
+        ]);
+        $this->assertSame('ok', data_get($audit, 'cycle_integrity.status'));
+        $this->assertTrue((bool) data_get($audit, 'cycle_integrity.intentional_reentry_detected'));
+        $this->assertSame('automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_provider_start_driver_gate', data_get($audit, 'cycle_integrity.intentional_reentry_target'));
+    }
+
+    public function test_synthetic_reentry_target_accepts_post_start_adapter_invocation_boundary_gate_contract_after_provider_start_ready(): void
+    {
+        $audit = $this->newService()->audit([
+            'override_projection' => [
+                'next_required_slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_adapter_invocation_boundary_gate_contract',
+                'not_yet_runtime_capable' => [
+                    'adapter_execution_runtime',
+                    'automatic_cost_import_runtime',
+                    'automatic_work_product_collection_runtime',
+                    'automatic_dispatch_scheduler_codex_real_invoker_post_start_adapter_invocation_boundary_gate_contract_runtime',
+                ],
+                'next_build_slices' => [
+                    'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_adapter_invocation_boundary_gate_contract',
+                ],
+            ],
+        ]);
+        $this->assertSame('ok', data_get($audit, 'cycle_integrity.status'));
+        $this->assertTrue((bool) data_get($audit, 'cycle_integrity.intentional_reentry_detected'));
+        $this->assertSame('automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_adapter_invocation_boundary_gate', data_get($audit, 'cycle_integrity.intentional_reentry_target'));
+    }
+
+    public function test_synthetic_reentry_target_accepts_post_start_adapter_execution_guard_gate_contract_after_boundary_ready(): void
+    {
+        $audit = $this->newService()->audit([
+            'override_projection' => [
+                'next_required_slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_adapter_execution_guard_gate_contract',
+                'not_yet_runtime_capable' => [
+                    'adapter_execution_runtime',
+                    'automatic_cost_import_runtime',
+                    'automatic_work_product_collection_runtime',
+                    'automatic_dispatch_scheduler_codex_real_invoker_post_start_adapter_execution_guard_gate_contract_runtime',
+                ],
+                'next_build_slices' => [
+                    'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_adapter_execution_guard_gate_contract',
+                ],
+            ],
+        ]);
+        $this->assertSame('ok', data_get($audit, 'cycle_integrity.status'));
+        $this->assertTrue((bool) data_get($audit, 'cycle_integrity.intentional_reentry_detected'));
+        $this->assertSame('automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_adapter_execution_guard_gate', data_get($audit, 'cycle_integrity.intentional_reentry_target'));
+    }
+
+    public function test_synthetic_reentry_target_accepts_post_start_provider_execution_contract_gate_contract_after_execution_guard_ready(): void
+    {
+        $audit = $this->newService()->audit([
+            'override_projection' => [
+                'next_required_slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_provider_execution_contract_gate_contract',
+                'not_yet_runtime_capable' => [
+                    'adapter_execution_runtime',
+                    'automatic_cost_import_runtime',
+                    'automatic_work_product_collection_runtime',
+                    'automatic_dispatch_scheduler_codex_real_invoker_post_start_provider_execution_contract_gate_contract_runtime',
+                ],
+                'next_build_slices' => [
+                    'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_provider_execution_contract_gate_contract',
+                ],
+            ],
+        ]);
+        $this->assertSame('ok', data_get($audit, 'cycle_integrity.status'));
+        $this->assertTrue((bool) data_get($audit, 'cycle_integrity.intentional_reentry_detected'));
+        $this->assertSame('automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_provider_execution_contract_gate', data_get($audit, 'cycle_integrity.intentional_reentry_target'));
+    }
+
+    public function test_synthetic_reentry_target_accepts_post_start_process_start_release_gate_contract_after_provider_execution_contract_ready(): void
+    {
+        $audit = $this->newService()->audit([
+            'override_projection' => [
+                'next_required_slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_start_release_gate_contract',
+                'not_yet_runtime_capable' => [
+                    'adapter_execution_runtime',
+                    'automatic_cost_import_runtime',
+                    'automatic_work_product_collection_runtime',
+                    'automatic_dispatch_scheduler_codex_real_invoker_post_start_process_start_release_gate_contract_runtime',
+                ],
+                'next_build_slices' => [
+                    'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_start_release_gate_contract',
+                ],
+            ],
+        ]);
+        $this->assertSame('ok', data_get($audit, 'cycle_integrity.status'));
+        $this->assertTrue((bool) data_get($audit, 'cycle_integrity.intentional_reentry_detected'));
+        $this->assertSame('automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_start_release_gate', data_get($audit, 'cycle_integrity.intentional_reentry_target'));
+    }
+
+    public function test_synthetic_reentry_target_accepts_post_start_supervised_start_executor_gate_contract_after_process_start_release_ready(): void
+    {
+        $audit = $this->newService()->audit([
+            'override_projection' => [
+                'next_required_slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_supervised_start_executor_gate_contract',
+                'not_yet_runtime_capable' => [
+                    'adapter_execution_runtime',
+                    'automatic_cost_import_runtime',
+                    'automatic_work_product_collection_runtime',
+                    'automatic_dispatch_scheduler_codex_real_invoker_post_start_supervised_start_executor_gate_contract_runtime',
+                ],
+                'next_build_slices' => [
+                    'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_supervised_start_executor_gate_contract',
+                ],
+            ],
+        ]);
+        $this->assertSame('ok', data_get($audit, 'cycle_integrity.status'));
+        $this->assertTrue((bool) data_get($audit, 'cycle_integrity.intentional_reentry_detected'));
+        $this->assertSame('automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_supervised_start_executor_gate', data_get($audit, 'cycle_integrity.intentional_reentry_target'));
+    }
+
+    public function test_synthetic_reentry_target_accepts_post_start_process_spawn_enablement_gate_contract_after_supervised_start_ready(): void
+    {
+        $audit = $this->newService()->audit([
+            'override_projection' => [
+                'next_required_slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_spawn_enablement_gate_contract',
+                'not_yet_runtime_capable' => [
+                    'adapter_execution_runtime',
+                    'automatic_cost_import_runtime',
+                    'automatic_work_product_collection_runtime',
+                    'automatic_dispatch_scheduler_codex_real_invoker_post_start_process_spawn_enablement_gate_contract_runtime',
+                ],
+                'next_build_slices' => [
+                    'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_spawn_enablement_gate_contract',
+                ],
+            ],
+        ]);
+        $this->assertSame('ok', data_get($audit, 'cycle_integrity.status'));
+        $this->assertTrue((bool) data_get($audit, 'cycle_integrity.intentional_reentry_detected'));
+        $this->assertSame('automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_spawn_enablement_gate', data_get($audit, 'cycle_integrity.intentional_reentry_target'));
+    }
+
+    public function test_synthetic_reentry_target_accepts_post_start_final_process_spawn_executor_gate_contract_after_spawn_enablement_ready(): void
+    {
+        $audit = $this->newService()->audit([
+            'override_projection' => [
+                'next_required_slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_final_process_spawn_executor_gate_contract',
+                'not_yet_runtime_capable' => [
+                    'adapter_execution_runtime',
+                    'automatic_cost_import_runtime',
+                    'automatic_work_product_collection_runtime',
+                    'automatic_dispatch_scheduler_codex_real_invoker_post_start_final_process_spawn_executor_gate_contract_runtime',
+                ],
+                'next_build_slices' => [
+                    'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_final_process_spawn_executor_gate_contract',
+                ],
+            ],
+        ]);
+        $this->assertSame('ok', data_get($audit, 'cycle_integrity.status'));
+        $this->assertTrue((bool) data_get($audit, 'cycle_integrity.intentional_reentry_detected'));
+        $this->assertSame('automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_final_process_spawn_executor_gate', data_get($audit, 'cycle_integrity.intentional_reentry_target'));
+    }
+
+    public function test_synthetic_reentry_target_accepts_post_start_external_process_runtime_gate_contract_after_final_spawn_executor_ready(): void
+    {
+        $audit = $this->newService()->audit([
+            'override_projection' => [
+                'next_required_slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_external_process_runtime_gate_contract',
+                'not_yet_runtime_capable' => [
+                    'adapter_execution_runtime',
+                    'automatic_cost_import_runtime',
+                    'automatic_work_product_collection_runtime',
+                    'automatic_dispatch_scheduler_codex_real_invoker_post_start_external_process_runtime_gate_contract_runtime',
+                ],
+                'next_build_slices' => [
+                    'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_external_process_runtime_gate_contract',
+                ],
+            ],
+        ]);
+        $this->assertSame('ok', data_get($audit, 'cycle_integrity.status'));
+        $this->assertTrue((bool) data_get($audit, 'cycle_integrity.intentional_reentry_detected'));
+        $this->assertSame('automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_external_process_runtime_gate', data_get($audit, 'cycle_integrity.intentional_reentry_target'));
+    }
+
+    public function test_synthetic_reentry_target_accepts_post_start_process_invocation_authorization_gate_contract_after_external_runtime_ready(): void
+    {
+        $audit = $this->newService()->audit([
+            'override_projection' => [
+                'next_required_slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_invocation_authorization_gate_contract',
+                'not_yet_runtime_capable' => [
+                    'adapter_execution_runtime',
+                    'automatic_cost_import_runtime',
+                    'automatic_work_product_collection_runtime',
+                    'automatic_dispatch_scheduler_codex_real_invoker_post_start_process_invocation_authorization_gate_contract_runtime',
+                ],
+                'next_build_slices' => [
+                    'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_invocation_authorization_gate_contract',
+                ],
+            ],
+        ]);
+        $this->assertSame('ok', data_get($audit, 'cycle_integrity.status'));
+        $this->assertTrue((bool) data_get($audit, 'cycle_integrity.intentional_reentry_detected'));
+        $this->assertSame('automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_invocation_authorization_gate', data_get($audit, 'cycle_integrity.intentional_reentry_target'));
+    }
+
+    public function test_synthetic_reentry_target_accepts_post_start_external_process_invoker_dry_run_gate_contract_after_invocation_authorization_ready(): void
+    {
+        $audit = $this->newService()->audit([
+            'override_projection' => [
+                'next_required_slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_external_process_invoker_dry_run_gate_contract',
+                'not_yet_runtime_capable' => [
+                    'adapter_execution_runtime',
+                    'automatic_cost_import_runtime',
+                    'automatic_work_product_collection_runtime',
+                    'automatic_dispatch_scheduler_codex_real_invoker_post_start_external_process_invoker_dry_run_gate_contract_runtime',
+                ],
+                'next_build_slices' => [
+                    'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_external_process_invoker_dry_run_gate_contract',
+                ],
+            ],
+        ]);
+        $this->assertSame('ok', data_get($audit, 'cycle_integrity.status'));
+        $this->assertTrue((bool) data_get($audit, 'cycle_integrity.intentional_reentry_detected'));
+        $this->assertSame('automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_external_process_invoker_dry_run_gate', data_get($audit, 'cycle_integrity.intentional_reentry_target'));
+    }
+
+    public function test_synthetic_reentry_target_accepts_post_start_real_invoker_release_preflight_gate_contract_after_dry_run_ready(): void
+    {
+        $audit = $this->newService()->audit([
+            'override_projection' => [
+                'next_required_slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_real_invoker_release_preflight_gate_contract',
+                'not_yet_runtime_capable' => [
+                    'adapter_execution_runtime',
+                    'automatic_cost_import_runtime',
+                    'automatic_work_product_collection_runtime',
+                    'automatic_dispatch_scheduler_codex_real_invoker_post_start_real_invoker_release_preflight_gate_contract_runtime',
+                ],
+                'next_build_slices' => [
+                    'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_real_invoker_release_preflight_gate_contract',
+                ],
+            ],
+        ]);
+        $this->assertSame('ok', data_get($audit, 'cycle_integrity.status'));
+        $this->assertTrue((bool) data_get($audit, 'cycle_integrity.intentional_reentry_detected'));
+        $this->assertSame('automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_real_invoker_release_preflight_gate', data_get($audit, 'cycle_integrity.intentional_reentry_target'));
+    }
+
+    public function test_synthetic_reentry_target_accepts_post_start_signed_real_invoker_release_gate_contract_after_preflight_ready(): void
+    {
         $audit = $this->newService()->audit([
             'override_projection' => [
                 'next_required_slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_signed_real_invoker_release_gate_contract',
+                'not_yet_runtime_capable' => [
+                    'adapter_execution_runtime',
+                    'automatic_cost_import_runtime',
+                    'automatic_work_product_collection_runtime',
+                    'automatic_dispatch_scheduler_codex_real_invoker_post_start_signed_real_invoker_release_gate_contract_runtime',
+                ],
+                'next_build_slices' => [
+                    'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_signed_real_invoker_release_gate_contract',
+                ],
+            ],
+        ]);
+        $this->assertSame('ok', data_get($audit, 'cycle_integrity.status'));
+        $this->assertTrue((bool) data_get($audit, 'cycle_integrity.intentional_reentry_detected'));
+        $this->assertSame('automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_signed_real_invoker_release_gate', data_get($audit, 'cycle_integrity.intentional_reentry_target'));
+    }
+
+    public function test_synthetic_reentry_target_accepts_post_start_implementation_boundary_gate_contract_after_signed_release_ready(): void
+    {
+        $audit = $this->newService()->audit([
+            'override_projection' => [
+                'next_required_slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_implementation_boundary_gate_contract',
+                'not_yet_runtime_capable' => [
+                    'adapter_execution_runtime',
+                    'automatic_cost_import_runtime',
+                    'automatic_work_product_collection_runtime',
+                    'automatic_dispatch_scheduler_codex_real_invoker_post_start_implementation_boundary_gate_contract_runtime',
+                ],
+                'next_build_slices' => [
+                    'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_implementation_boundary_gate_contract',
+                ],
+            ],
+        ]);
+        $this->assertSame('ok', data_get($audit, 'cycle_integrity.status'));
+        $this->assertTrue((bool) data_get($audit, 'cycle_integrity.intentional_reentry_detected'));
+        $this->assertSame('automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_implementation_boundary_gate', data_get($audit, 'cycle_integrity.intentional_reentry_target'));
+    }
+
+    public function test_synthetic_reentry_target_accepts_post_start_executor_plan_gate_contract_after_boundary_ready(): void
+    {
+        $audit = $this->newService()->audit([
+            'override_projection' => [
+                'next_required_slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_executor_plan_gate_contract',
+                'not_yet_runtime_capable' => [
+                    'adapter_execution_runtime',
+                    'automatic_cost_import_runtime',
+                    'automatic_work_product_collection_runtime',
+                    'automatic_dispatch_scheduler_codex_real_invoker_post_start_executor_plan_gate_contract_runtime',
+                ],
+                'next_build_slices' => [
+                    'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_executor_plan_gate_contract',
+                ],
+            ],
+        ]);
+        $this->assertSame('ok', data_get($audit, 'cycle_integrity.status'));
+        $this->assertTrue((bool) data_get($audit, 'cycle_integrity.intentional_reentry_detected'));
+        $this->assertSame('automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_executor_plan_gate', data_get($audit, 'cycle_integrity.intentional_reentry_target'));
+    }
+
+    public function test_synthetic_reentry_target_accepts_post_start_executor_fresh_release_gate_contract_after_plan_ready(): void
+    {
+        $audit = $this->newService()->audit([
+            'override_projection' => [
+                'next_required_slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_executor_fresh_release_gate_contract',
+                'not_yet_runtime_capable' => [
+                    'adapter_execution_runtime',
+                    'automatic_cost_import_runtime',
+                    'automatic_work_product_collection_runtime',
+                    'automatic_dispatch_scheduler_codex_real_invoker_post_start_executor_fresh_release_gate_contract_runtime',
+                ],
+                'next_build_slices' => [
+                    'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_executor_fresh_release_gate_contract',
+                ],
+            ],
+        ]);
+        $this->assertSame('ok', data_get($audit, 'cycle_integrity.status'));
+        $this->assertTrue((bool) data_get($audit, 'cycle_integrity.intentional_reentry_detected'));
+        $this->assertSame('automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_executor_fresh_release_gate', data_get($audit, 'cycle_integrity.intentional_reentry_target'));
+    }
+
+    public function test_synthetic_reentry_target_accepts_post_start_executor_enablement_gate_contract_after_fresh_release_ready(): void
+    {
+        $audit = $this->newService()->audit([
+            'override_projection' => [
+                'next_required_slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_executor_enablement_gate_contract',
+                'not_yet_runtime_capable' => [
+                    'adapter_execution_runtime',
+                    'automatic_cost_import_runtime',
+                    'automatic_work_product_collection_runtime',
+                    'automatic_dispatch_scheduler_codex_real_invoker_post_start_executor_enablement_gate_contract_runtime',
+                ],
+                'next_build_slices' => [
+                    'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_executor_enablement_gate_contract',
+                ],
+            ],
+        ]);
+        $this->assertSame('ok', data_get($audit, 'cycle_integrity.status'));
+        $this->assertTrue((bool) data_get($audit, 'cycle_integrity.intentional_reentry_detected'));
+        $this->assertSame('automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_executor_enablement_gate', data_get($audit, 'cycle_integrity.intentional_reentry_target'));
+    }
+
+    public function test_synthetic_reentry_target_accepts_post_start_supervised_start_activation_gate_contract_after_enablement_ready(): void
+    {
+        $audit = $this->newService()->audit([
+            'override_projection' => [
+                'next_required_slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_supervised_start_activation_gate_contract',
+                'not_yet_runtime_capable' => [
+                    'adapter_execution_runtime',
+                    'automatic_cost_import_runtime',
+                    'automatic_work_product_collection_runtime',
+                    'automatic_dispatch_scheduler_codex_real_invoker_post_start_supervised_start_activation_gate_contract_runtime',
+                ],
+                'next_build_slices' => [
+                    'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_supervised_start_activation_gate_contract',
+                ],
+            ],
+        ]);
+        $this->assertSame('ok', data_get($audit, 'cycle_integrity.status'));
+        $this->assertTrue((bool) data_get($audit, 'cycle_integrity.intentional_reentry_detected'));
+        $this->assertSame('automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_supervised_start_activation_gate', data_get($audit, 'cycle_integrity.intentional_reentry_target'));
+    }
+
+    public function test_synthetic_reentry_target_accepts_post_start_guarded_process_start_executor_gate_contract_after_activation_ready(): void
+    {
+        $audit = $this->newService()->audit([
+            'override_projection' => [
+                'next_required_slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_guarded_process_start_executor_gate_contract',
+                'not_yet_runtime_capable' => [
+                    'adapter_execution_runtime',
+                    'automatic_cost_import_runtime',
+                    'automatic_work_product_collection_runtime',
+                    'automatic_dispatch_scheduler_codex_real_invoker_post_start_guarded_process_start_executor_gate_contract_runtime',
+                ],
+                'next_build_slices' => [
+                    'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_guarded_process_start_executor_gate_contract',
+                ],
+            ],
+        ]);
+        $this->assertSame('ok', data_get($audit, 'cycle_integrity.status'));
+        $this->assertTrue((bool) data_get($audit, 'cycle_integrity.intentional_reentry_detected'));
+        $this->assertSame('automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_guarded_process_start_executor_gate', data_get($audit, 'cycle_integrity.intentional_reentry_target'));
+    }
+
+    public function test_synthetic_reentry_target_accepts_post_start_final_process_start_authorization_gate_contract_after_guarded_ready(): void
+    {
+        $audit = $this->newService()->audit([
+            'override_projection' => [
+                'next_required_slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_final_process_start_authorization_gate_contract',
+                'not_yet_runtime_capable' => [
+                    'adapter_execution_runtime',
+                    'automatic_cost_import_runtime',
+                    'automatic_work_product_collection_runtime',
+                    'automatic_dispatch_scheduler_codex_real_invoker_post_start_final_process_start_authorization_gate_contract_runtime',
+                ],
+                'next_build_slices' => [
+                    'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_final_process_start_authorization_gate_contract',
+                ],
+            ],
+        ]);
+        $this->assertSame('ok', data_get($audit, 'cycle_integrity.status'));
+        $this->assertTrue((bool) data_get($audit, 'cycle_integrity.intentional_reentry_detected'));
+        $this->assertSame('automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_final_process_start_authorization_gate', data_get($audit, 'cycle_integrity.intentional_reentry_target'));
+    }
+
+    public function test_synthetic_reentry_target_accepts_post_start_actual_process_start_rehearsal_gate_contract_after_final_authorization_ready(): void
+    {
+        $audit = $this->newService()->audit([
+            'override_projection' => [
+                'next_required_slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_actual_process_start_rehearsal_gate_contract',
+                'not_yet_runtime_capable' => [
+                    'adapter_execution_runtime',
+                    'automatic_cost_import_runtime',
+                    'automatic_work_product_collection_runtime',
+                    'automatic_dispatch_scheduler_codex_real_invoker_post_start_actual_process_start_rehearsal_gate_contract_runtime',
+                ],
+                'next_build_slices' => [
+                    'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_actual_process_start_rehearsal_gate_contract',
+                ],
+            ],
+        ]);
+        $this->assertSame('ok', data_get($audit, 'cycle_integrity.status'));
+        $this->assertTrue((bool) data_get($audit, 'cycle_integrity.intentional_reentry_detected'));
+        $this->assertSame('automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_actual_process_start_rehearsal_gate', data_get($audit, 'cycle_integrity.intentional_reentry_target'));
+    }
+
+    public function test_synthetic_reentry_target_accepts_post_start_process_start_envelope_gate_contract_after_rehearsal_ready(): void
+    {
+        $audit = $this->newService()->audit([
+            'override_projection' => [
+                'next_required_slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_start_envelope_gate_contract',
+                'not_yet_runtime_capable' => [
+                    'adapter_execution_runtime',
+                    'automatic_cost_import_runtime',
+                    'automatic_work_product_collection_runtime',
+                    'automatic_dispatch_scheduler_codex_real_invoker_post_start_process_start_envelope_gate_contract_runtime',
+                ],
+                'next_build_slices' => [
+                    'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_start_envelope_gate_contract',
+                ],
+            ],
+        ]);
+        $this->assertSame('ok', data_get($audit, 'cycle_integrity.status'));
+        $this->assertTrue((bool) data_get($audit, 'cycle_integrity.intentional_reentry_detected'));
+        $this->assertSame('automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_start_envelope_gate', data_get($audit, 'cycle_integrity.intentional_reentry_target'));
+    }
+
+    public function test_synthetic_reentry_target_accepts_post_start_start_execution_gate_contract_after_envelope_ready(): void
+    {
+        $audit = $this->newService()->audit([
+            'override_projection' => [
+                'next_required_slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_start_execution_gate_contract',
+                'not_yet_runtime_capable' => [
+                    'adapter_execution_runtime',
+                    'automatic_cost_import_runtime',
+                    'automatic_work_product_collection_runtime',
+                    'automatic_dispatch_scheduler_codex_real_invoker_post_start_start_execution_gate_contract_runtime',
+                ],
+                'next_build_slices' => [
+                    'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_start_execution_gate_contract',
+                ],
+            ],
+        ]);
+        $this->assertSame('ok', data_get($audit, 'cycle_integrity.status'));
+        $this->assertTrue((bool) data_get($audit, 'cycle_integrity.intentional_reentry_detected'));
+        $this->assertSame('automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_start_execution_gate', data_get($audit, 'cycle_integrity.intentional_reentry_target'));
+    }
+
+    public function test_synthetic_reentry_from_wrong_slice_is_violation(): void
+    {
+        // Point the pointer at a previously-certified future slice
+        // that is NOT the intentional reentry target. The audit must flag it.
+        $audit = $this->newService()->audit([
+            'override_projection' => [
+                'next_required_slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_manual_start_executor_receipt_contract',
             ],
         ]);
         $this->assertSame('blocked', data_get($audit, 'cycle_integrity.status'));
@@ -1571,7 +2201,7 @@ final class AtlasAiSelfConstructionAgentControlPlaneChainIntegrityAuditTest exte
     {
         $audit = $this->newService()->audit([
             'override_projection' => [
-                'next_required_slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_evidence_receipt_contract',
+                'next_required_slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_manual_start_executor_receipt_contract',
             ],
         ]);
         $this->assertSame('blocked', data_get($audit, 'cycle_integrity.status'));

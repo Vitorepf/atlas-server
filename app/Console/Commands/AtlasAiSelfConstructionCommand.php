@@ -83,6 +83,7 @@ class AtlasAiSelfConstructionCommand extends Command
         {--agent-control-plane-replay-snapshot-store-preflight : Generate the read-only Agent Control Plane Replay Snapshot Store preflight without writing snapshots}
         {--agent-control-plane-replay-snapshot-store-implementation-packet : Generate the read-only Agent Control Plane Replay Snapshot Store implementation packet without writing snapshots}
         {--agent-control-plane-replay-snapshot-store-status : Return the read-only Agent Control Plane Replay Snapshot Store registry status without writing snapshots}
+        {--agent-control-plane-replay-snapshot-store-capture : Explicitly capture the current deterministic replay snapshot for baseline comparison without runtime execution}
         {--agent-control-plane-replay-diff-contract : Generate the read-only Agent Control Plane Replay Diff contract without diffing live state}
         {--agent-control-plane-replay-diff-preflight : Generate the read-only Agent Control Plane Replay Diff preflight without diffing live state}
         {--agent-control-plane-replay-diff-implementation-packet : Generate the read-only Agent Control Plane Replay Diff implementation packet without diffing live state}
@@ -135,6 +136,88 @@ class AtlasAiSelfConstructionCommand extends Command
         {--agent-control-plane-certification-status-batch-preflight : Generate the read-only Certification Status Batch preflight}
         {--agent-control-plane-certification-status-batch-implementation-packet : Generate the read-only Certification Status Batch implementation packet}
         {--agent-control-plane-certification-status-batch-status : Run the read-only Certification Status Batch over every status projection}
+        {--atlas-self-construction-os-completion-audit-contract : Generate the read-only Atlas Self-Construction OS Completion Audit contract}
+        {--atlas-self-construction-os-completion-audit-preflight : Generate the read-only Atlas Self-Construction OS Completion Audit preflight}
+        {--atlas-self-construction-os-completion-audit-implementation-packet : Generate the read-only Atlas Self-Construction OS Completion Audit implementation packet}
+        {--atlas-self-construction-os-completion-audit-status : Run the read-only Atlas Self-Construction OS Completion Audit}
+        {--atlas-self-construction-os-completion-operator-action-packet-contract : Generate the read-only Atlas Self-Construction OS Completion Operator Action Packet contract}
+        {--atlas-self-construction-os-completion-operator-action-packet-preflight : Generate the read-only Atlas Self-Construction OS Completion Operator Action Packet preflight}
+        {--atlas-self-construction-os-completion-operator-action-packet-implementation-packet : Generate the read-only Atlas Self-Construction OS Completion Operator Action Packet implementation packet}
+        {--atlas-self-construction-os-completion-operator-action-packet-status : Run the read-only Atlas Self-Construction OS Completion Operator Action Packet}
+        {--atlas-self-construction-real-provider-smoke-runbook-contract : Generate the read-only Atlas Self-Construction Real Provider Smoke Runbook contract}
+        {--atlas-self-construction-real-provider-smoke-runbook-preflight : Generate the read-only Atlas Self-Construction Real Provider Smoke Runbook preflight}
+        {--atlas-self-construction-real-provider-smoke-runbook-implementation-packet : Generate the read-only Atlas Self-Construction Real Provider Smoke Runbook implementation packet}
+        {--atlas-self-construction-real-provider-smoke-runbook-status : Run the read-only Atlas Self-Construction Real Provider Smoke Runbook}
+        {--atlas-self-construction-human-completion-receipt-runbook-contract : Generate the read-only Atlas Self-Construction Human Completion Receipt Runbook contract}
+        {--atlas-self-construction-human-completion-receipt-runbook-preflight : Generate the read-only Atlas Self-Construction Human Completion Receipt Runbook preflight}
+        {--atlas-self-construction-human-completion-receipt-runbook-implementation-packet : Generate the read-only Atlas Self-Construction Human Completion Receipt Runbook implementation packet}
+        {--atlas-self-construction-human-completion-receipt-runbook-status : Run the read-only Atlas Self-Construction Human Completion Receipt Runbook}
+        {--atlas-self-construction-runtime-promotion-receipt-runbook-contract : Generate the read-only Atlas Self-Construction Runtime Promotion Receipt Runbook contract}
+        {--atlas-self-construction-runtime-promotion-receipt-runbook-preflight : Generate the read-only Atlas Self-Construction Runtime Promotion Receipt Runbook preflight}
+        {--atlas-self-construction-runtime-promotion-receipt-runbook-implementation-packet : Generate the read-only Atlas Self-Construction Runtime Promotion Receipt Runbook implementation packet}
+        {--atlas-self-construction-runtime-promotion-receipt-runbook-status : Run the read-only Atlas Self-Construction Runtime Promotion Receipt Runbook}
+        {--atlas-self-construction-final-evidence-bundle-contract : Generate the read-only Atlas Self-Construction Final Evidence Bundle contract}
+        {--atlas-self-construction-final-evidence-bundle-preflight : Generate the read-only Atlas Self-Construction Final Evidence Bundle preflight}
+        {--atlas-self-construction-final-evidence-bundle-implementation-packet : Generate the read-only Atlas Self-Construction Final Evidence Bundle implementation packet}
+        {--atlas-self-construction-final-evidence-bundle-status : Run the read-only Atlas Self-Construction Final Evidence Bundle}
+        {--atlas-self-construction-completion-audit-blocker-explainer-contract : Generate the read-only Atlas Self-Construction Completion Audit Blocker Explainer contract}
+        {--atlas-self-construction-completion-audit-blocker-explainer-preflight : Generate the read-only Atlas Self-Construction Completion Audit Blocker Explainer preflight}
+        {--atlas-self-construction-completion-audit-blocker-explainer-implementation-packet : Generate the read-only Atlas Self-Construction Completion Audit Blocker Explainer implementation packet}
+        {--atlas-self-construction-completion-audit-blocker-explainer-status : Run the read-only Atlas Self-Construction Completion Audit Blocker Explainer}
+        {--atlas-self-construction-runtime-promotion-evidence-dossier-contract : Generate the read-only Atlas Self-Construction Runtime Promotion Evidence Dossier contract}
+        {--atlas-self-construction-runtime-promotion-evidence-dossier-preflight : Generate the read-only Atlas Self-Construction Runtime Promotion Evidence Dossier preflight}
+        {--atlas-self-construction-runtime-promotion-evidence-dossier-implementation-packet : Generate the read-only Atlas Self-Construction Runtime Promotion Evidence Dossier implementation packet}
+        {--atlas-self-construction-runtime-promotion-evidence-dossier-status : Run the read-only Atlas Self-Construction Runtime Promotion Evidence Dossier}
+        {--atlas-self-construction-human-completion-receipt-dossier-contract : Generate the read-only Atlas Self-Construction Human Completion Receipt Dossier contract}
+        {--atlas-self-construction-human-completion-receipt-dossier-preflight : Generate the read-only Atlas Self-Construction Human Completion Receipt Dossier preflight}
+        {--atlas-self-construction-human-completion-receipt-dossier-implementation-packet : Generate the read-only Atlas Self-Construction Human Completion Receipt Dossier implementation packet}
+        {--atlas-self-construction-human-completion-receipt-dossier-status : Run the read-only Atlas Self-Construction Human Completion Receipt Dossier}
+        {--atlas-self-construction-real-provider-smoke-evidence-dossier-contract : Generate the read-only Atlas Self-Construction Real Provider Smoke Evidence Dossier contract}
+        {--atlas-self-construction-real-provider-smoke-evidence-dossier-preflight : Generate the read-only Atlas Self-Construction Real Provider Smoke Evidence Dossier preflight}
+        {--atlas-self-construction-real-provider-smoke-evidence-dossier-implementation-packet : Generate the read-only Atlas Self-Construction Real Provider Smoke Evidence Dossier implementation packet}
+        {--atlas-self-construction-real-provider-smoke-evidence-dossier-status : Run the read-only Atlas Self-Construction Real Provider Smoke Evidence Dossier}
+        {--atlas-self-construction-os-completion-evidence-status : Run the read-only Atlas Self-Construction OS final completion evidence status}
+        {--runtime-promotion-receipt-json= : Runtime promotion receipt JSON payload or @path for completion evidence status}
+        {--completion-receipt-json= : Human signed OS completion receipt JSON payload or @path for completion evidence status}
+        {--real-provider-smoke-json= : Real provider smoke JSON payload or @path for completion evidence status}
+        {--persist-completion-evidence : Persist valid completion receipt and/or real provider smoke evidence payloads}
+        {--persist-runtime-promotion-receipt : Persist a valid runtime promotion receipt payload}
+        {--agent-control-plane-runtime-evidence-journal-contract : Generate the read-only Runtime Evidence Journal contract}
+        {--agent-control-plane-runtime-evidence-journal-preflight : Generate the read-only Runtime Evidence Journal preflight}
+        {--agent-control-plane-runtime-evidence-journal-implementation-packet : Generate the read-only Runtime Evidence Journal implementation packet}
+        {--agent-control-plane-runtime-evidence-journal-status : Certify the local Runtime Evidence Journal projection}
+        {--agent-control-plane-execution-workspace-runtime-contract : Generate the read-only Execution Workspace Runtime contract}
+        {--agent-control-plane-execution-workspace-runtime-preflight : Generate the read-only Execution Workspace Runtime preflight}
+        {--agent-control-plane-execution-workspace-runtime-implementation-packet : Generate the read-only Execution Workspace Runtime implementation packet}
+        {--agent-control-plane-execution-workspace-runtime-status : Certify the read-only Execution Workspace Runtime projection}
+        {--agent-control-plane-governance-approval-runtime-contract : Generate the read-only Governance Approval Runtime contract}
+        {--agent-control-plane-governance-approval-runtime-preflight : Generate the read-only Governance Approval Runtime preflight}
+        {--agent-control-plane-governance-approval-runtime-implementation-packet : Generate the read-only Governance Approval Runtime implementation packet}
+        {--agent-control-plane-governance-approval-runtime-status : Certify the read-only Governance Approval Runtime projection}
+        {--agent-control-plane-automatic-cost-import-runtime-contract : Generate the read-only Automatic Cost Import Runtime contract}
+        {--agent-control-plane-automatic-cost-import-runtime-preflight : Generate the read-only Automatic Cost Import Runtime preflight}
+        {--agent-control-plane-automatic-cost-import-runtime-implementation-packet : Generate the read-only Automatic Cost Import Runtime implementation packet}
+        {--agent-control-plane-automatic-cost-import-runtime-status : Certify the read-only Automatic Cost Import Runtime projection}
+        {--agent-control-plane-automatic-work-product-collection-runtime-contract : Generate the read-only Automatic Work Product Collection Runtime contract}
+        {--agent-control-plane-automatic-work-product-collection-runtime-preflight : Generate the read-only Automatic Work Product Collection Runtime preflight}
+        {--agent-control-plane-automatic-work-product-collection-runtime-implementation-packet : Generate the read-only Automatic Work Product Collection Runtime implementation packet}
+        {--agent-control-plane-automatic-work-product-collection-runtime-status : Certify the read-only Automatic Work Product Collection Runtime projection}
+        {--agent-control-plane-adapter-execution-runtime-boundary-contract : Generate the read-only Adapter Execution Runtime Boundary contract}
+        {--agent-control-plane-adapter-execution-runtime-boundary-preflight : Generate the read-only Adapter Execution Runtime Boundary preflight}
+        {--agent-control-plane-adapter-execution-runtime-boundary-implementation-packet : Generate the read-only Adapter Execution Runtime Boundary implementation packet}
+        {--agent-control-plane-adapter-execution-runtime-boundary-status : Certify the read-only Adapter Execution Runtime Boundary projection}
+        {--agent-control-plane-dispatch-planner-runtime-contract : Generate the read-only Dispatch Planner Runtime contract}
+        {--agent-control-plane-dispatch-planner-runtime-preflight : Generate the read-only Dispatch Planner Runtime preflight}
+        {--agent-control-plane-dispatch-planner-runtime-implementation-packet : Generate the read-only Dispatch Planner Runtime implementation packet}
+        {--agent-control-plane-dispatch-planner-runtime-status : Certify the read-only Dispatch Planner Runtime projection}
+        {--agent-control-plane-validation-gate-runtime-contract : Generate the read-only Validation Gate Runtime contract}
+        {--agent-control-plane-validation-gate-runtime-preflight : Generate the read-only Validation Gate Runtime preflight}
+        {--agent-control-plane-validation-gate-runtime-implementation-packet : Generate the read-only Validation Gate Runtime implementation packet}
+        {--agent-control-plane-validation-gate-runtime-status : Certify the read-only Validation Gate Runtime projection}
+        {--agent-control-plane-merge-review-runtime-contract : Generate the read-only Merge Review Runtime contract}
+        {--agent-control-plane-merge-review-runtime-preflight : Generate the read-only Merge Review Runtime preflight}
+        {--agent-control-plane-merge-review-runtime-implementation-packet : Generate the read-only Merge Review Runtime implementation packet}
+        {--agent-control-plane-merge-review-runtime-status : Certify the read-only Merge Review Runtime projection}
         {--agent-control-plane-task-packet-builder-contract : Generate the read-only Task Packet Builder contract}
         {--agent-control-plane-task-packet-builder-preflight : Generate the read-only Task Packet Builder preflight}
         {--agent-control-plane-task-packet-builder-implementation-packet : Generate the read-only Task Packet Builder implementation packet}
@@ -195,6 +278,46 @@ class AtlasAiSelfConstructionCommand extends Command
         {--agent-control-plane-task-queue-lease-certification-preflight : Generate the Task Queue + Lease certification preflight}
         {--agent-control-plane-task-queue-lease-certification-implementation-packet : Generate the Task Queue + Lease certification implementation packet}
         {--agent-control-plane-task-queue-lease-certification-status : Run the Task Queue + Lease certification probe battery}
+        {--agent-control-plane-agent-runtime-registry-contract : Generate the Agent Runtime Registry repository contract}
+        {--agent-control-plane-agent-runtime-registry-preflight : Generate the Agent Runtime Registry repository preflight}
+        {--agent-control-plane-agent-runtime-registry-implementation-packet : Generate the Agent Runtime Registry repository implementation packet}
+        {--agent-control-plane-agent-runtime-registry-status : Inspect the Agent Runtime Registry repository projection}
+        {--agent-control-plane-agent-runtime-registry-heartbeat-contract : Generate the Agent Runtime Registry heartbeat contract}
+        {--agent-control-plane-agent-runtime-registry-heartbeat-preflight : Generate the Agent Runtime Registry heartbeat preflight}
+        {--agent-control-plane-agent-runtime-registry-heartbeat-implementation-packet : Generate the Agent Runtime Registry heartbeat implementation packet}
+        {--agent-control-plane-agent-runtime-registry-heartbeat-status : Inspect the Agent Runtime Registry heartbeat projection}
+        {--agent-control-plane-agent-runtime-registry-capability-catalog-contract : Generate the Agent Runtime Registry capability catalog contract}
+        {--agent-control-plane-agent-runtime-registry-capability-catalog-preflight : Generate the Agent Runtime Registry capability catalog preflight}
+        {--agent-control-plane-agent-runtime-registry-capability-catalog-implementation-packet : Generate the Agent Runtime Registry capability catalog implementation packet}
+        {--agent-control-plane-agent-runtime-registry-capability-catalog-status : Inspect the Agent Runtime Registry capability catalog projection}
+        {--agent-control-plane-agent-runtime-registry-availability-contract : Generate the Agent Runtime Registry availability planner contract}
+        {--agent-control-plane-agent-runtime-registry-availability-preflight : Generate the Agent Runtime Registry availability planner preflight}
+        {--agent-control-plane-agent-runtime-registry-availability-implementation-packet : Generate the Agent Runtime Registry availability planner implementation packet}
+        {--agent-control-plane-agent-runtime-registry-availability-status : Inspect the Agent Runtime Registry availability planner projection}
+        {--agent-control-plane-agent-runtime-registry-task-matcher-contract : Generate the Agent Runtime Registry task matcher contract}
+        {--agent-control-plane-agent-runtime-registry-task-matcher-preflight : Generate the Agent Runtime Registry task matcher preflight}
+        {--agent-control-plane-agent-runtime-registry-task-matcher-implementation-packet : Generate the Agent Runtime Registry task matcher implementation packet}
+        {--agent-control-plane-agent-runtime-registry-task-matcher-status : Inspect the Agent Runtime Registry task matcher projection}
+        {--agent-control-plane-agent-runtime-registry-load-balancing-contract : Generate the Agent Runtime Registry load balancing policy contract}
+        {--agent-control-plane-agent-runtime-registry-load-balancing-preflight : Generate the Agent Runtime Registry load balancing policy preflight}
+        {--agent-control-plane-agent-runtime-registry-load-balancing-implementation-packet : Generate the Agent Runtime Registry load balancing policy implementation packet}
+        {--agent-control-plane-agent-runtime-registry-load-balancing-status : Inspect the Agent Runtime Registry load balancing policy projection}
+        {--agent-control-plane-agent-runtime-registry-quarantine-contract : Generate the Agent Runtime Registry quarantine repository contract}
+        {--agent-control-plane-agent-runtime-registry-quarantine-preflight : Generate the Agent Runtime Registry quarantine repository preflight}
+        {--agent-control-plane-agent-runtime-registry-quarantine-implementation-packet : Generate the Agent Runtime Registry quarantine repository implementation packet}
+        {--agent-control-plane-agent-runtime-registry-quarantine-status : Inspect the Agent Runtime Registry quarantine projection}
+        {--agent-control-plane-agent-runtime-registry-handoff-contract : Generate the Agent Runtime Registry handoff protocol contract}
+        {--agent-control-plane-agent-runtime-registry-handoff-preflight : Generate the Agent Runtime Registry handoff protocol preflight}
+        {--agent-control-plane-agent-runtime-registry-handoff-implementation-packet : Generate the Agent Runtime Registry handoff protocol implementation packet}
+        {--agent-control-plane-agent-runtime-registry-handoff-status : Inspect the Agent Runtime Registry handoff protocol projection}
+        {--agent-control-plane-agent-runtime-registry-orchestrator-contract : Generate the Agent Runtime Registry orchestrator contract}
+        {--agent-control-plane-agent-runtime-registry-orchestrator-preflight : Generate the Agent Runtime Registry orchestrator preflight}
+        {--agent-control-plane-agent-runtime-registry-orchestrator-implementation-packet : Generate the Agent Runtime Registry orchestrator implementation packet}
+        {--agent-control-plane-agent-runtime-registry-orchestrator-status : Run the Agent Runtime Registry orchestrator planning projection}
+        {--agent-control-plane-agent-runtime-registry-certification-contract : Generate the Agent Runtime Registry certification contract}
+        {--agent-control-plane-agent-runtime-registry-certification-preflight : Generate the Agent Runtime Registry certification preflight}
+        {--agent-control-plane-agent-runtime-registry-certification-implementation-packet : Generate the Agent Runtime Registry certification implementation packet}
+        {--agent-control-plane-agent-runtime-registry-certification-status : Run the Agent Runtime Registry certification invariants}
         {--agent-run-sync : Materialize reservation ledger state into Agent Control Plane runtime runs when schema is available}
         {--agent-heartbeat : Record a heartbeat for a synced Agent Control Plane run}
         {--agent-run-liveness : Inspect synced Agent Control Plane runs for active, stale, expired and terminal liveness}
@@ -1032,6 +1155,11 @@ class AtlasAiSelfConstructionCommand extends Command
             'dispatch_envelope_hash' => $this->option('dispatch-envelope-hash'),
             'adapter_contract_hash' => $this->option('adapter-contract-hash'),
             'expires_at' => $this->option('expires-at'),
+            'runtime_promotion_receipt_json' => $this->option('runtime-promotion-receipt-json'),
+            'completion_receipt_json' => $this->option('completion-receipt-json'),
+            'real_provider_smoke_json' => $this->option('real-provider-smoke-json'),
+            'persist_completion_evidence' => $this->option('persist-completion-evidence'),
+            'persist_runtime_promotion_receipt' => $this->option('persist-runtime-promotion-receipt'),
         ];
 
         $payload = match (true) {
@@ -1650,10 +1778,86 @@ class AtlasAiSelfConstructionCommand extends Command
             (bool) $this->option('agent-run-liveness') => $readiness->agentRunLiveness($options),
             (bool) $this->option('agent-heartbeat') => $readiness->agentHeartbeat($options),
             (bool) $this->option('agent-run-sync') => $readiness->agentRunSync($options),
+            (bool) $this->option('agent-control-plane-agent-runtime-registry-certification-status') => $readiness->agentControlPlaneAgentRuntimeRegistryCertificationStatus($options),
+            (bool) $this->option('agent-control-plane-agent-runtime-registry-certification-implementation-packet') => $readiness->agentControlPlaneAgentRuntimeRegistryCertificationImplementationPacket($options),
+            (bool) $this->option('agent-control-plane-agent-runtime-registry-certification-preflight') => $readiness->agentControlPlaneAgentRuntimeRegistryCertificationPreflight($options),
+            (bool) $this->option('agent-control-plane-agent-runtime-registry-certification-contract') => $readiness->agentControlPlaneAgentRuntimeRegistryCertificationContract($options),
+            (bool) $this->option('agent-control-plane-agent-runtime-registry-orchestrator-status') => $readiness->agentControlPlaneAgentRuntimeRegistryOrchestratorStatus($options),
+            (bool) $this->option('agent-control-plane-agent-runtime-registry-orchestrator-implementation-packet') => $readiness->agentControlPlaneAgentRuntimeRegistryOrchestratorImplementationPacket($options),
+            (bool) $this->option('agent-control-plane-agent-runtime-registry-orchestrator-preflight') => $readiness->agentControlPlaneAgentRuntimeRegistryOrchestratorPreflight($options),
+            (bool) $this->option('agent-control-plane-agent-runtime-registry-orchestrator-contract') => $readiness->agentControlPlaneAgentRuntimeRegistryOrchestratorContract($options),
+            (bool) $this->option('agent-control-plane-agent-runtime-registry-handoff-status') => $readiness->agentControlPlaneAgentRuntimeRegistryHandoffStatus($options),
+            (bool) $this->option('agent-control-plane-agent-runtime-registry-handoff-implementation-packet') => $readiness->agentControlPlaneAgentRuntimeRegistryHandoffImplementationPacket($options),
+            (bool) $this->option('agent-control-plane-agent-runtime-registry-handoff-preflight') => $readiness->agentControlPlaneAgentRuntimeRegistryHandoffPreflight($options),
+            (bool) $this->option('agent-control-plane-agent-runtime-registry-handoff-contract') => $readiness->agentControlPlaneAgentRuntimeRegistryHandoffContract($options),
+            (bool) $this->option('agent-control-plane-agent-runtime-registry-quarantine-status') => $readiness->agentControlPlaneAgentRuntimeRegistryQuarantineStatus($options),
+            (bool) $this->option('agent-control-plane-agent-runtime-registry-quarantine-implementation-packet') => $readiness->agentControlPlaneAgentRuntimeRegistryQuarantineImplementationPacket($options),
+            (bool) $this->option('agent-control-plane-agent-runtime-registry-quarantine-preflight') => $readiness->agentControlPlaneAgentRuntimeRegistryQuarantinePreflight($options),
+            (bool) $this->option('agent-control-plane-agent-runtime-registry-quarantine-contract') => $readiness->agentControlPlaneAgentRuntimeRegistryQuarantineContract($options),
+            (bool) $this->option('agent-control-plane-agent-runtime-registry-load-balancing-status') => $readiness->agentControlPlaneAgentRuntimeRegistryLoadBalancingStatus($options),
+            (bool) $this->option('agent-control-plane-agent-runtime-registry-load-balancing-implementation-packet') => $readiness->agentControlPlaneAgentRuntimeRegistryLoadBalancingImplementationPacket($options),
+            (bool) $this->option('agent-control-plane-agent-runtime-registry-load-balancing-preflight') => $readiness->agentControlPlaneAgentRuntimeRegistryLoadBalancingPreflight($options),
+            (bool) $this->option('agent-control-plane-agent-runtime-registry-load-balancing-contract') => $readiness->agentControlPlaneAgentRuntimeRegistryLoadBalancingContract($options),
+            (bool) $this->option('agent-control-plane-agent-runtime-registry-task-matcher-status') => $readiness->agentControlPlaneAgentRuntimeRegistryTaskMatcherStatus($options),
+            (bool) $this->option('agent-control-plane-agent-runtime-registry-task-matcher-implementation-packet') => $readiness->agentControlPlaneAgentRuntimeRegistryTaskMatcherImplementationPacket($options),
+            (bool) $this->option('agent-control-plane-agent-runtime-registry-task-matcher-preflight') => $readiness->agentControlPlaneAgentRuntimeRegistryTaskMatcherPreflight($options),
+            (bool) $this->option('agent-control-plane-agent-runtime-registry-task-matcher-contract') => $readiness->agentControlPlaneAgentRuntimeRegistryTaskMatcherContract($options),
+            (bool) $this->option('agent-control-plane-agent-runtime-registry-availability-status') => $readiness->agentControlPlaneAgentRuntimeRegistryAvailabilityStatus($options),
+            (bool) $this->option('agent-control-plane-agent-runtime-registry-availability-implementation-packet') => $readiness->agentControlPlaneAgentRuntimeRegistryAvailabilityImplementationPacket($options),
+            (bool) $this->option('agent-control-plane-agent-runtime-registry-availability-preflight') => $readiness->agentControlPlaneAgentRuntimeRegistryAvailabilityPreflight($options),
+            (bool) $this->option('agent-control-plane-agent-runtime-registry-availability-contract') => $readiness->agentControlPlaneAgentRuntimeRegistryAvailabilityContract($options),
+            (bool) $this->option('agent-control-plane-agent-runtime-registry-capability-catalog-status') => $readiness->agentControlPlaneAgentRuntimeRegistryCapabilityCatalogStatus($options),
+            (bool) $this->option('agent-control-plane-agent-runtime-registry-capability-catalog-implementation-packet') => $readiness->agentControlPlaneAgentRuntimeRegistryCapabilityCatalogImplementationPacket($options),
+            (bool) $this->option('agent-control-plane-agent-runtime-registry-capability-catalog-preflight') => $readiness->agentControlPlaneAgentRuntimeRegistryCapabilityCatalogPreflight($options),
+            (bool) $this->option('agent-control-plane-agent-runtime-registry-capability-catalog-contract') => $readiness->agentControlPlaneAgentRuntimeRegistryCapabilityCatalogContract($options),
+            (bool) $this->option('agent-control-plane-agent-runtime-registry-heartbeat-status') => $readiness->agentControlPlaneAgentRuntimeRegistryHeartbeatStatus($options),
+            (bool) $this->option('agent-control-plane-agent-runtime-registry-heartbeat-implementation-packet') => $readiness->agentControlPlaneAgentRuntimeRegistryHeartbeatImplementationPacket($options),
+            (bool) $this->option('agent-control-plane-agent-runtime-registry-heartbeat-preflight') => $readiness->agentControlPlaneAgentRuntimeRegistryHeartbeatPreflight($options),
+            (bool) $this->option('agent-control-plane-agent-runtime-registry-heartbeat-contract') => $readiness->agentControlPlaneAgentRuntimeRegistryHeartbeatContract($options),
+            (bool) $this->option('agent-control-plane-agent-runtime-registry-status') => $readiness->agentControlPlaneAgentRuntimeRegistryStatus($options),
+            (bool) $this->option('agent-control-plane-agent-runtime-registry-implementation-packet') => $readiness->agentControlPlaneAgentRuntimeRegistryImplementationPacket($options),
+            (bool) $this->option('agent-control-plane-agent-runtime-registry-preflight') => $readiness->agentControlPlaneAgentRuntimeRegistryPreflight($options),
+            (bool) $this->option('agent-control-plane-agent-runtime-registry-contract') => $readiness->agentControlPlaneAgentRuntimeRegistryContract($options),
             (bool) $this->option('agent-control-plane-task-queue-lease-certification-status') => $readiness->agentControlPlaneTaskQueueLeaseCertificationStatus($options),
             (bool) $this->option('agent-control-plane-task-queue-lease-certification-implementation-packet') => $readiness->agentControlPlaneTaskQueueLeaseCertificationImplementationPacket($options),
             (bool) $this->option('agent-control-plane-task-queue-lease-certification-preflight') => $readiness->agentControlPlaneTaskQueueLeaseCertificationPreflight($options),
             (bool) $this->option('agent-control-plane-task-queue-lease-certification-contract') => $readiness->agentControlPlaneTaskQueueLeaseCertificationContract($options),
+            (bool) $this->option('agent-control-plane-runtime-evidence-journal-status') => $readiness->agentControlPlaneRuntimeEvidenceJournalStatus($options),
+            (bool) $this->option('agent-control-plane-runtime-evidence-journal-implementation-packet') => $readiness->agentControlPlaneRuntimeEvidenceJournalImplementationPacket($options),
+            (bool) $this->option('agent-control-plane-runtime-evidence-journal-preflight') => $readiness->agentControlPlaneRuntimeEvidenceJournalPreflight($options),
+            (bool) $this->option('agent-control-plane-runtime-evidence-journal-contract') => $readiness->agentControlPlaneRuntimeEvidenceJournalContract($options),
+            (bool) $this->option('agent-control-plane-execution-workspace-runtime-status') => $readiness->agentControlPlaneExecutionWorkspaceRuntimeStatus($options),
+            (bool) $this->option('agent-control-plane-execution-workspace-runtime-implementation-packet') => $readiness->agentControlPlaneExecutionWorkspaceRuntimeImplementationPacket($options),
+            (bool) $this->option('agent-control-plane-execution-workspace-runtime-preflight') => $readiness->agentControlPlaneExecutionWorkspaceRuntimePreflight($options),
+            (bool) $this->option('agent-control-plane-execution-workspace-runtime-contract') => $readiness->agentControlPlaneExecutionWorkspaceRuntimeContract($options),
+            (bool) $this->option('agent-control-plane-governance-approval-runtime-status') => $readiness->agentControlPlaneGovernanceApprovalRuntimeStatus($options),
+            (bool) $this->option('agent-control-plane-governance-approval-runtime-implementation-packet') => $readiness->agentControlPlaneGovernanceApprovalRuntimeImplementationPacket($options),
+            (bool) $this->option('agent-control-plane-governance-approval-runtime-preflight') => $readiness->agentControlPlaneGovernanceApprovalRuntimePreflight($options),
+            (bool) $this->option('agent-control-plane-governance-approval-runtime-contract') => $readiness->agentControlPlaneGovernanceApprovalRuntimeContract($options),
+            (bool) $this->option('agent-control-plane-automatic-cost-import-runtime-status') => $readiness->agentControlPlaneAutomaticCostImportRuntimeStatus($options),
+            (bool) $this->option('agent-control-plane-automatic-cost-import-runtime-implementation-packet') => $readiness->agentControlPlaneAutomaticCostImportRuntimeImplementationPacket($options),
+            (bool) $this->option('agent-control-plane-automatic-cost-import-runtime-preflight') => $readiness->agentControlPlaneAutomaticCostImportRuntimePreflight($options),
+            (bool) $this->option('agent-control-plane-automatic-cost-import-runtime-contract') => $readiness->agentControlPlaneAutomaticCostImportRuntimeContract($options),
+            (bool) $this->option('agent-control-plane-automatic-work-product-collection-runtime-status') => $readiness->agentControlPlaneAutomaticWorkProductCollectionRuntimeStatus($options),
+            (bool) $this->option('agent-control-plane-automatic-work-product-collection-runtime-implementation-packet') => $readiness->agentControlPlaneAutomaticWorkProductCollectionRuntimeImplementationPacket($options),
+            (bool) $this->option('agent-control-plane-automatic-work-product-collection-runtime-preflight') => $readiness->agentControlPlaneAutomaticWorkProductCollectionRuntimePreflight($options),
+            (bool) $this->option('agent-control-plane-automatic-work-product-collection-runtime-contract') => $readiness->agentControlPlaneAutomaticWorkProductCollectionRuntimeContract($options),
+            (bool) $this->option('agent-control-plane-adapter-execution-runtime-boundary-status') => $readiness->agentControlPlaneAdapterExecutionRuntimeBoundaryStatus($options),
+            (bool) $this->option('agent-control-plane-adapter-execution-runtime-boundary-implementation-packet') => $readiness->agentControlPlaneAdapterExecutionRuntimeBoundaryImplementationPacket($options),
+            (bool) $this->option('agent-control-plane-adapter-execution-runtime-boundary-preflight') => $readiness->agentControlPlaneAdapterExecutionRuntimeBoundaryPreflight($options),
+            (bool) $this->option('agent-control-plane-adapter-execution-runtime-boundary-contract') => $readiness->agentControlPlaneAdapterExecutionRuntimeBoundaryContract($options),
+            (bool) $this->option('agent-control-plane-dispatch-planner-runtime-status') => $readiness->agentControlPlaneDispatchPlannerRuntimeStatus($options),
+            (bool) $this->option('agent-control-plane-dispatch-planner-runtime-implementation-packet') => $readiness->agentControlPlaneDispatchPlannerRuntimeImplementationPacket($options),
+            (bool) $this->option('agent-control-plane-dispatch-planner-runtime-preflight') => $readiness->agentControlPlaneDispatchPlannerRuntimePreflight($options),
+            (bool) $this->option('agent-control-plane-dispatch-planner-runtime-contract') => $readiness->agentControlPlaneDispatchPlannerRuntimeContract($options),
+            (bool) $this->option('agent-control-plane-validation-gate-runtime-status') => $readiness->agentControlPlaneValidationGateRuntimeStatus($options),
+            (bool) $this->option('agent-control-plane-validation-gate-runtime-implementation-packet') => $readiness->agentControlPlaneValidationGateRuntimeImplementationPacket($options),
+            (bool) $this->option('agent-control-plane-validation-gate-runtime-preflight') => $readiness->agentControlPlaneValidationGateRuntimePreflight($options),
+            (bool) $this->option('agent-control-plane-validation-gate-runtime-contract') => $readiness->agentControlPlaneValidationGateRuntimeContract($options),
+            (bool) $this->option('agent-control-plane-merge-review-runtime-status') => $readiness->agentControlPlaneMergeReviewRuntimeStatus($options),
+            (bool) $this->option('agent-control-plane-merge-review-runtime-implementation-packet') => $readiness->agentControlPlaneMergeReviewRuntimeImplementationPacket($options),
+            (bool) $this->option('agent-control-plane-merge-review-runtime-preflight') => $readiness->agentControlPlaneMergeReviewRuntimePreflight($options),
+            (bool) $this->option('agent-control-plane-merge-review-runtime-contract') => $readiness->agentControlPlaneMergeReviewRuntimeContract($options),
             (bool) $this->option('agent-control-plane-task-queue-orchestrator-status') => $readiness->agentControlPlaneTaskQueueOrchestratorStatus($options),
             (bool) $this->option('agent-control-plane-task-queue-orchestrator-implementation-packet') => $readiness->agentControlPlaneTaskQueueOrchestratorImplementationPacket($options),
             (bool) $this->option('agent-control-plane-task-queue-orchestrator-preflight') => $readiness->agentControlPlaneTaskQueueOrchestratorPreflight($options),
@@ -1714,6 +1918,47 @@ class AtlasAiSelfConstructionCommand extends Command
             (bool) $this->option('agent-control-plane-certification-status-batch-implementation-packet') => $readiness->agentControlPlaneCertificationStatusBatchImplementationPacket($options),
             (bool) $this->option('agent-control-plane-certification-status-batch-preflight') => $readiness->agentControlPlaneCertificationStatusBatchPreflight($options),
             (bool) $this->option('agent-control-plane-certification-status-batch-contract') => $readiness->agentControlPlaneCertificationStatusBatchContract($options),
+            (bool) $this->option('atlas-self-construction-os-completion-audit-status') => $readiness->atlasSelfConstructionOsCompletionAuditStatus($options),
+            (bool) $this->option('atlas-self-construction-os-completion-operator-action-packet-status') => $readiness->atlasSelfConstructionOsCompletionOperatorActionPacketStatus($options),
+            (bool) $this->option('atlas-self-construction-os-completion-operator-action-packet-implementation-packet') => $readiness->atlasSelfConstructionOsCompletionOperatorActionPacketImplementationPacket($options),
+            (bool) $this->option('atlas-self-construction-os-completion-operator-action-packet-preflight') => $readiness->atlasSelfConstructionOsCompletionOperatorActionPacketPreflight($options),
+            (bool) $this->option('atlas-self-construction-os-completion-operator-action-packet-contract') => $readiness->atlasSelfConstructionOsCompletionOperatorActionPacketContract($options),
+            (bool) $this->option('atlas-self-construction-real-provider-smoke-runbook-status') => $readiness->atlasSelfConstructionRealProviderSmokeRunbookStatus($options),
+            (bool) $this->option('atlas-self-construction-real-provider-smoke-runbook-implementation-packet') => $readiness->atlasSelfConstructionRealProviderSmokeRunbookImplementationPacket($options),
+            (bool) $this->option('atlas-self-construction-real-provider-smoke-runbook-preflight') => $readiness->atlasSelfConstructionRealProviderSmokeRunbookPreflight($options),
+            (bool) $this->option('atlas-self-construction-real-provider-smoke-runbook-contract') => $readiness->atlasSelfConstructionRealProviderSmokeRunbookContract($options),
+            (bool) $this->option('atlas-self-construction-human-completion-receipt-runbook-status') => $readiness->atlasSelfConstructionHumanCompletionReceiptRunbookStatus($options),
+            (bool) $this->option('atlas-self-construction-human-completion-receipt-runbook-implementation-packet') => $readiness->atlasSelfConstructionHumanCompletionReceiptRunbookImplementationPacket($options),
+            (bool) $this->option('atlas-self-construction-human-completion-receipt-runbook-preflight') => $readiness->atlasSelfConstructionHumanCompletionReceiptRunbookPreflight($options),
+            (bool) $this->option('atlas-self-construction-human-completion-receipt-runbook-contract') => $readiness->atlasSelfConstructionHumanCompletionReceiptRunbookContract($options),
+            (bool) $this->option('atlas-self-construction-runtime-promotion-receipt-runbook-status') => $readiness->atlasSelfConstructionRuntimePromotionReceiptRunbookStatus($options),
+            (bool) $this->option('atlas-self-construction-runtime-promotion-receipt-runbook-implementation-packet') => $readiness->atlasSelfConstructionRuntimePromotionReceiptRunbookImplementationPacket($options),
+            (bool) $this->option('atlas-self-construction-runtime-promotion-receipt-runbook-preflight') => $readiness->atlasSelfConstructionRuntimePromotionReceiptRunbookPreflight($options),
+            (bool) $this->option('atlas-self-construction-runtime-promotion-receipt-runbook-contract') => $readiness->atlasSelfConstructionRuntimePromotionReceiptRunbookContract($options),
+            (bool) $this->option('atlas-self-construction-final-evidence-bundle-status') => $readiness->atlasSelfConstructionFinalEvidenceBundleStatus($options),
+            (bool) $this->option('atlas-self-construction-final-evidence-bundle-implementation-packet') => $readiness->atlasSelfConstructionFinalEvidenceBundleImplementationPacket($options),
+            (bool) $this->option('atlas-self-construction-final-evidence-bundle-preflight') => $readiness->atlasSelfConstructionFinalEvidenceBundlePreflight($options),
+            (bool) $this->option('atlas-self-construction-final-evidence-bundle-contract') => $readiness->atlasSelfConstructionFinalEvidenceBundleContract($options),
+            (bool) $this->option('atlas-self-construction-completion-audit-blocker-explainer-status') => $readiness->atlasSelfConstructionCompletionAuditBlockerExplainerStatus($options),
+            (bool) $this->option('atlas-self-construction-completion-audit-blocker-explainer-implementation-packet') => $readiness->atlasSelfConstructionCompletionAuditBlockerExplainerImplementationPacket($options),
+            (bool) $this->option('atlas-self-construction-completion-audit-blocker-explainer-preflight') => $readiness->atlasSelfConstructionCompletionAuditBlockerExplainerPreflight($options),
+            (bool) $this->option('atlas-self-construction-completion-audit-blocker-explainer-contract') => $readiness->atlasSelfConstructionCompletionAuditBlockerExplainerContract($options),
+            (bool) $this->option('atlas-self-construction-runtime-promotion-evidence-dossier-status') => $readiness->atlasSelfConstructionRuntimePromotionEvidenceDossierStatus($options),
+            (bool) $this->option('atlas-self-construction-runtime-promotion-evidence-dossier-implementation-packet') => $readiness->atlasSelfConstructionRuntimePromotionEvidenceDossierImplementationPacket($options),
+            (bool) $this->option('atlas-self-construction-runtime-promotion-evidence-dossier-preflight') => $readiness->atlasSelfConstructionRuntimePromotionEvidenceDossierPreflight($options),
+            (bool) $this->option('atlas-self-construction-runtime-promotion-evidence-dossier-contract') => $readiness->atlasSelfConstructionRuntimePromotionEvidenceDossierContract($options),
+            (bool) $this->option('atlas-self-construction-human-completion-receipt-dossier-status') => $readiness->atlasSelfConstructionHumanCompletionReceiptDossierStatus($options),
+            (bool) $this->option('atlas-self-construction-human-completion-receipt-dossier-implementation-packet') => $readiness->atlasSelfConstructionHumanCompletionReceiptDossierImplementationPacket($options),
+            (bool) $this->option('atlas-self-construction-human-completion-receipt-dossier-preflight') => $readiness->atlasSelfConstructionHumanCompletionReceiptDossierPreflight($options),
+            (bool) $this->option('atlas-self-construction-human-completion-receipt-dossier-contract') => $readiness->atlasSelfConstructionHumanCompletionReceiptDossierContract($options),
+            (bool) $this->option('atlas-self-construction-real-provider-smoke-evidence-dossier-status') => $readiness->atlasSelfConstructionRealProviderSmokeEvidenceDossierStatus($options),
+            (bool) $this->option('atlas-self-construction-real-provider-smoke-evidence-dossier-implementation-packet') => $readiness->atlasSelfConstructionRealProviderSmokeEvidenceDossierImplementationPacket($options),
+            (bool) $this->option('atlas-self-construction-real-provider-smoke-evidence-dossier-preflight') => $readiness->atlasSelfConstructionRealProviderSmokeEvidenceDossierPreflight($options),
+            (bool) $this->option('atlas-self-construction-real-provider-smoke-evidence-dossier-contract') => $readiness->atlasSelfConstructionRealProviderSmokeEvidenceDossierContract($options),
+            (bool) $this->option('atlas-self-construction-os-completion-evidence-status') => $readiness->atlasSelfConstructionOsCompletionEvidenceStatus($options),
+            (bool) $this->option('atlas-self-construction-os-completion-audit-implementation-packet') => $readiness->atlasSelfConstructionOsCompletionAuditImplementationPacket($options),
+            (bool) $this->option('atlas-self-construction-os-completion-audit-preflight') => $readiness->atlasSelfConstructionOsCompletionAuditPreflight($options),
+            (bool) $this->option('atlas-self-construction-os-completion-audit-contract') => $readiness->atlasSelfConstructionOsCompletionAuditContract($options),
             (bool) $this->option('agent-control-plane-certification-coverage-report-status') => $readiness->agentControlPlaneCertificationCoverageReportStatus($options),
             (bool) $this->option('agent-control-plane-certification-coverage-report-implementation-packet') => $readiness->agentControlPlaneCertificationCoverageReportImplementationPacket($options),
             (bool) $this->option('agent-control-plane-certification-coverage-report-preflight') => $readiness->agentControlPlaneCertificationCoverageReportPreflight($options),
@@ -1762,6 +2007,7 @@ class AtlasAiSelfConstructionCommand extends Command
             (bool) $this->option('agent-control-plane-replay-diff-implementation-packet') => $readiness->agentControlPlaneReplayDiffImplementationPacket($options),
             (bool) $this->option('agent-control-plane-replay-diff-preflight') => $readiness->agentControlPlaneReplayDiffPreflight($options),
             (bool) $this->option('agent-control-plane-replay-diff-contract') => $readiness->agentControlPlaneReplayDiffContract($options),
+            (bool) $this->option('agent-control-plane-replay-snapshot-store-capture') => $readiness->agentControlPlaneReplaySnapshotStoreCapture($options),
             (bool) $this->option('agent-control-plane-replay-snapshot-store-status') => $readiness->agentControlPlaneReplaySnapshotStoreStatus($options),
             (bool) $this->option('agent-control-plane-replay-snapshot-store-implementation-packet') => $readiness->agentControlPlaneReplaySnapshotStoreImplementationPacket($options),
             (bool) $this->option('agent-control-plane-replay-snapshot-store-preflight') => $readiness->agentControlPlaneReplaySnapshotStorePreflight($options),
@@ -6037,6 +6283,21 @@ class AtlasAiSelfConstructionCommand extends Command
             $this->components->twoColumnDetail('Latest deterministic hash', (string) data_get($payload, 'agent_control_plane_replay_snapshot_store_status.latest_deterministic_replay_hash'));
             $this->components->twoColumnDetail('Latest pointer', (string) data_get($payload, 'agent_control_plane_replay_snapshot_store_status.latest_current_pointer'));
             $this->components->twoColumnDetail('Status hash', (string) data_get($payload, 'agent_control_plane_replay_snapshot_store_status_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('agent-control-plane-replay-snapshot-store-capture')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Status', (string) $payload['status']);
+            $this->components->twoColumnDetail('Snapshot written', (string) ((bool) data_get($payload, 'snapshot_write_performed') ? 'yes' : 'no'));
+            $this->components->twoColumnDetail('Snapshot ID', (string) data_get($payload, 'snapshot_id'));
+            $this->components->twoColumnDetail('Registry before', (string) data_get($payload, 'registry_entry_count_before'));
+            $this->components->twoColumnDetail('Registry after', (string) data_get($payload, 'registry_entry_count_after'));
+            $this->components->twoColumnDetail('Readiness status', (string) data_get($payload, 'baseline_capture_readiness_status'));
+            $this->components->twoColumnDetail('Capture hash', (string) data_get($payload, 'agent_control_plane_replay_snapshot_store_capture_hash'));
             $this->newLine();
             $this->line((string) $payload['human_summary']);
 

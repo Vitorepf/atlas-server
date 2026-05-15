@@ -108,8 +108,28 @@ class AtlasRivalsCommand extends Command
         ],
     ];
 
+    /**
+     * Canonical v2 entrypoint that supersedes this command operationally.
+     * Slice 0 emits a deprecation banner; Slice 6 flips FORWARD_TO_CANONICAL_ENABLED
+     * to delegate execution to `atlas:forge:rivals` directly.
+     */
+    private const CANONICAL_COMMAND = 'atlas:forge:rivals';
+
+    private const CANONICAL_PRIMARY_ACTION = 'doctor';
+
+    private const FORWARD_TO_CANONICAL_ENABLED = false;
+
     public function handle(EngineeringBenchmarkService $benchmarks): int
     {
+        app(\App\Services\Ai\Programming\ForgeRivals\ForgeRivalsDeprecationNotifier::class)
+            ->notify('atlas:engineering:benchmark:rivals', self::CANONICAL_PRIMARY_ACTION);
+
+        if (self::FORWARD_TO_CANONICAL_ENABLED) {
+            // Slice 6: build canonical args from $this->argument()/option() and call
+            // \Illuminate\Support\Facades\Artisan::call(self::CANONICAL_COMMAND, $args, $this->output);
+            // Slice 0 keeps the legacy logic executing below.
+        }
+
         $profile = is_string($this->option('profile')) ? trim((string) $this->option('profile')) : 'fair-claude';
 
         if (! in_array($profile, self::SUPPORTED_PROFILES, true)) {

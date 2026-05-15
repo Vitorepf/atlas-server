@@ -31,8 +31,28 @@ class AtlasProgrammingRivalsForgePreflightCommand extends Command
 
     protected $description = 'Diagnostic-only preflight for Forge-Native Rivals batteries (Atlas arm must run through Forge).';
 
+    /**
+     * Canonical v2 entrypoint that supersedes this command operationally.
+     * Slice 0 emits a deprecation banner; Slice 6 flips FORWARD_TO_CANONICAL_ENABLED
+     * to delegate execution to `atlas:forge:rivals` directly.
+     */
+    private const CANONICAL_COMMAND = 'atlas:forge:rivals';
+
+    private const CANONICAL_PRIMARY_ACTION = 'preflight';
+
+    private const FORWARD_TO_CANONICAL_ENABLED = false;
+
     public function handle(AtlasForgeNativeRivalsPreflightService $preflight): int
     {
+        app(\App\Services\Ai\Programming\ForgeRivals\ForgeRivalsDeprecationNotifier::class)
+            ->notify('atlas:programming:rivals-forge-preflight', self::CANONICAL_PRIMARY_ACTION);
+
+        if (self::FORWARD_TO_CANONICAL_ENABLED) {
+            // Slice 6: forward to atlas:forge:rivals preflight --mode=diagnostic
+            // via \Illuminate\Support\Facades\Artisan::call(self::CANONICAL_COMMAND, $args, $this->output);
+            // Slice 0 keeps the legacy logic executing below.
+        }
+
         $intendsBattery = (bool) $this->option('intends-provider-battery');
         $providerApproved = (bool) $this->option('confirm-provider-cost');
         $runbookReviewed = (bool) $this->option('confirm-runbook-reviewed');

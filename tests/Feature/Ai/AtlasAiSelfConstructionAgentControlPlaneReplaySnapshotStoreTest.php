@@ -287,6 +287,58 @@ final class AtlasAiSelfConstructionAgentControlPlaneReplaySnapshotStoreTest exte
         $this->assertFalse((bool) $payload['runtime_write_allowed']);
     }
 
+    public function test_capture_command_writes_one_snapshot_without_runtime_execution(): void
+    {
+        Artisan::call('atlas:ai:self-construction', [
+            '--agent-control-plane-replay-snapshot-store-capture' => true,
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame('atlas.self_construction_agent_control_plane_replay_snapshot_store_capture.v1', $payload['schema_version']);
+        $this->assertSame('captured', $payload['status']);
+        $this->assertTrue((bool) $payload['snapshot_write_allowed']);
+        $this->assertTrue((bool) $payload['snapshot_write_performed']);
+        $this->assertSame(0, (int) $payload['registry_entry_count_before']);
+        $this->assertSame(1, (int) $payload['registry_entry_count_after']);
+        $this->assertNotEmpty($payload['snapshot_id']);
+        $this->assertNotEmpty($payload['latest_deterministic_replay_hash']);
+        $this->assertFalse((bool) $payload['execution_allowed']);
+        $this->assertFalse((bool) $payload['dispatch_allowed']);
+        $this->assertFalse((bool) $payload['ledger_write_allowed']);
+        $this->assertFalse((bool) $payload['runtime_write_allowed']);
+        $this->assertFalse((bool) $payload['external_provider_call']);
+        $this->assertFalse((bool) $payload['token_spend']);
+        $this->assertFalse((bool) $payload['process_started']);
+        $this->assertFalse((bool) $payload['provider_call_allowed']);
+        $this->assertFalse((bool) $payload['adapter_execution_allowed']);
+        $this->assertFalse((bool) $payload['self_programming_allowed']);
+        $this->assertFalse((bool) $payload['completion_claim_allowed']);
+        Storage::disk('local')->assertExists(AgentControlPlaneReplaySnapshotStore::REGISTRY_PATH);
+    }
+
+    public function test_capture_command_is_idempotent_when_latest_snapshot_is_current(): void
+    {
+        Artisan::call('atlas:ai:self-construction', [
+            '--agent-control-plane-replay-snapshot-store-capture' => true,
+            '--json' => true,
+        ]);
+        $first = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        Artisan::call('atlas:ai:self-construction', [
+            '--agent-control-plane-replay-snapshot-store-capture' => true,
+            '--json' => true,
+        ]);
+        $second = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame('captured', $first['status']);
+        $this->assertSame('already_current', $second['status']);
+        $this->assertFalse((bool) $second['snapshot_write_performed']);
+        $this->assertSame(1, (int) $second['registry_entry_count_before']);
+        $this->assertSame(1, (int) $second['registry_entry_count_after']);
+        $this->assertSame($first['snapshot_id'], $second['snapshot_id']);
+    }
+
     public function test_cli_contract_json_returns_v1(): void
     {
         Artisan::call('atlas:ai:self-construction', [
