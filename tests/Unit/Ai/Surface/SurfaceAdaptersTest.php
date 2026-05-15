@@ -14,6 +14,7 @@ use App\Services\Ai\Surface\Adapters\AtlasCodeSurfaceAdapter;
 use App\Services\Ai\Surface\Adapters\AtlasCliChatSurfaceAdapter;
 use App\Services\Ai\Surface\Adapters\AtlasCliDevSurfaceAdapter;
 use App\Services\Ai\Surface\Adapters\AtlasCliForgeSurfaceAdapter;
+use App\Services\Ai\Surface\Adapters\AtlasDesktopAiSurfaceAdapter;
 use App\Services\Ai\Surface\Adapters\AtlasMcpReadonlySurfaceAdapter;
 use App\Services\Ai\Surface\Adapters\AtlasVaultSurfaceAdapter;
 use App\Services\Ai\Surface\Adapters\AtlasVoiceRealtimeSurfaceAdapter;
@@ -38,6 +39,7 @@ class SurfaceAdaptersTest extends TestCase
             'atlas code' => [new AtlasCodeSurfaceAdapter, 'atlas_code'],
             'api interaction' => [new AtlasApiInteractionSurfaceAdapter, 'atlas_api_interaction'],
             'app' => [new AtlasAppSurfaceAdapter, 'atlas_app'],
+            'desktop ai' => [new AtlasDesktopAiSurfaceAdapter, 'atlas_desktop_ai'],
             'worker' => [new AtlasWorkerSurfaceAdapter, 'atlas_worker'],
             'mcp readonly' => [new AtlasMcpReadonlySurfaceAdapter, 'atlas_mcp_readonly'],
             'atlas vault' => [new AtlasVaultSurfaceAdapter, 'atlas_vault'],
@@ -403,6 +405,7 @@ class SurfaceAdaptersTest extends TestCase
             'atlas_code',
             'atlas_api_interaction',
             'atlas_app',
+            'atlas_desktop_ai',
             'atlas_worker',
             'atlas_mcp_readonly',
             'atlas_vault',
@@ -474,7 +477,7 @@ class SurfaceAdaptersTest extends TestCase
 
         $this->assertTrue($report['ok'], implode("\n", $report['errors']));
         $this->assertSame([], $report['errors']);
-        $this->assertSame(10, $report['count']);
+        $this->assertSame(11, $report['count']);
         $this->assertSame('atlas_cli_chat', $report['aliases']['atlas_ask']);
         $this->assertSame('atlas_cli_dev', $report['aliases']['atlas_cli_continue']);
         $this->assertSame('atlas_code', $report['aliases']['atlas_desktop_code']);
@@ -487,6 +490,7 @@ class SurfaceAdaptersTest extends TestCase
             'atlas_code',
             'atlas_api_interaction',
             'atlas_app',
+            'atlas_desktop_ai',
             'atlas_worker',
             'atlas_mcp_readonly',
             'atlas_vault',

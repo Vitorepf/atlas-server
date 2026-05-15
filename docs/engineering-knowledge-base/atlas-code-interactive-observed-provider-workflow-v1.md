@@ -23,7 +23,7 @@ decisions:
   - Claude Code, Codex, Gemini e futuros providers interativos aparecem no Atlas Code como sessoes observadas da Obra, nao como telas paralelas nem cerebros principais.
   - Atlas deve automatizar preparacao, contexto, packet, prompt, workspace, terminal, watchers, importacao, diff review, gates, evidence e learning.
   - O humano faz apenas os gestos interativos exigidos pelo provider: abrir/enviar/confirmar no terminal ou app do provider.
-  - Em modo subscription-only, Claude Code permitido e `claude` interativo observado; `claude -p`, Agent SDK, worker headless, API/PAYG e fallback silencioso continuam bloqueados.
+  - Este workflow nao usa `claude -p`, Agent SDK, worker headless ou API/PAYG; ele tambem nao deve bloquear os caminhos programaticos explicitamente aprovados para Rivals/testes antes do cutoff ou flag futura.
   - Uma sessao observada nunca declara completion; completion so nasce de gates, evidence, review e aceite humano no Atlas.
   - Para tarefa pesada, usar worktree/workspace isolado por packet; workspace vivo direto so para intervencao pequena com scope guard explicito.
 maintenance:
@@ -56,7 +56,8 @@ allowed_changes:
   - Adicionar providers interativos, estados de sessao, templates de prompt, eventos de watcher e acoes de importacao quando houver implementacao e evidence.
 forbidden_changes:
   - Tratar sessao observada como automacao headless.
-  - Chamar `claude -p`, Agent SDK, API/PAYG ou worker background em modo subscription-only.
+  - Chamar `claude -p`, Agent SDK, API/PAYG ou worker background como se fosse sessao observada.
+  - Usar este workflow para desabilitar Rivals/baseline/testes programaticos aprovados.
   - Fazer Atlas colar/enviar comandos em nome do humano para mascarar uso nao interativo.
   - Deixar provider decidir escopo, merge, completion, aceite, fallback ou autoridade da Obra.
   - Exigir que o humano monitore varias sessoes simultaneamente.
@@ -94,7 +95,8 @@ ai_usage_notes:
   - Sessao observada e ponte operacional para providers interativos; a fonte da verdade continua Obra, packet, workspace, gates, review e Evidence Ledger do Atlas.
 quality_gates:
   - operator-presence-required
-  - no-headless-provider-call
+  - no-headless-provider-call-inside-observed-session
+  - programmatic-rivals-path-preserved
   - packet-exported-before-provider-use
   - workspace-scope-guarded
   - result-imported-before-review
@@ -145,8 +147,13 @@ Atlas importa, valida, revisa, registra evidencia e decide proximo passo.
 
 ## Papel no Atlas
 
-O fluxo existe para preservar a potencia do Claude Code interativo sem fazer o
-Atlas depender de API, Agent SDK, `claude -p`, worker headless ou credito extra.
+O fluxo existe para preservar a potencia do Claude Code interativo no uso diario
+sem fazer essa sessao observada depender de API, Agent SDK, `claude -p`, worker
+headless ou credito extra.
+
+Ele nao proibe o uso programatico aprovado para Rivals, baseline, benchmark ou
+teste de integracao. Esses caminhos pertencem a outro modo operacional e devem
+continuar disponiveis ate o cutoff ou decisao explicita do operador.
 
 Atlas automatiza tudo que e governanca: escolher Obra e work packet, preparar
 contexto, gerar packet canonico, montar prompt copy-safe, abrir terminal no
@@ -212,8 +219,9 @@ humano.
 
 ## Regras para IA
 
-- Nunca automatize Claude Code como `claude -p` no modo subscription-only.
-- Nunca use Agent SDK, API/PAYG ou worker headless como substituto silencioso.
+- Nunca automatize a sessao observada como `claude -p`.
+- Nunca use Agent SDK, API/PAYG ou worker headless como substituto silencioso deste workflow.
+- Nunca bloqueie Rivals/testes programaticos aprovados por causa deste workflow.
 - Nunca trate texto do provider como completion.
 - Sempre produza packet antes de abrir provider.
 - Sempre importe resultado antes de review.
@@ -228,9 +236,9 @@ packet export em `.atlas/packets/<packet_id>.md`, prompt copy-safe, estado de
 sessao observada, file/git/test watcher, importacao de relatorio, diff review,
 gates, Evidence Ledger e provider performance signal advisory.
 
-Nao inclui chamada headless, Agent SDK, API/PAYG, automacao de conta pessoal,
-multiusuario via assinatura pessoal, completion automatica ou tela paralela do
-Claude fora do Atlas Code.
+Nao inclui chamada headless dentro da sessao observada, Agent SDK como substituto
+silencioso, API/PAYG, automacao de conta pessoal, multiusuario via assinatura
+pessoal, completion automatica ou tela paralela do Claude fora do Atlas Code.
 
 ## Dependencias
 
@@ -291,4 +299,3 @@ Atlas: executa `claude -p` em background e marca completed pelo texto retornado.
 3. Gerar packet + prompt copy-safe por work packet.
 4. Importar resultado e diff antes de review/completion.
 5. Conectar sinais ao Provider Performance Ledger como evidencia advisory.
-

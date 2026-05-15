@@ -37,6 +37,7 @@ class AiTraceResource extends JsonResource
             'completed_at' => $this->completed_at?->toJSON(),
             'metadata' => Metadata::forResponse($this->metadata),
             'atlas_decide_execution' => Metadata::forResponse(data_get($this->metadata, 'atlas_decide_execution')),
+            'atlas_dev_runtime' => $this->atlasDevRuntimeForResponse(),
             'attachments' => $this->publicAttachments(),
             'thread' => $this->whenLoaded('thread', fn () => $this->thread ? new AiThreadResource($this->thread) : null),
             'session' => $this->whenLoaded('session', fn () => $this->session ? new AiSessionResource($this->session) : null),
@@ -162,6 +163,59 @@ class AiTraceResource extends JsonResource
             'reason' => $routerDecision->reason,
             'signals' => Metadata::forResponse($routerDecision->signals),
         ]);
+    }
+
+    /**
+     * Slice atlas.dev_runtime.v1 — quando a interação passou pelo
+     * AtlasDevRuntimeService o slice fica em job.payload.atlas_dev_runtime e
+     * descreve flow, workspace, decision_mode, expected_artifacts e estado
+     * do Open Brain para o cliente (mobile/desktop) renderizar.
+     *
+     * @return array<string,mixed>|null
+     */
+    private function atlasDevRuntimeForResponse(): ?array
+    {
+        $slice = $this->atlasDevRuntimeFromJobs();
+        if (! is_array($slice)) {
+            $slice = data_get($this->metadata, 'atlas_dev_runtime');
+        }
+
+        if (! is_array($slice) || $slice === []) {
+            return null;
+        }
+
+        $openBrainStatus = is_string(data_get($this->metadata, 'open_brain_injection.status'))
+            ? (string) data_get($this->metadata, 'open_brain_injection.status')
+            : null;
+        if ($openBrainStatus !== null) {
+            $slice['open_brain_status'] = $openBrainStatus;
+        }
+
+        return Metadata::forResponse($slice);
+    }
+
+    /**
+     * @return array<string,mixed>|null
+     */
+    private function atlasDevRuntimeFromJobs(): ?array
+    {
+        if ($this->resource->relationLoaded('job') && $this->job) {
+            $slice = data_get($this->job->payload, 'atlas_dev_runtime');
+            if (is_array($slice) && $slice !== []) {
+                return $slice;
+            }
+        }
+
+        if ($this->resource->relationLoaded('jobs') && $this->jobs) {
+            foreach ($this->jobs as $job) {
+                $slice = data_get($job->payload, 'atlas_dev_runtime');
+                if (is_array($slice) && $slice !== []) {
+                    return $slice;
+                }
+            }
+        }
+
+        return null;
     }
 
     /**

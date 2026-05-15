@@ -27,33 +27,23 @@ final class AtlasSelfConstructionOsCompletionAuditService
         $replayDiff = $this->safeStatus('replay_diff', 'agentControlPlaneReplayDiffStatus');
         $promotionGate = $this->safeStatus('promotion_gate', 'agentControlPlaneMacroSprintPromotionGateStatus');
         $mutationGuard = $this->safeStatus('mutation_guard', 'agentControlPlaneCertificationMutationGuardStatus');
-        $statusBatch = $this->safeStatus('certification_status_batch', 'agentControlPlaneCertificationStatusBatchStatus', [
-            'only_keys' => [
-                'chain_integrity_certification',
-                'deterministic_chain_replay',
-                'replay_snapshot_store',
-                'replay_diff',
-                'macro_sprint_promotion_gate',
-                'certification_baseline',
-                'certification_mutation_guard',
-                'runtime_evidence_journal',
-                'execution_workspace_runtime',
-                'governance_approval_runtime',
-                'automatic_cost_import_runtime',
-                'automatic_work_product_collection_runtime',
-                'adapter_execution_runtime_boundary',
-                'dispatch_planner_runtime',
-                'validation_gate_runtime',
-                'merge_review_runtime',
-            ],
-        ]);
+        $statusBatch = $this->safeStatus('certification_status_batch', 'agentControlPlaneCertificationStatusBatchStatus');
         $runtimeGapMatrix = (new AtlasSelfConstructionRuntimeGapMatrixService($this->readiness))->matrix();
 
         $notYetRuntimeCapable = (array) data_get($controlPlane, 'control_plane.not_yet_runtime_capable', []);
         $completionReceipt = (new AtlasSelfConstructionHumanCompletionReceiptVerifierService)->verify((array) ($options['completion_receipt'] ?? []));
         $realProviderSmoke = (new AtlasSelfConstructionRealProviderSmokeCertificationService)->certify((array) ($options['real_provider_smoke'] ?? []));
         $forgeSmoke = (new AtlasSelfConstructionForgeSelfImprovementIntegrationSmokeService)->certify((array) ($options['forge_self_improvement_smoke'] ?? []));
-        $operatorActionPacket = (new AtlasSelfConstructionCompletionOperatorActionPacketService($this->readiness))->build($runtimeGapMatrix, $completionReceipt, $realProviderSmoke);
+        $operatorActionPacket = (new AtlasSelfConstructionCompletionOperatorActionPacketService($this->readiness))->build(
+            $runtimeGapMatrix,
+            $completionReceipt,
+            $realProviderSmoke,
+            [
+                'release_dossier' => $releaseDossier,
+                'replay_diff' => $replayDiff,
+                'certification_status_batch' => $statusBatch,
+            ],
+        );
 
         $criteria = [
             $this->criterion(
@@ -63,6 +53,11 @@ final class AtlasSelfConstructionOsCompletionAuditService
                 [
                     'status' => (string) data_get($runtimeGapMatrix, 'status'),
                     'runtime_gap_matrix_hash' => (string) data_get($runtimeGapMatrix, 'runtime_gap_matrix_hash'),
+                    'expected_runtime_gap_matrix_hash_for_promotion_receipt' => (string) data_get($runtimeGapMatrix, 'expected_runtime_gap_matrix_hash_for_promotion_receipt'),
+                    'runtime_promotion_basis_hash' => (string) data_get($runtimeGapMatrix, 'runtime_promotion_basis_hash'),
+                    'runtime_promotion_closure_basis_hash' => (string) data_get($runtimeGapMatrix, 'runtime_promotion_closure_basis_hash'),
+                    'runtime_promotion_receipt_hash' => (string) data_get($runtimeGapMatrix, 'runtime_promotion_receipt.receipt_hash'),
+                    'runtime_promotion_receipt_status' => (string) data_get($runtimeGapMatrix, 'runtime_promotion_receipt.status'),
                     'runtime_gap_count' => (int) data_get($runtimeGapMatrix, 'runtime_gap_count'),
                     'blocked_gap_ids' => (array) data_get($runtimeGapMatrix, 'blocked_gap_ids', []),
                     'not_yet_runtime_capable' => $notYetRuntimeCapable,
@@ -143,7 +138,13 @@ final class AtlasSelfConstructionOsCompletionAuditService
                 'certification_status_batch_green',
                 (string) data_get($statusBatch, 'status') === 'passed' && (int) data_get($statusBatch, 'agent_control_plane_certification_status_batch_status.failed_count', 1) === 0,
                 'Certification status batch must be green with zero failed checks.',
-                ['status' => (string) data_get($statusBatch, 'status'), 'checked_count' => (int) data_get($statusBatch, 'agent_control_plane_certification_status_batch_status.checked_count'), 'failed_count' => (int) data_get($statusBatch, 'agent_control_plane_certification_status_batch_status.failed_count', 1)],
+                [
+                    'status' => (string) data_get($statusBatch, 'status'),
+                    'hash' => (string) data_get($statusBatch, 'agent_control_plane_certification_status_batch_status.batch_hash', data_get($statusBatch, 'agent_control_plane_certification_status_batch.batch_hash', '')),
+                    'checked_count' => (int) data_get($statusBatch, 'agent_control_plane_certification_status_batch_status.checked_count'),
+                    'failed_count' => (int) data_get($statusBatch, 'agent_control_plane_certification_status_batch_status.failed_count', 1),
+                    'full_batch_required' => true,
+                ],
             ),
         ];
 

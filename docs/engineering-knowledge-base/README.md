@@ -64,6 +64,8 @@ capabilities:
   - programming_power_tools_catalog
   - fair_claude_benchmark
   - atlas_supercharged_routing
+  - atlas_ai_conversation_surface
+  - atlas_dev_daily_programming
   - obras_shared_workspace
   - forge_workspace
   - programming_domain
@@ -96,6 +98,7 @@ decisions:
   - Atlas AI Spec Operating System define SDD como capacidade interna: intencao simples vira spec operacional, plano, tasks, Decision Receipt, execucao governada, evidencia, drift detection, learning proposal, data model, agentes internos, MCP governado e context packages versionados.
   - Atlas Programming Governance System define os gates canonicos da programacao por IA: placement, spec antes do codigo, task contracts, Code Intelligence, evidence, learning e cartografia.
   - Atlas Programming Self-Construction Forge Map v1 e o mapa curto para IA entender rapidamente que Self-Construction OS e lei-mae, Self-Programming OS e safety/patamar de auto-modificacao, Forge Continuum OS e a especializacao operacional de programacao pesada, Atlas Code e surface, Obras sao unidades produtivas e providers sao executores substituiveis.
+  - Atlas AI Conversation Surface And Atlas Dev v1 conecta o Atlas AI mobile, Desktop, Atlas Dev e Forge: conversa persistente e programacao diaria usam threads/workspaces/modos; Obras/Forge entram apenas quando o trabalho exige governanca pesada.
   - Atlas Programming Forge Flow e a pagina-mae do fluxo pesado de programacao: Programming Domain, programming.forge, Forge OS, Forge Workspace, Engineering Harness, Agentic RAG, Semantic Code Graph, Tool Runtime, Repair Loop, Evidence, Learning e Cartography.
   - Atlas Forge Operating System define o patamar acima da governanca de programacao: fabrica multiagente de software com spec-mae, packets, workspace state, evidence normalization, integration queue e release gate.
   - Atlas AI Self-Construction OS define como Atlas constroi Atlas: pesquisa, documentacao, Meta-SDD, prioridade, execucao governada, evidencia, drift, learning e maturidade sem criar arquitetura paralela; sua camada multi-provider permite Codex, Claude, Gemini, agentes locais e futuros providers consumirem o mesmo contrato de implementacao.
@@ -166,6 +169,7 @@ maintenance:
   - Leia memory/cognitive-immune-learning-kernel.md antes de alterar captura, promocao, embeddings, Constelacao, delete, retrieval filtering ou evals de memoria.
   - Leia code-intelligence/external-graph-harness.md antes de usar Graphify, graph.json externo, AST graph externo ou relacoes surpreendentes para Code Intelligence.
   - Leia open-brain-context-injection.md antes de alterar atlas dev, atlas continue, atlas chat ou AtlasAiSheet.
+  - Leia atlas-ai-conversation-surface-and-atlas-dev-v1.md antes de alterar Atlas AI mobile, Atlas Dev, Consultas, conversa desktop, bugs rapidos, fluxo mobile->Mac ou promocao Dev->Forge.
   - Rode atlas engineering knowledge sync --prune depois de alterar estes docs.
   - Rode atlas engineering knowledge index-code --prune depois de alterar docs ou codigo core.
   - Use `php artisan atlas:ai:self-construction --json` para consultar o estado read-only/advisory do Self-Construction OS antes de planejar autoimplementacao.

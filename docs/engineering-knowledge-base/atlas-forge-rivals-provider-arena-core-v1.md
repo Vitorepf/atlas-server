@@ -33,6 +33,47 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-code-provider-arena-ui-v1.md
 doc_schema: atlas_canonical_module_doc.v1
 owner: programming_rivals
+graph_id: atlas-forge-rivals-provider-arena-core-v1
+graph_title: Atlas Forge Rivals · Provider Arena Core v1
+graph_world: atlas
+graph_layer: system
+graph_kind: contract
+graph_parent: atlas-forge-rivals-perfect-battery-and-adjudicator-v1
+graph_status: active
+graph_source: repo
+repo_paths:
+  - app/Services/Ai/Programming/ForgeRivals/Arms/AtlasForgeRivalsArmRegistryService.php
+  - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsArenaRunService.php
+  - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsModeRegistry.php
+  - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsCasesRegistry.php
+  - app/Services/Ai/Kernel/Architecture/AtlasForgeRivalsProviderArenaCoreCertification.php
+  - docs/engineering-knowledge-base/atlas-forge-rivals-provider-arena-core-v1.md
+allowed_changes:
+  - Adicionar arm novo ao registry com runner declarado e safety contract completo.
+  - Adicionar categoria nova ao cases registry sob o conjunto fechado.
+forbidden_changes:
+  - Listar arms fora do registry.
+  - Rodar arm `placeholder` em modo real.
+  - Tratar categoria não declarada como válida.
+  - Promover `external_rivals_certification` a partir do veredito da arena.
+depends_on:
+  - atlas-forge-rivals-perfect-battery-and-adjudicator-v1
+  - atlas-forge-rivals-evidence-replay-adjudicator-hardening-v2
+flows_to:
+  - atlas-code-provider-arena-ui-v1
+unlocks:
+  - operator_runs_arm_a_vs_arm_b_with_canonical_arms_and_categories
+governs:
+  - forge_rivals_provider_arena_core
+evidence:
+  - tests/Feature/Ai/Programming/AtlasForgeRivalsProviderArenaCoreTest.php
+required_tests:
+  - tests/Feature/Ai/Programming/AtlasForgeRivalsProviderArenaCoreTest.php
+requires_evidence: true
+risk_level: high
+next_actions:
+  - Liberar drivers scripted/manual/gemini conforme amadurecerem.
+  - Manter doc sincronizado com novos arms/categorias.
 ---
 
 # Atlas Forge Rivals · Provider Arena Core v1
@@ -224,3 +265,51 @@ to convert to camelCase for Atlas Code UI consumption in a later slice.
 - `atlas-forge-rivals-operator-battery-v2.md`
 - `atlas-forge-rivals-real-battery-operator-harness-v1.md`
 - `atlas-forge-rivals-reliability-lockdown-v1.md`
+
+## Resumo
+
+Slice 8 do Forge Rivals: registry canônico de sete arms (`atlas_forge`, `claude_code`, `codex_cli`, `gemini_cli`, `scripted_runner`, `manual_runner`, `future_runner`), arm contract com nove categorias de tarefa, run envelope e cert v1. Entrypoint `atlas:forge:rivals run-arena` parea `arm_a vs arm_b` por categoria.
+
+## Papel no Atlas
+
+Camada Provider Arena Core que sobe acima do Perfect Battery & Adjudicator. Define quem pode competir (registry), em quais categorias (cases) e sob quais invariantes de safety (arm contract).
+
+## Onde Se Encaixa
+
+Dependência direta de `atlas-forge-rivals-perfect-battery-and-adjudicator-v1.md`. Consumido pela UI em `atlas-code-provider-arena-ui-v1.md`. Compartilha o adjudicator local determinístico com o `run-battery`.
+
+## Contratos
+
+Schemas: `atlas.forge.rivals.provider_arena_run.v1` (run envelope), `atlas.forge.rivals.runner_registry.v1` (registry), `atlas.forge.rivals.arm_contract.v1` (contrato por arm). Cert: `atlas_forge_rivals_provider_arena_core_certification` (v1). Cada arm carrega `safety_contract` com `never_promotes_completion_claim`, `never_unlocks_external_rivals_certification`, `requires_three_confirmations_for_real_provider`, `max_score_without_evidence=0`, `fails_closed_on_missing_driver`, `audit_trail_required`, `replay_required_before_winner`, `evidence_required_before_winner`, `scripted_or_manual_cannot_forge_score`, `placeholder_blocks_real_run`.
+
+## Fluxo
+
+Operador escolhe arm_a e arm_b do registry → escolhe categoria do cases → define modo (`local_fake` default; `fair`/`full_power` exigem 3 confirmações) → `run-arena` aciona evidence → replay → adjudicate → report.
+
+## Regras para IA
+
+Nunca expor arm fora do registry. Nunca rodar `placeholder` em modo real. Nunca tratar categoria não declarada como válida. Nunca promover `external_rivals_certification` a partir do veredito da arena.
+
+## Escopo de Implementacao
+
+`AtlasForgeRivalsArmRegistryService`, `AtlasForgeRivalsArenaRunService`, `AtlasForgeRivalsModeRegistry`, `AtlasForgeRivalsCasesRegistry`, cert kernel `AtlasForgeRivalsProviderArenaCoreCertification`.
+
+## Dependencias
+
+`atlas-forge-rivals-perfect-battery-and-adjudicator-v1.md`, `atlas-forge-rivals-evidence-replay-adjudicator-hardening-v2.md`, `atlas-forge-rivals-operator-battery-v2.md`.
+
+## Evidencias
+
+Cert v1 `atlas_forge_rivals_provider_arena_core_certification` e suite de testes Forge Rivals (Slice 8 delivered 2026-05-15).
+
+## Riscos
+
+Adicionar arm via dropdown livre, esconder runners `not_yet_executable` ou tratar `future_runner` como executável. Promoção indevida de `external_rivals_certification`.
+
+## Exemplos
+
+`php artisan atlas:forge:rivals run-arena --arm-a=atlas_forge --arm-a-model=sonnet --arm-b=claude_code --arm-b-model=sonnet --category=backend --mode=local_fake --json`.
+
+## Proximas Acoes
+
+Expandir o conjunto de arms executáveis sob registry. Manter doc sincronizado com mudanças no registry e nos cases.

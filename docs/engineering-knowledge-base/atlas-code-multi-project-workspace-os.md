@@ -30,6 +30,7 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-code-multi-project-claude-goal-prompt.md
   - docs/engineering-knowledge-base/atlas-code-programming-obras-operating-system.md
   - docs/engineering-knowledge-base/atlas-code-attention-control-plane-v1.md
+  - docs/engineering-knowledge-base/atlas-ai-conversation-surface-and-atlas-dev-v1.md
   - docs/engineering-knowledge-base/atlas-desktop-code-surface.md
   - docs/engineering-knowledge-base/atlas-cartographic-knowledge-os.md
   - docs/engineering-knowledge-base/atlas-ai-obras-operating-system.md
@@ -128,6 +129,12 @@ Obra e uma unidade de trabalho governada dentro de um Projeto/Workspace.
 ```
 
 Atlas e Blackink nao sao Obras. Eles sao Projetos/Workspaces. Dentro deles existem Consultas, Intervencoes Rapidas, Candidatos de Obra e Obras.
+
+As Consultas e o uso diario de programacao devem seguir
+`atlas-ai-conversation-surface-and-atlas-dev-v1.md`: Atlas AI e a conversa
+persistente, Atlas Dev e o modo de programacao diaria, e Forge/Obra e a
+promocao para trabalho pesado. Isso impede que uma pequena correcao na Blackink
+vire Obra obrigatoria.
 
 ## Papel no Atlas
 

@@ -120,6 +120,9 @@ final class AtlasCodeWorkspaceProfileService
             'docs_status' => (string) ($raw['docs_status'] ?? 'unknown'),
             'default_risk' => $defaultRisk,
             'deployment_notes' => (string) ($raw['deployment_notes'] ?? ''),
+            // Surfaces habilitadas para este Projeto. Default = todas, para
+            // preservar retro-compatibilidade quando o profile não declara.
+            'surfaces_enabled' => $this->stringList($raw['surfaces_enabled'] ?? ['atlas_ai', 'cartografia', 'code', 'atencao']),
             'safety' => [
                 'execution_allowed' => $workspacePath !== '' && @is_dir($workspacePath),
                 'execution_blocked_reason' => ($workspacePath !== '' && @is_dir($workspacePath))

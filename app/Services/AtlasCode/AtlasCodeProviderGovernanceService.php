@@ -5,68 +5,198 @@ declare(strict_types=1);
 namespace App\Services\AtlasCode;
 
 /**
- * Atlas Code Provider Governance read-model.
+ * Atlas Code Provider Governance · configurable policy read-model.
  *
- * Canon: docs/engineering-knowledge-base/atlas-claude-code-subscription-governance-v1.md
+ * Canon:
+ *   - docs/engineering-knowledge-base/atlas-claude-code-subscription-governance-v1.md
+ *   - docs/engineering-knowledge-base/atlas-code-interactive-observed-provider-workflow-v1.md
  *
- * Schema: atlas.code.provider_governance.v1
+ * Schema: atlas.code.provider_governance.v2
  *
- * Read-only. Exposes the subscription-only contract to UI and other services
- * so that no caller can silently bypass the prohibition list. Every callsite
- * that wants to start a provider invocation MUST consult this service first;
- * if `external_provider_call_allowed=false` (subscription-only mode) the call
- * MUST be aborted and a blocker recorded.
+ * This service replaces the older "subscription_only=hardcoded_true" check
+ * with a configurable policy so Atlas can keep using Claude programmatically
+ * for Rivals baselines, integration tests and approved experiments BEFORE
+ * the Anthropic cutoff, while keeping productive_headless off by default.
+ *
+ * Use `decideProgrammaticInvocation($label)` from any callsite that wants
+ * to invoke Claude (or any provider) programmatically. The result is a
+ * decision packet: allowed/blocked, reason, next_action. Never bypass.
+ *
+ * Categories handled (must match config allowed_labels):
+ *   - rivals_baseline
+ *   - provider_integration_test
+ *   - benchmark
+ *   - approved_experiment
+ *   - productive_headless
+ *
+ * Policy values:
+ *   - allowed_now       · everything permitted (transient)
+ *   - test_only         · rivals/tests/benchmark allowed, productive blocked
+ *   - interactive_only  · only interactive_observed sessions, no programmatic
+ *   - blocked           · full kill switch
  */
 final class AtlasCodeProviderGovernanceService
 {
-    public const SCHEMA_VERSION = 'atlas.code.provider_governance.v1';
+    public const SCHEMA_VERSION = 'atlas.code.provider_governance.v2';
+
+    public const POLICIES = ['allowed_now', 'test_only', 'interactive_only', 'blocked'];
+
+    public const CANONICAL_LABELS = [
+        'rivals_baseline',
+        'provider_integration_test',
+        'benchmark',
+        'approved_experiment',
+        'productive_headless',
+    ];
 
     /**
      * @return array<string, mixed>
      */
     public function snapshot(): array
     {
-        $subscriptionOnly = (bool) config('atlas_code_provider_governance.subscription_only', true);
-        $prohibitions = (array) config('atlas_code_provider_governance.prohibitions', []);
-        $modes = $this->stringList((array) config('atlas_code_provider_governance.allowed_invocation_modes', []));
+        $policy = $this->normalisePolicy((string) config('atlas_code_provider_governance.claude_programmatic_policy', 'test_only'));
+        $allowRivals = (bool) config('atlas_code_provider_governance.allow_rivals_programmatic', true);
+        $allowTests = (bool) config('atlas_code_provider_governance.allow_programmatic_tests', true);
+        $allowProductive = (bool) config('atlas_code_provider_governance.allow_productive_headless', false);
+        $allowApi = (bool) config('atlas_code_provider_governance.allow_api_payg', false);
+        $hardBlockAfter = $this->normaliseDate((string) config('atlas_code_provider_governance.hard_block_after', ''));
+        $hardBlockReached = $this->isPastDate($hardBlockAfter);
+        $overrideRequired = (bool) config('atlas_code_provider_governance.operator_override_required', true);
+        $overrideLabels = $this->stringList((array) config('atlas_code_provider_governance.operator_override_labels', []));
         $providers = (array) config('atlas_code_provider_governance.providers', []);
         $bootstrap = (array) config('atlas_code_provider_governance.bootstrap_role_assignments', []);
+        $modes = $this->stringList((array) config('atlas_code_provider_governance.allowed_invocation_modes', []));
+        $labels = $this->stringList((array) config('atlas_code_provider_governance.allowed_labels', self::CANONICAL_LABELS));
+
+        // Derived booleans — what is actually permitted right now.
+        $effectivePolicy = $hardBlockReached && $policy !== 'blocked' ? 'interactive_only' : $policy;
+        $labelDecisions = [];
+        foreach ($labels as $label) {
+            $labelDecisions[$label] = $this->decideForLabel(
+                $label,
+                $effectivePolicy,
+                $allowRivals,
+                $allowTests,
+                $allowProductive,
+                $overrideRequired,
+                in_array($label, $overrideLabels, true)
+            );
+        }
+
+        // Aggregate flags for the UI safety strip.
+        $anyProgrammaticAllowed = false;
+        foreach ($labelDecisions as $decision) {
+            if (($decision['allowed'] ?? false) === true) {
+                $anyProgrammaticAllowed = true;
+                break;
+            }
+        }
+        $interactiveOnly = $effectivePolicy === 'interactive_only' || $effectivePolicy === 'blocked';
+        $fullBlock = $effectivePolicy === 'blocked';
 
         return [
             'schema_version' => self::SCHEMA_VERSION,
-            'subscription_only' => $subscriptionOnly,
-            'mode_label' => (string) config('atlas_code_provider_governance.mode_label', 'subscription_only'),
-            // The single boolean callers must consult before invoking any
-            // external provider. When false (subscription-only), only
-            // `interactive_observed` and `manual_import` are permitted, and
-            // those modes do not invoke the provider — they prepare the
-            // packet/prompt/terminal for the operator.
-            'external_provider_call_allowed' => false,
-            'headless_provider_call_allowed' => false,
-            'api_fallback_allowed' => false,
-            'agent_sdk_allowed' => false,
+            'claude_programmatic_policy' => $policy,
+            'effective_policy' => $effectivePolicy,
+            'hard_block_after' => $hardBlockAfter,
+            'hard_block_after_reached' => $hardBlockReached,
+            'allow_rivals_programmatic' => $allowRivals,
+            'allow_programmatic_tests' => $allowTests,
+            'allow_productive_headless' => $allowProductive,
+            'allow_api_payg' => $allowApi,
+            'operator_override_required' => $overrideRequired,
+            'operator_override_labels' => $overrideLabels,
             'operator_presence_required' => true,
-            'prohibitions' => [
-                'claude_dash_p' => (bool) ($prohibitions['claude_dash_p'] ?? true),
-                'claude_agent_sdk' => (bool) ($prohibitions['claude_agent_sdk'] ?? true),
-                'anthropic_api_key_fallback' => (bool) ($prohibitions['anthropic_api_key_fallback'] ?? true),
-                'headless_worker' => (bool) ($prohibitions['headless_worker'] ?? true),
-                'github_actions_claude' => (bool) ($prohibitions['github_actions_claude'] ?? true),
-                'silent_fallback' => (bool) ($prohibitions['silent_fallback'] ?? true),
-                'multiuser_via_personal_subscription' => (bool) ($prohibitions['multiuser_via_personal_subscription'] ?? true),
-            ],
             'allowed_invocation_modes' => $modes,
+            'allowed_labels' => $labels,
+            'label_decisions' => $labelDecisions,
+            'programmatic_invocation_allowed' => $anyProgrammaticAllowed,
+            'productive_headless_allowed' => $labelDecisions['productive_headless']['allowed'] ?? false,
+            'interactive_only' => $interactiveOnly,
+            'full_block' => $fullBlock,
             'providers' => array_map(fn (array $p): array => $this->shapeProvider($p), array_values(array_filter($providers, 'is_array'))),
             'bootstrap_role_assignments' => array_map(static fn ($v): string => (string) $v, $bootstrap),
             'api_key_detected' => $this->detectApiKey(),
             'safety_notes' => [
-                'no_headless_in_subscription_only',
-                'no_silent_fallback',
-                'no_completion_from_provider_text',
-                'human_acceptance_required',
+                'productive_headless_blocked_by_default',
+                'rivals_and_tests_permitted',
+                'no_silent_fallback_to_api_payg',
+                'human_acceptance_required_for_obra_completion',
                 'workspace_path_required_for_execution',
+                'all_programmatic_calls_must_carry_explicit_use_label',
             ],
         ];
+    }
+
+    /**
+     * Single authoritative decision for a programmatic invocation attempt.
+     *
+     * Callers must pass `$label` matching one of CANONICAL_LABELS. The
+     * `$operatorOverrideToken` is currently a placeholder for a future
+     * explicit override flow; when provided, labels in
+     * `operator_override_labels` may be permitted under stricter policies
+     * (still respecting `full_block`).
+     *
+     * @return array{allowed: bool, reason: string, next_action: string, label: string, policy: string}
+     */
+    public function decideProgrammaticInvocation(string $label, ?string $operatorOverrideToken = null): array
+    {
+        $snap = $this->snapshot();
+        $decisions = (array) $snap['label_decisions'];
+        $effective = (string) $snap['effective_policy'];
+
+        if (! in_array($label, (array) $snap['allowed_labels'], true)) {
+            return [
+                'allowed' => false,
+                'reason' => "label_not_recognized: '{$label}' não está em allowed_labels",
+                'next_action' => 'Use uma label canônica: '.implode(', ', self::CANONICAL_LABELS),
+                'label' => $label,
+                'policy' => $effective,
+            ];
+        }
+
+        $decision = $decisions[$label] ?? null;
+        if (! is_array($decision)) {
+            return [
+                'allowed' => false,
+                'reason' => 'label_decision_missing',
+                'next_action' => 'Verifique config/atlas_code_provider_governance.php',
+                'label' => $label,
+                'policy' => $effective,
+            ];
+        }
+
+        // Operator override path: if the label requires override and the token
+        // is present (we accept any non-empty token here; in v2 of this
+        // service a signed token can be enforced), upgrade allowed=true.
+        $needsOverride = (bool) ($decision['requires_operator_override'] ?? false);
+        if ($needsOverride && ! ($decision['allowed'] ?? false)) {
+            if ($effective === 'blocked') {
+                return array_merge($decision, [
+                    'reason' => 'policy_blocked: override não permitido em full_block',
+                    'next_action' => 'Mude claude_programmatic_policy para sair de "blocked".',
+                ]);
+            }
+            if ($operatorOverrideToken !== null && trim($operatorOverrideToken) !== '') {
+                return [
+                    'allowed' => true,
+                    'reason' => 'operator_override_token_accepted',
+                    'next_action' => 'Execução permitida com receipt humano.',
+                    'label' => $label,
+                    'policy' => $effective,
+                    'requires_operator_override' => true,
+                    'override_used' => true,
+                ];
+            }
+        }
+
+        return array_merge(
+            [
+                'label' => $label,
+                'policy' => $effective,
+            ],
+            $decision
+        );
     }
 
     public function allowedProviderIds(): array
@@ -96,6 +226,71 @@ final class AtlasCodeProviderGovernanceService
     }
 
     /**
+     * Decide a single label under a given effective policy.
+     *
+     * @return array<string, mixed>
+     */
+    private function decideForLabel(
+        string $label,
+        string $effectivePolicy,
+        bool $allowRivals,
+        bool $allowTests,
+        bool $allowProductive,
+        bool $overrideRequired,
+        bool $labelOverrideEligible
+    ): array {
+        // Full-block kills everything.
+        if ($effectivePolicy === 'blocked') {
+            return [
+                'allowed' => false,
+                'reason' => 'policy_blocked',
+                'next_action' => 'Mude ATLAS_CLAUDE_PROGRAMMATIC_POLICY para test_only ou allowed_now.',
+                'requires_operator_override' => $overrideRequired && $labelOverrideEligible,
+            ];
+        }
+        // Interactive-only blocks every programmatic label.
+        if ($effectivePolicy === 'interactive_only') {
+            return [
+                'allowed' => false,
+                'reason' => 'policy_interactive_only',
+                'next_action' => 'Use Claude Code interativo observado a partir do Operating Room.',
+                'requires_operator_override' => $overrideRequired && $labelOverrideEligible,
+            ];
+        }
+
+        $policyAllows = $effectivePolicy === 'allowed_now' || $effectivePolicy === 'test_only';
+
+        $allowedFromSwitch = match ($label) {
+            'rivals_baseline' => $allowRivals,
+            'provider_integration_test' => $allowTests,
+            'benchmark' => $allowRivals || $allowTests,
+            'approved_experiment' => $effectivePolicy === 'allowed_now',
+            'productive_headless' => $allowProductive,
+            default => false,
+        };
+
+        if (! $policyAllows || ! $allowedFromSwitch) {
+            return [
+                'allowed' => false,
+                'reason' => $label === 'productive_headless'
+                    ? 'productive_headless_blocked_by_default'
+                    : ($policyAllows ? "switch_off:{$label}" : 'policy_blocked'),
+                'next_action' => $label === 'productive_headless'
+                    ? 'productive_headless requer allow_productive_headless=true E operator override.'
+                    : 'Verifique config/atlas_code_provider_governance.php para a flag específica.',
+                'requires_operator_override' => $overrideRequired && $labelOverrideEligible,
+            ];
+        }
+
+        return [
+            'allowed' => true,
+            'reason' => 'permitted_by_policy_and_switch',
+            'next_action' => 'Chamada programática permitida; sempre passe explicit_use_label.',
+            'requires_operator_override' => $overrideRequired && $labelOverrideEligible,
+        ];
+    }
+
+    /**
      * @param  array<string, mixed>  $p
      * @return array<string, mixed>
      */
@@ -113,11 +308,49 @@ final class AtlasCodeProviderGovernanceService
         ];
     }
 
+    private function normalisePolicy(string $raw): string
+    {
+        $clean = strtolower(trim($raw));
+        // Accept friendly aliases ("allowed_now_for_tests" → "test_only").
+        $aliases = [
+            'allowed_now_for_tests' => 'test_only',
+        ];
+        if (isset($aliases[$clean])) {
+            $clean = $aliases[$clean];
+        }
+        if (! in_array($clean, self::POLICIES, true)) {
+            return 'test_only';
+        }
+        return $clean;
+    }
+
+    private function normaliseDate(string $raw): ?string
+    {
+        $clean = trim($raw);
+        if ($clean === '') {
+            return null;
+        }
+        $ts = strtotime($clean);
+        if ($ts === false) {
+            return null;
+        }
+        return date('Y-m-d', $ts);
+    }
+
+    private function isPastDate(?string $isoDate): bool
+    {
+        if ($isoDate === null) {
+            return false;
+        }
+        $ts = strtotime($isoDate);
+        if ($ts === false) {
+            return false;
+        }
+        return time() > $ts;
+    }
+
     private function detectApiKey(): bool
     {
-        // We do NOT read the value, only signal that *something* is in the env.
-        // Detection lets the UI warn the operator that subscription-only is at
-        // risk; the operator can clear the variable before opening Claude.
         foreach (['ANTHROPIC_API_KEY', 'CLAUDE_API_KEY', 'OPENAI_API_KEY'] as $key) {
             if (env($key) !== null && env($key) !== '') {
                 return true;

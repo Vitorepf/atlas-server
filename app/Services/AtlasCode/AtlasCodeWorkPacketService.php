@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Services\AtlasCode;
 
+use App\Models\AtlasCodeWorkPacket;
 use App\Models\AtlasProject;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use RuntimeException;
@@ -45,6 +47,14 @@ final class AtlasCodeWorkPacketService
      */
     public function listForObra(string $obraId): array
     {
+        if ($this->usesDatabase()) {
+            return AtlasCodeWorkPacket::query()
+                ->where('obra_id', $obraId)
+                ->orderByDesc('created_at')
+                ->get()
+                ->map(fn (AtlasCodeWorkPacket $m): array => $this->shape($this->modelToArray($m)))
+                ->all();
+        }
         $dir = $this->packetsDir($obraId);
         if (! is_dir($dir)) {
             return [];
@@ -73,6 +83,13 @@ final class AtlasCodeWorkPacketService
 
     public function find(string $obraId, string $packetId): ?array
     {
+        if ($this->usesDatabase()) {
+            $row = AtlasCodeWorkPacket::query()
+                ->where('obra_id', $obraId)
+                ->where('id', $packetId)
+                ->first();
+            return $row ? $this->shape($this->modelToArray($row)) : null;
+        }
         $path = $this->packetPath($obraId, $packetId);
         if (! is_file($path)) {
             return null;
@@ -86,6 +103,27 @@ final class AtlasCodeWorkPacketService
             return null;
         }
         return $this->shape($decoded);
+    }
+
+    private function usesDatabase(): bool
+    {
+        try {
+            return Schema::hasTable('atlas_code_work_packets');
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function modelToArray(AtlasCodeWorkPacket $m): array
+    {
+        $arr = $m->toArray();
+        // schema_version is not a column; inject the canonical value so
+        // shape() preserves the contract identically to filesystem mode.
+        $arr['schema_version'] = self::SCHEMA_VERSION;
+        return $arr;
     }
 
     /**
@@ -391,6 +429,37 @@ MD;
         if ($obraId === '' || $packetId === '') {
             throw new RuntimeException('work_packet_persist_missing_keys');
         }
+
+        if ($this->usesDatabase()) {
+            $attrs = [
+                'id' => $packetId,
+                'obra_id' => $obraId,
+                'obra_title' => $packet['obra_title'] ?? null,
+                'workspace_slug' => $packet['workspace_slug'] ?? null,
+                'workspace_path' => $packet['workspace_path'] ?? null,
+                'status' => (string) ($packet['status'] ?? 'draft'),
+                'objective' => (string) ($packet['objective'] ?? ''),
+                'context_summary' => $packet['context_summary'] ?? null,
+                'allowed_files' => $packet['allowed_files'] ?? [],
+                'forbidden_files' => $packet['forbidden_files'] ?? [],
+                'interfaces' => $packet['interfaces'] ?? [],
+                'constraints' => $packet['constraints'] ?? [],
+                'acceptance_criteria' => $packet['acceptance_criteria'] ?? [],
+                'verification_commands' => $packet['verification_commands'] ?? [],
+                'evidence_required' => $packet['evidence_required'] ?? [],
+                'report_format' => $packet['report_format'] ?? null,
+                'stop_rule' => $packet['stop_rule'] ?? null,
+                'role_slot' => (string) ($packet['role_slot'] ?? 'implementation_lead'),
+                'risk_band' => (string) ($packet['risk_band'] ?? 'medium'),
+                'task_category' => (string) ($packet['task_category'] ?? 'feature'),
+                'exported_at' => $packet['exported_at'] ?? null,
+                'packet_md_path' => $packet['packet_md_path'] ?? null,
+                'prompt_hash' => $packet['prompt_hash'] ?? null,
+            ];
+            AtlasCodeWorkPacket::query()->updateOrCreate(['id' => $packetId], $attrs);
+            return;
+        }
+
         $dir = $this->packetsDir($obraId);
         if (! is_dir($dir)) {
             @mkdir($dir, 0775, true);

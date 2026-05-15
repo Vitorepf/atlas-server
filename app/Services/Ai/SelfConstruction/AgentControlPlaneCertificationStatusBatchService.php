@@ -115,7 +115,7 @@ final class AgentControlPlaneCertificationStatusBatchService
             }
 
             try {
-                $payload = $this->readiness->{$method}();
+                $payload = $this->readiness->{$method}($this->projectionOptions($key, $options));
                 $statusValue = (string) data_get($payload, 'status', 'unknown');
                 $isPassed = ! in_array($statusValue, $blockedStatuses, true);
                 $statuses[] = [
@@ -203,6 +203,25 @@ final class AgentControlPlaneCertificationStatusBatchService
         unset($clone['batch_id'], $clone['generated_at'], $clone['batch_hash']);
 
         return $this->recursivelyKsort($clone);
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    private function projectionOptions(string $key, array $options): array
+    {
+        if ($key !== 'release_dossier') {
+            return [];
+        }
+
+        return [
+            // The batch already verifies the full scenario simulator as its
+            // own projection. Keep the dossier pass focused on composing the
+            // current release evidence instead of running the synthetic suite
+            // twice in the same batch.
+            'skip_simulator' => ! (bool) ($options['full_release_dossier_simulator'] ?? false),
+        ];
     }
 
     /**

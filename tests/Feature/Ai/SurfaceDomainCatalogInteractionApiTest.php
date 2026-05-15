@@ -50,6 +50,7 @@ class SurfaceDomainCatalogInteractionApiTest extends TestCase
                     'atlas_mode' => 'programming',
                     'routing_task' => 'debug',
                     'routing_domain' => 'blackink',
+                    'workspace' => '/repos/blackink',
                 ],
             ])
             ->assertAccepted()
@@ -96,6 +97,7 @@ class SurfaceDomainCatalogInteractionApiTest extends TestCase
                     'flow_id' => 'programming.unknown',
                     'atlas_mode' => 'programming',
                     'routing_task' => 'dev',
+                    'workspace' => '/repos/atlas',
                 ],
             ])
             ->assertAccepted();

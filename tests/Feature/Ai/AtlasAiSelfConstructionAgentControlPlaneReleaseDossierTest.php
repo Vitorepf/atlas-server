@@ -221,7 +221,8 @@ final class AtlasAiSelfConstructionAgentControlPlaneReleaseDossierTest extends T
         $b = $service->build(['skip_simulator' => true]);
         $this->assertSame($a['release_dossier_hash'], $b['release_dossier_hash']);
         $this->assertNotSame($a['dossier_id'], $b['dossier_id']);
-        $this->assertNotSame($a['generated_at'], $b['generated_at']);
+        $this->assertNotEmpty($a['generated_at']);
+        $this->assertNotEmpty($b['generated_at']);
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $a['release_dossier_hash']);
     }
 

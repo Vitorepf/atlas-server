@@ -43351,6 +43351,51 @@ final class AtlasSelfConstructionReadinessService
             'atlas_self_construction_runtime_promotion_operator_runbook_exporter_implementation_packet',
             'atlas_self_construction_runtime_promotion_operator_runbook_exporter_service',
             'atlas_self_construction_runtime_promotion_operator_runbook_exporter_status_projection',
+            'atlas_self_construction_real_provider_smoke_endgame_contract',
+            'atlas_self_construction_real_provider_smoke_endgame_preflight',
+            'atlas_self_construction_real_provider_smoke_endgame_implementation_packet',
+            'atlas_self_construction_real_provider_smoke_endgame_service',
+            'atlas_self_construction_real_provider_smoke_endgame_status_projection',
+            'atlas_self_construction_real_provider_smoke_endgame_verifier_contract',
+            'atlas_self_construction_real_provider_smoke_endgame_verifier_preflight',
+            'atlas_self_construction_real_provider_smoke_endgame_verifier_implementation_packet',
+            'atlas_self_construction_real_provider_smoke_endgame_verifier_service',
+            'atlas_self_construction_real_provider_smoke_endgame_verifier_status_projection',
+            'atlas_self_construction_real_provider_smoke_evidence_ledger_preflight_contract',
+            'atlas_self_construction_real_provider_smoke_evidence_ledger_preflight_preflight',
+            'atlas_self_construction_real_provider_smoke_evidence_ledger_preflight_implementation_packet',
+            'atlas_self_construction_real_provider_smoke_evidence_ledger_preflight_service',
+            'atlas_self_construction_real_provider_smoke_evidence_ledger_preflight_status_projection',
+            'atlas_self_construction_real_provider_smoke_operator_runbook_exporter_contract',
+            'atlas_self_construction_real_provider_smoke_operator_runbook_exporter_preflight',
+            'atlas_self_construction_real_provider_smoke_operator_runbook_exporter_implementation_packet',
+            'atlas_self_construction_real_provider_smoke_operator_runbook_exporter_service',
+            'atlas_self_construction_real_provider_smoke_operator_runbook_exporter_status_projection',
+            'atlas_self_construction_human_completion_receipt_endgame_verifier_contract',
+            'atlas_self_construction_human_completion_receipt_endgame_verifier_preflight',
+            'atlas_self_construction_human_completion_receipt_endgame_verifier_implementation_packet',
+            'atlas_self_construction_human_completion_receipt_endgame_verifier_service',
+            'atlas_self_construction_human_completion_receipt_endgame_verifier_status_projection',
+            'atlas_self_construction_final_completion_human_gate_contract',
+            'atlas_self_construction_final_completion_human_gate_preflight',
+            'atlas_self_construction_final_completion_human_gate_implementation_packet',
+            'atlas_self_construction_final_completion_human_gate_service',
+            'atlas_self_construction_final_completion_human_gate_status_projection',
+            'atlas_self_construction_final_completion_dossier_exporter_contract',
+            'atlas_self_construction_final_completion_dossier_exporter_preflight',
+            'atlas_self_construction_final_completion_dossier_exporter_implementation_packet',
+            'atlas_self_construction_final_completion_dossier_exporter_service',
+            'atlas_self_construction_final_completion_dossier_exporter_status_projection',
+            'atlas_self_construction_final_completion_readiness_gate_contract',
+            'atlas_self_construction_final_completion_readiness_gate_preflight',
+            'atlas_self_construction_final_completion_readiness_gate_implementation_packet',
+            'atlas_self_construction_final_completion_readiness_gate_service',
+            'atlas_self_construction_final_completion_readiness_gate_status_projection',
+            'atlas_self_construction_completion_finalization_gate_contract',
+            'atlas_self_construction_completion_finalization_gate_preflight',
+            'atlas_self_construction_completion_finalization_gate_implementation_packet',
+            'atlas_self_construction_completion_finalization_gate_service',
+            'atlas_self_construction_completion_finalization_gate_status_projection',
             'atlas_self_construction_human_completion_receipt_dossier_contract',
             'atlas_self_construction_human_completion_receipt_dossier_preflight',
             'atlas_self_construction_human_completion_receipt_dossier_implementation_packet',
@@ -76732,6 +76777,443 @@ final class AtlasSelfConstructionReadinessService
      * @param  array<string, mixed>  $options
      * @return array<string, mixed>
      */
+    public function atlasSelfConstructionRealProviderSmokeEndgameContract(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_real_provider_smoke_endgame', 'Atlas Self-Construction Real Provider Smoke Endgame', AtlasSelfConstructionRealProviderSmokeEndgameService::SCHEMA_VERSION, AtlasSelfConstructionRealProviderSmokeEndgameService::class, 'contract');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function atlasSelfConstructionRealProviderSmokeEndgamePreflight(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_real_provider_smoke_endgame', 'Atlas Self-Construction Real Provider Smoke Endgame', AtlasSelfConstructionRealProviderSmokeEndgameService::SCHEMA_VERSION, AtlasSelfConstructionRealProviderSmokeEndgameService::class, 'preflight');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function atlasSelfConstructionRealProviderSmokeEndgameImplementationPacket(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_real_provider_smoke_endgame', 'Atlas Self-Construction Real Provider Smoke Endgame', AtlasSelfConstructionRealProviderSmokeEndgameService::SCHEMA_VERSION, AtlasSelfConstructionRealProviderSmokeEndgameService::class, 'implementation_packet');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function atlasSelfConstructionRealProviderSmokeEndgameStatus(array $options = []): array
+    {
+        $result = (new AtlasSelfConstructionRealProviderSmokeEndgameService)->build([
+            'real_provider_smoke' => (array) ($options['real_provider_smoke'] ?? $this->decodeJsonOption($options['real_provider_smoke_json'] ?? null)),
+            'persist_completion_evidence' => false,
+        ]);
+
+        return $this->wrapCertificationWorkbenchStatus(
+            keyPrefix: 'atlas_self_construction_real_provider_smoke_endgame',
+            label: 'Atlas Self-Construction Real Provider Smoke Endgame',
+            payload: $result,
+            statusKey: 'status',
+            extraStatusFields: [
+                'completion_allowed' => false,
+                'completion_claim_allowed' => false,
+            ],
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function atlasSelfConstructionRealProviderSmokeEndgameVerifierContract(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_real_provider_smoke_endgame_verifier', 'Atlas Self-Construction Real Provider Smoke Endgame Verifier', AtlasSelfConstructionRealProviderSmokeEndgameVerifierService::SCHEMA_VERSION, AtlasSelfConstructionRealProviderSmokeEndgameVerifierService::class, 'contract');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function atlasSelfConstructionRealProviderSmokeEndgameVerifierPreflight(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_real_provider_smoke_endgame_verifier', 'Atlas Self-Construction Real Provider Smoke Endgame Verifier', AtlasSelfConstructionRealProviderSmokeEndgameVerifierService::SCHEMA_VERSION, AtlasSelfConstructionRealProviderSmokeEndgameVerifierService::class, 'preflight');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function atlasSelfConstructionRealProviderSmokeEndgameVerifierImplementationPacket(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_real_provider_smoke_endgame_verifier', 'Atlas Self-Construction Real Provider Smoke Endgame Verifier', AtlasSelfConstructionRealProviderSmokeEndgameVerifierService::SCHEMA_VERSION, AtlasSelfConstructionRealProviderSmokeEndgameVerifierService::class, 'implementation_packet');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function atlasSelfConstructionRealProviderSmokeEndgameVerifierStatus(array $options = []): array
+    {
+        $smoke = (array) ($options['real_provider_smoke'] ?? $this->decodeJsonOption($options['real_provider_smoke_json'] ?? null));
+        $result = (new AtlasSelfConstructionRealProviderSmokeEndgameVerifierService)->verify($smoke);
+
+        return $this->wrapCertificationWorkbenchStatus(
+            keyPrefix: 'atlas_self_construction_real_provider_smoke_endgame_verifier',
+            label: 'Atlas Self-Construction Real Provider Smoke Endgame Verifier',
+            payload: $result,
+            statusKey: 'status',
+            extraStatusFields: [
+                'completion_allowed' => false,
+                'completion_claim_allowed' => false,
+            ],
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function atlasSelfConstructionRealProviderSmokeEvidenceLedgerPreflightContract(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_real_provider_smoke_evidence_ledger_preflight', 'Atlas Self-Construction Real Provider Smoke Evidence Ledger Preflight', AtlasSelfConstructionRealProviderSmokeEvidenceLedgerPreflightService::SCHEMA_VERSION, AtlasSelfConstructionRealProviderSmokeEvidenceLedgerPreflightService::class, 'contract');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function atlasSelfConstructionRealProviderSmokeEvidenceLedgerPreflightPreflight(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_real_provider_smoke_evidence_ledger_preflight', 'Atlas Self-Construction Real Provider Smoke Evidence Ledger Preflight', AtlasSelfConstructionRealProviderSmokeEvidenceLedgerPreflightService::SCHEMA_VERSION, AtlasSelfConstructionRealProviderSmokeEvidenceLedgerPreflightService::class, 'preflight');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function atlasSelfConstructionRealProviderSmokeEvidenceLedgerPreflightImplementationPacket(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_real_provider_smoke_evidence_ledger_preflight', 'Atlas Self-Construction Real Provider Smoke Evidence Ledger Preflight', AtlasSelfConstructionRealProviderSmokeEvidenceLedgerPreflightService::SCHEMA_VERSION, AtlasSelfConstructionRealProviderSmokeEvidenceLedgerPreflightService::class, 'implementation_packet');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function atlasSelfConstructionRealProviderSmokeEvidenceLedgerPreflightStatus(array $options = []): array
+    {
+        $smoke = (array) ($options['real_provider_smoke'] ?? $this->decodeJsonOption($options['real_provider_smoke_json'] ?? null));
+        $result = (new AtlasSelfConstructionRealProviderSmokeEvidenceLedgerPreflightService)->preflight($smoke);
+
+        return $this->wrapCertificationWorkbenchStatus(
+            keyPrefix: 'atlas_self_construction_real_provider_smoke_evidence_ledger_preflight',
+            label: 'Atlas Self-Construction Real Provider Smoke Evidence Ledger Preflight',
+            payload: $result,
+            statusKey: 'status',
+            extraStatusFields: [
+                'completion_allowed' => false,
+                'completion_claim_allowed' => false,
+            ],
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function atlasSelfConstructionRealProviderSmokeOperatorRunbookExporterContract(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_real_provider_smoke_operator_runbook_exporter', 'Atlas Self-Construction Real Provider Smoke Operator Runbook Exporter', AtlasSelfConstructionRealProviderSmokeOperatorRunbookExporterService::SCHEMA_VERSION, AtlasSelfConstructionRealProviderSmokeOperatorRunbookExporterService::class, 'contract');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function atlasSelfConstructionRealProviderSmokeOperatorRunbookExporterPreflight(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_real_provider_smoke_operator_runbook_exporter', 'Atlas Self-Construction Real Provider Smoke Operator Runbook Exporter', AtlasSelfConstructionRealProviderSmokeOperatorRunbookExporterService::SCHEMA_VERSION, AtlasSelfConstructionRealProviderSmokeOperatorRunbookExporterService::class, 'preflight');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function atlasSelfConstructionRealProviderSmokeOperatorRunbookExporterImplementationPacket(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_real_provider_smoke_operator_runbook_exporter', 'Atlas Self-Construction Real Provider Smoke Operator Runbook Exporter', AtlasSelfConstructionRealProviderSmokeOperatorRunbookExporterService::SCHEMA_VERSION, AtlasSelfConstructionRealProviderSmokeOperatorRunbookExporterService::class, 'implementation_packet');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function atlasSelfConstructionRealProviderSmokeOperatorRunbookExporterStatus(array $options = []): array
+    {
+        $result = (new AtlasSelfConstructionRealProviderSmokeOperatorRunbookExporterService)->build([
+            'real_provider_smoke' => (array) ($options['real_provider_smoke'] ?? $this->decodeJsonOption($options['real_provider_smoke_json'] ?? null)),
+            'persist_export' => (bool) ($options['persist_export'] ?? false),
+        ]);
+
+        return $this->wrapCertificationWorkbenchStatus(
+            keyPrefix: 'atlas_self_construction_real_provider_smoke_operator_runbook_exporter',
+            label: 'Atlas Self-Construction Real Provider Smoke Operator Runbook Exporter',
+            payload: $result,
+            statusKey: 'status',
+            extraStatusFields: [
+                'completion_allowed' => false,
+                'completion_claim_allowed' => false,
+            ],
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function atlasSelfConstructionHumanCompletionReceiptEndgameVerifierContract(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_human_completion_receipt_endgame_verifier', 'Atlas Self-Construction Human Completion Receipt Endgame Verifier', AtlasSelfConstructionHumanCompletionReceiptEndgameVerifierService::SCHEMA_VERSION, AtlasSelfConstructionHumanCompletionReceiptEndgameVerifierService::class, 'contract');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function atlasSelfConstructionHumanCompletionReceiptEndgameVerifierPreflight(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_human_completion_receipt_endgame_verifier', 'Atlas Self-Construction Human Completion Receipt Endgame Verifier', AtlasSelfConstructionHumanCompletionReceiptEndgameVerifierService::SCHEMA_VERSION, AtlasSelfConstructionHumanCompletionReceiptEndgameVerifierService::class, 'preflight');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function atlasSelfConstructionHumanCompletionReceiptEndgameVerifierImplementationPacket(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_human_completion_receipt_endgame_verifier', 'Atlas Self-Construction Human Completion Receipt Endgame Verifier', AtlasSelfConstructionHumanCompletionReceiptEndgameVerifierService::SCHEMA_VERSION, AtlasSelfConstructionHumanCompletionReceiptEndgameVerifierService::class, 'implementation_packet');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function atlasSelfConstructionHumanCompletionReceiptEndgameVerifierStatus(array $options = []): array
+    {
+        $receipt = (array) ($options['completion_receipt'] ?? $this->decodeJsonOption($options['completion_receipt_json'] ?? null));
+        $context = (array) ($options['human_completion_receipt_context'] ?? []);
+        $result = (new AtlasSelfConstructionHumanCompletionReceiptEndgameVerifierService)->verify($receipt, $context);
+
+        return $this->wrapCertificationWorkbenchStatus(
+            keyPrefix: 'atlas_self_construction_human_completion_receipt_endgame_verifier',
+            label: 'Atlas Self-Construction Human Completion Receipt Endgame Verifier',
+            payload: $result,
+            statusKey: 'status',
+            extraStatusFields: [
+                'completion_allowed' => false,
+                'completion_claim_allowed' => false,
+            ],
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function atlasSelfConstructionFinalCompletionHumanGateContract(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_final_completion_human_gate', 'Atlas Self-Construction Final Completion Human Gate', AtlasSelfConstructionFinalCompletionHumanGateService::SCHEMA_VERSION, AtlasSelfConstructionFinalCompletionHumanGateService::class, 'contract');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function atlasSelfConstructionFinalCompletionHumanGatePreflight(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_final_completion_human_gate', 'Atlas Self-Construction Final Completion Human Gate', AtlasSelfConstructionFinalCompletionHumanGateService::SCHEMA_VERSION, AtlasSelfConstructionFinalCompletionHumanGateService::class, 'preflight');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function atlasSelfConstructionFinalCompletionHumanGateImplementationPacket(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_final_completion_human_gate', 'Atlas Self-Construction Final Completion Human Gate', AtlasSelfConstructionFinalCompletionHumanGateService::SCHEMA_VERSION, AtlasSelfConstructionFinalCompletionHumanGateService::class, 'implementation_packet');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function atlasSelfConstructionFinalCompletionHumanGateStatus(array $options = []): array
+    {
+        $result = (new AtlasSelfConstructionFinalCompletionHumanGateService($this))->build([
+            'completion_receipt' => (array) ($options['completion_receipt'] ?? $this->decodeJsonOption($options['completion_receipt_json'] ?? null)),
+        ]);
+
+        return $this->wrapCertificationWorkbenchStatus(
+            keyPrefix: 'atlas_self_construction_final_completion_human_gate',
+            label: 'Atlas Self-Construction Final Completion Human Gate',
+            payload: $result,
+            statusKey: 'status',
+            extraStatusFields: [
+                'completion_allowed' => false,
+                'completion_claim_allowed' => false,
+            ],
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function atlasSelfConstructionFinalCompletionDossierExporterContract(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_final_completion_dossier_exporter', 'Atlas Self-Construction Final Completion Dossier Exporter', AtlasSelfConstructionFinalCompletionDossierExporterService::SCHEMA_VERSION, AtlasSelfConstructionFinalCompletionDossierExporterService::class, 'contract');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function atlasSelfConstructionFinalCompletionDossierExporterPreflight(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_final_completion_dossier_exporter', 'Atlas Self-Construction Final Completion Dossier Exporter', AtlasSelfConstructionFinalCompletionDossierExporterService::SCHEMA_VERSION, AtlasSelfConstructionFinalCompletionDossierExporterService::class, 'preflight');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function atlasSelfConstructionFinalCompletionDossierExporterImplementationPacket(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_final_completion_dossier_exporter', 'Atlas Self-Construction Final Completion Dossier Exporter', AtlasSelfConstructionFinalCompletionDossierExporterService::SCHEMA_VERSION, AtlasSelfConstructionFinalCompletionDossierExporterService::class, 'implementation_packet');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function atlasSelfConstructionFinalCompletionDossierExporterStatus(array $options = []): array
+    {
+        $result = (new AtlasSelfConstructionFinalCompletionDossierExporterService($this))->build([
+            'persist_export' => (bool) ($options['persist_export'] ?? false),
+        ]);
+
+        return $this->wrapCertificationWorkbenchStatus(
+            keyPrefix: 'atlas_self_construction_final_completion_dossier_exporter',
+            label: 'Atlas Self-Construction Final Completion Dossier Exporter',
+            payload: $result,
+            statusKey: 'status',
+            extraStatusFields: [
+                'completion_allowed' => false,
+                'completion_claim_allowed' => false,
+            ],
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function atlasSelfConstructionFinalCompletionReadinessGateContract(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_final_completion_readiness_gate', 'Atlas Self-Construction Final Completion Readiness Gate', AtlasSelfConstructionFinalCompletionReadinessGateService::SCHEMA_VERSION, AtlasSelfConstructionFinalCompletionReadinessGateService::class, 'contract');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function atlasSelfConstructionFinalCompletionReadinessGatePreflight(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_final_completion_readiness_gate', 'Atlas Self-Construction Final Completion Readiness Gate', AtlasSelfConstructionFinalCompletionReadinessGateService::SCHEMA_VERSION, AtlasSelfConstructionFinalCompletionReadinessGateService::class, 'preflight');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function atlasSelfConstructionFinalCompletionReadinessGateImplementationPacket(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_final_completion_readiness_gate', 'Atlas Self-Construction Final Completion Readiness Gate', AtlasSelfConstructionFinalCompletionReadinessGateService::SCHEMA_VERSION, AtlasSelfConstructionFinalCompletionReadinessGateService::class, 'implementation_packet');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function atlasSelfConstructionFinalCompletionReadinessGateStatus(array $options = []): array
+    {
+        $result = (new AtlasSelfConstructionFinalCompletionReadinessGateService($this))->evaluate($options);
+
+        return $this->wrapCertificationWorkbenchStatus(
+            keyPrefix: 'atlas_self_construction_final_completion_readiness_gate',
+            label: 'Atlas Self-Construction Final Completion Readiness Gate',
+            payload: $result,
+            statusKey: 'status',
+            extraStatusFields: [
+                'completion_allowed' => false,
+                'completion_claim_allowed' => false,
+            ],
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function atlasSelfConstructionCompletionFinalizationGateContract(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_completion_finalization_gate', 'Atlas Self-Construction Completion Finalization Gate', AtlasSelfConstructionCompletionFinalizationGateService::SCHEMA_VERSION, AtlasSelfConstructionCompletionFinalizationGateService::class, 'contract');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function atlasSelfConstructionCompletionFinalizationGatePreflight(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_completion_finalization_gate', 'Atlas Self-Construction Completion Finalization Gate', AtlasSelfConstructionCompletionFinalizationGateService::SCHEMA_VERSION, AtlasSelfConstructionCompletionFinalizationGateService::class, 'preflight');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function atlasSelfConstructionCompletionFinalizationGateImplementationPacket(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_completion_finalization_gate', 'Atlas Self-Construction Completion Finalization Gate', AtlasSelfConstructionCompletionFinalizationGateService::SCHEMA_VERSION, AtlasSelfConstructionCompletionFinalizationGateService::class, 'implementation_packet');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function atlasSelfConstructionCompletionFinalizationGateStatus(array $options = []): array
+    {
+        $result = (new AtlasSelfConstructionCompletionFinalizationGateService($this))->evaluate($options);
+
+        return $this->wrapCertificationWorkbenchStatus(
+            keyPrefix: 'atlas_self_construction_completion_finalization_gate',
+            label: 'Atlas Self-Construction Completion Finalization Gate',
+            payload: $result,
+            statusKey: 'status',
+            extraStatusFields: [
+                'completion_allowed' => false,
+                'completion_claim_allowed' => false,
+            ],
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
     public function atlasSelfConstructionOsCompletionEvidenceStatus(array $options = []): array
     {
         $runtimePromotionReceiptInput = (array) ($options['runtime_promotion_receipt'] ?? $this->decodeJsonOption($options['runtime_promotion_receipt_json'] ?? null));
@@ -76747,9 +77229,16 @@ final class AtlasSelfConstructionReadinessService
         $realProviderSmoke = $persistEvidence && $smokeInput !== []
             ? $realProviderSmokeService->persist($smokeInput)
             : $realProviderSmokeService->certify($smokeInput);
+        $releaseDossier = $this->agentControlPlaneReleaseDossierStatus(['skip_simulator' => true]);
+        $replayDiff = $this->agentControlPlaneReplayDiffStatus();
+        $certificationStatusBatch = $this->agentControlPlaneCertificationStatusBatchStatus();
         $humanReceiptContext = [
+            'release_dossier_hash' => (string) data_get($releaseDossier, 'agent_control_plane_release_dossier_status.release_dossier_hash', data_get($releaseDossier, 'agent_control_plane_release_dossier.release_dossier_hash', '')),
+            'replay_diff_hash' => (string) data_get($replayDiff, 'agent_control_plane_replay_diff_status.diff_hash', ''),
+            'runtime_gap_matrix_hash' => (string) data_get($runtimeGapMatrix, 'runtime_gap_matrix_hash', ''),
             'runtime_promotion_receipt_hash' => (string) data_get($runtimeGapMatrix, 'runtime_promotion_receipt.receipt_hash', ''),
             'real_provider_smoke_hash' => (string) data_get($realProviderSmoke, 'smoke_hash', ''),
+            'certification_status_batch_hash' => (string) data_get($certificationStatusBatch, 'agent_control_plane_certification_status_batch_status.batch_hash', data_get($certificationStatusBatch, 'agent_control_plane_certification_status_batch.batch_hash', '')),
         ];
         $humanReceipt = $humanReceiptService->verify($receiptInput, $humanReceiptContext);
         $humanReceiptPersistencePrerequisites = [
@@ -76778,7 +77267,11 @@ final class AtlasSelfConstructionReadinessService
                 ]);
         }
         $forgeSmoke = (new AtlasSelfConstructionForgeSelfImprovementIntegrationSmokeService)->certify($options);
-        $operatorActionPacket = (new AtlasSelfConstructionCompletionOperatorActionPacketService($this))->build($runtimeGapMatrix, $humanReceipt, $realProviderSmoke);
+        $operatorActionPacket = (new AtlasSelfConstructionCompletionOperatorActionPacketService($this))->build($runtimeGapMatrix, $humanReceipt, $realProviderSmoke, [
+            'release_dossier' => $releaseDossier,
+            'replay_diff' => $replayDiff,
+            'certification_status_batch' => $certificationStatusBatch,
+        ]);
         $checks = [
             'runtime_gap_matrix_all_runtime_y' => (bool) data_get($runtimeGapMatrix, 'all_runtime_y', false),
             'human_signed_os_complete_receipt_present' => (string) data_get($humanReceipt, 'status') === 'passed',

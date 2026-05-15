@@ -41,6 +41,7 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-code-programming-obras-operating-system.md
   - docs/engineering-knowledge-base/atlas-code-adaptive-provider-operating-room-v1.md
   - docs/engineering-knowledge-base/atlas-code-interactive-observed-provider-workflow-v1.md
+  - docs/engineering-knowledge-base/atlas-ai-conversation-surface-and-atlas-dev-v1.md
   - docs/engineering-knowledge-base/atlas-desktop-code-surface.md
 doc_schema: atlas_canonical_module_doc.v1
 graph_id: atlas-programming-self-construction-forge-map-v1
@@ -129,6 +130,19 @@ Documentation / Spec / Kernel law
 -> Forge Continuum OS
 -> Atlas Code surface
 ```
+
+Camada anterior a Obra:
+
+```text
+Atlas AI Conversation Surface
+-> Atlas Dev
+-> Intervencao Rapida / Candidato de Obra
+-> Atlas Forge / Obra de Programacao
+```
+
+Use `atlas-ai-conversation-surface-and-atlas-dev-v1.md` quando a pergunta for
+chat tecnico, consulta, bug rapido, pesquisa de codigo, debug, continuidade
+mobile/desktop ou quando decidir se um trabalho deve virar Obra.
 
 ## Contratos
 

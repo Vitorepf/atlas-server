@@ -62,12 +62,16 @@ final class AtlasSelfConstructionFinalCompletionReadinessGateService
 
         $auditComplete = (string) data_get($completionAudit, 'status') === 'complete'
             && (int) data_get($completionAudit, 'failed_count', 0) === 0
-            && (array) data_get($completionAudit, 'failed_criteria', []) === [];
+            && (array) data_get($completionAudit, 'failed_criteria', []) === []
+            && (bool) data_get($completionAudit, 'completion_allowed', false) === true
+            && (bool) data_get($completionAudit, 'completion_claim_allowed', false) === true;
         $humanReceiptGreen = (bool) data_get($criteriaMatrix, 'human_signed_os_complete_receipt_present.passed', false);
         $runtimeGreen = (bool) data_get($criteriaMatrix, 'runtime_gap_matrix_all_runtime_y.passed', false);
         $smokeGreen = (bool) data_get($criteriaMatrix, 'end_to_end_real_provider_smoke_green.passed', false);
+        $materialEvidence = $this->materialEvidence($criteriaMatrix);
+        $materialEvidenceGreen = $materialEvidence['all_required_hashes_present'] === true;
 
-        if ($auditComplete) {
+        if ($auditComplete && $materialEvidenceGreen) {
             $status = 'complete';
         } elseif ($blockers === ['human_signed_os_complete_receipt_present']
             && $runtimeGreen
@@ -79,8 +83,15 @@ final class AtlasSelfConstructionFinalCompletionReadinessGateService
         }
 
         $completionAllowed = $status === 'complete';
-        $completionClaimAllowed = $completionAllowed && $auditComplete && (bool) data_get($completionAudit, 'completion_allowed', false);
+        $completionClaimAllowed = $completionAllowed && $auditComplete && $materialEvidenceGreen;
         $nextStageAllowed = $completionClaimAllowed && $humanReceiptGreen;
+        $nextStageBlockers = $nextStageAllowed
+            ? []
+            : array_values(array_unique(array_merge(
+                $blockers,
+                $auditComplete ? [] : ['completion_audit_not_status_complete'],
+                $materialEvidenceGreen ? [] : ['material_completion_evidence_hashes_missing_or_invalid'],
+            )));
 
         $payload = [
             'schema_version' => self::SCHEMA_VERSION,
@@ -91,13 +102,15 @@ final class AtlasSelfConstructionFinalCompletionReadinessGateService
             'completion_claim_allowed' => $completionClaimAllowed,
             'next_stage_allowed' => $nextStageAllowed,
             'next_stage_name' => $nextStageAllowed ? self::NEXT_STAGE_NAME : '',
-            'next_stage_blocked_by' => $nextStageAllowed ? [] : array_values(array_unique(array_merge($blockers, $auditComplete ? [] : ['completion_audit_not_status_complete']))),
+            'next_stage_blocked_by' => $nextStageBlockers,
             'blockers' => $blockers,
             'blocker_count' => count($blockers),
             'audit_complete' => $auditComplete,
             'human_receipt_green' => $humanReceiptGreen,
             'runtime_green' => $runtimeGreen,
             'smoke_green' => $smokeGreen,
+            'material_completion_evidence_green' => $materialEvidenceGreen,
+            'material_completion_evidence' => $materialEvidence,
             'criteria_matrix' => $criteriaMatrix,
             'completion_audit_status' => (string) data_get($completionAudit, 'status'),
             'completion_audit_hash' => (string) data_get($completionAudit, 'completion_audit_hash', ''),
@@ -124,12 +137,44 @@ final class AtlasSelfConstructionFinalCompletionReadinessGateService
                 'completion_claim_requires_audit_status_complete' => true,
                 'completion_claim_requires_human_signed_receipt' => true,
                 'completion_claim_requires_runtime_and_smoke_green' => true,
+                'completion_claim_requires_material_evidence_hashes' => true,
                 'next_stage_requires_completion_claim_allowed' => true,
             ],
         ];
         $payload['gate_hash'] = $this->stableHash($payload);
 
         return $payload;
+    }
+
+    /** @param array<string, array<string, mixed>> $criteriaMatrix */
+    private function materialEvidence(array $criteriaMatrix): array
+    {
+        $runtimeEvidence = (array) data_get($criteriaMatrix, 'runtime_gap_matrix_all_runtime_y.evidence', []);
+        $humanEvidence = (array) data_get($criteriaMatrix, 'human_signed_os_complete_receipt_present.evidence', []);
+        $smokeEvidence = (array) data_get($criteriaMatrix, 'end_to_end_real_provider_smoke_green.evidence', []);
+        $releaseEvidence = (array) data_get($criteriaMatrix, 'release_dossier_green.evidence', []);
+        $replayEvidence = (array) data_get($criteriaMatrix, 'replay_diff_against_completion_snapshot_green.evidence', []);
+        $batchEvidence = (array) data_get($criteriaMatrix, 'certification_status_batch_green.evidence', []);
+
+        $hashes = [
+            'runtime_gap_matrix_hash' => (string) ($runtimeEvidence['runtime_gap_matrix_hash'] ?? ''),
+            'runtime_promotion_receipt_hash' => (string) ($runtimeEvidence['runtime_promotion_receipt_hash'] ?? ''),
+            'human_completion_receipt_hash' => (string) ($humanEvidence['receipt_hash'] ?? ''),
+            'real_provider_smoke_hash' => (string) ($smokeEvidence['smoke_hash'] ?? ''),
+            'release_dossier_hash' => (string) ($releaseEvidence['hash'] ?? ''),
+            'replay_diff_hash' => (string) ($replayEvidence['diff_hash'] ?? ''),
+            'certification_status_batch_hash' => (string) ($batchEvidence['hash'] ?? ''),
+        ];
+        $invalid = array_keys(array_filter(
+            $hashes,
+            static fn (string $hash): bool => preg_match('/^[a-f0-9]{64}$/', $hash) !== 1,
+        ));
+
+        return [
+            'all_required_hashes_present' => $invalid === [],
+            'invalid_or_missing_hash_fields' => $invalid,
+            'hashes' => $hashes,
+        ];
     }
 
     /** @param array<string, mixed> $payload */

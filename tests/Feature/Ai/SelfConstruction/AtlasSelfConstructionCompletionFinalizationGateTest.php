@@ -43,8 +43,25 @@ final class AtlasSelfConstructionCompletionFinalizationGateTest extends TestCase
         $this->assertSame('passed', $gate['status']);
         $this->assertTrue((bool) $gate['completion_claim_allowed']);
         $this->assertTrue((bool) $gate['next_stage_allowed']);
+        $this->assertTrue((bool) $gate['evidence_hashes_match_completion_audit']);
         $this->assertSame([], (array) $gate['next_stage_blockers']);
         $this->assertSame([], (array) $gate['failed_check_ids']);
+    }
+
+    public function test_finalization_gate_blocks_when_green_audit_and_completion_evidence_hashes_drift(): void
+    {
+        $evidence = $this->evidenceAllGreen();
+        $evidence['real_provider_smoke']['smoke_hash'] = str_repeat('b', 64);
+
+        $gate = $this->service()->evaluate([
+            'completion_audit' => $this->auditAllPassedExcept([]),
+            'completion_evidence' => $evidence,
+        ]);
+
+        $this->assertSame('blocked', $gate['status']);
+        $this->assertFalse((bool) $gate['completion_claim_allowed']);
+        $this->assertFalse((bool) $gate['evidence_hashes_match_completion_audit']);
+        $this->assertContains('finalization_gate_blocked_by_evidence_hashes_match_completion_audit', (array) $gate['next_stage_blockers']);
     }
 
     public function test_finalization_gate_never_mutates_or_promotes_completion(): void
@@ -103,11 +120,26 @@ final class AtlasSelfConstructionCompletionFinalizationGateTest extends TestCase
         ];
         $criteria = [];
         foreach ($ids as $id) {
-            $criteria[] = ['id' => $id, 'passed' => ! in_array($id, $failed, true), 'evidence' => []];
+            $evidence = match ($id) {
+                'runtime_gap_matrix_all_runtime_y' => [
+                    'runtime_gap_matrix_hash' => $hash,
+                    'runtime_promotion_receipt_hash' => $hash,
+                ],
+                'end_to_end_real_provider_smoke_green' => [
+                    'smoke_hash' => $hash,
+                ],
+                'human_signed_os_complete_receipt_present' => [
+                    'receipt_hash' => $hash,
+                ],
+                default => [],
+            };
+            $criteria[] = ['id' => $id, 'passed' => ! in_array($id, $failed, true), 'evidence' => $evidence];
         }
 
         return [
             'status' => $failed === [] ? 'complete' : 'incomplete',
+            'completion_allowed' => $failed === [],
+            'completion_claim_allowed' => $failed === [],
             'completion_audit_hash' => $hash,
             'failed_criteria' => $failed,
             'failed_count' => count($failed),
@@ -129,7 +161,7 @@ final class AtlasSelfConstructionCompletionFinalizationGateTest extends TestCase
                 'runtime_promotion_receipt' => ['status' => 'passed', 'receipt_hash' => $hash],
             ],
             'real_provider_smoke' => ['status' => 'passed', 'smoke_hash' => $hash],
-            'human_signed_completion_receipt' => ['status' => 'passed', 'receipt_hash' => $hash],
+            'human_signed_completion_receipt' => ['status' => 'passed', 'receipt_hash' => $hash, 'completion_claim_allowed' => true],
         ];
     }
 }

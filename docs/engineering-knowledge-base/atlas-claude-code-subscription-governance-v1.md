@@ -5,7 +5,7 @@ title: Atlas Claude Code Subscription Governance v1
 status: active
 category: provider-governance
 priority: 100
-summary: Regra canonica para usar Claude Code no Atlas sem API, sem creditos extras e sem confundir uso interativo com `claude -p`, Agent SDK ou worker headless.
+summary: Regra canonica para usar Claude Code no Atlas sem API e sem creditos extras, separando uso interativo observado, uso programatico experimental/Rivals antes do cutoff e bloqueio futuro por flag/data.
 tags:
   - atlas
   - atlas-code
@@ -24,18 +24,19 @@ decisions:
   - A partir de 15 de junho de 2026, Claude Agent SDK, `claude -p`, Claude Code GitHub Actions e apps terceiros via Agent SDK usam credito mensal separado.
   - Claude Code interativo no terminal/IDE continua usando os limites normais da assinatura Claude.
   - No modo sem API e sem creditos extras, Codex 5.5, Claude Code e Gemini podem iniciar com papeis bootstrap, mas runtime canonico deve evoluir para dynamic provider role assignment.
-  - Claude Code e provider interativo observado permitido, nao motor programatico nem backend headless.
+  - Claude Code interativo observado e o modo alvo para uso diario dentro de Obras.
+  - Antes do cutoff de 15 de junho de 2026 ou antes de flag explicita de bloqueio, uso programatico/headless Claude ainda pode ser permitido para Rivals, benchmarks, testes de integracao e experimentos aprovados pelo operador.
   - Gemini e provider interativo de apoio permitido; nao substitui o estado governado do Atlas.
   - Nenhum provider deve ter papel permanente; Atlas Decide deve aprender por Projeto, Obra, work packet, role slot, risco, capacidade e evidencia.
   - IA local fica fora de escopo por enquanto.
-  - Para o limite pessoal do operador, Atlas deve tratar Claude Code como runtime interativo observado, nao como backend headless.
-  - Sem API e sem creditos extras, Atlas deve bloquear ou pausar caminhos Claude headless em modo subscription-only.
+  - Para trabalho produtivo diario, Atlas deve preferir Claude Code interativo observado, nao backend headless silencioso.
+  - Sem API e sem creditos extras, Atlas deve preparar bloqueio/pausa de caminhos Claude headless para o cutoff, mas nao deve desabilitar agora usos programaticos explicitamente autorizados de Rivals/teste.
   - O fluxo eficiente e Atlas governar Obra, contexto, escopo, gates, evidencia e review enquanto o operador usa Claude Code interativo local.
   - A UX canonica e abrir Claude Code como sessao interativa observada a partir da Obra, com packet, prompt, terminal, importacao, gates e evidence.
 maintenance:
   - Atualize este doc quando Anthropic alterar Claude Code, Agent SDK, billing, termos, uso programatico ou limites de assinatura.
   - Leia este doc antes de alterar `claude_cli`, `ClaudeCliProvider`, AI workers, Forge Provider Invocation ou Atlas Code composer.
-  - Nao declarar fluxo Claude subscription-only como ilimitado, autonomo, backend, worker ou producao.
+  - Nao declarar fluxo Claude subscription-only como ilimitado, autonomo, backend permanente, worker de producao ou substituto de policy.
 related_paths:
   - docs/engineering-knowledge-base/atlas-ai-thesis-multiplier-channel.md
   - docs/engineering-knowledge-base/atlas-ai-provider-evolution-intelligence.md
@@ -71,6 +72,7 @@ allowed_changes:
   - Adicionar preflights, gates, labels de UX, packet builder, terminal adapter e watchers para Claude Code interativo observado.
 forbidden_changes:
   - Tratar `claude -p`, Agent SDK, GitHub Actions ou worker background como Claude Code interativo.
+  - Bloquear imediatamente `claude -p`, Agent SDK ou worker Claude usados explicitamente para Rivals/testes antes do cutoff sem decisao nova do operador.
   - Fazer fallback silencioso para API key, PAYG, extra usage ou credito extra.
   - Reintroduzir IA local como alternativa default enquanto a estrategia atual mantiver IA local fora de escopo.
   - Tratar Claude Code, Codex, Gemini ou qualquer provider como cerebro principal permanente do Atlas em modo subscription-only.
@@ -105,10 +107,11 @@ visual_tags:
 ai_entrypoints:
   - Leia Resumo, Contratos, Fluxo, Regras para IA e Riscos antes de implementar qualquer uso de Claude Code no Atlas.
 ai_usage_notes:
-  - Se o operador exigir sem API e sem creditos extras, use papeis bootstrap apenas ate existir evidence suficiente; depois siga Dynamic Provider Role Assignment. Nunca escolha `claude_cli` headless, Agent SDK, API ou IA local por fallback implicito.
+  - Se o operador exigir sem API e sem creditos extras, use papeis bootstrap apenas ate existir evidence suficiente; depois siga Dynamic Provider Role Assignment. Nao use `claude_cli` headless, Agent SDK, API ou IA local por fallback implicito. Antes do cutoff, uso programatico Claude segue permitido apenas quando explicitamente marcado como Rivals/teste/experimento aprovado.
 quality_gates:
   - no-api-key-fallback
-  - no-claude-headless-in-subscription-only
+  - no-unapproved-claude-headless
+  - rivals-programmatic-exception-preserved
   - operator-presence-required
   - evidence-ledger-required
 failure_modes:
@@ -130,8 +133,9 @@ observability_signals:
   - evidence_ledger_event
 next_actions:
   - Implementar modo `claude_code_interactive_observed`.
-  - Adicionar preflight para bloquear API keys no modo subscription-only.
-  - Desabilitar workers Claude por default quando `ATLAS_CLAUDE_SUBSCRIPTION_ONLY=true`.
+  - Adicionar preflight para bloquear API keys/PAYG no modo sem creditos extras.
+  - Adicionar flag futura para hard block de Claude programatico apenas quando o cutoff/policy exigir ou quando o operador ativar.
+  - Preservar caminho programatico de Rivals/teste ate decisao explicita de migracao.
 ---
 # Atlas Claude Code Subscription Governance v1
 
@@ -152,7 +156,7 @@ Decisao central:
 Atlas Decide: autoridade de roteamento, escopo, gates, evidencia e aceite.
 Providers: candidatos dinamicos por role slot.
 Claude Code interativo observado: permitido.
-Claude headless/programatico como backend: bloqueado no modo subscription-only.
+Claude headless/programatico: permitido agora apenas para Rivals/testes/experimentos aprovados; bloqueio duro e fase futura/flag.
 Gemini/Codex interativos: permitidos conforme capacidade, evidencia e modo.
 IA local: fora de escopo por enquanto.
 ```
@@ -203,6 +207,26 @@ Regra que comeca em **15 de junho de 2026**:
 | Interativo | `claude` no terminal/IDE | limite normal da assinatura |
 | Programatico/headless | Agent SDK, `claude -p`, GitHub Actions, apps terceiros via Agent SDK | credito mensal Agent SDK |
 | API | `ANTHROPIC_API_KEY`, Console, cloud providers | PAYG/API |
+
+## Politica De Fases
+
+Antes de 15 de junho de 2026, ou enquanto o operador nao ativar bloqueio duro,
+Atlas nao deve quebrar o uso programatico existente de Claude quando ele for
+necessario para:
+
+- Rivals / baseline Claude Code;
+- benchmarks comparativos;
+- testes de driver/integracao;
+- experimentos controlados de provider;
+- validacao de prompts/packets.
+
+Esse uso deve ser marcado como `programmatic_experiment`, `rivals_baseline` ou
+`provider_integration_test`, nunca como runtime produtivo silencioso. Deve rodar
+com workspace isolado, approval explicito, evidence e custo/risco visiveis.
+
+Depois do cutoff, ou quando o operador ativar hard block, o mesmo caminho deve
+pausar ou exigir decisao nova. A migracao para interativo observado e o alvo
+operacional diario, nao uma proibicao imediata que destrua Rivals.
 
 Credito mensal Agent SDK anunciado:
 
@@ -276,8 +300,9 @@ receipts e gates.
 
 Agentes e implementacoes devem respeitar:
 
-- nunca chamar `claude -p` no modo subscription-only;
-- nunca usar Agent SDK nesse modo;
+- nunca chamar `claude -p` como fallback silencioso, completion automatica ou backend produtivo escondido;
+- nunca usar Agent SDK como worker produtivo escondido;
+- preservar `claude -p`/Agent SDK quando explicitamente usados para Rivals/testes antes do cutoff ou antes da flag de bloqueio duro;
 - nunca fazer fallback para `ANTHROPIC_API_KEY`;
 - nunca iniciar worker Claude em background;
 - nunca tratar assinatura pessoal como backend multiusuario;
@@ -293,11 +318,12 @@ Config alvo:
 
 ```text
 ATLAS_CLAUDE_SUBSCRIPTION_ONLY=true
-claude_headless_enabled=false
-agent_sdk_enabled=false
+claude_headless_enabled=operator_approved_test_only
+agent_sdk_enabled=operator_approved_test_only
 anthropic_api_enabled=false
-workers_claude_enabled=false
+workers_claude_enabled=rivals_or_test_only
 queue_execution_for_claude=false
+claude_programmatic_hard_block=false_until_cutoff_or_operator_decision
 provider_assignment_mode=dynamic_provider_role_assignment
 claude_allowed_mode=interactive_observed
 codex_allowed_mode=interactive_or_workspace
@@ -315,6 +341,7 @@ Permitido:
 
 - Atlas Decide preparar contexto, prompt, plano, revisao e validacao;
 - Codex 5.5, Claude Code e Gemini atuarem como providers interativos quando selecionados por role slot;
+- Claude programatico/headless em Rivals, baseline, benchmark ou teste de integracao explicitamente aprovado antes do cutoff/flag;
 - preflight local de ambiente;
 - packet builder por Obra;
 - terminal adapter que abre workspace para uso interativo;
@@ -324,14 +351,14 @@ Permitido:
 - UX clara de "Modo Local Assistido";
 - Gemini interativo para pesquisa/comparacao quando o operador decidir.
 
-Bloqueado no modo subscription-only:
+Bloqueado como uso produtivo silencioso:
 
-- `claude_cli` via worker;
-- `claude -p`;
-- Agent SDK;
-- GitHub Actions Claude;
+- `claude_cli` via worker sem approval/test label;
+- `claude -p` sem Rivals/teste/experimento aprovado;
+- Agent SDK sem Rivals/teste/experimento aprovado;
+- GitHub Actions Claude sem decisao explicita;
 - API/PAYG;
-- provider invocation `execute` com Claude externo;
+- provider invocation `execute` com Claude externo sem approval/test label;
 - fallback silencioso para outra conta ou credito extra;
 - fallback automatico para IA local.
 
@@ -378,11 +405,12 @@ Nao registrar OAuth tokens, cookies, API keys ou credenciais.
 Riscos principais:
 
 - `config/atlas.php` usar `claude_cli` como default;
-- `ClaudeCliProvider` usar `-p --output-format stream-json`;
+- `ClaudeCliProvider` usar `-p --output-format stream-json` como runtime produtivo silencioso;
 - AI worker chamar provider real sem operador;
 - LaunchAgent manter worker Claude vivo;
 - `ANTHROPIC_API_KEY` transformar uso em PAYG/API;
-- Forge Provider Invocation executar `claude_cli`;
+- Forge Provider Invocation executar `claude_cli` sem label Rivals/teste/experimento aprovado;
+- hard block prematuro quebrar Rivals, baseline Claude Code ou testes programaticos antes do cutoff/decisao do operador;
 - Claude Code virar ponto unico de falha e memoria principal;
 - Gemini ou IA local serem tratados como fonte de verdade;
 - IA local voltar como fallback implicito sem decisao canonica;
@@ -400,10 +428,16 @@ Permitido:
 Atlas gera packet -> seleciona provider por role slot -> operador roda sessao interativa permitida -> Atlas valida diff/testes.
 ```
 
-Bloqueado:
+Bloqueado como runtime produtivo silencioso:
 
 ```text
 Atlas worker -> `claude -p` -> prompt via stdin -> resposta stream-json.
+```
+
+Permitido ate cutoff/decisao explicita quando aprovado:
+
+```text
+Rivals baseline -> workspace isolado -> `claude -p`/driver programatico -> evidence -> comparacao honesta.
 ```
 
 Ao bater limite:
@@ -414,8 +448,8 @@ pausar -> registrar motivo -> manter Obra aberta -> aguardar reset.
 
 ## Proximas Acoes
 
-1. Implementar kill switch `ATLAS_CLAUDE_SUBSCRIPTION_ONLY`.
-2. Bloquear Claude headless quando subscription-only estiver ativo.
+1. Implementar kill switch futuro `ATLAS_CLAUDE_PROGRAMMATIC_HARD_BLOCK`.
+2. Preservar Claude programatico para Rivals/testes enquanto a flag estiver desligada.
 3. Criar preflight para API keys e operador presente.
 4. Criar Claude Code Packet Builder por Obra.
 5. Criar terminal adapter para sessao interativa.

@@ -319,23 +319,31 @@ final class AtlasForgeRivalsRunRealService
         ]));
         $commandHash = hash('sha256', implode(' ', $command));
 
-        $proc = new Process($command, $worktree, $env, null, self::DEFAULT_HARD_KILL_SECONDS);
-        $proc->setIdleTimeout(self::DEFAULT_PROVIDER_TIMEOUT_SECONDS);
+        $providerTimeoutSeconds = $this->providerTimeoutSeconds();
+        $hardKillSeconds = $this->hardKillSeconds();
+        $proc = new Process($command, $worktree, $env, null, $hardKillSeconds);
+        // We enforce idle and hard timeouts explicitly below. Symfony's idle
+        // timeout can be bypassed when callers only poll isRunning(); the
+        // explicit clock is the Rivals source of truth.
+        $proc->setIdleTimeout(null);
 
         $stdoutBuf = '';
         $stderrBuf = '';
-        $lastChunkAt = time();
+        $startedAtMonotonic = microtime(true);
+        $lastProviderOutputAt = $startedAtMonotonic;
+        $lastHeartbeatAt = $startedAtMonotonic;
         $killed = false;
         $timeoutReason = null;
 
         try {
             $proc->start();
             while ($proc->isRunning()) {
+                $sawProviderOutput = false;
                 $newStdout = (string) $proc->getIncrementalOutput();
                 $newStderr = (string) $proc->getIncrementalErrorOutput();
                 if ($newStdout !== '') {
                     $stdoutBuf .= $newStdout;
-                    $lastChunkAt = time();
+                    $sawProviderOutput = true;
                     $this->events->event($runId, 'provider_stdout_chunk', [
                         'arm' => $arm,
                         'bytes' => strlen($newStdout),
@@ -344,19 +352,51 @@ final class AtlasForgeRivalsRunRealService
                 }
                 if ($newStderr !== '') {
                     $stderrBuf .= $newStderr;
-                    $lastChunkAt = time();
+                    $sawProviderOutput = true;
                     $this->events->event($runId, 'provider_stderr_chunk', [
                         'arm' => $arm,
                         'bytes' => strlen($newStderr),
                         'tail' => substr($newStderr, -200),
                     ]);
                 }
-                if ((time() - $lastChunkAt) >= self::HEARTBEAT_INTERVAL_SECONDS) {
+                $now = microtime(true);
+                if ($sawProviderOutput) {
+                    $lastProviderOutputAt = $now;
+                }
+
+                if (($now - $lastProviderOutputAt) >= $providerTimeoutSeconds) {
+                    $killed = true;
+                    $timeoutReason = 'idle_timeout';
+                    $this->events->event($runId, 'provider_timeout_warning', [
+                        'arm' => $arm,
+                        'reason' => $timeoutReason,
+                        'seconds_without_provider_output' => (int) floor($now - $lastProviderOutputAt),
+                        'provider_timeout_seconds' => $providerTimeoutSeconds,
+                    ]);
+                    $proc->stop(10);
+                    break;
+                }
+
+                if (($now - $startedAtMonotonic) >= $hardKillSeconds) {
+                    $killed = true;
+                    $timeoutReason = 'hard_timeout';
+                    $this->events->event($runId, 'provider_timeout_warning', [
+                        'arm' => $arm,
+                        'reason' => $timeoutReason,
+                        'elapsed_seconds' => (int) floor($now - $startedAtMonotonic),
+                        'hard_kill_seconds' => $hardKillSeconds,
+                    ]);
+                    $proc->stop(10);
+                    break;
+                }
+
+                if (($now - $lastHeartbeatAt) >= self::HEARTBEAT_INTERVAL_SECONDS) {
                     $this->events->event($runId, 'heartbeat', [
                         'arm' => $arm,
-                        'elapsed_since_last_chunk_seconds' => time() - $lastChunkAt,
+                        'elapsed_since_last_provider_output_seconds' => (int) floor($now - $lastProviderOutputAt),
+                        'elapsed_total_seconds' => (int) floor($now - $startedAtMonotonic),
                     ]);
-                    $lastChunkAt = time();
+                    $lastHeartbeatAt = $now;
                 }
                 usleep(200_000); // 200ms poll
             }
@@ -392,7 +432,9 @@ final class AtlasForgeRivalsRunRealService
         $logPaths = $this->writeProviderLogs($runId, $arm, $stdoutBuf, $stderrBuf);
         $patch = $this->capturePatch($runId, $arm, $worktree);
         $scope = $this->scopeCheck($worktree, $case);
-        $test = $this->runValidationCommand($runId, $arm, $worktree, $case);
+        $test = $killed
+            ? $this->skippedValidationCommand($runId, $arm, $case, (string) $timeoutReason)
+            : $this->runValidationCommand($runId, $arm, $worktree, $case);
 
         return [
             'arm' => $arm,
@@ -597,7 +639,8 @@ DIFF;
                 '--permission-mode',
                 'bypassPermissions',
                 '--output-format',
-                'json',
+                'stream-json',
+                '--verbose',
                 '-p',
                 $this->atlasForgePrompt($case),
             ];
@@ -615,7 +658,8 @@ DIFF;
             '--permission-mode',
             'bypassPermissions',
             '--output-format',
-            'json',
+            'stream-json',
+            '--verbose',
             '-p',
             $this->rivalPrompt($case),
         ];
@@ -833,6 +877,33 @@ PROMPT;
     }
 
     /**
+     * @param  array<string,mixed>  $case
+     * @return array{command:string,exit_code:int,log_path:string,log_hash:string,tail:string}
+     */
+    private function skippedValidationCommand(string $runId, string $arm, array $case, string $reason): array
+    {
+        $command = $this->testCommand($case);
+        $paths = $this->paths->paths($runId);
+        @mkdir($paths['evidence'], 0o755, true);
+        $logPath = $paths['evidence'].'/'.$arm.'_test.log';
+        $log = "SKIPPED: provider timed out before validation could run.\nReason: {$reason}\nCommand: {$command}\n";
+        file_put_contents($logPath, $log);
+        $this->events->event($runId, 'validation_skipped', [
+            'arm' => $arm,
+            'command' => $command,
+            'reason' => $reason,
+        ]);
+
+        return [
+            'command' => $command,
+            'exit_code' => -1,
+            'log_path' => $logPath,
+            'log_hash' => hash('sha256', $log),
+            'tail' => $log,
+        ];
+    }
+
+    /**
      * @return list<string>
      */
     private function workspaceStatusLines(string $workspace): array
@@ -940,6 +1011,20 @@ PROMPT;
         }
 
         return $out;
+    }
+
+    private function providerTimeoutSeconds(): int
+    {
+        $value = (int) (getenv('ATLAS_FORGE_RIVALS_PROVIDER_TIMEOUT_SECONDS') ?: 0);
+
+        return $value > 0 ? max(5, $value) : self::DEFAULT_PROVIDER_TIMEOUT_SECONDS;
+    }
+
+    private function hardKillSeconds(): int
+    {
+        $value = (int) (getenv('ATLAS_FORGE_RIVALS_HARD_KILL_SECONDS') ?: 0);
+
+        return $value > 0 ? max(10, $value) : self::DEFAULT_HARD_KILL_SECONDS;
     }
 
     private function workspaceHash(string $workspace): ?string

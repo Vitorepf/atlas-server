@@ -59,6 +59,10 @@ return [
             'docs_status' => 'canonical',
             'default_risk' => 'medium',
             'deployment_notes' => 'Atlas é o próprio repositório onde Atlas Code roda. Self-modifying — mudanças em produção exigem evidência.',
+            // Surfaces que este Projeto/Workspace habilita. Meta 5 expõe
+            // este campo para que a UI possa esconder tabs incompatíveis
+            // (ex: projeto sem docs canônicas → cartografia indisponível).
+            'surfaces_enabled' => ['atlas_ai', 'cartografia', 'code', 'atencao'],
         ],
         [
             'id' => 'blackink',
@@ -77,6 +81,10 @@ return [
             'docs_status' => 'incomplete',
             'default_risk' => 'high',
             'deployment_notes' => 'Blackink está em produção. Intervenções pequenas exigem rollback claro; trabalhos estruturais precisam virar Obra governada.',
+            // Blackink ainda não tem docs canônicas para Cartografia;
+            // Atlas AI e Atenção ficam permitidas, Code/Cartografia
+            // aparecem com badge "limitado" até docs status melhorar.
+            'surfaces_enabled' => ['atlas_ai', 'atencao', 'code'],
         ],
     ],
 ];

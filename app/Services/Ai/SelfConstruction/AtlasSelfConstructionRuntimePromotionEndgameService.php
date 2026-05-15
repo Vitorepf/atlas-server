@@ -36,12 +36,14 @@ final class AtlasSelfConstructionRuntimePromotionEndgameService
         $signedBy = trim((string) ($options['signed_by'] ?? ''));
         $reason = trim((string) ($options['reason'] ?? ''));
         $providedReceipt = (array) ($options['runtime_promotion_receipt'] ?? []);
+        $receiptProvided = $providedReceipt !== [];
         $persistRequested = (bool) ($options['persist_runtime_promotion_receipt'] ?? false);
+        $skipCompletionSurfaces = (bool) ($options['skip_completion_surfaces'] ?? false);
 
-        $matrix = (new AtlasSelfConstructionRuntimeGapMatrixService($this->readiness))->matrix([
+        $matrix = (array) ($options['runtime_gap_matrix'] ?? (new AtlasSelfConstructionRuntimeGapMatrixService($this->readiness))->matrix([
             'runtime_promotion_receipt' => $providedReceipt,
             'persist_runtime_promotion_receipt' => false,
-        ]);
+        ]));
         $rows = array_values(array_filter((array) data_get($matrix, 'rows', []), 'is_array'));
         $gapRows = array_values(array_filter($rows, static fn (array $row): bool => ! (bool) ($row['runtime_y'] ?? false)));
         $blockedGapIds = array_values(array_map(static fn (array $row): string => (string) ($row['gap_id'] ?? ''), $gapRows));
@@ -72,7 +74,7 @@ final class AtlasSelfConstructionRuntimePromotionEndgameService
         ]);
         $closurePackVerification = (new AtlasSelfConstructionRuntimePromotionClosurePackVerifierService)->verify($closurePack);
 
-        $draftRequested = $signedBy !== '' || $reason !== '' || $providedReceipt !== [];
+        $draftRequested = $signedBy !== '' || $reason !== '';
         $receiptDraft = [];
         if ($draftRequested) {
             $receiptDraft = (new AtlasSelfConstructionRuntimePromotionReceiptDraftService)->build($matrix, [
@@ -83,10 +85,12 @@ final class AtlasSelfConstructionRuntimePromotionEndgameService
         }
         $draftPayload = (array) data_get($receiptDraft, 'receipt_payload', []);
         $draftReady = (string) data_get($receiptDraft, 'status', '') === 'ready_for_operator_persistence';
+        $receiptUnderReview = $receiptProvided ? $providedReceipt : $draftPayload;
+        $receiptUnderReviewSource = $receiptProvided ? 'operator_supplied_runtime_promotion_receipt' : ($draftPayload !== [] ? 'generated_runtime_promotion_receipt_draft' : 'none');
 
         $endgameVerifier = new AtlasSelfConstructionRuntimePromotionEndgameVerifierService;
-        $preSubmissionVerification = $draftPayload !== []
-            ? $endgameVerifier->verify($draftPayload, $matrix)
+        $preSubmissionVerification = $receiptUnderReview !== []
+            ? $endgameVerifier->verify($receiptUnderReview, $matrix)
             : $endgameVerifier->emptyVerification();
         $preSubmissionPassed = (string) data_get($preSubmissionVerification, 'status') === 'passed';
 
@@ -94,9 +98,11 @@ final class AtlasSelfConstructionRuntimePromotionEndgameService
             'persist_flag_required' => '--persist-runtime-promotion-receipt',
             'gated_by_service' => AtlasSelfConstructionRuntimePromotionReceiptService::class,
             'verifier_passed' => $preSubmissionPassed,
+            'receipt_source' => $receiptUnderReviewSource,
+            'receipt_provided' => $receiptProvided,
             'draft_status' => (string) data_get($receiptDraft, 'status', $draftRequested ? 'blocked_operator_input_required' : 'not_drafted'),
             'persist_requested' => $persistRequested,
-            'persistence_blocked_reason' => $this->persistenceBlockedReason($draftRequested, $draftReady, $preSubmissionPassed, $persistRequested),
+            'persistence_blocked_reason' => $this->persistenceBlockedReason($receiptUnderReview !== [], $receiptProvided || $draftReady, $preSubmissionPassed, $persistRequested),
             'persist_command' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --runtime-promotion-receipt-json=@/path/to/runtime-promotion.json --persist-runtime-promotion-receipt --json',
             'rerun_matrix_command' => 'php artisan atlas:ai:self-construction --atlas-self-construction-runtime-gap-matrix --json',
             'rerun_audit_command' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --json',
@@ -104,9 +110,9 @@ final class AtlasSelfConstructionRuntimePromotionEndgameService
 
         $persistenceResult = [];
         $persisted = false;
-        if ($persistRequested && $draftReady && $preSubmissionPassed && $draftPayload !== []) {
+        if ($persistRequested && $preSubmissionPassed && $receiptUnderReview !== []) {
             $persistenceResult = (new AtlasSelfConstructionRuntimePromotionReceiptService)->persist(
-                receipt: $draftPayload,
+                receipt: $receiptUnderReview,
                 rows: $rows,
                 expectedRuntimePromotionBasisHash: $runtimePromotionBasisHash,
                 expectedRuntimeGapMatrixHash: $expectedRuntimeGapMatrixHashForPromotionReceipt,
@@ -115,16 +121,24 @@ final class AtlasSelfConstructionRuntimePromotionEndgameService
             $persisted = (bool) data_get($persistenceResult, 'persisted', false);
         }
 
-        $completionAudit = (new AtlasSelfConstructionOsCompletionAuditService($this->readiness))->audit($options);
-        $blockerExplainer = (new AtlasSelfConstructionCompletionAuditBlockerExplainerService)->build($completionAudit);
-        $completionEvidence = $this->safeCall(fn () => $this->readiness->atlasSelfConstructionOsCompletionEvidenceStatus($options));
-        $submissionPreflight = (new AtlasSelfConstructionCompletionEvidenceSubmissionPreflightService)
-            ->build($completionAudit, $completionEvidence, $blockerExplainer);
+        $completionAudit = $skipCompletionSurfaces
+            ? ['status' => 'skipped_for_supplied_runtime_gap_matrix_override', 'completion_audit_hash' => '', 'passed_count' => 0, 'failed_count' => 0, 'failed_criteria' => []]
+            : (new AtlasSelfConstructionOsCompletionAuditService($this->readiness))->audit($options);
+        $blockerExplainer = $skipCompletionSurfaces
+            ? []
+            : (new AtlasSelfConstructionCompletionAuditBlockerExplainerService)->build($completionAudit);
+        $completionEvidence = $skipCompletionSurfaces
+            ? []
+            : $this->safeCall(fn () => $this->readiness->atlasSelfConstructionOsCompletionEvidenceStatus($options));
+        $submissionPreflight = $skipCompletionSurfaces
+            ? ['status' => 'skipped_for_supplied_runtime_gap_matrix_override', 'submission_preflight_hash' => '', 'next_required_submission' => '']
+            : (new AtlasSelfConstructionCompletionEvidenceSubmissionPreflightService)
+                ->build($completionAudit, $completionEvidence, $blockerExplainer);
         $operatorActionPacket = (array) data_get($completionAudit, 'operator_action_packet', []);
 
         $status = match (true) {
             $persisted => 'receipt_persisted_runtime_gap_matrix_should_be_rerun',
-            $preSubmissionPassed && $draftReady => 'receipt_verifier_passed_ready_for_explicit_persistence',
+            $preSubmissionPassed && $receiptUnderReview !== [] => 'receipt_verifier_passed_ready_for_explicit_persistence',
             $draftRequested && $draftReady => 'draft_ready_for_operator_review',
             default => 'blocked_runtime_promotion_receipt_required',
         };
@@ -133,37 +147,37 @@ final class AtlasSelfConstructionRuntimePromotionEndgameService
             $this->checklistItem(
                 id: 'current_gap_ids_match_receipt',
                 summary: 'Operator confirms promoted_gap_ids in the receipt match the live blocked_gap_ids exactly.',
-                passed: $this->checklistGapIdsMatch($draftPayload, $blockedGapIds),
+                passed: $this->checklistGapIdsMatch($receiptUnderReview, $blockedGapIds),
                 blockingReason: 'promoted_gap_ids in receipt drift from live matrix',
             ),
             $this->checklistItem(
                 id: 'graduation_hashes_match_receipt',
                 summary: 'Every gap id in graduation_evidence_hashes matches its current graduation_evidence_hash.',
-                passed: $this->checklistGraduationHashesMatch($draftPayload, $graduationHashes),
+                passed: $this->checklistGraduationHashesMatch($receiptUnderReview, $graduationHashes),
                 blockingReason: 'graduation_evidence_hashes drift from live matrix',
             ),
             $this->checklistItem(
                 id: 'closure_basis_hash_current',
                 summary: 'runtime_promotion_closure_basis_hash equals the value the current matrix exposes.',
-                passed: (string) ($draftPayload['runtime_promotion_closure_basis_hash'] ?? '') === $runtimePromotionClosureBasisHash,
+                passed: (string) ($receiptUnderReview['runtime_promotion_closure_basis_hash'] ?? '') === $runtimePromotionClosureBasisHash,
                 blockingReason: 'closure_basis_hash drift from live matrix',
             ),
             $this->checklistItem(
                 id: 'no_runtime_autopromotion_acknowledged',
                 summary: 'Operator acknowledges that runtime promotion is not direct execution.',
-                passed: (bool) ($draftPayload['no_runtime_autopromotion_acknowledged'] ?? false) === true,
+                passed: (bool) ($receiptUnderReview['no_runtime_autopromotion_acknowledged'] ?? false) === true,
                 blockingReason: 'no_runtime_autopromotion_acknowledged is missing or false',
             ),
             $this->checklistItem(
                 id: 'operator_signature_present',
                 summary: 'signed_by is a real operator identity (not <operator>, codex, claude, system or empty).',
-                passed: $this->checklistSignerReal((string) ($draftPayload['signed_by'] ?? '')),
+                passed: $this->checklistSignerReal((string) ($receiptUnderReview['signed_by'] ?? '')),
                 blockingReason: 'signed_by is placeholder or empty',
             ),
             $this->checklistItem(
                 id: 'receipt_hash_canonical',
                 summary: 'receipt_hash equals CompletionEvidenceHashService::runtimePromotionReceiptHash($payload).',
-                passed: $this->checklistReceiptHashCanonical($draftPayload),
+                passed: $this->checklistReceiptHashCanonical($receiptUnderReview),
                 blockingReason: 'receipt_hash does not match canonical computation',
             ),
             $this->checklistItem(
@@ -195,6 +209,7 @@ final class AtlasSelfConstructionRuntimePromotionEndgameService
             'token_spend_allowed' => false,
             'adapter_execution_allowed' => false,
             'self_programming_allowed' => false,
+            'completion_surfaces_skipped' => $skipCompletionSurfaces,
             'current_gap_matrix' => [
                 'status' => (string) data_get($matrix, 'status', 'unknown'),
                 'runtime_gap_matrix_hash' => $runtimeGapMatrixHash,
@@ -240,6 +255,14 @@ final class AtlasSelfConstructionRuntimePromotionEndgameService
                 'receipt_payload' => $draftPayload,
                 'missing_operator_inputs' => (array) data_get($receiptDraft, 'missing_operator_inputs', []),
                 'candidate_count' => (int) data_get($receiptDraft, 'candidate_count', 0),
+            ],
+            'receipt_under_review' => [
+                'source' => $receiptUnderReviewSource,
+                'provided' => $receiptProvided,
+                'present' => $receiptUnderReview !== [],
+                'receipt_hash' => (string) ($receiptUnderReview['receipt_hash'] ?? ''),
+                'receipt_id' => (string) ($receiptUnderReview['receipt_id'] ?? ''),
+                'signed_by' => (string) ($receiptUnderReview['signed_by'] ?? ''),
             ],
             'receipt_pre_submission_verification' => $preSubmissionVerification,
             'persistence_preflight' => $persistencePreflight,
@@ -372,16 +395,16 @@ final class AtlasSelfConstructionRuntimePromotionEndgameService
         return false;
     }
 
-    private function persistenceBlockedReason(bool $draftRequested, bool $draftReady, bool $verifierPassed, bool $persistRequested): string
+    private function persistenceBlockedReason(bool $receiptPresent, bool $receiptReady, bool $verifierPassed, bool $persistRequested): string
     {
         if (! $persistRequested) {
             return 'persistence_flag_not_supplied';
         }
-        if (! $draftRequested) {
-            return 'no_draft_supplied';
+        if (! $receiptPresent) {
+            return 'no_receipt_supplied_or_drafted';
         }
-        if (! $draftReady) {
-            return 'draft_blocked_operator_input_required';
+        if (! $receiptReady) {
+            return 'receipt_blocked_operator_input_required';
         }
         if (! $verifierPassed) {
             return 'endgame_verifier_did_not_pass';

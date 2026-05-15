@@ -13,6 +13,7 @@ use App\Services\Ai\AiGatewayService;
 use App\Services\Ai\Attachments\AiChunkedUploadService;
 use App\Services\Ai\Cli\AtlasFileAttachmentService;
 use App\Services\Ai\Cli\AtlasImageAttachmentService;
+use App\Services\Ai\Programming\AtlasDevRuntimeService;
 use App\Services\Ai\Surface\DomainCatalogSurfaceSelectionService;
 use App\Services\Ai\Telemetry\AiOutcomeAttributionService;
 use App\Services\Ai\Telemetry\AiTraceMetricAggregator;
@@ -53,6 +54,7 @@ class AiInteractionController extends Controller
         AtlasFileAttachmentService $files,
         AiChunkedUploadService $chunkedUploads,
         DomainCatalogSurfaceSelectionService $domainSelection,
+        AtlasDevRuntimeService $devRuntime,
     ): JsonResponse {
         $data = $request->validated();
         $uploadedImages = $this->uploadedImageFiles($request->file('images', []));
@@ -93,6 +95,16 @@ class AiInteractionController extends Controller
 
         $data = $this->applyThreadRuntimePolicy($data);
         $data = $this->applySurfaceDomainCatalogSelection($data, $domainSelection);
+
+        try {
+            $data = $devRuntime->apply($data);
+        } catch (RuntimeException $exception) {
+            return response()->json([
+                'message' => $exception->getMessage(),
+                'code' => AtlasDevRuntimeService::REQUIRES_WORKSPACE_CODE,
+            ], 422);
+        }
+
         $data = $this->applyAtlasCodeForgeObraBinding($data);
 
         try {

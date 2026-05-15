@@ -33,6 +33,45 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-forge-rivals-perfect-battery-and-adjudicator-v1.md
 doc_schema: atlas_canonical_module_doc.v1
 owner: programming_rivals
+graph_id: atlas-forge-rivals-evidence-replay-adjudicator-hardening-v2
+graph_title: Atlas Forge Rivals · Evidence / Replay / Adjudicator Hardening v2
+graph_world: atlas
+graph_layer: system
+graph_kind: contract
+graph_parent: atlas-forge-rivals-perfect-battery-and-adjudicator-v1
+graph_status: active
+graph_source: repo
+repo_paths:
+  - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsCollectEvidenceService.php
+  - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsReplayService.php
+  - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsAdjudicatorService.php
+  - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsReportService.php
+  - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsRunBatteryService.php
+  - docs/engineering-knowledge-base/atlas-forge-rivals-evidence-replay-adjudicator-hardening-v2.md
+allowed_changes:
+  - Adicionar campos additive ao evidence pack v2 sem renomes.
+  - Endurecer regras de replay para artefatos required/optional por estágio.
+forbidden_changes:
+  - Fundir `collect-evidence(pre_adjudication)` e `collect-evidence(final)` em uma chamada só.
+  - Exigir `scorecard.json` em `pre_adjudication`.
+  - Declarar `external_rivals_certification` desbloqueado a partir deste doc.
+depends_on:
+  - atlas-forge-rivals-perfect-battery-and-adjudicator-v1
+  - atlas-forge-rivals-operator-battery-v2
+flows_to:
+  - atlas-forge-rivals-perfect-battery-and-adjudicator-v1
+unlocks:
+  - forge_rivals_run_battery_v2_pipeline_passes_without_circular_replay
+governs:
+  - forge_rivals_evidence_replay_contract
+evidence:
+  - tests/Unit/Ai/Programming/ForgeRivals/AtlasForgeRivalsEvidenceReplayAdjudicatorHardeningV2Test.php
+required_tests:
+  - tests/Unit/Ai/Programming/ForgeRivals/AtlasForgeRivalsEvidenceReplayAdjudicatorHardeningV2Test.php
+requires_evidence: true
+risk_level: high
+next_actions:
+  - Monitorar pipeline `run-battery` em modos `fair`/`full_power` quanto a regressões circulares.
 ---
 
 # Atlas Forge Rivals · Evidence / Replay / Adjudicator Hardening v2
@@ -339,6 +378,10 @@ Sub-superficie do Forge Rivals responsável pelo contrato de integridade entre `
 ## Onde Se Encaixa
 
 Companheiro de `atlas-forge-rivals-perfect-battery-and-adjudicator-v1.md` e dependência direta de `atlas-forge-rivals-provider-arena-core-v1.md`. Governa o pipeline executado pelo CLI `atlas:forge:rivals run-battery`.
+
+## Contratos
+
+Schemas: `atlas.forge.rivals.evidence_pack.v2` (collect-evidence), `atlas.forge.rivals.replay.v2` (replay), `atlas.forge.rivals.adjudication.v1` (adjudicator, inalterado), `atlas.forge.rivals.report.v2` (report, inalterado). Política: `collect-evidence(pre_adjudication)` nunca enumera `scorecard.json`; `replay(pre_adjudication)` só bloqueia em artefatos required para o estágio; `collect-evidence(final)` captura sha256 do scorecard; `replay(final)` valida o bundle completo. `external_rivals_certification` permanece BLOCKED.
 
 ## Fluxo
 

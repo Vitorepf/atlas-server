@@ -20,14 +20,19 @@ final class AtlasSelfConstructionCompletionOperatorActionPacketService
      * @param  array<string, mixed>  $realProviderSmoke
      * @return array<string, mixed>
      */
-    public function build(array $runtimeGapMatrix, array $humanReceipt, array $realProviderSmoke): array
+    public function build(array $runtimeGapMatrix, array $humanReceipt, array $realProviderSmoke, array $evidence = []): array
     {
-        $releaseDossier = $this->safeStatus('agentControlPlaneReleaseDossierStatus');
-        $replayDiff = $this->safeStatus('agentControlPlaneReplayDiffStatus');
-        $statusBatch = $this->safeStatus('agentControlPlaneCertificationStatusBatchStatus');
+        $releaseDossier = (array) ($evidence['release_dossier'] ?? $this->safeStatus('agentControlPlaneReleaseDossierStatus'));
+        $replayDiff = (array) ($evidence['replay_diff'] ?? $this->safeStatus('agentControlPlaneReplayDiffStatus'));
+        $statusBatch = (array) ($evidence['certification_status_batch'] ?? $this->safeStatus('agentControlPlaneCertificationStatusBatchStatus'));
         $rows = (array) data_get($runtimeGapMatrix, 'rows', []);
+        $promotionRows = array_values(array_filter(
+            $rows,
+            static fn (array $row): bool => (bool) ($row['runtime_y_candidate'] ?? false) === true
+                && (bool) ($row['runtime_y'] ?? false) === false,
+        ));
         $graduationHashes = [];
-        foreach ($rows as $row) {
+        foreach ($promotionRows as $row) {
             $gapId = (string) ($row['gap_id'] ?? '');
             if ($gapId !== '') {
                 $graduationHashes[$gapId] = (string) ($row['graduation_evidence_hash'] ?? '');
@@ -54,7 +59,7 @@ final class AtlasSelfConstructionCompletionOperatorActionPacketService
             'runtime_gap_matrix_hash' => $runtimePromotionMatrixHash,
             'runtime_promotion_basis_hash' => (string) data_get($runtimeGapMatrix, 'runtime_promotion_basis_hash', ''),
             'runtime_promotion_closure_basis_hash' => (string) data_get($runtimeGapMatrix, 'runtime_promotion_closure_basis_hash', ''),
-            'promoted_gap_ids' => array_values(array_map(static fn (array $row): string => (string) ($row['gap_id'] ?? ''), $rows)),
+            'promoted_gap_ids' => array_values(array_map(static fn (array $row): string => (string) ($row['gap_id'] ?? ''), $promotionRows)),
             'graduation_evidence_hashes' => $graduationHashes,
             'receipt_hash' => '<operator_generated_64_hex_receipt_hash>',
             'runtime_promotion_approved' => true,

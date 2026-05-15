@@ -1,3 +1,80 @@
+---
+id: atlas-self-construction-human-completion-receipt-closure-execution-pack-v1
+type: engineering_knowledge
+title: Atlas Self-Construction · Human Completion Receipt Closure Execution Pack v1
+status: active
+category: self-construction
+priority: 86
+summary: Corridor read-only para o blocker `human_signed_os_complete_receipt_present`. Compõe closure execution pack + pre-submission verifier + completion finalization gate. Nunca assina por humano, nunca persiste, nunca promove completion.
+tags:
+  - atlas-ai
+  - self-construction
+  - human-completion-receipt
+  - closure-execution-pack
+  - blocker-corridor
+capabilities:
+  - self_construction_human_completion_receipt_closure_pack
+  - self_construction_human_completion_receipt_pre_submission_verifier
+  - self_construction_completion_finalization_gate
+decisions:
+  - O pack nunca assina o receipt pelo operador.
+  - `completion_claim_allowed = false` por construção até o completion audit virar `status=complete` com zero failed criteria.
+  - Readiness/CLI/contract integration mantida como `integration patch pending` por conflito concorrente em arquivos centrais.
+maintenance:
+  - Atualizar quando os contratos canônicos do human completion receipt mudarem.
+  - Não tocar `AtlasSelfConstructionReadinessService.php`, `AtlasAiSelfConstructionCommand.php` ou `agent-control-plane-contract.md` a partir deste pack.
+related_paths:
+  - app/Services/Ai/SelfConstruction/AtlasSelfConstructionHumanCompletionReceiptClosureExecutionPackService.php
+  - app/Services/Ai/SelfConstruction/AtlasSelfConstructionHumanCompletionReceiptPreSubmissionVerifierService.php
+  - app/Services/Ai/SelfConstruction/AtlasSelfConstructionCompletionFinalizationGateService.php
+  - docs/engineering-knowledge-base/self-construction/agent-control-plane-contract.md
+  - docs/engineering-knowledge-base/self-construction/atlas-self-construction-os-completion-roadmap-v1.md
+doc_schema: atlas_canonical_module_doc.v1
+owner: atlas-ai
+graph_id: atlas-self-construction-human-completion-receipt-closure-execution-pack-v1
+graph_title: Atlas Self-Construction · Human Completion Receipt Closure Execution Pack v1
+graph_world: atlas
+graph_layer: gear
+graph_kind: module
+graph_parent: atlas-ai-self-construction-os
+graph_status: active
+graph_source: repo
+repo_paths:
+  - app/Services/Ai/SelfConstruction/AtlasSelfConstructionHumanCompletionReceiptClosureExecutionPackService.php
+  - app/Services/Ai/SelfConstruction/AtlasSelfConstructionHumanCompletionReceiptPreSubmissionVerifierService.php
+  - app/Services/Ai/SelfConstruction/AtlasSelfConstructionCompletionFinalizationGateService.php
+  - docs/engineering-knowledge-base/self-construction/atlas-self-construction-human-completion-receipt-closure-execution-pack-v1.md
+allowed_changes:
+  - Atualizar a pack quando os contratos canônicos do human completion receipt mudarem.
+  - Adicionar diagnostics novos no pre-submission verifier quando o certifier real ganhar novos campos.
+forbidden_changes:
+  - Persistir o receipt a partir da pack.
+  - Assinar pelo humano.
+  - Promover completion a partir da pack.
+  - Substituir o certifier existente.
+  - Tratar payload sintético ou fixture como evidência real.
+depends_on:
+  - atlas-ai-self-construction-os
+  - atlas-self-construction-os-completion-roadmap-v1
+flows_to:
+  - atlas-self-construction-os-operator-runbook-v1
+unlocks:
+  - operator_observed_human_completion_receipt_corridor
+governs:
+  - human_signed_os_complete_receipt_corridor
+evidence:
+  - app/Services/Ai/SelfConstruction/AtlasSelfConstructionHumanCompletionReceiptClosureExecutionPackService.php
+  - app/Services/Ai/SelfConstruction/AtlasSelfConstructionHumanCompletionReceiptPreSubmissionVerifierService.php
+  - app/Services/Ai/SelfConstruction/AtlasSelfConstructionCompletionFinalizationGateService.php
+required_tests:
+  - "php artisan atlas:engineering:knowledge docs-health --json"
+requires_evidence: true
+risk_level: high
+next_actions:
+  - Aguardar agentes paralelos liberarem readiness/CLI/contract para aplicar integration patch.
+  - Manter pack sincronizado com mudanças no certifier real.
+---
+
 # Atlas Self-Construction · Human Completion Receipt Closure Execution Pack v1
 
 > **Status:** services + tests **delivered green**; readiness/CLI/contract
@@ -257,3 +334,51 @@ The blocker only closes after **real** runtime+smoke evidence, a **real**
 human signature, and a **real** completion audit pass. There is no
 auto-promotion path. There is no fake-signature path. There is no
 short-circuit.
+
+## Resumo
+
+Pack read-only que fecha o corredor do blocker `human_signed_os_complete_receipt_present`. Une closure execution pack + pre-submission verifier + completion finalization gate. `completion_claim_allowed = false` por construção até o completion audit virar `status=complete`.
+
+## Papel no Atlas
+
+Superficie final do Atlas Self-Construction OS para o blocker da assinatura humana. Centraliza o caminho ordenado, comandos exatos e diagnósticos antes de o operador assinar o receipt fora do read-only.
+
+## Onde Se Encaixa
+
+Sub-módulo do Self-Construction OS, irmão da Real Provider Smoke Endgame e da Real Provider Smoke Closure Execution Pack. Filho conceitual do `agent-control-plane-contract.md`.
+
+## Contratos
+
+Schemas: `atlas.self_construction.human_completion_receipt_closure_execution_pack.v1`, `atlas.self_construction.human_completion_receipt_pre_submission_verifier.v1`, `atlas.self_construction.completion_finalization_gate.v1`. Invariantes: `completion_claim_allowed=false` por construção; signer nunca pode ser placeholder ou identidade não-humana; persistência exige flag explícito no certifier real; finalization gate só vira true quando o completion audit canônico é `status=complete` com zero failed criteria.
+
+## Fluxo
+
+Operador roda runbook → confere prereqs (runtime, smoke, dossier, replay, certification status batch) → monta receipt → roda pre-submission verifier → assina e persiste via flag explícito do certifier real → rerun completion audit → finalization gate avalia.
+
+## Regras para IA
+
+Nunca assinar pelo humano. Nunca persistir o receipt a partir do pack. Nunca declarar OS completo. Nunca aceitar signer `<operator>`, `codex`, `assistant`, `system`, `claude` ou variantes placeholder.
+
+## Escopo de Implementacao
+
+Três serviços novos (`AtlasSelfConstructionHumanCompletionReceiptClosureExecutionPackService`, `AtlasSelfConstructionHumanCompletionReceiptPreSubmissionVerifierService`, `AtlasSelfConstructionCompletionFinalizationGateService`), tests focados e este doc.
+
+## Dependencias
+
+`AtlasSelfConstructionHumanCompletionReceiptVerifierService`, `AtlasSelfConstructionHumanCompletionReceiptPreflightService`, `AtlasSelfConstructionHumanCompletionReceiptDraftService`, `AtlasSelfConstructionHumanCompletionReceiptDossierService`, `AtlasSelfConstructionFinalEvidenceBundleService`, `AtlasSelfConstructionOsCompletionAuditService`, `AtlasSelfConstructionCompletionEvidenceHashService`.
+
+## Evidencias
+
+Suite de testes focados verde para os três serviços, conforme delivery 2026-05-15. Integration patch pending para readiness/CLI/contract.
+
+## Riscos
+
+Operador interpretar `verifier passed` no test-storage como completion claim. Tentar persistir o receipt a partir do pack. Promover OS complete sem audit verde.
+
+## Exemplos
+
+Operador chama o closure execution pack com `receipt_preimage`, vê `verification_result.status=blocked` com diagnostics, corrige, repete até `ready_to_persist_human_completion_receipt`, persiste via certifier real com flag explícito, rerun audit e finalization gate.
+
+## Proximas Acoes
+
+Aguardar agentes paralelos liberarem `AtlasSelfConstructionReadinessService.php`, `AtlasAiSelfConstructionCommand.php` e `agent-control-plane-contract.md` para aplicar integration patch.

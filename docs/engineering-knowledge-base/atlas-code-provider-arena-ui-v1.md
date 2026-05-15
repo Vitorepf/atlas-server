@@ -299,3 +299,47 @@ do último run" preservando o status text canônico.
   **Arena**.
 - Acompanhar a evolução de scripted/manual/gemini drivers — quando
   saírem do `not_yet_executable` o painel libera o slot real automaticamente.
+
+## Resumo
+
+Painel premium na RightRail do Atlas Code para configurar e disparar `arm_a vs arm_b` via `atlas:forge:rivals run-arena`. Snapshot read-only alimenta o registry/history/safety promises. Para modos `fair` e `full_power` a UI exige as 3 confirmações antes de habilitar o CTA. `external_rivals_certification` permanece BLOCKED por construção.
+
+## Papel no Atlas
+
+Cabine humana do Provider Arena Core. Substitui a CLI bruta por uma surface tipada com tokens `--cc-*`, registry-driven dropdowns e safety strip explícita.
+
+## Onde Se Encaixa
+
+Sub-superficie do Atlas Code, tab `provider_arena` (priority 5) no RightRail. Filha de `atlas-forge-rivals-provider-arena-core-v1.md` e dependente de `atlas-forge-rivals-operator-battery-v2.md`.
+
+## Fluxo
+
+Snapshot carrega registry + history + safety promises → operador escolhe `arm_a`, `arm_b`, modo, categoria → confirmações 3x para `fair`/`full_power` → dispatch chama o backend `run-arena` → resultado é exibido com winner/tie/invalid honesto.
+
+## Regras para IA
+
+Nunca listar arms fora do registry. Nunca esconder safety strip. Nunca rodar `run-arena` no boot/refresh. Nunca renderizar `external_rivals_certification` como atalho. Nunca inventar winners, scores, claim_ready ou paths.
+
+## Escopo de Implementacao
+
+Controller `AtlasCodeProviderArenaController`, service `AtlasCodeProviderArenaSnapshotService`, panel React `ProviderArenaPanel.tsx` no atlas-desktop, registries `AtlasForgeRivalsArmRegistryService`, `AtlasForgeRivalsModeRegistry`, `AtlasForgeRivalsCasesRegistry`.
+
+## Dependencias
+
+Provider Arena Core v1, Perfect Battery & Adjudicator v1, hardening v2, atlas-desktop bridge/tauri, registries de arms/modes/cases.
+
+## Evidencias
+
+Tests `AtlasCodeProviderArenaControllerTest` e `AtlasForgeRivalsProviderArenaCoreTest`, mais cert v1 do Provider Arena Core. Implementado 2026-05-15.
+
+## Riscos
+
+Bypass das 3 confirmações por bug de UI; dropdown livre vazando arm não declarado; cache stale de snapshot exibindo registry desatualizado; ilusão de winner sem evidência.
+
+## Exemplos
+
+Operador abre RightRail → tab Arena → seleciona `arm_a=atlas_forge` + `arm_b=claude_code` + categoria `backend` → confirma três flags em modo `fair` → dispara → painel renderiza envelope `atlas.forge.rivals.provider_arena_run.v1`.
+
+## Proximas Acoes
+
+Subir atlas-server local + Atlas Code Desktop, validar visualmente o painel. Acompanhar drivers scripted/manual/gemini saindo de `not_yet_executable`.

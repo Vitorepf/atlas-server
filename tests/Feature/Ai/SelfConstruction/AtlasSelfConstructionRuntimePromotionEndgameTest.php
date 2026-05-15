@@ -4,6 +4,7 @@ namespace Tests\Feature\Ai\SelfConstruction;
 
 use App\Services\Ai\SelfConstruction\AtlasSelfConstructionReadinessService;
 use App\Services\Ai\SelfConstruction\AtlasSelfConstructionRuntimePromotionEndgameService;
+use App\Services\Ai\SelfConstruction\AtlasSelfConstructionRuntimePromotionReceiptDraftService;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
@@ -79,6 +80,47 @@ final class AtlasSelfConstructionRuntimePromotionEndgameTest extends TestCase
         $this->assertSame([], (array) data_get($payload, 'persistence_result', []));
         $this->assertSame('persistence_flag_not_supplied', (string) data_get($payload, 'persistence_preflight.persistence_blocked_reason'));
         $this->assertSame([], Storage::disk('local')->allFiles('atlas/self-construction/os-completion/runtime-promotion-receipts'));
+    }
+
+    public function test_endgame_accepts_operator_supplied_receipt_without_regenerating_draft(): void
+    {
+        Storage::fake('local');
+        [$matrix, $receipt] = $this->runtimePromotionReceiptFixture();
+
+        $payload = (new AtlasSelfConstructionRuntimePromotionEndgameService(app(AtlasSelfConstructionReadinessService::class)))->build([
+            'runtime_gap_matrix' => $matrix,
+            'runtime_promotion_receipt' => $receipt,
+            'skip_completion_surfaces' => true,
+        ]);
+
+        $this->assertSame('receipt_verifier_passed_ready_for_explicit_persistence', $payload['status']);
+        $this->assertSame('operator_supplied_runtime_promotion_receipt', data_get($payload, 'receipt_under_review.source'));
+        $this->assertTrue(data_get($payload, 'receipt_under_review.provided'));
+        $this->assertSame('not_drafted', data_get($payload, 'receipt_draft.status'));
+        $this->assertSame('passed', data_get($payload, 'receipt_pre_submission_verification.status'));
+        $this->assertTrue(data_get($payload, 'receipt_pre_submission_verification.can_persist'));
+        $this->assertFalse($payload['persisted']);
+        $this->assertSame('persistence_flag_not_supplied', data_get($payload, 'persistence_preflight.persistence_blocked_reason'));
+    }
+
+    public function test_endgame_persists_operator_supplied_receipt_only_with_explicit_flag_and_green_verifier(): void
+    {
+        Storage::fake('local');
+        [$matrix, $receipt] = $this->runtimePromotionReceiptFixture();
+
+        $payload = (new AtlasSelfConstructionRuntimePromotionEndgameService(app(AtlasSelfConstructionReadinessService::class)))->build([
+            'runtime_gap_matrix' => $matrix,
+            'runtime_promotion_receipt' => $receipt,
+            'persist_runtime_promotion_receipt' => true,
+            'skip_completion_surfaces' => true,
+        ]);
+
+        $this->assertSame('receipt_persisted_runtime_gap_matrix_should_be_rerun', $payload['status']);
+        $this->assertTrue($payload['persisted']);
+        $this->assertTrue(data_get($payload, 'persistence_result.persisted'));
+        $this->assertSame('passed', data_get($payload, 'persistence_result.status'));
+        $this->assertSame('operator_supplied_runtime_promotion_receipt', data_get($payload, 'receipt_under_review.source'));
+        $this->assertNotEmpty(Storage::disk('local')->allFiles('atlas/self-construction/os-completion/runtime-promotion-receipts'));
     }
 
     public function test_anti_cheat_and_non_execution_guarantees_complete(): void
@@ -174,5 +216,74 @@ final class AtlasSelfConstructionRuntimePromotionEndgameTest extends TestCase
         ] as $capability) {
             $this->assertContains($capability, $capabilities);
         }
+    }
+
+    /** @return array{0: array<string, mixed>, 1: array<string, mixed>} */
+    private function runtimePromotionReceiptFixture(): array
+    {
+        $matrix = $this->runtimeGapMatrixFixture();
+        $draft = (new AtlasSelfConstructionRuntimePromotionReceiptDraftService)->build($matrix, [
+            'signed_by' => 'operator-endgame-real',
+            'reason' => 'Operator supplied runtime promotion receipt for endgame persistence coverage.',
+        ]);
+
+        $this->assertSame('ready_for_operator_persistence', $draft['status'], json_encode([
+            'matrix_status' => $matrix['status'] ?? null,
+            'runtime_gap_count' => $matrix['runtime_gap_count'] ?? null,
+            'runtime_y_candidate_count' => $matrix['runtime_y_candidate_count'] ?? null,
+            'blocked_gap_ids' => $matrix['blocked_gap_ids'] ?? [],
+            'candidate_gap_ids' => $matrix['graduation_candidate_gap_ids'] ?? [],
+            'missing_operator_inputs' => $draft['missing_operator_inputs'] ?? [],
+            'verification_status' => data_get($draft, 'verification.status'),
+            'violations' => data_get($draft, 'verification.violations', []),
+        ], JSON_PRETTY_PRINT));
+
+        return [$matrix, (array) $draft['receipt_payload']];
+    }
+
+    /** @return array<string, mixed> */
+    private function runtimeGapMatrixFixture(): array
+    {
+        $rows = [
+            $this->runtimeGapRow('adapter_execution_runtime', str_repeat('1', 64)),
+            $this->runtimeGapRow('automatic_cost_import_runtime', str_repeat('2', 64)),
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction.runtime_gap_matrix.v1',
+            'mode' => 'read_only_runtime_gap_matrix',
+            'status' => 'blocked',
+            'all_runtime_y' => false,
+            'runtime_gap_count' => 2,
+            'runtime_y_candidate_count' => 2,
+            'runtime_enabled_count' => 0,
+            'runtime_gap_matrix_hash' => str_repeat('a', 64),
+            'expected_runtime_gap_matrix_hash_for_promotion_receipt' => str_repeat('b', 64),
+            'runtime_promotion_basis_hash' => str_repeat('c', 64),
+            'runtime_promotion_closure_basis_hash' => str_repeat('d', 64),
+            'blocked_gap_ids' => ['adapter_execution_runtime', 'automatic_cost_import_runtime'],
+            'graduation_candidate_gap_ids' => ['adapter_execution_runtime', 'automatic_cost_import_runtime'],
+            'rows' => $rows,
+        ];
+    }
+
+    /** @return array<string, mixed> */
+    private function runtimeGapRow(string $gapId, string $graduationHash): array
+    {
+        return [
+            'gap_id' => $gapId,
+            'listed_as_gap' => true,
+            'runtime_y' => false,
+            'runtime_y_candidate' => true,
+            'runtime_enabled' => false,
+            'certification_status' => 'available',
+            'evidence_hash' => $graduationHash,
+            'graduation_schema' => 'atlas.self_construction.test_runtime_graduation.v1',
+            'graduation_status' => 'passed',
+            'graduation_evidence_hash' => $graduationHash,
+            'promoted_by_runtime_receipt' => false,
+            'required_promotion' => 'operator_signed_runtime_promotion',
+            'blockers' => ['runtime_not_promoted_even_though_graduation_candidate_may_exist'],
+        ];
     }
 }

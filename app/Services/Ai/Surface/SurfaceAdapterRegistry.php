@@ -9,6 +9,7 @@ use App\Services\Ai\Surface\Adapters\AtlasCodeSurfaceAdapter;
 use App\Services\Ai\Surface\Adapters\AtlasCliChatSurfaceAdapter;
 use App\Services\Ai\Surface\Adapters\AtlasCliDevSurfaceAdapter;
 use App\Services\Ai\Surface\Adapters\AtlasCliForgeSurfaceAdapter;
+use App\Services\Ai\Surface\Adapters\AtlasDesktopAiSurfaceAdapter;
 use App\Services\Ai\Surface\Adapters\AtlasMcpReadonlySurfaceAdapter;
 use App\Services\Ai\Surface\Adapters\AtlasVaultSurfaceAdapter;
 use App\Services\Ai\Surface\Adapters\AtlasVoiceRealtimeSurfaceAdapter;
@@ -27,6 +28,7 @@ class SurfaceAdapterRegistry
         AtlasCodeSurfaceAdapter::class,
         AtlasApiInteractionSurfaceAdapter::class,
         AtlasAppSurfaceAdapter::class,
+        AtlasDesktopAiSurfaceAdapter::class,
         AtlasWorkerSurfaceAdapter::class,
         AtlasMcpReadonlySurfaceAdapter::class,
         AtlasVaultSurfaceAdapter::class,

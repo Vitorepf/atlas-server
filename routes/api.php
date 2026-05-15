@@ -62,7 +62,13 @@ use App\Http\Controllers\AtlasCodeReceiptController;
 use App\Http\Controllers\AtlasCodeReceiptShowController;
 use App\Http\Controllers\AtlasCodeSessionController;
 use App\Http\Controllers\AtlasCodeThreadController;
+use App\Http\Controllers\AtlasCodeAttentionControlPlaneController;
+use App\Http\Controllers\AtlasCodeDevToForgePromotionController;
+use App\Http\Controllers\AtlasCodeObservedSessionController;
+use App\Http\Controllers\AtlasCodeProviderGovernanceController;
+use App\Http\Controllers\AtlasCodeProviderOperatingRoomController;
 use App\Http\Controllers\AtlasCodeWorkController;
+use App\Http\Controllers\AtlasCodeWorkPacketController;
 use App\Http\Controllers\AtlasCodeWorkspaceController;
 use App\Http\Controllers\AtlasConstelacaoController;
 use App\Http\Controllers\AtlasDomainController;
@@ -544,6 +550,59 @@ Route::prefix('atlas-code')->group(function () {
     // canon: docs/engineering-knowledge-base/atlas-code-multi-project-workspace-os.md
     Route::get('/projects/workspaces', [AtlasCodeWorkspaceController::class, 'index']);
     Route::get('/projects/workspaces/{slug}', [AtlasCodeWorkspaceController::class, 'show']);
+
+    // PROVIDER GOVERNANCE · subscription-only contract
+    // canon: docs/engineering-knowledge-base/atlas-claude-code-subscription-governance-v1.md
+    Route::get('/providers/governance', [AtlasCodeProviderGovernanceController::class, 'show']);
+
+    // ATTENTION CONTROL PLANE · routes the next human decision across Obras
+    // canon: docs/engineering-knowledge-base/atlas-code-attention-control-plane-v1.md
+    Route::get('/attention', [AtlasCodeAttentionControlPlaneController::class, 'index']);
+    Route::post('/attention/{project}/decision', [AtlasCodeAttentionControlPlaneController::class, 'decide']);
+
+    // DEV → FORGE PROMOTION · bridges Atlas Dev threads to Obras/Forge
+    // canon: docs/engineering-knowledge-base/atlas-ai-conversation-surface-and-atlas-dev-v1.md
+    Route::get('/dev-to-forge/threads/{thread}/promotion-preview', [AtlasCodeDevToForgePromotionController::class, 'preview']);
+    Route::post('/dev-to-forge/threads/{thread}/promote', [AtlasCodeDevToForgePromotionController::class, 'promote']);
+    Route::get('/dev-to-forge/candidates', [AtlasCodeDevToForgePromotionController::class, 'index']);
+    Route::get('/dev-to-forge/candidates/{candidate}', [AtlasCodeDevToForgePromotionController::class, 'show']);
+    Route::post('/dev-to-forge/candidates/{candidate}/dismiss', [AtlasCodeDevToForgePromotionController::class, 'dismiss']);
+
+    // ATTENTION CONTROL PLANE · serializes human decisions across Obras
+    // canon: docs/engineering-knowledge-base/atlas-code-attention-control-plane-v1.md
+    Route::get('/attention', [\App\Http\Controllers\AtlasCodeAttentionControlPlaneController::class, 'index']);
+    Route::post('/attention/{project}/decision', [\App\Http\Controllers\AtlasCodeAttentionControlPlaneController::class, 'decide']);
+
+    // DEV-TO-FORGE PROMOTION · ponte Atlas AI/Atlas Dev → Obra
+    // canon: docs/engineering-knowledge-base/atlas-ai-conversation-surface-and-atlas-dev-v1.md
+    Route::get('/promotion/preview/{thread}', [\App\Http\Controllers\AtlasDevToForgePromotionController::class, 'preview']);
+    Route::post('/promotion/{thread}/promote', [\App\Http\Controllers\AtlasDevToForgePromotionController::class, 'promote']);
+
+    // PROVIDER OPERATING ROOM (per-Obra read-model)
+    // canon: docs/engineering-knowledge-base/atlas-code-adaptive-provider-operating-room-v1.md
+    Route::get('/works/{project}/forge/operating-room', [AtlasCodeProviderOperatingRoomController::class, 'show']);
+
+    // WORK PACKETS (per-Obra)
+    // canon: docs/engineering-knowledge-base/atlas-code-interactive-observed-provider-workflow-v1.md
+    Route::get('/works/{project}/work-packets', [AtlasCodeWorkPacketController::class, 'index']);
+    Route::post('/works/{project}/work-packets', [AtlasCodeWorkPacketController::class, 'store']);
+    Route::get('/works/{project}/work-packets/{packet}', [AtlasCodeWorkPacketController::class, 'show']);
+    Route::post('/works/{project}/work-packets/{packet}/export', [AtlasCodeWorkPacketController::class, 'exportPreview']);
+
+    // OBSERVED SESSIONS (Interactive Observed Provider Workflow)
+    Route::get('/works/{project}/observed-sessions', [AtlasCodeObservedSessionController::class, 'index']);
+    Route::post('/works/{project}/observed-sessions', [AtlasCodeObservedSessionController::class, 'store']);
+    // One-shot "Abrir Claude Code observado" — creates packet + opens session.
+    Route::post('/works/{project}/observed-sessions/claude-code', [AtlasCodeObservedSessionController::class, 'claudeCodeOneShot']);
+    Route::get('/works/{project}/observed-sessions/{session}', [AtlasCodeObservedSessionController::class, 'show']);
+    Route::post('/works/{project}/observed-sessions/{session}/state', [AtlasCodeObservedSessionController::class, 'state']);
+    Route::post('/works/{project}/observed-sessions/{session}/mark-running', [AtlasCodeObservedSessionController::class, 'markRunning']);
+    Route::post('/works/{project}/observed-sessions/{session}/import', [AtlasCodeObservedSessionController::class, 'import']);
+    Route::post('/works/{project}/observed-sessions/{session}/import-result', [AtlasCodeObservedSessionController::class, 'import']);
+    Route::post('/works/{project}/observed-sessions/{session}/run-gates', [AtlasCodeObservedSessionController::class, 'runGates']);
+    Route::get('/works/{project}/observed-sessions/{session}/verification-runs', [AtlasCodeObservedSessionController::class, 'verificationRunIndex']);
+    Route::post('/works/{project}/observed-sessions/{session}/verification-runs', [AtlasCodeObservedSessionController::class, 'verificationRun']);
+    Route::post('/works/{project}/observed-sessions/{session}/decide', [AtlasCodeObservedSessionController::class, 'decide']);
 
     // WORKS · normalized Obra surface
     Route::get('/works', [AtlasCodeWorkController::class, 'index']);

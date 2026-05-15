@@ -33,6 +33,48 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-forge-rivals-real-battery-operator-harness-v1.md
 doc_schema: atlas_canonical_module_doc.v1
 owner: programming_rivals
+graph_id: atlas-forge-rivals-perfect-battery-and-adjudicator-v1
+graph_title: Atlas Forge Rivals · Perfect Battery & Adjudicator v1
+graph_world: atlas
+graph_layer: system
+graph_kind: runbook
+graph_parent: atlas-forge-rivals-operator-battery-v2
+graph_status: active
+graph_source: repo
+repo_paths:
+  - app/Console/Commands/AtlasForgeRivalsCommand.php
+  - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsRunBatteryService.php
+  - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsAdjudicatorService.php
+  - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsReportService.php
+  - docs/engineering-knowledge-base/atlas-forge-rivals-perfect-battery-and-adjudicator-v1.md
+allowed_changes:
+  - Adicionar aliases novos ao command com aliasing list explícita.
+  - Endurecer invariantes do adjudicator determinístico local.
+forbidden_changes:
+  - Delegar o veredito do adjudicator para provider externo.
+  - Esconder safety strip ou pular confirmações em `fair`/`full_power`.
+  - Promover `external_rivals_certification` a partir do veredito da bateria.
+depends_on:
+  - atlas-forge-rivals-operator-battery-v2
+  - atlas-forge-rivals-real-battery-operator-harness-v1
+flows_to:
+  - atlas-forge-rivals-evidence-replay-adjudicator-hardening-v2
+  - atlas-forge-rivals-provider-arena-core-v1
+unlocks:
+  - operator_runs_atlas_vs_rival_in_single_auditable_command
+governs:
+  - forge_rivals_run_battery_pipeline
+evidence:
+  - tests/Feature/Ai/Programming/AtlasForgeRivalsRunBatteryTest.php
+  - tests/Unit/Ai/Programming/ForgeRivals/AtlasForgeRivalsAdjudicatorServiceTest.php
+required_tests:
+  - tests/Feature/Ai/Programming/AtlasForgeRivalsRunBatteryTest.php
+  - tests/Unit/Ai/Programming/ForgeRivals/AtlasForgeRivalsAdjudicatorServiceTest.php
+requires_evidence: true
+risk_level: high
+next_actions:
+  - Manter aliasing list sincronizada com novos modos.
+  - Acompanhar invariantes do adjudicator quando novas categorias forem introduzidas.
 ---
 
 # Atlas Forge Rivals · Perfect Battery & Adjudicator v1
@@ -346,6 +388,10 @@ Cabine humana do Forge Rivals. Substitui a sequência manual de 9 comandos por u
 ## Onde Se Encaixa
 
 Acima de `atlas-forge-rivals-operator-battery-v2.md` e `atlas-forge-rivals-real-battery-operator-harness-v1.md`. Companheiro direto de `atlas-forge-rivals-evidence-replay-adjudicator-hardening-v2.md`.
+
+## Contratos
+
+Schemas: `atlas.forge.rivals.run_battery.v1` (envelope), `atlas.forge.rivals.adjudication.v1` (adjudicator determinístico local), `atlas.forge.rivals.report.v2` (report). Cert: `atlas_forge_rivals_perfect_battery_certification` (v1). Invariantes: adjudicator nunca delega para provider externo; safety strip nunca é escondida; 3 confirmações para `fair`/`full_power`; `external_rivals_certification` permanece BLOCKED por construção.
 
 ## Fluxo
 

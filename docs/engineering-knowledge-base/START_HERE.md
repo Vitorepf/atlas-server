@@ -46,6 +46,8 @@ capabilities:
   - engineering_blueprint
   - project_blueprint_pipeline
   - programming_power_tools_catalog
+  - atlas_ai_conversation_surface
+  - atlas_dev_daily_programming
   - fair_claude_benchmark
   - atlas_supercharged_routing
   - programming_domain
@@ -72,6 +74,7 @@ decisions:
   - Toda IA nova deve ler Atlas AI Spec Operating System antes de alterar SDD, Programming harness, spec compiler, task compiler, Decision Receipt de execucao, drift detector, code-agent prompts, MCP SDD, context packages, data model ou fluxo de one-shot implementation.
   - Toda IA nova deve ler Atlas Programming Governance System antes de implementar ou alterar placement, spec antes do codigo, task contracts, Code Intelligence, evidence, learning ou cartografia de programacao.
   - Toda IA nova deve ler Atlas Programming Self-Construction Forge Map v1 antes de explicar a relacao entre Atlas Code, Forge Continuum, Self-Construction OS, Self-Programming OS, Obras de Programacao ou multi-provider.
+  - Toda IA nova deve ler Atlas AI Conversation Surface And Atlas Dev v1 antes de explicar ou implementar Consultas, Atlas AI mobile/desktop, Atlas Dev, bug rapido, fluxo mobile->Mac ou promocao para Obra.
   - Toda IA nova deve ler Atlas Programming Forge Flow antes de explicar, planejar ou alterar programacao pesada, programming.forge, Forge Workspace, Engineering Harness, Agentic RAG, graphs, tools, repair loop, Evidence ou cartografia de codigo.
   - Toda IA nova deve ler Atlas Forge Operating System antes de planejar trabalho pesado, longo, multiagente, multiprovider, integration queue, packets, evidence normalization ou fabrica de software por IA.
   - Toda IA nova deve ler Atlas AI Self-Construction OS antes de alterar self-programming, Meta-SDD, maturity ladder, build graph, priority engine, autonomous loop, safety contract ou qualquer fluxo do Atlas construindo Atlas.
@@ -115,6 +118,7 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-ai-content-intelligence-curation.md
   - docs/engineering-knowledge-base/atlas-ai-research-self-improvement-runtime.md
   - docs/engineering-knowledge-base/atlas-programming-governance-system.md
+  - docs/engineering-knowledge-base/atlas-ai-conversation-surface-and-atlas-dev-v1.md
   - docs/engineering-knowledge-base/atlas-programming-forge-flow.md
   - docs/engineering-knowledge-base/atlas-forge-operating-system.md
   - docs/engineering-knowledge-base/atlas-ai-self-construction-os.md

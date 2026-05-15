@@ -3,56 +3,97 @@
 declare(strict_types=1);
 
 /**
- * Atlas Code Provider Governance — Subscription-Only mode.
+ * Atlas Code Provider Governance — configurable policy.
  *
  * Canon:
  *   - docs/engineering-knowledge-base/atlas-claude-code-subscription-governance-v1.md
  *   - docs/engineering-knowledge-base/atlas-code-interactive-observed-provider-workflow-v1.md
  *
- * Operating principle: Atlas owns Obra, scope, packet, workspace, evidence,
- * review and acceptance. Providers (Claude Code, Codex, Gemini, future) are
- * substitutable executors. In subscription-only mode, headless paths are
- * BLOCKED — only interactive observed sessions are allowed.
+ * This module governs HOW Atlas may invoke providers (Claude Code, Codex,
+ * Gemini, etc.). It is NOT a hardcoded subscription-only kill switch — Atlas
+ * still needs programmatic Claude for Rivals baselines, integration tests
+ * and approved experiments BEFORE the Anthropic cutoff. The policy is
+ * configurable so we can tighten it later via config/env, not refactor.
  *
- * This config is read by `AtlasCodeProviderGovernanceService` and surfaced
- * via the `/atlas-code/providers/governance` endpoint. UI uses it to:
- *   - decide which providers to expose in the "Open Observed Provider" CTA
- *   - render the safety strip with explicit "headless: blocked" badges
- *   - block any code path that would call `claude -p` / API / SDK
+ * Programmatic invocation categories (canonical labels):
+ *   - rivals_baseline           · Rivals/Arena baseline runs vs Atlas Forge
+ *   - provider_integration_test · CI/integration suite that talks to a real CLI
+ *   - benchmark                 · Performance/quality benchmark runs
+ *   - approved_experiment       · One-off experiment explicitly authorised
+ *   - productive_headless       · Production-class headless agent loops
+ *
+ * `productive_headless` MUST be blocked by default. The other four are
+ * allowed in `test_only` / `allowed_now` modes.
+ *
+ * Policy values:
+ *   - allowed_now      · everything allowed (transient, used pre-cutoff)
+ *   - test_only        · rivals + tests OK, productive_headless blocked
+ *   - interactive_only · only `claude` interactive observed sessions
+ *   - blocked          · full kill switch
+ *
+ * Override: when policy="blocked" but operator_override_required=true and the
+ * label is included in `operator_override_labels`, callers must pass an
+ * explicit `operator_override_token`. The service does NOT mint tokens; the
+ * operator does this manually via env or admin endpoint (future).
  */
 
 return [
-    'subscription_only' => filter_var(
-        env('ATLAS_CLAUDE_SUBSCRIPTION_ONLY', true),
+    // Canonical policy state. Default keeps current workflows (Rivals + tests)
+    // alive while productive_headless stays off. Move to 'interactive_only'
+    // or 'blocked' before the Anthropic Agent SDK cutoff if needed.
+    'claude_programmatic_policy' => env('ATLAS_CLAUDE_PROGRAMMATIC_POLICY', 'test_only'),
+
+    // Per-category switches. Take precedence over the policy when the policy
+    // is `allowed_now` (loosest). Under `test_only`, only categories with
+    // allow_*=true here are honored.
+    'allow_rivals_programmatic' => filter_var(
+        env('ATLAS_ALLOW_RIVALS_PROGRAMMATIC', true),
         FILTER_VALIDATE_BOOLEAN,
         FILTER_NULL_ON_FAILURE
     ) ?? true,
+    'allow_programmatic_tests' => filter_var(
+        env('ATLAS_ALLOW_PROGRAMMATIC_TESTS', true),
+        FILTER_VALIDATE_BOOLEAN,
+        FILTER_NULL_ON_FAILURE
+    ) ?? true,
+    'allow_productive_headless' => filter_var(
+        env('ATLAS_ALLOW_PRODUCTIVE_HEADLESS', false),
+        FILTER_VALIDATE_BOOLEAN,
+        FILTER_NULL_ON_FAILURE
+    ) ?? false,
+    'allow_api_payg' => filter_var(
+        env('ATLAS_ALLOW_API_PAYG', false),
+        FILTER_VALIDATE_BOOLEAN,
+        FILTER_NULL_ON_FAILURE
+    ) ?? false,
 
-    'mode_label' => 'subscription_only',
+    // ISO date string (e.g. "2026-06-15"). When set, the policy hardens to
+    // `interactive_only` automatically after this date — read-only signal
+    // surfaced to UI; no automatic mutation of the policy value itself.
+    'hard_block_after' => env('ATLAS_CLAUDE_HARD_BLOCK_AFTER', '2026-06-15'),
 
-    // Hard prohibitions surfaced to UI as a "what is blocked" list. These
-    // mirror the canon doc and must never be relaxed silently.
-    'prohibitions' => [
-        'claude_dash_p' => true,
-        'claude_agent_sdk' => true,
-        'anthropic_api_key_fallback' => true,
-        'headless_worker' => true,
-        'github_actions_claude' => true,
-        'silent_fallback' => true,
-        'multiuser_via_personal_subscription' => true,
+    // When the policy is restrictive, certain labels still go through if the
+    // operator opts in with an explicit token (future admin endpoint).
+    'operator_override_required' => filter_var(
+        env('ATLAS_PROVIDER_OPERATOR_OVERRIDE_REQUIRED', true),
+        FILTER_VALIDATE_BOOLEAN,
+        FILTER_NULL_ON_FAILURE
+    ) ?? true,
+    'operator_override_labels' => ['productive_headless', 'approved_experiment'],
+
+    // Display labels for UI — must match the canon list above.
+    'allowed_labels' => [
+        'rivals_baseline',
+        'provider_integration_test',
+        'benchmark',
+        'approved_experiment',
+        'productive_headless',
     ],
 
-    // Allowed invocation modes. UI only shows providers whose mode is in
-    // this allowlist for the active operator.
-    'allowed_invocation_modes' => [
-        'interactive_observed',
-        'manual_import',
-    ],
-
-    // Providers registered for interactive observed sessions. Each entry
-    // describes how the operator launches the provider locally — Atlas
-    // never executes the binary; the operator runs it after copying the
-    // prompt and acknowledging the packet.
+    // Providers registered for interactive observed sessions. Atlas opens
+    // these for the operator to run locally. Atlas never executes the binary
+    // itself for these flows — the operator runs `claude`/`codex`/`gemini`
+    // after copying the prompt.
     'providers' => [
         [
             'id' => 'claude_code',
@@ -62,7 +103,7 @@ return [
             'binary_hint' => 'claude',
             'subscription_status' => 'allowed',
             'bootstrap_role' => 'implementation_lead',
-            'notes' => 'Claude Code interativo observado. Operador roda `claude` no terminal aberto pelo Atlas. claude -p / Agent SDK proibidos.',
+            'notes' => 'Claude Code interativo observado. Para Rivals/tests/baseline, ver claude_programmatic_policy + allow_rivals_programmatic.',
         ],
         [
             'id' => 'codex_cli',
@@ -104,5 +145,10 @@ return [
         'context_scout' => 'gemini_cli',
         'critical_reviewer' => 'codex_cli',
         'challenger' => 'manual_external',
+    ],
+
+    'allowed_invocation_modes' => [
+        'interactive_observed',
+        'manual_import',
     ],
 ];

@@ -426,42 +426,28 @@ The ledger feed is shaped for a future enterprise panel:
 
 No UI ships in this slice; the JSON contract is the durable interface.
 
-## Operator workflow
-
-1. Run the rivals battery and produce a scorecard.
-2. Call `ledger-record` with the run id + task_category + role.
-3. Inspect `ledger --json` for aggregates.
-4. Ask `decide-signal --task-category=X --role=Y --json` before launching
-   the next real run; honour `should_require_human_review` and
-   `should_explore_alternative` when the data isn't decisive.
-5. Re-audit with `audit --json` — `provider_performance_ledger_certification`
-   must be `available`.
-
 ## Resumo
 
-Ledger append-only canônico que transforma scorecards do Rivals em
-inteligência operacional consumível pelo Atlas Decide, sem nunca chamar
-provider, nunca gastar token, nunca destravar `external_rivals_certification`.
+Ledger append-only que transforma scorecards do Rivals em inteligência para
+Atlas Decide, sem chamar provider, gastar token ou destravar
+`external_rivals_certification`.
 
 ## Papel no Atlas
 
-Camada de aprendizado operacional entre Rivals (mede) e Atlas Decide (decide).
-Atlas Decide consome o `decide-signal` como sinal **advisory** para escolher
-provider, model, role e modo (fair vs full_power) em runs futuros.
+Camada entre Rivals (mede) e Atlas Decide (decide). O `decide-signal` é
+advisory para escolher provider/model/role/modo em runs futuros.
 
 ## Onde Se Encaixa
 
-Encaixa entre `atlas:forge:rivals adjudicate` (gera scorecard) e a futura
-`atlas:decide` (escolhe estratégia). O ledger é leitura local em cima da
-evidência já produzida pela pipeline Rivals — sem chamadas externas.
+Encaixa entre `atlas:forge:rivals adjudicate` e `atlas:decide`. Lê evidência
+local já produzida pela pipeline Rivals.
 
 ## Contratos
 
-- **Schema do snapshot**: `atlas.forge.rivals.provider_performance_ledger.v1`.
-- **Schema da entrada**: `atlas.forge.rivals.provider_performance_ledger_entry.v1`.
-- **Schema do sinal**: `atlas.forge.rivals.decide_signal.v1`.
-- **Cert**: `atlas_forge_rivals_provider_performance_ledger_certification`
-  com 9 invariantes; aparece em `atlas:forge:rivals audit --json`.
+- Snapshot: `atlas.forge.rivals.provider_performance_ledger.v1`.
+- Entry: `atlas.forge.rivals.provider_performance_ledger_entry.v1`.
+- Decide signal: `atlas.forge.rivals.decide_signal.v1`.
+- Cert: `atlas_forge_rivals_provider_performance_ledger_certification`.
 
 ## Fluxo
 
@@ -480,24 +466,19 @@ scorecard.json ──► ledger-record ──► entries.jsonl + entries/<id>.js
 
 ## Regras para IA
 
-- Nunca chamar provider externo a partir do ledger ou da projeção.
-- Nunca promover claim — entradas têm `claim_ready=false` sempre.
-- Nunca rankear runs com hard failure no `cost_quality_frontier` nem nos
-  agregados de média.
-- Nunca destravar `external_rivals_certification` — o ledger declara
-  separação explícita.
-- Quando faltar `task_category`, `role` ou `evidence_pack_hash`, **bloquear**
-  o record com erro determinístico, nunca preencher silenciosamente.
+- Nunca chamar provider externo a partir do ledger ou projeção.
+- Nunca promover claim; entradas têm `claim_ready=false`.
+- Nunca rankear hard failures no frontier ou nos agregados.
+- Nunca destravar `external_rivals_certification`.
+- Faltou `task_category`, `role` ou `evidence_pack_hash`: bloquear.
 
 ## Escopo de Implementacao
 
-- `AtlasForgeRivalsProviderPerformanceLedgerService` (record/snapshot/load).
-- `AtlasForgeRivalsDecideSignalProjectionService` (project).
-- `AtlasForgeRivalsProviderPerformanceLedgerCertification` (9 invariantes).
-- 3 sub-actions no `atlas:forge:rivals`: `ledger`, `ledger-record`,
-  `decide-signal`.
-- Persistência local em `storage/app/rivals-forge-ledger/` (override via
-  `atlas_rivals.ledger_root`).
+- `AtlasForgeRivalsProviderPerformanceLedgerService`.
+- `AtlasForgeRivalsDecideSignalProjectionService`.
+- `AtlasForgeRivalsProviderPerformanceLedgerCertification`.
+- Actions: `ledger`, `ledger-record`, `decide-signal`.
+- Storage local: `storage/app/rivals-forge-ledger/`.
 
 ## Dependencias
 
@@ -507,19 +488,13 @@ scorecard.json ──► ledger-record ──► entries.jsonl + entries/<id>.js
 
 ## Evidencias
 
-- 17 testes unit em `tests/Unit/Ai/Programming/ForgeRivals/AtlasForgeRivalsProviderPerformanceLedgerServiceTest.php`.
-- 7 testes feature em `tests/Feature/Ai/Programming/AtlasForgeRivalsProviderPerformanceLedgerCertificationTest.php`.
-- `php artisan atlas:forge:rivals audit --json` retorna
-  `provider_performance_ledger_certification.status=available`.
+- Tests unit do ledger service e feature da certification.
+- `php artisan atlas:forge:rivals audit --json`.
 
 ## Riscos
 
-- Se a pipeline Rivals começar a gerar scorecards sem `quality_dimensions`
-  ou sem hashes em `evidence_pack`, o ledger continua honesto (registra
-  como invalid), mas perde sinal estatístico. Reavaliar threshold de
-  confidence quando isso acontecer.
-- Crescimento ilimitado do `entries.jsonl` — a versão atual NÃO faz
-  rotation; uma slice futura precisa endereçar retention/compaction.
+- Scorecards sem hashes viram sinal inválido, não ranking.
+- `entries.jsonl` ainda não tem rotation; planejar retention futura.
 
 ## Exemplos
 
@@ -539,8 +514,6 @@ php artisan atlas:forge:rivals decide-signal \
 
 ## Proximas Acoes
 
-- Conectar `atlas:decide` para consumir o `decide-signal` como input
-  advisory.
-- Adicionar rotation/retention ao `entries.jsonl` quando volume justificar.
-- Surgir a UI Atlas Code Premium descrita acima (ranking, provider cards,
-  cost/quality scatter).
+- Conectar `atlas:decide` ao `decide-signal`.
+- Adicionar retention ao `entries.jsonl`.
+- Expor ranking/cost-quality na UI Atlas Code.

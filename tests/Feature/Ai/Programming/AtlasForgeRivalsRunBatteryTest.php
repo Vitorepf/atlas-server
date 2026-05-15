@@ -7,6 +7,7 @@ namespace Tests\Feature\Ai\Programming;
 use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsActionDispatcher;
 use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsAdjudicatorService;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 /**
@@ -132,6 +133,67 @@ final class AtlasForgeRivalsRunBatteryTest extends TestCase
         $this->assertFalse($response['external_provider_call']);
         $this->assertFalse($response['provider_tokens_spent']);
         $this->assertFileExists($response['report_path']);
+    }
+
+    public function test_run_real_enforces_provider_idle_timeout_without_masking_it_as_heartbeat(): void
+    {
+        $dispatcher = app(AtlasForgeRivalsActionDispatcher::class);
+        $runId = 'rivals-timeout-'.Str::lower(Str::random(8));
+        $binDir = sys_get_temp_dir().'/atlas-rivals-fake-bin-'.Str::lower(Str::random(8));
+        @mkdir($binDir, 0o755, true);
+        $fakeClaude = $binDir.'/claude';
+        file_put_contents($fakeClaude, "#!/usr/bin/env bash\nsleep 10\nexit 0\n");
+        chmod($fakeClaude, 0o755);
+
+        $oldPath = getenv('PATH') ?: '';
+        $oldServerPath = $_SERVER['PATH'] ?? null;
+        $oldProviderTimeout = getenv('ATLAS_FORGE_RIVALS_PROVIDER_TIMEOUT_SECONDS') ?: false;
+        $oldHardKill = getenv('ATLAS_FORGE_RIVALS_HARD_KILL_SECONDS') ?: false;
+
+        try {
+            putenv('PATH='.$binDir.':'.$oldPath);
+            $_SERVER['PATH'] = $binDir.':'.$oldPath;
+            putenv('ATLAS_FORGE_RIVALS_PROVIDER_TIMEOUT_SECONDS=5');
+            putenv('ATLAS_FORGE_RIVALS_HARD_KILL_SECONDS=12');
+
+            $setup = $dispatcher->dispatch('setup', [
+                'run_id' => $runId,
+                'source_ref' => 'HEAD',
+            ]);
+            $this->assertSame('ok', $setup['status'], json_encode($setup, JSON_PRETTY_PRINT));
+
+            $response = $dispatcher->dispatch('run-real', [
+                'mode' => 'fair',
+                'atlas_model' => 'claude_sonnet',
+                'rival' => 'claude_sonnet',
+                'preset' => 'quick',
+                'run_id' => $runId,
+                'confirmations' => [
+                    'runbook_reviewed' => true,
+                    'provider_cost' => true,
+                    'real_provider_call' => true,
+                ],
+            ]);
+
+            $this->assertSame('ok', $response['status']);
+            $this->assertSame('invalid_provider_timeout', $response['verdict']);
+            $this->assertTrue($response['atlas_receipt']['killed']);
+            $this->assertSame('idle_timeout', $response['atlas_receipt']['timeout_reason']);
+            $this->assertSame(-1, $response['atlas_receipt']['test_exit_code']);
+            $this->assertStringContainsString('SKIPPED: provider timed out', $response['atlas_receipt']['test_log_tail']);
+            $this->assertFileExists($response['paths']['events_jsonl']);
+            $events = (string) file_get_contents($response['paths']['events_jsonl']);
+            $this->assertStringContainsString('"kind":"provider_timeout_warning"', $events);
+        } finally {
+            putenv('PATH='.$oldPath);
+            $_SERVER['PATH'] = $oldServerPath ?? $oldPath;
+            $oldProviderTimeout === false
+                ? putenv('ATLAS_FORGE_RIVALS_PROVIDER_TIMEOUT_SECONDS')
+                : putenv('ATLAS_FORGE_RIVALS_PROVIDER_TIMEOUT_SECONDS='.$oldProviderTimeout);
+            $oldHardKill === false
+                ? putenv('ATLAS_FORGE_RIVALS_HARD_KILL_SECONDS')
+                : putenv('ATLAS_FORGE_RIVALS_HARD_KILL_SECONDS='.$oldHardKill);
+        }
     }
 
     public function test_run_battery_blocks_with_codex_driver_when_binary_missing(): void

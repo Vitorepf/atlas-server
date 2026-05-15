@@ -320,7 +320,7 @@ project + role + category + risk
 3. Atlas consulta Provider Capacity: disponivel, degradado, indisponivel, cooldown, blocker.
 4. Atlas consulta Failure Memory para evitar repetir falha recente.
 5. Atlas consulta Provider Performance Memory como sinal advisory.
-6. Atlas aplica restricoes duras: sem API, sem PAYG, sem headless proibido, privacidade, budget, presenca humana.
+6. Atlas aplica restricoes por fase: sem API/PAYG silencioso, headless apenas quando aprovado para Rivals/teste antes do cutoff/flag, privacidade, budget, presenca humana quando o modo exigir.
 7. Atlas calcula ranking por role slot.
 8. Se houver baixa confianca, Atlas usa exploracao controlada: reviewer alternativo, mini-packet, challenger ou arena local.
 9. Atlas emite Decision Receipt com selected provider, razoes, constraints e fallback.
@@ -439,7 +439,7 @@ Evidence/review: `missing`, `partial`, `strong`, `invalid`, `stale`, `conflict_n
 - Nunca use performance memory como autoridade final; ela e sinal advisory.
 - Nunca esconda capacity, cooldown, fallback, baixa confianca ou falta de evidencia.
 - Nunca force o humano a acompanhar varias sessoes como multitarefa.
-- Em subscription-only, respeite Claude Code interativo observado e bloqueie `claude -p`, Agent SDK e API/PAYG.
+- Em subscription-only, respeite Claude Code interativo observado para uso diario e preserve `claude -p`/Agent SDK apenas quando explicitamente aprovados para Rivals/teste antes do cutoff/flag. API/PAYG continua sem fallback silencioso.
 
 ## Escopo de Implementacao
 
@@ -465,7 +465,8 @@ Cada assignment ou execucao deve registrar: `obra_id`, `project_id`, `work_packe
 - Overfitting se poucos runs criarem falsa certeza.
 - Provider forte mas indisponivel ser escolhido por reputacao antiga.
 - Bootstrap virar politica fixa.
-- Subscription-only ser violado por caminho headless.
+- Subscription-only ser violado por caminho headless produtivo silencioso.
+- Rivals/testes programaticos serem quebrados antes do cutoff por bloqueio prematuro.
 - Completion nascer de texto do provider, sem gates e sem aceite.
 
 ## Exemplos

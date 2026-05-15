@@ -56,8 +56,22 @@ final class AtlasSelfConstructionFinalCompletionReadinessGateTest extends TestCa
         $this->assertTrue((bool) $gate['completion_allowed']);
         $this->assertTrue((bool) $gate['completion_claim_allowed']);
         $this->assertTrue((bool) $gate['next_stage_allowed']);
+        $this->assertTrue((bool) $gate['material_completion_evidence_green']);
         $this->assertSame('Atlas Self-Programming OS', (string) $gate['next_stage_name']);
         $this->assertSame([], (array) $gate['next_stage_blocked_by']);
+    }
+
+    public function test_gate_blocks_complete_claim_when_complete_audit_lacks_material_hashes(): void
+    {
+        $audit = $this->auditAllPassedExcept([], complete: true, includeMaterialEvidence: false);
+        $gate = $this->gate()->evaluate(['completion_audit' => $audit]);
+
+        $this->assertSame('incomplete', $gate['status']);
+        $this->assertFalse((bool) $gate['completion_allowed']);
+        $this->assertFalse((bool) $gate['completion_claim_allowed']);
+        $this->assertFalse((bool) $gate['next_stage_allowed']);
+        $this->assertFalse((bool) $gate['material_completion_evidence_green']);
+        $this->assertContains('material_completion_evidence_hashes_missing_or_invalid', (array) $gate['next_stage_blocked_by']);
     }
 
     public function test_gate_blocks_next_stage_when_completion_allowed_false_in_audit(): void
@@ -66,8 +80,8 @@ final class AtlasSelfConstructionFinalCompletionReadinessGateTest extends TestCa
         $audit['completion_allowed'] = false;
         $gate = $this->gate()->evaluate(['completion_audit' => $audit]);
 
-        $this->assertSame('complete', $gate['status']);
-        $this->assertTrue((bool) $gate['completion_allowed']);
+        $this->assertSame('incomplete', $gate['status']);
+        $this->assertFalse((bool) $gate['completion_allowed']);
         $this->assertFalse((bool) $gate['completion_claim_allowed']);
         $this->assertFalse((bool) $gate['next_stage_allowed']);
     }
@@ -120,7 +134,7 @@ final class AtlasSelfConstructionFinalCompletionReadinessGateTest extends TestCa
      * @param  list<string>  $failed
      * @return array<string, mixed>
      */
-    private function auditAllPassedExcept(array $failed, bool $complete = false): array
+    private function auditAllPassedExcept(array $failed, bool $complete = false, bool $includeMaterialEvidence = true): array
     {
         $hash = str_repeat('a', 64);
         $ids = [
@@ -136,7 +150,32 @@ final class AtlasSelfConstructionFinalCompletionReadinessGateTest extends TestCa
         ];
         $criteria = [];
         foreach ($ids as $id) {
-            $criteria[] = ['id' => $id, 'passed' => ! in_array($id, $failed, true), 'evidence' => []];
+            $evidence = [];
+            if ($includeMaterialEvidence) {
+                $evidence = match ($id) {
+                    'runtime_gap_matrix_all_runtime_y' => [
+                        'runtime_gap_matrix_hash' => $hash,
+                        'runtime_promotion_receipt_hash' => $hash,
+                    ],
+                    'human_signed_os_complete_receipt_present' => [
+                        'receipt_hash' => $hash,
+                    ],
+                    'end_to_end_real_provider_smoke_green' => [
+                        'smoke_hash' => $hash,
+                    ],
+                    'release_dossier_green' => [
+                        'hash' => $hash,
+                    ],
+                    'replay_diff_against_completion_snapshot_green' => [
+                        'diff_hash' => $hash,
+                    ],
+                    'certification_status_batch_green' => [
+                        'hash' => $hash,
+                    ],
+                    default => [],
+                };
+            }
+            $criteria[] = ['id' => $id, 'passed' => ! in_array($id, $failed, true), 'evidence' => $evidence];
         }
 
         return [
@@ -146,6 +185,7 @@ final class AtlasSelfConstructionFinalCompletionReadinessGateTest extends TestCa
             'failed_count' => count($failed),
             'passed_count' => count($ids) - count($failed),
             'completion_allowed' => $failed === [] && $complete,
+            'completion_claim_allowed' => $failed === [] && $complete,
             'criteria' => $criteria,
         ];
     }

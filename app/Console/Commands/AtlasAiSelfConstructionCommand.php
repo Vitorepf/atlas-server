@@ -184,6 +184,42 @@ class AtlasAiSelfConstructionCommand extends Command
         {--atlas-self-construction-runtime-promotion-operator-runbook-exporter-preflight : Generate the read-only Atlas Self-Construction Runtime Promotion Operator Runbook Exporter preflight}
         {--atlas-self-construction-runtime-promotion-operator-runbook-exporter-implementation-packet : Generate the read-only Atlas Self-Construction Runtime Promotion Operator Runbook Exporter implementation packet}
         {--atlas-self-construction-runtime-promotion-operator-runbook-exporter-status : Run the read-only Atlas Self-Construction Runtime Promotion Operator Runbook Exporter; persists only with --persist-export}
+        {--atlas-self-construction-real-provider-smoke-endgame-contract : Generate the read-only Atlas Self-Construction Real Provider Smoke Endgame contract}
+        {--atlas-self-construction-real-provider-smoke-endgame-preflight : Generate the read-only Atlas Self-Construction Real Provider Smoke Endgame preflight}
+        {--atlas-self-construction-real-provider-smoke-endgame-implementation-packet : Generate the read-only Atlas Self-Construction Real Provider Smoke Endgame implementation packet}
+        {--atlas-self-construction-real-provider-smoke-endgame-status : Run the read-only Atlas Self-Construction Real Provider Smoke Endgame}
+        {--atlas-self-construction-real-provider-smoke-endgame-verifier-contract : Generate the read-only Atlas Self-Construction Real Provider Smoke Endgame Verifier contract}
+        {--atlas-self-construction-real-provider-smoke-endgame-verifier-preflight : Generate the read-only Atlas Self-Construction Real Provider Smoke Endgame Verifier preflight}
+        {--atlas-self-construction-real-provider-smoke-endgame-verifier-implementation-packet : Generate the read-only Atlas Self-Construction Real Provider Smoke Endgame Verifier implementation packet}
+        {--atlas-self-construction-real-provider-smoke-endgame-verifier-status : Run the read-only Atlas Self-Construction Real Provider Smoke Endgame Verifier}
+        {--atlas-self-construction-real-provider-smoke-evidence-ledger-preflight-contract : Generate the read-only Atlas Self-Construction Real Provider Smoke Evidence Ledger Preflight contract}
+        {--atlas-self-construction-real-provider-smoke-evidence-ledger-preflight-preflight : Generate the read-only Atlas Self-Construction Real Provider Smoke Evidence Ledger Preflight preflight}
+        {--atlas-self-construction-real-provider-smoke-evidence-ledger-preflight-implementation-packet : Generate the read-only Atlas Self-Construction Real Provider Smoke Evidence Ledger Preflight implementation packet}
+        {--atlas-self-construction-real-provider-smoke-evidence-ledger-preflight-status : Run the read-only Atlas Self-Construction Real Provider Smoke Evidence Ledger Preflight}
+        {--atlas-self-construction-real-provider-smoke-operator-runbook-exporter-contract : Generate the read-only Atlas Self-Construction Real Provider Smoke Operator Runbook Exporter contract}
+        {--atlas-self-construction-real-provider-smoke-operator-runbook-exporter-preflight : Generate the read-only Atlas Self-Construction Real Provider Smoke Operator Runbook Exporter preflight}
+        {--atlas-self-construction-real-provider-smoke-operator-runbook-exporter-implementation-packet : Generate the read-only Atlas Self-Construction Real Provider Smoke Operator Runbook Exporter implementation packet}
+        {--atlas-self-construction-real-provider-smoke-operator-runbook-exporter-status : Run the read-only Atlas Self-Construction Real Provider Smoke Operator Runbook Exporter; persists only with --persist-export}
+        {--atlas-self-construction-human-completion-receipt-endgame-verifier-contract : Generate the read-only Atlas Self-Construction Human Completion Receipt Endgame Verifier contract}
+        {--atlas-self-construction-human-completion-receipt-endgame-verifier-preflight : Generate the read-only Atlas Self-Construction Human Completion Receipt Endgame Verifier preflight}
+        {--atlas-self-construction-human-completion-receipt-endgame-verifier-implementation-packet : Generate the read-only Atlas Self-Construction Human Completion Receipt Endgame Verifier implementation packet}
+        {--atlas-self-construction-human-completion-receipt-endgame-verifier-status : Run the read-only Atlas Self-Construction Human Completion Receipt Endgame Verifier}
+        {--atlas-self-construction-final-completion-human-gate-contract : Generate the read-only Atlas Self-Construction Final Completion Human Gate contract}
+        {--atlas-self-construction-final-completion-human-gate-preflight : Generate the read-only Atlas Self-Construction Final Completion Human Gate preflight}
+        {--atlas-self-construction-final-completion-human-gate-implementation-packet : Generate the read-only Atlas Self-Construction Final Completion Human Gate implementation packet}
+        {--atlas-self-construction-final-completion-human-gate-status : Run the read-only Atlas Self-Construction Final Completion Human Gate}
+        {--atlas-self-construction-final-completion-dossier-exporter-contract : Generate the read-only Atlas Self-Construction Final Completion Dossier Exporter contract}
+        {--atlas-self-construction-final-completion-dossier-exporter-preflight : Generate the read-only Atlas Self-Construction Final Completion Dossier Exporter preflight}
+        {--atlas-self-construction-final-completion-dossier-exporter-implementation-packet : Generate the read-only Atlas Self-Construction Final Completion Dossier Exporter implementation packet}
+        {--atlas-self-construction-final-completion-dossier-exporter-status : Run the read-only Atlas Self-Construction Final Completion Dossier Exporter; persists only with --persist-export}
+        {--atlas-self-construction-final-completion-readiness-gate-contract : Generate the read-only Atlas Self-Construction Final Completion Readiness Gate contract}
+        {--atlas-self-construction-final-completion-readiness-gate-preflight : Generate the read-only Atlas Self-Construction Final Completion Readiness Gate preflight}
+        {--atlas-self-construction-final-completion-readiness-gate-implementation-packet : Generate the read-only Atlas Self-Construction Final Completion Readiness Gate implementation packet}
+        {--atlas-self-construction-final-completion-readiness-gate-status : Run the read-only Atlas Self-Construction Final Completion Readiness Gate}
+        {--atlas-self-construction-completion-finalization-gate-contract : Generate the read-only Atlas Self-Construction Completion Finalization Gate contract}
+        {--atlas-self-construction-completion-finalization-gate-preflight : Generate the read-only Atlas Self-Construction Completion Finalization Gate preflight}
+        {--atlas-self-construction-completion-finalization-gate-implementation-packet : Generate the read-only Atlas Self-Construction Completion Finalization Gate implementation packet}
+        {--atlas-self-construction-completion-finalization-gate-status : Run the read-only Atlas Self-Construction Completion Finalization Gate}
         {--persist-export : Persist the operator runbook export to local storage; default false}
         {--atlas-self-construction-final-evidence-bundle-contract : Generate the read-only Atlas Self-Construction Final Evidence Bundle contract}
         {--atlas-self-construction-final-evidence-bundle-preflight : Generate the read-only Atlas Self-Construction Final Evidence Bundle preflight}
@@ -2021,6 +2057,42 @@ class AtlasAiSelfConstructionCommand extends Command
             (bool) $this->option('atlas-self-construction-runtime-promotion-operator-runbook-exporter-implementation-packet') => $readiness->atlasSelfConstructionRuntimePromotionOperatorRunbookExporterImplementationPacket($options),
             (bool) $this->option('atlas-self-construction-runtime-promotion-operator-runbook-exporter-preflight') => $readiness->atlasSelfConstructionRuntimePromotionOperatorRunbookExporterPreflight($options),
             (bool) $this->option('atlas-self-construction-runtime-promotion-operator-runbook-exporter-contract') => $readiness->atlasSelfConstructionRuntimePromotionOperatorRunbookExporterContract($options),
+            (bool) $this->option('atlas-self-construction-real-provider-smoke-endgame-status') => $readiness->atlasSelfConstructionRealProviderSmokeEndgameStatus($options),
+            (bool) $this->option('atlas-self-construction-real-provider-smoke-endgame-implementation-packet') => $readiness->atlasSelfConstructionRealProviderSmokeEndgameImplementationPacket($options),
+            (bool) $this->option('atlas-self-construction-real-provider-smoke-endgame-preflight') => $readiness->atlasSelfConstructionRealProviderSmokeEndgamePreflight($options),
+            (bool) $this->option('atlas-self-construction-real-provider-smoke-endgame-contract') => $readiness->atlasSelfConstructionRealProviderSmokeEndgameContract($options),
+            (bool) $this->option('atlas-self-construction-real-provider-smoke-endgame-verifier-status') => $readiness->atlasSelfConstructionRealProviderSmokeEndgameVerifierStatus($options),
+            (bool) $this->option('atlas-self-construction-real-provider-smoke-endgame-verifier-implementation-packet') => $readiness->atlasSelfConstructionRealProviderSmokeEndgameVerifierImplementationPacket($options),
+            (bool) $this->option('atlas-self-construction-real-provider-smoke-endgame-verifier-preflight') => $readiness->atlasSelfConstructionRealProviderSmokeEndgameVerifierPreflight($options),
+            (bool) $this->option('atlas-self-construction-real-provider-smoke-endgame-verifier-contract') => $readiness->atlasSelfConstructionRealProviderSmokeEndgameVerifierContract($options),
+            (bool) $this->option('atlas-self-construction-real-provider-smoke-evidence-ledger-preflight-status') => $readiness->atlasSelfConstructionRealProviderSmokeEvidenceLedgerPreflightStatus($options),
+            (bool) $this->option('atlas-self-construction-real-provider-smoke-evidence-ledger-preflight-implementation-packet') => $readiness->atlasSelfConstructionRealProviderSmokeEvidenceLedgerPreflightImplementationPacket($options),
+            (bool) $this->option('atlas-self-construction-real-provider-smoke-evidence-ledger-preflight-preflight') => $readiness->atlasSelfConstructionRealProviderSmokeEvidenceLedgerPreflightPreflight($options),
+            (bool) $this->option('atlas-self-construction-real-provider-smoke-evidence-ledger-preflight-contract') => $readiness->atlasSelfConstructionRealProviderSmokeEvidenceLedgerPreflightContract($options),
+            (bool) $this->option('atlas-self-construction-real-provider-smoke-operator-runbook-exporter-status') => $readiness->atlasSelfConstructionRealProviderSmokeOperatorRunbookExporterStatus($options),
+            (bool) $this->option('atlas-self-construction-real-provider-smoke-operator-runbook-exporter-implementation-packet') => $readiness->atlasSelfConstructionRealProviderSmokeOperatorRunbookExporterImplementationPacket($options),
+            (bool) $this->option('atlas-self-construction-real-provider-smoke-operator-runbook-exporter-preflight') => $readiness->atlasSelfConstructionRealProviderSmokeOperatorRunbookExporterPreflight($options),
+            (bool) $this->option('atlas-self-construction-real-provider-smoke-operator-runbook-exporter-contract') => $readiness->atlasSelfConstructionRealProviderSmokeOperatorRunbookExporterContract($options),
+            (bool) $this->option('atlas-self-construction-human-completion-receipt-endgame-verifier-status') => $readiness->atlasSelfConstructionHumanCompletionReceiptEndgameVerifierStatus($options),
+            (bool) $this->option('atlas-self-construction-human-completion-receipt-endgame-verifier-implementation-packet') => $readiness->atlasSelfConstructionHumanCompletionReceiptEndgameVerifierImplementationPacket($options),
+            (bool) $this->option('atlas-self-construction-human-completion-receipt-endgame-verifier-preflight') => $readiness->atlasSelfConstructionHumanCompletionReceiptEndgameVerifierPreflight($options),
+            (bool) $this->option('atlas-self-construction-human-completion-receipt-endgame-verifier-contract') => $readiness->atlasSelfConstructionHumanCompletionReceiptEndgameVerifierContract($options),
+            (bool) $this->option('atlas-self-construction-final-completion-human-gate-status') => $readiness->atlasSelfConstructionFinalCompletionHumanGateStatus($options),
+            (bool) $this->option('atlas-self-construction-final-completion-human-gate-implementation-packet') => $readiness->atlasSelfConstructionFinalCompletionHumanGateImplementationPacket($options),
+            (bool) $this->option('atlas-self-construction-final-completion-human-gate-preflight') => $readiness->atlasSelfConstructionFinalCompletionHumanGatePreflight($options),
+            (bool) $this->option('atlas-self-construction-final-completion-human-gate-contract') => $readiness->atlasSelfConstructionFinalCompletionHumanGateContract($options),
+            (bool) $this->option('atlas-self-construction-final-completion-dossier-exporter-status') => $readiness->atlasSelfConstructionFinalCompletionDossierExporterStatus($options),
+            (bool) $this->option('atlas-self-construction-final-completion-dossier-exporter-implementation-packet') => $readiness->atlasSelfConstructionFinalCompletionDossierExporterImplementationPacket($options),
+            (bool) $this->option('atlas-self-construction-final-completion-dossier-exporter-preflight') => $readiness->atlasSelfConstructionFinalCompletionDossierExporterPreflight($options),
+            (bool) $this->option('atlas-self-construction-final-completion-dossier-exporter-contract') => $readiness->atlasSelfConstructionFinalCompletionDossierExporterContract($options),
+            (bool) $this->option('atlas-self-construction-final-completion-readiness-gate-status') => $readiness->atlasSelfConstructionFinalCompletionReadinessGateStatus($options),
+            (bool) $this->option('atlas-self-construction-final-completion-readiness-gate-implementation-packet') => $readiness->atlasSelfConstructionFinalCompletionReadinessGateImplementationPacket($options),
+            (bool) $this->option('atlas-self-construction-final-completion-readiness-gate-preflight') => $readiness->atlasSelfConstructionFinalCompletionReadinessGatePreflight($options),
+            (bool) $this->option('atlas-self-construction-final-completion-readiness-gate-contract') => $readiness->atlasSelfConstructionFinalCompletionReadinessGateContract($options),
+            (bool) $this->option('atlas-self-construction-completion-finalization-gate-status') => $readiness->atlasSelfConstructionCompletionFinalizationGateStatus($options),
+            (bool) $this->option('atlas-self-construction-completion-finalization-gate-implementation-packet') => $readiness->atlasSelfConstructionCompletionFinalizationGateImplementationPacket($options),
+            (bool) $this->option('atlas-self-construction-completion-finalization-gate-preflight') => $readiness->atlasSelfConstructionCompletionFinalizationGatePreflight($options),
+            (bool) $this->option('atlas-self-construction-completion-finalization-gate-contract') => $readiness->atlasSelfConstructionCompletionFinalizationGateContract($options),
             (bool) $this->option('atlas-self-construction-final-evidence-bundle-status') => $readiness->atlasSelfConstructionFinalEvidenceBundleStatus($options),
             (bool) $this->option('atlas-self-construction-final-evidence-bundle-implementation-packet') => $readiness->atlasSelfConstructionFinalEvidenceBundleImplementationPacket($options),
             (bool) $this->option('atlas-self-construction-final-evidence-bundle-preflight') => $readiness->atlasSelfConstructionFinalEvidenceBundlePreflight($options),

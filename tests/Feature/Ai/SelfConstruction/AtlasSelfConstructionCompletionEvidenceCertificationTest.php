@@ -410,6 +410,46 @@ final class AtlasSelfConstructionCompletionEvidenceCertificationTest extends Tes
         $this->assertContains('human_completion_receipt_signer_invalid_or_placeholder', array_column((array) data_get($payload, 'human_signed_completion_receipt.violations', []), 'code'));
     }
 
+    public function test_completion_evidence_status_command_rejects_stale_material_hashes_in_human_receipt(): void
+    {
+        Storage::fake('local');
+
+        Artisan::call('atlas:ai:self-construction', [
+            '--atlas-self-construction-os-completion-evidence-status' => true,
+            '--json' => true,
+        ]);
+        $templatePayload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+        $receipt = array_merge((array) data_get($templatePayload, 'operator_action_packet.human_completion_receipt_template', []), [
+            'receipt_id' => 'os-complete-receipt-stale-material-hash',
+            'signed_by' => 'Vitorepf Completion Operator',
+            'reason' => 'This receipt intentionally references stale material evidence and must be rejected.',
+            'os_complete_approved' => true,
+            'operator_reviewed_completion_audit' => true,
+            'no_autopromotion_acknowledged' => true,
+        ]);
+
+        $currentReleaseHash = (string) data_get($templatePayload, 'operator_action_packet.human_completion_receipt_template.release_dossier_hash');
+        $receipt['release_dossier_hash'] = $currentReleaseHash === str_repeat('9', 64)
+            ? str_repeat('8', 64)
+            : str_repeat('9', 64);
+        $receipt['receipt_hash'] = (new AtlasSelfConstructionCompletionEvidenceHashService)->humanCompletionReceiptHash($receipt);
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--atlas-self-construction-os-completion-evidence-status' => true,
+            '--completion-receipt-json' => json_encode($receipt, JSON_THROW_ON_ERROR),
+            '--persist-completion-evidence' => true,
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+        $violations = (array) data_get($payload, 'human_signed_completion_receipt.violations', []);
+
+        $this->assertSame(0, $exit);
+        $this->assertFalse(data_get($payload, 'human_signed_completion_receipt.persisted'));
+        $this->assertSame('blocked', data_get($payload, 'human_signed_completion_receipt.status'));
+        $this->assertContains('context_hash_mismatch', array_column($violations, 'code'));
+        $this->assertContains('release_dossier_hash', array_column($violations, 'field'));
+    }
+
     public function test_completion_operator_action_packet_command_exposes_direct_status(): void
     {
         Storage::fake('local');
