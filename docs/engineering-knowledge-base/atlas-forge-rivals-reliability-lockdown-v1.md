@@ -1,119 +1,195 @@
+---
+id: atlas-forge-rivals-reliability-lockdown-v1
+type: engineering_knowledge
+title: Atlas Forge Rivals Reliability Lockdown v1
+status: active
+category: programming
+priority: 100
+summary: Lockdown do harness Rivals do Atlas Forge: workspace hygiene, fingerprint unico, Sonnet model lock, quick preset real, streaming JSONL, evidence pack real-run e triage por fingerprint. Rivals e benchmark/teste, nao feature de produto.
+tags:
+  - atlas
+  - forge
+  - rivals
+  - benchmark
+  - reliability
+capabilities:
+  - forge_rivals_preflight
+  - forge_rivals_dry_run
+  - forge_rivals_readiness_fingerprint
+  - forge_rivals_streaming_runner
+  - forge_rivals_evidence_pack
+  - forge_rivals_sonnet_lock
+unlocks:
+  - safe_forge_rivals_provider_battery_preflight
+  - sonnet_vs_sonnet_rivals_benchmark
+  - real_run_evidence_pack_without_synthetic_claim
+decisions:
+  - Rivals e bateria de teste/benchmark, nao produto novo.
+  - Atlas arm deve usar Forge; baseline deve usar workspace externo isolado.
+  - Resultado invalido nunca vira score ou claim.
+  - Workspace dirty antes/depois, .pyc rastreado, fingerprint divergente, evidence faltando ou stall invalidam a bateria.
+maintenance:
+  - Atualize este documento antes de alterar preflight, dry-run, runner, evidence pack, triage ou model lock do Rivals.
+  - Mantenha comandos sem provider separados dos comandos com custo real.
+related_paths:
+  - app/Services/Ai/Programming/WorkspaceHygieneService.php
+  - app/Services/Ai/Programming/RivalsForgeReadinessFingerprintService.php
+  - app/Services/Ai/Programming/RivalsForgeRunLogStreamService.php
+  - app/Services/Ai/Programming/AtlasRivalsRunOrchestrator.php
+  - app/Services/Ai/Programming/AtlasRivalsInvalidBatteryTriageRegistry.php
+  - tests/Feature/Ai/Programming/AtlasForgeRivalsReliabilityLockdownIntegrationTest.php
+repo_paths:
+  - docs/engineering-knowledge-base/atlas-forge-rivals-reliability-lockdown-v1.md
+  - app/Services/Ai/Programming/WorkspaceHygieneService.php
+  - app/Services/Ai/Programming/RivalsForgeReadinessFingerprintService.php
+  - app/Services/Ai/Programming/RivalsForgeRunLogStreamService.php
+  - app/Services/Ai/Programming/AtlasRivalsRunOrchestrator.php
+  - app/Services/Ai/Programming/AtlasRivalsInvalidBatteryTriageRegistry.php
+  - tests/Feature/Ai/Programming/AtlasForgeRivalsReliabilityLockdownIntegrationTest.php
+allowed_changes:
+  - Ajustar preset quick/full, fingerprints, evidence fields e mensagens de blocker.
+  - Adicionar novos eventos JSONL desde que mantenham replay e compatibilidade.
+forbidden_changes:
+  - Chamar provider em preflight, dry-run ou testes automatizados.
+  - Promover score/claim quando a bateria estiver invalida ou incompleta.
+  - Desbloquear external_rivals_certification por este modulo.
+depends_on:
+  - atlas-forge-native-rivals-protocol-v1
+  - atlas-programming-forge-flow
+flows_to:
+  - atlas:engineering:benchmark:rivals
+  - atlas:programming:rivals-evidence-pack
+governs:
+  - forge_rivals_benchmark_validity
+  - forge_rivals_workspace_cleanliness
+  - forge_rivals_evidence_integrity
+evidence:
+  - php artisan test --filter='Rivals|ForgeNativeRivals|AtlasForge|FairClaudePolicy'
+  - php artisan atlas:engineering:benchmark:rivals preflight --model=sonnet --baseline-model=sonnet --json --strict
+required_tests:
+  - AtlasForgeRivalsReliabilityLockdownIntegrationTest
+  - AtlasForgeNativeRivalsTest
+  - AtlasRivalsRunOrchestratorTest
+  - RivalsForgeReadinessFingerprintServiceTest
+  - RivalsForgeRunLogStreamServiceTest
+requires_evidence: true
+risk_level: high
+next_actions:
+  - Limpar .pyc rastreado com acao explicita do operador antes da primeira bateria real.
+  - Rodar quick Sonnet vs Sonnet em worktrees limpos.
+doc_schema: atlas_canonical_module_doc.v1
+graph_id: atlas-forge-rivals-reliability-lockdown-v1
+graph_title: Atlas Forge Rivals Reliability Lockdown v1
+graph_world: atlas
+graph_layer: system
+graph_kind: runbook
+graph_parent: atlas-forge-native-rivals-protocol-v1
+graph_status: active
+graph_source: repo
+owner: atlas-ai
+---
+
 # Atlas Forge Rivals Reliability Lockdown v1
 
-**Schema namespace:** `atlas.programming.rivals_forge_*`
-**Status:** canon · 2026-05-14
-**Owns:** preflight, dry-run, evidence pack, run orchestrator, triage registry, replay
-**Does NOT own:** real provider dispatch (governed by `atlas:engineering:benchmark:claude-fair`), `external_rivals_certification` (continues separately blocked by design)
+## Resumo
 
----
+Esta doc define o lockdown do harness Rivals do Atlas Forge. O objetivo e fazer a bateria comparativa funcionar como teste confiavel: dois workspaces limpos, Atlas arm via Forge, baseline Claude Code isolado, evidence completo, replay possivel e score nulo sempre que a bateria for invalida.
 
-## 1. Por que o Rivals falhava
+## Papel no Atlas
 
-Antes desta lockdown, mesmo com preflight `ready_for_dry_run` e dry-run `dry_run_passed`, a bateria real do Atlas Forge sempre saía como `invalid_battery_no_comparable_score` ou era invalidada em silêncio. Sete bugs raiz mapeados, cada um agora protegido por código + teste:
+Rivals mede o Atlas Forge contra um baseline externo em condicoes comparaveis. Ele nao implementa produto novo, nao cria UX nova e nao desbloqueia `external_rivals_certification`. Seu papel e impedir que uma bateria ruim vire narrativa de vitoria.
 
-| # | Bug | Localização original | Fix |
-|---|---|---|---|
-| 1 | `.pyc` rastreados em `runtimes/python/**/__pycache__/` faziam `git status` mostrar dirty depois de qualquer execução Python | `atlas-server/runtimes/python/**` (137 arquivos `cpython-*.pyc` no índice) | `WorkspaceHygieneService::trackedPythonBytecode()` + preflight blocker `tracked_python_bytecode_in_workspace` |
-| 2 | Nenhum `after_clean_check` no evidence pack — workspace dirty pós-run virava `invalid` sem evidência | `AtlasRivalsEvidencePackService::generate()` | Snapshot before, snapshot after, campo `workspace.after_clean_check.{ran,clean,hash_before,hash_after,dirty_files}` |
-| 3 | `PYTHONDONTWRITEBYTECODE` não setado → cada PHPUnit/Python regenerava bytecode | `AtlasRivalsEvidencePackService::runShellCommand()` | `WorkspaceHygieneService::forceBytecodeDisabledEnv()` injetado em todo subprocess do pack |
-| 4 | `dirty_workspace_after_run` não era hard fail global | `AtlasRivalsOneShotEnterpriseRubricService` | Constante `GLOBAL_HARD_FAIL_CONDITIONS` ganhou `dirty_workspace_after_run` + `tracked_python_bytecode_in_workspace` |
-| 5 | Preflight/dry-run/runbook/runner divergiam silenciosamente — quick runbook ready, quick run blocked | múltiplos serviços | Novo `RivalsForgeReadinessFingerprintService`: sha256 determinístico sobre `(suite, preset, atlas_model, baseline_model, atlas_workspace_hash, baseline_workspace_hash, case_ids, gate_profile, test_command)`. Mismatch → blocker `fingerprint_mismatch_runbook_vs_run` com lista field-by-field |
-| 6 | Sonnet bloqueado por política, não por driver | `FairClaudePolicy::MODEL_LOCK = 'opus'` | `FairClaudePolicy::MODEL_LOCK_ALLOWLIST = ['opus', 'sonnet']` + `MODEL_NOT_AVAILABLE_ERROR` sub_error. Comando aceita `--model=sonnet --baseline-model=sonnet`. Dashboard mostra o par real |
-| 7 | Quick preset não era quick — rodava suite cheia | `AtlasRivalsCommand::PRESETS['quick']` | Case manifest publica `quick_test_command` (canary fixture) e `full_test_command`. Evidence grava `tests.command_origin = preset_default|operator_explicit`. Timeout do quick caiu de 1200s → 300s |
-| (extra) | Sem streaming — log 0B por 40 min | `AtlasForgeProviderProcessRunner` capturava só ao final | Novo `RivalsForgeRunLogStreamService` (JSONL) + `AtlasRivalsRunOrchestrator` que emite eventos canon a cada etapa, com heartbeat 1s e stall budget |
-| (extra) | Triage por suite, não por fingerprint — opus quarantinado bloqueava sonnet | `EngineeringBenchmarkService::historicalInvalidFairBatteryRequiresTriage()` | Novo `AtlasRivalsInvalidBatteryTriageRegistry` keyed por fingerprint |
-| (extra) | Evidence pack do runner real não capturava `before/after hash`, diff per arm, provider receipt, timeline, replay manifest executado | só existia `generate()` local | `AtlasRivalsEvidencePackService::generateForRealRun()` + verifier `MODE_REAL_RUN` com `REQUIRED_FIELDS_FOR_REAL_RUN` |
+## Onde Se Encaixa
 
----
+O fluxo fica abaixo de `atlas-forge-native-rivals-protocol-v1` e acima dos comandos de benchmark. Preflight e dry-run nunca chamam provider. O run real continua exigindo aprovacao explicita de runbook e custo.
 
-## 2. Novo fluxo confiável (slices A → J)
+## Contratos
 
-```
-operator
-  │
-  ▼
-atlas rivals preflight       ── canon (slice H)
-atlas rivals dry-run         ── canon (slice H)
-atlas rivals run --quick     ── ainda governado por atlas:engineering:benchmark:claude-fair
-atlas rivals replay [--run-id]
-atlas rivals triage-invalid-battery --fingerprint=<h>
-                  │
-                  ▼
-   ┌──────────────────────────────────────────────────────────────┐
-   │ Preflight (AtlasForgeNativeRivalsPreflightService)            │
-   │   - tracked_python_bytecode_in_workspace                      │ slice A
-   │   - workspace_dirty_or_not_git                                │
-   │   - readiness_fingerprint (slice B)                            │
-   └──────────────────────────────────────────────────────────────┘
-                  │
-                  ▼
-   ┌──────────────────────────────────────────────────────────────┐
-   │ Dry-run (AtlasForgeNativeRivalsDryRunService)                  │
-   │   - replay_manifest.state = planned                            │
-   │   - same fingerprint as preflight                              │
-   └──────────────────────────────────────────────────────────────┘
-                  │
-                  ▼
-   ┌──────────────────────────────────────────────────────────────┐
-   │ AtlasRivalsRunOrchestrator (slice E)                           │
-   │   modes: dry_run | fake_provider | real_provider               │
-   │   emite eventos JSONL canon em                                 │
-   │   storage/app/rivals-forge-runs/<runId>/events.jsonl           │
-   │   stall budget + heartbeat                                     │
-   └──────────────────────────────────────────────────────────────┘
-                  │
-                  ▼
-   ┌──────────────────────────────────────────────────────────────┐
-   │ Evidence pack real run (slice F)                               │
-   │   generateForRealRun → REQUIRED_FIELDS_FOR_REAL_RUN            │
-   │   verifier MODE_REAL_RUN → invalid_missing_evidence            │
-   │   evaluator → dirty_workspace_after_run hard fail              │
-   └──────────────────────────────────────────────────────────────┘
-                  │
-                  ▼
-   AtlasRivalsInvalidBatteryTriageRegistry (slice G)
-   por fingerprint, não por suite
-```
+- Atlas arm: `runtime=forge`, com comandos `atlas:code:forge-fast-path`, status e review.
+- Baseline arm: Claude Code CLI em workspace separado.
+- Model lock: `opus` ou `sonnet`, com `--model` e `--baseline-model` explicitos.
+- Readiness fingerprint: hash deterministico de suite, preset, modelos, workspace hashes, case ids, gate profile e test command.
+- Evidence real-run: before/after hash, diff, test log, quality log, provider receipt, replay manifest executado e timeline.
 
-`external_rivals_certification` permanece **bloqueado** durante todo este fluxo. Nenhum caminho deste código desbloqueia. Auditável via `grep -rn 'external_rivals_certification' atlas-server/app` (deve continuar zero unlocks).
+## Fluxo
 
----
+1. `atlas:engineering:benchmark:rivals preflight` valida workspaces, `.pyc` rastreado, manifest e fingerprint.
+2. `atlas:engineering:benchmark:rivals dry-run` planeja replay sem provider e propaga o mesmo fingerprint.
+3. `atlas:engineering:benchmark:rivals run --quick|--full` roda somente com flags `--confirm-runbook-reviewed` e `--confirm-provider-cost`.
+4. O runner emite JSONL incremental em `storage/app/rivals-forge-runs/<runId>/events.jsonl`.
+5. O evidence pack verifica after-clean, replay e campos obrigatorios.
+6. Resultado invalido gera `score=null` e blocker claro.
 
-## 3. Comandos canon
+## Regras para IA
 
-### 3.1 Sem provider (sempre seguros, sem cobrança)
+- Nao transformar Rivals em feature de produto.
+- Nao chamar provider em preflight, dry-run ou teste automatizado.
+- Nao mascarar workspace dirty, evidence faltando ou fingerprint mismatch.
+- Nao aceitar fallback silencioso de modelo.
+- Nao promover completion claim nem external rivals claim.
+- Preferir blocker explicito a resultado parcial.
+
+## Escopo de Implementacao
+
+Entregue:
+
+- `WorkspaceHygieneService` bloqueia `.pyc` rastreado e fornece env com `PYTHONDONTWRITEBYTECODE=1`.
+- `RivalsForgeReadinessFingerprintService` unifica preflight, dry-run, runbook e runner.
+- `RivalsForgeRunLogStreamService` grava eventos JSONL com heartbeat e stall detector.
+- `AtlasRivalsRunOrchestrator` suporta dry-run, fake provider e real-provider guardado.
+- `AtlasRivalsInvalidBatteryTriageRegistry` faz quarantine por fingerprint, nao por suite.
+- `FairClaudePolicy` aceita `opus` e `sonnet` sob lock explicito.
+
+Fora de escopo: provider dispatch automatico, UI geral, Self-Improvement, Voice e Cartografia.
+
+## Dependencias
+
+- `AtlasForgeNativeRivalsPreflightService`
+- `AtlasForgeNativeRivalsDryRunService`
+- `AtlasForgeNativeRivalsCaseManifestService`
+- `AtlasRivalsEvidencePackService`
+- `AtlasRivalsEvidencePackVerifierService`
+- `AtlasRivalsOneShotEnterpriseEvaluationService`
+- `FairClaudePolicy`
+
+## Evidencias
+
+Testes que precisam permanecer verdes:
+
+- `AtlasForgeNativeRivalsTest::test_preflight_blocks_tracked_python_bytecode`
+- `AtlasRivalsEvidencePackTest::test_evidence_pack_forces_pythondontwritebytecode_env`
+- `AtlasRivalsRunOrchestratorTest::test_fake_provider_that_dirties_workspace_returns_invalid_dirty_after_run`
+- `AtlasRivalsRunOrchestratorTest::test_fake_provider_that_stalls_returns_stalled_runner_verdict`
+- `AtlasForgeRivalsReliabilityLockdownIntegrationTest::test_sonnet_model_lock_propagates_through_fingerprint`
+
+Comando de verificacao local:
 
 ```bash
-# Preflight: valida workspace, baseline, manifest, fingerprint, pyc tracked
+PYTHONDONTWRITEBYTECODE=1 php artisan test --filter='Rivals|ForgeNativeRivals|AtlasForge|FairClaudePolicy'
+```
+
+## Riscos
+
+- `.pyc` rastreado ainda precisa ser removido do indice por acao explicita do operador.
+- `quick` so e comparavel se ambos os arms usam o mesmo case e o mesmo preset.
+- Provider real pode gastar tokens; run real sempre exige confirmacoes.
+- Resultado historico invalido nao deve contaminar novo fingerprint.
+
+## Exemplos
+
+Preflight Sonnet vs Sonnet:
+
+```bash
 /opt/homebrew/bin/php artisan atlas:engineering:benchmark:rivals preflight \
   --workspace=<clean-atlas-worktree> \
   --claude-code-baseline-workspace=<clean-baseline-worktree> \
   --model=sonnet --baseline-model=sonnet \
   --json --strict
-
-# Dry-run: planeja replay manifest, NÃO chama provider
-/opt/homebrew/bin/php artisan atlas:engineering:benchmark:rivals dry-run \
-  --workspace=<clean-atlas-worktree> \
-  --case=atlas-fair-claude-baseline-case-01 \
-  --model=sonnet \
-  --json --strict
-
-# Replay do último run salvo em disco (JSONL events)
-/opt/homebrew/bin/php artisan atlas:engineering:benchmark:rivals replay --json
-/opt/homebrew/bin/php artisan atlas:engineering:benchmark:rivals replay --run-id=<id> --json
-
-# Readiness (cumulativo)
-/opt/homebrew/bin/php artisan atlas:programming:rivals-readiness --json
-
-# Evaluator local (sem provider)
-/opt/homebrew/bin/php artisan atlas:programming:rivals-one-shot-evaluate \
-  --case=atlas-fair-claude-baseline-case-01 --workspace=<atlas> --json --strict
 ```
 
-### 3.2 Com provider (cobrança real — exige flags explícitas)
+Run quick real:
 
 ```bash
-# Atlas Forge Sonnet vs Claude Code Sonnet, quick preset
 /opt/homebrew/bin/php artisan atlas:engineering:benchmark:rivals run \
   --quick \
   --workspace=<clean-atlas-worktree> \
@@ -121,184 +197,17 @@ atlas rivals triage-invalid-battery --fingerprint=<h>
   --model=sonnet --baseline-model=sonnet \
   --confirm-runbook-reviewed --confirm-provider-cost \
   --json
-
-# Full battery (mais caro, mais robusto)
-/opt/homebrew/bin/php artisan atlas:engineering:benchmark:rivals run \
-  --full \
-  --workspace=<clean-atlas-worktree> \
-  --claude-code-baseline-workspace=<clean-baseline-worktree> \
-  --model=sonnet --baseline-model=sonnet \
-  --confirm-runbook-reviewed --confirm-provider-cost \
-  --json
 ```
 
-### 3.3 Triage de bateria inválida histórica
+## Proximas Acoes
+
+1. Remover `.pyc` rastreado com commit explicito:
 
 ```bash
-# A registry distingue fingerprints (slice G); triagem de quick+opus NÃO bloqueia quick+sonnet
-/opt/homebrew/bin/php artisan atlas:engineering:benchmark:rivals triage-invalid-battery \
-  --fingerprint=<sha256 hex> \
-  --confirm-invalid-battery-quarantine \
-  --reason="explicação humana do quarantine"
+git -C /Users/vitorepf/develop/Atlas/atlas-server rm --cached -r 'runtimes/python/**/__pycache__' '*.pyc' '*.pyo'
 ```
 
----
-
-## 4. Interpretando o resultado
-
-| `status`/`verdict` | Significa | Score | Ação |
-|---|---|---|---|
-| `ready_for_dry_run` | Preflight verde, pode dry-run | n/a | Rode dry-run |
-| `ready_for_provider_battery` | Preflight + aprovação operator OK | n/a | Pode dispatch real |
-| `blocked_dirty_workspace` | Working tree não-git ou com arquivos modificados | n/a | Commit/stash |
-| `blocked_tracked_python_bytecode` | `.pyc` ou `__pycache__` no índice — rodar `resolution_command` | n/a | `git rm --cached -r ...` |
-| `blocked_protocol_invalid` | Case manifest inválido | n/a | Verificar `atlas_arm.runtime` |
-| `blocked_missing_baseline_workspace` | Baseline ausente, igual ao Atlas, dirty ou não-git | n/a | `git worktree add` separado |
-| `blocked_requires_operator_approval` | `intends_provider_battery=true` sem `--confirm-*` | n/a | Operator review |
-| `dry_run_passed` | Dry-run OK, replay manifest válido | n/a | Pode considerar real run |
-| `dry_run_blocked` | Algum invariante falhou no plano | n/a | Olhar `blocking_reasons` |
-| `passed` (orchestrator) | Fake provider rodou, after-clean OK, evidence verificada | **null** (sem provider real → claim_ready=false) | n/a |
-| `invalid_dirty_after_run` | Workspace ficou dirty depois — pode ser `.pyc`, lockfile, fixture | null | Olhar `after_clean_check.dirty_files`, ver doc seção 6 |
-| `invalid_missing_evidence` | Pack real_run sem campos obrigatórios | null | Ver `missing_real_run_fields` |
-| `stalled_runner_no_heartbeat` | Subprocess ficou >budget sem output | null | Aumentar `stall_budget_seconds`, ou debugar provider |
-| `blocked_fingerprint_mismatch` | Run e runbook diferentes (modelo? workspace?) | null | Re-rodar runbook com mesmas flags |
-
-`claim_ready=true` **só** pode ser concedido por `external_rivals_certification`, que permanece bloqueado por desenho. Score = `null` em qualquer caminho deste módulo enquanto não houver real provider validada + cert externa.
-
----
-
-## 5. Atlas Forge Sonnet vs Claude Code Sonnet
-
-Receita completa em workspaces isolados:
-
-```bash
-# Crie worktrees clean isolados (operador faz uma vez)
-git worktree add /tmp/atlas-rivals-atlas HEAD
-git worktree add /tmp/atlas-rivals-baseline HEAD
-
-# Preflight Sonnet vs Sonnet
-/opt/homebrew/bin/php artisan atlas:engineering:benchmark:rivals preflight \
-  --workspace=/tmp/atlas-rivals-atlas \
-  --claude-code-baseline-workspace=/tmp/atlas-rivals-baseline \
-  --model=sonnet --baseline-model=sonnet \
-  --json --strict
-# Esperado: status=ready_for_dry_run, fingerprint computed
-
-# Dry-run
-/opt/homebrew/bin/php artisan atlas:engineering:benchmark:rivals dry-run \
-  --workspace=/tmp/atlas-rivals-atlas \
-  --model=sonnet \
-  --json --strict
-# Esperado: status=dry_run_passed, replay_manifest.state=planned
-
-# Run real (cobra provider)
-/opt/homebrew/bin/php artisan atlas:engineering:benchmark:rivals run \
-  --quick \
-  --workspace=/tmp/atlas-rivals-atlas \
-  --claude-code-baseline-workspace=/tmp/atlas-rivals-baseline \
-  --model=sonnet --baseline-model=sonnet \
-  --confirm-runbook-reviewed --confirm-provider-cost \
-  --json
-# Esperado: dashboard mostra "Atlas Forge / sonnet" vs "Claude Code CLI / sonnet"
-
-# Replay (sem cobrança)
-/opt/homebrew/bin/php artisan atlas:engineering:benchmark:rivals replay --json
-# Esperado: events.jsonl com kinds {preflight, provider_start, provider_done, after_clean_check, evidence_pack, final_report}
-```
-
----
-
-## 6. Investigando dirty workspace
-
-Quando a preflight ou orchestrator retorna `blocked_tracked_python_bytecode` ou `invalid_dirty_after_run`:
-
-1. `git -C <workspace> ls-files -- '*.pyc' '*.pyo' '*__pycache__*' | wc -l` — quantos artefatos Python tracked?
-2. Se >0, rode o `resolution_command` que o preflight devolveu:
-   ```
-   git -C <workspace> rm --cached -r 'runtimes/python/**/__pycache__' '*.pyc' '*.pyo'
-   git -C <workspace> commit -m "chore: untrack python bytecode"
-   ```
-3. Confirme: `git -C <workspace> ls-files -- '*.pyc' '*.pyo' '*__pycache__*' | wc -l` deve ser `0`.
-4. Re-rode preflight com `--strict`.
-
-Quando o `invalid_dirty_after_run` veio mesmo com pyc untracked: olhe `evidence_pack.workspace.after_clean_check.dirty_files`. Causas comuns:
-- Lockfiles regenerados (composer/yarn) — registrar no `.gitignore`
-- Logs/cache do Laravel (storage/) — geralmente já gitignored, mas pode haver custom path
-- Fixtures de teste mal isoladas — usar `tmp_dir` ao invés de `tests/_fixtures/`
-
----
-
-## 7. Replay de uma run
-
-```bash
-# Latest
-/opt/homebrew/bin/php artisan atlas:engineering:benchmark:rivals replay --json
-
-# Específica
-/opt/homebrew/bin/php artisan atlas:engineering:benchmark:rivals replay \
-  --run-id=rivals-forge-01HXYZ... --json
-```
-
-O JSON inclui:
-- `event_count`
-- `kinds` (lista única de eventos vistos)
-- `final_report` (verdict + score + readiness_fingerprint)
-- `events` (lista completa JSONL com timestamps)
-
-Storage: `storage/app/rivals-forge-runs/<runId>/{events.jsonl, run.log, intent.json}`. Política de rotação: últimos 20 runs (configurável em `RivalsForgeRunLogStreamService::RETENTION_RUNS`).
-
----
-
-## 8. Tabela "cada bug → onde foi consertado → teste que prova"
-
-| Bug raiz | Arquivo do fix | Teste que prova |
-|---|---|---|
-| `.pyc` tracked | `WorkspaceHygieneService` + preflight `checkWorkspace()` | `AtlasForgeNativeRivalsTest::test_preflight_blocks_tracked_python_bytecode` |
-| `after_clean_check` ausente | `AtlasRivalsEvidencePackService::buildAfterCleanCheck()` | `AtlasRivalsEvidencePackTest::test_evidence_pack_records_after_clean_check_when_tests_run` + `test_evidence_pack_marks_dirty_when_command_writes_file` |
-| `PYTHONDONTWRITEBYTECODE` não setado | `WorkspaceHygieneService::forceBytecodeDisabledEnv()` + `runShellCommand()` | `AtlasRivalsEvidencePackTest::test_evidence_pack_forces_pythondontwritebytecode_env` |
-| `dirty_workspace_after_run` não hard fail | `AtlasRivalsOneShotEnterpriseRubricService::GLOBAL_HARD_FAIL_CONDITIONS` | `AtlasRivalsOneShotEnterpriseEvaluationTest::test_evaluation_hard_fails_when_workspace_dirty_after_run` |
-| Preflight/dry-run/runner divergiam | `RivalsForgeReadinessFingerprintService` | `RivalsForgeReadinessFingerprintServiceTest` (6 testes) + `AtlasForgeNativeRivalsTest::test_dry_run_fingerprint_matches_preflight_for_same_intent` |
-| Sonnet bloqueado | `FairClaudePolicy::MODEL_LOCK_ALLOWLIST` + `MODEL_NOT_AVAILABLE_ERROR` | `FairClaudePolicyTest::test_accepts_claude_cli_with_sonnet_premium_selection` + `AtlasEngineeringBenchmarkFairCommandModelLockTest` (5 testes) |
-| Quick não era quick | Case manifest `quick_test_command`/`full_test_command` + evidence `tests.command_origin` | `AtlasForgeNativeRivalsTest::test_case_manifest_publishes_quick_and_full_test_commands` + `AtlasRivalsEvidencePackTest::test_quick_preset_uses_case_quick_test_command_by_default` |
-| Sem streaming/logs | `RivalsForgeRunLogStreamService` + `AtlasRivalsRunOrchestrator` | `RivalsForgeRunLogStreamServiceTest` (7 testes) + `AtlasRivalsRunOrchestratorTest::test_fake_provider_clean_run_passes_and_records_after_clean_check_clean` |
-| Stall sem heartbeat | Orchestrator `runFakeProvider()` loop + stall budget | `AtlasRivalsRunOrchestratorTest::test_fake_provider_that_stalls_returns_stalled_runner_verdict` |
-| Evidence pack real_run incompleto | `AtlasRivalsEvidencePackService::generateForRealRun()` + verifier `MODE_REAL_RUN` + `REQUIRED_FIELDS_FOR_REAL_RUN` | `AtlasRivalsEvidencePackTest::test_verifier_real_run_mode_blocks_when_provider_receipt_missing` |
-| Triage por suite, não por fingerprint | `AtlasRivalsInvalidBatteryTriageRegistry` | `AtlasRivalsInvalidBatteryTriageRegistryTest::test_triage_for_one_fingerprint_does_not_block_another` |
-
----
-
-## 9. O que esta entrega NÃO faz
-
-- **Não desbloqueia `external_rivals_certification`.** Continua governado em outro lugar; nenhum caminho deste módulo unlock-a.
-- **Não dispara providers em testes.** `AtlasRivalsRunOrchestrator::MODE_REAL_PROVIDER` está deliberadamente refusing dispatch com `VERDICT_REAL_PROVIDER_REQUIRES_OPERATOR` — o dispatch real continua via `atlas:engineering:benchmark:rivals run` com flags `--confirm-*`.
-- **Não move o score acima de `null`** enquanto o `external_rivals_certification` estiver bloqueado. Score é sempre `null` neste módulo, mesmo com `verdict='passed'`.
-- **Não roda `git rm --cached`** do bytecode automaticamente. O preflight devolve o comando no campo `resolution_command`; o operador roda destrutivo.
-
----
-
-## 10. Auditabilidade rápida
-
-```bash
-# Lista artefatos Python ainda tracked (deve ser 0 depois do cleanup)
-git -C atlas-server ls-files -- '*.pyc' '*.pyo' '*__pycache__*' | wc -l
-
-# Confere que nenhum unlock automático de external_rivals_certification existe
-grep -rn 'external_rivals_certification' atlas-server/app | grep -v 'separated_from\|blocked' | wc -l   # deve ser 0
-
-# Lista tudo que esta lockdown adicionou ao GLOBAL_HARD_FAIL_CONDITIONS
-grep -A 30 'GLOBAL_HARD_FAIL_CONDITIONS' atlas-server/app/Services/Ai/Programming/AtlasRivalsOneShotEnterpriseRubricService.php
-
-# Confirma a allowlist Sonnet
-grep MODEL_LOCK_ALLOWLIST atlas-server/app/Services/Ai/FairClaudePolicy.php
-```
-
----
-
-## 11. Schemas adicionados
-
-- `atlas.programming.workspace_hygiene.v1` (`WorkspaceHygieneService`)
-- `atlas.programming.rivals_forge_readiness_fingerprint.v1` (`RivalsForgeReadinessFingerprintService`)
-- `atlas.programming.rivals_forge_run_log_stream.v1` (`RivalsForgeRunLogStreamService`)
-- `atlas.programming.rivals_forge_run_orchestrator.v1` (`AtlasRivalsRunOrchestrator`)
-- `atlas.programming.rivals_invalid_battery_triage_registry.v1` (`AtlasRivalsInvalidBatteryTriageRegistry`)
-- Atualizado: `AtlasRivalsOneShotEnterpriseRubricService` (mais 2 hard fails), `AtlasRivalsEvidencePackVerifierService` (`MODE_REAL_RUN`)
+2. Criar dois worktrees limpos.
+3. Rodar preflight e dry-run Sonnet vs Sonnet.
+4. Rodar quick real somente se preflight estiver `ready_for_provider_battery`.
+5. Aceitar score apenas com evidence pack real-run valido e after-clean clean.

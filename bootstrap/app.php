@@ -100,6 +100,7 @@ use App\Console\Commands\AtlasProgrammingTestImpactBenchmarkCommand;
 use App\Console\Commands\AtlasProposalCommand;
 use App\Console\Commands\AtlasProposalScanCommand;
 use App\Console\Commands\AtlasRivalsCommand;
+use App\Console\Commands\AtlasRivalsHarnessCommand;
 use App\Console\Commands\AtlasRuntimeCommand;
 use App\Console\Commands\AtlasSchedulerTickCommand;
 use App\Console\Commands\AtlasSelfDiagnosticCommand;
@@ -218,6 +219,7 @@ return Application::configure(basePath: dirname(__DIR__))
         AtlasEngineeringBenchmarkReportCommand::class,
         AtlasEngineeringBenchmarkSeedCommand::class,
         AtlasRivalsCommand::class,
+        AtlasRivalsHarnessCommand::class,
         AtlasEngineeringApiContractCommand::class,
         AtlasEngineeringDockerCleanupCommand::class,
         AtlasEngineeringHarnessabilityCalibrateCommand::class,

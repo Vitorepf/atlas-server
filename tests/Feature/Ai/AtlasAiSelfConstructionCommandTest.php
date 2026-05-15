@@ -28983,6 +28983,151 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('agent_control_plane_deterministic_chain_replay_implementation_packet', data_get($payload, 'control_plane.current_capability'));
         $this->assertContains('agent_control_plane_deterministic_chain_replay_service', data_get($payload, 'control_plane.current_capability'));
         $this->assertContains('agent_control_plane_deterministic_chain_replay_status_projection', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_replay_snapshot_store_contract', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_replay_snapshot_store_preflight', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_replay_snapshot_store_implementation_packet', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_replay_snapshot_store_service', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_replay_snapshot_store_status_projection', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_replay_diff_contract', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_replay_diff_preflight', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_replay_diff_implementation_packet', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_replay_diff_service', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_replay_diff_status_projection', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_macro_sprint_promotion_gate_contract', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_macro_sprint_promotion_gate_preflight', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_macro_sprint_promotion_gate_implementation_packet', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_macro_sprint_promotion_gate_service', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_macro_sprint_promotion_gate_status_projection', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_certification_baseline_contract', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_certification_baseline_preflight', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_certification_baseline_implementation_packet', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_certification_baseline_service', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_certification_baseline_status_projection', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_certification_scenario_simulator_contract', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_certification_scenario_simulator_preflight', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_certification_scenario_simulator_implementation_packet', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_certification_scenario_simulator_service', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_certification_scenario_simulator_status_projection', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_release_dossier_contract', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_release_dossier_preflight', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_release_dossier_implementation_packet', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_release_dossier_service', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_release_dossier_status_projection', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_certification_mutation_guard_contract', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_certification_mutation_guard_preflight', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_certification_mutation_guard_implementation_packet', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_certification_mutation_guard_service', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_certification_mutation_guard_status_projection', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_certification_evidence_query_contract', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_certification_evidence_query_preflight', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_certification_evidence_query_implementation_packet', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_certification_evidence_query_service', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_certification_evidence_query_status_projection', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_certification_scenario_corpus_contract', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_certification_scenario_corpus_preflight', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_certification_scenario_corpus_implementation_packet', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_certification_scenario_corpus_service', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_certification_scenario_corpus_status_projection', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_certification_fuzz_harness_contract', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_certification_fuzz_harness_preflight', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_certification_fuzz_harness_implementation_packet', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_certification_fuzz_harness_service', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_certification_fuzz_harness_status_projection', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_multi_snapshot_comparison_contract', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_multi_snapshot_comparison_preflight', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_multi_snapshot_comparison_implementation_packet', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_multi_snapshot_comparison_service', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_multi_snapshot_comparison_status_projection', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_release_dossier_exporter_contract', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_release_dossier_exporter_preflight', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_release_dossier_exporter_implementation_packet', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_release_dossier_exporter_service', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_release_dossier_exporter_status_projection', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_certification_coverage_report_contract', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_certification_coverage_report_preflight', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_certification_coverage_report_implementation_packet', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_certification_coverage_report_service', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_certification_coverage_report_status_projection', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_certification_status_batch_contract', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_certification_status_batch_preflight', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_certification_status_batch_implementation_packet', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_certification_status_batch_service', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_certification_status_batch_status_projection', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_task_packet_builder_contract', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_task_packet_builder_preflight', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_task_packet_builder_implementation_packet', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_task_packet_builder_service', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_task_packet_builder_status_projection', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_claim_lease_simulator_contract', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_claim_lease_simulator_preflight', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_claim_lease_simulator_implementation_packet', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_claim_lease_simulator_service', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_claim_lease_simulator_status_projection', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_scope_lock_planner_contract', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_scope_lock_planner_preflight', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_scope_lock_planner_implementation_packet', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_scope_lock_planner_service', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_scope_lock_planner_status_projection', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_evidence_ledger_dry_run_contract', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_evidence_ledger_dry_run_preflight', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_evidence_ledger_dry_run_implementation_packet', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_evidence_ledger_dry_run_service', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_evidence_ledger_dry_run_status_projection', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_continuation_summary_builder_contract', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_continuation_summary_builder_preflight', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_continuation_summary_builder_implementation_packet', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_continuation_summary_builder_service', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_continuation_summary_builder_status_projection', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_work_product_manifest_planner_contract', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_work_product_manifest_planner_preflight', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_work_product_manifest_planner_implementation_packet', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_work_product_manifest_planner_service', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_work_product_manifest_planner_status_projection', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_cost_import_dry_run_contract', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_cost_import_dry_run_preflight', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_cost_import_dry_run_implementation_packet', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_cost_import_dry_run_service', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_cost_import_dry_run_status_projection', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_multi_agent_parallelism_planner_contract', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_multi_agent_parallelism_planner_preflight', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_multi_agent_parallelism_planner_implementation_packet', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_multi_agent_parallelism_planner_service', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_multi_agent_parallelism_planner_status_projection', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_runtime_pilot_orchestrator_contract', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_runtime_pilot_orchestrator_preflight', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_runtime_pilot_orchestrator_implementation_packet', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_runtime_pilot_orchestrator_service', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_runtime_pilot_orchestrator_status_projection', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_runtime_pilot_certification_contract', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_runtime_pilot_certification_preflight', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_runtime_pilot_certification_implementation_packet', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_runtime_pilot_certification_service', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_runtime_pilot_certification_status_projection', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_task_packet_queue_contract', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_task_packet_queue_preflight', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_task_packet_queue_implementation_packet', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_task_packet_queue_service', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_task_packet_queue_status_projection', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_claim_lease_runtime_contract', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_claim_lease_runtime_preflight', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_claim_lease_runtime_implementation_packet', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_claim_lease_runtime_service', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_claim_lease_runtime_status_projection', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_scope_lock_runtime_validator_contract', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_scope_lock_runtime_validator_preflight', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_scope_lock_runtime_validator_implementation_packet', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_scope_lock_runtime_validator_service', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_scope_lock_runtime_validator_status_projection', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_task_queue_orchestrator_contract', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_task_queue_orchestrator_preflight', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_task_queue_orchestrator_implementation_packet', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_task_queue_orchestrator_service', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_task_queue_orchestrator_status_projection', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_task_queue_lease_certification_contract', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_task_queue_lease_certification_preflight', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_task_queue_lease_certification_implementation_packet', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_task_queue_lease_certification_service', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_task_queue_lease_certification_status_projection', data_get($payload, 'control_plane.current_capability'));
         $this->assertContains('signed_dispatch_receipt_writer_contract', data_get($payload, 'control_plane.runtime_contracts_available'));
         $this->assertContains('adapter_invocation_boundary_contract', data_get($payload, 'control_plane.runtime_contracts_available'));
         $this->assertContains('checkout_lock', data_get($payload, 'control_plane.paperclip_patterns_absorbed'));
@@ -43476,6 +43621,142 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertSame('prepareCodexRealInvokerPostStartOperatorStartHandoff', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_operator_start_handoff_status.invoker_canonical_method'));
         $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_operator_start_handoff_status.runtime_policy.post_start_receipt_contract_required_before_actual_process'));
         $this->assertSame('activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_receipt_contract', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_operator_start_handoff_status.next_required_slice'));
+    }
+
+    public function test_agent_control_plane_runtime_pilot_simulator_quartets_cli(): void
+    {
+        $blocks = [
+            'task-packet-builder' => 'task_packet_builder',
+            'claim-lease-simulator' => 'claim_lease_simulator',
+            'scope-lock-planner' => 'scope_lock_planner',
+            'evidence-ledger-dry-run' => 'evidence_ledger_dry_run',
+            'continuation-summary-builder' => 'continuation_summary_builder',
+            'work-product-manifest-planner' => 'work_product_manifest_planner',
+            'cost-import-dry-run' => 'cost_import_dry_run',
+            'multi-agent-parallelism-planner' => 'multi_agent_parallelism_planner',
+            'runtime-pilot-orchestrator' => 'runtime_pilot_orchestrator',
+            'runtime-pilot-certification' => 'runtime_pilot_certification',
+        ];
+
+        foreach ($blocks as $cliKey => $payloadKey) {
+            foreach (['contract', 'preflight', 'implementation-packet', 'status'] as $stage) {
+                Artisan::call('atlas:ai:self-construction', [
+                    "--agent-control-plane-{$cliKey}-{$stage}" => true,
+                    '--json' => true,
+                ]);
+                $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+                $stageKey = str_replace('-', '_', $stage);
+                $this->assertSame(
+                    "atlas.self_construction_agent_control_plane_{$payloadKey}_{$stageKey}.v1",
+                    (string) $payload['schema_version'],
+                    "Schema mismatch for {$cliKey} {$stage}",
+                );
+                $this->assertFalse((bool) $payload['execution_allowed'], "execution_allowed must be false for {$cliKey} {$stage}");
+                $this->assertFalse((bool) $payload['dispatch_allowed'], "dispatch_allowed must be false for {$cliKey} {$stage}");
+                $this->assertFalse((bool) $payload['ledger_write_allowed'], "ledger_write_allowed must be false for {$cliKey} {$stage}");
+            }
+        }
+    }
+
+    public function test_agent_control_plane_runtime_pilot_certification_returns_available(): void
+    {
+        Artisan::call('atlas:ai:self-construction', [
+            '--agent-control-plane-runtime-pilot-certification-status' => true,
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+        $this->assertSame('available', data_get($payload, 'agent_control_plane_runtime_pilot_certification.status'));
+        $this->assertGreaterThanOrEqual(16, (int) data_get($payload, 'agent_control_plane_runtime_pilot_certification.check_count'));
+        $this->assertSame(0, (int) data_get($payload, 'agent_control_plane_runtime_pilot_certification.failed_count'));
+    }
+
+    public function test_agent_control_plane_runtime_pilot_orchestrator_pilot_hash_present(): void
+    {
+        Artisan::call('atlas:ai:self-construction', [
+            '--agent-control-plane-runtime-pilot-orchestrator-status' => true,
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) data_get($payload, 'agent_control_plane_runtime_pilot_orchestrator.pilot_hash'));
+    }
+
+    public function test_agent_control_plane_persistent_queue_lease_quartets_cli(): void
+    {
+        $blocks = [
+            'task-packet-queue' => 'task_packet_queue',
+            'claim-lease-runtime' => 'claim_lease_runtime',
+            'scope-lock-runtime-validator' => 'scope_lock_runtime_validator',
+            'task-queue-orchestrator' => 'task_queue_orchestrator',
+            'task-queue-lease-certification' => 'task_queue_lease_certification',
+        ];
+
+        foreach ($blocks as $cliKey => $payloadKey) {
+            foreach (['contract', 'preflight', 'implementation-packet', 'status'] as $stage) {
+                Artisan::call('atlas:ai:self-construction', [
+                    "--agent-control-plane-{$cliKey}-{$stage}" => true,
+                    '--json' => true,
+                ]);
+                $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+                $stageKey = str_replace('-', '_', $stage);
+                $this->assertSame(
+                    "atlas.self_construction_agent_control_plane_{$payloadKey}_{$stageKey}.v1",
+                    (string) $payload['schema_version'],
+                    "Schema mismatch for {$cliKey} {$stage}",
+                );
+                $this->assertFalse((bool) $payload['execution_allowed'], "execution_allowed must be false for {$cliKey} {$stage}");
+                $this->assertFalse((bool) $payload['dispatch_allowed'], "dispatch_allowed must be false for {$cliKey} {$stage}");
+                $this->assertFalse((bool) $payload['ledger_write_allowed'], "ledger_write_allowed must be false for {$cliKey} {$stage}");
+            }
+        }
+    }
+
+    public function test_agent_control_plane_task_queue_lease_certification_returns_available(): void
+    {
+        Artisan::call('atlas:ai:self-construction', [
+            '--agent-control-plane-task-queue-lease-certification-status' => true,
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+        $this->assertSame('available', data_get($payload, 'agent_control_plane_task_queue_lease_certification.status'));
+        $this->assertTrue((bool) data_get($payload, 'agent_control_plane_task_queue_lease_certification.invariants_all_true'));
+        $this->assertSame(0, (int) data_get($payload, 'agent_control_plane_task_queue_lease_certification.violation_count'));
+        $this->assertTrue((bool) data_get($payload, 'agent_control_plane_task_queue_lease_certification.runtime_safety.runtime_safety_all_false'));
+    }
+
+    public function test_agent_control_plane_certification_status_batch_includes_persistent_runtime_blocks(): void
+    {
+        Artisan::call('atlas:ai:self-construction', [
+            '--agent-control-plane-certification-status-batch-status' => true,
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+        $statuses = (array) data_get($payload, 'agent_control_plane_certification_status_batch.statuses', []);
+        $keys = array_column($statuses, 'key');
+        foreach ([
+            'task_packet_queue', 'claim_lease_runtime', 'scope_lock_runtime_validator',
+            'task_queue_orchestrator', 'task_queue_lease_certification',
+        ] as $expected) {
+            $this->assertContains($expected, $keys, "Status batch missing {$expected}");
+        }
+        $this->assertGreaterThanOrEqual(30, (int) data_get($payload, 'agent_control_plane_certification_status_batch.checked_count'));
+    }
+
+    public function test_agent_control_plane_certification_status_batch_includes_runtime_pilot_blocks(): void
+    {
+        Artisan::call('atlas:ai:self-construction', [
+            '--agent-control-plane-certification-status-batch-status' => true,
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+        $statuses = (array) data_get($payload, 'agent_control_plane_certification_status_batch.statuses', []);
+        $keys = array_column($statuses, 'key');
+        foreach ([
+            'task_packet_builder', 'claim_lease_simulator', 'scope_lock_planner', 'evidence_ledger_dry_run',
+            'continuation_summary_builder', 'work_product_manifest_planner', 'cost_import_dry_run',
+            'multi_agent_parallelism_planner', 'runtime_pilot_orchestrator', 'runtime_pilot_certification',
+        ] as $expected) {
+            $this->assertContains($expected, $keys, "Status batch missing {$expected}");
+        }
     }
 
     private function ensureAgentControlPlaneProviderStartTables(): void

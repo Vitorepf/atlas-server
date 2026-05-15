@@ -451,6 +451,7 @@ class AgentControlPlaneReplayDiffService
                     !== $this->stableHash($this->recursivelyKsort($a))) {
                     $changedKeys[] = (string) $key;
                 }
+
                 continue;
             }
             if ($b !== $a) {

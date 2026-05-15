@@ -43231,6 +43231,136 @@ final class AtlasSelfConstructionReadinessService
             'agent_control_plane_macro_sprint_promotion_gate_implementation_packet',
             'agent_control_plane_macro_sprint_promotion_gate_service',
             'agent_control_plane_macro_sprint_promotion_gate_status_projection',
+            'agent_control_plane_certification_baseline_contract',
+            'agent_control_plane_certification_baseline_preflight',
+            'agent_control_plane_certification_baseline_implementation_packet',
+            'agent_control_plane_certification_baseline_service',
+            'agent_control_plane_certification_baseline_status_projection',
+            'agent_control_plane_certification_scenario_simulator_contract',
+            'agent_control_plane_certification_scenario_simulator_preflight',
+            'agent_control_plane_certification_scenario_simulator_implementation_packet',
+            'agent_control_plane_certification_scenario_simulator_service',
+            'agent_control_plane_certification_scenario_simulator_status_projection',
+            'agent_control_plane_release_dossier_contract',
+            'agent_control_plane_release_dossier_preflight',
+            'agent_control_plane_release_dossier_implementation_packet',
+            'agent_control_plane_release_dossier_service',
+            'agent_control_plane_release_dossier_status_projection',
+            'agent_control_plane_certification_mutation_guard_contract',
+            'agent_control_plane_certification_mutation_guard_preflight',
+            'agent_control_plane_certification_mutation_guard_implementation_packet',
+            'agent_control_plane_certification_mutation_guard_service',
+            'agent_control_plane_certification_mutation_guard_status_projection',
+            'agent_control_plane_certification_evidence_query_contract',
+            'agent_control_plane_certification_evidence_query_preflight',
+            'agent_control_plane_certification_evidence_query_implementation_packet',
+            'agent_control_plane_certification_evidence_query_service',
+            'agent_control_plane_certification_evidence_query_status_projection',
+            'agent_control_plane_certification_scenario_corpus_contract',
+            'agent_control_plane_certification_scenario_corpus_preflight',
+            'agent_control_plane_certification_scenario_corpus_implementation_packet',
+            'agent_control_plane_certification_scenario_corpus_service',
+            'agent_control_plane_certification_scenario_corpus_status_projection',
+            'agent_control_plane_certification_fuzz_harness_contract',
+            'agent_control_plane_certification_fuzz_harness_preflight',
+            'agent_control_plane_certification_fuzz_harness_implementation_packet',
+            'agent_control_plane_certification_fuzz_harness_service',
+            'agent_control_plane_certification_fuzz_harness_status_projection',
+            'agent_control_plane_multi_snapshot_comparison_contract',
+            'agent_control_plane_multi_snapshot_comparison_preflight',
+            'agent_control_plane_multi_snapshot_comparison_implementation_packet',
+            'agent_control_plane_multi_snapshot_comparison_service',
+            'agent_control_plane_multi_snapshot_comparison_status_projection',
+            'agent_control_plane_release_dossier_exporter_contract',
+            'agent_control_plane_release_dossier_exporter_preflight',
+            'agent_control_plane_release_dossier_exporter_implementation_packet',
+            'agent_control_plane_release_dossier_exporter_service',
+            'agent_control_plane_release_dossier_exporter_status_projection',
+            'agent_control_plane_certification_coverage_report_contract',
+            'agent_control_plane_certification_coverage_report_preflight',
+            'agent_control_plane_certification_coverage_report_implementation_packet',
+            'agent_control_plane_certification_coverage_report_service',
+            'agent_control_plane_certification_coverage_report_status_projection',
+            'agent_control_plane_certification_status_batch_contract',
+            'agent_control_plane_certification_status_batch_preflight',
+            'agent_control_plane_certification_status_batch_implementation_packet',
+            'agent_control_plane_certification_status_batch_service',
+            'agent_control_plane_certification_status_batch_status_projection',
+            'agent_control_plane_task_packet_builder_contract',
+            'agent_control_plane_task_packet_builder_preflight',
+            'agent_control_plane_task_packet_builder_implementation_packet',
+            'agent_control_plane_task_packet_builder_service',
+            'agent_control_plane_task_packet_builder_status_projection',
+            'agent_control_plane_claim_lease_simulator_contract',
+            'agent_control_plane_claim_lease_simulator_preflight',
+            'agent_control_plane_claim_lease_simulator_implementation_packet',
+            'agent_control_plane_claim_lease_simulator_service',
+            'agent_control_plane_claim_lease_simulator_status_projection',
+            'agent_control_plane_scope_lock_planner_contract',
+            'agent_control_plane_scope_lock_planner_preflight',
+            'agent_control_plane_scope_lock_planner_implementation_packet',
+            'agent_control_plane_scope_lock_planner_service',
+            'agent_control_plane_scope_lock_planner_status_projection',
+            'agent_control_plane_evidence_ledger_dry_run_contract',
+            'agent_control_plane_evidence_ledger_dry_run_preflight',
+            'agent_control_plane_evidence_ledger_dry_run_implementation_packet',
+            'agent_control_plane_evidence_ledger_dry_run_service',
+            'agent_control_plane_evidence_ledger_dry_run_status_projection',
+            'agent_control_plane_continuation_summary_builder_contract',
+            'agent_control_plane_continuation_summary_builder_preflight',
+            'agent_control_plane_continuation_summary_builder_implementation_packet',
+            'agent_control_plane_continuation_summary_builder_service',
+            'agent_control_plane_continuation_summary_builder_status_projection',
+            'agent_control_plane_work_product_manifest_planner_contract',
+            'agent_control_plane_work_product_manifest_planner_preflight',
+            'agent_control_plane_work_product_manifest_planner_implementation_packet',
+            'agent_control_plane_work_product_manifest_planner_service',
+            'agent_control_plane_work_product_manifest_planner_status_projection',
+            'agent_control_plane_cost_import_dry_run_contract',
+            'agent_control_plane_cost_import_dry_run_preflight',
+            'agent_control_plane_cost_import_dry_run_implementation_packet',
+            'agent_control_plane_cost_import_dry_run_service',
+            'agent_control_plane_cost_import_dry_run_status_projection',
+            'agent_control_plane_multi_agent_parallelism_planner_contract',
+            'agent_control_plane_multi_agent_parallelism_planner_preflight',
+            'agent_control_plane_multi_agent_parallelism_planner_implementation_packet',
+            'agent_control_plane_multi_agent_parallelism_planner_service',
+            'agent_control_plane_multi_agent_parallelism_planner_status_projection',
+            'agent_control_plane_runtime_pilot_orchestrator_contract',
+            'agent_control_plane_runtime_pilot_orchestrator_preflight',
+            'agent_control_plane_runtime_pilot_orchestrator_implementation_packet',
+            'agent_control_plane_runtime_pilot_orchestrator_service',
+            'agent_control_plane_runtime_pilot_orchestrator_status_projection',
+            'agent_control_plane_runtime_pilot_certification_contract',
+            'agent_control_plane_runtime_pilot_certification_preflight',
+            'agent_control_plane_runtime_pilot_certification_implementation_packet',
+            'agent_control_plane_runtime_pilot_certification_service',
+            'agent_control_plane_runtime_pilot_certification_status_projection',
+            'agent_control_plane_task_packet_queue_contract',
+            'agent_control_plane_task_packet_queue_preflight',
+            'agent_control_plane_task_packet_queue_implementation_packet',
+            'agent_control_plane_task_packet_queue_service',
+            'agent_control_plane_task_packet_queue_status_projection',
+            'agent_control_plane_claim_lease_runtime_contract',
+            'agent_control_plane_claim_lease_runtime_preflight',
+            'agent_control_plane_claim_lease_runtime_implementation_packet',
+            'agent_control_plane_claim_lease_runtime_service',
+            'agent_control_plane_claim_lease_runtime_status_projection',
+            'agent_control_plane_scope_lock_runtime_validator_contract',
+            'agent_control_plane_scope_lock_runtime_validator_preflight',
+            'agent_control_plane_scope_lock_runtime_validator_implementation_packet',
+            'agent_control_plane_scope_lock_runtime_validator_service',
+            'agent_control_plane_scope_lock_runtime_validator_status_projection',
+            'agent_control_plane_task_queue_orchestrator_contract',
+            'agent_control_plane_task_queue_orchestrator_preflight',
+            'agent_control_plane_task_queue_orchestrator_implementation_packet',
+            'agent_control_plane_task_queue_orchestrator_service',
+            'agent_control_plane_task_queue_orchestrator_status_projection',
+            'agent_control_plane_task_queue_lease_certification_contract',
+            'agent_control_plane_task_queue_lease_certification_preflight',
+            'agent_control_plane_task_queue_lease_certification_implementation_packet',
+            'agent_control_plane_task_queue_lease_certification_service',
+            'agent_control_plane_task_queue_lease_certification_status_projection',
         ];
         $notYetRuntimeCapable = [
             'database_backed_agent_runs',
@@ -74224,6 +74354,1885 @@ final class AtlasSelfConstructionReadinessService
                 'no_baseline' => 'Agent Control Plane Macro-Sprint Promotion Gate has no baseline snapshot; record one before promotion.',
                 default => 'Agent Control Plane Macro-Sprint Promotion Gate status is unknown.',
             },
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneCertificationBaselineContract(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet(
+            keyPrefix: 'certification_baseline',
+            label: 'Certification Baseline',
+            schemaVersion: AgentControlPlaneCertificationBaselineService::SCHEMA_VERSION,
+            serviceClass: AgentControlPlaneCertificationBaselineService::class,
+            stage: 'contract',
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneCertificationBaselinePreflight(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet(
+            keyPrefix: 'certification_baseline',
+            label: 'Certification Baseline',
+            schemaVersion: AgentControlPlaneCertificationBaselineService::SCHEMA_VERSION,
+            serviceClass: AgentControlPlaneCertificationBaselineService::class,
+            stage: 'preflight',
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneCertificationBaselineImplementationPacket(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet(
+            keyPrefix: 'certification_baseline',
+            label: 'Certification Baseline',
+            schemaVersion: AgentControlPlaneCertificationBaselineService::SCHEMA_VERSION,
+            serviceClass: AgentControlPlaneCertificationBaselineService::class,
+            stage: 'implementation_packet',
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneCertificationBaselineStatus(array $options = []): array
+    {
+        $auditService = new AgentControlPlaneChainIntegrityAuditService($this);
+        $replayService = new AgentControlPlaneDeterministicChainReplayService($auditService, $this);
+        $store = new AgentControlPlaneReplaySnapshotStore;
+        $diffService = new AgentControlPlaneReplayDiffService($store, $replayService);
+        $gate = new AgentControlPlaneMacroSprintPromotionGate($diffService, $auditService, $replayService);
+        $baselineService = new AgentControlPlaneCertificationBaselineService(
+            $this,
+            $auditService,
+            $replayService,
+            $store,
+            $diffService,
+            $gate,
+        );
+        $baseline = $baselineService->build($options);
+
+        return $this->wrapCertificationWorkbenchStatus(
+            keyPrefix: 'certification_baseline',
+            label: 'Certification Baseline',
+            payload: $baseline,
+            statusKey: 'status',
+            extraStatusFields: [
+                'baseline_id' => (string) data_get($baseline, 'baseline_id'),
+                'baseline_hash' => (string) data_get($baseline, 'baseline_hash'),
+                'baseline_fingerprint' => (string) data_get($baseline, 'baseline_fingerprint'),
+                'current_pointer' => (string) data_get($baseline, 'current_pointer'),
+                'invariants_all_true' => (bool) data_get($baseline, 'invariants_all_true', false),
+                'chain_integrity_hash' => (string) data_get($baseline, 'chain_integrity_hash'),
+                'deterministic_replay_hash' => (string) data_get($baseline, 'deterministic_replay_hash'),
+                'docs_hash' => (string) data_get($baseline, 'docs_hash'),
+                'capability_surface_hash' => (string) data_get($baseline, 'capability_surface_hash'),
+            ],
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneCertificationScenarioSimulatorContract(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet(
+            keyPrefix: 'certification_scenario_simulator',
+            label: 'Certification Scenario Simulator',
+            schemaVersion: AgentControlPlaneCertificationScenarioSimulator::SCHEMA_VERSION,
+            serviceClass: AgentControlPlaneCertificationScenarioSimulator::class,
+            stage: 'contract',
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneCertificationScenarioSimulatorPreflight(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet(
+            keyPrefix: 'certification_scenario_simulator',
+            label: 'Certification Scenario Simulator',
+            schemaVersion: AgentControlPlaneCertificationScenarioSimulator::SCHEMA_VERSION,
+            serviceClass: AgentControlPlaneCertificationScenarioSimulator::class,
+            stage: 'preflight',
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneCertificationScenarioSimulatorImplementationPacket(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet(
+            keyPrefix: 'certification_scenario_simulator',
+            label: 'Certification Scenario Simulator',
+            schemaVersion: AgentControlPlaneCertificationScenarioSimulator::SCHEMA_VERSION,
+            serviceClass: AgentControlPlaneCertificationScenarioSimulator::class,
+            stage: 'implementation_packet',
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneCertificationScenarioSimulatorStatus(array $options = []): array
+    {
+        $auditService = new AgentControlPlaneChainIntegrityAuditService($this);
+        $replayService = new AgentControlPlaneDeterministicChainReplayService($auditService, $this);
+        $store = new AgentControlPlaneReplaySnapshotStore;
+        $diffService = new AgentControlPlaneReplayDiffService($store, $replayService);
+        $gate = new AgentControlPlaneMacroSprintPromotionGate($diffService, $auditService, $replayService);
+        $simulator = new AgentControlPlaneCertificationScenarioSimulator(
+            $this,
+            $auditService,
+            $replayService,
+            $diffService,
+            $store,
+            $gate,
+        );
+        $result = $simulator->simulate($options);
+
+        return $this->wrapCertificationWorkbenchStatus(
+            keyPrefix: 'certification_scenario_simulator',
+            label: 'Certification Scenario Simulator',
+            payload: $result,
+            statusKey: 'status',
+            extraStatusFields: [
+                'simulation_id' => (string) data_get($result, 'simulation_id'),
+                'scenario_count' => (int) data_get($result, 'scenario_count'),
+                'passed_count' => (int) data_get($result, 'passed_count'),
+                'failed_count' => (int) data_get($result, 'failed_count'),
+                'detection_rate' => (float) data_get($result, 'detection_rate'),
+                'all_expected_faults_detected' => (bool) data_get($result, 'all_expected_faults_detected'),
+                'scenario_matrix_hash' => (string) data_get($result, 'scenario_matrix_hash'),
+            ],
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneReleaseDossierContract(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet(
+            keyPrefix: 'release_dossier',
+            label: 'Release Dossier',
+            schemaVersion: AgentControlPlaneReleaseDossierService::SCHEMA_VERSION,
+            serviceClass: AgentControlPlaneReleaseDossierService::class,
+            stage: 'contract',
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneReleaseDossierPreflight(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet(
+            keyPrefix: 'release_dossier',
+            label: 'Release Dossier',
+            schemaVersion: AgentControlPlaneReleaseDossierService::SCHEMA_VERSION,
+            serviceClass: AgentControlPlaneReleaseDossierService::class,
+            stage: 'preflight',
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneReleaseDossierImplementationPacket(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet(
+            keyPrefix: 'release_dossier',
+            label: 'Release Dossier',
+            schemaVersion: AgentControlPlaneReleaseDossierService::SCHEMA_VERSION,
+            serviceClass: AgentControlPlaneReleaseDossierService::class,
+            stage: 'implementation_packet',
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneReleaseDossierStatus(array $options = []): array
+    {
+        $auditService = new AgentControlPlaneChainIntegrityAuditService($this);
+        $replayService = new AgentControlPlaneDeterministicChainReplayService($auditService, $this);
+        $store = new AgentControlPlaneReplaySnapshotStore;
+        $diffService = new AgentControlPlaneReplayDiffService($store, $replayService);
+        $gate = new AgentControlPlaneMacroSprintPromotionGate($diffService, $auditService, $replayService);
+        $simulator = new AgentControlPlaneCertificationScenarioSimulator(
+            $this,
+            $auditService,
+            $replayService,
+            $diffService,
+            $store,
+            $gate,
+        );
+        $baselineService = new AgentControlPlaneCertificationBaselineService(
+            $this,
+            $auditService,
+            $replayService,
+            $store,
+            $diffService,
+            $gate,
+        );
+        $mutationGuard = new AgentControlPlaneCertificationMutationGuard($this, $replayService, $store);
+        $dossier = new AgentControlPlaneReleaseDossierService(
+            $baselineService,
+            $replayService,
+            $store,
+            $diffService,
+            $gate,
+            $simulator,
+            $auditService,
+            $mutationGuard,
+        );
+        $result = $dossier->build($options);
+
+        return $this->wrapCertificationWorkbenchStatus(
+            keyPrefix: 'release_dossier',
+            label: 'Release Dossier',
+            payload: $result,
+            statusKey: 'status',
+            extraStatusFields: [
+                'dossier_id' => (string) data_get($result, 'dossier_id'),
+                'release_dossier_hash' => (string) data_get($result, 'release_dossier_hash'),
+                'baseline_hash' => (string) data_get($result, 'baseline_hash'),
+                'risk_classification' => (string) data_get($result, 'risk_classification'),
+                'promotion_gate_status' => (string) data_get($result, 'promotion_gate_status'),
+                'scenario_detection_rate' => (float) data_get($result, 'scenario_detection_rate'),
+                'chain_integrity_status' => (string) data_get($result, 'chain_integrity_status'),
+                'runtime_safety_all_false' => (bool) data_get($result, 'runtime_safety_all_false'),
+                'mutation_guard_passed' => (bool) data_get($result, 'mutation_guard_passed'),
+                'blocker_count' => (int) data_get($result, 'blocker_count'),
+                'warning_count' => (int) data_get($result, 'warning_count'),
+            ],
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneCertificationMutationGuardContract(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet(
+            keyPrefix: 'certification_mutation_guard',
+            label: 'Certification Mutation Guard',
+            schemaVersion: AgentControlPlaneCertificationMutationGuard::SCHEMA_VERSION,
+            serviceClass: AgentControlPlaneCertificationMutationGuard::class,
+            stage: 'contract',
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneCertificationMutationGuardPreflight(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet(
+            keyPrefix: 'certification_mutation_guard',
+            label: 'Certification Mutation Guard',
+            schemaVersion: AgentControlPlaneCertificationMutationGuard::SCHEMA_VERSION,
+            serviceClass: AgentControlPlaneCertificationMutationGuard::class,
+            stage: 'preflight',
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneCertificationMutationGuardImplementationPacket(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet(
+            keyPrefix: 'certification_mutation_guard',
+            label: 'Certification Mutation Guard',
+            schemaVersion: AgentControlPlaneCertificationMutationGuard::SCHEMA_VERSION,
+            serviceClass: AgentControlPlaneCertificationMutationGuard::class,
+            stage: 'implementation_packet',
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneCertificationMutationGuardStatus(array $options = []): array
+    {
+        $auditService = new AgentControlPlaneChainIntegrityAuditService($this);
+        $replayService = new AgentControlPlaneDeterministicChainReplayService($auditService, $this);
+        $store = new AgentControlPlaneReplaySnapshotStore;
+        $guard = new AgentControlPlaneCertificationMutationGuard($this, $replayService, $store);
+        $result = $guard->guard(null, $options);
+
+        return $this->wrapCertificationWorkbenchStatus(
+            keyPrefix: 'certification_mutation_guard',
+            label: 'Certification Mutation Guard',
+            payload: $result,
+            statusKey: 'status',
+            extraStatusFields: [
+                'guard_id' => (string) data_get($result, 'guard_id'),
+                'before_hash' => (string) data_get($result, 'before_hash'),
+                'after_hash' => (string) data_get($result, 'after_hash'),
+                'mutation_hash' => (string) data_get($result, 'mutation_hash'),
+                'guard_passed' => (bool) data_get($result, 'guard_passed'),
+                'pointer_mutated' => (bool) data_get($result, 'pointer_mutated'),
+                'runtime_safety_mutated' => (bool) data_get($result, 'runtime_safety_mutated'),
+                'ledger_mutated' => (bool) data_get($result, 'ledger_mutated'),
+                'storage_mutated' => (bool) data_get($result, 'storage_mutated'),
+                'mutation_count' => (int) data_get($result, 'mutation_count'),
+            ],
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneCertificationEvidenceQueryContract(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('certification_evidence_query', 'Certification Evidence Query', AgentControlPlaneCertificationEvidenceQueryService::SCHEMA_VERSION, AgentControlPlaneCertificationEvidenceQueryService::class, 'contract');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneCertificationEvidenceQueryPreflight(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('certification_evidence_query', 'Certification Evidence Query', AgentControlPlaneCertificationEvidenceQueryService::SCHEMA_VERSION, AgentControlPlaneCertificationEvidenceQueryService::class, 'preflight');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneCertificationEvidenceQueryImplementationPacket(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('certification_evidence_query', 'Certification Evidence Query', AgentControlPlaneCertificationEvidenceQueryService::SCHEMA_VERSION, AgentControlPlaneCertificationEvidenceQueryService::class, 'implementation_packet');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneCertificationEvidenceQueryStatus(array $options = []): array
+    {
+        $audit = new AgentControlPlaneChainIntegrityAuditService($this);
+        $replay = new AgentControlPlaneDeterministicChainReplayService($audit, $this);
+        $store = new AgentControlPlaneReplaySnapshotStore;
+        $diffSvc = new AgentControlPlaneReplayDiffService($store, $replay);
+        $gate = new AgentControlPlaneMacroSprintPromotionGate($diffSvc, $audit, $replay);
+        $baseline = new AgentControlPlaneCertificationBaselineService($this, $audit, $replay, $store, $diffSvc, $gate);
+        $svc = new AgentControlPlaneCertificationEvidenceQueryService($audit, $replay, $baseline);
+        $result = $svc->query($options);
+
+        return $this->wrapCertificationWorkbenchStatus(
+            keyPrefix: 'certification_evidence_query',
+            label: 'Certification Evidence Query',
+            payload: $result,
+            statusKey: 'status',
+            extraStatusFields: [
+                'query_id' => (string) data_get($result, 'query_id'),
+                'query_hash' => (string) data_get($result, 'query_hash'),
+                'result_count' => (int) data_get($result, 'result_count'),
+                'record_count' => (int) data_get($result, 'record_count'),
+                'invalid_filter_count' => count((array) data_get($result, 'invalid_filters', [])),
+            ],
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneCertificationScenarioCorpusContract(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('certification_scenario_corpus', 'Certification Scenario Corpus', AgentControlPlaneCertificationScenarioCorpusService::SCHEMA_VERSION, AgentControlPlaneCertificationScenarioCorpusService::class, 'contract');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneCertificationScenarioCorpusPreflight(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('certification_scenario_corpus', 'Certification Scenario Corpus', AgentControlPlaneCertificationScenarioCorpusService::SCHEMA_VERSION, AgentControlPlaneCertificationScenarioCorpusService::class, 'preflight');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneCertificationScenarioCorpusImplementationPacket(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('certification_scenario_corpus', 'Certification Scenario Corpus', AgentControlPlaneCertificationScenarioCorpusService::SCHEMA_VERSION, AgentControlPlaneCertificationScenarioCorpusService::class, 'implementation_packet');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneCertificationScenarioCorpusStatus(array $options = []): array
+    {
+        $audit = new AgentControlPlaneChainIntegrityAuditService($this);
+        $replay = new AgentControlPlaneDeterministicChainReplayService($audit, $this);
+        $store = new AgentControlPlaneReplaySnapshotStore;
+        $diffSvc = new AgentControlPlaneReplayDiffService($store, $replay);
+        $gate = new AgentControlPlaneMacroSprintPromotionGate($diffSvc, $audit, $replay);
+        $simulator = new AgentControlPlaneCertificationScenarioSimulator($this, $audit, $replay, $diffSvc, $store, $gate);
+        $svc = new AgentControlPlaneCertificationScenarioCorpusService($simulator);
+        $result = $svc->corpus($options);
+
+        return $this->wrapCertificationWorkbenchStatus(
+            keyPrefix: 'certification_scenario_corpus',
+            label: 'Certification Scenario Corpus',
+            payload: $result,
+            statusKey: 'status',
+            extraStatusFields: [
+                'corpus_id' => (string) data_get($result, 'corpus_id'),
+                'corpus_hash' => (string) data_get($result, 'corpus_hash'),
+                'scenario_count' => (int) data_get($result, 'scenario_count'),
+                'category_count' => count((array) data_get($result, 'categories', [])),
+            ],
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneCertificationFuzzHarnessContract(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('certification_fuzz_harness', 'Certification Fuzz Harness', AgentControlPlaneCertificationFuzzHarness::SCHEMA_VERSION, AgentControlPlaneCertificationFuzzHarness::class, 'contract');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneCertificationFuzzHarnessPreflight(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('certification_fuzz_harness', 'Certification Fuzz Harness', AgentControlPlaneCertificationFuzzHarness::SCHEMA_VERSION, AgentControlPlaneCertificationFuzzHarness::class, 'preflight');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneCertificationFuzzHarnessImplementationPacket(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('certification_fuzz_harness', 'Certification Fuzz Harness', AgentControlPlaneCertificationFuzzHarness::SCHEMA_VERSION, AgentControlPlaneCertificationFuzzHarness::class, 'implementation_packet');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneCertificationFuzzHarnessStatus(array $options = []): array
+    {
+        $audit = new AgentControlPlaneChainIntegrityAuditService($this);
+        $replay = new AgentControlPlaneDeterministicChainReplayService($audit, $this);
+        $store = new AgentControlPlaneReplaySnapshotStore;
+        $diffSvc = new AgentControlPlaneReplayDiffService($store, $replay);
+        $svc = new AgentControlPlaneCertificationFuzzHarness($audit, $replay, $diffSvc);
+        $iterations = isset($options['iteration_count']) && is_int($options['iteration_count'])
+            ? $options['iteration_count']
+            : 8;
+        $result = $svc->run(array_merge($options, ['iteration_count' => $iterations]));
+
+        return $this->wrapCertificationWorkbenchStatus(
+            keyPrefix: 'certification_fuzz_harness',
+            label: 'Certification Fuzz Harness',
+            payload: $result,
+            statusKey: 'status',
+            extraStatusFields: [
+                'fuzz_id' => (string) data_get($result, 'fuzz_id'),
+                'fuzz_hash' => (string) data_get($result, 'fuzz_hash'),
+                'seed' => (int) data_get($result, 'seed'),
+                'iteration_count' => (int) data_get($result, 'iteration_count'),
+                'detected_count' => (int) data_get($result, 'detected_count'),
+                'missed_count' => (int) data_get($result, 'missed_count'),
+                'all_expected_detected' => (bool) data_get($result, 'all_expected_detected'),
+            ],
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneMultiSnapshotComparisonContract(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('multi_snapshot_comparison', 'Multi-Snapshot Comparison', AgentControlPlaneMultiSnapshotComparisonService::SCHEMA_VERSION, AgentControlPlaneMultiSnapshotComparisonService::class, 'contract');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneMultiSnapshotComparisonPreflight(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('multi_snapshot_comparison', 'Multi-Snapshot Comparison', AgentControlPlaneMultiSnapshotComparisonService::SCHEMA_VERSION, AgentControlPlaneMultiSnapshotComparisonService::class, 'preflight');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneMultiSnapshotComparisonImplementationPacket(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('multi_snapshot_comparison', 'Multi-Snapshot Comparison', AgentControlPlaneMultiSnapshotComparisonService::SCHEMA_VERSION, AgentControlPlaneMultiSnapshotComparisonService::class, 'implementation_packet');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneMultiSnapshotComparisonStatus(array $options = []): array
+    {
+        $audit = new AgentControlPlaneChainIntegrityAuditService($this);
+        $replay = new AgentControlPlaneDeterministicChainReplayService($audit, $this);
+        $store = new AgentControlPlaneReplaySnapshotStore;
+        $svc = new AgentControlPlaneMultiSnapshotComparisonService($store, $replay);
+        $result = $svc->compare($options);
+
+        return $this->wrapCertificationWorkbenchStatus(
+            keyPrefix: 'multi_snapshot_comparison',
+            label: 'Multi-Snapshot Comparison',
+            payload: $result,
+            statusKey: 'status',
+            extraStatusFields: [
+                'comparison_id' => (string) data_get($result, 'comparison_id'),
+                'trend_status' => (string) data_get($result, 'trend_status'),
+                'trend_hash' => (string) data_get($result, 'trend_hash'),
+                'snapshot_count' => (int) data_get($result, 'snapshot_count'),
+                'regression_window_count' => (int) data_get($result, 'regression_window_count'),
+                'improvement_window_count' => (int) data_get($result, 'improvement_window_count'),
+            ],
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneReleaseDossierExporterContract(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('release_dossier_exporter', 'Release Dossier Exporter', AgentControlPlaneReleaseDossierExporter::SCHEMA_VERSION, AgentControlPlaneReleaseDossierExporter::class, 'contract');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneReleaseDossierExporterPreflight(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('release_dossier_exporter', 'Release Dossier Exporter', AgentControlPlaneReleaseDossierExporter::SCHEMA_VERSION, AgentControlPlaneReleaseDossierExporter::class, 'preflight');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneReleaseDossierExporterImplementationPacket(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('release_dossier_exporter', 'Release Dossier Exporter', AgentControlPlaneReleaseDossierExporter::SCHEMA_VERSION, AgentControlPlaneReleaseDossierExporter::class, 'implementation_packet');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneReleaseDossierExporterStatus(array $options = []): array
+    {
+        $audit = new AgentControlPlaneChainIntegrityAuditService($this);
+        $replay = new AgentControlPlaneDeterministicChainReplayService($audit, $this);
+        $store = new AgentControlPlaneReplaySnapshotStore;
+        $diffSvc = new AgentControlPlaneReplayDiffService($store, $replay);
+        $gate = new AgentControlPlaneMacroSprintPromotionGate($diffSvc, $audit, $replay);
+        $simulator = new AgentControlPlaneCertificationScenarioSimulator($this, $audit, $replay, $diffSvc, $store, $gate);
+        $baseline = new AgentControlPlaneCertificationBaselineService($this, $audit, $replay, $store, $diffSvc, $gate);
+        $mutationGuard = new AgentControlPlaneCertificationMutationGuard($this, $replay, $store);
+        $dossier = new AgentControlPlaneReleaseDossierService($baseline, $replay, $store, $diffSvc, $gate, $simulator, $audit, $mutationGuard);
+        $svc = new AgentControlPlaneReleaseDossierExporter($dossier);
+        $result = $svc->export(array_merge(['skip_simulator' => true], $options));
+
+        return $this->wrapCertificationWorkbenchStatus(
+            keyPrefix: 'release_dossier_exporter',
+            label: 'Release Dossier Exporter',
+            payload: $result,
+            statusKey: 'status',
+            extraStatusFields: [
+                'export_id' => (string) data_get($result, 'export_id'),
+                'export_hash' => (string) data_get($result, 'export_hash'),
+                'markdown_hash' => (string) data_get($result, 'markdown_hash'),
+                'machine_summary_hash' => (string) data_get($result, 'machine_summary_hash'),
+                'operator_summary_hash' => (string) data_get($result, 'operator_summary_hash'),
+                'persist' => (bool) data_get($result, 'persist'),
+                'persisted_md_path' => (string) data_get($result, 'persisted_md_path'),
+                'markdown_byte_size' => (int) data_get($result, 'markdown_byte_size'),
+            ],
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneCertificationCoverageReportContract(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('certification_coverage_report', 'Certification Coverage Report', AgentControlPlaneCertificationCoverageReportService::SCHEMA_VERSION, AgentControlPlaneCertificationCoverageReportService::class, 'contract');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneCertificationCoverageReportPreflight(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('certification_coverage_report', 'Certification Coverage Report', AgentControlPlaneCertificationCoverageReportService::SCHEMA_VERSION, AgentControlPlaneCertificationCoverageReportService::class, 'preflight');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneCertificationCoverageReportImplementationPacket(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('certification_coverage_report', 'Certification Coverage Report', AgentControlPlaneCertificationCoverageReportService::SCHEMA_VERSION, AgentControlPlaneCertificationCoverageReportService::class, 'implementation_packet');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneCertificationCoverageReportStatus(array $options = []): array
+    {
+        $audit = new AgentControlPlaneChainIntegrityAuditService($this);
+        $replay = new AgentControlPlaneDeterministicChainReplayService($audit, $this);
+        $store = new AgentControlPlaneReplaySnapshotStore;
+        $diffSvc = new AgentControlPlaneReplayDiffService($store, $replay);
+        $gate = new AgentControlPlaneMacroSprintPromotionGate($diffSvc, $audit, $replay);
+        $simulator = new AgentControlPlaneCertificationScenarioSimulator($this, $audit, $replay, $diffSvc, $store, $gate);
+        $fuzz = new AgentControlPlaneCertificationFuzzHarness($audit, $replay, $diffSvc);
+        $svc = new AgentControlPlaneCertificationCoverageReportService($audit, $replay, $simulator, $fuzz);
+        $result = $svc->report(array_merge(['skip_simulator' => true, 'skip_fuzz' => true], $options));
+
+        return $this->wrapCertificationWorkbenchStatus(
+            keyPrefix: 'certification_coverage_report',
+            label: 'Certification Coverage Report',
+            payload: $result,
+            statusKey: 'status',
+            extraStatusFields: [
+                'report_id' => (string) data_get($result, 'report_id'),
+                'coverage_hash' => (string) data_get($result, 'coverage_hash'),
+                'coverage_score' => (float) data_get($result, 'coverage_score'),
+                'coverage_grade' => (string) data_get($result, 'coverage_grade'),
+                'block_count' => (int) data_get($result, 'block_count'),
+                'missing_block_count' => count((array) data_get($result, 'missing_coverage', [])),
+            ],
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneCertificationStatusBatchContract(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('certification_status_batch', 'Certification Status Batch', AgentControlPlaneCertificationStatusBatchService::SCHEMA_VERSION, AgentControlPlaneCertificationStatusBatchService::class, 'contract');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneCertificationStatusBatchPreflight(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('certification_status_batch', 'Certification Status Batch', AgentControlPlaneCertificationStatusBatchService::SCHEMA_VERSION, AgentControlPlaneCertificationStatusBatchService::class, 'preflight');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneCertificationStatusBatchImplementationPacket(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('certification_status_batch', 'Certification Status Batch', AgentControlPlaneCertificationStatusBatchService::SCHEMA_VERSION, AgentControlPlaneCertificationStatusBatchService::class, 'implementation_packet');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneCertificationStatusBatchStatus(array $options = []): array
+    {
+        $svc = new AgentControlPlaneCertificationStatusBatchService($this);
+        $result = $svc->run(array_merge(['skip_batch_self' => true], $options));
+
+        return $this->wrapCertificationWorkbenchStatus(
+            keyPrefix: 'certification_status_batch',
+            label: 'Certification Status Batch',
+            payload: $result,
+            statusKey: 'status',
+            extraStatusFields: [
+                'batch_id' => (string) data_get($result, 'batch_id'),
+                'batch_hash' => (string) data_get($result, 'batch_hash'),
+                'checked_count' => (int) data_get($result, 'checked_count'),
+                'passed_count' => (int) data_get($result, 'passed_count'),
+                'failed_count' => (int) data_get($result, 'failed_count'),
+            ],
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneCertificationStatusBatchSelfStatus(array $options = []): array
+    {
+        // Echo the contract+stamp without invoking the batch again, to avoid
+        // recursion when the batch itself iterates the status projections.
+        return [
+            'schema_version' => 'atlas.self_construction_agent_control_plane_certification_status_batch_self_status.v1',
+            'status' => 'available',
+            'mode' => 'read_only_agent_control_plane_certification_status_batch_self_status',
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'agent_control_plane_certification_status_batch_self_status' => [
+                'status' => 'available',
+                'note' => 'Echo to avoid recursion when batch iterates status projections.',
+            ],
+            'agent_control_plane_certification_status_batch_self_status_hash' => $this->stableHash([
+                'self' => 'available',
+            ]),
+            'non_execution_guarantees' => [],
+            'human_summary' => 'Status batch self-echo (no recursion).',
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneTaskPacketBuilderContract(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('task_packet_builder', 'Task Packet Builder', AgentControlPlaneTaskPacketBuilder::SCHEMA_VERSION, AgentControlPlaneTaskPacketBuilder::class, 'contract');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneTaskPacketBuilderPreflight(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('task_packet_builder', 'Task Packet Builder', AgentControlPlaneTaskPacketBuilder::SCHEMA_VERSION, AgentControlPlaneTaskPacketBuilder::class, 'preflight');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneTaskPacketBuilderImplementationPacket(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('task_packet_builder', 'Task Packet Builder', AgentControlPlaneTaskPacketBuilder::SCHEMA_VERSION, AgentControlPlaneTaskPacketBuilder::class, 'implementation_packet');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneTaskPacketBuilderStatus(array $options = []): array
+    {
+        $svc = new AgentControlPlaneTaskPacketBuilder;
+        $input = (array) ($options['input'] ?? $this->defaultRuntimePilotInput());
+        $result = $svc->build($input);
+
+        return $this->wrapCertificationWorkbenchStatus(
+            keyPrefix: 'task_packet_builder',
+            label: 'Task Packet Builder',
+            payload: $result,
+            statusKey: 'status',
+            extraStatusFields: [
+                'task_packet_id' => (string) data_get($result, 'task_packet_id'),
+                'task_packet_hash' => (string) data_get($result, 'task_packet_hash'),
+                'scope_hash' => (string) data_get($result, 'scope_hash'),
+                'acceptance_hash' => (string) data_get($result, 'acceptance_hash'),
+                'allowed_file_count' => count((array) data_get($result, 'normalized_scope.allowed_files', [])),
+                'blocking_count' => count((array) data_get($result, 'blocking_reasons', [])),
+            ],
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneClaimLeaseSimulatorContract(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('claim_lease_simulator', 'Claim/Lease Simulator', AgentControlPlaneClaimLeaseSimulator::SCHEMA_VERSION, AgentControlPlaneClaimLeaseSimulator::class, 'contract');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneClaimLeaseSimulatorPreflight(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('claim_lease_simulator', 'Claim/Lease Simulator', AgentControlPlaneClaimLeaseSimulator::SCHEMA_VERSION, AgentControlPlaneClaimLeaseSimulator::class, 'preflight');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneClaimLeaseSimulatorImplementationPacket(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('claim_lease_simulator', 'Claim/Lease Simulator', AgentControlPlaneClaimLeaseSimulator::SCHEMA_VERSION, AgentControlPlaneClaimLeaseSimulator::class, 'implementation_packet');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneClaimLeaseSimulatorStatus(array $options = []): array
+    {
+        $builder = new AgentControlPlaneTaskPacketBuilder;
+        $packet = $builder->build((array) ($options['input'] ?? $this->defaultRuntimePilotInput()));
+        $svc = new AgentControlPlaneClaimLeaseSimulator;
+        $result = $svc->simulate($packet, (array) ($options['simulator_options'] ?? []));
+
+        return $this->wrapCertificationWorkbenchStatus(
+            keyPrefix: 'claim_lease_simulator',
+            label: 'Claim/Lease Simulator',
+            payload: $result,
+            statusKey: 'lease_status',
+            extraStatusFields: [
+                'lease_status' => (string) data_get($result, 'lease_status'),
+                'task_packet_id' => (string) data_get($result, 'task_packet_id'),
+                'claim_id' => (string) data_get($result, 'claim_id'),
+                'lease_id' => (string) data_get($result, 'lease_id'),
+                'claim_hash' => (string) data_get($result, 'claim_hash'),
+                'lease_hash' => (string) data_get($result, 'lease_hash'),
+                'simulation_hash' => (string) data_get($result, 'simulation_hash'),
+                'conflict_count' => (int) data_get($result, 'conflict_count'),
+            ],
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneScopeLockPlannerContract(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('scope_lock_planner', 'Scope Lock Planner', AgentControlPlaneScopeLockPlanner::SCHEMA_VERSION, AgentControlPlaneScopeLockPlanner::class, 'contract');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneScopeLockPlannerPreflight(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('scope_lock_planner', 'Scope Lock Planner', AgentControlPlaneScopeLockPlanner::SCHEMA_VERSION, AgentControlPlaneScopeLockPlanner::class, 'preflight');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneScopeLockPlannerImplementationPacket(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('scope_lock_planner', 'Scope Lock Planner', AgentControlPlaneScopeLockPlanner::SCHEMA_VERSION, AgentControlPlaneScopeLockPlanner::class, 'implementation_packet');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneScopeLockPlannerStatus(array $options = []): array
+    {
+        $builder = new AgentControlPlaneTaskPacketBuilder;
+        $packet = $builder->build((array) ($options['input'] ?? $this->defaultRuntimePilotInput()));
+        $claimLease = (new AgentControlPlaneClaimLeaseSimulator)->simulate($packet);
+        $svc = new AgentControlPlaneScopeLockPlanner;
+        $result = $svc->plan($packet, $claimLease, (array) ($options['planner_options'] ?? []));
+
+        return $this->wrapCertificationWorkbenchStatus(
+            keyPrefix: 'scope_lock_planner',
+            label: 'Scope Lock Planner',
+            payload: $result,
+            statusKey: 'status',
+            extraStatusFields: [
+                'scope_lock_plan_id' => (string) data_get($result, 'scope_lock_plan_id'),
+                'scope_lock_plan_hash' => (string) data_get($result, 'scope_lock_plan_hash'),
+                'write_set_count' => count((array) data_get($result, 'write_set', [])),
+                'read_set_count' => count((array) data_get($result, 'read_set', [])),
+                'cross_axis_blocker_count' => count((array) data_get($result, 'cross_axis_blockers', [])),
+                'unsafe_path_blocker_count' => count((array) data_get($result, 'unsafe_path_blockers', [])),
+            ],
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneEvidenceLedgerDryRunContract(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('evidence_ledger_dry_run', 'Evidence Ledger Dry-Run', AgentControlPlaneEvidenceLedgerDryRun::SCHEMA_VERSION, AgentControlPlaneEvidenceLedgerDryRun::class, 'contract');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneEvidenceLedgerDryRunPreflight(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('evidence_ledger_dry_run', 'Evidence Ledger Dry-Run', AgentControlPlaneEvidenceLedgerDryRun::SCHEMA_VERSION, AgentControlPlaneEvidenceLedgerDryRun::class, 'preflight');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneEvidenceLedgerDryRunImplementationPacket(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('evidence_ledger_dry_run', 'Evidence Ledger Dry-Run', AgentControlPlaneEvidenceLedgerDryRun::SCHEMA_VERSION, AgentControlPlaneEvidenceLedgerDryRun::class, 'implementation_packet');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneEvidenceLedgerDryRunStatus(array $options = []): array
+    {
+        $builder = new AgentControlPlaneTaskPacketBuilder;
+        $packet = $builder->build((array) ($options['input'] ?? $this->defaultRuntimePilotInput()));
+        $claimLease = (new AgentControlPlaneClaimLeaseSimulator)->simulate($packet);
+        $scopeLock = (new AgentControlPlaneScopeLockPlanner)->plan($packet, $claimLease);
+        $svc = new AgentControlPlaneEvidenceLedgerDryRun;
+        $result = $svc->plan($packet, $scopeLock, (array) ($options['ledger_options'] ?? []));
+
+        return $this->wrapCertificationWorkbenchStatus(
+            keyPrefix: 'evidence_ledger_dry_run',
+            label: 'Evidence Ledger Dry-Run',
+            payload: $result,
+            statusKey: 'status',
+            extraStatusFields: [
+                'evidence_plan_id' => (string) data_get($result, 'evidence_plan_id'),
+                'evidence_hash' => (string) data_get($result, 'evidence_hash'),
+                'evidence_plan_hash' => (string) data_get($result, 'evidence_plan_hash'),
+                'receipt_count' => (int) data_get($result, 'receipt_count'),
+                'event_count' => (int) data_get($result, 'event_count'),
+            ],
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneContinuationSummaryBuilderContract(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('continuation_summary_builder', 'Continuation Summary Builder', AgentControlPlaneContinuationSummaryBuilder::SCHEMA_VERSION, AgentControlPlaneContinuationSummaryBuilder::class, 'contract');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneContinuationSummaryBuilderPreflight(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('continuation_summary_builder', 'Continuation Summary Builder', AgentControlPlaneContinuationSummaryBuilder::SCHEMA_VERSION, AgentControlPlaneContinuationSummaryBuilder::class, 'preflight');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneContinuationSummaryBuilderImplementationPacket(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('continuation_summary_builder', 'Continuation Summary Builder', AgentControlPlaneContinuationSummaryBuilder::SCHEMA_VERSION, AgentControlPlaneContinuationSummaryBuilder::class, 'implementation_packet');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneContinuationSummaryBuilderStatus(array $options = []): array
+    {
+        $builder = new AgentControlPlaneTaskPacketBuilder;
+        $packet = $builder->build((array) ($options['input'] ?? $this->defaultRuntimePilotInput()));
+        $claimLease = (new AgentControlPlaneClaimLeaseSimulator)->simulate($packet);
+        $scopeLock = (new AgentControlPlaneScopeLockPlanner)->plan($packet, $claimLease);
+        $evidence = (new AgentControlPlaneEvidenceLedgerDryRun)->plan($packet, $scopeLock);
+        $svc = new AgentControlPlaneContinuationSummaryBuilder;
+        $result = $svc->build($packet, $evidence, (array) ($options['continuation_options'] ?? []));
+
+        return $this->wrapCertificationWorkbenchStatus(
+            keyPrefix: 'continuation_summary_builder',
+            label: 'Continuation Summary Builder',
+            payload: $result,
+            statusKey: 'status',
+            extraStatusFields: [
+                'continuation_summary_id' => (string) data_get($result, 'continuation_summary_id'),
+                'continuation_hash' => (string) data_get($result, 'continuation_hash'),
+                'next_action_count' => count((array) data_get($result, 'next_actions', [])),
+                'blocker_count' => count((array) data_get($result, 'blockers', [])),
+            ],
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneWorkProductManifestPlannerContract(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('work_product_manifest_planner', 'Work Product Manifest Planner', AgentControlPlaneWorkProductManifestPlanner::SCHEMA_VERSION, AgentControlPlaneWorkProductManifestPlanner::class, 'contract');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneWorkProductManifestPlannerPreflight(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('work_product_manifest_planner', 'Work Product Manifest Planner', AgentControlPlaneWorkProductManifestPlanner::SCHEMA_VERSION, AgentControlPlaneWorkProductManifestPlanner::class, 'preflight');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneWorkProductManifestPlannerImplementationPacket(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('work_product_manifest_planner', 'Work Product Manifest Planner', AgentControlPlaneWorkProductManifestPlanner::SCHEMA_VERSION, AgentControlPlaneWorkProductManifestPlanner::class, 'implementation_packet');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneWorkProductManifestPlannerStatus(array $options = []): array
+    {
+        $builder = new AgentControlPlaneTaskPacketBuilder;
+        $packet = $builder->build((array) ($options['input'] ?? $this->defaultRuntimePilotInput()));
+        $claimLease = (new AgentControlPlaneClaimLeaseSimulator)->simulate($packet);
+        $scopeLock = (new AgentControlPlaneScopeLockPlanner)->plan($packet, $claimLease);
+        $svc = new AgentControlPlaneWorkProductManifestPlanner;
+        $result = $svc->plan($packet, $scopeLock, (array) ($options['manifest_options'] ?? []));
+
+        return $this->wrapCertificationWorkbenchStatus(
+            keyPrefix: 'work_product_manifest_planner',
+            label: 'Work Product Manifest Planner',
+            payload: $result,
+            statusKey: 'status',
+            extraStatusFields: [
+                'manifest_plan_id' => (string) data_get($result, 'manifest_plan_id'),
+                'work_product_manifest_hash' => (string) data_get($result, 'work_product_manifest_hash'),
+                'expected_output_count' => (int) data_get($result, 'expected_output_count'),
+            ],
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneCostImportDryRunContract(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('cost_import_dry_run', 'Cost Import Dry-Run', AgentControlPlaneCostImportDryRun::SCHEMA_VERSION, AgentControlPlaneCostImportDryRun::class, 'contract');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneCostImportDryRunPreflight(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('cost_import_dry_run', 'Cost Import Dry-Run', AgentControlPlaneCostImportDryRun::SCHEMA_VERSION, AgentControlPlaneCostImportDryRun::class, 'preflight');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneCostImportDryRunImplementationPacket(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('cost_import_dry_run', 'Cost Import Dry-Run', AgentControlPlaneCostImportDryRun::SCHEMA_VERSION, AgentControlPlaneCostImportDryRun::class, 'implementation_packet');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneCostImportDryRunStatus(array $options = []): array
+    {
+        $builder = new AgentControlPlaneTaskPacketBuilder;
+        $packet = $builder->build((array) ($options['input'] ?? $this->defaultRuntimePilotInput()));
+        $svc = new AgentControlPlaneCostImportDryRun;
+        $result = $svc->plan($packet, (array) ($options['cost_options'] ?? []));
+
+        return $this->wrapCertificationWorkbenchStatus(
+            keyPrefix: 'cost_import_dry_run',
+            label: 'Cost Import Dry-Run',
+            payload: $result,
+            statusKey: 'status',
+            extraStatusFields: [
+                'cost_import_plan_id' => (string) data_get($result, 'cost_import_plan_id'),
+                'cost_import_plan_hash' => (string) data_get($result, 'cost_import_plan_hash'),
+                'token_budget' => (int) data_get($result, 'token_budget'),
+                'import_source_count' => (int) data_get($result, 'import_source_count'),
+            ],
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneMultiAgentParallelismPlannerContract(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('multi_agent_parallelism_planner', 'Multi-Agent Parallelism Planner', AgentControlPlaneMultiAgentParallelismPlanner::SCHEMA_VERSION, AgentControlPlaneMultiAgentParallelismPlanner::class, 'contract');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneMultiAgentParallelismPlannerPreflight(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('multi_agent_parallelism_planner', 'Multi-Agent Parallelism Planner', AgentControlPlaneMultiAgentParallelismPlanner::SCHEMA_VERSION, AgentControlPlaneMultiAgentParallelismPlanner::class, 'preflight');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneMultiAgentParallelismPlannerImplementationPacket(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('multi_agent_parallelism_planner', 'Multi-Agent Parallelism Planner', AgentControlPlaneMultiAgentParallelismPlanner::SCHEMA_VERSION, AgentControlPlaneMultiAgentParallelismPlanner::class, 'implementation_packet');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneMultiAgentParallelismPlannerStatus(array $options = []): array
+    {
+        $builder = new AgentControlPlaneTaskPacketBuilder;
+        $packets = [];
+        $inputs = (array) ($options['inputs'] ?? [$this->defaultRuntimePilotInput(), $this->defaultRuntimePilotInputSecondary()]);
+        foreach ($inputs as $input) {
+            $packets[] = $builder->build((array) $input);
+        }
+        $svc = new AgentControlPlaneMultiAgentParallelismPlanner;
+        $result = $svc->plan($packets, (array) ($options['parallelism_options'] ?? []));
+
+        return $this->wrapCertificationWorkbenchStatus(
+            keyPrefix: 'multi_agent_parallelism_planner',
+            label: 'Multi-Agent Parallelism Planner',
+            payload: $result,
+            statusKey: 'status',
+            extraStatusFields: [
+                'parallelism_plan_id' => (string) data_get($result, 'parallelism_plan_id'),
+                'parallelism_hash' => (string) data_get($result, 'parallelism_hash'),
+                'agent_count' => (int) data_get($result, 'agent_count'),
+                'blocked_pair_count' => (int) data_get($result, 'blocked_pair_count'),
+                'parallelism_allowed' => (bool) data_get($result, 'parallelism_allowed'),
+            ],
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneRuntimePilotOrchestratorContract(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('runtime_pilot_orchestrator', 'Runtime Pilot Orchestrator', AgentControlPlaneRuntimePilotOrchestrator::SCHEMA_VERSION, AgentControlPlaneRuntimePilotOrchestrator::class, 'contract');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneRuntimePilotOrchestratorPreflight(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('runtime_pilot_orchestrator', 'Runtime Pilot Orchestrator', AgentControlPlaneRuntimePilotOrchestrator::SCHEMA_VERSION, AgentControlPlaneRuntimePilotOrchestrator::class, 'preflight');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneRuntimePilotOrchestratorImplementationPacket(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('runtime_pilot_orchestrator', 'Runtime Pilot Orchestrator', AgentControlPlaneRuntimePilotOrchestrator::SCHEMA_VERSION, AgentControlPlaneRuntimePilotOrchestrator::class, 'implementation_packet');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneRuntimePilotOrchestratorStatus(array $options = []): array
+    {
+        $svc = $this->buildRuntimePilotOrchestrator();
+        $input = (array) ($options['input'] ?? ['task_packet' => $this->defaultRuntimePilotInput(), 'additional_task_packets' => [$this->defaultRuntimePilotInputSecondary()]]);
+        $result = $svc->run($input);
+
+        return $this->wrapCertificationWorkbenchStatus(
+            keyPrefix: 'runtime_pilot_orchestrator',
+            label: 'Runtime Pilot Orchestrator',
+            payload: $result,
+            statusKey: 'status',
+            extraStatusFields: [
+                'pilot_id' => (string) data_get($result, 'pilot_id'),
+                'pilot_hash' => (string) data_get($result, 'pilot_hash'),
+                'blocker_count' => (int) data_get($result, 'blocker_count'),
+                'task_packet_hash' => (string) data_get($result, 'task_packet.task_packet_hash'),
+                'continuation_hash' => (string) data_get($result, 'continuation_summary.continuation_hash'),
+                'evidence_hash' => (string) data_get($result, 'evidence_ledger_dry_run.evidence_hash'),
+                'cost_import_plan_hash' => (string) data_get($result, 'cost_import_dry_run.cost_import_plan_hash'),
+                'work_product_manifest_hash' => (string) data_get($result, 'work_product_manifest_plan.work_product_manifest_hash'),
+                'parallelism_hash' => (string) data_get($result, 'multi_agent_parallelism_plan.parallelism_hash'),
+            ],
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneRuntimePilotCertificationContract(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('runtime_pilot_certification', 'Runtime Pilot Certification', AgentControlPlaneRuntimePilotCertificationService::SCHEMA_VERSION, AgentControlPlaneRuntimePilotCertificationService::class, 'contract');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneRuntimePilotCertificationPreflight(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('runtime_pilot_certification', 'Runtime Pilot Certification', AgentControlPlaneRuntimePilotCertificationService::SCHEMA_VERSION, AgentControlPlaneRuntimePilotCertificationService::class, 'preflight');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneRuntimePilotCertificationImplementationPacket(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('runtime_pilot_certification', 'Runtime Pilot Certification', AgentControlPlaneRuntimePilotCertificationService::SCHEMA_VERSION, AgentControlPlaneRuntimePilotCertificationService::class, 'implementation_packet');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneRuntimePilotCertificationStatus(array $options = []): array
+    {
+        $orchestrator = $this->buildRuntimePilotOrchestrator();
+        $pilot = $orchestrator->run((array) ($options['input'] ?? ['task_packet' => $this->defaultRuntimePilotInput(), 'additional_task_packets' => [$this->defaultRuntimePilotInputSecondary()]]));
+        $svc = new AgentControlPlaneRuntimePilotCertificationService;
+        $result = $svc->certify($pilot, (array) ($options['certification_options'] ?? []));
+
+        return $this->wrapCertificationWorkbenchStatus(
+            keyPrefix: 'runtime_pilot_certification',
+            label: 'Runtime Pilot Certification',
+            payload: $result,
+            statusKey: 'status',
+            extraStatusFields: [
+                'certification_id' => (string) data_get($result, 'certification_id'),
+                'certification_hash' => (string) data_get($result, 'certification_hash'),
+                'pilot_hash' => (string) data_get($result, 'pilot_hash'),
+                'passed_count' => (int) data_get($result, 'passed_count'),
+                'failed_count' => (int) data_get($result, 'failed_count'),
+                'check_count' => (int) data_get($result, 'check_count'),
+            ],
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneTaskPacketQueueContract(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('task_packet_queue', 'Task Packet Queue', AgentControlPlaneTaskPacketQueueRepository::SCHEMA_VERSION, AgentControlPlaneTaskPacketQueueRepository::class, 'contract');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneTaskPacketQueuePreflight(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('task_packet_queue', 'Task Packet Queue', AgentControlPlaneTaskPacketQueueRepository::SCHEMA_VERSION, AgentControlPlaneTaskPacketQueueRepository::class, 'preflight');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneTaskPacketQueueImplementationPacket(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('task_packet_queue', 'Task Packet Queue', AgentControlPlaneTaskPacketQueueRepository::SCHEMA_VERSION, AgentControlPlaneTaskPacketQueueRepository::class, 'implementation_packet');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneTaskPacketQueueStatus(array $options = []): array
+    {
+        $repo = new AgentControlPlaneTaskPacketQueueRepository;
+        $registry = $repo->registry();
+        $status = (bool) $registry['corrupt'] ? 'blocked' : 'available';
+
+        return $this->wrapCertificationWorkbenchStatus(
+            keyPrefix: 'task_packet_queue',
+            label: 'Task Packet Queue',
+            payload: array_merge($registry, ['status' => $status]),
+            statusKey: 'status',
+            extraStatusFields: [
+                'storage_prefix' => (string) $registry['storage_prefix'],
+                'entry_count' => (int) $registry['entry_count'],
+                'total_count' => (int) $registry['total_count'],
+                'status_counts' => (array) $registry['status_counts'],
+                'corrupt' => (bool) $registry['corrupt'],
+                'queue_available' => $repo->isAvailable(),
+            ],
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneClaimLeaseRuntimeContract(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('claim_lease_runtime', 'Claim/Lease Runtime', AgentControlPlaneClaimLeaseRepository::SCHEMA_VERSION, AgentControlPlaneClaimLeaseRepository::class, 'contract');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneClaimLeaseRuntimePreflight(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('claim_lease_runtime', 'Claim/Lease Runtime', AgentControlPlaneClaimLeaseRepository::SCHEMA_VERSION, AgentControlPlaneClaimLeaseRepository::class, 'preflight');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneClaimLeaseRuntimeImplementationPacket(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('claim_lease_runtime', 'Claim/Lease Runtime', AgentControlPlaneClaimLeaseRepository::SCHEMA_VERSION, AgentControlPlaneClaimLeaseRepository::class, 'implementation_packet');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneClaimLeaseRuntimeStatus(array $options = []): array
+    {
+        $repo = new AgentControlPlaneClaimLeaseRepository;
+        $active = $repo->activeLeases();
+        $available = $repo->isAvailable();
+        $status = $available ? 'available' : 'blocked';
+
+        $payload = [
+            'schema_version' => AgentControlPlaneClaimLeaseRepository::SCHEMA_VERSION,
+            'status' => $status,
+            'storage_prefix' => AgentControlPlaneClaimLeaseRepository::STORAGE_PREFIX,
+            'lease_repository_available' => $available,
+            'active_lease_count' => count($active),
+            'default_ttl_seconds' => AgentControlPlaneClaimLeaseRepository::DEFAULT_TTL_SECONDS,
+            'min_ttl_seconds' => AgentControlPlaneClaimLeaseRepository::MIN_TTL_SECONDS,
+            'max_ttl_seconds' => AgentControlPlaneClaimLeaseRepository::MAX_TTL_SECONDS,
+            'lease_statuses' => [
+                AgentControlPlaneClaimLeaseRepository::LEASE_STATUS_ACTIVE,
+                AgentControlPlaneClaimLeaseRepository::LEASE_STATUS_EXPIRED,
+                AgentControlPlaneClaimLeaseRepository::LEASE_STATUS_RELEASED,
+            ],
+            'runtime_safety' => $repo->runtimeFlags(),
+        ];
+
+        return $this->wrapCertificationWorkbenchStatus(
+            keyPrefix: 'claim_lease_runtime',
+            label: 'Claim/Lease Runtime',
+            payload: $payload,
+            statusKey: 'status',
+            extraStatusFields: [
+                'storage_prefix' => (string) $payload['storage_prefix'],
+                'active_lease_count' => (int) $payload['active_lease_count'],
+                'lease_repository_available' => (bool) $payload['lease_repository_available'],
+                'default_ttl_seconds' => (int) $payload['default_ttl_seconds'],
+            ],
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneScopeLockRuntimeValidatorContract(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('scope_lock_runtime_validator', 'Scope Lock Runtime Validator', AgentControlPlaneScopeLockRuntimeValidator::SCHEMA_VERSION, AgentControlPlaneScopeLockRuntimeValidator::class, 'contract');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneScopeLockRuntimeValidatorPreflight(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('scope_lock_runtime_validator', 'Scope Lock Runtime Validator', AgentControlPlaneScopeLockRuntimeValidator::SCHEMA_VERSION, AgentControlPlaneScopeLockRuntimeValidator::class, 'preflight');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneScopeLockRuntimeValidatorImplementationPacket(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('scope_lock_runtime_validator', 'Scope Lock Runtime Validator', AgentControlPlaneScopeLockRuntimeValidator::SCHEMA_VERSION, AgentControlPlaneScopeLockRuntimeValidator::class, 'implementation_packet');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneScopeLockRuntimeValidatorStatus(array $options = []): array
+    {
+        $builder = new AgentControlPlaneTaskPacketBuilder;
+        $packet = $builder->build((array) ($options['input'] ?? $this->defaultRuntimePilotInput()));
+        $validator = new AgentControlPlaneScopeLockRuntimeValidator;
+        $result = $validator->validate($packet, (array) ($options['validator_options'] ?? []));
+
+        return $this->wrapCertificationWorkbenchStatus(
+            keyPrefix: 'scope_lock_runtime_validator',
+            label: 'Scope Lock Runtime Validator',
+            payload: $result,
+            statusKey: 'status',
+            extraStatusFields: [
+                'task_packet_id' => (string) data_get($result, 'task_packet_id'),
+                'scope_lock_hash' => (string) data_get($result, 'scope_lock_hash'),
+                'validation_hash' => (string) data_get($result, 'validation_hash'),
+                'blocker_count' => count((array) data_get($result, 'blockers', [])),
+                'forbidden_axis_count' => (int) data_get($result, 'forbidden_axis_count'),
+                'traversal_count' => (int) data_get($result, 'traversal_count'),
+            ],
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneTaskQueueOrchestratorContract(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('task_queue_orchestrator', 'Task Queue Orchestrator', AgentControlPlaneTaskQueueOrchestrator::SCHEMA_VERSION, AgentControlPlaneTaskQueueOrchestrator::class, 'contract');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneTaskQueueOrchestratorPreflight(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('task_queue_orchestrator', 'Task Queue Orchestrator', AgentControlPlaneTaskQueueOrchestrator::SCHEMA_VERSION, AgentControlPlaneTaskQueueOrchestrator::class, 'preflight');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneTaskQueueOrchestratorImplementationPacket(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('task_queue_orchestrator', 'Task Queue Orchestrator', AgentControlPlaneTaskQueueOrchestrator::SCHEMA_VERSION, AgentControlPlaneTaskQueueOrchestrator::class, 'implementation_packet');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneTaskQueueOrchestratorStatus(array $options = []): array
+    {
+        $orchestrator = $this->buildTaskQueueOrchestrator();
+        $input = (array) ($options['input'] ?? ['task_packet' => $this->defaultRuntimePilotInput()]);
+        $result = $orchestrator->prepareAndEnqueue($input);
+        $event = (string) ($result['event'] ?? 'unknown');
+        $status = $event === 'prepared_and_enqueued' ? 'available' : 'blocked';
+
+        return $this->wrapCertificationWorkbenchStatus(
+            keyPrefix: 'task_queue_orchestrator',
+            label: 'Task Queue Orchestrator',
+            payload: array_merge($result, ['status' => $status]),
+            statusKey: 'status',
+            extraStatusFields: [
+                'event' => $event,
+                'orchestration_id' => (string) data_get($result, 'orchestration_id'),
+                'task_packet_id' => (string) data_get($result, 'task_packet.task_packet_id'),
+                'task_packet_hash' => (string) data_get($result, 'task_packet.task_packet_hash'),
+                'scope_lock_hash' => (string) data_get($result, 'validation.scope_lock_hash'),
+                'queue_event' => (string) data_get($result, 'queue_entry.event'),
+                'continuation_hash' => (string) data_get($result, 'continuation_summary.continuation_hash'),
+            ],
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneTaskQueueLeaseCertificationContract(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('task_queue_lease_certification', 'Task Queue + Lease Certification', AgentControlPlaneTaskQueueLeaseCertificationService::SCHEMA_VERSION, AgentControlPlaneTaskQueueLeaseCertificationService::class, 'contract');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneTaskQueueLeaseCertificationPreflight(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('task_queue_lease_certification', 'Task Queue + Lease Certification', AgentControlPlaneTaskQueueLeaseCertificationService::SCHEMA_VERSION, AgentControlPlaneTaskQueueLeaseCertificationService::class, 'preflight');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneTaskQueueLeaseCertificationImplementationPacket(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('task_queue_lease_certification', 'Task Queue + Lease Certification', AgentControlPlaneTaskQueueLeaseCertificationService::SCHEMA_VERSION, AgentControlPlaneTaskQueueLeaseCertificationService::class, 'implementation_packet');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneTaskQueueLeaseCertificationStatus(array $options = []): array
+    {
+        $svc = new AgentControlPlaneTaskQueueLeaseCertificationService(
+            new AgentControlPlaneTaskPacketBuilder,
+            new AgentControlPlaneScopeLockRuntimeValidator,
+            new AgentControlPlaneTaskPacketQueueRepository,
+            new AgentControlPlaneClaimLeaseRepository,
+        );
+        $result = $svc->certify($options);
+
+        return $this->wrapCertificationWorkbenchStatus(
+            keyPrefix: 'task_queue_lease_certification',
+            label: 'Task Queue + Lease Certification',
+            payload: $result,
+            statusKey: 'status',
+            extraStatusFields: [
+                'certification_id' => (string) data_get($result, 'certification_id'),
+                'certification_hash' => (string) data_get($result, 'certification_hash'),
+                'invariants_all_true' => (bool) data_get($result, 'invariants_all_true'),
+                'violation_count' => (int) data_get($result, 'violation_count'),
+                'warning_count' => (int) data_get($result, 'warning_count'),
+                'probe_count' => (int) data_get($result, 'probe_evidence.probe_count'),
+            ],
+        );
+    }
+
+    private function buildTaskQueueOrchestrator(): AgentControlPlaneTaskQueueOrchestrator
+    {
+        return new AgentControlPlaneTaskQueueOrchestrator(
+            new AgentControlPlaneTaskPacketBuilder,
+            new AgentControlPlaneScopeLockRuntimeValidator,
+            new AgentControlPlaneTaskPacketQueueRepository,
+            new AgentControlPlaneClaimLeaseRepository,
+            new AgentControlPlaneEvidenceLedgerDryRun,
+            new AgentControlPlaneContinuationSummaryBuilder,
+        );
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function defaultRuntimePilotInput(): array
+    {
+        return [
+            'objective' => 'Runtime Pilot Simulator dry-run for Agent Control Plane v1',
+            'source' => 'runtime_pilot_self_status',
+            'operator_id' => 'operator-runtime-pilot',
+            'parent_run_id' => 'AGENT-CONTROL-PLANE-RUNTIME-PILOT-0001',
+            'allowed_files' => [
+                'app/Services/Ai/SelfConstruction/AgentControlPlaneTaskPacketBuilder.php',
+                'app/Services/Ai/SelfConstruction/AgentControlPlaneClaimLeaseSimulator.php',
+                'app/Services/Ai/SelfConstruction/AgentControlPlaneScopeLockPlanner.php',
+            ],
+            'forbidden_files' => [
+                'routes/api.php',
+            ],
+            'scope_in' => [
+                'app/Services/Ai/SelfConstruction/AgentControlPlaneTaskPacketBuilder.php',
+            ],
+            'acceptance_criteria' => [
+                'task_packet_planned',
+                'scope_lock_safe',
+                'evidence_dry_run_complete',
+            ],
+            'required_evidence' => [
+                'task_packet_created',
+                'claim_lease_simulated',
+                'scope_lock_planned',
+                'continuation_summary_planned',
+                'cost_import_planned',
+                'work_product_manifest_planned',
+                'runtime_pilot_completed',
+            ],
+            'risk_level' => 'low',
+            'max_runtime_seconds' => 1800,
+            'max_token_budget' => 0,
+            'workspace_policy' => [
+                'isolation' => 'simulated_worktree',
+            ],
+            'continuation_context' => [
+                'origin' => 'runtime_pilot_self_status',
+            ],
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function defaultRuntimePilotInputSecondary(): array
+    {
+        return [
+            'objective' => 'Secondary Runtime Pilot Simulator dry-run agent (multi-agent test)',
+            'source' => 'runtime_pilot_self_status_secondary',
+            'operator_id' => 'operator-runtime-pilot-secondary',
+            'parent_run_id' => 'AGENT-CONTROL-PLANE-RUNTIME-PILOT-0002',
+            'allowed_files' => [
+                'app/Services/Ai/SelfConstruction/AgentControlPlaneEvidenceLedgerDryRun.php',
+                'app/Services/Ai/SelfConstruction/AgentControlPlaneContinuationSummaryBuilder.php',
+            ],
+            'forbidden_files' => [
+                'routes/api.php',
+            ],
+            'scope_in' => [
+                'app/Services/Ai/SelfConstruction/AgentControlPlaneEvidenceLedgerDryRun.php',
+            ],
+            'acceptance_criteria' => [
+                'task_packet_planned',
+                'scope_lock_safe',
+            ],
+            'required_evidence' => [
+                'task_packet_created',
+                'claim_lease_simulated',
+                'scope_lock_planned',
+                'continuation_summary_planned',
+                'cost_import_planned',
+                'work_product_manifest_planned',
+                'runtime_pilot_completed',
+            ],
+            'risk_level' => 'low',
+            'max_runtime_seconds' => 1800,
+            'max_token_budget' => 0,
+        ];
+    }
+
+    private function buildRuntimePilotOrchestrator(): AgentControlPlaneRuntimePilotOrchestrator
+    {
+        $audit = new AgentControlPlaneChainIntegrityAuditService($this);
+        $replay = new AgentControlPlaneDeterministicChainReplayService($audit, $this);
+
+        return new AgentControlPlaneRuntimePilotOrchestrator(
+            new AgentControlPlaneTaskPacketBuilder,
+            new AgentControlPlaneClaimLeaseSimulator,
+            new AgentControlPlaneScopeLockPlanner,
+            new AgentControlPlaneEvidenceLedgerDryRun,
+            new AgentControlPlaneContinuationSummaryBuilder,
+            new AgentControlPlaneWorkProductManifestPlanner,
+            new AgentControlPlaneCostImportDryRun,
+            new AgentControlPlaneMultiAgentParallelismPlanner,
+            $audit,
+            $replay,
+        );
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function buildCertificationWorkbenchQuartet(string $keyPrefix, string $label, string $schemaVersion, string $serviceClass, string $stage): array
+    {
+        $stageReady = "agent_control_plane_{$keyPrefix}_{$stage}_ready";
+        $stageUpper = strtoupper(str_replace('_', '-', $keyPrefix));
+        $stageContract = strtoupper($stage);
+        $payload = [
+            'status' => $stage === 'implementation_packet'
+                ? "ready_for_scoped_agent_control_plane_{$keyPrefix}_implementation"
+                : $stageReady,
+            'stage' => $stage,
+            'workbench_layer' => 'certification',
+            'parent_program' => 'Atlas Self-Construction OS',
+            'submodule' => 'Atlas Agent Control Plane',
+            'schema_version' => $schemaVersion,
+            'service_class' => $serviceClass,
+            'invariants' => [
+                "{$keyPrefix}_is_read_only" => true,
+                "{$keyPrefix}_does_not_advance_pointer" => true,
+                "{$keyPrefix}_does_not_call_codex_cli_or_app" => true,
+                "{$keyPrefix}_does_not_start_codex" => true,
+                "{$keyPrefix}_does_not_invoke_adapter" => true,
+                "{$keyPrefix}_does_not_execute_adapter" => true,
+                "{$keyPrefix}_does_not_call_provider" => true,
+                "{$keyPrefix}_does_not_dispatch_work" => true,
+                "{$keyPrefix}_does_not_spend_tokens" => true,
+                "{$keyPrefix}_does_not_enable_self_programming" => true,
+                "{$keyPrefix}_does_not_write_ledger" => true,
+                "{$keyPrefix}_does_not_promote_completion_claim" => true,
+            ],
+            'forbidden_even_after' => [
+                'mutate_agent_control_plane',
+                'advance_next_required_slice',
+                'invoke_codex',
+                'dispatch_work',
+                'spawn_subprocess',
+                'enable_self_programming',
+                'declare_atlas_self_construction_os_complete',
+                'promote_completion_claim',
+            ],
+            'next_required_slice' => $stage === 'contract'
+                ? "activate_agent_control_plane_{$keyPrefix}_preflight"
+                : ($stage === 'preflight'
+                    ? "activate_agent_control_plane_{$keyPrefix}_implementation_packet"
+                    : ($stage === 'implementation_packet'
+                        ? "activate_agent_control_plane_{$keyPrefix}_service"
+                        : '')),
+            'identifier' => "AGENT-CONTROL-PLANE-{$stageUpper}-{$stageContract}-SELF-CONSTRUCTION-0001",
+        ];
+
+        if ($stage === 'preflight') {
+            $payload['preflight_checks'] = [
+                'service_class_exists' => class_exists($serviceClass),
+            ];
+            $payload['blocking_count'] = $payload['preflight_checks']['service_class_exists'] ? 0 : 1;
+            $payload['blocking_reasons'] = $payload['preflight_checks']['service_class_exists'] ? [] : ['service_class_missing'];
+        } elseif ($stage === 'implementation_packet') {
+            $payload['allowed_files'] = [
+                'app/Services/Ai/SelfConstruction/'.class_basename($serviceClass).'.php',
+                'app/Services/Ai/SelfConstruction/AtlasSelfConstructionReadinessService.php',
+                'app/Console/Commands/AtlasAiSelfConstructionCommand.php',
+                'tests/Feature/Ai/AtlasAiSelfConstructionCommandTest.php',
+                'docs/engineering-knowledge-base/self-construction/agent-control-plane-contract.md',
+            ];
+            $payload['acceptance_criteria'] = [
+                "{$keyPrefix}_returns_schema_v1",
+                "{$keyPrefix}_is_read_only",
+                "{$keyPrefix}_emits_stable_hash",
+                "{$keyPrefix}_does_not_advance_pointer",
+                "{$keyPrefix}_does_not_write_ledger",
+                "{$keyPrefix}_does_not_start_runtime",
+                'readiness_service_exposes_quartet_methods',
+                'cli_exposes_quartet_options',
+                'capabilities_registered_in_agent_control_plane',
+                'documentation_describes_workbench_layer',
+                'dedicated_test_suite_covers_workbench_layer',
+            ];
+            $payload['implementation_policy'] = [
+                "{$keyPrefix}_is_read_only" => true,
+                'pointer_mutation_allowed_by_packet' => false,
+                'runtime_flag_mutation_allowed_by_packet' => false,
+                'provider_invocation_allowed_by_packet' => false,
+                'adapter_invocation_allowed_by_packet' => false,
+                'dispatch_allowed_by_packet' => false,
+                'token_spend_allowed_by_packet' => false,
+                'self_programming_allowed_by_packet' => false,
+                'completion_claim_allowed_by_packet' => false,
+            ];
+        }
+
+        return [
+            'schema_version' => "atlas.self_construction_agent_control_plane_{$keyPrefix}_{$stage}.v1",
+            'status' => (string) $payload['status'],
+            'mode' => "read_only_agent_control_plane_{$keyPrefix}_{$stage}",
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            "agent_control_plane_{$keyPrefix}_{$stage}" => $payload,
+            "agent_control_plane_{$keyPrefix}_{$stage}_hash" => $this->stableHash($payload),
+            'non_execution_guarantees' => [
+                "agent_control_plane_{$keyPrefix}_{$stage}_does_not_start_codex",
+                "agent_control_plane_{$keyPrefix}_{$stage}_does_not_advance_pointer",
+                "agent_control_plane_{$keyPrefix}_{$stage}_does_not_dispatch_work",
+                "agent_control_plane_{$keyPrefix}_{$stage}_does_not_execute_adapter",
+                "agent_control_plane_{$keyPrefix}_{$stage}_does_not_enable_self_programming",
+            ],
+            'human_summary' => "Agent Control Plane {$label} {$stage} is ready and read-only.",
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     * @param  array<string, mixed>  $extraStatusFields
+     * @return array<string, mixed>
+     */
+    private function wrapCertificationWorkbenchStatus(string $keyPrefix, string $label, array $payload, string $statusKey, array $extraStatusFields): array
+    {
+        $statusValue = (string) data_get($payload, $statusKey, 'unknown');
+        $status = array_merge([
+            'status' => $statusValue,
+        ], $extraStatusFields);
+
+        return [
+            'schema_version' => "atlas.self_construction_agent_control_plane_{$keyPrefix}_status.v1",
+            'status' => $statusValue,
+            'mode' => "read_only_agent_control_plane_{$keyPrefix}_status",
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            "agent_control_plane_{$keyPrefix}_status" => $status,
+            "agent_control_plane_{$keyPrefix}" => $payload,
+            "agent_control_plane_{$keyPrefix}_status_hash" => $this->stableHash($status),
+            'non_execution_guarantees' => [
+                "agent_control_plane_{$keyPrefix}_status_does_not_start_codex",
+                "agent_control_plane_{$keyPrefix}_status_does_not_advance_pointer",
+                "agent_control_plane_{$keyPrefix}_status_does_not_dispatch_work",
+                "agent_control_plane_{$keyPrefix}_status_does_not_execute_adapter",
+                "agent_control_plane_{$keyPrefix}_status_does_not_enable_self_programming",
+            ],
+            'human_summary' => "Agent Control Plane {$label} status is {$statusValue}.",
         ];
     }
 

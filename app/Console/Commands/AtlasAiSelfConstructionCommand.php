@@ -91,6 +91,110 @@ class AtlasAiSelfConstructionCommand extends Command
         {--agent-control-plane-macro-sprint-promotion-gate-preflight : Generate the read-only Agent Control Plane Macro-Sprint Promotion Gate preflight}
         {--agent-control-plane-macro-sprint-promotion-gate-implementation-packet : Generate the read-only Agent Control Plane Macro-Sprint Promotion Gate implementation packet}
         {--agent-control-plane-macro-sprint-promotion-gate-status : Run the read-only Agent Control Plane Macro-Sprint Promotion Gate and return blockers/warnings/promotion_allowed}
+        {--agent-control-plane-certification-baseline-contract : Generate the read-only Certification Baseline contract}
+        {--agent-control-plane-certification-baseline-preflight : Generate the read-only Certification Baseline preflight}
+        {--agent-control-plane-certification-baseline-implementation-packet : Generate the read-only Certification Baseline implementation packet}
+        {--agent-control-plane-certification-baseline-status : Run the read-only Certification Baseline and return its hash and sections}
+        {--agent-control-plane-certification-scenario-simulator-contract : Generate the read-only Certification Scenario Simulator contract}
+        {--agent-control-plane-certification-scenario-simulator-preflight : Generate the read-only Certification Scenario Simulator preflight}
+        {--agent-control-plane-certification-scenario-simulator-implementation-packet : Generate the read-only Certification Scenario Simulator implementation packet}
+        {--agent-control-plane-certification-scenario-simulator-status : Run the read-only Certification Scenario Simulator and return detection rate}
+        {--agent-control-plane-release-dossier-contract : Generate the read-only Release Dossier contract}
+        {--agent-control-plane-release-dossier-preflight : Generate the read-only Release Dossier preflight}
+        {--agent-control-plane-release-dossier-implementation-packet : Generate the read-only Release Dossier implementation packet}
+        {--agent-control-plane-release-dossier-status : Run the read-only Release Dossier and return risk classification}
+        {--agent-control-plane-certification-mutation-guard-contract : Generate the read-only Certification Mutation Guard contract}
+        {--agent-control-plane-certification-mutation-guard-preflight : Generate the read-only Certification Mutation Guard preflight}
+        {--agent-control-plane-certification-mutation-guard-implementation-packet : Generate the read-only Certification Mutation Guard implementation packet}
+        {--agent-control-plane-certification-mutation-guard-status : Run the read-only Certification Mutation Guard and return guard_passed}
+        {--agent-control-plane-certification-evidence-query-contract : Generate the read-only Certification Evidence Query contract}
+        {--agent-control-plane-certification-evidence-query-preflight : Generate the read-only Certification Evidence Query preflight}
+        {--agent-control-plane-certification-evidence-query-implementation-packet : Generate the read-only Certification Evidence Query implementation packet}
+        {--agent-control-plane-certification-evidence-query-status : Run the read-only Certification Evidence Query DSL and return facets}
+        {--agent-control-plane-certification-scenario-corpus-contract : Generate the read-only Certification Scenario Corpus contract}
+        {--agent-control-plane-certification-scenario-corpus-preflight : Generate the read-only Certification Scenario Corpus preflight}
+        {--agent-control-plane-certification-scenario-corpus-implementation-packet : Generate the read-only Certification Scenario Corpus implementation packet}
+        {--agent-control-plane-certification-scenario-corpus-status : Return the canonical Certification Scenario Corpus}
+        {--agent-control-plane-certification-fuzz-harness-contract : Generate the read-only Certification Fuzz Harness contract}
+        {--agent-control-plane-certification-fuzz-harness-preflight : Generate the read-only Certification Fuzz Harness preflight}
+        {--agent-control-plane-certification-fuzz-harness-implementation-packet : Generate the read-only Certification Fuzz Harness implementation packet}
+        {--agent-control-plane-certification-fuzz-harness-status : Run the read-only Certification Fuzz Harness}
+        {--agent-control-plane-multi-snapshot-comparison-contract : Generate the read-only Multi-Snapshot Comparison contract}
+        {--agent-control-plane-multi-snapshot-comparison-preflight : Generate the read-only Multi-Snapshot Comparison preflight}
+        {--agent-control-plane-multi-snapshot-comparison-implementation-packet : Generate the read-only Multi-Snapshot Comparison implementation packet}
+        {--agent-control-plane-multi-snapshot-comparison-status : Run the read-only Multi-Snapshot Comparison and return timelines}
+        {--agent-control-plane-release-dossier-exporter-contract : Generate the read-only Release Dossier Exporter contract}
+        {--agent-control-plane-release-dossier-exporter-preflight : Generate the read-only Release Dossier Exporter preflight}
+        {--agent-control-plane-release-dossier-exporter-implementation-packet : Generate the read-only Release Dossier Exporter implementation packet}
+        {--agent-control-plane-release-dossier-exporter-status : Run the read-only Release Dossier Exporter and return JSON+Markdown payload}
+        {--agent-control-plane-certification-coverage-report-contract : Generate the read-only Certification Coverage Report contract}
+        {--agent-control-plane-certification-coverage-report-preflight : Generate the read-only Certification Coverage Report preflight}
+        {--agent-control-plane-certification-coverage-report-implementation-packet : Generate the read-only Certification Coverage Report implementation packet}
+        {--agent-control-plane-certification-coverage-report-status : Run the read-only Certification Coverage Report and return coverage_score}
+        {--agent-control-plane-certification-status-batch-contract : Generate the read-only Certification Status Batch contract}
+        {--agent-control-plane-certification-status-batch-preflight : Generate the read-only Certification Status Batch preflight}
+        {--agent-control-plane-certification-status-batch-implementation-packet : Generate the read-only Certification Status Batch implementation packet}
+        {--agent-control-plane-certification-status-batch-status : Run the read-only Certification Status Batch over every status projection}
+        {--agent-control-plane-task-packet-builder-contract : Generate the read-only Task Packet Builder contract}
+        {--agent-control-plane-task-packet-builder-preflight : Generate the read-only Task Packet Builder preflight}
+        {--agent-control-plane-task-packet-builder-implementation-packet : Generate the read-only Task Packet Builder implementation packet}
+        {--agent-control-plane-task-packet-builder-status : Run the read-only Task Packet Builder against the default Runtime Pilot input}
+        {--agent-control-plane-claim-lease-simulator-contract : Generate the read-only Claim/Lease Simulator contract}
+        {--agent-control-plane-claim-lease-simulator-preflight : Generate the read-only Claim/Lease Simulator preflight}
+        {--agent-control-plane-claim-lease-simulator-implementation-packet : Generate the read-only Claim/Lease Simulator implementation packet}
+        {--agent-control-plane-claim-lease-simulator-status : Run the read-only Claim/Lease Simulator against the default Runtime Pilot input}
+        {--agent-control-plane-scope-lock-planner-contract : Generate the read-only Scope Lock Planner contract}
+        {--agent-control-plane-scope-lock-planner-preflight : Generate the read-only Scope Lock Planner preflight}
+        {--agent-control-plane-scope-lock-planner-implementation-packet : Generate the read-only Scope Lock Planner implementation packet}
+        {--agent-control-plane-scope-lock-planner-status : Run the read-only Scope Lock Planner against the default Runtime Pilot input}
+        {--agent-control-plane-evidence-ledger-dry-run-contract : Generate the read-only Evidence Ledger Dry-Run contract}
+        {--agent-control-plane-evidence-ledger-dry-run-preflight : Generate the read-only Evidence Ledger Dry-Run preflight}
+        {--agent-control-plane-evidence-ledger-dry-run-implementation-packet : Generate the read-only Evidence Ledger Dry-Run implementation packet}
+        {--agent-control-plane-evidence-ledger-dry-run-status : Run the read-only Evidence Ledger Dry-Run against the default Runtime Pilot input}
+        {--agent-control-plane-continuation-summary-builder-contract : Generate the read-only Continuation Summary Builder contract}
+        {--agent-control-plane-continuation-summary-builder-preflight : Generate the read-only Continuation Summary Builder preflight}
+        {--agent-control-plane-continuation-summary-builder-implementation-packet : Generate the read-only Continuation Summary Builder implementation packet}
+        {--agent-control-plane-continuation-summary-builder-status : Run the read-only Continuation Summary Builder against the default Runtime Pilot input}
+        {--agent-control-plane-work-product-manifest-planner-contract : Generate the read-only Work Product Manifest Planner contract}
+        {--agent-control-plane-work-product-manifest-planner-preflight : Generate the read-only Work Product Manifest Planner preflight}
+        {--agent-control-plane-work-product-manifest-planner-implementation-packet : Generate the read-only Work Product Manifest Planner implementation packet}
+        {--agent-control-plane-work-product-manifest-planner-status : Run the read-only Work Product Manifest Planner against the default Runtime Pilot input}
+        {--agent-control-plane-cost-import-dry-run-contract : Generate the read-only Cost Import Dry-Run contract}
+        {--agent-control-plane-cost-import-dry-run-preflight : Generate the read-only Cost Import Dry-Run preflight}
+        {--agent-control-plane-cost-import-dry-run-implementation-packet : Generate the read-only Cost Import Dry-Run implementation packet}
+        {--agent-control-plane-cost-import-dry-run-status : Run the read-only Cost Import Dry-Run against the default Runtime Pilot input}
+        {--agent-control-plane-multi-agent-parallelism-planner-contract : Generate the read-only Multi-Agent Parallelism Planner contract}
+        {--agent-control-plane-multi-agent-parallelism-planner-preflight : Generate the read-only Multi-Agent Parallelism Planner preflight}
+        {--agent-control-plane-multi-agent-parallelism-planner-implementation-packet : Generate the read-only Multi-Agent Parallelism Planner implementation packet}
+        {--agent-control-plane-multi-agent-parallelism-planner-status : Run the read-only Multi-Agent Parallelism Planner against the default Runtime Pilot input}
+        {--agent-control-plane-runtime-pilot-orchestrator-contract : Generate the read-only Runtime Pilot Orchestrator contract}
+        {--agent-control-plane-runtime-pilot-orchestrator-preflight : Generate the read-only Runtime Pilot Orchestrator preflight}
+        {--agent-control-plane-runtime-pilot-orchestrator-implementation-packet : Generate the read-only Runtime Pilot Orchestrator implementation packet}
+        {--agent-control-plane-runtime-pilot-orchestrator-status : Run the full read-only Runtime Pilot Orchestrator and return the dry-run pilot}
+        {--agent-control-plane-runtime-pilot-certification-contract : Generate the read-only Runtime Pilot Certification contract}
+        {--agent-control-plane-runtime-pilot-certification-preflight : Generate the read-only Runtime Pilot Certification preflight}
+        {--agent-control-plane-runtime-pilot-certification-implementation-packet : Generate the read-only Runtime Pilot Certification implementation packet}
+        {--agent-control-plane-runtime-pilot-certification-status : Run the read-only Runtime Pilot Certification against the Runtime Pilot Orchestrator output}
+        {--agent-control-plane-task-packet-queue-contract : Generate the persistent Task Packet Queue repository contract}
+        {--agent-control-plane-task-packet-queue-preflight : Generate the persistent Task Packet Queue repository preflight}
+        {--agent-control-plane-task-packet-queue-implementation-packet : Generate the persistent Task Packet Queue repository implementation packet}
+        {--agent-control-plane-task-packet-queue-status : Inspect the persistent Task Packet Queue registry without dispatching providers}
+        {--agent-control-plane-claim-lease-runtime-contract : Generate the persistent Claim/Lease runtime repository contract}
+        {--agent-control-plane-claim-lease-runtime-preflight : Generate the persistent Claim/Lease runtime repository preflight}
+        {--agent-control-plane-claim-lease-runtime-implementation-packet : Generate the persistent Claim/Lease runtime repository implementation packet}
+        {--agent-control-plane-claim-lease-runtime-status : Inspect the persistent Claim/Lease registry without starting providers}
+        {--agent-control-plane-scope-lock-runtime-validator-contract : Generate the Scope Lock Runtime Validator contract}
+        {--agent-control-plane-scope-lock-runtime-validator-preflight : Generate the Scope Lock Runtime Validator preflight}
+        {--agent-control-plane-scope-lock-runtime-validator-implementation-packet : Generate the Scope Lock Runtime Validator implementation packet}
+        {--agent-control-plane-scope-lock-runtime-validator-status : Run the Scope Lock Runtime Validator against the default Runtime Pilot input}
+        {--agent-control-plane-task-queue-orchestrator-contract : Generate the persistent Task Queue Orchestrator contract}
+        {--agent-control-plane-task-queue-orchestrator-preflight : Generate the persistent Task Queue Orchestrator preflight}
+        {--agent-control-plane-task-queue-orchestrator-implementation-packet : Generate the persistent Task Queue Orchestrator implementation packet}
+        {--agent-control-plane-task-queue-orchestrator-status : Run the persistent Task Queue Orchestrator end-to-end dry run}
+        {--agent-control-plane-task-queue-lease-certification-contract : Generate the Task Queue + Lease certification contract}
+        {--agent-control-plane-task-queue-lease-certification-preflight : Generate the Task Queue + Lease certification preflight}
+        {--agent-control-plane-task-queue-lease-certification-implementation-packet : Generate the Task Queue + Lease certification implementation packet}
+        {--agent-control-plane-task-queue-lease-certification-status : Run the Task Queue + Lease certification probe battery}
         {--agent-run-sync : Materialize reservation ledger state into Agent Control Plane runtime runs when schema is available}
         {--agent-heartbeat : Record a heartbeat for a synced Agent Control Plane run}
         {--agent-run-liveness : Inspect synced Agent Control Plane runs for active, stale, expired and terminal liveness}
@@ -1546,6 +1650,110 @@ class AtlasAiSelfConstructionCommand extends Command
             (bool) $this->option('agent-run-liveness') => $readiness->agentRunLiveness($options),
             (bool) $this->option('agent-heartbeat') => $readiness->agentHeartbeat($options),
             (bool) $this->option('agent-run-sync') => $readiness->agentRunSync($options),
+            (bool) $this->option('agent-control-plane-task-queue-lease-certification-status') => $readiness->agentControlPlaneTaskQueueLeaseCertificationStatus($options),
+            (bool) $this->option('agent-control-plane-task-queue-lease-certification-implementation-packet') => $readiness->agentControlPlaneTaskQueueLeaseCertificationImplementationPacket($options),
+            (bool) $this->option('agent-control-plane-task-queue-lease-certification-preflight') => $readiness->agentControlPlaneTaskQueueLeaseCertificationPreflight($options),
+            (bool) $this->option('agent-control-plane-task-queue-lease-certification-contract') => $readiness->agentControlPlaneTaskQueueLeaseCertificationContract($options),
+            (bool) $this->option('agent-control-plane-task-queue-orchestrator-status') => $readiness->agentControlPlaneTaskQueueOrchestratorStatus($options),
+            (bool) $this->option('agent-control-plane-task-queue-orchestrator-implementation-packet') => $readiness->agentControlPlaneTaskQueueOrchestratorImplementationPacket($options),
+            (bool) $this->option('agent-control-plane-task-queue-orchestrator-preflight') => $readiness->agentControlPlaneTaskQueueOrchestratorPreflight($options),
+            (bool) $this->option('agent-control-plane-task-queue-orchestrator-contract') => $readiness->agentControlPlaneTaskQueueOrchestratorContract($options),
+            (bool) $this->option('agent-control-plane-scope-lock-runtime-validator-status') => $readiness->agentControlPlaneScopeLockRuntimeValidatorStatus($options),
+            (bool) $this->option('agent-control-plane-scope-lock-runtime-validator-implementation-packet') => $readiness->agentControlPlaneScopeLockRuntimeValidatorImplementationPacket($options),
+            (bool) $this->option('agent-control-plane-scope-lock-runtime-validator-preflight') => $readiness->agentControlPlaneScopeLockRuntimeValidatorPreflight($options),
+            (bool) $this->option('agent-control-plane-scope-lock-runtime-validator-contract') => $readiness->agentControlPlaneScopeLockRuntimeValidatorContract($options),
+            (bool) $this->option('agent-control-plane-claim-lease-runtime-status') => $readiness->agentControlPlaneClaimLeaseRuntimeStatus($options),
+            (bool) $this->option('agent-control-plane-claim-lease-runtime-implementation-packet') => $readiness->agentControlPlaneClaimLeaseRuntimeImplementationPacket($options),
+            (bool) $this->option('agent-control-plane-claim-lease-runtime-preflight') => $readiness->agentControlPlaneClaimLeaseRuntimePreflight($options),
+            (bool) $this->option('agent-control-plane-claim-lease-runtime-contract') => $readiness->agentControlPlaneClaimLeaseRuntimeContract($options),
+            (bool) $this->option('agent-control-plane-task-packet-queue-status') => $readiness->agentControlPlaneTaskPacketQueueStatus($options),
+            (bool) $this->option('agent-control-plane-task-packet-queue-implementation-packet') => $readiness->agentControlPlaneTaskPacketQueueImplementationPacket($options),
+            (bool) $this->option('agent-control-plane-task-packet-queue-preflight') => $readiness->agentControlPlaneTaskPacketQueuePreflight($options),
+            (bool) $this->option('agent-control-plane-task-packet-queue-contract') => $readiness->agentControlPlaneTaskPacketQueueContract($options),
+            (bool) $this->option('agent-control-plane-runtime-pilot-certification-status') => $readiness->agentControlPlaneRuntimePilotCertificationStatus($options),
+            (bool) $this->option('agent-control-plane-runtime-pilot-certification-implementation-packet') => $readiness->agentControlPlaneRuntimePilotCertificationImplementationPacket($options),
+            (bool) $this->option('agent-control-plane-runtime-pilot-certification-preflight') => $readiness->agentControlPlaneRuntimePilotCertificationPreflight($options),
+            (bool) $this->option('agent-control-plane-runtime-pilot-certification-contract') => $readiness->agentControlPlaneRuntimePilotCertificationContract($options),
+            (bool) $this->option('agent-control-plane-runtime-pilot-orchestrator-status') => $readiness->agentControlPlaneRuntimePilotOrchestratorStatus($options),
+            (bool) $this->option('agent-control-plane-runtime-pilot-orchestrator-implementation-packet') => $readiness->agentControlPlaneRuntimePilotOrchestratorImplementationPacket($options),
+            (bool) $this->option('agent-control-plane-runtime-pilot-orchestrator-preflight') => $readiness->agentControlPlaneRuntimePilotOrchestratorPreflight($options),
+            (bool) $this->option('agent-control-plane-runtime-pilot-orchestrator-contract') => $readiness->agentControlPlaneRuntimePilotOrchestratorContract($options),
+            (bool) $this->option('agent-control-plane-multi-agent-parallelism-planner-status') => $readiness->agentControlPlaneMultiAgentParallelismPlannerStatus($options),
+            (bool) $this->option('agent-control-plane-multi-agent-parallelism-planner-implementation-packet') => $readiness->agentControlPlaneMultiAgentParallelismPlannerImplementationPacket($options),
+            (bool) $this->option('agent-control-plane-multi-agent-parallelism-planner-preflight') => $readiness->agentControlPlaneMultiAgentParallelismPlannerPreflight($options),
+            (bool) $this->option('agent-control-plane-multi-agent-parallelism-planner-contract') => $readiness->agentControlPlaneMultiAgentParallelismPlannerContract($options),
+            (bool) $this->option('agent-control-plane-cost-import-dry-run-status') => $readiness->agentControlPlaneCostImportDryRunStatus($options),
+            (bool) $this->option('agent-control-plane-cost-import-dry-run-implementation-packet') => $readiness->agentControlPlaneCostImportDryRunImplementationPacket($options),
+            (bool) $this->option('agent-control-plane-cost-import-dry-run-preflight') => $readiness->agentControlPlaneCostImportDryRunPreflight($options),
+            (bool) $this->option('agent-control-plane-cost-import-dry-run-contract') => $readiness->agentControlPlaneCostImportDryRunContract($options),
+            (bool) $this->option('agent-control-plane-work-product-manifest-planner-status') => $readiness->agentControlPlaneWorkProductManifestPlannerStatus($options),
+            (bool) $this->option('agent-control-plane-work-product-manifest-planner-implementation-packet') => $readiness->agentControlPlaneWorkProductManifestPlannerImplementationPacket($options),
+            (bool) $this->option('agent-control-plane-work-product-manifest-planner-preflight') => $readiness->agentControlPlaneWorkProductManifestPlannerPreflight($options),
+            (bool) $this->option('agent-control-plane-work-product-manifest-planner-contract') => $readiness->agentControlPlaneWorkProductManifestPlannerContract($options),
+            (bool) $this->option('agent-control-plane-continuation-summary-builder-status') => $readiness->agentControlPlaneContinuationSummaryBuilderStatus($options),
+            (bool) $this->option('agent-control-plane-continuation-summary-builder-implementation-packet') => $readiness->agentControlPlaneContinuationSummaryBuilderImplementationPacket($options),
+            (bool) $this->option('agent-control-plane-continuation-summary-builder-preflight') => $readiness->agentControlPlaneContinuationSummaryBuilderPreflight($options),
+            (bool) $this->option('agent-control-plane-continuation-summary-builder-contract') => $readiness->agentControlPlaneContinuationSummaryBuilderContract($options),
+            (bool) $this->option('agent-control-plane-evidence-ledger-dry-run-status') => $readiness->agentControlPlaneEvidenceLedgerDryRunStatus($options),
+            (bool) $this->option('agent-control-plane-evidence-ledger-dry-run-implementation-packet') => $readiness->agentControlPlaneEvidenceLedgerDryRunImplementationPacket($options),
+            (bool) $this->option('agent-control-plane-evidence-ledger-dry-run-preflight') => $readiness->agentControlPlaneEvidenceLedgerDryRunPreflight($options),
+            (bool) $this->option('agent-control-plane-evidence-ledger-dry-run-contract') => $readiness->agentControlPlaneEvidenceLedgerDryRunContract($options),
+            (bool) $this->option('agent-control-plane-scope-lock-planner-status') => $readiness->agentControlPlaneScopeLockPlannerStatus($options),
+            (bool) $this->option('agent-control-plane-scope-lock-planner-implementation-packet') => $readiness->agentControlPlaneScopeLockPlannerImplementationPacket($options),
+            (bool) $this->option('agent-control-plane-scope-lock-planner-preflight') => $readiness->agentControlPlaneScopeLockPlannerPreflight($options),
+            (bool) $this->option('agent-control-plane-scope-lock-planner-contract') => $readiness->agentControlPlaneScopeLockPlannerContract($options),
+            (bool) $this->option('agent-control-plane-claim-lease-simulator-status') => $readiness->agentControlPlaneClaimLeaseSimulatorStatus($options),
+            (bool) $this->option('agent-control-plane-claim-lease-simulator-implementation-packet') => $readiness->agentControlPlaneClaimLeaseSimulatorImplementationPacket($options),
+            (bool) $this->option('agent-control-plane-claim-lease-simulator-preflight') => $readiness->agentControlPlaneClaimLeaseSimulatorPreflight($options),
+            (bool) $this->option('agent-control-plane-claim-lease-simulator-contract') => $readiness->agentControlPlaneClaimLeaseSimulatorContract($options),
+            (bool) $this->option('agent-control-plane-task-packet-builder-status') => $readiness->agentControlPlaneTaskPacketBuilderStatus($options),
+            (bool) $this->option('agent-control-plane-task-packet-builder-implementation-packet') => $readiness->agentControlPlaneTaskPacketBuilderImplementationPacket($options),
+            (bool) $this->option('agent-control-plane-task-packet-builder-preflight') => $readiness->agentControlPlaneTaskPacketBuilderPreflight($options),
+            (bool) $this->option('agent-control-plane-task-packet-builder-contract') => $readiness->agentControlPlaneTaskPacketBuilderContract($options),
+            (bool) $this->option('agent-control-plane-certification-status-batch-status') => $readiness->agentControlPlaneCertificationStatusBatchStatus($options),
+            (bool) $this->option('agent-control-plane-certification-status-batch-implementation-packet') => $readiness->agentControlPlaneCertificationStatusBatchImplementationPacket($options),
+            (bool) $this->option('agent-control-plane-certification-status-batch-preflight') => $readiness->agentControlPlaneCertificationStatusBatchPreflight($options),
+            (bool) $this->option('agent-control-plane-certification-status-batch-contract') => $readiness->agentControlPlaneCertificationStatusBatchContract($options),
+            (bool) $this->option('agent-control-plane-certification-coverage-report-status') => $readiness->agentControlPlaneCertificationCoverageReportStatus($options),
+            (bool) $this->option('agent-control-plane-certification-coverage-report-implementation-packet') => $readiness->agentControlPlaneCertificationCoverageReportImplementationPacket($options),
+            (bool) $this->option('agent-control-plane-certification-coverage-report-preflight') => $readiness->agentControlPlaneCertificationCoverageReportPreflight($options),
+            (bool) $this->option('agent-control-plane-certification-coverage-report-contract') => $readiness->agentControlPlaneCertificationCoverageReportContract($options),
+            (bool) $this->option('agent-control-plane-release-dossier-exporter-status') => $readiness->agentControlPlaneReleaseDossierExporterStatus($options),
+            (bool) $this->option('agent-control-plane-release-dossier-exporter-implementation-packet') => $readiness->agentControlPlaneReleaseDossierExporterImplementationPacket($options),
+            (bool) $this->option('agent-control-plane-release-dossier-exporter-preflight') => $readiness->agentControlPlaneReleaseDossierExporterPreflight($options),
+            (bool) $this->option('agent-control-plane-release-dossier-exporter-contract') => $readiness->agentControlPlaneReleaseDossierExporterContract($options),
+            (bool) $this->option('agent-control-plane-multi-snapshot-comparison-status') => $readiness->agentControlPlaneMultiSnapshotComparisonStatus($options),
+            (bool) $this->option('agent-control-plane-multi-snapshot-comparison-implementation-packet') => $readiness->agentControlPlaneMultiSnapshotComparisonImplementationPacket($options),
+            (bool) $this->option('agent-control-plane-multi-snapshot-comparison-preflight') => $readiness->agentControlPlaneMultiSnapshotComparisonPreflight($options),
+            (bool) $this->option('agent-control-plane-multi-snapshot-comparison-contract') => $readiness->agentControlPlaneMultiSnapshotComparisonContract($options),
+            (bool) $this->option('agent-control-plane-certification-fuzz-harness-status') => $readiness->agentControlPlaneCertificationFuzzHarnessStatus($options),
+            (bool) $this->option('agent-control-plane-certification-fuzz-harness-implementation-packet') => $readiness->agentControlPlaneCertificationFuzzHarnessImplementationPacket($options),
+            (bool) $this->option('agent-control-plane-certification-fuzz-harness-preflight') => $readiness->agentControlPlaneCertificationFuzzHarnessPreflight($options),
+            (bool) $this->option('agent-control-plane-certification-fuzz-harness-contract') => $readiness->agentControlPlaneCertificationFuzzHarnessContract($options),
+            (bool) $this->option('agent-control-plane-certification-scenario-corpus-status') => $readiness->agentControlPlaneCertificationScenarioCorpusStatus($options),
+            (bool) $this->option('agent-control-plane-certification-scenario-corpus-implementation-packet') => $readiness->agentControlPlaneCertificationScenarioCorpusImplementationPacket($options),
+            (bool) $this->option('agent-control-plane-certification-scenario-corpus-preflight') => $readiness->agentControlPlaneCertificationScenarioCorpusPreflight($options),
+            (bool) $this->option('agent-control-plane-certification-scenario-corpus-contract') => $readiness->agentControlPlaneCertificationScenarioCorpusContract($options),
+            (bool) $this->option('agent-control-plane-certification-evidence-query-status') => $readiness->agentControlPlaneCertificationEvidenceQueryStatus($options),
+            (bool) $this->option('agent-control-plane-certification-evidence-query-implementation-packet') => $readiness->agentControlPlaneCertificationEvidenceQueryImplementationPacket($options),
+            (bool) $this->option('agent-control-plane-certification-evidence-query-preflight') => $readiness->agentControlPlaneCertificationEvidenceQueryPreflight($options),
+            (bool) $this->option('agent-control-plane-certification-evidence-query-contract') => $readiness->agentControlPlaneCertificationEvidenceQueryContract($options),
+            (bool) $this->option('agent-control-plane-certification-mutation-guard-status') => $readiness->agentControlPlaneCertificationMutationGuardStatus($options),
+            (bool) $this->option('agent-control-plane-certification-mutation-guard-implementation-packet') => $readiness->agentControlPlaneCertificationMutationGuardImplementationPacket($options),
+            (bool) $this->option('agent-control-plane-certification-mutation-guard-preflight') => $readiness->agentControlPlaneCertificationMutationGuardPreflight($options),
+            (bool) $this->option('agent-control-plane-certification-mutation-guard-contract') => $readiness->agentControlPlaneCertificationMutationGuardContract($options),
+            (bool) $this->option('agent-control-plane-release-dossier-status') => $readiness->agentControlPlaneReleaseDossierStatus($options),
+            (bool) $this->option('agent-control-plane-release-dossier-implementation-packet') => $readiness->agentControlPlaneReleaseDossierImplementationPacket($options),
+            (bool) $this->option('agent-control-plane-release-dossier-preflight') => $readiness->agentControlPlaneReleaseDossierPreflight($options),
+            (bool) $this->option('agent-control-plane-release-dossier-contract') => $readiness->agentControlPlaneReleaseDossierContract($options),
+            (bool) $this->option('agent-control-plane-certification-scenario-simulator-status') => $readiness->agentControlPlaneCertificationScenarioSimulatorStatus($options),
+            (bool) $this->option('agent-control-plane-certification-scenario-simulator-implementation-packet') => $readiness->agentControlPlaneCertificationScenarioSimulatorImplementationPacket($options),
+            (bool) $this->option('agent-control-plane-certification-scenario-simulator-preflight') => $readiness->agentControlPlaneCertificationScenarioSimulatorPreflight($options),
+            (bool) $this->option('agent-control-plane-certification-scenario-simulator-contract') => $readiness->agentControlPlaneCertificationScenarioSimulatorContract($options),
+            (bool) $this->option('agent-control-plane-certification-baseline-status') => $readiness->agentControlPlaneCertificationBaselineStatus($options),
+            (bool) $this->option('agent-control-plane-certification-baseline-implementation-packet') => $readiness->agentControlPlaneCertificationBaselineImplementationPacket($options),
+            (bool) $this->option('agent-control-plane-certification-baseline-preflight') => $readiness->agentControlPlaneCertificationBaselinePreflight($options),
+            (bool) $this->option('agent-control-plane-certification-baseline-contract') => $readiness->agentControlPlaneCertificationBaselineContract($options),
             (bool) $this->option('agent-control-plane-macro-sprint-promotion-gate-status') => $readiness->agentControlPlaneMacroSprintPromotionGateStatus($options),
             (bool) $this->option('agent-control-plane-macro-sprint-promotion-gate-implementation-packet') => $readiness->agentControlPlaneMacroSprintPromotionGateImplementationPacket($options),
             (bool) $this->option('agent-control-plane-macro-sprint-promotion-gate-preflight') => $readiness->agentControlPlaneMacroSprintPromotionGatePreflight($options),
@@ -5942,6 +6150,44 @@ class AtlasAiSelfConstructionCommand extends Command
             $this->line((string) $payload['human_summary']);
 
             return self::SUCCESS;
+        }
+
+        foreach ([
+            ['certification-baseline', 'certification_baseline', 'Certification Baseline'],
+            ['certification-scenario-simulator', 'certification_scenario_simulator', 'Certification Scenario Simulator'],
+            ['release-dossier', 'release_dossier', 'Release Dossier'],
+            ['certification-mutation-guard', 'certification_mutation_guard', 'Certification Mutation Guard'],
+            ['certification-evidence-query', 'certification_evidence_query', 'Certification Evidence Query'],
+            ['certification-scenario-corpus', 'certification_scenario_corpus', 'Certification Scenario Corpus'],
+            ['certification-fuzz-harness', 'certification_fuzz_harness', 'Certification Fuzz Harness'],
+            ['multi-snapshot-comparison', 'multi_snapshot_comparison', 'Multi-Snapshot Comparison'],
+            ['release-dossier-exporter', 'release_dossier_exporter', 'Release Dossier Exporter'],
+            ['certification-coverage-report', 'certification_coverage_report', 'Certification Coverage Report'],
+            ['certification-status-batch', 'certification_status_batch', 'Certification Status Batch'],
+        ] as [$flagPrefix, $keyPrefix, $label]) {
+            foreach (['contract', 'preflight', 'implementation-packet', 'status'] as $stage) {
+                $option = "agent-control-plane-{$flagPrefix}-{$stage}";
+                if (! (bool) $this->option($option)) {
+                    continue;
+                }
+                $stageKey = str_replace('-', '_', $stage);
+                $blockKey = "agent_control_plane_{$keyPrefix}_{$stageKey}";
+                $hashKey = "{$blockKey}_hash";
+                $this->components->twoColumnDetail('Mode', (string) data_get($payload, 'mode'));
+                $this->components->twoColumnDetail('Status', (string) data_get($payload, 'status'));
+                if ($stage === 'status') {
+                    $this->components->twoColumnDetail('Status hash', (string) data_get($payload, "agent_control_plane_{$keyPrefix}_status_hash"));
+                    $this->components->twoColumnDetail('Layer', $label);
+                } else {
+                    $this->components->twoColumnDetail('Layer', $label);
+                    $this->components->twoColumnDetail('Hash', (string) data_get($payload, $hashKey));
+                    $this->components->twoColumnDetail('Next required slice', (string) data_get($payload, $blockKey.'.next_required_slice'));
+                }
+                $this->newLine();
+                $this->line((string) data_get($payload, 'human_summary'));
+
+                return self::SUCCESS;
+            }
         }
 
         if ((bool) $this->option('agent-run-sync')) {
