@@ -266,7 +266,7 @@ final class AtlasForgeRivalsAdjudicatorServiceTest extends TestCase
         $manifest = array_replace([
             'schema_version' => 'atlas.forge.rivals.run_real.v1',
             'run_id' => $paths['run_id'],
-            'mode' => 'fair',
+            'mode' => 'local_fake',
             'atlas_model' => 'claude_sonnet',
             'rival_model' => 'claude_sonnet',
             'preset' => 'quick',
@@ -328,7 +328,7 @@ final class AtlasForgeRivalsAdjudicatorServiceTest extends TestCase
     {
         $base = [
             'arm' => $arm,
-            'mode' => 'fair',
+            'mode' => 'local_fake',
             'model' => 'claude_sonnet',
             'command_hash' => hash('sha256', $arm),
             'prompt_hash' => hash('sha256', $arm.'p'),

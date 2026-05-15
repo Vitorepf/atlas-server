@@ -63,6 +63,7 @@ use App\Http\Controllers\AtlasCodeReceiptShowController;
 use App\Http\Controllers\AtlasCodeSessionController;
 use App\Http\Controllers\AtlasCodeThreadController;
 use App\Http\Controllers\AtlasCodeWorkController;
+use App\Http\Controllers\AtlasCodeWorkspaceController;
 use App\Http\Controllers\AtlasConstelacaoController;
 use App\Http\Controllers\AtlasDomainController;
 use App\Http\Controllers\AtlasMemoryController;
@@ -539,6 +540,11 @@ Route::prefix('atlas-code')->group(function () {
     // MCP · pill status
     Route::get('/mcp/status', AtlasCodeMcpStatusController::class);
 
+    // PROJECT / WORKSPACE · multi-project read-model
+    // canon: docs/engineering-knowledge-base/atlas-code-multi-project-workspace-os.md
+    Route::get('/projects/workspaces', [AtlasCodeWorkspaceController::class, 'index']);
+    Route::get('/projects/workspaces/{slug}', [AtlasCodeWorkspaceController::class, 'show']);
+
     // WORKS · normalized Obra surface
     Route::get('/works', [AtlasCodeWorkController::class, 'index']);
     Route::post('/works', [AtlasCodeWorkController::class, 'store']);
@@ -572,6 +578,8 @@ Route::prefix('atlas-code')->group(function () {
     Route::post('/works/{project}/forge/provider-invocations/plan-driver', [AtlasCodeForgeProviderInvocationController::class, 'planDriver']);
     Route::post('/works/{project}/forge/provider-invocations', [AtlasCodeForgeProviderInvocationController::class, 'store']);
     Route::get('/forge/provider-capacity', [\App\Http\Controllers\AtlasCodeForgeProviderCapacityController::class, 'global']);
+    Route::get('/forge/provider-arena/snapshot', [\App\Http\Controllers\AtlasCodeProviderArenaController::class, 'show']);
+    Route::post('/forge/provider-arena/run', [\App\Http\Controllers\AtlasCodeProviderArenaController::class, 'run']);
     Route::get('/works/{project}/forge/provider-capacity', [\App\Http\Controllers\AtlasCodeForgeProviderCapacityController::class, 'show']);
     Route::post('/works/{project}/forge/provider-failures', [\App\Http\Controllers\AtlasCodeForgeProviderCapacityController::class, 'recordFailure']);
     Route::get('/self-improvement/strategy-portfolio', [\App\Http\Controllers\AtlasCodeSelfImprovementGovernanceController::class, 'strategyPortfolio']);

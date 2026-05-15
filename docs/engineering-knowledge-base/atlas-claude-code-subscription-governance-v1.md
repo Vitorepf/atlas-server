@@ -14,16 +14,24 @@ tags:
   - subscription-only
   - provider-governance
 capabilities:
+  - dynamic_provider_bootstrap_defaults
   - claude_code_interactive_observed
+  - gemini_interactive_research_fallback
   - subscription_only_provider_mode
   - no_api_no_extra_credits
   - provider_policy_guardrails
 decisions:
   - A partir de 15 de junho de 2026, Claude Agent SDK, `claude -p`, Claude Code GitHub Actions e apps terceiros via Agent SDK usam credito mensal separado.
   - Claude Code interativo no terminal/IDE continua usando os limites normais da assinatura Claude.
+  - No modo sem API e sem creditos extras, Codex 5.5, Claude Code e Gemini podem iniciar com papeis bootstrap, mas runtime canonico deve evoluir para dynamic provider role assignment.
+  - Claude Code e provider interativo observado permitido, nao motor programatico nem backend headless.
+  - Gemini e provider interativo de apoio permitido; nao substitui o estado governado do Atlas.
+  - Nenhum provider deve ter papel permanente; Atlas Decide deve aprender por Projeto, Obra, work packet, role slot, risco, capacidade e evidencia.
+  - IA local fica fora de escopo por enquanto.
   - Para o limite pessoal do operador, Atlas deve tratar Claude Code como runtime interativo observado, nao como backend headless.
   - Sem API e sem creditos extras, Atlas deve bloquear ou pausar caminhos Claude headless em modo subscription-only.
   - O fluxo eficiente e Atlas governar Obra, contexto, escopo, gates, evidencia e review enquanto o operador usa Claude Code interativo local.
+  - A UX canonica e abrir Claude Code como sessao interativa observada a partir da Obra, com packet, prompt, terminal, importacao, gates e evidence.
 maintenance:
   - Atualize este doc quando Anthropic alterar Claude Code, Agent SDK, billing, termos, uso programatico ou limites de assinatura.
   - Leia este doc antes de alterar `claude_cli`, `ClaudeCliProvider`, AI workers, Forge Provider Invocation ou Atlas Code composer.
@@ -31,6 +39,9 @@ maintenance:
 related_paths:
   - docs/engineering-knowledge-base/atlas-ai-thesis-multiplier-channel.md
   - docs/engineering-knowledge-base/atlas-ai-provider-evolution-intelligence.md
+  - docs/engineering-knowledge-base/atlas-code-interactive-observed-provider-workflow-v1.md
+  - docs/engineering-knowledge-base/atlas-code-adaptive-provider-operating-room-v1.md
+  - docs/engineering-knowledge-base/atlas-code-programming-obras-operating-system.md
   - docs/engineering-knowledge-base/atlas-programming-forge-flow.md
   - docs/engineering-knowledge-base/atlas-forge-governed-provider-invocation-v1.md
   - docs/engineering-knowledge-base/atlas-code-forge-fast-path-v1.md
@@ -61,6 +72,9 @@ allowed_changes:
 forbidden_changes:
   - Tratar `claude -p`, Agent SDK, GitHub Actions ou worker background como Claude Code interativo.
   - Fazer fallback silencioso para API key, PAYG, extra usage ou credito extra.
+  - Reintroduzir IA local como alternativa default enquanto a estrategia atual mantiver IA local fora de escopo.
+  - Tratar Claude Code, Codex, Gemini ou qualquer provider como cerebro principal permanente do Atlas em modo subscription-only.
+  - Transformar papeis bootstrap em politica fixa de runtime.
   - Usar assinatura pessoal Claude como backend multiusuario, servico compartilhado ou automacao de produto.
   - Compartilhar, poolar ou rotear contas Claude para aumentar capacidade.
   - Mascarar automacao headless como uso humano interativo.
@@ -91,7 +105,7 @@ visual_tags:
 ai_entrypoints:
   - Leia Resumo, Contratos, Fluxo, Regras para IA e Riscos antes de implementar qualquer uso de Claude Code no Atlas.
 ai_usage_notes:
-  - Se o operador exigir sem API e sem creditos extras, escolha `claude_code_interactive_observed` ou `atlas-local`; nao escolha `claude_cli` headless.
+  - Se o operador exigir sem API e sem creditos extras, use papeis bootstrap apenas ate existir evidence suficiente; depois siga Dynamic Provider Role Assignment. Nunca escolha `claude_cli` headless, Agent SDK, API ou IA local por fallback implicito.
 quality_gates:
   - no-api-key-fallback
   - no-claude-headless-in-subscription-only
@@ -101,10 +115,14 @@ failure_modes:
   - Worker Claude consumir Agent SDK credit sem o operador perceber.
   - `ANTHROPIC_API_KEY` presente transformar Claude Code em PAYG/API.
   - Atlas Code composer enfileirar job `claude_cli` por default em modo subscription-only.
+  - Qualquer provider virar cerebro principal permanente e ponto unico de falha do Atlas.
+  - IA local ser reativada como fallback implicito sem decisao nova.
   - Produto chamar Claude como backend multiusuario usando assinatura pessoal.
 observability_signals:
+  - orchestrator_provider
   - provider_mode
   - claude_invocation_mode
+  - gemini_support_mode
   - external_provider_call
   - operator_presence
   - api_key_detected
@@ -131,8 +149,12 @@ somente assinatura Claude Code do operador
 Decisao central:
 
 ```text
+Atlas Decide: autoridade de roteamento, escopo, gates, evidencia e aceite.
+Providers: candidatos dinamicos por role slot.
 Claude Code interativo observado: permitido.
 Claude headless/programatico como backend: bloqueado no modo subscription-only.
+Gemini/Codex interativos: permitidos conforme capacidade, evidencia e modo.
+IA local: fora de escopo por enquanto.
 ```
 
 ## Papel no Atlas
@@ -141,13 +163,20 @@ Atlas nao compete com Claude no nivel de modelo. Atlas substitui o uso direto
 como canal operacional: Obra, contexto, escopo, gates, evidencia, review,
 memoria e learning.
 
-Neste modo, Claude Code e o executor interativo local. Atlas continua sendo o
-sistema operacional enterprise acima do provider.
+Neste modo, Atlas e o cerebro operacional: mantem contexto, decide escopo,
+monta pacotes, revisa, integra e valida. Codex 5.5, Claude Code e Gemini sao
+providers candidatos. Eles podem receber papeis bootstrap enquanto nao ha
+evidencia suficiente, mas o alvo canonico e Dynamic Provider Role Assignment:
+o Atlas aprende quem e melhor por Projeto, Obra, work packet, role slot, risco,
+capacidade e evidencia.
+
+Providers sao aceleradores. Atlas e o sistema operacional.
 
 ## Onde Se Encaixa
 
 Este doc governa:
 
+- provider roles no modo sem API e sem creditos extras;
 - Atlas Code composer quando uma intent poderia virar `claude_cli`;
 - AI workers que executam providers;
 - `ClaudeCliProvider`;
@@ -156,7 +185,7 @@ Este doc governa:
 - UX de "usar minha assinatura Claude Code".
 
 Nao governa API/PAYG de producao. API fica fora do limite declarado pelo
-operador.
+operador. Tambem nao governa IA local, que fica fora do escopo atual.
 
 ## Contratos
 
@@ -191,24 +220,36 @@ Creditos sao por usuario, nao podem ser poolados, renovam mensalmente e nao
 acumulam. Se acabarem, chamadas param ate renovar quando extra usage estiver
 desativado; com extra usage ativado, passam para cobranca extra/API rates.
 
+Bootstrap inicial enquanto a memoria de performance ainda e insuficiente:
+
+| Papel bootstrap | Provider inicial | Modo | Funcao inicial |
+| --- | --- | --- | --- |
+| Integracao/revisao | Codex 5.5 | interativo / workspace atual | contexto, decisao assistida, prompts, revisao, integracao, validacao |
+| Arquitetura/implementacao | Claude Code | interativo observado | arquitetura, implementacao, refactor, reparo complexo |
+| Pesquisa/comparacao | Gemini | interativo | pesquisa, comparacao, segunda opiniao |
+| Local | nenhum | fora de escopo | nao usar como fallback automatico agora |
+
+Esses papeis nao sao cargos fixos. Quando houver evidencia suficiente, Atlas
+Decide deve escolher dinamicamente o provider por role slot e registrar receipt.
+
 ## Fluxo
 
 Fluxo eficiente para programacao pesada sem API e sem creditos extras:
 
 ```text
-Atlas Code / Forge
+Atlas Code / Forge com Atlas Decide como orquestrador
 -> Obra
 -> Forge Workspace
 -> Spec / Plan / Task Contract
--> Claude Code Packet
--> terminal interativo local
--> operador inicia `claude`
+-> Work Packet
+-> Dynamic Provider Role Assignment
+-> provider interativo observado quando permitido
 -> Atlas observa diff/testes/evidencias
 -> Atlas valida gates
 -> Atlas aprova, bloqueia ou pede reparo
 ```
 
-O Claude Code Packet deve conter:
+O Work Packet projetado para Claude Code, Codex, Gemini ou outro provider deve conter:
 
 - objetivo em uma frase;
 - contexto tecnico essencial destilado pelo Atlas;
@@ -227,6 +268,10 @@ Atlas deve observar localmente:
 - saida de gates;
 - relatorio final importado pelo operador.
 
+Gemini pode ser usado antes ou durante o fluxo para pesquisa e comparacao, mas
+nao vira fonte de verdade. O estado canonico fica no Atlas: Obra, docs, evidence,
+receipts e gates.
+
 ## Regras para IA
 
 Agentes e implementacoes devem respeitar:
@@ -237,6 +282,10 @@ Agentes e implementacoes devem respeitar:
 - nunca iniciar worker Claude em background;
 - nunca tratar assinatura pessoal como backend multiusuario;
 - nunca mascarar automacao como interacao humana;
+- nunca usar IA local como fallback implicito neste modo;
+- nunca tornar Claude Code, Codex, Gemini ou qualquer provider o cerebro principal persistente do Atlas;
+- nunca transformar papeis bootstrap em politica fixa;
+- usar Gemini apenas como provider interativo quando Atlas Decide ou o operador escolherem;
 - pausar quando limite acabar;
 - registrar evidencia antes de completion claim.
 
@@ -249,7 +298,11 @@ agent_sdk_enabled=false
 anthropic_api_enabled=false
 workers_claude_enabled=false
 queue_execution_for_claude=false
-provider_mode=claude_code_interactive_observed
+provider_assignment_mode=dynamic_provider_role_assignment
+claude_allowed_mode=interactive_observed
+codex_allowed_mode=interactive_or_workspace
+gemini_allowed_mode=interactive_support
+local_ai_enabled=false
 concurrency=1
 require_operator_presence=true
 pause_on_limit=true
@@ -260,13 +313,16 @@ api_fallback=false
 
 Permitido:
 
+- Atlas Decide preparar contexto, prompt, plano, revisao e validacao;
+- Codex 5.5, Claude Code e Gemini atuarem como providers interativos quando selecionados por role slot;
 - preflight local de ambiente;
 - packet builder por Obra;
 - terminal adapter que abre workspace para uso interativo;
 - git/file watcher;
 - gates locais;
 - Evidence Ledger;
-- UX clara de "Modo Local Assistido".
+- UX clara de "Modo Local Assistido";
+- Gemini interativo para pesquisa/comparacao quando o operador decidir.
 
 Bloqueado no modo subscription-only:
 
@@ -276,7 +332,8 @@ Bloqueado no modo subscription-only:
 - GitHub Actions Claude;
 - API/PAYG;
 - provider invocation `execute` com Claude externo;
-- fallback silencioso para outra conta ou credito extra.
+- fallback silencioso para outra conta ou credito extra;
+- fallback automatico para IA local.
 
 ## Dependencias
 
@@ -304,7 +361,8 @@ Cada execucao deve registrar:
 
 - `obra_id`;
 - operador;
-- provider mode `claude_code_interactive_observed`;
+- dynamic provider assignment id quando aplicavel;
+- invocation mode, por exemplo `claude_code_interactive_observed`;
 - packet id/hash;
 - decision receipt;
 - diff hash;
@@ -325,6 +383,9 @@ Riscos principais:
 - LaunchAgent manter worker Claude vivo;
 - `ANTHROPIC_API_KEY` transformar uso em PAYG/API;
 - Forge Provider Invocation executar `claude_cli`;
+- Claude Code virar ponto unico de falha e memoria principal;
+- Gemini ou IA local serem tratados como fonte de verdade;
+- IA local voltar como fallback implicito sem decisao canonica;
 - produto virar passthrough multiusuario de assinatura pessoal.
 
 Consequencias oficiais possiveis em violacoes de policy/termos incluem
@@ -336,7 +397,7 @@ e encerramento de assinatura conforme termos.
 Permitido:
 
 ```text
-Atlas gera packet -> abre terminal -> operador roda `claude` -> Atlas valida diff/testes.
+Atlas gera packet -> seleciona provider por role slot -> operador roda sessao interativa permitida -> Atlas valida diff/testes.
 ```
 
 Bloqueado:
@@ -360,3 +421,4 @@ pausar -> registrar motivo -> manter Obra aberta -> aguardar reset.
 5. Criar terminal adapter para sessao interativa.
 6. Criar watchers de diff/arquivos proibidos.
 7. Ligar gates e Evidence Ledger ao fluxo observado.
+8. Ligar este modo ao Dynamic Provider Role Assignment e registrar papeis bootstrap apenas como sinal inicial.

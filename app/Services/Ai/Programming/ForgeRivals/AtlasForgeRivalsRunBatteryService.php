@@ -10,10 +10,14 @@ use Illuminate\Support\Str;
  * Atlas Forge Rivals · Run Battery (single-button orchestrator).
  *
  * The operator-facing one-command path that chains every phase needed to
- * produce an auditable winner / tie / invalid verdict:
+ * produce an auditable winner / tie / invalid verdict. v2 canonical order
+ * splits evidence/replay into a pre-adjudication pass and a final pass so
+ * that the scorecard is never required before the adjudicator has produced
+ * it (the old order died with `scorecard:not_present_at_replay`).
  *
  *   doctor → setup → preflight → dry-run → plan-real → run-real →
- *   collect-evidence → replay → adjudicate → report
+ *   collect-evidence(pre_adjudication) → replay(pre_adjudication) →
+ *   adjudicate → collect-evidence(final) → replay(final) → report
  *
  * Stops at the first non-`ok` phase and returns the partial pipeline so the
  * operator can see exactly where it broke. The evidence directory is
@@ -236,28 +240,58 @@ final class AtlasForgeRivalsRunBatteryService
             );
         }
 
-        // Phase 7 — collect-evidence
-        $collect = $this->collectEvidence->collect(['run_id' => $runId]);
-        $phases[] = $this->phase('collect-evidence', $collect);
-        if (($collect['status'] ?? '') !== 'ok') {
-            return $this->terminal($runId, $mode, $phases, (array) ($collect['blockers'] ?? []), 'fix evidence blockers');
+        // Phase 7 — collect-evidence(pre_adjudication)
+        // The scorecard does not exist yet; collecting it as a required
+        // artifact at this stage was the root cause of the old
+        // `scorecard:not_present_at_replay` blocker.
+        $collectPre = $this->collectEvidence->collect([
+            'run_id' => $runId,
+            'evidence_stage' => AtlasForgeRivalsEvidencePolicy::STAGE_PRE_ADJUDICATION,
+        ]);
+        $phases[] = $this->phase('collect-evidence-pre', $collectPre);
+        if (($collectPre['status'] ?? '') !== 'ok') {
+            return $this->terminal($runId, $mode, $phases, (array) ($collectPre['blockers'] ?? []), 'fix evidence blockers');
         }
 
-        // Phase 8 — replay
-        $replay = $this->replay->replay(['run_id' => $runId]);
-        $phases[] = $this->phase('replay', $replay);
-        if (($replay['status'] ?? '') !== 'ok') {
-            return $this->terminal($runId, $mode, $phases, (array) ($replay['blockers'] ?? []), 'replay failed — evidence pack untrustworthy');
+        // Phase 8 — replay(pre_adjudication)
+        $replayPre = $this->replay->replay([
+            'run_id' => $runId,
+            'evidence_stage' => AtlasForgeRivalsEvidencePolicy::STAGE_PRE_ADJUDICATION,
+        ]);
+        $phases[] = $this->phase('replay-pre', $replayPre);
+        if (($replayPre['status'] ?? '') !== 'ok') {
+            return $this->terminal($runId, $mode, $phases, (array) ($replayPre['blockers'] ?? []), 'replay failed — evidence pack untrustworthy');
         }
 
-        // Phase 9 — adjudicate
+        // Phase 9 — adjudicate (deterministic, writes scorecard.json)
         $adjudicate = $this->adjudicator->adjudicate(['run_id' => $runId]);
         $phases[] = $this->phase('adjudicate', $adjudicate);
         if (($adjudicate['status'] ?? '') !== 'ok') {
             return $this->terminal($runId, $mode, $phases, (array) ($adjudicate['blockers'] ?? []), 'fix adjudicator blockers');
         }
 
-        // Phase 10 — report
+        // Phase 10 — collect-evidence(final). Now scorecard exists; re-collect
+        // so the on-disk pack records its hash.
+        $collectFinal = $this->collectEvidence->collect([
+            'run_id' => $runId,
+            'evidence_stage' => AtlasForgeRivalsEvidencePolicy::STAGE_FINAL,
+        ]);
+        $phases[] = $this->phase('collect-evidence-final', $collectFinal);
+        if (($collectFinal['status'] ?? '') !== 'ok') {
+            return $this->terminal($runId, $mode, $phases, (array) ($collectFinal['blockers'] ?? []), 'fix evidence blockers');
+        }
+
+        // Phase 11 — replay(final). Validates the scorecard hash too.
+        $replayFinal = $this->replay->replay([
+            'run_id' => $runId,
+            'evidence_stage' => AtlasForgeRivalsEvidencePolicy::STAGE_FINAL,
+        ]);
+        $phases[] = $this->phase('replay-final', $replayFinal);
+        if (($replayFinal['status'] ?? '') !== 'ok') {
+            return $this->terminal($runId, $mode, $phases, (array) ($replayFinal['blockers'] ?? []), 'final replay failed — scorecard hash drifted');
+        }
+
+        // Phase 12 — report
         $report = $this->report->render(['run_id' => $runId]);
         $phases[] = $this->phase('report', $report);
         if (($report['status'] ?? '') !== 'ok') {

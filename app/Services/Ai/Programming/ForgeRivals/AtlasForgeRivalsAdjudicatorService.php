@@ -123,8 +123,14 @@ final class AtlasForgeRivalsAdjudicatorService
         $workspaceHashes = $this->readJson($paths['evidence'].'/workspace_hashes.json');
         $evidencePack = $this->readJson($paths['evidence'].'/evidence_pack.json');
 
-        // Replay must succeed before adjudicator declares anything.
-        $replayResult = $this->replay->replay(['run_id' => $paths['run_id']]);
+        // Replay must succeed before adjudicator declares anything. We force
+        // `pre_adjudication` here because the scorecard is what THIS step is
+        // about to write — a `final`-stage replay would always block on
+        // `scorecard:not_present_at_replay`, a circular contract bug.
+        $replayResult = $this->replay->replay([
+            'run_id' => $paths['run_id'],
+            'evidence_stage' => AtlasForgeRivalsEvidencePolicy::STAGE_PRE_ADJUDICATION,
+        ]);
         $replayPasses = (bool) ($replayResult['replay_passes'] ?? false);
 
         $hardGates = $this->evaluateHardGates(

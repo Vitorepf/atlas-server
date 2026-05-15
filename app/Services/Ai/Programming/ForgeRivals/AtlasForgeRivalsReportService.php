@@ -232,6 +232,20 @@ final class AtlasForgeRivalsReportService
 
         $declaredWhyLine = $declaredWhy !== null ? '`'.$declaredWhy.'`' : '`unknown`';
 
+        $mode = (string) ($manifest['mode'] ?? 'unknown');
+        $preset = (string) ($manifest['preset'] ?? 'unknown');
+        $atlasModel = (string) ($manifest['atlas_model'] ?? 'unknown');
+        $rivalModel = (string) ($manifest['rival_model'] ?? 'unknown');
+        $caseId = (string) ($manifest['case_id'] ?? 'unknown');
+        $atlasReceiptHash = (string) ($manifest['atlas_receipt_hash'] ?? '');
+        $rivalReceiptHash = (string) ($manifest['rival_receipt_hash'] ?? '');
+        $wsBefore = is_array($manifest['workspace_hash_before'] ?? null) ? $manifest['workspace_hash_before'] : [];
+        $wsAfter = is_array($manifest['workspace_hash_after'] ?? null) ? $manifest['workspace_hash_after'] : [];
+        $wsBeforeAtlas = (string) ($wsBefore['atlas'] ?? '');
+        $wsAfterAtlas = (string) ($wsAfter['atlas'] ?? '');
+        $wsBeforeRival = (string) ($wsBefore['rival'] ?? '');
+        $wsAfterRival = (string) ($wsAfter['rival'] ?? '');
+
         return <<<MD
 # Atlas Forge Rivals · Premium Battery Report
 
@@ -240,11 +254,11 @@ final class AtlasForgeRivalsReportService
 ## Executive Summary
 
 - **Run id:** `{$runId}`
-- **Mode:** {$manifest['mode']}
-- **Preset:** {$manifest['preset']}
-- **Atlas model:** {$manifest['atlas_model']}
-- **Rival model:** {$manifest['rival_model']}
-- **Case:** {$manifest['case_id']}
+- **Mode:** {$mode}
+- **Preset:** {$preset}
+- **Atlas model:** {$atlasModel}
+- **Rival model:** {$rivalModel}
+- **Case:** {$caseId}
 - {$scoreLine}
 - replay_passes: **{$this->bool($replayOk)}**
 - {$claimLine}
@@ -278,12 +292,12 @@ final class AtlasForgeRivalsReportService
 
 - manifest: `evidence/manifest.json`
 - events: `events.jsonl`
-- atlas_receipt: `evidence/atlas_receipt.json` · sha256 `{$manifest['atlas_receipt_hash']}`
-- rival_receipt: `evidence/rival_receipt.json` · sha256 `{$manifest['rival_receipt_hash']}`
-- workspace_before_atlas: `{$manifest['workspace_hash_before']['atlas']}`
-- workspace_after_atlas: `{$manifest['workspace_hash_after']['atlas']}`
-- workspace_before_rival: `{$manifest['workspace_hash_before']['rival']}`
-- workspace_after_rival: `{$manifest['workspace_hash_after']['rival']}`
+- atlas_receipt: `evidence/atlas_receipt.json` · sha256 `{$atlasReceiptHash}`
+- rival_receipt: `evidence/rival_receipt.json` · sha256 `{$rivalReceiptHash}`
+- workspace_before_atlas: `{$wsBeforeAtlas}`
+- workspace_after_atlas: `{$wsAfterAtlas}`
+- workspace_before_rival: `{$wsBeforeRival}`
+- workspace_after_rival: `{$wsAfterRival}`
 - scorecard: `evidence/scorecard.json`
 
 ## Replay Status

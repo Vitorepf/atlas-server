@@ -184,6 +184,7 @@ Layer -1 wins every conflict. Kernel wins executable contracts. Master Architect
 | Research Intelligence and governed self-improvement | `atlas-ai-research-self-improvement-runtime.md` |
 | Spec Operating System / SDD | `atlas-ai-spec-operating-system.md` |
 | Programming Governance System / placement, spec before code, task contracts, Code Intelligence, evidence and cartography | `atlas-programming-governance-system.md` |
+| Programming Self-Construction Forge Map / short AI orientation for Atlas Code, Forge Continuum, Self-Construction OS, Self-Programming OS and providers | `atlas-programming-self-construction-forge-map-v1.md` |
 | Programming Forge Flow / heavy programming taxonomy, graphs, tools, repair and evidence | `atlas-programming-forge-flow.md` |
 | Forge Operating System / AI software factory and multi-agent implementation | `atlas-forge-operating-system.md` |
 | SDD data model and services | `spec-operating-system/data-model-and-services.md` |

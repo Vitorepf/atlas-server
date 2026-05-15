@@ -442,9 +442,32 @@ final class AtlasForgeRivalsRunRealService
     private function fakeArm(string $runId, string $arm, string $worktree, string $model, array $case, string $startedAt): array
     {
         // In-process fake provider: deterministic, fast, zero side-effects on worktree.
+        // It still writes real evidence artifacts so the local battery proves
+        // the comparable/report path instead of succeeding with an empty diff.
+        $paths = $this->paths->paths($runId);
+        @mkdir($paths['evidence'], 0o755, true);
+
         $command = ['atlas:forge-rivals-fake-provider', '--arm='.$arm, '--model='.$model, '--case='.$case['id']];
         $fakeStdout = sprintf("[FAKE %s/%s] case=%s status=ok\n", $arm, $model, $case['id']);
         $fakeStderr = '';
+        $fakeChangedFiles = $this->fakeChangedFiles($arm);
+        $fakePatch = $this->fakePatch($arm, $model, $case, $fakeChangedFiles);
+        $patchPath = $paths['evidence'].'/'.$arm.'_patch.diff';
+        file_put_contents($patchPath, $fakePatch);
+
+        $testLog = sprintf(
+            "PASS  Tests\\Feature\\Ai\\Programming\\ForgeRivalsLocalFake%sTest\n".
+            "Tests: 2 passed (18 assertions)\n".
+            "Case: %s\n".
+            "Model: %s\n",
+            ucfirst($arm),
+            (string) $case['id'],
+            $model,
+        );
+        $testLogPath = $paths['evidence'].'/'.$arm.'_test.log';
+        file_put_contents($testLogPath, $testLog);
+        $logPaths = $this->writeProviderLogs($runId, $arm, $fakeStdout, $fakeStderr);
+
         $this->events->event($runId, 'provider_stdout_chunk', [
             'arm' => $arm,
             'bytes' => strlen($fakeStdout),
@@ -478,25 +501,82 @@ final class AtlasForgeRivalsRunRealService
             'stderr_bytes' => strlen($fakeStderr),
             'stdout_tail' => $fakeStdout,
             'stderr_tail' => $fakeStderr,
-            'changed_files' => [],
+            'stdout_path' => $logPaths['stdout_path'],
+            'stderr_path' => $logPaths['stderr_path'],
+            'changed_files' => $fakeChangedFiles,
             'out_of_scope_files' => [],
             'bytecode_artifacts' => [],
             'workspace_blockers' => [],
             'workspace_has_blocking_changes' => false,
-            'patch_diff_path' => null,
-            'patch_diff_hash' => hash('sha256', ''),
-            'patch_diff_bytes' => 0,
-            'test_command' => 'not_run_local_fake',
+            'patch_diff_path' => $patchPath,
+            'patch_diff_hash' => hash('sha256', $fakePatch),
+            'patch_diff_bytes' => strlen($fakePatch),
+            'test_command' => 'local_fake_fixture_validation',
             'test_exit_code' => 0,
-            'test_log_path' => null,
-            'test_log_hash' => hash('sha256', ''),
-            'test_log_tail' => '',
+            'test_log_path' => $testLogPath,
+            'test_log_hash' => hash('sha256', $testLog),
+            'test_log_tail' => $testLog,
             'token_cost' => 0.0,
             'tokens_used' => 0,
             'worktree' => $worktree,
             'case_id' => $case['id'],
             'fake' => true,
         ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function fakeChangedFiles(string $arm): array
+    {
+        $suffix = $arm === 'atlas' ? 'Atlas' : 'Rival';
+
+        return [
+            'app/Services/Ai/Programming/ForgeRivals/LocalFake'.$suffix.'Patch.php',
+            'tests/Feature/Ai/Programming/ForgeRivalsLocalFake'.$suffix.'Test.php',
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $case
+     * @param  list<string>  $changedFiles
+     */
+    private function fakePatch(string $arm, string $model, array $case, array $changedFiles): string
+    {
+        $caseId = (string) $case['id'];
+        $classSuffix = $arm === 'atlas' ? 'Atlas' : 'Rival';
+        $serviceFile = $changedFiles[0] ?? 'app/Services/Ai/Programming/ForgeRivals/LocalFake'.$classSuffix.'Patch.php';
+        $testFile = $changedFiles[1] ?? 'tests/Feature/Ai/Programming/ForgeRivalsLocalFake'.$classSuffix.'Test.php';
+
+        return <<<DIFF
+diff --git a/{$serviceFile} b/{$serviceFile}
+new file mode 100644
+--- /dev/null
++++ b/{$serviceFile}
+@@
++<?php
++
++declare(strict_types=1);
++
++final class LocalFake{$classSuffix}Patch
++{
++    public const ARM = '{$arm}';
++    public const MODEL = '{$model}';
++    public const CASE_ID = '{$caseId}';
++}
+diff --git a/{$testFile} b/{$testFile}
+new file mode 100644
+--- /dev/null
++++ b/{$testFile}
+@@
++<?php
++
++declare(strict_types=1);
++
++test('local fake {$arm} evidence fixture is comparable', function (): void {
++    expect('{$caseId}')->not->toBe('');
++});
+DIFF;
     }
 
     /**

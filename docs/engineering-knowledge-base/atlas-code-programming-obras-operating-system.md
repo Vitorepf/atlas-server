@@ -20,14 +20,19 @@ capabilities:
   - ai_governed_software_production
 decisions:
   - Atlas Code exists primarily for heavy programming, ultra-hard software problems and extremely long AI-assisted development sessions; this is the maximum product priority.
+  - Programming Obras must belong to a selected software Project/Workspace; Atlas, Blackink and other products are Projects, not Obras.
   - Programming Obras are a specialization of Obras, not a separate product primitive.
   - Atlas Code is the desktop cockpit for Programming Obras; it is not the Obra itself and not a provider session.
   - A Programming Obra is complete only when delivery, gates, evidence and human approval agree.
   - Multiple Programming Obras may run in parallel, but human decisions must be serialized through an attention layer.
+  - Interactive providers such as Claude Code must be used through observed provider sessions: Atlas prepares packet, terminal, prompt, import, gates and evidence while the human performs required interactive actions.
   - The market-level gap is no longer code generation alone; it is governed production from intent to trusted delivery.
 maintenance:
   - Update before changing Atlas Code, Forge Workspace, Programming Governance, Obra Command Center, Attention Control Plane, completion gates or multi-Obra UX.
 related_paths:
+  - docs/engineering-knowledge-base/atlas-code-multi-project-workspace-os.md
+  - docs/engineering-knowledge-base/atlas-code-adaptive-provider-operating-room-v1.md
+  - docs/engineering-knowledge-base/atlas-code-interactive-observed-provider-workflow-v1.md
   - docs/engineering-knowledge-base/atlas-code-attention-control-plane-v1.md
   - docs/engineering-knowledge-base/atlas-ai-obras-operating-system.md
   - docs/engineering-knowledge-base/obras/patamares-l0-l5.md
@@ -59,11 +64,14 @@ allowed_changes:
   - Add child docs for Attention Control Plane, portfolio queue, Obra economics or multi-provider workspace when implemented.
 forbidden_changes:
   - Dilute Atlas Code into a generic IDE, generic chat product, lightweight coding assistant or broad productivity surface.
+  - Treat a product/workspace/repository as a single Programming Obra.
   - Treat a Programming Obra as a chat, provider session, branch, ticket, terminal tab or generic project card.
   - Declare completion without review gate, evidence, output and human approval.
   - Let the human become a live monitor for parallel agent work.
   - Let Atlas make value, risk, scope or final acceptance decisions without explicit human authority.
 depends_on:
+  - atlas-code-multi-project-workspace-os
+  - atlas-code-adaptive-provider-operating-room-v1
   - atlas-ai-obras-operating-system
   - atlas-programming-forge-flow
   - atlas-code-obra-command-center-v1
@@ -114,7 +122,7 @@ observability_signals:
   - human_decision_receipt
   - attention_queue_item_id
 next_actions:
-  - Implementar doc filho Atlas Code Attention Control Plane v1.
+  - Implementar Provider Operating Room com role slots dinamicos, work packets e Provider Board.
   - Projetar read-model global de decisoes humanas por Obra.
   - Mapear status de Programming Obra para fila anti-multitarefa.
 ---
@@ -123,6 +131,8 @@ next_actions:
 ## Resumo
 
 Obras de Programacao sao a especializacao de Obras para software. A unidade de trabalho deixa de ser chat, prompt, ticket, branch, PR ou terminal, e passa a ser uma entrega governada que preserva objetivo, contexto, plano, execucao, revisao, prova e aceite humano.
+
+Obras de Programacao vivem dentro de um Projeto/Workspace selecionado. `Atlas` e `Blackink` sao Projetos; uma Obra e um trabalho governado dentro deles.
 
 Prioridade maxima:
 
@@ -164,6 +174,7 @@ Programming Obras conecta quatro sistemas:
 - Programming Forge Flow: execucao pesada, repair loop, provider topology, harness, code graph e gates.
 - Atlas Code: superficie humana para comando, foco, revisao, provas e decisoes.
 - Attention Control Plane: fila global de atencao humana entre varias Obras.
+- Adaptive Provider Operating Room: atribuicao dinamica de providers por work packet, role slot, risco, capacidade e evidencia.
 
 A diferenca essencial:
 

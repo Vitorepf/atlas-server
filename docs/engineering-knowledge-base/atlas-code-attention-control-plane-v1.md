@@ -18,6 +18,7 @@ capabilities:
   - multi_obra_attention_routing
   - human_decision_serialization
 decisions:
+  - Atencao must route decisions across Project-scoped Programming Obras, not across a global unscoped Obra list.
   - Atencao is a top-level Atlas Desktop surface next to Cartografia and Atlas Code.
   - Atencao does not replace Atlas Code; it routes human decisions across Programming Obras.
   - Atlas may execute multiple Obras in parallel, but the human attention flow must be serialized.
@@ -26,6 +27,7 @@ decisions:
 maintenance:
   - Update before implementing or changing the Atlas Desktop Atencao surface, attention queue schema, human decision receipts, multi-Obra routing or anti-multitask UX.
 related_paths:
+  - docs/engineering-knowledge-base/atlas-code-multi-project-workspace-os.md
   - docs/engineering-knowledge-base/atlas-code-programming-obras-operating-system.md
   - docs/engineering-knowledge-base/atlas-code-obra-command-center-v1.md
   - docs/engineering-knowledge-base/atlas-code-forge-human-first-ux-orchestrator-v1.md
@@ -58,6 +60,7 @@ forbidden_changes:
   - Hide risk, evidence or missing evidence from human decisions.
   - Let Atlas make final value, risk, scope or acceptance decisions without human receipt.
 depends_on:
+  - atlas-code-multi-project-workspace-os
   - atlas-code-programming-obras-operating-system
   - atlas-code-obra-command-center-v1
   - atlas-code-forge-human-first-ux-orchestrator-v1

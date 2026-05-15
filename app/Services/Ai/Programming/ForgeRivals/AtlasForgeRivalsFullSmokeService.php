@@ -157,18 +157,25 @@ final class AtlasForgeRivalsFullSmokeService
             }
         }
 
-        // 8. collect-evidence
+        // 8. collect-evidence (pre_adjudication — full-smoke has no
+        // adjudication step, so the scorecard never exists at this stage).
         if ($failed === null) {
-            $collect = $this->collectEvidence->collect(['run_id' => $runId]);
+            $collect = $this->collectEvidence->collect([
+                'run_id' => $runId,
+                'evidence_stage' => AtlasForgeRivalsEvidencePolicy::STAGE_PRE_ADJUDICATION,
+            ]);
             $phases[] = $this->phase('collect-evidence', $collect);
             if ($collect['status'] !== 'ok') {
                 $failed = 'collect-evidence';
             }
         }
 
-        // 9. replay
+        // 9. replay (pre_adjudication — matches the collect stage above).
         if ($failed === null) {
-            $replay = $this->replay->replay(['run_id' => $runId]);
+            $replay = $this->replay->replay([
+                'run_id' => $runId,
+                'evidence_stage' => AtlasForgeRivalsEvidencePolicy::STAGE_PRE_ADJUDICATION,
+            ]);
             $phases[] = $this->phase('replay', $replay);
             if ($replay['status'] !== 'ok') {
                 $failed = 'replay';

@@ -6,6 +6,8 @@ namespace App\Services\Ai\Programming\ForgeRivals;
 
 use App\Services\Ai\Kernel\Architecture\AtlasForgeRivalsOperatorBatteryCertification;
 use App\Services\Ai\Kernel\Architecture\AtlasForgeRivalsPerfectBatteryCertification;
+use App\Services\Ai\Kernel\Architecture\AtlasForgeRivalsProviderArenaCoreCertification;
+use App\Services\Ai\Kernel\Architecture\AtlasForgeRivalsProviderPerformanceLedgerCertification;
 
 /**
  * Atlas Forge Rivals · Action Response Builder.
@@ -36,6 +38,8 @@ final class AtlasForgeRivalsResponseBuilder
     public function __construct(
         private readonly AtlasForgeRivalsOperatorBatteryCertification $certification,
         private readonly AtlasForgeRivalsPerfectBatteryCertification $perfectBatteryCertification,
+        private readonly AtlasForgeRivalsProviderArenaCoreCertification $arenaCoreCertification,
+        private readonly AtlasForgeRivalsProviderPerformanceLedgerCertification $providerPerformanceLedgerCertification,
     ) {}
 
     /**
@@ -75,20 +79,31 @@ final class AtlasForgeRivalsResponseBuilder
     {
         $operator = $this->certification->evaluate();
         $perfect = $this->perfectBatteryCertification->evaluate();
-        $worst = $this->worstStatus($operator['status'] ?? '', $perfect['status'] ?? '');
+        $arena = $this->arenaCoreCertification->evaluate();
+        $ledger = $this->providerPerformanceLedgerCertification->evaluate();
+        $worst = $this->worstStatus(
+            $operator['status'] ?? '',
+            $perfect['status'] ?? '',
+            $arena['status'] ?? '',
+            $ledger['status'] ?? ''
+        );
 
         return $this->envelope($action, $this->mapCertStatusToActionStatus($worst), [
             'certification' => $operator,
             'perfect_battery_certification' => $perfect,
+            'provider_arena_core_certification' => $arena,
+            'provider_performance_ledger_certification' => $ledger,
             'certifications' => [
                 AtlasForgeRivalsOperatorBatteryCertification::CERTIFICATION_KEY => $operator,
                 AtlasForgeRivalsPerfectBatteryCertification::CERTIFICATION_KEY => $perfect,
+                AtlasForgeRivalsProviderArenaCoreCertification::CERTIFICATION_KEY => $arena,
+                AtlasForgeRivalsProviderPerformanceLedgerCertification::CERTIFICATION_KEY => $ledger,
             ],
             'next_command' => 'php artisan atlas:forge:rivals audit --json',
         ]);
     }
 
-    private function worstStatus(string $a, string $b): string
+    private function worstStatus(string ...$statuses): string
     {
         $rank = [
             AtlasForgeRivalsOperatorBatteryCertification::STATUS_AVAILABLE => 0,
@@ -96,10 +111,17 @@ final class AtlasForgeRivalsResponseBuilder
             AtlasForgeRivalsOperatorBatteryCertification::STATUS_MISSING_ARTIFACTS => 2,
             AtlasForgeRivalsOperatorBatteryCertification::STATUS_BLOCKED => 3,
         ];
-        $ra = $rank[$a] ?? 3;
-        $rb = $rank[$b] ?? 3;
+        $worst = $statuses[0] ?? '';
+        $worstRank = $rank[$worst] ?? 3;
+        foreach (array_slice($statuses, 1) as $s) {
+            $r = $rank[$s] ?? 3;
+            if ($r > $worstRank) {
+                $worst = $s;
+                $worstRank = $r;
+            }
+        }
 
-        return $ra >= $rb ? $a : $b;
+        return $worst;
     }
 
     /**

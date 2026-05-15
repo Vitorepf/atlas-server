@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Services\Ai\Programming\ForgeRivals;
 
 use App\Console\Commands\AtlasForgeRivalsCommand;
+use App\Services\Ai\Programming\ForgeRivals\Arms\AtlasForgeRivalsArmRegistryService;
+use App\Services\Ai\Programming\ForgeRivals\Corpus\AtlasForgeRivalsCorpusCasesActionService;
 
 /**
  * Atlas Forge Rivals · Action Dispatcher.
@@ -41,6 +43,11 @@ final class AtlasForgeRivalsActionDispatcher
         private readonly AtlasForgeRivalsReportService $report,
         private readonly AtlasForgeRivalsFullSmokeService $fullSmoke,
         private readonly AtlasForgeRivalsRunBatteryService $runBattery,
+        private readonly AtlasForgeRivalsArenaRunService $arenaRun,
+        private readonly AtlasForgeRivalsArmRegistryService $armRegistry,
+        private readonly AtlasForgeRivalsProviderPerformanceLedgerService $ledger,
+        private readonly AtlasForgeRivalsDecideSignalProjectionService $decideSignal,
+        private readonly AtlasForgeRivalsCorpusCasesActionService $corpusCases,
     ) {}
 
     /**
@@ -69,6 +76,12 @@ final class AtlasForgeRivalsActionDispatcher
             'report' => $this->wrap($action, $this->report->render($input)),
             'full-smoke' => $this->wrap($action, $this->fullSmoke->run($input)),
             'run-battery' => $this->wrap($action, $this->runBattery->run($input)),
+            'run-arena' => $this->wrap($action, $this->arenaRun->run($input)),
+            'arms' => $this->wrap($action, $this->armsSnapshot()),
+            'cases' => $this->wrap($action, $this->corpusCases->handle($input)),
+            'ledger' => $this->wrap($action, $this->ledger->snapshot($input)),
+            'ledger-record' => $this->wrap($action, $this->ledger->record($input)),
+            'decide-signal' => $this->wrap($action, $this->decideSignal->project($input)),
             'audit' => $this->responses->audit($action),
             default => $this->responses->unknownAction($action, AtlasForgeRivalsCommand::ACTIONS),
         };
@@ -113,7 +126,26 @@ final class AtlasForgeRivalsActionDispatcher
             'reset-test-worktrees' => 'reset',
             'battery', 'run-battery-real', 'battery-run' => 'run-battery',
             'score', 'adjudicator', 'adjudication' => 'adjudicate',
+            'arena', 'run-arena-real', 'arena-run', 'provider-arena' => 'run-arena',
+            'list-arms', 'registry', 'runners' => 'arms',
+            'performance-ledger', 'ledger-snapshot' => 'ledger',
+            'record-ledger', 'absorb-scorecard' => 'ledger-record',
+            'decide', 'signal', 'decide-signal-projection' => 'decide-signal',
             default => $action,
         };
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function armsSnapshot(): array
+    {
+        $snapshot = $this->armRegistry->snapshot();
+
+        return array_replace($snapshot, [
+            'status' => 'ok',
+            'next_command' => 'php artisan atlas:forge:rivals run-arena --arm-a=<id> --arm-b=<id> --task-category=<cat> --mode=local_fake --json',
+            'external_provider_call' => false,
+        ]);
     }
 }

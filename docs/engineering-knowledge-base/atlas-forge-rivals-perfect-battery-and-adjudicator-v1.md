@@ -1,3 +1,40 @@
+---
+id: atlas-forge-rivals-perfect-battery-and-adjudicator-v1
+type: engineering_knowledge
+title: Atlas Forge Rivals · Perfect Battery & Adjudicator v1
+status: active
+category: programming-forge
+priority: 88
+summary: Bateria única e adjudicator determinístico local para `atlas:forge:rivals`. Encadeia doctor→setup→preflight→dry-run→plan-real→run-real→collect-evidence→replay→adjudicate→report em um comando auditável, com winner/tie/invalid honesto. Nunca destrava external_rivals_certification.
+tags:
+  - atlas
+  - forge
+  - rivals
+  - run-battery
+  - adjudicator
+capabilities:
+  - forge_rivals_run_battery_v1
+  - forge_rivals_local_deterministic_adjudicator
+  - forge_rivals_perfect_battery_certification
+decisions:
+  - Bateria é um único entrypoint humano; aliases não escondem o canon `run-battery`.
+  - Adjudicator é local determinístico; nunca delega para provider externo.
+  - `external_rivals_certification` permanece BLOCKED por construção independentemente do veredito.
+maintenance:
+  - Atualizar quando `AtlasForgeRivalsRunBatteryService`, `AtlasForgeRivalsAdjudicatorService` ou cert v1 mudarem de invariantes.
+  - Não introduzir alias novo sem aliasing list no command.
+related_paths:
+  - app/Console/Commands/AtlasForgeRivalsCommand.php
+  - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsRunBatteryService.php
+  - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsAdjudicatorService.php
+  - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsReportService.php
+  - docs/engineering-knowledge-base/atlas-forge-rivals-evidence-replay-adjudicator-hardening-v2.md
+  - docs/engineering-knowledge-base/atlas-forge-rivals-operator-battery-v2.md
+  - docs/engineering-knowledge-base/atlas-forge-rivals-real-battery-operator-harness-v1.md
+doc_schema: atlas_canonical_module_doc.v1
+owner: programming_rivals
+---
+
 # Atlas Forge Rivals · Perfect Battery & Adjudicator v1
 
 **Schema:** `atlas.forge.rivals.run_battery.v1`
@@ -297,3 +334,48 @@ non-`ok`/`completed` statuses to exit non-zero. Headline commands:
 - `atlas-rivals-evidence-pack-replay-manifest-v1.md`
 - `atlas-rivals-one-shot-enterprise-evaluation-v1.md`
 - `atlas-forge-native-rivals-protocol-v1.md`
+
+## Resumo
+
+Slice 7 do Forge Rivals: bateria única `atlas:forge:rivals run-battery` que orquestra todo o pipeline de comparação Atlas vs rival com adjudicator determinístico local e cert v1. Aliases consolidados (`battery`, `run-battery-real`, `score`, `adjudicator`). `external_rivals_certification` continua BLOCKED.
+
+## Papel no Atlas
+
+Cabine humana do Forge Rivals. Substitui a sequência manual de 9 comandos por uma única chamada com `--strict`, retornando o pipeline parcial até o ponto de falha e preservando evidência em `runs/<run_id>/`.
+
+## Onde Se Encaixa
+
+Acima de `atlas-forge-rivals-operator-battery-v2.md` e `atlas-forge-rivals-real-battery-operator-harness-v1.md`. Companheiro direto de `atlas-forge-rivals-evidence-replay-adjudicator-hardening-v2.md`.
+
+## Fluxo
+
+`doctor → setup → preflight → dry-run → plan-real → run-real → collect-evidence → replay → adjudicate → report`, parando na primeira fase com status diferente de `ok`.
+
+## Regras para IA
+
+Não esconder safety strip. Não pular as três confirmações em modos `fair`/`full_power`. Não promover `external_rivals_certification` a partir do veredito.
+
+## Escopo de Implementacao
+
+`AtlasForgeRivalsCommand`, `AtlasForgeRivalsRunBatteryService`, `AtlasForgeRivalsAdjudicatorService`, `AtlasForgeRivalsReportService`, `AtlasForgeRivalsCollectEvidenceService`, `AtlasForgeRivalsReplayService`.
+
+## Dependencias
+
+Operator battery v2, real battery operator harness v1, evidence pack v2 hardening, perfect battery certification v1.
+
+## Evidencias
+
+Cert v1 `atlas_forge_rivals_perfect_battery_certification` e 186 testes Forge Rivals verdes (Slice 7 delivered 2026-05-15).
+
+## Riscos
+
+Operador interpretar `winner` como completion claim. Alias novo escapar do controle do command. Promoção indevida de `external_rivals_certification`.
+
+## Exemplos
+
+`php artisan atlas:forge:rivals run-battery --mode=fair --atlas-model=sonnet --rival=claude_sonnet --preset=release --confirm-runbook-reviewed --confirm-provider-cost --confirm-real-provider-call --json --strict`.
+
+## Proximas Acoes
+
+Acompanhar futuros polish em adjudicator e report. Mantersuit de testes sincronizada com mudanças de invariantes.
+

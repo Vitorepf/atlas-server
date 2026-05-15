@@ -42,30 +42,41 @@ use Illuminate\Console\Command;
 class AtlasForgeRivalsCommand extends Command
 {
     protected $signature = 'atlas:forge:rivals
-        {action=doctor : doctor|setup|preflight|dry-run|plan-real|run-real|status|collect-evidence|replay|adjudicate|report|reset|full-smoke|run-battery|audit}
+        {action=doctor : doctor|setup|preflight|dry-run|plan-real|run-real|status|collect-evidence|replay|adjudicate|report|reset|full-smoke|run-battery|run-arena|arms|cases|ledger|ledger-record|decide-signal|audit}
         {--worktree-root= : Back-compat base path for isolated test worktrees}
         {--repo-root= : Back-compat source repo root used when provisioning worktrees}
         {--atlas-worktree= : Back-compat isolated Atlas Forge worktree}
         {--baseline-worktree= : Back-compat isolated rival baseline worktree}
         {--model= : Back-compat Atlas model lock: sonnet|opus}
         {--baseline-model= : Back-compat baseline model lock: sonnet|opus}
-        {--case=* : Back-compat case id list}
+        {--case=* : Provider Arena Corpus case id (e.g. arena-frontend-button-loading-state). Repeated for batch.}
+        {--case-set= : Provider Arena Corpus case set (quick|release|frontend|backend|bugfix|architecture)}
         {--mode= : fair|full_power|power|diagnostic|replay_only|local_fake (power is alias for full_power)}
         {--atlas-model= : sonnet|opus|claude_sonnet|claude_opus|codex|auto}
         {--rival= : claude_sonnet|claude_opus|codex|auto}
+        {--arm-a= : Provider Arena arm A id (atlas_forge|claude_code|codex_cli|gemini_cli|scripted_runner|manual_runner|future_runner)}
+        {--arm-b= : Provider Arena arm B id (same set as --arm-a)}
+        {--arm-a-model= : Arena arm A model shorthand (e.g. sonnet, opus, codex)}
+        {--arm-b-model= : Arena arm B model shorthand (e.g. sonnet, opus, codex)}
+        {--task-category= : Arena task category (frontend|backend|bugfix|tests|refactor|architecture|docs|performance|security)}
+        {--role= : Operator role tested by the entry (builder|reviewer|repair_agent|context_scout|test_generator|architect|docs)}
+        {--framework= : Optional framework/language label captured in the ledger entry (e.g. react, laravel)}
+        {--provider= : Filter the ledger snapshot by provider id}
         {--preset=smoke : smoke|quick|release|full}
         {--source-ref= : Git ref/SHA used to provision isolated worktrees (Slice 1+)}
-        {--run-id= : Run id for status/collect-evidence/replay/adjudicate/report/run-battery}
+        {--run-id= : Run id for status/collect-evidence/replay/adjudicate/report/run-battery/run-arena}
         {--reviewer= : Operator id for reset/triage (Slice 1+)}
         {--reason= : Auditable reason for reset (Slice 1+)}
-        {--confirm-runbook-reviewed : Confirmation gate 1 (required for run-real / run-battery in real-provider modes)}
-        {--confirm-provider-cost : Confirmation gate 2 (required for run-real / run-battery in real-provider modes)}
-        {--confirm-real-provider-call : Confirmation gate 3 (required for run-real / run-battery in real-provider modes)}
+        {--confirm-runbook-reviewed : Confirmation gate 1 (required for any real-provider arm)}
+        {--confirm-provider-cost : Confirmation gate 2 (required for any real-provider arm)}
+        {--confirm-real-provider-call : Confirmation gate 3 (required for any real-provider arm)}
+        {--stage= : Evidence stage for collect-evidence/replay: pre_adjudication|final (default=final)}
+        {--require-final-scorecard : Force collect-evidence/replay to require the scorecard (alias for --stage=final)}
         {--output-dir= : Override evidence/report output dir}
         {--json : Emit machine-readable JSON}
         {--strict : Non-zero exit on blocked status}';
 
-    protected $description = 'Atlas Forge Rivals · Perfect Battery & Adjudicator v1 canonical entrypoint (doctor, setup, preflight, dry-run, plan-real, run-real, status, collect-evidence, replay, adjudicate, report, reset, full-smoke, run-battery, audit).';
+    protected $description = 'Atlas Forge Rivals · Provider Arena Core v1 canonical entrypoint (doctor, setup, preflight, dry-run, plan-real, run-real, status, collect-evidence, replay, adjudicate, report, reset, full-smoke, run-battery, run-arena, arms, cases, ledger, ledger-record, decide-signal, audit).';
 
     /** @var list<string> */
     public const ACTIONS = [
@@ -83,6 +94,12 @@ class AtlasForgeRivalsCommand extends Command
         'reset',
         'full-smoke',
         'run-battery',
+        'run-arena',
+        'arms',
+        'cases',
+        'ledger',
+        'ledger-record',
+        'decide-signal',
         'audit',
     ];
 
@@ -102,6 +119,12 @@ class AtlasForgeRivalsCommand extends Command
         'report' => 4,
         'full-smoke' => 5,
         'run-battery' => 7,
+        'run-arena' => 8,
+        'arms' => 8,
+        'cases' => 10,
+        'ledger' => 9,
+        'ledger-record' => 9,
+        'decide-signal' => 9,
         'audit' => 0,
     ];
 
@@ -117,9 +140,19 @@ class AtlasForgeRivalsCommand extends Command
             'model' => $this->stringOption('model'),
             'baseline_model' => $this->stringOption('baseline-model'),
             'cases' => (array) $this->option('case'),
+            'case' => $this->firstCaseOption(),
+            'case_set' => $this->stringOption('case-set'),
             'mode' => $this->stringOption('mode'),
             'atlas_model' => $this->stringOption('atlas-model'),
             'rival' => $this->stringOption('rival'),
+            'arm_a' => $this->stringOption('arm-a'),
+            'arm_b' => $this->stringOption('arm-b'),
+            'arm_a_model' => $this->stringOption('arm-a-model'),
+            'arm_b_model' => $this->stringOption('arm-b-model'),
+            'task_category' => $this->stringOption('task-category'),
+            'role' => $this->stringOption('role'),
+            'framework' => $this->stringOption('framework'),
+            'provider' => $this->stringOption('provider'),
             'preset' => $this->stringOption('preset') ?: 'smoke',
             'source_ref' => $this->stringOption('source-ref'),
             'run_id' => $this->stringOption('run-id'),
@@ -131,6 +164,7 @@ class AtlasForgeRivalsCommand extends Command
                 'provider_cost' => (bool) $this->option('confirm-provider-cost'),
                 'real_provider_call' => (bool) $this->option('confirm-real-provider-call'),
             ],
+            'evidence_stage' => $this->resolveEvidenceStage(),
             'json' => (bool) $this->option('json'),
             'strict' => (bool) $this->option('strict'),
         ];
@@ -156,6 +190,31 @@ class AtlasForgeRivalsCommand extends Command
         $value = $this->option($name);
 
         return is_string($value) && trim($value) !== '' ? trim($value) : null;
+    }
+
+    private function firstCaseOption(): ?string
+    {
+        $list = (array) $this->option('case');
+        foreach ($list as $entry) {
+            if (is_string($entry) && trim($entry) !== '') {
+                return trim($entry);
+            }
+        }
+
+        return null;
+    }
+
+    private function resolveEvidenceStage(): ?string
+    {
+        $explicit = $this->stringOption('stage');
+        if ($explicit !== null) {
+            return $explicit;
+        }
+        if ((bool) $this->option('require-final-scorecard')) {
+            return 'final';
+        }
+
+        return null;
     }
 
     private function exitCodeFor(string $status, bool $strict): int

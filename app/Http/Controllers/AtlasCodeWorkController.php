@@ -13,6 +13,7 @@ use App\Models\AtlasLedgerEvent;
 use App\Models\AtlasProgrammingWorkItem;
 use App\Models\AtlasProject;
 use App\Models\AtlasToolRun;
+use App\Services\AtlasCode\AtlasCodeWorkspaceProfileService;
 use App\Services\Ai\Programming\AtlasCodeEnterpriseCertificationService;
 use App\Services\Ai\Programming\AtlasCodeForgeUxOrchestratorService;
 use App\Services\Ai\Programming\AtlasForgeContinuumCertificationService;
@@ -48,8 +49,10 @@ final class AtlasCodeWorkController extends Controller
         $data = $request->validate([
             'status' => ['nullable', 'string', 'max:40'],
             'limit' => ['nullable', 'integer', 'min:1', 'max:200'],
+            'workspace' => ['nullable', 'string', 'max:120'],
         ]);
         $limit = (int) ($data['limit'] ?? 50);
+        $workspaceFilter = isset($data['workspace']) ? trim((string) $data['workspace']) : '';
 
         $query = AtlasProject::query()
             ->orderByDesc('updated_at')
@@ -58,16 +61,31 @@ final class AtlasCodeWorkController extends Controller
             $query->where('status', $data['status']);
         }
 
+        $profiles = app(AtlasCodeWorkspaceProfileService::class);
+        $defaultSlug = $profiles->defaultSlug();
+        $resolvedFilter = $workspaceFilter !== ''
+            ? ($profiles->findBySlug($workspaceFilter)['slug'] ?? null)
+            : null;
+
         $projects = $query->get()
-            ->reject(fn (AtlasProject $project): bool => $this->isSystemCertificationProject($project))
-            ->take($limit)
-            ->values();
+            ->reject(fn (AtlasProject $project): bool => $this->isSystemCertificationProject($project));
+
+        if ($resolvedFilter !== null) {
+            $projects = $projects->filter(function (AtlasProject $project) use ($resolvedFilter, $defaultSlug): bool {
+                $slug = $this->workspaceSlugFor($project, $defaultSlug);
+                return $slug === $resolvedFilter;
+            });
+        }
+
+        $projects = $projects->take($limit)->values();
 
         return response()->json([
             'data' => $projects->map(fn (AtlasProject $p): array => $this->shape($p))->all(),
             'meta' => [
                 'total' => $projects->count(),
                 'system_certification_hidden' => true,
+                'workspace_filter' => $resolvedFilter,
+                'workspace_default' => $defaultSlug,
             ],
         ]);
     }
@@ -86,7 +104,12 @@ final class AtlasCodeWorkController extends Controller
             'objective' => ['required', 'string', 'max:240'],
             'domain' => ['nullable', 'string', 'max:80'],
             'title' => ['nullable', 'string', 'max:180'],
+            'workspace_slug' => ['nullable', 'string', 'max:120'],
         ]);
+
+        $profiles = app(AtlasCodeWorkspaceProfileService::class);
+        $workspaceSlug = $profiles->resolveActiveSlug($data['workspace_slug'] ?? null);
+        $profile = $workspaceSlug !== null ? $profiles->findBySlug($workspaceSlug) : null;
 
         $title = trim((string) ($data['title'] ?? $data['objective']));
         $project = AtlasProject::query()->create([
@@ -98,10 +121,14 @@ final class AtlasCodeWorkController extends Controller
             'desired_outcome' => $data['objective'],
             'priority' => 'medium',
             'last_touched_at' => now(),
-            'metadata' => [
+            'metadata' => array_filter([
                 'origin' => 'atlas-code',
                 'intent' => $data['intent'],
-            ],
+                'workspace_slug' => $workspaceSlug,
+                'workspace_path' => $profile['workspace_path'] ?? null,
+                'workspace_name' => $profile['name'] ?? null,
+                'workspace_production_status' => $profile['production_status'] ?? null,
+            ], static fn ($v): bool => $v !== null && $v !== ''),
         ]);
 
         return response()->json([
@@ -192,13 +219,26 @@ final class AtlasCodeWorkController extends Controller
      */
     private function shape(AtlasProject $project, bool $withDetail = false): array
     {
+        $profiles = app(AtlasCodeWorkspaceProfileService::class);
+        $defaultSlug = $profiles->defaultSlug();
+        $workspaceSlug = $this->workspaceSlugFor($project, $defaultSlug);
+        $profile = $profiles->findBySlug($workspaceSlug);
+
         $base = [
             'id' => (string) $project->getKey(),
             'title' => (string) ($project->title ?? ''),
             'objective' => (string) ($project->goal ?? $project->desired_outcome ?? $project->title ?? ''),
             'status' => $this->mapStatus((string) ($project->status ?? 'active')),
             'domain' => (string) ($project->domain ?? 'atlas'),
-            'workspace_path' => (string) (data_get($project->metadata, 'workspace_path') ?? ''),
+            'workspace_path' => (string) (
+                data_get($project->metadata, 'workspace_path')
+                ?? ($profile['workspace_path'] ?? '')
+            ),
+            'workspace_slug' => $workspaceSlug,
+            'workspace_name' => (string) (
+                data_get($project->metadata, 'workspace_name')
+                ?? ($profile['name'] ?? '')
+            ),
             'created_at' => $project->created_at?->toJSON(),
             'updated_at' => $project->updated_at?->toJSON(),
         ];
@@ -219,6 +259,41 @@ final class AtlasCodeWorkController extends Controller
     private function isSystemCertificationProject(AtlasProject $project): bool
     {
         return (string) data_get($project->metadata, 'origin', '') === 'atlas-code-enterprise-certification';
+    }
+
+    /**
+     * Resolve which Project/Workspace owns a given Obra.
+     *
+     * Order:
+     *   1. metadata.workspace_slug (set by future workspace-aware creations)
+     *   2. metadata.workspace if it matches a known profile slug
+     *   3. domain if it matches a known profile slug
+     *   4. configured default (atlas)
+     *
+     * Honest fallback: when metadata is silent the Obra is treated as part of
+     * the default project. This preserves backwards-compatibility with Obras
+     * created before multi-project scoping existed.
+     */
+    private function workspaceSlugFor(AtlasProject $project, string $defaultSlug): string
+    {
+        $candidates = [
+            (string) (data_get($project->metadata, 'workspace_slug') ?? ''),
+            (string) (data_get($project->metadata, 'workspace') ?? ''),
+            (string) ($project->domain ?? ''),
+        ];
+        $profiles = app(AtlasCodeWorkspaceProfileService::class);
+        foreach ($candidates as $candidate) {
+            $candidate = trim(strtolower($candidate));
+            if ($candidate === '') {
+                continue;
+            }
+            $profile = $profiles->findBySlug($candidate);
+            if ($profile !== null) {
+                return $profile['slug'];
+            }
+        }
+
+        return $defaultSlug;
     }
 
     private function mapStatus(string $status): string

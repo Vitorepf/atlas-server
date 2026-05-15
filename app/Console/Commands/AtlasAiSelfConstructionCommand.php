@@ -164,6 +164,27 @@ class AtlasAiSelfConstructionCommand extends Command
         {--atlas-self-construction-runtime-promotion-receipt-runbook-preflight : Generate the read-only Atlas Self-Construction Runtime Promotion Receipt Runbook preflight}
         {--atlas-self-construction-runtime-promotion-receipt-runbook-implementation-packet : Generate the read-only Atlas Self-Construction Runtime Promotion Receipt Runbook implementation packet}
         {--atlas-self-construction-runtime-promotion-receipt-runbook-status : Run the read-only Atlas Self-Construction Runtime Promotion Receipt Runbook}
+        {--atlas-self-construction-runtime-promotion-closure-execution-pack-contract : Generate the read-only Atlas Self-Construction Runtime Promotion Closure Execution Pack contract}
+        {--atlas-self-construction-runtime-promotion-closure-execution-pack-preflight : Generate the read-only Atlas Self-Construction Runtime Promotion Closure Execution Pack preflight}
+        {--atlas-self-construction-runtime-promotion-closure-execution-pack-implementation-packet : Generate the read-only Atlas Self-Construction Runtime Promotion Closure Execution Pack implementation packet}
+        {--atlas-self-construction-runtime-promotion-closure-execution-pack-status : Run the read-only Atlas Self-Construction Runtime Promotion Closure Execution Pack}
+        {--atlas-self-construction-runtime-promotion-receipt-pre-submission-verifier-contract : Generate the read-only Atlas Self-Construction Runtime Promotion Receipt Pre-Submission Verifier contract}
+        {--atlas-self-construction-runtime-promotion-receipt-pre-submission-verifier-preflight : Generate the read-only Atlas Self-Construction Runtime Promotion Receipt Pre-Submission Verifier preflight}
+        {--atlas-self-construction-runtime-promotion-receipt-pre-submission-verifier-implementation-packet : Generate the read-only Atlas Self-Construction Runtime Promotion Receipt Pre-Submission Verifier implementation packet}
+        {--atlas-self-construction-runtime-promotion-receipt-pre-submission-verifier-status : Run the read-only Atlas Self-Construction Runtime Promotion Receipt Pre-Submission Verifier}
+        {--atlas-self-construction-runtime-promotion-endgame-contract : Generate the read-only Atlas Self-Construction Runtime Promotion Endgame contract}
+        {--atlas-self-construction-runtime-promotion-endgame-preflight : Generate the read-only Atlas Self-Construction Runtime Promotion Endgame preflight}
+        {--atlas-self-construction-runtime-promotion-endgame-implementation-packet : Generate the read-only Atlas Self-Construction Runtime Promotion Endgame implementation packet}
+        {--atlas-self-construction-runtime-promotion-endgame-status : Run the read-only Atlas Self-Construction Runtime Promotion Endgame; persists only with --persist-runtime-promotion-receipt and verifier green}
+        {--atlas-self-construction-runtime-promotion-endgame-verifier-contract : Generate the read-only Atlas Self-Construction Runtime Promotion Endgame Verifier contract}
+        {--atlas-self-construction-runtime-promotion-endgame-verifier-preflight : Generate the read-only Atlas Self-Construction Runtime Promotion Endgame Verifier preflight}
+        {--atlas-self-construction-runtime-promotion-endgame-verifier-implementation-packet : Generate the read-only Atlas Self-Construction Runtime Promotion Endgame Verifier implementation packet}
+        {--atlas-self-construction-runtime-promotion-endgame-verifier-status : Run the read-only Atlas Self-Construction Runtime Promotion Endgame Verifier}
+        {--atlas-self-construction-runtime-promotion-operator-runbook-exporter-contract : Generate the read-only Atlas Self-Construction Runtime Promotion Operator Runbook Exporter contract}
+        {--atlas-self-construction-runtime-promotion-operator-runbook-exporter-preflight : Generate the read-only Atlas Self-Construction Runtime Promotion Operator Runbook Exporter preflight}
+        {--atlas-self-construction-runtime-promotion-operator-runbook-exporter-implementation-packet : Generate the read-only Atlas Self-Construction Runtime Promotion Operator Runbook Exporter implementation packet}
+        {--atlas-self-construction-runtime-promotion-operator-runbook-exporter-status : Run the read-only Atlas Self-Construction Runtime Promotion Operator Runbook Exporter; persists only with --persist-export}
+        {--persist-export : Persist the operator runbook export to local storage; default false}
         {--atlas-self-construction-final-evidence-bundle-contract : Generate the read-only Atlas Self-Construction Final Evidence Bundle contract}
         {--atlas-self-construction-final-evidence-bundle-preflight : Generate the read-only Atlas Self-Construction Final Evidence Bundle preflight}
         {--atlas-self-construction-final-evidence-bundle-implementation-packet : Generate the read-only Atlas Self-Construction Final Evidence Bundle implementation packet}
@@ -1196,6 +1217,7 @@ class AtlasAiSelfConstructionCommand extends Command
             'real_provider_smoke_json' => $this->option('real-provider-smoke-json'),
             'persist_completion_evidence' => $this->option('persist-completion-evidence'),
             'persist_runtime_promotion_receipt' => $this->option('persist-runtime-promotion-receipt'),
+            'persist_export' => $this->option('persist-export'),
         ];
 
         $payload = match (true) {
@@ -1979,6 +2001,26 @@ class AtlasAiSelfConstructionCommand extends Command
             (bool) $this->option('atlas-self-construction-runtime-promotion-receipt-runbook-implementation-packet') => $readiness->atlasSelfConstructionRuntimePromotionReceiptRunbookImplementationPacket($options),
             (bool) $this->option('atlas-self-construction-runtime-promotion-receipt-runbook-preflight') => $readiness->atlasSelfConstructionRuntimePromotionReceiptRunbookPreflight($options),
             (bool) $this->option('atlas-self-construction-runtime-promotion-receipt-runbook-contract') => $readiness->atlasSelfConstructionRuntimePromotionReceiptRunbookContract($options),
+            (bool) $this->option('atlas-self-construction-runtime-promotion-closure-execution-pack-status') => $readiness->atlasSelfConstructionRuntimePromotionClosureExecutionPackStatus($options),
+            (bool) $this->option('atlas-self-construction-runtime-promotion-closure-execution-pack-implementation-packet') => $readiness->atlasSelfConstructionRuntimePromotionClosureExecutionPackImplementationPacket($options),
+            (bool) $this->option('atlas-self-construction-runtime-promotion-closure-execution-pack-preflight') => $readiness->atlasSelfConstructionRuntimePromotionClosureExecutionPackPreflight($options),
+            (bool) $this->option('atlas-self-construction-runtime-promotion-closure-execution-pack-contract') => $readiness->atlasSelfConstructionRuntimePromotionClosureExecutionPackContract($options),
+            (bool) $this->option('atlas-self-construction-runtime-promotion-receipt-pre-submission-verifier-status') => $readiness->atlasSelfConstructionRuntimePromotionReceiptPreSubmissionVerifierStatus($options),
+            (bool) $this->option('atlas-self-construction-runtime-promotion-receipt-pre-submission-verifier-implementation-packet') => $readiness->atlasSelfConstructionRuntimePromotionReceiptPreSubmissionVerifierImplementationPacket($options),
+            (bool) $this->option('atlas-self-construction-runtime-promotion-receipt-pre-submission-verifier-preflight') => $readiness->atlasSelfConstructionRuntimePromotionReceiptPreSubmissionVerifierPreflight($options),
+            (bool) $this->option('atlas-self-construction-runtime-promotion-receipt-pre-submission-verifier-contract') => $readiness->atlasSelfConstructionRuntimePromotionReceiptPreSubmissionVerifierContract($options),
+            (bool) $this->option('atlas-self-construction-runtime-promotion-endgame-status') => $readiness->atlasSelfConstructionRuntimePromotionEndgameStatus($options),
+            (bool) $this->option('atlas-self-construction-runtime-promotion-endgame-implementation-packet') => $readiness->atlasSelfConstructionRuntimePromotionEndgameImplementationPacket($options),
+            (bool) $this->option('atlas-self-construction-runtime-promotion-endgame-preflight') => $readiness->atlasSelfConstructionRuntimePromotionEndgamePreflight($options),
+            (bool) $this->option('atlas-self-construction-runtime-promotion-endgame-contract') => $readiness->atlasSelfConstructionRuntimePromotionEndgameContract($options),
+            (bool) $this->option('atlas-self-construction-runtime-promotion-endgame-verifier-status') => $readiness->atlasSelfConstructionRuntimePromotionEndgameVerifierStatus($options),
+            (bool) $this->option('atlas-self-construction-runtime-promotion-endgame-verifier-implementation-packet') => $readiness->atlasSelfConstructionRuntimePromotionEndgameVerifierImplementationPacket($options),
+            (bool) $this->option('atlas-self-construction-runtime-promotion-endgame-verifier-preflight') => $readiness->atlasSelfConstructionRuntimePromotionEndgameVerifierPreflight($options),
+            (bool) $this->option('atlas-self-construction-runtime-promotion-endgame-verifier-contract') => $readiness->atlasSelfConstructionRuntimePromotionEndgameVerifierContract($options),
+            (bool) $this->option('atlas-self-construction-runtime-promotion-operator-runbook-exporter-status') => $readiness->atlasSelfConstructionRuntimePromotionOperatorRunbookExporterStatus($options),
+            (bool) $this->option('atlas-self-construction-runtime-promotion-operator-runbook-exporter-implementation-packet') => $readiness->atlasSelfConstructionRuntimePromotionOperatorRunbookExporterImplementationPacket($options),
+            (bool) $this->option('atlas-self-construction-runtime-promotion-operator-runbook-exporter-preflight') => $readiness->atlasSelfConstructionRuntimePromotionOperatorRunbookExporterPreflight($options),
+            (bool) $this->option('atlas-self-construction-runtime-promotion-operator-runbook-exporter-contract') => $readiness->atlasSelfConstructionRuntimePromotionOperatorRunbookExporterContract($options),
             (bool) $this->option('atlas-self-construction-final-evidence-bundle-status') => $readiness->atlasSelfConstructionFinalEvidenceBundleStatus($options),
             (bool) $this->option('atlas-self-construction-final-evidence-bundle-implementation-packet') => $readiness->atlasSelfConstructionFinalEvidenceBundleImplementationPacket($options),
             (bool) $this->option('atlas-self-construction-final-evidence-bundle-preflight') => $readiness->atlasSelfConstructionFinalEvidenceBundlePreflight($options),

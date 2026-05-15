@@ -11,29 +11,30 @@ use ReflectionClass;
 use Tests\TestCase;
 
 /**
- * Atlas Forge Rivals · Perfect Battery & Adjudicator v1 — canonical command contract tests.
+ * Atlas Forge Rivals · Provider Arena Core v1 — canonical command contract tests.
  *
- * Asserts that the canonical entrypoint exposes exactly 15 actions
- * (13 legacy + run-battery + adjudicate), returns a stable JSON envelope
- * with `schema_version = atlas.forge.rivals.action_response.v1`, uses
- * fail-closed exit code 2 for pending-slice actions, and uses exit code 1
- * for unknown actions.
+ * Asserts that the canonical entrypoint exposes the canonical action set
+ * (perfect battery + arena + ledger + decide-signal + audit), returns a
+ * stable JSON envelope with `schema_version =
+ * atlas.forge.rivals.action_response.v1`, uses fail-closed exit code 2 for
+ * pending-slice actions, and uses exit code 1 for unknown actions.
  *
  * No provider is dispatched in these tests; they stay strictly in-process.
  */
 final class AtlasForgeRivalsCommandTest extends TestCase
 {
-    public function test_command_signature_exposes_fifteen_actions(): void
+    public function test_command_signature_exposes_canonical_action_set(): void
     {
         $expected = [
             'doctor', 'setup', 'preflight', 'dry-run', 'plan-real', 'run-real',
             'status', 'collect-evidence', 'replay', 'adjudicate', 'report', 'reset',
-            'full-smoke', 'run-battery', 'audit',
+            'full-smoke', 'run-battery', 'run-arena', 'arms', 'cases',
+            'ledger', 'ledger-record', 'decide-signal',
+            'audit',
         ];
 
-        $this->assertCount(15, AtlasForgeRivalsCommand::ACTIONS);
         $this->assertSame($expected, AtlasForgeRivalsCommand::ACTIONS);
-        $this->assertCount(15, AtlasForgeRivalsCommand::ACTION_SLICE);
+        $this->assertCount(count($expected), AtlasForgeRivalsCommand::ACTION_SLICE);
         foreach ($expected as $action) {
             $this->assertArrayHasKey($action, AtlasForgeRivalsCommand::ACTION_SLICE);
         }

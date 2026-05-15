@@ -109,6 +109,31 @@ final class AtlasForgeRivalsRunBatteryTest extends TestCase
         $this->assertContains('mode_not_admissible_for_run_battery:turbo', $response['blockers']);
     }
 
+    public function test_run_battery_local_fake_reaches_comparable_tie_with_real_evidence(): void
+    {
+        $dispatcher = app(AtlasForgeRivalsActionDispatcher::class);
+
+        $response = $dispatcher->dispatch('run-battery', [
+            'mode' => 'local_fake',
+            'atlas_model' => 'sonnet',
+            'rival' => 'claude_sonnet',
+            'preset' => 'quick',
+            'confirmations' => ['runbook_reviewed' => false, 'provider_cost' => false, 'real_provider_call' => false],
+        ]);
+
+        $this->assertSame('ok', $response['status']);
+        $this->assertSame('local_fake', $response['mode']);
+        $this->assertSame(12, $response['phases_passed']);
+        $this->assertSame(0, $response['phases_failed']);
+        $this->assertSame(AtlasForgeRivalsAdjudicatorService::WINNER_TIE, $response['winner']);
+        $this->assertSame([], $response['scorecard']['hard_failures']);
+        $this->assertFalse($response['scorecard']['claim_ready']);
+        $this->assertTrue($response['scorecard']['human_review_required']);
+        $this->assertFalse($response['external_provider_call']);
+        $this->assertFalse($response['provider_tokens_spent']);
+        $this->assertFileExists($response['report_path']);
+    }
+
     public function test_run_battery_blocks_with_codex_driver_when_binary_missing(): void
     {
         if ($this->whichBinary('codex') !== '') {
