@@ -130,6 +130,18 @@ class FairClaudePolicyTest extends TestCase
         $this->assertTrue($result['ok']);
     }
 
+    public function test_accepts_claude_cli_with_sonnet_daily_selection(): void
+    {
+        $result = app(FairClaudePolicy::class)->validate('claude_cli', [
+            'provider' => 'claude_cli',
+            'model' => 'claude-sonnet-4-6',
+            'alias' => 'sonnet',
+            'tier' => 'daily',
+        ]);
+
+        $this->assertTrue($result['ok']);
+    }
+
     public function test_validate_rejects_unallowed_alias_with_provider_model_not_available_sub_error(): void
     {
         $result = app(FairClaudePolicy::class)->validate('claude_cli', [
@@ -160,7 +172,7 @@ class FairClaudePolicyTest extends TestCase
                 'fair_mode' => app(FairClaudePolicy::class)->metadata(),
                 'requested_model' => 'claude-sonnet-4-6',
                 'requested_model_alias' => 'sonnet',
-                'requested_model_tier' => 'premium',
+                'requested_model_tier' => 'daily',
             ],
         );
 

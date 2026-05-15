@@ -11,27 +11,29 @@ use ReflectionClass;
 use Tests\TestCase;
 
 /**
- * Atlas Forge Rivals · Operator Battery v2 — canonical command contract tests.
+ * Atlas Forge Rivals · Perfect Battery & Adjudicator v1 — canonical command contract tests.
  *
- * Asserts that the canonical entrypoint exposes exactly 13 actions, returns
- * a stable JSON envelope with `schema_version = atlas.forge.rivals.action_response.v1`,
- * uses fail-closed exit code 2 for pending-slice actions, and uses exit
- * code 1 for unknown actions.
+ * Asserts that the canonical entrypoint exposes exactly 15 actions
+ * (13 legacy + run-battery + adjudicate), returns a stable JSON envelope
+ * with `schema_version = atlas.forge.rivals.action_response.v1`, uses
+ * fail-closed exit code 2 for pending-slice actions, and uses exit code 1
+ * for unknown actions.
  *
- * No provider is dispatched in Slice 0; these tests stay strictly in-process.
+ * No provider is dispatched in these tests; they stay strictly in-process.
  */
 final class AtlasForgeRivalsCommandTest extends TestCase
 {
-    public function test_command_signature_exposes_thirteen_actions(): void
+    public function test_command_signature_exposes_fifteen_actions(): void
     {
         $expected = [
             'doctor', 'setup', 'preflight', 'dry-run', 'plan-real', 'run-real',
-            'status', 'collect-evidence', 'replay', 'report', 'reset', 'full-smoke', 'audit',
+            'status', 'collect-evidence', 'replay', 'adjudicate', 'report', 'reset',
+            'full-smoke', 'run-battery', 'audit',
         ];
 
-        $this->assertCount(13, AtlasForgeRivalsCommand::ACTIONS);
+        $this->assertCount(15, AtlasForgeRivalsCommand::ACTIONS);
         $this->assertSame($expected, AtlasForgeRivalsCommand::ACTIONS);
-        $this->assertCount(13, AtlasForgeRivalsCommand::ACTION_SLICE);
+        $this->assertCount(15, AtlasForgeRivalsCommand::ACTION_SLICE);
         foreach ($expected as $action) {
             $this->assertArrayHasKey($action, AtlasForgeRivalsCommand::ACTION_SLICE);
         }

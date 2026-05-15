@@ -1,0 +1,178 @@
+<?php
+
+namespace App\Services\Ai\SelfConstruction;
+
+use Carbon\CarbonImmutable;
+
+final class AtlasSelfConstructionCompletionEvidenceHashComposerService
+{
+    public const SCHEMA_VERSION = 'atlas.self_construction.completion_evidence_hash_composer.v1';
+
+    public const MODE = 'read_only_completion_evidence_hash_composer';
+
+    /** @return array<string, mixed> */
+    public function compose(array $options = []): array
+    {
+        $runtimeReceipt = (array) ($options['runtime_promotion_receipt'] ?? []);
+        $humanReceipt = (array) ($options['completion_receipt'] ?? []);
+        $realProviderSmoke = (array) ($options['real_provider_smoke'] ?? []);
+
+        $payload = [
+            'schema_version' => self::SCHEMA_VERSION,
+            'mode' => self::MODE,
+            'status' => ($runtimeReceipt !== [] || $humanReceipt !== [] || $realProviderSmoke !== []) ? 'available' : 'no_input',
+            'composed_at' => CarbonImmutable::now()->toIso8601String(),
+            'runtime_promotion_receipt' => $this->composeReceipt(
+                kind: 'runtime_promotion_receipt',
+                payload: $runtimeReceipt,
+                hashField: 'receipt_hash',
+                hash: $runtimeReceipt === [] ? '' : $this->hashes()->runtimePromotionReceiptHash($runtimeReceipt),
+            ),
+            'human_completion_receipt' => $this->composeReceipt(
+                kind: 'human_completion_receipt',
+                payload: $humanReceipt,
+                hashField: 'receipt_hash',
+                hash: $humanReceipt === [] ? '' : $this->hashes()->humanCompletionReceiptHash($humanReceipt),
+            ),
+            'real_provider_smoke' => $this->composeReceipt(
+                kind: 'real_provider_smoke',
+                payload: $realProviderSmoke,
+                hashField: 'smoke_hash',
+                hash: $realProviderSmoke === [] ? '' : $this->hashes()->realProviderSmokeHash($realProviderSmoke),
+            ),
+            'composer_policy' => [
+                'read_only' => true,
+                'computes_hashes_only' => true,
+                'does_not_verify_operator_authority' => true,
+                'does_not_persist_evidence' => true,
+                'does_not_sign_for_operator' => true,
+                'does_not_turn_templates_into_receipts' => true,
+                'verifiers_still_required_before_persistence' => true,
+            ],
+            'commands_after_composition' => [
+                'verify_runtime_promotion_receipt' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --runtime-promotion-receipt-json=@/path/to/runtime-promotion.json --json',
+                'verify_completion_receipt' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --completion-receipt-json=@/path/to/completion-receipt.json --json',
+                'verify_real_provider_smoke' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --real-provider-smoke-json=@/path/to/real-provider-smoke.json --json',
+                'persist_verified_evidence' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --runtime-promotion-receipt-json=@/path/to/runtime-promotion.json --completion-receipt-json=@/path/to/completion-receipt.json --real-provider-smoke-json=@/path/to/real-provider-smoke.json --persist-runtime-promotion-receipt --persist-completion-evidence --json',
+            ],
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'provider_call_allowed' => false,
+            'token_spend_allowed' => false,
+            'adapter_execution_allowed' => false,
+            'self_programming_allowed' => false,
+            'completion_claim_allowed' => false,
+            'non_execution_guarantees' => [
+                'completion_evidence_hash_composer_does_not_persist_receipts',
+                'completion_evidence_hash_composer_does_not_sign_for_operator',
+                'completion_evidence_hash_composer_does_not_call_provider',
+                'completion_evidence_hash_composer_does_not_spend_tokens',
+                'completion_evidence_hash_composer_does_not_dispatch_work',
+                'completion_evidence_hash_composer_does_not_enable_runtime',
+                'completion_evidence_hash_composer_does_not_promote_completion',
+            ],
+        ];
+        $payload['composer_hash'] = $this->stableHash($payload);
+
+        return $payload;
+    }
+
+    /** @param array<string, mixed> $payload */
+    private function composeReceipt(string $kind, array $payload, string $hashField, string $hash): array
+    {
+        if ($payload === []) {
+            return [
+                'kind' => $kind,
+                'status' => 'no_input',
+                'input_present' => false,
+                'computed_hash' => '',
+                'input_hash' => '',
+                'input_hash_matches_computed_hash' => false,
+                'payload_with_computed_hash' => [],
+                'placeholder_fields' => [],
+                'runtime_enabling_flags_true' => [],
+            ];
+        }
+
+        $inputHash = (string) ($payload[$hashField] ?? '');
+        $payloadWithHash = $payload;
+        $payloadWithHash[$hashField] = $hash;
+
+        return [
+            'kind' => $kind,
+            'status' => 'hash_composed',
+            'input_present' => true,
+            'hash_field' => $hashField,
+            'computed_hash' => $hash,
+            'input_hash' => $inputHash,
+            'input_hash_matches_computed_hash' => $inputHash !== '' && $inputHash === $hash,
+            'payload_with_computed_hash' => $payloadWithHash,
+            'placeholder_fields' => $this->placeholderFields($payload),
+            'runtime_enabling_flags_true' => $this->runtimeEnablingFlagsTrue($payload),
+        ];
+    }
+
+    /** @param array<string, mixed> $payload */
+    private function placeholderFields(array $payload): array
+    {
+        $fields = [];
+        foreach ($payload as $field => $value) {
+            if (is_string($value) && str_starts_with(trim($value), '<') && str_ends_with(trim($value), '>')) {
+                $fields[] = (string) $field;
+            }
+        }
+
+        return $fields;
+    }
+
+    /** @param array<string, mixed> $payload */
+    private function runtimeEnablingFlagsTrue(array $payload): array
+    {
+        $flags = [];
+        foreach ([
+            'execution_allowed',
+            'dispatch_allowed',
+            'provider_call_allowed',
+            'token_spend_allowed',
+            'adapter_execution_allowed',
+            'self_programming_allowed',
+            'completion_claim_promoted_without_receipt',
+        ] as $flag) {
+            if (($payload[$flag] ?? false) === true) {
+                $flags[] = $flag;
+            }
+        }
+
+        return $flags;
+    }
+
+    private function hashes(): AtlasSelfConstructionCompletionEvidenceHashService
+    {
+        return new AtlasSelfConstructionCompletionEvidenceHashService;
+    }
+
+    /** @param array<string, mixed> $payload */
+    private function stableHash(array $payload): string
+    {
+        unset($payload['composed_at'], $payload['composer_hash']);
+
+        return hash('sha256', (string) json_encode($this->ksortRecursive($payload), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+    }
+
+    /** @param array<string, mixed> $value */
+    private function ksortRecursive(array $value): array
+    {
+        foreach ($value as $key => $entry) {
+            if (is_array($entry)) {
+                $value[$key] = $this->ksortRecursive($entry);
+            }
+        }
+        if ($value !== [] && array_keys($value) !== range(0, count($value) - 1)) {
+            ksort($value);
+        }
+
+        return $value;
+    }
+}

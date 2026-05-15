@@ -148,6 +148,14 @@ class AtlasAiSelfConstructionCommand extends Command
         {--atlas-self-construction-real-provider-smoke-runbook-preflight : Generate the read-only Atlas Self-Construction Real Provider Smoke Runbook preflight}
         {--atlas-self-construction-real-provider-smoke-runbook-implementation-packet : Generate the read-only Atlas Self-Construction Real Provider Smoke Runbook implementation packet}
         {--atlas-self-construction-real-provider-smoke-runbook-status : Run the read-only Atlas Self-Construction Real Provider Smoke Runbook}
+        {--atlas-self-construction-real-provider-smoke-offline-harness-contract : Generate the read-only Atlas Self-Construction Real Provider Smoke Offline Harness contract}
+        {--atlas-self-construction-real-provider-smoke-offline-harness-preflight : Generate the read-only Atlas Self-Construction Real Provider Smoke Offline Harness preflight}
+        {--atlas-self-construction-real-provider-smoke-offline-harness-implementation-packet : Generate the read-only Atlas Self-Construction Real Provider Smoke Offline Harness implementation packet}
+        {--atlas-self-construction-real-provider-smoke-offline-harness-status : Run the read-only Atlas Self-Construction Real Provider Smoke Offline Harness}
+        {--atlas-self-construction-real-provider-smoke-draft-contract : Generate the read-only Atlas Self-Construction Real Provider Smoke Draft contract}
+        {--atlas-self-construction-real-provider-smoke-draft-preflight : Generate the read-only Atlas Self-Construction Real Provider Smoke Draft preflight}
+        {--atlas-self-construction-real-provider-smoke-draft-implementation-packet : Generate the read-only Atlas Self-Construction Real Provider Smoke Draft implementation packet}
+        {--atlas-self-construction-real-provider-smoke-draft-status : Build a real provider smoke payload draft from operator evidence; persists only with --persist-completion-evidence}
         {--atlas-self-construction-human-completion-receipt-runbook-contract : Generate the read-only Atlas Self-Construction Human Completion Receipt Runbook contract}
         {--atlas-self-construction-human-completion-receipt-runbook-preflight : Generate the read-only Atlas Self-Construction Human Completion Receipt Runbook preflight}
         {--atlas-self-construction-human-completion-receipt-runbook-implementation-packet : Generate the read-only Atlas Self-Construction Human Completion Receipt Runbook implementation packet}
@@ -164,6 +172,34 @@ class AtlasAiSelfConstructionCommand extends Command
         {--atlas-self-construction-completion-audit-blocker-explainer-preflight : Generate the read-only Atlas Self-Construction Completion Audit Blocker Explainer preflight}
         {--atlas-self-construction-completion-audit-blocker-explainer-implementation-packet : Generate the read-only Atlas Self-Construction Completion Audit Blocker Explainer implementation packet}
         {--atlas-self-construction-completion-audit-blocker-explainer-status : Run the read-only Atlas Self-Construction Completion Audit Blocker Explainer}
+        {--atlas-self-construction-completion-evidence-submission-preflight-contract : Generate the read-only Atlas Self-Construction Completion Evidence Submission Preflight contract}
+        {--atlas-self-construction-completion-evidence-submission-preflight-preflight : Generate the read-only Atlas Self-Construction Completion Evidence Submission Preflight preflight}
+        {--atlas-self-construction-completion-evidence-submission-preflight-implementation-packet : Generate the read-only Atlas Self-Construction Completion Evidence Submission Preflight implementation packet}
+        {--atlas-self-construction-completion-evidence-submission-preflight-status : Run the read-only Atlas Self-Construction Completion Evidence Submission Preflight}
+        {--atlas-self-construction-completion-evidence-hash-composer-contract : Generate the read-only Atlas Self-Construction Completion Evidence Hash Composer contract}
+        {--atlas-self-construction-completion-evidence-hash-composer-preflight : Generate the read-only Atlas Self-Construction Completion Evidence Hash Composer preflight}
+        {--atlas-self-construction-completion-evidence-hash-composer-implementation-packet : Generate the read-only Atlas Self-Construction Completion Evidence Hash Composer implementation packet}
+        {--atlas-self-construction-completion-evidence-hash-composer-status : Run the read-only Atlas Self-Construction Completion Evidence Hash Composer}
+        {--atlas-self-construction-runtime-promotion-receipt-draft-contract : Generate the read-only Atlas Self-Construction Runtime Promotion Receipt Draft contract}
+        {--atlas-self-construction-runtime-promotion-receipt-draft-preflight : Generate the read-only Atlas Self-Construction Runtime Promotion Receipt Draft preflight}
+        {--atlas-self-construction-runtime-promotion-receipt-draft-implementation-packet : Generate the read-only Atlas Self-Construction Runtime Promotion Receipt Draft implementation packet}
+        {--atlas-self-construction-runtime-promotion-receipt-draft-status : Build a runtime promotion receipt draft when operator signer and reason are supplied; persists only with --persist-runtime-promotion-receipt}
+        {--atlas-self-construction-human-completion-receipt-draft-contract : Generate the read-only Atlas Self-Construction Human Completion Receipt Draft contract}
+        {--atlas-self-construction-human-completion-receipt-draft-preflight : Generate the read-only Atlas Self-Construction Human Completion Receipt Draft preflight}
+        {--atlas-self-construction-human-completion-receipt-draft-implementation-packet : Generate the read-only Atlas Self-Construction Human Completion Receipt Draft implementation packet}
+        {--atlas-self-construction-human-completion-receipt-draft-status : Build a human completion receipt draft when operator signer, reason and prerequisite evidence are supplied; persists only with --persist-completion-evidence}
+        {--atlas-self-construction-final-operator-evidence-closure-corridor-contract : Generate the read-only Atlas Self-Construction Final Operator Evidence Closure Corridor contract}
+        {--atlas-self-construction-final-operator-evidence-closure-corridor-preflight : Generate the read-only Atlas Self-Construction Final Operator Evidence Closure Corridor preflight}
+        {--atlas-self-construction-final-operator-evidence-closure-corridor-implementation-packet : Generate the read-only Atlas Self-Construction Final Operator Evidence Closure Corridor implementation packet}
+        {--atlas-self-construction-final-operator-evidence-closure-corridor-status : Run the read-only Atlas Self-Construction Final Operator Evidence Closure Corridor projection}
+        {--atlas-self-construction-operator-evidence-artifact-template-pack-contract : Generate the read-only Atlas Self-Construction Operator Evidence Artifact Template Pack contract}
+        {--atlas-self-construction-operator-evidence-artifact-template-pack-preflight : Generate the read-only Atlas Self-Construction Operator Evidence Artifact Template Pack preflight}
+        {--atlas-self-construction-operator-evidence-artifact-template-pack-implementation-packet : Generate the read-only Atlas Self-Construction Operator Evidence Artifact Template Pack implementation packet}
+        {--atlas-self-construction-operator-evidence-artifact-template-pack-status : Run the read-only Atlas Self-Construction Operator Evidence Artifact Template Pack}
+        {--atlas-self-construction-operator-evidence-submission-readiness-contract : Generate the read-only Atlas Self-Construction Operator Evidence Submission Readiness contract}
+        {--atlas-self-construction-operator-evidence-submission-readiness-preflight : Generate the read-only Atlas Self-Construction Operator Evidence Submission Readiness preflight}
+        {--atlas-self-construction-operator-evidence-submission-readiness-implementation-packet : Generate the read-only Atlas Self-Construction Operator Evidence Submission Readiness implementation packet}
+        {--atlas-self-construction-operator-evidence-submission-readiness-status : Run the read-only Atlas Self-Construction Operator Evidence Submission Readiness diagnostic}
         {--atlas-self-construction-runtime-promotion-evidence-dossier-contract : Generate the read-only Atlas Self-Construction Runtime Promotion Evidence Dossier contract}
         {--atlas-self-construction-runtime-promotion-evidence-dossier-preflight : Generate the read-only Atlas Self-Construction Runtime Promotion Evidence Dossier preflight}
         {--atlas-self-construction-runtime-promotion-evidence-dossier-implementation-packet : Generate the read-only Atlas Self-Construction Runtime Promotion Evidence Dossier implementation packet}
@@ -1927,6 +1963,14 @@ class AtlasAiSelfConstructionCommand extends Command
             (bool) $this->option('atlas-self-construction-real-provider-smoke-runbook-implementation-packet') => $readiness->atlasSelfConstructionRealProviderSmokeRunbookImplementationPacket($options),
             (bool) $this->option('atlas-self-construction-real-provider-smoke-runbook-preflight') => $readiness->atlasSelfConstructionRealProviderSmokeRunbookPreflight($options),
             (bool) $this->option('atlas-self-construction-real-provider-smoke-runbook-contract') => $readiness->atlasSelfConstructionRealProviderSmokeRunbookContract($options),
+            (bool) $this->option('atlas-self-construction-real-provider-smoke-offline-harness-status') => $readiness->atlasSelfConstructionRealProviderSmokeOfflineHarnessStatus($options),
+            (bool) $this->option('atlas-self-construction-real-provider-smoke-offline-harness-implementation-packet') => $readiness->atlasSelfConstructionRealProviderSmokeOfflineHarnessImplementationPacket($options),
+            (bool) $this->option('atlas-self-construction-real-provider-smoke-offline-harness-preflight') => $readiness->atlasSelfConstructionRealProviderSmokeOfflineHarnessPreflight($options),
+            (bool) $this->option('atlas-self-construction-real-provider-smoke-offline-harness-contract') => $readiness->atlasSelfConstructionRealProviderSmokeOfflineHarnessContract($options),
+            (bool) $this->option('atlas-self-construction-real-provider-smoke-draft-status') => $readiness->atlasSelfConstructionRealProviderSmokeDraftStatus($options),
+            (bool) $this->option('atlas-self-construction-real-provider-smoke-draft-implementation-packet') => $readiness->atlasSelfConstructionRealProviderSmokeDraftImplementationPacket($options),
+            (bool) $this->option('atlas-self-construction-real-provider-smoke-draft-preflight') => $readiness->atlasSelfConstructionRealProviderSmokeDraftPreflight($options),
+            (bool) $this->option('atlas-self-construction-real-provider-smoke-draft-contract') => $readiness->atlasSelfConstructionRealProviderSmokeDraftContract($options),
             (bool) $this->option('atlas-self-construction-human-completion-receipt-runbook-status') => $readiness->atlasSelfConstructionHumanCompletionReceiptRunbookStatus($options),
             (bool) $this->option('atlas-self-construction-human-completion-receipt-runbook-implementation-packet') => $readiness->atlasSelfConstructionHumanCompletionReceiptRunbookImplementationPacket($options),
             (bool) $this->option('atlas-self-construction-human-completion-receipt-runbook-preflight') => $readiness->atlasSelfConstructionHumanCompletionReceiptRunbookPreflight($options),
@@ -1943,6 +1987,34 @@ class AtlasAiSelfConstructionCommand extends Command
             (bool) $this->option('atlas-self-construction-completion-audit-blocker-explainer-implementation-packet') => $readiness->atlasSelfConstructionCompletionAuditBlockerExplainerImplementationPacket($options),
             (bool) $this->option('atlas-self-construction-completion-audit-blocker-explainer-preflight') => $readiness->atlasSelfConstructionCompletionAuditBlockerExplainerPreflight($options),
             (bool) $this->option('atlas-self-construction-completion-audit-blocker-explainer-contract') => $readiness->atlasSelfConstructionCompletionAuditBlockerExplainerContract($options),
+            (bool) $this->option('atlas-self-construction-completion-evidence-submission-preflight-status') => $readiness->atlasSelfConstructionCompletionEvidenceSubmissionPreflightStatus($options),
+            (bool) $this->option('atlas-self-construction-completion-evidence-submission-preflight-implementation-packet') => $readiness->atlasSelfConstructionCompletionEvidenceSubmissionPreflightImplementationPacket($options),
+            (bool) $this->option('atlas-self-construction-completion-evidence-submission-preflight-preflight') => $readiness->atlasSelfConstructionCompletionEvidenceSubmissionPreflightPreflight($options),
+            (bool) $this->option('atlas-self-construction-completion-evidence-submission-preflight-contract') => $readiness->atlasSelfConstructionCompletionEvidenceSubmissionPreflightContract($options),
+            (bool) $this->option('atlas-self-construction-completion-evidence-hash-composer-status') => $readiness->atlasSelfConstructionCompletionEvidenceHashComposerStatus($options),
+            (bool) $this->option('atlas-self-construction-completion-evidence-hash-composer-implementation-packet') => $readiness->atlasSelfConstructionCompletionEvidenceHashComposerImplementationPacket($options),
+            (bool) $this->option('atlas-self-construction-completion-evidence-hash-composer-preflight') => $readiness->atlasSelfConstructionCompletionEvidenceHashComposerPreflight($options),
+            (bool) $this->option('atlas-self-construction-completion-evidence-hash-composer-contract') => $readiness->atlasSelfConstructionCompletionEvidenceHashComposerContract($options),
+            (bool) $this->option('atlas-self-construction-runtime-promotion-receipt-draft-status') => $readiness->atlasSelfConstructionRuntimePromotionReceiptDraftStatus($options),
+            (bool) $this->option('atlas-self-construction-runtime-promotion-receipt-draft-implementation-packet') => $readiness->atlasSelfConstructionRuntimePromotionReceiptDraftImplementationPacket($options),
+            (bool) $this->option('atlas-self-construction-runtime-promotion-receipt-draft-preflight') => $readiness->atlasSelfConstructionRuntimePromotionReceiptDraftPreflight($options),
+            (bool) $this->option('atlas-self-construction-runtime-promotion-receipt-draft-contract') => $readiness->atlasSelfConstructionRuntimePromotionReceiptDraftContract($options),
+            (bool) $this->option('atlas-self-construction-human-completion-receipt-draft-status') => $readiness->atlasSelfConstructionHumanCompletionReceiptDraftStatus($options),
+            (bool) $this->option('atlas-self-construction-human-completion-receipt-draft-implementation-packet') => $readiness->atlasSelfConstructionHumanCompletionReceiptDraftImplementationPacket($options),
+            (bool) $this->option('atlas-self-construction-human-completion-receipt-draft-preflight') => $readiness->atlasSelfConstructionHumanCompletionReceiptDraftPreflight($options),
+            (bool) $this->option('atlas-self-construction-human-completion-receipt-draft-contract') => $readiness->atlasSelfConstructionHumanCompletionReceiptDraftContract($options),
+            (bool) $this->option('atlas-self-construction-final-operator-evidence-closure-corridor-status') => $readiness->atlasSelfConstructionFinalOperatorEvidenceClosureCorridorStatus($options),
+            (bool) $this->option('atlas-self-construction-final-operator-evidence-closure-corridor-implementation-packet') => $readiness->atlasSelfConstructionFinalOperatorEvidenceClosureCorridorImplementationPacket($options),
+            (bool) $this->option('atlas-self-construction-final-operator-evidence-closure-corridor-preflight') => $readiness->atlasSelfConstructionFinalOperatorEvidenceClosureCorridorPreflight($options),
+            (bool) $this->option('atlas-self-construction-final-operator-evidence-closure-corridor-contract') => $readiness->atlasSelfConstructionFinalOperatorEvidenceClosureCorridorContract($options),
+            (bool) $this->option('atlas-self-construction-operator-evidence-artifact-template-pack-status') => $readiness->atlasSelfConstructionOperatorEvidenceArtifactTemplatePackStatus($options),
+            (bool) $this->option('atlas-self-construction-operator-evidence-artifact-template-pack-implementation-packet') => $readiness->atlasSelfConstructionOperatorEvidenceArtifactTemplatePackImplementationPacket($options),
+            (bool) $this->option('atlas-self-construction-operator-evidence-artifact-template-pack-preflight') => $readiness->atlasSelfConstructionOperatorEvidenceArtifactTemplatePackPreflight($options),
+            (bool) $this->option('atlas-self-construction-operator-evidence-artifact-template-pack-contract') => $readiness->atlasSelfConstructionOperatorEvidenceArtifactTemplatePackContract($options),
+            (bool) $this->option('atlas-self-construction-operator-evidence-submission-readiness-status') => $readiness->atlasSelfConstructionOperatorEvidenceSubmissionReadinessStatus($options),
+            (bool) $this->option('atlas-self-construction-operator-evidence-submission-readiness-implementation-packet') => $readiness->atlasSelfConstructionOperatorEvidenceSubmissionReadinessImplementationPacket($options),
+            (bool) $this->option('atlas-self-construction-operator-evidence-submission-readiness-preflight') => $readiness->atlasSelfConstructionOperatorEvidenceSubmissionReadinessPreflight($options),
+            (bool) $this->option('atlas-self-construction-operator-evidence-submission-readiness-contract') => $readiness->atlasSelfConstructionOperatorEvidenceSubmissionReadinessContract($options),
             (bool) $this->option('atlas-self-construction-runtime-promotion-evidence-dossier-status') => $readiness->atlasSelfConstructionRuntimePromotionEvidenceDossierStatus($options),
             (bool) $this->option('atlas-self-construction-runtime-promotion-evidence-dossier-implementation-packet') => $readiness->atlasSelfConstructionRuntimePromotionEvidenceDossierImplementationPacket($options),
             (bool) $this->option('atlas-self-construction-runtime-promotion-evidence-dossier-preflight') => $readiness->atlasSelfConstructionRuntimePromotionEvidenceDossierPreflight($options),

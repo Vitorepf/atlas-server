@@ -68,9 +68,18 @@ final class AtlasSelfConstructionRuntimeGapMatrixService
 
         $runtimePromotionBasisHash = $this->runtimePromotionBasisHash($rows);
         $promotionReceiptService = new AtlasSelfConstructionRuntimePromotionReceiptService;
+        $expectedRuntimeGapMatrixHash = $this->expectedRuntimeGapMatrixHash(
+            rows: $rows,
+            runtimePromotionBasisHash: $runtimePromotionBasisHash,
+            notYet: $notYet,
+            executionAllowed: $executionAllowed,
+            nextRequiredSlice: $nextRequiredSlice,
+            promotionReceiptService: $promotionReceiptService,
+        );
+        $runtimePromotionClosureBasisHash = $this->runtimePromotionClosureBasisHash($rows, $runtimePromotionBasisHash, $expectedRuntimeGapMatrixHash);
         $runtimePromotionReceipt = $persistPromotionReceipt && $promotionReceiptInput !== []
-            ? $promotionReceiptService->persist($promotionReceiptInput, $rows, $runtimePromotionBasisHash)
-            : $promotionReceiptService->verify($promotionReceiptInput, $rows, $runtimePromotionBasisHash);
+            ? $promotionReceiptService->persist($promotionReceiptInput, $rows, $runtimePromotionBasisHash, $expectedRuntimeGapMatrixHash, $runtimePromotionClosureBasisHash)
+            : $promotionReceiptService->verify($promotionReceiptInput, $rows, $runtimePromotionBasisHash, $expectedRuntimeGapMatrixHash, $runtimePromotionClosureBasisHash);
         $rows = $this->applyRuntimePromotionReceipt($rows, $runtimePromotionReceipt);
 
         $runtimeRows = array_values(array_filter($rows, static fn (array $row): bool => ! (bool) ($row['runtime_y'] ?? false)));
@@ -88,6 +97,8 @@ final class AtlasSelfConstructionRuntimeGapMatrixService
             'next_required_slice' => $nextRequiredSlice,
             'rows' => $rows,
             'runtime_promotion_basis_hash' => $runtimePromotionBasisHash,
+            'runtime_promotion_closure_basis_hash' => $runtimePromotionClosureBasisHash,
+            'expected_runtime_gap_matrix_hash_for_promotion_receipt' => $expectedRuntimeGapMatrixHash,
             'runtime_promotion_receipt' => $runtimePromotionReceipt,
             'runtime_gap_count' => count($runtimeRows),
             'runtime_y_count' => count(array_filter($rows, static fn (array $row): bool => (bool) ($row['runtime_y'] ?? false))),
@@ -107,6 +118,57 @@ final class AtlasSelfConstructionRuntimeGapMatrixService
         return $payload;
     }
 
+    /**
+     * @param  array<int, array<string, mixed>>  $rows
+     * @param  array<int, mixed>  $notYet
+     */
+    private function expectedRuntimeGapMatrixHash(
+        array $rows,
+        string $runtimePromotionBasisHash,
+        array $notYet,
+        bool $executionAllowed,
+        string $nextRequiredSlice,
+        AtlasSelfConstructionRuntimePromotionReceiptService $promotionReceiptService,
+    ): string {
+        $runtimeRows = array_values(array_filter($rows, static fn (array $row): bool => ! (bool) ($row['runtime_y'] ?? false)));
+        $graduationRows = array_values(array_filter($rows, static fn (array $row): bool => (bool) ($row['runtime_y_candidate'] ?? false)));
+        $emptyReceipt = $promotionReceiptService->verify(
+            receipt: [],
+            rows: $rows,
+            expectedRuntimePromotionBasisHash: $runtimePromotionBasisHash,
+            expectedRuntimeGapMatrixHash: '',
+            loadLatestWhenEmpty: false,
+        );
+
+        return $this->stableHash([
+            'schema_version' => self::SCHEMA_VERSION,
+            'mode' => self::MODE,
+            'status' => $runtimeRows === [] ? 'passed' : 'blocked',
+            'assessed_at' => CarbonImmutable::now()->toIso8601String(),
+            'all_runtime_y' => $runtimeRows === [],
+            'execution_allowed' => $executionAllowed,
+            'not_yet_runtime_capable' => $notYet,
+            'next_required_slice' => $nextRequiredSlice,
+            'rows' => $rows,
+            'runtime_promotion_basis_hash' => $runtimePromotionBasisHash,
+            'runtime_promotion_closure_basis_hash' => $this->runtimePromotionClosureBasisHash($rows, $runtimePromotionBasisHash, ''),
+            'expected_runtime_gap_matrix_hash_for_promotion_receipt' => '',
+            'runtime_promotion_receipt' => $emptyReceipt,
+            'runtime_gap_count' => count($runtimeRows),
+            'runtime_y_count' => count(array_filter($rows, static fn (array $row): bool => (bool) ($row['runtime_y'] ?? false))),
+            'runtime_y_candidate_count' => count($graduationRows),
+            'blocked_gap_ids' => array_values(array_map(static fn (array $row): string => (string) $row['gap_id'], $runtimeRows)),
+            'graduation_candidate_gap_ids' => array_values(array_map(static fn (array $row): string => (string) $row['gap_id'], $graduationRows)),
+            'non_execution_guarantees' => [
+                'runtime_gap_matrix_does_not_start_codex',
+                'runtime_gap_matrix_does_not_call_provider',
+                'runtime_gap_matrix_does_not_dispatch_work',
+                'runtime_gap_matrix_does_not_spend_tokens',
+                'runtime_gap_matrix_does_not_enable_self_programming',
+            ],
+        ]);
+    }
+
     /** @param array<int, array<string, mixed>> $rows */
     private function runtimePromotionBasisHash(array $rows): string
     {
@@ -119,6 +181,35 @@ final class AtlasSelfConstructionRuntimeGapMatrixService
         ], $rows);
 
         return $this->stableHash(['runtime_promotion_basis' => $basis]);
+    }
+
+    /** @param array<int, array<string, mixed>> $rows */
+    private function runtimePromotionClosureBasisHash(array $rows, string $runtimePromotionBasisHash, string $expectedRuntimeGapMatrixHash): string
+    {
+        $candidateRows = array_values(array_filter(
+            $rows,
+            static fn (array $row): bool => (bool) ($row['runtime_y_candidate'] ?? false) === true
+                && (bool) ($row['runtime_y'] ?? false) === false,
+        ));
+        $graduationHashes = [];
+        foreach ($candidateRows as $row) {
+            $gapId = (string) ($row['gap_id'] ?? '');
+            if ($gapId !== '') {
+                $graduationHashes[$gapId] = (string) ($row['graduation_evidence_hash'] ?? '');
+            }
+        }
+
+        return $this->stableHash([
+            'runtime_promotion_closure_basis' => [
+                'runtime_promotion_basis_hash' => $runtimePromotionBasisHash,
+                'expected_runtime_gap_matrix_hash' => $expectedRuntimeGapMatrixHash,
+                'promoted_gap_ids' => array_values(array_keys($graduationHashes)),
+                'graduation_evidence_hashes' => $graduationHashes,
+                'runtime_gap_count' => count(array_filter($rows, static fn (array $row): bool => ! (bool) ($row['runtime_y'] ?? false))),
+                'runtime_y_candidate_count' => count($candidateRows),
+                'runtime_enabled_count' => count(array_filter($rows, static fn (array $row): bool => (bool) ($row['runtime_enabled'] ?? false))),
+            ],
+        ]);
     }
 
     /** @return array<string, mixed> */

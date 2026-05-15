@@ -1935,6 +1935,7 @@ final class AgentControlPlaneChainIntegrityAuditService
             'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_start_envelope_gate_contract' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_start_envelope_gate',
             'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_start_execution_gate_contract' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_start_execution_gate',
             'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_starter_readiness_gate_contract' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_starter_readiness_gate',
+            'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_manual_start_executor_receipt_contract' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_manual_start_executor_receipt',
         ];
         $intentionalReentryReason = 'operator_handoff_completes_release_cycle_and_reenters_post_start_evidence_corridor';
         $intentionalReentryDetected = array_key_exists($currentNextRequiredSlice, $intentionalReentryActivateKeys);

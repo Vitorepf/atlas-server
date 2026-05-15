@@ -21,9 +21,18 @@ final class AtlasSelfConstructionHumanCompletionReceiptDossierService
         $releaseDossierCriterion = $this->criterion($completionAudit, 'release_dossier_green');
         $replayDiffCriterion = $this->criterion($completionAudit, 'replay_diff_against_completion_snapshot_green');
         $runtimeCriterion = $this->criterion($completionAudit, 'runtime_gap_matrix_all_runtime_y');
+        $smokeCriterion = $this->criterion($completionAudit, 'end_to_end_real_provider_smoke_green');
         $statusBatchCriterion = $this->criterion($completionAudit, 'certification_status_batch_green');
         $receiptInput = (array) ($options['completion_receipt'] ?? []);
-        $receiptVerification = (new AtlasSelfConstructionHumanSignedCompletionReceiptService)->verify($receiptInput);
+        $receiptVerification = (new AtlasSelfConstructionHumanCompletionReceiptVerifierService)->verify($receiptInput, [
+            'completion_audit_hash' => (string) data_get($completionAudit, 'completion_audit_hash', ''),
+            'release_dossier_hash' => (string) data_get($releaseDossierCriterion, 'evidence.hash', ''),
+            'replay_diff_hash' => (string) data_get($replayDiffCriterion, 'evidence.diff_hash', ''),
+            'runtime_gap_matrix_hash' => (string) data_get($runtimeCriterion, 'evidence.runtime_gap_matrix_hash', ''),
+            'runtime_promotion_receipt_hash' => (string) data_get($runtimeCriterion, 'evidence.runtime_promotion_receipt_hash', data_get($completionAudit, 'operator_action_packet.human_completion_receipt_template.runtime_promotion_receipt_hash', '')),
+            'real_provider_smoke_hash' => (string) data_get($smokeCriterion, 'evidence.smoke_hash', data_get($completionAudit, 'operator_action_packet.human_completion_receipt_template.real_provider_smoke_hash', '')),
+            'certification_status_batch_hash' => (string) data_get($statusBatchCriterion, 'evidence.hash', data_get($completionAudit, 'operator_action_packet.human_completion_receipt_template.certification_status_batch_hash', '')),
+        ]);
 
         $receiptPreimage = [
             'receipt_id' => 'operator-os-complete-'.CarbonImmutable::now()->format('YmdHis'),
@@ -33,6 +42,8 @@ final class AtlasSelfConstructionHumanCompletionReceiptDossierService
             'release_dossier_hash' => (string) data_get($releaseDossierCriterion, 'evidence.hash', ''),
             'replay_diff_hash' => (string) data_get($replayDiffCriterion, 'evidence.diff_hash', ''),
             'runtime_gap_matrix_hash' => (string) data_get($runtimeCriterion, 'evidence.runtime_gap_matrix_hash', ''),
+            'runtime_promotion_receipt_hash' => (string) data_get($runtimeCriterion, 'evidence.runtime_promotion_receipt_hash', data_get($completionAudit, 'operator_action_packet.human_completion_receipt_template.runtime_promotion_receipt_hash', '')),
+            'real_provider_smoke_hash' => (string) data_get($smokeCriterion, 'evidence.smoke_hash', data_get($completionAudit, 'operator_action_packet.human_completion_receipt_template.real_provider_smoke_hash', '')),
             'certification_status_batch_hash' => (string) data_get($statusBatchCriterion, 'evidence.hash', data_get($completionAudit, 'operator_action_packet.human_completion_receipt_template.certification_status_batch_hash', '')),
             'receipt_hash' => '<operator_generated_64_hex_receipt_hash>',
             'os_complete_approved' => true,

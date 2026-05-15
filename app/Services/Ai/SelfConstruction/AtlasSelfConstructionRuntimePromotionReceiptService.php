@@ -20,9 +20,15 @@ final class AtlasSelfConstructionRuntimePromotionReceiptService
      * @param  array<int, array<string, mixed>>  $rows
      * @return array<string, mixed>
      */
-    public function verify(array $receipt = [], array $rows = [], string $expectedRuntimePromotionBasisHash = ''): array
-    {
-        if ($receipt === []) {
+    public function verify(
+        array $receipt = [],
+        array $rows = [],
+        string $expectedRuntimePromotionBasisHash = '',
+        string $expectedRuntimeGapMatrixHash = '',
+        string $expectedRuntimePromotionClosureBasisHash = '',
+        bool $loadLatestWhenEmpty = true,
+    ): array {
+        if ($receipt === [] && $loadLatestWhenEmpty) {
             $receipt = $this->latestReceipt();
         }
 
@@ -43,7 +49,7 @@ final class AtlasSelfConstructionRuntimePromotionReceiptService
         $promotedGapIds = array_values(array_filter((array) ($receipt['promoted_gap_ids'] ?? []), 'is_string'));
         $providedGraduationHashes = (array) ($receipt['graduation_evidence_hashes'] ?? []);
         $violations = [];
-        foreach (['receipt_id', 'signed_by', 'reason', 'runtime_gap_matrix_hash', 'runtime_promotion_basis_hash', 'receipt_hash'] as $field) {
+        foreach (['receipt_id', 'signed_by', 'reason', 'runtime_gap_matrix_hash', 'runtime_promotion_basis_hash', 'runtime_promotion_closure_basis_hash', 'receipt_hash'] as $field) {
             if (trim((string) ($receipt[$field] ?? '')) === '') {
                 $violations[] = ['code' => 'required_runtime_promotion_receipt_field_missing', 'field' => $field];
             }
@@ -86,8 +92,17 @@ final class AtlasSelfConstructionRuntimePromotionReceiptService
         if (preg_match('/^[a-f0-9]{64}$/', (string) ($receipt['runtime_promotion_basis_hash'] ?? '')) !== 1) {
             $violations[] = ['code' => 'runtime_promotion_basis_hash_invalid'];
         }
+        if (preg_match('/^[a-f0-9]{64}$/', (string) ($receipt['runtime_promotion_closure_basis_hash'] ?? '')) !== 1) {
+            $violations[] = ['code' => 'runtime_promotion_closure_basis_hash_invalid'];
+        }
         if ($expectedRuntimePromotionBasisHash !== '' && (string) ($receipt['runtime_promotion_basis_hash'] ?? '') !== $expectedRuntimePromotionBasisHash) {
             $violations[] = ['code' => 'runtime_promotion_basis_hash_mismatch'];
+        }
+        if ($expectedRuntimeGapMatrixHash !== '' && (string) ($receipt['runtime_gap_matrix_hash'] ?? '') !== $expectedRuntimeGapMatrixHash) {
+            $violations[] = ['code' => 'runtime_gap_matrix_hash_mismatch'];
+        }
+        if ($expectedRuntimePromotionClosureBasisHash !== '' && (string) ($receipt['runtime_promotion_closure_basis_hash'] ?? '') !== $expectedRuntimePromotionClosureBasisHash) {
+            $violations[] = ['code' => 'runtime_promotion_closure_basis_hash_mismatch'];
         }
         if (preg_match('/^[a-f0-9]{64}$/', (string) ($receipt['receipt_hash'] ?? '')) !== 1) {
             $violations[] = ['code' => 'receipt_hash_invalid'];
@@ -117,8 +132,11 @@ final class AtlasSelfConstructionRuntimePromotionReceiptService
             'signed_by' => (string) ($receipt['signed_by'] ?? ''),
             'reason_present' => trim((string) ($receipt['reason'] ?? '')) !== '',
             'runtime_gap_matrix_hash' => (string) ($receipt['runtime_gap_matrix_hash'] ?? ''),
+            'expected_runtime_gap_matrix_hash' => $expectedRuntimeGapMatrixHash,
             'runtime_promotion_basis_hash' => (string) ($receipt['runtime_promotion_basis_hash'] ?? ''),
             'expected_runtime_promotion_basis_hash' => $expectedRuntimePromotionBasisHash,
+            'runtime_promotion_closure_basis_hash' => (string) ($receipt['runtime_promotion_closure_basis_hash'] ?? ''),
+            'expected_runtime_promotion_closure_basis_hash' => $expectedRuntimePromotionClosureBasisHash,
             'receipt_hash' => (string) ($receipt['receipt_hash'] ?? ''),
             'expected_receipt_hash' => $expectedReceiptHash,
             'receipt_hash_matches_payload' => (string) ($receipt['receipt_hash'] ?? '') === $expectedReceiptHash,
@@ -152,9 +170,14 @@ final class AtlasSelfConstructionRuntimePromotionReceiptService
      * @param  array<int, array<string, mixed>>  $rows
      * @return array<string, mixed>
      */
-    public function persist(array $receipt, array $rows, string $expectedRuntimePromotionBasisHash = ''): array
-    {
-        $verification = $this->verify($receipt, $rows, $expectedRuntimePromotionBasisHash);
+    public function persist(
+        array $receipt,
+        array $rows,
+        string $expectedRuntimePromotionBasisHash = '',
+        string $expectedRuntimeGapMatrixHash = '',
+        string $expectedRuntimePromotionClosureBasisHash = '',
+    ): array {
+        $verification = $this->verify($receipt, $rows, $expectedRuntimePromotionBasisHash, $expectedRuntimeGapMatrixHash, $expectedRuntimePromotionClosureBasisHash);
         if ((string) $verification['status'] !== 'passed') {
             return $verification + [
                 'persisted' => false,

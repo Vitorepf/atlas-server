@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\Programming\ForgeRivals;
 
 use App\Services\Ai\Kernel\Architecture\AtlasForgeRivalsOperatorBatteryCertification;
+use App\Services\Ai\Kernel\Architecture\AtlasForgeRivalsPerfectBatteryCertification;
 
 /**
  * Atlas Forge Rivals · Action Response Builder.
@@ -34,6 +35,7 @@ final class AtlasForgeRivalsResponseBuilder
 
     public function __construct(
         private readonly AtlasForgeRivalsOperatorBatteryCertification $certification,
+        private readonly AtlasForgeRivalsPerfectBatteryCertification $perfectBatteryCertification,
     ) {}
 
     /**
@@ -71,12 +73,33 @@ final class AtlasForgeRivalsResponseBuilder
      */
     public function audit(string $action): array
     {
-        $payload = $this->certification->evaluate();
+        $operator = $this->certification->evaluate();
+        $perfect = $this->perfectBatteryCertification->evaluate();
+        $worst = $this->worstStatus($operator['status'] ?? '', $perfect['status'] ?? '');
 
-        return $this->envelope($action, $this->mapCertStatusToActionStatus($payload['status'] ?? ''), [
-            'certification' => $payload,
+        return $this->envelope($action, $this->mapCertStatusToActionStatus($worst), [
+            'certification' => $operator,
+            'perfect_battery_certification' => $perfect,
+            'certifications' => [
+                AtlasForgeRivalsOperatorBatteryCertification::CERTIFICATION_KEY => $operator,
+                AtlasForgeRivalsPerfectBatteryCertification::CERTIFICATION_KEY => $perfect,
+            ],
             'next_command' => 'php artisan atlas:forge:rivals audit --json',
         ]);
+    }
+
+    private function worstStatus(string $a, string $b): string
+    {
+        $rank = [
+            AtlasForgeRivalsOperatorBatteryCertification::STATUS_AVAILABLE => 0,
+            AtlasForgeRivalsOperatorBatteryCertification::STATUS_PENDING_IMPLEMENTATION => 1,
+            AtlasForgeRivalsOperatorBatteryCertification::STATUS_MISSING_ARTIFACTS => 2,
+            AtlasForgeRivalsOperatorBatteryCertification::STATUS_BLOCKED => 3,
+        ];
+        $ra = $rank[$a] ?? 3;
+        $rb = $rank[$b] ?? 3;
+
+        return $ra >= $rb ? $a : $b;
     }
 
     /**

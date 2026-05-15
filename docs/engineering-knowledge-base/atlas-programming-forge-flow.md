@@ -41,6 +41,7 @@ maintenance:
   - Mantenha este doc como pagina-mae; detalhes persistentes ficam nos docs filhos.
 related_paths:
   - docs/engineering-knowledge-base/atlas-forge-continuum-os.md
+  - docs/engineering-knowledge-base/atlas-code-programming-obras-operating-system.md
   - docs/engineering-knowledge-base/domains/programming.md
   - docs/engineering-knowledge-base/domains/programming-professional-rag-operating-standard.md
   - docs/engineering-knowledge-base/domains/programming-agentic-rag-professional-spec.md

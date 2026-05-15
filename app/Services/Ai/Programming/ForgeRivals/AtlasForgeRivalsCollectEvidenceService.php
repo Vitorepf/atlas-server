@@ -52,6 +52,11 @@ final class AtlasForgeRivalsCollectEvidenceService
             'atlas_receipt' => $paths['evidence'].'/atlas_receipt.json',
             'rival_receipt' => $paths['evidence'].'/rival_receipt.json',
             'workspace_hashes' => $paths['evidence'].'/workspace_hashes.json',
+            'atlas_patch' => $paths['evidence'].'/atlas_patch.diff',
+            'rival_patch' => $paths['evidence'].'/rival_patch.diff',
+            'atlas_test_log' => $paths['evidence'].'/atlas_test.log',
+            'rival_test_log' => $paths['evidence'].'/rival_test.log',
+            'scorecard' => $paths['scorecard_json'],
         ] as $key => $path) {
             $artifacts[$key] = $this->describeFile($path);
         }

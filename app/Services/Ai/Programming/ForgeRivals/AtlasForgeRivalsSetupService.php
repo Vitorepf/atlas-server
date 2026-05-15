@@ -87,12 +87,18 @@ final class AtlasForgeRivalsSetupService
             $target = $paths[$arm];
             // If already present, treat as idempotent (operator may re-run setup)
             if (is_dir($target.'/.git') || is_file($target.'/.git')) {
+                $runtime = $this->provisionRuntime($repoRoot, $target);
+                foreach ($runtime['blockers'] as $blocker) {
+                    $blockers[] = 'runtime_provision_failed:'.$arm.':'.$blocker;
+                }
+
                 $worktrees[$arm] = [
                     'path' => $target,
                     'ref' => $sourceRef,
                     'resolved_sha' => $resolvedSha,
                     'created' => false,
                     'reused' => true,
+                    'runtime' => $runtime,
                 ];
 
                 continue;
@@ -108,6 +114,10 @@ final class AtlasForgeRivalsSetupService
 
                 continue;
             }
+            $runtime = $this->provisionRuntime($repoRoot, $target);
+            foreach ($runtime['blockers'] as $blocker) {
+                $blockers[] = 'runtime_provision_failed:'.$arm.':'.$blocker;
+            }
             $worktrees[$arm] = [
                 'path' => $target,
                 'ref' => $sourceRef,
@@ -115,6 +125,7 @@ final class AtlasForgeRivalsSetupService
                 'branch' => $branch,
                 'created' => true,
                 'reused' => false,
+                'runtime' => $runtime,
             ];
         }
 
@@ -154,5 +165,71 @@ final class AtlasForgeRivalsSetupService
     private function generateRunId(): string
     {
         return 'fr2-'.now()->format('Ymd-His').'-'.Str::lower(Str::random(6));
+    }
+
+    /**
+     * Worktrees are intentionally isolated, but Laravel cannot boot from a
+     * plain checkout without the local runtime files that are gitignored in the
+     * source repo. We link/copy only deterministic operator-local runtime
+     * dependencies; source files stay isolated per arm.
+     *
+     * @return array{
+     *   vendor_ready:bool,
+     *   env_ready:bool,
+     *   actions:list<string>,
+     *   blockers:list<string>,
+     *   vendor_source:string,
+     *   vendor_target:string
+     * }
+     */
+    private function provisionRuntime(string $repoRoot, string $target): array
+    {
+        $actions = [];
+        $blockers = [];
+
+        $vendorSource = $repoRoot.'/vendor';
+        $vendorTarget = $target.'/vendor';
+        if (! is_file($vendorSource.'/autoload.php')) {
+            $blockers[] = 'source_vendor_autoload_missing';
+        } else {
+            if (! file_exists($vendorTarget) && ! is_link($vendorTarget)) {
+                if (@symlink($vendorSource, $vendorTarget)) {
+                    $actions[] = 'vendor_symlinked';
+                } else {
+                    $blockers[] = 'vendor_symlink_failed';
+                }
+            }
+            if (! is_file($vendorTarget.'/autoload.php')) {
+                $blockers[] = 'vendor_autoload_missing_after_provision';
+            }
+        }
+
+        $envReady = false;
+        foreach (['.env', '.env.testing'] as $envFile) {
+            $source = $repoRoot.'/'.$envFile;
+            $dest = $target.'/'.$envFile;
+            if (! is_file($source)) {
+                continue;
+            }
+            if (! file_exists($dest)) {
+                if (@copy($source, $dest)) {
+                    $actions[] = $envFile.'_copied';
+                } else {
+                    $blockers[] = $envFile.'_copy_failed';
+                }
+            }
+            if (is_file($dest)) {
+                $envReady = true;
+            }
+        }
+
+        return [
+            'vendor_ready' => is_file($vendorTarget.'/autoload.php'),
+            'env_ready' => $envReady,
+            'actions' => $actions,
+            'blockers' => $blockers,
+            'vendor_source' => $vendorSource,
+            'vendor_target' => $vendorTarget,
+        ];
     }
 }

@@ -35,6 +35,8 @@ final class AtlasSelfConstructionCompletionEvidenceCertificationTest extends Tes
             'release_dossier_hash' => $hash,
             'replay_diff_hash' => $hash,
             'runtime_gap_matrix_hash' => $hash,
+            'runtime_promotion_receipt_hash' => $hash,
+            'real_provider_smoke_hash' => $hash,
             'certification_status_batch_hash' => $hash,
             'receipt_hash' => $hash,
             'os_complete_approved' => true,
@@ -64,6 +66,8 @@ final class AtlasSelfConstructionCompletionEvidenceCertificationTest extends Tes
             'release_dossier_hash' => $hash,
             'replay_diff_hash' => $hash,
             'runtime_gap_matrix_hash' => $hash,
+            'runtime_promotion_receipt_hash' => $hash,
+            'real_provider_smoke_hash' => $hash,
             'certification_status_batch_hash' => $hash,
             'receipt_hash' => $hash,
             'os_complete_approved' => true,
@@ -90,6 +94,8 @@ final class AtlasSelfConstructionCompletionEvidenceCertificationTest extends Tes
             'release_dossier_hash' => $hash,
             'replay_diff_hash' => $hash,
             'runtime_gap_matrix_hash' => $hash,
+            'runtime_promotion_receipt_hash' => $hash,
+            'real_provider_smoke_hash' => $hash,
             'certification_status_batch_hash' => $hash,
             'receipt_hash' => str_repeat('1', 64),
             'os_complete_approved' => true,
@@ -134,6 +140,8 @@ final class AtlasSelfConstructionCompletionEvidenceCertificationTest extends Tes
             'token_spend_observed' => true,
             'claim_to_completion_observed' => true,
             'work_product_collected' => true,
+            'operator_supplied_evidence' => true,
+            'real_provider_run_observed_by_operator' => true,
         ];
         $smoke['smoke_hash'] = (new AtlasSelfConstructionCompletionEvidenceHashService)->realProviderSmokeHash($smoke);
         $result = (new AtlasSelfConstructionRealProviderSmokeCertificationService)->certify($smoke);
@@ -142,6 +150,35 @@ final class AtlasSelfConstructionCompletionEvidenceCertificationTest extends Tes
         $this->assertTrue($result['completion_criterion_green']);
         $this->assertSame(0, $result['violation_count']);
         $this->assertTrue($result['smoke_hash_matches_payload']);
+    }
+
+    public function test_real_provider_smoke_rejects_missing_operator_observation_acknowledgements(): void
+    {
+        $hash = str_repeat('b', 64);
+        $smoke = [
+            'kind' => 'real_provider_packet_claim_to_completion',
+            'status' => 'passed',
+            'provider_run_id' => 'provider-run-smoke-missing-ack',
+            'task_packet_id' => 'task-packet-smoke-missing-ack',
+            'observed_by' => 'operator',
+            'approval_reason' => 'Operator approved real provider smoke.',
+            'smoke_hash' => $hash,
+            'operator_approval_receipt_hash' => $hash,
+            'evidence_ledger_hash' => $hash,
+            'work_product_manifest_hash' => $hash,
+            'cost_event_hash' => $hash,
+            'continuation_summary_hash' => $hash,
+            'provider_response_hash' => $hash,
+            'provider_call_observed' => true,
+            'token_spend_observed' => true,
+            'claim_to_completion_observed' => true,
+            'work_product_collected' => true,
+        ];
+        $smoke['smoke_hash'] = (new AtlasSelfConstructionCompletionEvidenceHashService)->realProviderSmokeHash($smoke);
+        $result = (new AtlasSelfConstructionRealProviderSmokeCertificationService)->certify($smoke);
+
+        $this->assertSame('blocked_missing_real_provider_smoke', $result['status']);
+        $this->assertContains('required_operator_real_smoke_ack_missing', array_column($result['violations'], 'code'));
     }
 
     public function test_real_provider_smoke_can_be_persisted_and_loaded_as_latest(): void
@@ -168,6 +205,8 @@ final class AtlasSelfConstructionCompletionEvidenceCertificationTest extends Tes
             'token_spend_observed' => true,
             'claim_to_completion_observed' => true,
             'work_product_collected' => true,
+            'operator_supplied_evidence' => true,
+            'real_provider_run_observed_by_operator' => true,
         ];
         $smoke['smoke_hash'] = (new AtlasSelfConstructionCompletionEvidenceHashService)->realProviderSmokeHash($smoke);
         $persisted = $service->persist($smoke);
@@ -199,6 +238,8 @@ final class AtlasSelfConstructionCompletionEvidenceCertificationTest extends Tes
             'token_spend_observed' => true,
             'claim_to_completion_observed' => true,
             'work_product_collected' => true,
+            'operator_supplied_evidence' => true,
+            'real_provider_run_observed_by_operator' => true,
         ]);
 
         $this->assertSame('blocked_missing_real_provider_smoke', $result['status']);
@@ -245,17 +286,23 @@ final class AtlasSelfConstructionCompletionEvidenceCertificationTest extends Tes
         $this->assertContains('real_provider_claim_to_completion_smoke', data_get($payload, 'operator_action_packet.missing_operator_artifacts'));
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) data_get($payload, 'operator_action_packet.template_hashes.runtime_promotion_receipt_template_hash'));
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) data_get($payload, 'operator_action_packet.runtime_promotion_receipt_template.runtime_promotion_basis_hash'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) data_get($payload, 'operator_action_packet.runtime_promotion_receipt_template.runtime_promotion_closure_basis_hash'));
         $this->assertSame('atlas.self_construction.runtime_promotion_receipt_runbook.v1', data_get($payload, 'operator_action_packet.runtime_promotion_receipt_runbook.schema_version'));
         $this->assertSame('operator_runtime_promotion_receipt_required', data_get($payload, 'operator_action_packet.runtime_promotion_receipt_runbook.status'));
         $this->assertContains('runtime_promotion_basis_hash', data_get($payload, 'operator_action_packet.runtime_promotion_receipt_runbook.required_evidence_fields'));
+        $this->assertContains('runtime_promotion_closure_basis_hash', data_get($payload, 'operator_action_packet.runtime_promotion_receipt_runbook.required_evidence_fields'));
         $this->assertContains('runtime_promotion_receipt_runbook_does_not_enable_runtime', data_get($payload, 'operator_action_packet.runtime_promotion_receipt_runbook.non_execution_guarantees'));
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) data_get($payload, 'operator_action_packet.runtime_promotion_receipt_runbook.runbook_hash'));
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) data_get($payload, 'operator_action_packet.template_hashes.human_completion_receipt_template_hash'));
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) data_get($payload, 'operator_action_packet.human_completion_receipt_template.certification_status_batch_hash'));
+        $this->assertSame('<64_hex_runtime_promotion_receipt_hash_after_persistence>', data_get($payload, 'operator_action_packet.human_completion_receipt_template.runtime_promotion_receipt_hash'));
+        $this->assertSame('<64_hex_real_provider_smoke_hash_after_persistence>', data_get($payload, 'operator_action_packet.human_completion_receipt_template.real_provider_smoke_hash'));
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) data_get($payload, 'operator_action_packet.template_hashes.real_provider_smoke_template_hash'));
         $this->assertSame('atlas.self_construction.human_completion_receipt_runbook.v1', data_get($payload, 'operator_action_packet.human_completion_receipt_runbook.schema_version'));
         $this->assertSame('operator_human_completion_receipt_required', data_get($payload, 'operator_action_packet.human_completion_receipt_runbook.status'));
         $this->assertContains('certification_status_batch_hash', data_get($payload, 'operator_action_packet.human_completion_receipt_runbook.required_evidence_fields'));
+        $this->assertContains('runtime_promotion_receipt_hash', data_get($payload, 'operator_action_packet.human_completion_receipt_runbook.required_evidence_fields'));
+        $this->assertContains('real_provider_smoke_hash', data_get($payload, 'operator_action_packet.human_completion_receipt_runbook.required_evidence_fields'));
         $this->assertContains('human_completion_receipt_runbook_does_not_sign_for_operator', data_get($payload, 'operator_action_packet.human_completion_receipt_runbook.non_execution_guarantees'));
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) data_get($payload, 'operator_action_packet.human_completion_receipt_runbook.runbook_hash'));
         $this->assertSame('atlas.self_construction.real_provider_smoke_runbook.v1', data_get($payload, 'operator_action_packet.real_provider_smoke_runbook.schema_version'));
@@ -267,26 +314,26 @@ final class AtlasSelfConstructionCompletionEvidenceCertificationTest extends Tes
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $payload['completion_evidence_status_hash']);
     }
 
-    public function test_completion_evidence_status_command_can_persist_valid_json_inputs(): void
+    public function test_completion_evidence_status_command_does_not_persist_human_receipt_before_runtime_promotion(): void
     {
         Storage::fake('local');
-        $receiptHash = str_repeat('e', 64);
         $smokeHash = str_repeat('f', 64);
 
-        $receipt = [
+        Artisan::call('atlas:ai:self-construction', [
+            '--atlas-self-construction-os-completion-evidence-status' => true,
+            '--json' => true,
+        ]);
+        $templatePayload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+        $receipt = (array) data_get($templatePayload, 'operator_action_packet.human_completion_receipt_template', []);
+
+        $receipt = array_merge($receipt, [
             'receipt_id' => 'os-complete-receipt-cli',
-            'signed_by' => 'operator',
-            'reason' => 'CLI supplied completion evidence.',
-            'completion_audit_hash' => $receiptHash,
-            'release_dossier_hash' => $receiptHash,
-            'replay_diff_hash' => $receiptHash,
-            'runtime_gap_matrix_hash' => $receiptHash,
-            'certification_status_batch_hash' => $receiptHash,
-            'receipt_hash' => $receiptHash,
+            'signed_by' => 'Vitorepf Completion Operator',
+            'reason' => 'CLI supplied completion evidence after reviewing current hashes.',
             'os_complete_approved' => true,
             'operator_reviewed_completion_audit' => true,
             'no_autopromotion_acknowledged' => true,
-        ];
+        ]);
         $receipt['receipt_hash'] = (new AtlasSelfConstructionCompletionEvidenceHashService)->humanCompletionReceiptHash($receipt);
         $smoke = [
             'kind' => 'real_provider_packet_claim_to_completion',
@@ -306,6 +353,8 @@ final class AtlasSelfConstructionCompletionEvidenceCertificationTest extends Tes
             'token_spend_observed' => true,
             'claim_to_completion_observed' => true,
             'work_product_collected' => true,
+            'operator_supplied_evidence' => true,
+            'real_provider_run_observed_by_operator' => true,
         ];
         $smoke['smoke_hash'] = (new AtlasSelfConstructionCompletionEvidenceHashService)->realProviderSmokeHash($smoke);
 
@@ -320,10 +369,45 @@ final class AtlasSelfConstructionCompletionEvidenceCertificationTest extends Tes
 
         $this->assertSame(0, $exit);
         $this->assertTrue($payload['persist_completion_evidence_requested']);
-        $this->assertTrue(data_get($payload, 'human_signed_completion_receipt.persisted'));
+        $this->assertFalse(data_get($payload, 'human_signed_completion_receipt.persisted'));
         $this->assertTrue(data_get($payload, 'real_provider_smoke.persisted'));
-        $this->assertSame('passed', data_get($payload, 'human_signed_completion_receipt.status'));
+        $this->assertSame('blocked', data_get($payload, 'human_signed_completion_receipt.status'));
+        $this->assertSame('human_completion_receipt_prerequisites_not_green', data_get($payload, 'human_signed_completion_receipt.persistence_blocker'));
+        $this->assertContains('runtime_promotion_receipt_present', data_get($payload, 'human_signed_completion_receipt.missing_persistence_prerequisites'));
         $this->assertSame('passed', data_get($payload, 'real_provider_smoke.status'));
+    }
+
+    public function test_completion_evidence_status_command_rejects_fake_human_completion_signer(): void
+    {
+        Storage::fake('local');
+
+        Artisan::call('atlas:ai:self-construction', [
+            '--atlas-self-construction-os-completion-evidence-status' => true,
+            '--json' => true,
+        ]);
+        $templatePayload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+        $receipt = array_merge((array) data_get($templatePayload, 'operator_action_packet.human_completion_receipt_template', []), [
+            'receipt_id' => 'os-complete-receipt-fake-signer',
+            'signed_by' => 'codex',
+            'reason' => 'Fake signer should never satisfy the human completion receipt.',
+            'os_complete_approved' => true,
+            'operator_reviewed_completion_audit' => true,
+            'no_autopromotion_acknowledged' => true,
+        ]);
+        $receipt['receipt_hash'] = (new AtlasSelfConstructionCompletionEvidenceHashService)->humanCompletionReceiptHash($receipt);
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--atlas-self-construction-os-completion-evidence-status' => true,
+            '--completion-receipt-json' => json_encode($receipt, JSON_THROW_ON_ERROR),
+            '--persist-completion-evidence' => true,
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertFalse(data_get($payload, 'human_signed_completion_receipt.persisted'));
+        $this->assertSame('blocked', data_get($payload, 'human_signed_completion_receipt.status'));
+        $this->assertContains('human_completion_receipt_signer_invalid_or_placeholder', array_column((array) data_get($payload, 'human_signed_completion_receipt.violations', []), 'code'));
     }
 
     public function test_completion_operator_action_packet_command_exposes_direct_status(): void
@@ -342,6 +426,11 @@ final class AtlasSelfConstructionCompletionEvidenceCertificationTest extends Tes
         $this->assertFalse($payload['dispatch_allowed']);
         $this->assertSame('operator_action_required', data_get($payload, 'agent_control_plane_atlas_self_construction_os_completion_operator_action_packet_status.status'));
         $this->assertContains('runtime_promotion_receipt', data_get($payload, 'agent_control_plane_atlas_self_construction_os_completion_operator_action_packet_status.missing_operator_artifacts'));
+        $this->assertArrayHasKey('draft_runtime_promotion_receipt', data_get($payload, 'agent_control_plane_atlas_self_construction_os_completion_operator_action_packet.commands'));
+        $this->assertArrayHasKey('draft_human_completion_receipt', data_get($payload, 'agent_control_plane_atlas_self_construction_os_completion_operator_action_packet.commands'));
+        $this->assertArrayHasKey('prepare_real_provider_smoke_offline_harness', data_get($payload, 'agent_control_plane_atlas_self_construction_os_completion_operator_action_packet.commands'));
+        $this->assertArrayHasKey('draft_real_provider_smoke', data_get($payload, 'agent_control_plane_atlas_self_construction_os_completion_operator_action_packet.commands'));
+        $this->assertArrayHasKey('compose_completion_evidence_hashes', data_get($payload, 'agent_control_plane_atlas_self_construction_os_completion_operator_action_packet.commands'));
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) data_get($payload, 'agent_control_plane_atlas_self_construction_os_completion_operator_action_packet.template_hashes.runtime_promotion_receipt_template_hash'));
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) data_get($payload, 'agent_control_plane_atlas_self_construction_os_completion_operator_action_packet_status.operator_action_packet_hash'));
     }
@@ -378,7 +467,7 @@ final class AtlasSelfConstructionCompletionEvidenceCertificationTest extends Tes
         $this->assertFalse($payload['execution_allowed']);
         $this->assertFalse($payload['dispatch_allowed']);
         $this->assertSame('operator_human_completion_receipt_required', data_get($payload, 'agent_control_plane_atlas_self_construction_human_completion_receipt_runbook_status.status'));
-        $this->assertSame(9, data_get($payload, 'agent_control_plane_atlas_self_construction_human_completion_receipt_runbook_status.required_evidence_field_count'));
+        $this->assertSame(11, data_get($payload, 'agent_control_plane_atlas_self_construction_human_completion_receipt_runbook_status.required_evidence_field_count'));
         $this->assertSame(3, data_get($payload, 'agent_control_plane_atlas_self_construction_human_completion_receipt_runbook_status.required_acknowledgement_count'));
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) data_get($payload, 'agent_control_plane_atlas_self_construction_human_completion_receipt_runbook_status.runbook_hash'));
 
@@ -412,7 +501,7 @@ final class AtlasSelfConstructionCompletionEvidenceCertificationTest extends Tes
         $this->assertFalse($payload['execution_allowed']);
         $this->assertFalse($payload['dispatch_allowed']);
         $this->assertSame('operator_runtime_promotion_receipt_required', data_get($payload, 'agent_control_plane_atlas_self_construction_runtime_promotion_receipt_runbook_status.status'));
-        $this->assertSame(8, data_get($payload, 'agent_control_plane_atlas_self_construction_runtime_promotion_receipt_runbook_status.required_evidence_field_count'));
+        $this->assertSame(9, data_get($payload, 'agent_control_plane_atlas_self_construction_runtime_promotion_receipt_runbook_status.required_evidence_field_count'));
         $this->assertSame(3, data_get($payload, 'agent_control_plane_atlas_self_construction_runtime_promotion_receipt_runbook_status.required_acknowledgement_count'));
         $this->assertSame(6, data_get($payload, 'agent_control_plane_atlas_self_construction_runtime_promotion_receipt_runbook_status.forbidden_flag_count'));
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) data_get($payload, 'agent_control_plane_atlas_self_construction_runtime_promotion_receipt_runbook_status.runbook_hash'));

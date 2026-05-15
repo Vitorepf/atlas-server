@@ -38,7 +38,18 @@ final class AtlasSelfConstructionRealProviderSmokeEvidenceDossierService
             'continuation_summary_hash',
             'provider_response_hash',
         ], static fn (string $field): bool => preg_match('/^[a-f0-9]{64}$/', (string) ($smoke[$field] ?? '')) !== 1));
-        $forbiddenFlags = array_values(array_filter(['self_programming_allowed', 'completion_claim_promoted_without_receipt'], static fn (string $flag): bool => ($smoke[$flag] ?? false) === true));
+        $missingOperatorAcks = array_values(array_filter([
+            'operator_supplied_evidence',
+            'real_provider_run_observed_by_operator',
+        ], static fn (string $flag): bool => ($smoke[$flag] ?? false) !== true));
+        $forbiddenFlags = array_values(array_filter([
+            'provider_called_by_atlas',
+            'token_spent_by_atlas',
+            'dispatch_allowed',
+            'adapter_execution_allowed',
+            'self_programming_allowed',
+            'completion_claim_promoted_without_receipt',
+        ], static fn (string $flag): bool => ($smoke[$flag] ?? false) === true));
         $readyForPersistence = (string) data_get($certification, 'status') === 'passed';
 
         $template = [
@@ -59,6 +70,8 @@ final class AtlasSelfConstructionRealProviderSmokeEvidenceDossierService
             'token_spend_observed' => true,
             'claim_to_completion_observed' => true,
             'work_product_collected' => true,
+            'operator_supplied_evidence' => true,
+            'real_provider_run_observed_by_operator' => true,
             'self_programming_allowed' => false,
             'completion_claim_promoted_without_receipt' => false,
         ];
@@ -77,8 +90,17 @@ final class AtlasSelfConstructionRealProviderSmokeEvidenceDossierService
                     'token_spend_observed',
                     'claim_to_completion_observed',
                     'work_product_collected',
+                    'operator_supplied_evidence',
+                    'real_provider_run_observed_by_operator',
                 ],
-                'forbidden_flags' => ['self_programming_allowed', 'completion_claim_promoted_without_receipt'],
+                'forbidden_flags' => [
+                    'provider_called_by_atlas',
+                    'token_spent_by_atlas',
+                    'dispatch_allowed',
+                    'adapter_execution_allowed',
+                    'self_programming_allowed',
+                    'completion_claim_promoted_without_receipt',
+                ],
             ],
             'smoke_template' => $template,
             'smoke_hash_preflight' => [
@@ -86,6 +108,7 @@ final class AtlasSelfConstructionRealProviderSmokeEvidenceDossierService
                 'method' => 'realProviderSmokeHash',
                 'missing_fields' => $missingFields,
                 'invalid_hash_fields' => $invalidHashFields,
+                'missing_operator_acknowledgements' => $missingOperatorAcks,
                 'forbidden_flags' => $forbiddenFlags,
                 'smoke_hash_matches_payload' => (bool) data_get($certification, 'smoke_hash_matches_payload', false),
             ],

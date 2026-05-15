@@ -21,6 +21,8 @@ final class AtlasSelfConstructionHumanCompletionReceiptRunbookService
             'release_dossier_hash',
             'replay_diff_hash',
             'runtime_gap_matrix_hash',
+            'runtime_promotion_receipt_hash',
+            'real_provider_smoke_hash',
             'certification_status_batch_hash',
             'receipt_hash',
         ];
@@ -33,12 +35,12 @@ final class AtlasSelfConstructionHumanCompletionReceiptRunbookService
             [
                 'id' => 'verify_runtime_promotion',
                 'summary' => 'Confirm the runtime gap matrix is runtime=Y after a verified runtime promotion receipt.',
-                'evidence_required' => ['runtime_gap_matrix_hash'],
+                'evidence_required' => ['runtime_gap_matrix_hash', 'runtime_promotion_receipt_hash'],
             ],
             [
                 'id' => 'verify_real_provider_smoke',
                 'summary' => 'Confirm the real provider claim-to-completion smoke passed and evidence was persisted.',
-                'evidence_required' => ['completion_audit_hash'],
+                'evidence_required' => ['completion_audit_hash', 'real_provider_smoke_hash'],
             ],
             [
                 'id' => 'review_release_dossier_and_replay',

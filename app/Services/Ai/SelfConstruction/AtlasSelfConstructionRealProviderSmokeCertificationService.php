@@ -65,10 +65,23 @@ final class AtlasSelfConstructionRealProviderSmokeCertificationService
             if ($value === '') {
                 $violations[] = ['code' => 'required_real_smoke_field_missing', 'field' => $field];
             }
+            if ($value !== '' && str_starts_with($value, '<')) {
+                $violations[] = ['code' => 'required_real_smoke_field_placeholder', 'field' => $field];
+            }
         }
         foreach (['provider_call_observed', 'token_spend_observed', 'claim_to_completion_observed', 'work_product_collected'] as $flag) {
             if (($smoke[$flag] ?? false) !== true) {
                 $violations[] = ['code' => 'required_real_smoke_observation_missing', 'flag' => $flag];
+            }
+        }
+        foreach (['operator_supplied_evidence', 'real_provider_run_observed_by_operator'] as $flag) {
+            if (($smoke[$flag] ?? false) !== true) {
+                $violations[] = ['code' => 'required_operator_real_smoke_ack_missing', 'flag' => $flag];
+            }
+        }
+        foreach (['provider_called_by_atlas', 'token_spent_by_atlas', 'dispatch_allowed', 'adapter_execution_allowed'] as $flag) {
+            if (($smoke[$flag] ?? false) === true) {
+                $violations[] = ['code' => 'atlas_runtime_flag_forbidden_in_operator_smoke', 'flag' => $flag];
             }
         }
         foreach (['self_programming_allowed', 'completion_claim_promoted_without_receipt'] as $flag) {
@@ -104,6 +117,10 @@ final class AtlasSelfConstructionRealProviderSmokeCertificationService
                 'token_spend_observed' => (bool) ($smoke['token_spend_observed'] ?? false),
                 'claim_to_completion_observed' => (bool) ($smoke['claim_to_completion_observed'] ?? false),
                 'work_product_collected' => (bool) ($smoke['work_product_collected'] ?? false),
+            ],
+            'operator_acknowledgements' => [
+                'operator_supplied_evidence' => (bool) ($smoke['operator_supplied_evidence'] ?? false),
+                'real_provider_run_observed_by_operator' => (bool) ($smoke['real_provider_run_observed_by_operator'] ?? false),
             ],
             'violations' => $violations,
             'violation_count' => count($violations),

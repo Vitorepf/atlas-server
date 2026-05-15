@@ -23,9 +23,14 @@ final class AtlasSelfConstructionFinalEvidenceBundleService
             'runtime_promotion_receipt' => (array) ($options['runtime_promotion_receipt'] ?? []),
             'persist_runtime_promotion_receipt' => false,
         ]));
-        $humanReceipt = (array) ($options['human_receipt'] ?? (new AtlasSelfConstructionHumanSignedCompletionReceiptService)->verify((array) ($options['completion_receipt'] ?? [])));
+        $humanReceipt = (array) ($options['human_receipt'] ?? (new AtlasSelfConstructionHumanCompletionReceiptVerifierService)->verify((array) ($options['completion_receipt'] ?? [])));
         $realProviderSmoke = (array) ($options['real_provider_smoke_result'] ?? (new AtlasSelfConstructionRealProviderSmokeCertificationService)->certify((array) ($options['real_provider_smoke'] ?? [])));
         $operatorActionPacket = (array) ($options['operator_action_packet'] ?? (new AtlasSelfConstructionCompletionOperatorActionPacketService($this->readiness))->build($runtimeGapMatrix, $humanReceipt, $realProviderSmoke));
+        $hashComposer = (array) ($options['completion_evidence_hash_composer'] ?? (new AtlasSelfConstructionCompletionEvidenceHashComposerService)->compose([
+            'runtime_promotion_receipt' => (array) ($options['runtime_promotion_receipt'] ?? []),
+            'completion_receipt' => (array) ($options['completion_receipt'] ?? []),
+            'real_provider_smoke' => (array) ($options['real_provider_smoke'] ?? []),
+        ]));
         $completionAudit = (array) ($options['completion_audit'] ?? (new AtlasSelfConstructionOsCompletionAuditService($this->readiness))->audit([
             'completion_receipt' => (array) ($options['completion_receipt'] ?? []),
             'real_provider_smoke' => (array) ($options['real_provider_smoke'] ?? []),
@@ -100,6 +105,11 @@ final class AtlasSelfConstructionFinalEvidenceBundleService
                 AtlasSelfConstructionCompletionOperatorActionPacketService::class,
                 'build',
                 $operatorActionPacket,
+            ),
+            'completion_evidence_hash_composer' => $this->componentFromPayload(
+                AtlasSelfConstructionCompletionEvidenceHashComposerService::class,
+                'compose',
+                $hashComposer,
             ),
             'completion_audit_status' => $this->componentFromPayload(
                 AtlasSelfConstructionOsCompletionAuditService::class,
@@ -184,6 +194,7 @@ final class AtlasSelfConstructionFinalEvidenceBundleService
                 'what_must_be_run_with_real_provider' => $realProviderSmokeReady ? [] : ['real_provider_claim_to_completion_smoke'],
                 'commands_to_rerun' => [
                     'completion_evidence_status' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --json',
+                    'completion_evidence_hash_composer' => 'php artisan atlas:ai:self-construction --atlas-self-construction-completion-evidence-hash-composer-status --runtime-promotion-receipt-json=@/path/to/runtime-promotion.json --completion-receipt-json=@/path/to/completion-receipt.json --real-provider-smoke-json=@/path/to/real-provider-smoke.json --json',
                     'completion_audit' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --json',
                     'capture_snapshot_if_stale' => 'php artisan atlas:ai:self-construction --agent-control-plane-replay-snapshot-store-capture --json',
                 ],

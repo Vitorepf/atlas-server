@@ -27,6 +27,7 @@ final class AtlasSelfConstructionHumanCompletionReceiptPreflightService
         $release = $this->criterion($audit, 'release_dossier_green');
         $replay = $this->criterion($audit, 'replay_diff_against_completion_snapshot_green');
         $runtime = $this->criterion($audit, 'runtime_gap_matrix_all_runtime_y');
+        $smoke = $this->criterion($audit, 'end_to_end_real_provider_smoke_green');
         $batch = $this->criterion($audit, 'certification_status_batch_green');
 
         $receiptPreimage = [
@@ -37,6 +38,8 @@ final class AtlasSelfConstructionHumanCompletionReceiptPreflightService
             'release_dossier_hash' => (string) data_get($release, 'evidence.hash', ''),
             'replay_diff_hash' => (string) data_get($replay, 'evidence.diff_hash', ''),
             'runtime_gap_matrix_hash' => (string) data_get($runtime, 'evidence.runtime_gap_matrix_hash', ''),
+            'runtime_promotion_receipt_hash' => (string) data_get($runtime, 'evidence.runtime_promotion_receipt_hash', data_get($audit, 'operator_action_packet.human_completion_receipt_template.runtime_promotion_receipt_hash', '')),
+            'real_provider_smoke_hash' => (string) data_get($smoke, 'evidence.smoke_hash', data_get($audit, 'operator_action_packet.human_completion_receipt_template.real_provider_smoke_hash', '')),
             'certification_status_batch_hash' => (string) data_get($batch, 'evidence.hash', data_get($audit, 'operator_action_packet.human_completion_receipt_template.certification_status_batch_hash', '')),
             'receipt_hash' => '<operator_generated_64_hex_receipt_hash>',
             'os_complete_approved' => true,

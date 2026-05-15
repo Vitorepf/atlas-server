@@ -75,6 +75,32 @@ final class AtlasSelfConstructionHumanCompletionReceiptCorridorTest extends Test
         $this->assertViolation($result, 'context_hash_mismatch');
     }
 
+    public function test_verifier_rejects_final_artifact_hash_mismatch(): void
+    {
+        $result = $this->verifier()->verify($this->validReceipt(), [
+            'runtime_promotion_receipt_hash' => str_repeat('b', 64),
+            'real_provider_smoke_hash' => str_repeat('c', 64),
+        ]);
+
+        $this->assertSame('blocked', $result['status']);
+        $this->assertViolation($result, 'context_hash_mismatch');
+        $this->assertContains('runtime_promotion_receipt_hash', array_column((array) $result['violations'], 'field'));
+        $this->assertContains('real_provider_smoke_hash', array_column((array) $result['violations'], 'field'));
+    }
+
+    public function test_verifier_rejects_missing_final_artifact_hashes(): void
+    {
+        $receipt = $this->validReceipt();
+        unset($receipt['runtime_promotion_receipt_hash'], $receipt['real_provider_smoke_hash']);
+        $receipt['receipt_hash'] = (new AtlasSelfConstructionCompletionEvidenceHashService)->humanCompletionReceiptHash($receipt);
+
+        $result = $this->verifier()->verify($receipt, $this->context());
+
+        $this->assertSame('blocked', $result['status']);
+        $this->assertViolation($result, 'required_receipt_field_missing');
+        $this->assertViolation($result, 'required_evidence_hash_invalid');
+    }
+
     public function test_verifier_rejects_completion_autopromotion_flag(): void
     {
         $receipt = $this->validReceipt(['completion_autopromoted' => true]);
@@ -162,7 +188,8 @@ final class AtlasSelfConstructionHumanCompletionReceiptCorridorTest extends Test
             'criteria' => [
                 ['id' => 'release_dossier_green', 'passed' => true, 'evidence' => ['hash' => $hash]],
                 ['id' => 'replay_diff_against_completion_snapshot_green', 'passed' => true, 'evidence' => ['diff_hash' => $hash]],
-                ['id' => 'runtime_gap_matrix_all_runtime_y', 'passed' => ! in_array('runtime_gap_matrix_all_runtime_y', $failed, true), 'evidence' => ['runtime_gap_matrix_hash' => $hash]],
+                ['id' => 'runtime_gap_matrix_all_runtime_y', 'passed' => ! in_array('runtime_gap_matrix_all_runtime_y', $failed, true), 'evidence' => ['runtime_gap_matrix_hash' => $hash, 'runtime_promotion_receipt_hash' => $hash]],
+                ['id' => 'end_to_end_real_provider_smoke_green', 'passed' => ! in_array('end_to_end_real_provider_smoke_green', $failed, true), 'evidence' => ['smoke_hash' => $hash]],
                 ['id' => 'certification_status_batch_green', 'passed' => true, 'evidence' => ['hash' => $hash]],
             ],
         ];
@@ -179,6 +206,8 @@ final class AtlasSelfConstructionHumanCompletionReceiptCorridorTest extends Test
             'release_dossier_hash' => str_repeat('a', 64),
             'replay_diff_hash' => str_repeat('a', 64),
             'runtime_gap_matrix_hash' => str_repeat('a', 64),
+            'runtime_promotion_receipt_hash' => str_repeat('a', 64),
+            'real_provider_smoke_hash' => str_repeat('a', 64),
             'certification_status_batch_hash' => str_repeat('a', 64),
             'receipt_hash' => '',
             'os_complete_approved' => true,
@@ -197,6 +226,8 @@ final class AtlasSelfConstructionHumanCompletionReceiptCorridorTest extends Test
             'release_dossier_hash' => str_repeat('a', 64),
             'replay_diff_hash' => str_repeat('a', 64),
             'runtime_gap_matrix_hash' => str_repeat('a', 64),
+            'runtime_promotion_receipt_hash' => str_repeat('a', 64),
+            'real_provider_smoke_hash' => str_repeat('a', 64),
             'certification_status_batch_hash' => str_repeat('a', 64),
         ];
     }

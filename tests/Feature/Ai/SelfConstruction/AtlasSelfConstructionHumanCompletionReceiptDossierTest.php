@@ -63,17 +63,18 @@ final class AtlasSelfConstructionHumanCompletionReceiptDossierTest extends TestC
 
     public function test_human_completion_receipt_dossier_accepts_valid_receipt_as_present_but_still_does_not_promote(): void
     {
-        $hash = str_repeat('c', 64);
         $receipt = [
             'receipt_id' => 'receipt-1',
             'signed_by' => 'operator',
             'reason' => 'Reviewed evidence.',
-            'completion_audit_hash' => $hash,
-            'release_dossier_hash' => $hash,
-            'replay_diff_hash' => $hash,
-            'runtime_gap_matrix_hash' => $hash,
-            'certification_status_batch_hash' => $hash,
-            'receipt_hash' => $hash,
+            'completion_audit_hash' => str_repeat('a', 64),
+            'release_dossier_hash' => str_repeat('1', 64),
+            'replay_diff_hash' => str_repeat('2', 64),
+            'runtime_gap_matrix_hash' => str_repeat('3', 64),
+            'runtime_promotion_receipt_hash' => str_repeat('5', 64),
+            'real_provider_smoke_hash' => str_repeat('6', 64),
+            'certification_status_batch_hash' => str_repeat('4', 64),
+            'receipt_hash' => str_repeat('c', 64),
             'os_complete_approved' => true,
             'operator_reviewed_completion_audit' => true,
             'no_autopromotion_acknowledged' => true,
@@ -116,7 +117,8 @@ final class AtlasSelfConstructionHumanCompletionReceiptDossierTest extends TestC
             'criteria' => [
                 ['id' => 'release_dossier_green', 'passed' => true, 'evidence' => ['hash' => str_repeat('1', 64), 'baseline_snapshot_capture_required' => false]],
                 ['id' => 'replay_diff_against_completion_snapshot_green', 'passed' => true, 'evidence' => ['diff_hash' => str_repeat('2', 64)]],
-                ['id' => 'runtime_gap_matrix_all_runtime_y', 'passed' => false, 'evidence' => ['runtime_gap_matrix_hash' => str_repeat('3', 64)]],
+                ['id' => 'runtime_gap_matrix_all_runtime_y', 'passed' => false, 'evidence' => ['runtime_gap_matrix_hash' => str_repeat('3', 64), 'runtime_promotion_receipt_hash' => str_repeat('5', 64)]],
+                ['id' => 'end_to_end_real_provider_smoke_green', 'passed' => false, 'evidence' => ['smoke_hash' => str_repeat('6', 64)]],
                 ['id' => 'certification_status_batch_green', 'passed' => true, 'evidence' => ['checked_count' => 49, 'failed_count' => 0, 'hash' => str_repeat('4', 64)]],
             ],
         ];

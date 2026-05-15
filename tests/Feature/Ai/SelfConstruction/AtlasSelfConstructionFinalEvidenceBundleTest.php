@@ -25,7 +25,7 @@ final class AtlasSelfConstructionFinalEvidenceBundleTest extends TestCase
     {
         $bundle = $this->bundle()->build($this->baseOptions());
 
-        foreach (['completion_evidence_lockfile', 'completion_anti_fraud_matrix', 'runtime_promotion_closure_pack', 'human_completion_receipt_preflight', 'real_provider_smoke_offline_harness', 'completion_operator_action_packet', 'completion_audit_status', 'runtime_gap_matrix'] as $component) {
+        foreach (['completion_evidence_lockfile', 'completion_anti_fraud_matrix', 'runtime_promotion_closure_pack', 'human_completion_receipt_preflight', 'real_provider_smoke_offline_harness', 'completion_operator_action_packet', 'completion_evidence_hash_composer', 'completion_audit_status', 'runtime_gap_matrix'] as $component) {
             $this->assertTrue($bundle['component_registry'][$component]['available']);
             $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $bundle['component_registry'][$component]['hash']);
             $this->assertSame('', $bundle['component_registry'][$component]['missing_reason']);
@@ -87,6 +87,7 @@ final class AtlasSelfConstructionFinalEvidenceBundleTest extends TestCase
         $this->assertContains('do_not_accept_placeholder_receipts', $bundle['final_operator_packet']['stop_conditions']);
         $this->assertContains('do_not_accept_fake_provider_smoke', $bundle['final_operator_packet']['stop_conditions']);
         $this->assertContains('verify_runtime_promotion_closure_pack', $bundle['evidence_dependencies']['ordered_closure_path']);
+        $this->assertArrayHasKey('completion_evidence_hash_composer', $bundle['final_operator_packet']['commands_to_rerun']);
         $this->assertArrayHasKey('completion_audit', $bundle['final_operator_packet']['commands_to_rerun']);
         $this->assertArrayHasKey('capture_snapshot_if_stale', $bundle['final_operator_packet']['commands_to_rerun']);
     }

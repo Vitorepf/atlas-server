@@ -27,6 +27,7 @@ maintenance:
   - Read before creating product flows for long intellectual work, TCCs, books, strategic plans, technical docs, Atlas construction or portfolio strategy.
   - Update when Obra levels, lifecycle, data model, quality gates, AI harness, Foundry or Sovereign governance changes.
 related_paths:
+  - docs/engineering-knowledge-base/atlas-code-programming-obras-operating-system.md
   - docs/engineering-knowledge-base/obras/shared-workspace-and-forge.md
   - docs/engineering-knowledge-base/obras/patamares-l0-l5.md
   - docs/engineering-knowledge-base/obras/contracts-and-invariants.md

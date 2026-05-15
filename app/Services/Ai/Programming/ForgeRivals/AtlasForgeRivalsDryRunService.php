@@ -18,6 +18,7 @@ final class AtlasForgeRivalsDryRunService
     public function __construct(
         private readonly AtlasForgeNativeRivalsDryRunService $protocolDryRun,
         private readonly AtlasForgeRivalsCasesRegistry $cases,
+        private readonly AtlasForgeRivalsRunPathResolver $paths,
     ) {}
 
     /**
@@ -29,8 +30,7 @@ final class AtlasForgeRivalsDryRunService
         $preset = trim((string) ($input['preset'] ?? 'smoke'));
         $atlasModel = $this->normalizeModel((string) ($input['atlas_model'] ?? $input['model'] ?? 'claude_sonnet'));
         $rivalModel = $this->normalizeModel((string) ($input['rival'] ?? $input['baseline_model'] ?? $atlasModel));
-        $workspace = $input['atlas_worktree'] ?? $input['workspace'] ?? null;
-        $baselineWorkspace = $input['baseline_worktree'] ?? $input['baseline_workspace'] ?? null;
+        [$workspace, $baselineWorkspace] = $this->resolveWorktrees($input);
         $blockers = [];
         $cases = [];
         try {
@@ -76,7 +76,9 @@ final class AtlasForgeRivalsDryRunService
             'blockers' => $blockers,
             'dry_run_report' => $report,
             'next_command' => $blockers === []
-                ? 'php artisan atlas:forge:rivals plan-real --mode='.($input['mode'] ?? 'fair').' --preset='.$preset.' --json'
+                ? 'php artisan atlas:forge:rivals plan-real --mode='.($input['mode'] ?? 'fair').' --preset='.$preset
+                    .($this->stringOrNull($input['run_id'] ?? null) !== null ? ' --run-id='.$this->stringOrNull($input['run_id']) : '')
+                    .' --json'
                 : 'fix blockers and re-run dry-run',
         ];
     }
@@ -99,5 +101,29 @@ final class AtlasForgeRivalsDryRunService
             'claude_opus' => 'opus',
             default => $model,
         };
+    }
+
+    /**
+     * @param  array<string,mixed>  $input
+     * @return array{0:?string,1:?string}
+     */
+    private function resolveWorktrees(array $input): array
+    {
+        $workspace = $this->stringOrNull($input['atlas_worktree'] ?? $input['workspace'] ?? null);
+        $baselineWorkspace = $this->stringOrNull($input['baseline_worktree'] ?? $input['baseline_workspace'] ?? null);
+        $runId = $this->stringOrNull($input['run_id'] ?? null);
+
+        if ($runId !== null && ($workspace === null || $baselineWorkspace === null)) {
+            $paths = $this->paths->paths($runId);
+            $workspace ??= $paths['atlas'];
+            $baselineWorkspace ??= $paths['rival'];
+        }
+
+        return [$workspace, $baselineWorkspace];
+    }
+
+    private function stringOrNull(mixed $value): ?string
+    {
+        return is_string($value) && trim($value) !== '' ? trim($value) : null;
     }
 }

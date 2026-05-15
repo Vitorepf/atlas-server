@@ -30,13 +30,20 @@ final class AtlasSelfConstructionRuntimePromotionEvidenceDossierService
                 $graduationHashes[$gapId] = (string) ($row['graduation_evidence_hash'] ?? '');
             }
         }
+        $runtimePromotionMatrixHash = (string) data_get(
+            $matrix,
+            'expected_runtime_gap_matrix_hash_for_promotion_receipt',
+            data_get($matrix, 'runtime_gap_matrix_hash', ''),
+        );
+        $runtimePromotionClosureBasisHash = (string) data_get($matrix, 'runtime_promotion_closure_basis_hash', '');
 
         $receiptPreimage = [
             'receipt_id' => 'operator-runtime-promotion-'.CarbonImmutable::now()->format('YmdHis'),
             'signed_by' => '<operator>',
             'reason' => 'Operator reviewed the current runtime graduation candidate hashes and approves runtime gap promotion without enabling execution directly.',
-            'runtime_gap_matrix_hash' => (string) data_get($matrix, 'runtime_gap_matrix_hash', ''),
+            'runtime_gap_matrix_hash' => $runtimePromotionMatrixHash,
             'runtime_promotion_basis_hash' => (string) data_get($matrix, 'runtime_promotion_basis_hash', ''),
+            'runtime_promotion_closure_basis_hash' => $runtimePromotionClosureBasisHash,
             'promoted_gap_ids' => array_values(array_map(static fn (array $row): string => (string) ($row['gap_id'] ?? ''), $gapRows)),
             'graduation_evidence_hashes' => $graduationHashes,
             'receipt_hash' => '<operator_generated_64_hex_receipt_hash>',
@@ -60,7 +67,9 @@ final class AtlasSelfConstructionRuntimePromotionEvidenceDossierService
             'runtime_gap_matrix_snapshot' => [
                 'status' => (string) data_get($matrix, 'status', ''),
                 'runtime_gap_matrix_hash' => (string) data_get($matrix, 'runtime_gap_matrix_hash', ''),
+                'expected_runtime_gap_matrix_hash_for_promotion_receipt' => $runtimePromotionMatrixHash,
                 'runtime_promotion_basis_hash' => (string) data_get($matrix, 'runtime_promotion_basis_hash', ''),
+                'runtime_promotion_closure_basis_hash' => $runtimePromotionClosureBasisHash,
                 'runtime_gap_count' => count($gapRows),
                 'runtime_y_candidate_count' => (int) data_get($matrix, 'runtime_y_candidate_count', 0),
                 'runtime_enabled_count' => count(array_filter($rows, static fn (array $row): bool => (bool) ($row['runtime_enabled'] ?? false))),
@@ -108,7 +117,9 @@ final class AtlasSelfConstructionRuntimePromotionEvidenceDossierService
                 'status' => $allCandidatesReady ? 'available' : 'blocked',
                 'dossier_hash' => '',
                 'matrix_hash' => (string) data_get($matrix, 'runtime_gap_matrix_hash', ''),
+                'expected_runtime_gap_matrix_hash_for_promotion_receipt' => $runtimePromotionMatrixHash,
                 'basis_hash' => (string) data_get($matrix, 'runtime_promotion_basis_hash', ''),
+                'closure_basis_hash' => $runtimePromotionClosureBasisHash,
                 'candidate_count' => count(array_filter($gapRows, static fn (array $row): bool => (bool) ($row['runtime_y_candidate'] ?? false))),
                 'gap_count' => count($gapRows),
                 'runtime_y_candidate_count' => (int) data_get($matrix, 'runtime_y_candidate_count', 0),

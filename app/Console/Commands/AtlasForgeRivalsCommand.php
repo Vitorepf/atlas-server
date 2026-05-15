@@ -42,7 +42,7 @@ use Illuminate\Console\Command;
 class AtlasForgeRivalsCommand extends Command
 {
     protected $signature = 'atlas:forge:rivals
-        {action=doctor : doctor|setup|preflight|dry-run|plan-real|run-real|status|collect-evidence|replay|report|reset|full-smoke|audit}
+        {action=doctor : doctor|setup|preflight|dry-run|plan-real|run-real|status|collect-evidence|replay|adjudicate|report|reset|full-smoke|run-battery|audit}
         {--worktree-root= : Back-compat base path for isolated test worktrees}
         {--repo-root= : Back-compat source repo root used when provisioning worktrees}
         {--atlas-worktree= : Back-compat isolated Atlas Forge worktree}
@@ -50,22 +50,22 @@ class AtlasForgeRivalsCommand extends Command
         {--model= : Back-compat Atlas model lock: sonnet|opus}
         {--baseline-model= : Back-compat baseline model lock: sonnet|opus}
         {--case=* : Back-compat case id list}
-        {--mode= : fair|full_power|diagnostic|replay_only|local_fake}
-        {--atlas-model= : claude_sonnet|claude_opus|codex|auto}
+        {--mode= : fair|full_power|power|diagnostic|replay_only|local_fake (power is alias for full_power)}
+        {--atlas-model= : sonnet|opus|claude_sonnet|claude_opus|codex|auto}
         {--rival= : claude_sonnet|claude_opus|codex|auto}
         {--preset=smoke : smoke|quick|release|full}
         {--source-ref= : Git ref/SHA used to provision isolated worktrees (Slice 1+)}
-        {--run-id= : Run id for status/collect-evidence/replay/report}
+        {--run-id= : Run id for status/collect-evidence/replay/adjudicate/report/run-battery}
         {--reviewer= : Operator id for reset/triage (Slice 1+)}
         {--reason= : Auditable reason for reset (Slice 1+)}
-        {--confirm-runbook-reviewed : Confirmation gate 1 (required for run-real, Slice 3+)}
-        {--confirm-provider-cost : Confirmation gate 2 (required for run-real, Slice 3+)}
-        {--confirm-real-provider-call : Confirmation gate 3 (required for run-real, Slice 3+)}
+        {--confirm-runbook-reviewed : Confirmation gate 1 (required for run-real / run-battery in real-provider modes)}
+        {--confirm-provider-cost : Confirmation gate 2 (required for run-real / run-battery in real-provider modes)}
+        {--confirm-real-provider-call : Confirmation gate 3 (required for run-real / run-battery in real-provider modes)}
         {--output-dir= : Override evidence/report output dir}
         {--json : Emit machine-readable JSON}
         {--strict : Non-zero exit on blocked status}';
 
-    protected $description = 'Atlas Forge Rivals · Operator Battery v2 canonical entrypoint (doctor, setup, preflight, dry-run, plan-real, run-real, status, collect-evidence, replay, report, reset, full-smoke, audit).';
+    protected $description = 'Atlas Forge Rivals · Perfect Battery & Adjudicator v1 canonical entrypoint (doctor, setup, preflight, dry-run, plan-real, run-real, status, collect-evidence, replay, adjudicate, report, reset, full-smoke, run-battery, audit).';
 
     /** @var list<string> */
     public const ACTIONS = [
@@ -78,9 +78,11 @@ class AtlasForgeRivalsCommand extends Command
         'status',
         'collect-evidence',
         'replay',
+        'adjudicate',
         'report',
         'reset',
         'full-smoke',
+        'run-battery',
         'audit',
     ];
 
@@ -96,8 +98,10 @@ class AtlasForgeRivalsCommand extends Command
         'status' => 3,
         'collect-evidence' => 4,
         'replay' => 4,
+        'adjudicate' => 7,
         'report' => 4,
         'full-smoke' => 5,
+        'run-battery' => 7,
         'audit' => 0,
     ];
 

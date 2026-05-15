@@ -33,13 +33,27 @@ final class AtlasSelfConstructionCompletionOperatorActionPacketService
                 $graduationHashes[$gapId] = (string) ($row['graduation_evidence_hash'] ?? '');
             }
         }
+        $runtimePromotionMatrixHash = (string) data_get(
+            $runtimeGapMatrix,
+            'expected_runtime_gap_matrix_hash_for_promotion_receipt',
+            data_get($runtimeGapMatrix, 'runtime_gap_matrix_hash', ''),
+        );
+        $runtimePromotionReceiptHash = (string) data_get($runtimeGapMatrix, 'runtime_promotion_receipt.receipt_hash', '');
+        if (preg_match('/^[a-f0-9]{64}$/', $runtimePromotionReceiptHash) !== 1) {
+            $runtimePromotionReceiptHash = '<64_hex_runtime_promotion_receipt_hash_after_persistence>';
+        }
+        $realProviderSmokeHash = (string) data_get($realProviderSmoke, 'smoke_hash', '');
+        if (preg_match('/^[a-f0-9]{64}$/', $realProviderSmokeHash) !== 1) {
+            $realProviderSmokeHash = '<64_hex_real_provider_smoke_hash_after_persistence>';
+        }
 
         $runtimePromotionTemplate = [
             'receipt_id' => 'operator-runtime-promotion-'.CarbonImmutable::now()->format('YmdHis'),
             'signed_by' => '<operator>',
             'reason' => 'Operator reviewed the current runtime graduation candidate hashes and approves runtime gap promotion without enabling execution directly.',
-            'runtime_gap_matrix_hash' => (string) data_get($runtimeGapMatrix, 'runtime_gap_matrix_hash', ''),
+            'runtime_gap_matrix_hash' => $runtimePromotionMatrixHash,
             'runtime_promotion_basis_hash' => (string) data_get($runtimeGapMatrix, 'runtime_promotion_basis_hash', ''),
+            'runtime_promotion_closure_basis_hash' => (string) data_get($runtimeGapMatrix, 'runtime_promotion_closure_basis_hash', ''),
             'promoted_gap_ids' => array_values(array_map(static fn (array $row): string => (string) ($row['gap_id'] ?? ''), $rows)),
             'graduation_evidence_hashes' => $graduationHashes,
             'receipt_hash' => '<operator_generated_64_hex_receipt_hash>',
@@ -55,6 +69,8 @@ final class AtlasSelfConstructionCompletionOperatorActionPacketService
             'release_dossier_hash' => (string) data_get($releaseDossier, 'agent_control_plane_release_dossier_status.release_dossier_hash', data_get($releaseDossier, 'agent_control_plane_release_dossier.release_dossier_hash', '')),
             'replay_diff_hash' => (string) data_get($replayDiff, 'agent_control_plane_replay_diff_status.diff_hash', ''),
             'runtime_gap_matrix_hash' => (string) data_get($runtimeGapMatrix, 'runtime_gap_matrix_hash', ''),
+            'runtime_promotion_receipt_hash' => $runtimePromotionReceiptHash,
+            'real_provider_smoke_hash' => $realProviderSmokeHash,
             'certification_status_batch_hash' => (string) data_get($statusBatch, 'agent_control_plane_certification_status_batch_status.batch_hash', data_get($statusBatch, 'agent_control_plane_certification_status_batch.batch_hash', '')),
             'receipt_hash' => '<operator_generated_64_hex_receipt_hash>',
             'os_complete_approved' => true,
@@ -79,6 +95,8 @@ final class AtlasSelfConstructionCompletionOperatorActionPacketService
             'token_spend_observed' => true,
             'claim_to_completion_observed' => true,
             'work_product_collected' => true,
+            'operator_supplied_evidence' => true,
+            'real_provider_run_observed_by_operator' => true,
             'self_programming_allowed' => false,
             'completion_claim_promoted_without_receipt' => false,
         ];
@@ -113,7 +131,9 @@ final class AtlasSelfConstructionCompletionOperatorActionPacketService
                 'operator_must_replace_placeholders_before_persisting_evidence',
                 'operator_receipt_hashes_must_match_canonical_payload_hashes',
                 'runtime_promotion_receipt_must_match_current_graduation_hashes',
+                'runtime_promotion_receipt_must_reference_current_closure_basis_hash',
                 'human_completion_receipt_must_reference_post_smoke_completion_audit_hash',
+                'human_completion_receipt_must_reference_runtime_promotion_receipt_hash_and_real_provider_smoke_hash',
                 'real_provider_smoke_must_come_from_operator_approved_real_provider_run',
             ],
             'runtime_promotion_receipt_runbook' => (new AtlasSelfConstructionRuntimePromotionReceiptRunbookService)->build($runtimePromotionTemplate),
@@ -121,6 +141,15 @@ final class AtlasSelfConstructionCompletionOperatorActionPacketService
             'real_provider_smoke_runbook' => (new AtlasSelfConstructionRealProviderSmokeRunbookService)->build($realProviderSmokeTemplate),
             'commands' => [
                 'verify_completion_evidence' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --json',
+                'preflight_completion_evidence_submission' => 'php artisan atlas:ai:self-construction --atlas-self-construction-completion-evidence-submission-preflight-status --json',
+                'final_operator_evidence_closure_corridor' => 'php artisan atlas:ai:self-construction --atlas-self-construction-final-operator-evidence-closure-corridor-status --json',
+                'operator_evidence_artifact_template_pack' => 'php artisan atlas:ai:self-construction --atlas-self-construction-operator-evidence-artifact-template-pack-status --json',
+                'operator_evidence_submission_readiness' => 'php artisan atlas:ai:self-construction --atlas-self-construction-operator-evidence-submission-readiness-status --json',
+                'draft_runtime_promotion_receipt' => 'php artisan atlas:ai:self-construction --atlas-self-construction-runtime-promotion-receipt-draft-status --signed-by="<operator>" --reason="<operator reason with at least 32 chars>" --json',
+                'draft_human_completion_receipt' => 'php artisan atlas:ai:self-construction --atlas-self-construction-human-completion-receipt-draft-status --runtime-promotion-receipt-json=@/path/to/runtime-promotion.json --real-provider-smoke-json=@/path/to/real-provider-smoke.json --signed-by="<operator>" --reason="<operator reason with at least 32 chars>" --json',
+                'prepare_real_provider_smoke_offline_harness' => 'php artisan atlas:ai:self-construction --atlas-self-construction-real-provider-smoke-offline-harness-status --json',
+                'draft_real_provider_smoke' => 'php artisan atlas:ai:self-construction --atlas-self-construction-real-provider-smoke-draft-status --real-provider-smoke-json=@/path/to/real-provider-smoke-preimage.json --json',
+                'compose_completion_evidence_hashes' => 'php artisan atlas:ai:self-construction --atlas-self-construction-completion-evidence-hash-composer-status --runtime-promotion-receipt-json=@/path/to/runtime-promotion.json --completion-receipt-json=@/path/to/completion-receipt.json --real-provider-smoke-json=@/path/to/real-provider-smoke.json --json',
                 'persist_runtime_promotion_receipt' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --runtime-promotion-receipt-json=@/path/to/runtime-promotion.json --persist-runtime-promotion-receipt --json',
                 'persist_completion_evidence' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --completion-receipt-json=@/path/to/completion-receipt.json --real-provider-smoke-json=@/path/to/real-provider-smoke.json --persist-completion-evidence --json',
                 'run_completion_audit' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --json',

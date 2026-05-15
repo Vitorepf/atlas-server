@@ -26,6 +26,7 @@ final class AtlasForgeRivalsPreflightService
         private readonly AtlasForgeRivalsModeRegistry $modes,
         private readonly AtlasForgeRivalsModelMatrix $matrix,
         private readonly AtlasForgeRivalsCasesRegistry $cases,
+        private readonly AtlasForgeRivalsRunPathResolver $paths,
     ) {}
 
     /**
@@ -38,8 +39,7 @@ final class AtlasForgeRivalsPreflightService
         $atlasModel = $this->normalizeModel((string) ($input['atlas_model'] ?? $input['model'] ?? 'claude_sonnet'));
         $rivalModel = $this->normalizeModel((string) ($input['rival'] ?? $input['baseline_model'] ?? $atlasModel));
         $preset = trim((string) ($input['preset'] ?? 'smoke'));
-        $workspace = $input['atlas_worktree'] ?? $input['workspace'] ?? null;
-        $baselineWorkspace = $input['baseline_worktree'] ?? $input['baseline_workspace'] ?? null;
+        [$workspace, $baselineWorkspace] = $this->resolveWorktrees($input);
 
         $blockers = [];
 
@@ -164,5 +164,29 @@ final class AtlasForgeRivalsPreflightService
             'claude_opus' => 'opus',
             default => $model,
         };
+    }
+
+    /**
+     * @param  array<string,mixed>  $input
+     * @return array{0:?string,1:?string}
+     */
+    private function resolveWorktrees(array $input): array
+    {
+        $workspace = $this->stringOrNull($input['atlas_worktree'] ?? $input['workspace'] ?? null);
+        $baselineWorkspace = $this->stringOrNull($input['baseline_worktree'] ?? $input['baseline_workspace'] ?? null);
+        $runId = $this->stringOrNull($input['run_id'] ?? null);
+
+        if ($runId !== null && ($workspace === null || $baselineWorkspace === null)) {
+            $paths = $this->paths->paths($runId);
+            $workspace ??= $paths['atlas'];
+            $baselineWorkspace ??= $paths['rival'];
+        }
+
+        return [$workspace, $baselineWorkspace];
+    }
+
+    private function stringOrNull(mixed $value): ?string
+    {
+        return is_string($value) && trim($value) !== '' ? trim($value) : null;
     }
 }

@@ -20,6 +20,7 @@ capabilities:
   - programming_session_memory
   - evidence_driven_execution
 decisions:
+  - Atlas Code existe para programacao pesada, problemas ultra-hard e sessoes extremamente longas; esta prioridade nao deve ser diluida por fluxos leves ou genericos.
   - Esta versao canonica do Atlas Code se chama Atlas Code SCOR-1, Software Construction Operating Room v1.
   - Atlas Code deve suportar sessoes longas e dificeis como cockpit operacional, nao apenas conversa governada.
   - SDD, Plan, Verify e Evidence devem ser objetos operacionais navegaveis, versionados e auditaveis.
@@ -63,6 +64,7 @@ allowed_changes:
   - Atualizar contrato quando a tela Atlas Code ganhar novos paineis, objetos ou gates de sessao longa.
 
 forbidden_changes:
+  - Reduzir Atlas Code a IDE generica, chat de codigo, assistente leve ou painel de produtividade sem foco em programacao pesada.
   - Tratar barra visual SDD como suficiente sem objetos reais por tras.
   - Declarar suporte a sessao longa sem checkpoint, scope guard, evidence e completion gate.
 

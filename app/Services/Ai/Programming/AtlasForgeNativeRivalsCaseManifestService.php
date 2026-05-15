@@ -94,7 +94,7 @@ class AtlasForgeNativeRivalsCaseManifestService
      */
     public const DEFAULT_QUICK_TEST_COMMAND = "php artisan test --filter='AtlasForgeNativeRivalsTest::test_quick_canary_fixture_passes_under_three_seconds'";
 
-    public const DEFAULT_FULL_TEST_COMMAND = "php artisan test --filter='Rivals|ForgeNativeRivals|AtlasForge'";
+    public const DEFAULT_FULL_TEST_COMMAND = "php artisan test --filter='AtlasForgeRivals|RivalsForge|AtlasRivals|ForgeNativeRivals|FairClaudePolicy'";
 
     private function defaultCases(): array
     {

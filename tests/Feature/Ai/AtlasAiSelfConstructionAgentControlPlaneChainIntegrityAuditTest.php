@@ -1160,13 +1160,13 @@ final class AtlasAiSelfConstructionAgentControlPlaneChainIntegrityAuditTest exte
         $this->assertArrayHasKey('signed_real_release_ready_next', $audit);
     }
 
-    public function test_audit_pointer_advanced_to_process_starter_readiness_gate_contract(): void
+    public function test_audit_pointer_advanced_to_post_start_receipt_contract(): void
     {
         $audit = $this->newService()->audit();
         $this->assertContains(
             data_get($audit, 'current_next_required_slice'),
             [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_starter_readiness_gate_contract',
+                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_receipt_contract',
                 // Allow fallback for environments that have not migrated yet.
                 'apply_agent_control_plane_runtime_schema_migration',
             ],
@@ -2188,7 +2188,7 @@ final class AtlasAiSelfConstructionAgentControlPlaneChainIntegrityAuditTest exte
         // that is NOT the intentional reentry target. The audit must flag it.
         $audit = $this->newService()->audit([
             'override_projection' => [
-                'next_required_slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_manual_start_executor_receipt_contract',
+                'next_required_slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_operator_start_handoff_contract',
             ],
         ]);
         $this->assertSame('blocked', data_get($audit, 'cycle_integrity.status'));
@@ -2201,7 +2201,7 @@ final class AtlasAiSelfConstructionAgentControlPlaneChainIntegrityAuditTest exte
     {
         $audit = $this->newService()->audit([
             'override_projection' => [
-                'next_required_slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_manual_start_executor_receipt_contract',
+                'next_required_slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_operator_start_handoff_contract',
             ],
         ]);
         $this->assertSame('blocked', data_get($audit, 'cycle_integrity.status'));

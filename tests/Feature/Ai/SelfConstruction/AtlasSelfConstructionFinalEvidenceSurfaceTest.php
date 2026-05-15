@@ -83,8 +83,11 @@ final class AtlasSelfConstructionFinalEvidenceSurfaceTest extends TestCase
         $this->assertContains('atlas_self_construction_final_evidence_bundle_status_projection', $capabilities);
         $this->assertContains('atlas_self_construction_completion_audit_blocker_explainer_status_projection', $capabilities);
         $this->assertContains('atlas_self_construction_runtime_promotion_evidence_dossier_status_projection', $capabilities);
+        $this->assertContains('atlas_self_construction_human_completion_receipt_draft_status_projection', $capabilities);
         $this->assertContains('atlas_self_construction_human_completion_receipt_dossier_status_projection', $capabilities);
         $this->assertContains('atlas_self_construction_real_provider_smoke_evidence_dossier_status_projection', $capabilities);
+        $this->assertContains('atlas_self_construction_real_provider_smoke_offline_harness_status_projection', $capabilities);
+        $this->assertContains('atlas_self_construction_real_provider_smoke_draft_status_projection', $capabilities);
     }
 
     /** @return array<string, mixed> */

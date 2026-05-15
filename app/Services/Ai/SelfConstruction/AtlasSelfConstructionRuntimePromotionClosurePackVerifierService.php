@@ -18,7 +18,7 @@ final class AtlasSelfConstructionRuntimePromotionClosurePackVerifierService
         if ((string) ($pack['schema_version'] ?? '') !== AtlasSelfConstructionRuntimePromotionClosurePackService::SCHEMA_VERSION) {
             $violations[] = ['code' => 'closure_pack_schema_version_invalid'];
         }
-        foreach (['runtime_gap_matrix_hash', 'runtime_promotion_basis_hash', 'closure_pack_hash', 'runtime_promotion_receipt_template_hash'] as $field) {
+        foreach (['runtime_gap_matrix_hash', 'runtime_promotion_basis_hash', 'runtime_promotion_closure_basis_hash', 'closure_pack_hash', 'runtime_promotion_receipt_template_hash'] as $field) {
             if (preg_match('/^[a-f0-9]{64}$/', (string) ($pack[$field] ?? '')) !== 1) {
                 $violations[] = ['code' => 'required_64_hex_field_invalid', 'field' => $field];
             }
@@ -75,6 +75,9 @@ final class AtlasSelfConstructionRuntimePromotionClosurePackVerifierService
         }
         if ((array) ($preimage['graduation_evidence_hashes'] ?? []) !== $graduationHashes) {
             $violations[] = ['code' => 'receipt_preimage_graduation_hashes_mismatch'];
+        }
+        if ((string) ($preimage['runtime_promotion_closure_basis_hash'] ?? '') !== (string) ($pack['runtime_promotion_closure_basis_hash'] ?? '')) {
+            $violations[] = ['code' => 'receipt_preimage_closure_basis_hash_mismatch'];
         }
         foreach (['execution_allowed', 'dispatch_allowed', 'provider_call_allowed', 'token_spend_allowed', 'adapter_execution_allowed', 'self_programming_allowed', 'runtime_write_allowed', 'ledger_write_allowed'] as $flag) {
             if ((bool) data_get($pack, $flag, false) === true || (bool) data_get($preimage, $flag, false) === true) {

@@ -17,6 +17,8 @@ final class AtlasSelfConstructionRealProviderSmokeEvidenceDossierTest extends Te
         $this->assertSame('real_provider_packet_claim_to_completion', $payload['smoke_contract']['kind']);
         $this->assertContains('provider_run_id', $payload['smoke_contract']['required_fields']);
         $this->assertSame('<provider_run_id_from_operator_approved_real_provider_smoke>', $payload['smoke_template']['provider_run_id']);
+        $this->assertContains('operator_supplied_evidence', $payload['smoke_contract']['required_observation_flags']);
+        $this->assertTrue($payload['smoke_template']['real_provider_run_observed_by_operator']);
         $this->assertFalse($payload['safety_profile']['provider_call_made']);
         $this->assertFalse($payload['safety_profile']['token_spend_made']);
         $this->assertFalse($payload['safety_profile']['smoke_persisted']);
@@ -29,6 +31,7 @@ final class AtlasSelfConstructionRealProviderSmokeEvidenceDossierTest extends Te
         $this->assertContains('provider_run_id', $payload['smoke_hash_preflight']['missing_fields']);
         $this->assertContains('cost_event_hash', $payload['smoke_hash_preflight']['missing_fields']);
         $this->assertContains('smoke_hash', $payload['smoke_hash_preflight']['invalid_hash_fields']);
+        $this->assertContains('operator_supplied_evidence', $payload['smoke_hash_preflight']['missing_operator_acknowledgements']);
         $this->assertFalse($payload['machine_status']['ready_for_persistence']);
         $this->assertFalse($payload['machine_status']['certification_would_pass']);
     }
@@ -51,6 +54,7 @@ final class AtlasSelfConstructionRealProviderSmokeEvidenceDossierTest extends Te
 
         $this->assertSame([], $payload['smoke_hash_preflight']['missing_fields']);
         $this->assertSame([], $payload['smoke_hash_preflight']['invalid_hash_fields']);
+        $this->assertSame([], $payload['smoke_hash_preflight']['missing_operator_acknowledgements']);
         $this->assertTrue($payload['smoke_hash_preflight']['smoke_hash_matches_payload']);
         $this->assertTrue($payload['machine_status']['ready_for_persistence']);
         $this->assertTrue($payload['machine_status']['certification_would_pass']);
@@ -123,6 +127,8 @@ final class AtlasSelfConstructionRealProviderSmokeEvidenceDossierTest extends Te
             'token_spend_observed' => true,
             'claim_to_completion_observed' => true,
             'work_product_collected' => true,
+            'operator_supplied_evidence' => true,
+            'real_provider_run_observed_by_operator' => true,
             'self_programming_allowed' => false,
             'completion_claim_promoted_without_receipt' => false,
         ];

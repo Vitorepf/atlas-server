@@ -3,7 +3,7 @@
 namespace Tests\Feature\Ai\SelfConstruction;
 
 use App\Services\Ai\SelfConstruction\AtlasSelfConstructionCompletionAuditBlockerExplainerService;
-use App\Services\Ai\SelfConstruction\AtlasSelfConstructionHumanSignedCompletionReceiptService;
+use App\Services\Ai\SelfConstruction\AtlasSelfConstructionHumanCompletionReceiptVerifierService;
 use App\Services\Ai\SelfConstruction\AtlasSelfConstructionRealProviderSmokeCertificationService;
 use App\Services\Ai\SelfConstruction\AtlasSelfConstructionRuntimePromotionReceiptService;
 use Tests\TestCase;
@@ -25,7 +25,7 @@ final class AtlasSelfConstructionCompletionAuditBlockerExplainerTest extends Tes
         $this->assertTrue($payload['machine_status']['human_required']);
         $this->assertTrue($payload['machine_status']['real_provider_required']);
         $this->assertSame(AtlasSelfConstructionRuntimePromotionReceiptService::class, data_get($payload, 'blockers.0.existing_service_that_validates_it'));
-        $this->assertSame(AtlasSelfConstructionHumanSignedCompletionReceiptService::class, data_get($payload, 'blockers.1.existing_service_that_validates_it'));
+        $this->assertSame(AtlasSelfConstructionHumanCompletionReceiptVerifierService::class, data_get($payload, 'blockers.1.existing_service_that_validates_it'));
         $this->assertSame(AtlasSelfConstructionRealProviderSmokeCertificationService::class, data_get($payload, 'blockers.2.existing_service_that_validates_it'));
     }
 
@@ -35,8 +35,13 @@ final class AtlasSelfConstructionCompletionAuditBlockerExplainerTest extends Tes
 
         $this->assertSame([
             'capture_fresh_snapshot_if_release_dossier_stale',
+            'draft_runtime_promotion_receipt',
             'persist_runtime_promotion_receipt',
+            'prepare_real_provider_smoke_offline_harness',
+            'draft_real_provider_smoke_certification',
             'persist_real_provider_smoke_certification',
+            'compose_completion_evidence_hashes',
+            'draft_human_completion_receipt',
             'persist_human_completion_receipt',
             'rerun_completion_audit',
             'promote_next_stage_only_after_all_criteria_green',
@@ -82,10 +87,63 @@ final class AtlasSelfConstructionCompletionAuditBlockerExplainerTest extends Tes
         $payload = $this->service()->build($this->audit(['human_signed_os_complete_receipt_present']));
 
         $this->assertArrayHasKey('completion_evidence_status', $payload['command_plan']);
+        $this->assertArrayHasKey('draft_runtime_promotion_receipt', $payload['command_plan']);
         $this->assertArrayHasKey('persist_runtime_promotion_receipt', $payload['command_plan']);
+        $this->assertArrayHasKey('prepare_real_provider_smoke_offline_harness', $payload['command_plan']);
+        $this->assertArrayHasKey('draft_real_provider_smoke', $payload['command_plan']);
         $this->assertArrayHasKey('persist_real_provider_smoke', $payload['command_plan']);
+        $this->assertArrayHasKey('compose_completion_evidence_hashes', $payload['command_plan']);
+        $this->assertArrayHasKey('draft_human_completion_receipt', $payload['command_plan']);
         $this->assertArrayHasKey('persist_human_completion_receipt', $payload['command_plan']);
         $this->assertArrayHasKey('completion_audit', $payload['command_plan']);
+    }
+
+    public function test_blocker_explainer_closure_plan_requires_drafts_before_persistence(): void
+    {
+        $payload = $this->service()->build($this->audit([
+            'runtime_gap_matrix_all_runtime_y',
+            'human_signed_os_complete_receipt_present',
+            'end_to_end_real_provider_smoke_green',
+        ]));
+
+        $phases = collect($payload['closure_plan'])->keyBy('phase');
+
+        $this->assertContains('runtime_promotion_receipt_draft_ready', data_get($phases, 'runtime_promotion.acceptance_criteria'));
+        $this->assertContains('offline_harness_prepared', data_get($phases, 'real_provider_smoke.acceptance_criteria'));
+        $this->assertContains('real_provider_smoke_draft_ready', data_get($phases, 'real_provider_smoke.acceptance_criteria'));
+        $this->assertContains('human_completion_receipt_draft_ready', data_get($phases, 'human_completion_receipt.acceptance_criteria'));
+        $this->assertSame('stop_if_any_payload_contains_placeholders_or_runtime_enabling_flags', data_get($phases, 'completion_evidence_hash_composition.stop_condition'));
+    }
+
+    public function test_blocker_explainer_exposes_current_evidence_context_for_operator_artifacts(): void
+    {
+        $payload = $this->service()->build($this->audit([
+            'runtime_gap_matrix_all_runtime_y',
+            'human_signed_os_complete_receipt_present',
+            'end_to_end_real_provider_smoke_green',
+        ]));
+
+        $runtimeContext = data_get($payload, 'blockers.0.current_evidence_context');
+        $humanContext = data_get($payload, 'blockers.1.current_evidence_context');
+        $smokeContext = data_get($payload, 'blockers.2.current_evidence_context');
+
+        $this->assertSame(str_repeat('1', 64), $runtimeContext['runtime_gap_matrix_hash']);
+        $this->assertSame(str_repeat('2', 64), $runtimeContext['runtime_promotion_basis_hash']);
+        $this->assertSame(str_repeat('9', 64), $runtimeContext['runtime_promotion_closure_basis_hash']);
+        $this->assertSame(['adapter_execution_runtime'], $runtimeContext['blocked_gap_ids']);
+        $this->assertSame(['adapter_execution_runtime'], $runtimeContext['promoted_gap_ids_template']);
+        $this->assertSame(str_repeat('3', 64), $runtimeContext['graduation_evidence_hashes_template']['adapter_execution_runtime']);
+        $this->assertTrue($runtimeContext['operator_artifact_missing']);
+
+        $this->assertSame(str_repeat('b', 64), $humanContext['completion_audit_hash']);
+        $this->assertSame(str_repeat('4', 64), $humanContext['receipt_verification_hash']);
+        $this->assertSame(str_repeat('6', 64), $humanContext['human_completion_receipt_template_hash']);
+        $this->assertTrue($humanContext['operator_artifact_missing']);
+
+        $this->assertSame(str_repeat('7', 64), $smokeContext['certification_hash']);
+        $this->assertSame(str_repeat('8', 64), $smokeContext['real_provider_smoke_template_hash']);
+        $this->assertContains('provider_call_observed', $smokeContext['required_observation_flags']);
+        $this->assertTrue($smokeContext['operator_artifact_missing']);
     }
 
     public function test_blocker_explainer_hash_is_deterministic(): void
@@ -133,14 +191,10 @@ final class AtlasSelfConstructionCompletionAuditBlockerExplainerTest extends Tes
     /** @param array<int, string> $failedCriteria */
     private function audit(array $failedCriteria): array
     {
-        $criteria = array_map(static fn (string $criterion): array => [
+        $criteria = array_map(fn (string $criterion): array => [
             'id' => $criterion,
             'passed' => false,
-            'evidence' => [
-                'status' => str_contains($criterion, 'human')
-                    ? 'blocked_missing_operator_receipt'
-                    : (str_contains($criterion, 'provider') ? 'blocked_missing_real_provider_smoke' : 'blocked'),
-            ],
+            'evidence' => $this->evidenceFor($criterion),
         ], $failedCriteria);
 
         return [
@@ -149,6 +203,56 @@ final class AtlasSelfConstructionCompletionAuditBlockerExplainerTest extends Tes
             'completion_audit_hash' => str_repeat('b', 64),
             'failed_criteria' => $failedCriteria,
             'criteria' => $criteria,
+            'operator_action_packet' => [
+                'missing_operator_artifacts' => [
+                    'runtime_promotion_receipt',
+                    'human_signed_os_complete_receipt',
+                    'real_provider_claim_to_completion_smoke',
+                ],
+                'runtime_promotion_receipt_template' => [
+                    'runtime_gap_matrix_hash' => str_repeat('1', 64),
+                    'runtime_promotion_basis_hash' => str_repeat('2', 64),
+                    'runtime_promotion_closure_basis_hash' => str_repeat('9', 64),
+                    'promoted_gap_ids' => ['adapter_execution_runtime'],
+                    'graduation_evidence_hashes' => [
+                        'adapter_execution_runtime' => str_repeat('3', 64),
+                    ],
+                ],
+                'template_hashes' => [
+                    'runtime_promotion_receipt_template_hash' => str_repeat('5', 64),
+                    'human_completion_receipt_template_hash' => str_repeat('6', 64),
+                    'real_provider_smoke_template_hash' => str_repeat('8', 64),
+                ],
+            ],
         ];
+    }
+
+    private function evidenceFor(string $criterion): array
+    {
+        return match ($criterion) {
+            'runtime_gap_matrix_all_runtime_y' => [
+                'status' => 'blocked',
+                'runtime_gap_matrix_hash' => str_repeat('1', 64),
+                'runtime_gap_count' => 1,
+                'blocked_gap_ids' => ['adapter_execution_runtime'],
+                'not_yet_runtime_capable' => ['adapter_execution_runtime'],
+            ],
+            'human_signed_os_complete_receipt_present' => [
+                'status' => 'blocked_missing_operator_receipt',
+                'receipt_id' => '',
+                'receipt_hash' => '',
+                'receipt_verification_hash' => str_repeat('4', 64),
+                'violation_count' => 14,
+            ],
+            'end_to_end_real_provider_smoke_green' => [
+                'status' => 'blocked_missing_real_provider_smoke',
+                'smoke_hash' => '',
+                'certification_hash' => str_repeat('7', 64),
+                'violation_count' => 18,
+            ],
+            default => [
+                'status' => 'blocked',
+            ],
+        };
     }
 }

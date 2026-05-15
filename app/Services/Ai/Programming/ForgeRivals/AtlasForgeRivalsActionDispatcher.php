@@ -37,8 +37,10 @@ final class AtlasForgeRivalsActionDispatcher
         private readonly AtlasForgeRivalsStatusService $status,
         private readonly AtlasForgeRivalsCollectEvidenceService $collectEvidence,
         private readonly AtlasForgeRivalsReplayService $replay,
+        private readonly AtlasForgeRivalsAdjudicatorService $adjudicator,
         private readonly AtlasForgeRivalsReportService $report,
         private readonly AtlasForgeRivalsFullSmokeService $fullSmoke,
+        private readonly AtlasForgeRivalsRunBatteryService $runBattery,
     ) {}
 
     /**
@@ -63,8 +65,10 @@ final class AtlasForgeRivalsActionDispatcher
             'status' => $this->wrap($action, $this->status->status($input)),
             'collect-evidence' => $this->wrap($action, $this->collectEvidence->collect($input)),
             'replay' => $this->wrap($action, $this->replay->replay($input)),
+            'adjudicate' => $this->wrap($action, $this->adjudicator->adjudicate($input)),
             'report' => $this->wrap($action, $this->report->render($input)),
             'full-smoke' => $this->wrap($action, $this->fullSmoke->run($input)),
+            'run-battery' => $this->wrap($action, $this->runBattery->run($input)),
             'audit' => $this->responses->audit($action),
             default => $this->responses->unknownAction($action, AtlasForgeRivalsCommand::ACTIONS),
         };
@@ -107,6 +111,8 @@ final class AtlasForgeRivalsActionDispatcher
             'collect' => 'collect-evidence',
             'smoke' => 'full-smoke',
             'reset-test-worktrees' => 'reset',
+            'battery', 'run-battery-real', 'battery-run' => 'run-battery',
+            'score', 'adjudicator', 'adjudication' => 'adjudicate',
             default => $action,
         };
     }

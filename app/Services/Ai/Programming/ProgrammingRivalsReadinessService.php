@@ -837,7 +837,7 @@ class ProgrammingRivalsReadinessService
      */
     private function latestQualityScanToolRuntimeEvidence(string $workspaceHash): ?array
     {
-        if (! Schema::hasTable('atlas_tool_runs')) {
+        if (! Schema::hasTable('atlas_tool_runs') || ! Schema::hasColumn('atlas_tool_runs', 'workspace_hash')) {
             return null;
         }
 

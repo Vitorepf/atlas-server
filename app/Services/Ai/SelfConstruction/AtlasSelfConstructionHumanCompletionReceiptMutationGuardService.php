@@ -21,6 +21,8 @@ final class AtlasSelfConstructionHumanCompletionReceiptMutationGuardService
             'release_dossier_hash',
             'replay_diff_hash',
             'runtime_gap_matrix_hash',
+            'runtime_promotion_receipt_hash',
+            'real_provider_smoke_hash',
             'certification_status_batch_hash',
             'receipt_hash',
             'os_complete_approved',

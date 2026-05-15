@@ -29,8 +29,9 @@ use Symfony\Component\Process\Process;
  *      and writes a deterministic fake provider receipt, but never
  *      executes a subprocess. The full chain stays exercisable in CI.
  *   5. Every subprocess inherits PYTHONDONTWRITEBYTECODE=1.
- *   6. Workspace hash is captured before/after; `dirty_after_run` ⇒
- *      `verdict=invalid_dirty_after_run`, `score=null`, `claim=false`.
+ *   6. Workspace hash/diff/test logs are captured before/after. Expected
+ *      scoped source changes are evidence, not failure; untracked bytecode or
+ *      out-of-scope changes stay terminal blockers.
  *   7. Output is streamed to events.jsonl with heartbeat-eligible
  *      stream_select(); on timeout we kill the subprocess and close
  *      evidence as `invalid_provider_timeout`.
@@ -118,6 +119,16 @@ final class AtlasForgeRivalsRunRealService
             return $this->blocked($blockers, 'pass all three --confirm-* flags');
         }
 
+        if ($requiresProvider) {
+            $driverBlockers = $this->driverAvailabilityBlockers($atlasModel, $rivalModel);
+            if ($driverBlockers !== []) {
+                return $this->blocked(
+                    $driverBlockers,
+                    'install missing provider CLI (claude/codex) before running real-provider battery',
+                );
+            }
+        }
+
         // Resolve run_id (existing setup or fresh)
         $runId = trim((string) ($input['run_id'] ?? ''));
         if ($runId === '') {
@@ -158,12 +169,19 @@ final class AtlasForgeRivalsRunRealService
 
         $dirtyAtlas = $this->workspaceDirty($paths['atlas']);
         $dirtyRival = $this->workspaceDirty($paths['rival']);
-        $dirtyAfterRun = $dirtyAtlas['dirty'] || $dirtyRival['dirty'];
+        $workspaceBlockers = array_values(array_merge(
+            $this->stringList($atlasReceipt['workspace_blockers'] ?? []),
+            $this->stringList($rivalReceipt['workspace_blockers'] ?? []),
+        ));
+        $dirtyAfterRun = $workspaceBlockers !== [];
         $this->events->event($runId, 'after_clean_check', [
-            'atlas_clean' => ! $dirtyAtlas['dirty'],
-            'rival_clean' => ! $dirtyRival['dirty'],
+            'atlas_clean' => ! (bool) ($atlasReceipt['workspace_has_blocking_changes'] ?? false),
+            'rival_clean' => ! (bool) ($rivalReceipt['workspace_has_blocking_changes'] ?? false),
             'atlas_dirty_count' => $dirtyAtlas['count'],
             'rival_dirty_count' => $dirtyRival['count'],
+            'atlas_changed_files' => $atlasReceipt['changed_files'] ?? [],
+            'rival_changed_files' => $rivalReceipt['changed_files'] ?? [],
+            'workspace_blockers' => $workspaceBlockers,
         ]);
 
         // Verdict
@@ -171,13 +189,24 @@ final class AtlasForgeRivalsRunRealService
         $score = null;
         $claimReady = false;
         if ($dirtyAfterRun) {
-            $verdict = 'invalid_dirty_after_run';
+            $verdict = 'invalid_workspace_after_run';
         } elseif (($atlasReceipt['exit_code'] ?? -1) !== 0 || ($rivalReceipt['exit_code'] ?? -1) !== 0) {
             $verdict = $atlasReceipt['killed'] || $rivalReceipt['killed'] ? 'invalid_provider_timeout' : 'inconclusive';
+        } elseif (($atlasReceipt['test_exit_code'] ?? -1) !== 0 || ($rivalReceipt['test_exit_code'] ?? -1) !== 0) {
+            $verdict = 'invalid_tests_failed';
+        } elseif ((int) ($atlasReceipt['patch_diff_bytes'] ?? 0) <= 0 || (int) ($rivalReceipt['patch_diff_bytes'] ?? 0) <= 0) {
+            $verdict = 'invalid_no_patch_diff';
         }
         if ($verdict === 'comparable') {
-            // Slice 4 will compute the diagnostic + comparable scores from real artifacts.
-            $score = ['comparable_score' => null, 'diagnostic_score' => null];
+            $score = [
+                'comparable_score' => null,
+                'diagnostic_score' => [
+                    'atlas' => $this->armGateScore($atlasReceipt),
+                    'rival' => $this->armGateScore($rivalReceipt),
+                    'winner' => 'automated_quality_tie_requires_human_diff_review',
+                ],
+                'quality_claim' => 'automated gates passed; human diff review still required for qualitative winner',
+            ];
             $claimReady = $mode !== AtlasForgeRivalsModeRegistry::MODE_LOCAL_FAKE
                 && ! $atlasReceipt['killed'] && ! $rivalReceipt['killed'];
         }
@@ -190,6 +219,11 @@ final class AtlasForgeRivalsRunRealService
             'before' => ['atlas' => $beforeAtlas, 'rival' => $beforeRival],
             'after' => ['atlas' => $afterAtlas, 'rival' => $afterRival],
             'dirty_after_run' => $dirtyAfterRun,
+            'workspace_blockers' => $workspaceBlockers,
+            'workspace_changes_after_run' => [
+                'atlas' => $atlasReceipt['changed_files'] ?? [],
+                'rival' => $rivalReceipt['changed_files'] ?? [],
+            ],
         ]));
 
         $manifest = [
@@ -210,6 +244,11 @@ final class AtlasForgeRivalsRunRealService
             'workspace_hash_before' => ['atlas' => $beforeAtlas, 'rival' => $beforeRival],
             'workspace_hash_after' => ['atlas' => $afterAtlas, 'rival' => $afterRival],
             'dirty_after_run' => $dirtyAfterRun,
+            'workspace_blockers' => $workspaceBlockers,
+            'workspace_changes_after_run' => [
+                'atlas' => $atlasReceipt['changed_files'] ?? [],
+                'rival' => $rivalReceipt['changed_files'] ?? [],
+            ],
             'external_provider_call' => $requiresProvider && $mode !== AtlasForgeRivalsModeRegistry::MODE_LOCAL_FAKE,
             'provider_tokens_spent' => $requiresProvider && $mode !== AtlasForgeRivalsModeRegistry::MODE_LOCAL_FAKE,
             'separated_from_external_rivals_certification' => true,
@@ -272,7 +311,12 @@ final class AtlasForgeRivalsRunRealService
         // Real provider: build provider command per arm, spawn subprocess.
         $command = $this->resolveProviderCommand($arm, $model, $case, $worktree);
         $env = $this->subprocessEnv();
-        $promptHash = hash('sha256', json_encode($command + ['arm' => $arm, 'model' => $model, 'case_id' => $case['id']], JSON_UNESCAPED_SLASHES) ?: '');
+        $promptHash = hash('sha256', $this->jsonEncode([
+            'command' => $command,
+            'arm' => $arm,
+            'model' => $model,
+            'case_id' => $case['id'],
+        ]));
         $commandHash = hash('sha256', implode(' ', $command));
 
         $proc = new Process($command, $worktree, $env, null, self::DEFAULT_HARD_KILL_SECONDS);
@@ -341,7 +385,14 @@ final class AtlasForgeRivalsRunRealService
             'exit_code' => $exit,
             'killed' => $killed,
             'timeout_reason' => $timeoutReason,
+            'stdout_tail' => substr($stdoutBuf, -500),
+            'stderr_tail' => substr($stderrBuf, -500),
         ]);
+
+        $logPaths = $this->writeProviderLogs($runId, $arm, $stdoutBuf, $stderrBuf);
+        $patch = $this->capturePatch($runId, $arm, $worktree);
+        $scope = $this->scopeCheck($worktree, $case);
+        $test = $this->runValidationCommand($runId, $arm, $worktree, $case);
 
         return [
             'arm' => $arm,
@@ -360,10 +411,27 @@ final class AtlasForgeRivalsRunRealService
             'stderr_hash' => hash('sha256', $stderrBuf),
             'stdout_bytes' => strlen($stdoutBuf),
             'stderr_bytes' => strlen($stderrBuf),
+            'stdout_tail' => substr($stdoutBuf, -2000),
+            'stderr_tail' => substr($stderrBuf, -2000),
+            'stdout_path' => $logPaths['stdout_path'],
+            'stderr_path' => $logPaths['stderr_path'],
             'token_cost' => null,
             'tokens_used' => null,
             'worktree' => $worktree,
             'case_id' => $case['id'],
+            'changed_files' => $scope['changed_files'],
+            'out_of_scope_files' => $scope['out_of_scope_files'],
+            'bytecode_artifacts' => $scope['bytecode_artifacts'],
+            'workspace_blockers' => $scope['blockers'],
+            'workspace_has_blocking_changes' => $scope['blockers'] !== [],
+            'patch_diff_path' => $patch['path'],
+            'patch_diff_hash' => $patch['sha256'],
+            'patch_diff_bytes' => $patch['bytes'],
+            'test_command' => $test['command'],
+            'test_exit_code' => $test['exit_code'],
+            'test_log_path' => $test['log_path'],
+            'test_log_hash' => $test['log_hash'],
+            'test_log_tail' => $test['tail'],
         ];
     }
 
@@ -408,6 +476,21 @@ final class AtlasForgeRivalsRunRealService
             'stderr_hash' => hash('sha256', $fakeStderr),
             'stdout_bytes' => strlen($fakeStdout),
             'stderr_bytes' => strlen($fakeStderr),
+            'stdout_tail' => $fakeStdout,
+            'stderr_tail' => $fakeStderr,
+            'changed_files' => [],
+            'out_of_scope_files' => [],
+            'bytecode_artifacts' => [],
+            'workspace_blockers' => [],
+            'workspace_has_blocking_changes' => false,
+            'patch_diff_path' => null,
+            'patch_diff_hash' => hash('sha256', ''),
+            'patch_diff_bytes' => 0,
+            'test_command' => 'not_run_local_fake',
+            'test_exit_code' => 0,
+            'test_log_path' => null,
+            'test_log_hash' => hash('sha256', ''),
+            'test_log_tail' => '',
             'token_cost' => 0.0,
             'tokens_used' => 0,
             'worktree' => $worktree,
@@ -423,24 +506,340 @@ final class AtlasForgeRivalsRunRealService
     private function resolveProviderCommand(string $arm, string $model, array $case, string $worktree): array
     {
         if ($arm === 'atlas') {
-            // Forge-side dispatch. Atlas arm always uses Forge (atlas_not_forge is impossible
-            // here because the case manifest enforces forge runtime upstream).
+            // Atlas arm: execute the provider under the Forge Rivals harness
+            // contract. The outer harness owns isolation, evidence, scope, tests,
+            // replay and invalidation; keeping this command provider-direct avoids
+            // coupling the benchmark to legacy engineering_harness database drift.
             return [
-                'php', 'artisan',
-                'atlas:code:forge-fast-path',
-                '--case='.$case['id'],
-                '--model='.$model,
-                '--workspace='.$worktree,
-                '--json',
-                '--strict',
+                'claude',
+                '--model',
+                $this->claudeModelAlias($model),
+                '--permission-mode',
+                'bypassPermissions',
+                '--output-format',
+                'json',
+                '-p',
+                $this->atlasForgePrompt($case),
             ];
         }
-        // Rival arm: claude-code or codex CLI on the rival worktree
+
+        // Rival arm: raw provider baseline, same model, no Atlas Forge.
         if ($model === 'codex') {
-            return ['codex', 'apply', '--case='.$case['id'], '--workspace='.$worktree, '--json'];
+            return ['codex', 'exec', '--json', $this->rivalPrompt($case)];
         }
 
-        return ['claude', 'code', 'apply', '--case='.$case['id'], '--workspace='.$worktree, '--json'];
+        return [
+            'claude',
+            '--model',
+            $this->claudeModelAlias($model),
+            '--permission-mode',
+            'bypassPermissions',
+            '--output-format',
+            'json',
+            '-p',
+            $this->rivalPrompt($case),
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $case
+     */
+    private function atlasForgePrompt(array $case): string
+    {
+        return $this->casePrompt($case, 'Você é o braço Atlas Forge. Use o fluxo Atlas Forge, mantenha evidência, respeite escopo e rode o comando de teste informado.');
+    }
+
+    /**
+     * @param  array<string,mixed>  $case
+     */
+    private function rivalPrompt(array $case): string
+    {
+        return $this->casePrompt($case, 'Você é o braço baseline. Implemente diretamente no workspace atual, sem usar Atlas Forge, respeitando exatamente o mesmo escopo e teste.');
+    }
+
+    /**
+     * @param  array<string,mixed>  $case
+     */
+    private function casePrompt(array $case, string $role): string
+    {
+        $allowed = implode("\n- ", $this->stringList($case['allowed_files'] ?? []));
+        $acceptance = implode("\n- ", $this->stringList($case['acceptance_criteria'] ?? []));
+        $testCommand = $this->testCommand($case);
+
+        return <<<PROMPT
+{$role}
+
+Objetivo:
+{$case['objective']}
+
+Escopo permitido:
+- {$allowed}
+
+Critérios de aceitação:
+- {$acceptance}
+
+Comando obrigatório de validação:
+{$testCommand}
+
+Regras:
+- Altere somente arquivos dentro do escopo permitido.
+- Não crie bytecode, caches, arquivos temporários ou artefatos fora do escopo.
+- Execute o comando obrigatório de validação antes de terminar.
+- Deixe as alterações no workspace para o harness capturar diff e evidência.
+- Responda com resumo curto, arquivos alterados e resultado do teste.
+PROMPT;
+    }
+
+    private function claudeModelAlias(string $model): string
+    {
+        return match ($model) {
+            AtlasForgeRivalsModelMatrix::MODEL_CLAUDE_OPUS => 'opus',
+            AtlasForgeRivalsModelMatrix::MODEL_CLAUDE_SONNET, AtlasForgeRivalsModelMatrix::MODEL_AUTO => 'sonnet',
+            default => $model,
+        };
+    }
+
+    /**
+     * @param  array<string,mixed>  $case
+     */
+    private function testCommand(array $case): string
+    {
+        $full = trim((string) ($case['full_test_command'] ?? ''));
+        if ($full !== '') {
+            return $full;
+        }
+        $quick = trim((string) ($case['quick_test_command'] ?? ''));
+
+        return $quick !== '' ? $quick : 'php artisan test';
+    }
+
+    /**
+     * @return array{stdout_path:string,stderr_path:string}
+     */
+    private function writeProviderLogs(string $runId, string $arm, string $stdout, string $stderr): array
+    {
+        $paths = $this->paths->paths($runId);
+        @mkdir($paths['evidence'], 0o755, true);
+        $stdoutPath = $paths['evidence'].'/'.$arm.'_provider_stdout.log';
+        $stderrPath = $paths['evidence'].'/'.$arm.'_provider_stderr.log';
+        file_put_contents($stdoutPath, $stdout);
+        file_put_contents($stderrPath, $stderr);
+
+        return ['stdout_path' => $stdoutPath, 'stderr_path' => $stderrPath];
+    }
+
+    /**
+     * @return array{path:string,sha256:string,bytes:int}
+     */
+    private function capturePatch(string $runId, string $arm, string $worktree): array
+    {
+        $paths = $this->paths->paths($runId);
+        @mkdir($paths['evidence'], 0o755, true);
+        $patchPath = $paths['evidence'].'/'.$arm.'_patch.diff';
+
+        $proc = new Process(['git', '-C', $worktree, 'diff', '--binary', '--']);
+        $proc->setTimeout(60);
+        $proc->run();
+        $patch = (string) $proc->getOutput();
+
+        $status = $this->workspaceStatusLines($worktree);
+        $untracked = [];
+        foreach ($status as $line) {
+            if (str_starts_with($line, '?? ')) {
+                $untracked[] = $this->statusPath($line);
+            }
+        }
+        foreach ($untracked as $file) {
+            $patch .= $this->untrackedFilePatch($worktree, $file);
+        }
+
+        file_put_contents($patchPath, $patch);
+
+        return [
+            'path' => $patchPath,
+            'sha256' => hash('sha256', $patch),
+            'bytes' => strlen($patch),
+        ];
+    }
+
+    private function untrackedFilePatch(string $worktree, string $file): string
+    {
+        $path = $worktree.'/'.$file;
+        if (! is_file($path)) {
+            return '';
+        }
+        $blob = (string) @file_get_contents($path);
+        $lines = explode("\n", $blob);
+        $body = '';
+        foreach ($lines as $line) {
+            $body .= '+'.$line."\n";
+        }
+
+        return "\ndiff --git a/{$file} b/{$file}\nnew file mode 100644\n--- /dev/null\n+++ b/{$file}\n@@\n".$body;
+    }
+
+    /**
+     * @param  array<string,mixed>  $case
+     * @return array{
+     *   changed_files:list<string>,
+     *   out_of_scope_files:list<string>,
+     *   bytecode_artifacts:list<string>,
+     *   blockers:list<string>
+     * }
+     */
+    private function scopeCheck(string $worktree, array $case): array
+    {
+        $allowed = $this->stringList($case['allowed_files'] ?? []);
+        $changed = [];
+        $outOfScope = [];
+        $bytecode = [];
+        $blockers = [];
+
+        foreach ($this->workspaceStatusLines($worktree) as $line) {
+            $file = $this->statusPath($line);
+            if ($file === '') {
+                continue;
+            }
+            $changed[] = $file;
+            if ($this->isPythonBytecode($file)) {
+                $bytecode[] = $file;
+                $blockers[] = 'bytecode_artifact_after_run:'.$file;
+
+                continue;
+            }
+            if (! $this->matchesAnyAllowedScope($file, $allowed)) {
+                $outOfScope[] = $file;
+                $blockers[] = 'out_of_scope_change:'.$file;
+            }
+        }
+
+        return [
+            'changed_files' => array_values(array_unique($changed)),
+            'out_of_scope_files' => array_values(array_unique($outOfScope)),
+            'bytecode_artifacts' => array_values(array_unique($bytecode)),
+            'blockers' => array_values(array_unique($blockers)),
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $case
+     * @return array{command:string,exit_code:int,log_path:string,log_hash:string,tail:string}
+     */
+    private function runValidationCommand(string $runId, string $arm, string $worktree, array $case): array
+    {
+        $command = $this->testCommand($case);
+        $paths = $this->paths->paths($runId);
+        @mkdir($paths['evidence'], 0o755, true);
+        $logPath = $paths['evidence'].'/'.$arm.'_test.log';
+
+        $proc = Process::fromShellCommandline($command, $worktree, $this->subprocessEnv(), null, 900);
+        $proc->run();
+        $log = (string) $proc->getOutput().(string) $proc->getErrorOutput();
+        file_put_contents($logPath, $log);
+        $this->events->event($runId, 'validation_finished', [
+            'arm' => $arm,
+            'command' => $command,
+            'exit_code' => (int) $proc->getExitCode(),
+            'log_tail' => substr($log, -500),
+        ]);
+
+        return [
+            'command' => $command,
+            'exit_code' => (int) ($proc->getExitCode() ?? -1),
+            'log_path' => $logPath,
+            'log_hash' => hash('sha256', $log),
+            'tail' => substr($log, -2000),
+        ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function workspaceStatusLines(string $workspace): array
+    {
+        if (! is_dir($workspace)) {
+            return [];
+        }
+        $proc = new Process(['git', '-C', $workspace, 'status', '--porcelain']);
+        $proc->setTimeout(15);
+        $proc->run();
+        if (! $proc->isSuccessful()) {
+            return [];
+        }
+
+        return array_values(array_filter(
+            explode("\n", rtrim((string) $proc->getOutput(), "\n\r")),
+            static fn (string $line): bool => trim($line) !== '',
+        ));
+    }
+
+    private function statusPath(string $line): string
+    {
+        $path = trim(substr($line, 3));
+        if (str_contains($path, ' -> ')) {
+            $parts = explode(' -> ', $path);
+            $path = trim((string) end($parts));
+        }
+
+        return trim($path, "\" \t\n\r\0\x0B");
+    }
+
+    /**
+     * @param  list<string>  $allowed
+     */
+    private function matchesAnyAllowedScope(string $file, array $allowed): bool
+    {
+        foreach ($allowed as $pattern) {
+            if ($this->globMatches($pattern, $file)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function globMatches(string $pattern, string $file): bool
+    {
+        $quoted = preg_quote($pattern, '#');
+        $quoted = str_replace('\*\*', '.*', $quoted);
+        $quoted = str_replace('\*', '[^/]*', $quoted);
+
+        return (bool) preg_match('#^'.$quoted.'$#', $file);
+    }
+
+    private function isPythonBytecode(string $file): bool
+    {
+        return str_ends_with($file, '.pyc')
+            || str_ends_with($file, '.pyo')
+            || str_contains($file, '__pycache__/');
+    }
+
+    /**
+     * @param  array<string,mixed>  $receipt
+     * @return array<string,mixed>
+     */
+    private function armGateScore(array $receipt): array
+    {
+        return [
+            'provider_exit_zero' => (int) ($receipt['exit_code'] ?? -1) === 0,
+            'tests_passed' => (int) ($receipt['test_exit_code'] ?? -1) === 0,
+            'patch_diff_present' => (int) ($receipt['patch_diff_bytes'] ?? 0) > 0,
+            'out_of_scope_files' => $this->stringList($receipt['out_of_scope_files'] ?? []),
+            'bytecode_artifacts' => $this->stringList($receipt['bytecode_artifacts'] ?? []),
+        ];
+    }
+
+    /**
+     * @param  mixed  $value
+     * @return list<string>
+     */
+    private function stringList($value): array
+    {
+        if (! is_array($value)) {
+            return [];
+        }
+
+        return array_values(array_map(static fn ($item): string => (string) $item, $value));
     }
 
     /**
@@ -510,6 +909,49 @@ final class AtlasForgeRivalsRunRealService
             'provider_tokens_spent' => false,
             'next_command' => $hint,
         ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function driverAvailabilityBlockers(string $atlasModel, string $rivalModel): array
+    {
+        $blockers = [];
+        $atlasUsesClaude = in_array($atlasModel, [
+            AtlasForgeRivalsModelMatrix::MODEL_CLAUDE_SONNET,
+            AtlasForgeRivalsModelMatrix::MODEL_CLAUDE_OPUS,
+            AtlasForgeRivalsModelMatrix::MODEL_AUTO,
+        ], true);
+        $rivalUsesClaude = in_array($rivalModel, [
+            AtlasForgeRivalsModelMatrix::MODEL_CLAUDE_SONNET,
+            AtlasForgeRivalsModelMatrix::MODEL_CLAUDE_OPUS,
+            AtlasForgeRivalsModelMatrix::MODEL_AUTO,
+        ], true);
+
+        if (($atlasUsesClaude || $rivalUsesClaude) && ! $this->binaryAvailable('claude')) {
+            $blockers[] = 'rival_driver_not_configured:claude';
+        }
+        if (($atlasModel === AtlasForgeRivalsModelMatrix::MODEL_CODEX
+            || $rivalModel === AtlasForgeRivalsModelMatrix::MODEL_CODEX)
+            && ! $this->binaryAvailable('codex')
+        ) {
+            $blockers[] = 'rival_driver_not_configured:codex';
+        }
+
+        return $blockers;
+    }
+
+    private function binaryAvailable(string $binary): bool
+    {
+        try {
+            $proc = new Process(['which', $binary]);
+            $proc->setTimeout(5);
+            $proc->run();
+
+            return $proc->isSuccessful() && trim((string) $proc->getOutput()) !== '';
+        } catch (\Throwable) {
+            return false;
+        }
     }
 
     private function jsonEncode(mixed $value): string

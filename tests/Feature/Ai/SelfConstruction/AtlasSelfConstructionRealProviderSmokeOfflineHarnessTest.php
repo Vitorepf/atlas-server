@@ -3,6 +3,7 @@
 namespace Tests\Feature\Ai\SelfConstruction;
 
 use App\Services\Ai\SelfConstruction\AtlasSelfConstructionCompletionEvidenceHashService;
+use App\Services\Ai\SelfConstruction\AtlasSelfConstructionReadinessService;
 use App\Services\Ai\SelfConstruction\AtlasSelfConstructionRealProviderSmokeEvidenceVerifierService;
 use App\Services\Ai\SelfConstruction\AtlasSelfConstructionRealProviderSmokeOfflineHarnessService;
 use App\Services\Ai\SelfConstruction\AtlasSelfConstructionRealProviderSmokeReplayDiffService;
@@ -22,6 +23,39 @@ final class AtlasSelfConstructionRealProviderSmokeOfflineHarnessTest extends Tes
         $this->assertSame($a['harness_hash'], $b['harness_hash']);
         $this->assertContains('provider_run_id', $a['required_evidence_fields']);
         $this->assertContains('provider_called_by_atlas', $a['forbidden_flags']);
+    }
+
+    public function test_harness_is_exposed_through_readiness_status_and_capabilities(): void
+    {
+        $readiness = app(AtlasSelfConstructionReadinessService::class);
+        $status = $readiness->atlasSelfConstructionRealProviderSmokeOfflineHarnessStatus();
+        $capabilities = data_get($readiness->agentControlPlane(), 'control_plane.current_capability', []);
+
+        $this->assertSame('atlas.self_construction_agent_control_plane_atlas_self_construction_real_provider_smoke_offline_harness_status.v1', $status['schema_version']);
+        $this->assertSame('ready_for_operator_real_provider_smoke', data_get($status, 'agent_control_plane_atlas_self_construction_real_provider_smoke_offline_harness_status.status'));
+        $this->assertTrue(data_get($status, 'agent_control_plane_atlas_self_construction_real_provider_smoke_offline_harness_status.dry_run_only'));
+        $this->assertContains('atlas_self_construction_real_provider_smoke_offline_harness_contract', $capabilities);
+        $this->assertContains('atlas_self_construction_real_provider_smoke_offline_harness_status_projection', $capabilities);
+    }
+
+    public function test_harness_command_exposes_status_and_quartet(): void
+    {
+        $this->artisan('atlas:ai:self-construction', [
+            '--atlas-self-construction-real-provider-smoke-offline-harness-status' => true,
+            '--json' => true,
+        ])
+            ->assertExitCode(0)
+            ->expectsOutputToContain('atlas.self_construction_agent_control_plane_atlas_self_construction_real_provider_smoke_offline_harness_status.v1');
+
+        foreach ([
+            '--atlas-self-construction-real-provider-smoke-offline-harness-contract' => 'atlas.self_construction_agent_control_plane_atlas_self_construction_real_provider_smoke_offline_harness_contract.v1',
+            '--atlas-self-construction-real-provider-smoke-offline-harness-preflight' => 'atlas.self_construction_agent_control_plane_atlas_self_construction_real_provider_smoke_offline_harness_preflight.v1',
+            '--atlas-self-construction-real-provider-smoke-offline-harness-implementation-packet' => 'atlas.self_construction_agent_control_plane_atlas_self_construction_real_provider_smoke_offline_harness_implementation_packet.v1',
+        ] as $option => $schema) {
+            $this->artisan('atlas:ai:self-construction', [$option => true, '--json' => true])
+                ->assertExitCode(0)
+                ->expectsOutputToContain($schema);
+        }
     }
 
     public function test_verifier_rejects_missing_operator_evidence_ack(): void

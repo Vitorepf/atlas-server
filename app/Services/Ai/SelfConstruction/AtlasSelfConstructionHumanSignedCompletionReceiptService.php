@@ -30,6 +30,8 @@ final class AtlasSelfConstructionHumanSignedCompletionReceiptService
             'release_dossier_hash',
             'replay_diff_hash',
             'runtime_gap_matrix_hash',
+            'runtime_promotion_receipt_hash',
+            'real_provider_smoke_hash',
             'certification_status_batch_hash',
             'receipt_hash',
         ];
@@ -56,6 +58,19 @@ final class AtlasSelfConstructionHumanSignedCompletionReceiptService
         }
         if ($receiptHash !== $expectedReceiptHash) {
             $violations[] = ['code' => 'receipt_hash_mismatch'];
+        }
+        foreach ([
+            'completion_audit_hash',
+            'release_dossier_hash',
+            'replay_diff_hash',
+            'runtime_gap_matrix_hash',
+            'runtime_promotion_receipt_hash',
+            'real_provider_smoke_hash',
+            'certification_status_batch_hash',
+        ] as $field) {
+            if (preg_match('/^[a-f0-9]{64}$/', (string) ($receipt[$field] ?? '')) !== 1) {
+                $violations[] = ['code' => 'required_evidence_hash_invalid', 'field' => $field];
+            }
         }
         if (! $approved) {
             $violations[] = ['code' => 'os_complete_approval_missing'];
@@ -88,6 +103,8 @@ final class AtlasSelfConstructionHumanSignedCompletionReceiptService
                 'release_dossier_hash' => (string) ($receipt['release_dossier_hash'] ?? ''),
                 'replay_diff_hash' => (string) ($receipt['replay_diff_hash'] ?? ''),
                 'runtime_gap_matrix_hash' => (string) ($receipt['runtime_gap_matrix_hash'] ?? ''),
+                'runtime_promotion_receipt_hash' => (string) ($receipt['runtime_promotion_receipt_hash'] ?? ''),
+                'real_provider_smoke_hash' => (string) ($receipt['real_provider_smoke_hash'] ?? ''),
                 'certification_status_batch_hash' => (string) ($receipt['certification_status_batch_hash'] ?? ''),
             ],
             'violations' => $violations,

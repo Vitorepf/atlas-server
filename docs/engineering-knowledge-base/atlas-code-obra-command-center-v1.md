@@ -32,6 +32,8 @@ maintenance:
   - Mantenha consistencia com atlas-code-human-interface-upgrade-v2 e atlas-code-forge-human-first-ux-orchestrator-v1.
 related_paths:
   - docs/engineering-knowledge-base/atlas-code-forge-human-first-ux-orchestrator-v1.md
+  - docs/engineering-knowledge-base/atlas-code-attention-control-plane-v1.md
+  - docs/engineering-knowledge-base/atlas-code-programming-obras-operating-system.md
   - docs/engineering-knowledge-base/atlas-code-human-interface-upgrade-v2.md
   - docs/engineering-knowledge-base/atlas-forge-continuum-os.md
   - docs/engineering-knowledge-base/atlas-programming-forge-flow.md

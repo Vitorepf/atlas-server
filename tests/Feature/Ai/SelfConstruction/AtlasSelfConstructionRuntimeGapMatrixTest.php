@@ -31,6 +31,8 @@ final class AtlasSelfConstructionRuntimeGapMatrixTest extends TestCase
         $this->assertIsArray($matrix['not_yet_runtime_capable']);
         $this->assertIsString($matrix['next_required_slice']);
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $matrix['runtime_promotion_basis_hash']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $matrix['runtime_promotion_closure_basis_hash']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $matrix['expected_runtime_gap_matrix_hash_for_promotion_receipt']);
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $matrix['runtime_gap_matrix_hash']);
     }
 
@@ -127,6 +129,44 @@ final class AtlasSelfConstructionRuntimeGapMatrixTest extends TestCase
         $this->assertContains('receipt_hash_mismatch', array_column($verification['violations'], 'code'));
     }
 
+    public function test_runtime_promotion_receipt_rejects_stale_runtime_gap_matrix_hash(): void
+    {
+        $rows = $this->candidateRows();
+        $receipt = $this->runtimePromotionReceiptFromRows($rows);
+        $receipt['runtime_gap_matrix_hash'] = str_repeat('d', 64);
+        $receipt['receipt_hash'] = (new AtlasSelfConstructionCompletionEvidenceHashService)->runtimePromotionReceiptHash($receipt);
+
+        $verification = (new AtlasSelfConstructionRuntimePromotionReceiptService)->verify(
+            receipt: $receipt,
+            rows: $rows,
+            expectedRuntimePromotionBasisHash: $receipt['runtime_promotion_basis_hash'],
+            expectedRuntimeGapMatrixHash: str_repeat('c', 64),
+        );
+
+        $this->assertSame('blocked_missing_runtime_promotion_receipt', $verification['status']);
+        $this->assertSame(str_repeat('c', 64), $verification['expected_runtime_gap_matrix_hash']);
+        $this->assertContains('runtime_gap_matrix_hash_mismatch', array_column($verification['violations'], 'code'));
+    }
+
+    public function test_runtime_promotion_receipt_rejects_closure_basis_hash_mismatch(): void
+    {
+        $rows = $this->candidateRows();
+        $receipt = $this->runtimePromotionReceiptFromRows($rows);
+        $receipt['runtime_promotion_closure_basis_hash'] = str_repeat('e', 64);
+        $receipt['receipt_hash'] = (new AtlasSelfConstructionCompletionEvidenceHashService)->runtimePromotionReceiptHash($receipt);
+
+        $verification = (new AtlasSelfConstructionRuntimePromotionReceiptService)->verify(
+            receipt: $receipt,
+            rows: $rows,
+            expectedRuntimePromotionBasisHash: $receipt['runtime_promotion_basis_hash'],
+            expectedRuntimeGapMatrixHash: $receipt['runtime_gap_matrix_hash'],
+            expectedRuntimePromotionClosureBasisHash: $this->runtimePromotionClosureBasisHash($rows, $receipt['runtime_promotion_basis_hash'], $receipt['runtime_gap_matrix_hash']),
+        );
+
+        $this->assertSame('blocked_missing_runtime_promotion_receipt', $verification['status']);
+        $this->assertContains('runtime_promotion_closure_basis_hash_mismatch', array_column($verification['violations'], 'code'));
+    }
+
     public function test_runtime_promotion_receipt_rejects_placeholder_signer(): void
     {
         $service = new AtlasSelfConstructionRuntimeGapMatrixService(app(AtlasSelfConstructionReadinessService::class));
@@ -214,6 +254,7 @@ final class AtlasSelfConstructionRuntimeGapMatrixTest extends TestCase
             'reason' => 'Reviewed runtime graduation candidates and approved runtime gap promotion.',
             'runtime_gap_matrix_hash' => (string) $matrix['runtime_gap_matrix_hash'],
             'runtime_promotion_basis_hash' => (string) $matrix['runtime_promotion_basis_hash'],
+            'runtime_promotion_closure_basis_hash' => (string) $matrix['runtime_promotion_closure_basis_hash'],
             'promoted_gap_ids' => array_values(array_map(
                 static fn (array $row): string => (string) $row['gap_id'],
                 array_values(array_filter($rows, static fn (array $row): bool => (bool) ($row['runtime_y_candidate'] ?? false) && ! (bool) ($row['runtime_y'] ?? false))),
@@ -280,6 +321,7 @@ final class AtlasSelfConstructionRuntimeGapMatrixTest extends TestCase
             'reason' => 'Reviewed synthetic runtime graduation candidates and approved runtime gap promotion.',
             'runtime_gap_matrix_hash' => str_repeat('c', 64),
             'runtime_promotion_basis_hash' => $basisHash,
+            'runtime_promotion_closure_basis_hash' => $this->runtimePromotionClosureBasisHash($rows, $basisHash, str_repeat('c', 64)),
             'promoted_gap_ids' => array_values(array_map(static fn (array $row): string => (string) $row['gap_id'], $rows)),
             'graduation_evidence_hashes' => $graduationHashes,
             'receipt_hash' => str_repeat('9', 64),
@@ -305,5 +347,26 @@ final class AtlasSelfConstructionRuntimeGapMatrixTest extends TestCase
         }
 
         return $value;
+    }
+
+    /** @param list<array<string, mixed>> $rows */
+    private function runtimePromotionClosureBasisHash(array $rows, string $basisHash, string $expectedRuntimeGapMatrixHash): string
+    {
+        $graduationHashes = [];
+        foreach ($rows as $row) {
+            $graduationHashes[(string) $row['gap_id']] = (string) $row['graduation_evidence_hash'];
+        }
+
+        return hash('sha256', (string) json_encode($this->ksortRecursive([
+            'runtime_promotion_closure_basis' => [
+                'runtime_promotion_basis_hash' => $basisHash,
+                'expected_runtime_gap_matrix_hash' => $expectedRuntimeGapMatrixHash,
+                'promoted_gap_ids' => array_values(array_keys($graduationHashes)),
+                'graduation_evidence_hashes' => $graduationHashes,
+                'runtime_gap_count' => count($rows),
+                'runtime_y_candidate_count' => count($rows),
+                'runtime_enabled_count' => count(array_filter($rows, static fn (array $row): bool => (bool) ($row['runtime_enabled'] ?? false))),
+            ],
+        ]), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
     }
 }

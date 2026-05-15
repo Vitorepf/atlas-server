@@ -19,7 +19,7 @@ final class AtlasSelfConstructionHumanCompletionReceiptVerifierService
         if (in_array(strtolower((string) ($receipt['signed_by'] ?? '')), ['', '<operator>', 'codex', 'codex-autosigned', 'assistant', 'system'], true)) {
             $violations[] = ['code' => 'human_completion_receipt_signer_invalid_or_placeholder'];
         }
-        foreach (['completion_audit_hash', 'release_dossier_hash', 'replay_diff_hash', 'runtime_gap_matrix_hash', 'certification_status_batch_hash'] as $field) {
+        foreach (['completion_audit_hash', 'release_dossier_hash', 'replay_diff_hash', 'runtime_gap_matrix_hash', 'runtime_promotion_receipt_hash', 'real_provider_smoke_hash', 'certification_status_batch_hash'] as $field) {
             $expected = (string) data_get($context, $field, '');
             if ($expected !== '' && (string) ($receipt[$field] ?? '') !== $expected) {
                 $violations[] = ['code' => 'context_hash_mismatch', 'field' => $field];
@@ -55,6 +55,25 @@ final class AtlasSelfConstructionHumanCompletionReceiptVerifierService
         $payload['verification_hash'] = $this->stableHash($payload);
 
         return $payload;
+    }
+
+    /** @return array<string, mixed> */
+    public function persist(array $receipt, array $context = []): array
+    {
+        $verification = $this->verify($receipt, $context);
+        if ((string) $verification['status'] !== 'passed') {
+            return $verification + [
+                'persisted' => false,
+                'persistence_blocker' => 'human_completion_receipt_strong_verification_failed',
+            ];
+        }
+
+        $persisted = (new AtlasSelfConstructionHumanSignedCompletionReceiptService)->persist($receipt);
+
+        return $verification + [
+            'persisted' => (bool) data_get($persisted, 'persisted', false),
+            'receipt_path' => (string) data_get($persisted, 'receipt_path', ''),
+        ];
     }
 
     /** @param array<string, mixed> $payload */

@@ -36,7 +36,9 @@ final class AtlasSelfConstructionRuntimePromotionClosurePackTest extends TestCas
 
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $pack['runtime_gap_matrix_hash']);
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $pack['runtime_promotion_basis_hash']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $pack['runtime_promotion_closure_basis_hash']);
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $pack['runtime_promotion_receipt_template_hash']);
+        $this->assertSame($pack['runtime_promotion_closure_basis_hash'], $pack['runtime_promotion_receipt_preimage']['runtime_promotion_closure_basis_hash']);
         $this->assertSame($pack['promoted_gap_ids'], $pack['runtime_promotion_receipt_preimage']['promoted_gap_ids']);
         $this->assertSame($pack['graduation_evidence_hashes'], $pack['runtime_promotion_receipt_preimage']['graduation_evidence_hashes']);
         $this->assertSame('<operator>', $pack['runtime_promotion_receipt_preimage']['signed_by']);
@@ -85,6 +87,18 @@ final class AtlasSelfConstructionRuntimePromotionClosurePackTest extends TestCas
 
         $this->assertSame('blocked', $result['status']);
         $this->assertViolation($result, 'graduation_evidence_hash_map_mismatch');
+        $this->assertViolation($result, 'closure_pack_hash_mismatch');
+    }
+
+    public function test_verifier_rejects_receipt_preimage_closure_basis_mismatch(): void
+    {
+        $pack = $this->pack();
+        $pack['runtime_promotion_receipt_preimage']['runtime_promotion_closure_basis_hash'] = str_repeat('1', 64);
+
+        $result = $this->verifier()->verify($pack);
+
+        $this->assertSame('blocked', $result['status']);
+        $this->assertViolation($result, 'receipt_preimage_closure_basis_hash_mismatch');
         $this->assertViolation($result, 'closure_pack_hash_mismatch');
     }
 
@@ -210,6 +224,7 @@ final class AtlasSelfConstructionRuntimePromotionClosurePackTest extends TestCas
             'all_runtime_y' => false,
             'runtime_gap_matrix_hash' => hash('sha256', 'runtime-gap-matrix-fixture'),
             'runtime_promotion_basis_hash' => hash('sha256', 'runtime-promotion-basis-fixture'),
+            'runtime_promotion_closure_basis_hash' => hash('sha256', 'runtime-promotion-closure-basis-fixture'),
             'runtime_gap_count' => count($gapIds),
             'runtime_y_candidate_count' => count($gapIds),
             'rows' => $rows,

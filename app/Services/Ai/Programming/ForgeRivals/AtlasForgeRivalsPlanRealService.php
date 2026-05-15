@@ -22,6 +22,7 @@ final class AtlasForgeRivalsPlanRealService
         private readonly AtlasForgeRivalsModeRegistry $modes,
         private readonly AtlasForgeRivalsModelMatrix $matrix,
         private readonly AtlasForgeRivalsCasesRegistry $cases,
+        private readonly AtlasForgeRivalsRunPathResolver $paths,
     ) {}
 
     /**
@@ -35,6 +36,7 @@ final class AtlasForgeRivalsPlanRealService
         $rivalModel = trim((string) ($input['rival'] ?? $atlasModel));
         $preset = trim((string) ($input['preset'] ?? 'smoke'));
         $confirms = (array) ($input['confirmations'] ?? []);
+        [$workspace, $baselineWorkspace, $runId] = $this->resolveRunContext($input);
 
         $blockers = [];
         $modeDef = null;
@@ -75,11 +77,14 @@ final class AtlasForgeRivalsPlanRealService
 
         $costEstimate = $this->costEstimate($mode, $atlasModel, $rivalModel, $preset, count($cases));
         $runCommand = sprintf(
-            'php artisan atlas:forge:rivals run-real --mode=%s --atlas-model=%s --rival=%s --preset=%s%s --json',
+            'php artisan atlas:forge:rivals run-real%s --mode=%s --atlas-model=%s --rival=%s --preset=%s%s%s%s --json',
+            $runId !== null ? ' --run-id='.$runId : '',
             $mode,
             $atlasModel,
             $rivalModel,
             $preset,
+            $workspace !== null && $runId === null ? ' --atlas-worktree='.$workspace : '',
+            $baselineWorkspace !== null && $runId === null ? ' --baseline-worktree='.$baselineWorkspace : '',
             $requiresProvider ? ' --confirm-runbook-reviewed --confirm-provider-cost --confirm-real-provider-call' : '',
         );
 
@@ -91,6 +96,9 @@ final class AtlasForgeRivalsPlanRealService
             'atlas_model' => $atlasModel,
             'rival_model' => $rivalModel,
             'preset' => $preset,
+            'run_id' => $runId,
+            'atlas_worktree' => $workspace,
+            'baseline_worktree' => $baselineWorkspace,
             'cases' => $cases,
             'cases_count' => count($cases),
             'requires_provider' => $requiresProvider,
@@ -134,5 +142,29 @@ final class AtlasForgeRivalsPlanRealService
                 ? 'Real provider calls will incur token cost; operator must confirm before run-real.'
                 : 'No paid provider calls in this mode.',
         ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $input
+     * @return array{0:?string,1:?string,2:?string}
+     */
+    private function resolveRunContext(array $input): array
+    {
+        $workspace = $this->stringOrNull($input['atlas_worktree'] ?? $input['workspace'] ?? null);
+        $baselineWorkspace = $this->stringOrNull($input['baseline_worktree'] ?? $input['baseline_workspace'] ?? null);
+        $runId = $this->stringOrNull($input['run_id'] ?? null);
+
+        if ($runId !== null && ($workspace === null || $baselineWorkspace === null)) {
+            $paths = $this->paths->paths($runId);
+            $workspace ??= $paths['atlas'];
+            $baselineWorkspace ??= $paths['rival'];
+        }
+
+        return [$workspace, $baselineWorkspace, $runId];
+    }
+
+    private function stringOrNull(mixed $value): ?string
+    {
+        return is_string($value) && trim($value) !== '' ? trim($value) : null;
     }
 }

@@ -435,7 +435,7 @@ final class AgentControlPlaneCertificationScenarioSimulator
             ],
             'pointer_regression' => [
                 'override_projection' => [
-                    'next_required_slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_manual_start_executor_receipt_contract',
+                    'next_required_slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_operator_start_handoff_contract',
                 ],
             ],
             'pointer_unexpected_reentry' => [
@@ -490,7 +490,7 @@ final class AgentControlPlaneCertificationScenarioSimulator
             ],
             'cycle_unintentional' => [
                 'override_projection' => [
-                    'next_required_slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_manual_start_executor_receipt_contract',
+                    'next_required_slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_operator_start_handoff_contract',
                 ],
             ],
             'intentional_reentry_wrong_target' => [

@@ -31,8 +31,14 @@ final class AtlasSelfConstructionRealProviderSmokeRunbookService
             'token_spend_observed',
             'claim_to_completion_observed',
             'work_product_collected',
+            'operator_supplied_evidence',
+            'real_provider_run_observed_by_operator',
         ];
         $forbiddenFlags = [
+            'provider_called_by_atlas',
+            'token_spent_by_atlas',
+            'dispatch_allowed',
+            'adapter_execution_allowed',
             'self_programming_allowed',
             'completion_claim_promoted_without_receipt',
         ];
@@ -60,7 +66,7 @@ final class AtlasSelfConstructionRealProviderSmokeRunbookService
             [
                 'id' => 'persist_certification_payload',
                 'summary' => 'Persist the completed smoke payload only through the verifier.',
-                'evidence_required' => ['all_required_fields_present', 'all_required_observations_true', 'forbidden_flags_false'],
+                'evidence_required' => ['all_required_fields_present', 'all_required_observations_true', 'operator_acknowledgements_true', 'forbidden_flags_false'],
             ],
         ];
         $payload = [

@@ -19,6 +19,7 @@ final class AtlasSelfConstructionRuntimePromotionReceiptRunbookService
             'reason',
             'runtime_gap_matrix_hash',
             'runtime_promotion_basis_hash',
+            'runtime_promotion_closure_basis_hash',
             'promoted_gap_ids',
             'graduation_evidence_hashes',
             'receipt_hash',
@@ -45,7 +46,7 @@ final class AtlasSelfConstructionRuntimePromotionReceiptRunbookService
             [
                 'id' => 'review_graduation_hashes',
                 'summary' => 'Confirm each graduation evidence hash corresponds to the current candidate runtime graduation evidence.',
-                'evidence_required' => ['runtime_promotion_basis_hash', 'graduation_evidence_hashes'],
+                'evidence_required' => ['runtime_promotion_basis_hash', 'runtime_promotion_closure_basis_hash', 'graduation_evidence_hashes'],
             ],
             [
                 'id' => 'compute_canonical_receipt_hash',

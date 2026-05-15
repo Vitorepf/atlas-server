@@ -27,9 +27,10 @@ final class AtlasSelfConstructionRuntimePromotionEvidenceDossierTest extends Tes
         $payload = $this->service()->build(['runtime_gap_matrix' => $this->matrix()]);
         $preimage = $payload['promotion_receipt_preimage'];
 
-        foreach (['receipt_id', 'signed_by', 'reason', 'runtime_gap_matrix_hash', 'runtime_promotion_basis_hash', 'promoted_gap_ids', 'graduation_evidence_hashes', 'receipt_hash'] as $field) {
+        foreach (['receipt_id', 'signed_by', 'reason', 'runtime_gap_matrix_hash', 'runtime_promotion_basis_hash', 'runtime_promotion_closure_basis_hash', 'promoted_gap_ids', 'graduation_evidence_hashes', 'receipt_hash'] as $field) {
             $this->assertArrayHasKey($field, $preimage);
         }
+        $this->assertSame(str_repeat('c', 64), $preimage['runtime_promotion_closure_basis_hash']);
         foreach (['execution_allowed', 'dispatch_allowed', 'provider_call_allowed', 'token_spend_allowed', 'adapter_execution_allowed', 'self_programming_allowed'] as $flag) {
             $this->assertFalse($preimage[$flag]);
         }
@@ -115,6 +116,7 @@ final class AtlasSelfConstructionRuntimePromotionEvidenceDossierTest extends Tes
             'status' => 'blocked',
             'runtime_gap_matrix_hash' => str_repeat('a', 64),
             'runtime_promotion_basis_hash' => str_repeat('b', 64),
+            'runtime_promotion_closure_basis_hash' => str_repeat('c', 64),
             'runtime_y_candidate_count' => 2,
             'rows' => [
                 [
