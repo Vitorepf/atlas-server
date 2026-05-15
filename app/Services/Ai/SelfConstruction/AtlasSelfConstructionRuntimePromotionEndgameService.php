@@ -107,6 +107,13 @@ final class AtlasSelfConstructionRuntimePromotionEndgameService
             'rerun_matrix_command' => 'php artisan atlas:ai:self-construction --atlas-self-construction-runtime-gap-matrix --json',
             'rerun_audit_command' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --json',
         ];
+        $operatorSubmissionEnvelope = $this->operatorSubmissionEnvelope(
+            receipt: $receiptUnderReview,
+            receiptSource: $receiptUnderReviewSource,
+            verifierPassed: $preSubmissionPassed,
+            persistRequested: $persistRequested,
+            persisted: false,
+        );
 
         $persistenceResult = [];
         $persisted = false;
@@ -119,6 +126,13 @@ final class AtlasSelfConstructionRuntimePromotionEndgameService
                 expectedRuntimePromotionClosureBasisHash: $runtimePromotionClosureBasisHash,
             );
             $persisted = (bool) data_get($persistenceResult, 'persisted', false);
+            $operatorSubmissionEnvelope = $this->operatorSubmissionEnvelope(
+                receipt: $receiptUnderReview,
+                receiptSource: $receiptUnderReviewSource,
+                verifierPassed: $preSubmissionPassed,
+                persistRequested: $persistRequested,
+                persisted: $persisted,
+            );
         }
 
         $completionAudit = $skipCompletionSurfaces
@@ -264,6 +278,7 @@ final class AtlasSelfConstructionRuntimePromotionEndgameService
                 'receipt_id' => (string) ($receiptUnderReview['receipt_id'] ?? ''),
                 'signed_by' => (string) ($receiptUnderReview['signed_by'] ?? ''),
             ],
+            'operator_submission_envelope' => $operatorSubmissionEnvelope,
             'receipt_pre_submission_verification' => $preSubmissionVerification,
             'persistence_preflight' => $persistencePreflight,
             'persistence_result' => $persistenceResult,
@@ -312,6 +327,7 @@ final class AtlasSelfConstructionRuntimePromotionEndgameService
                 'reject_hash_mismatch',
                 'reject_runtime_enabled_flags_true',
                 'reject_completion_claim_from_runtime_receipt_alone',
+                'reject_persistence_without_operator_submission_envelope',
             ],
             'non_execution_guarantees' => [
                 'endgame_does_not_autopromote_runtime',
@@ -325,6 +341,7 @@ final class AtlasSelfConstructionRuntimePromotionEndgameService
                 'endgame_does_not_enable_self_programming',
                 'endgame_does_not_promote_completion',
                 'endgame_does_not_declare_os_complete',
+                'operator_submission_envelope_does_not_write_files_or_receipts',
             ],
         ];
         $payload['endgame_hash'] = $this->stableHash($payload);
@@ -411,6 +428,66 @@ final class AtlasSelfConstructionRuntimePromotionEndgameService
         }
 
         return '';
+    }
+
+    /** @param array<string, mixed> $receipt */
+    private function operatorSubmissionEnvelope(
+        array $receipt,
+        string $receiptSource,
+        bool $verifierPassed,
+        bool $persistRequested,
+        bool $persisted,
+    ): array {
+        $receiptPresent = $receipt !== [];
+        $receiptJson = $receiptPresent
+            ? (string) json_encode($this->ksortRecursive($receipt), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)
+            : '';
+        $receiptJsonHash = $receiptJson !== '' ? hash('sha256', $receiptJson) : '';
+        $status = match (true) {
+            $persisted => 'persisted_runtime_promotion_receipt',
+            $receiptPresent && $verifierPassed => 'ready_for_explicit_operator_persistence',
+            $receiptPresent => 'blocked_until_verifier_passes',
+            default => 'blocked_until_operator_receipt_or_draft_exists',
+        };
+
+        $envelope = [
+            'schema_version' => 'atlas.self_construction.runtime_promotion_operator_submission_envelope.v1',
+            'status' => $status,
+            'receipt_source' => $receiptSource,
+            'receipt_present' => $receiptPresent,
+            'verifier_passed' => $verifierPassed,
+            'persist_requested' => $persistRequested,
+            'persisted' => $persisted,
+            'receipt_id' => (string) ($receipt['receipt_id'] ?? ''),
+            'receipt_hash' => (string) ($receipt['receipt_hash'] ?? ''),
+            'receipt_payload' => $receipt,
+            'receipt_json_sha256' => $receiptJsonHash,
+            'receipt_file_hint' => 'storage/app/atlas/self-construction/operator-submissions/runtime-promotion-receipt.json',
+            'exact_persist_command' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --runtime-promotion-receipt-json=@storage/app/atlas/self-construction/operator-submissions/runtime-promotion-receipt.json --persist-runtime-promotion-receipt --json',
+            'post_persistence_commands' => [
+                'php artisan atlas:ai:self-construction --atlas-self-construction-runtime-gap-matrix --json',
+                'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --json',
+                'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --json',
+            ],
+            'operator_checks_before_persisting' => [
+                'receipt_json_sha256_matches_saved_file',
+                'receipt_hash_matches_payload',
+                'verifier_passed_true',
+                'persist_command_contains_explicit_persist_runtime_promotion_receipt_flag',
+                'no_runtime_enabling_flags_true',
+            ],
+            'non_execution_guarantees' => [
+                'operator_submission_envelope_does_not_sign_for_operator',
+                'operator_submission_envelope_does_not_persist_receipts',
+                'operator_submission_envelope_does_not_enable_runtime',
+                'operator_submission_envelope_does_not_call_provider',
+                'operator_submission_envelope_does_not_dispatch',
+                'operator_submission_envelope_does_not_spend_tokens',
+            ],
+        ];
+        $envelope['envelope_hash'] = $this->stableHash($envelope);
+
+        return $envelope;
     }
 
     private function checklistItem(string $id, string $summary, bool $passed, string $blockingReason): array

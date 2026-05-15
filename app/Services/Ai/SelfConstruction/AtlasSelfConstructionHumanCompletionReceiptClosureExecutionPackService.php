@@ -90,6 +90,13 @@ final class AtlasSelfConstructionHumanCompletionReceiptClosureExecutionPackServi
             $verificationResult,
             $receiptInput,
         );
+        $operatorSubmissionEnvelope = $this->operatorSubmissionEnvelope(
+            $receiptInput,
+            $verifierContext,
+            $prereqs,
+            $verificationResult,
+            $persistencePreflight,
+        );
 
         $receiptTemplate = $this->receiptTemplate($verifierContext);
         $receiptDraftPayload = (array) data_get($draft, 'receipt_payload', []);
@@ -168,6 +175,7 @@ final class AtlasSelfConstructionHumanCompletionReceiptClosureExecutionPackServi
             'receipt_draft' => $receiptDraftPayload,
             'verification_result' => $verificationResult,
             'persistence_preflight' => $persistencePreflight,
+            'operator_submission_envelope' => $operatorSubmissionEnvelope,
             'ordered_operator_steps' => $this->orderedOperatorSteps($prereqs, $verificationResult),
             'exact_commands' => $this->exactCommands(),
             'anti_cheat_policy' => $this->antiCheatPolicy(),
@@ -180,6 +188,7 @@ final class AtlasSelfConstructionHumanCompletionReceiptClosureExecutionPackServi
                 'human_completion_receipt_closure_pack_does_not_dispatch_work',
                 'human_completion_receipt_closure_pack_does_not_enable_runtime',
                 'human_completion_receipt_closure_pack_does_not_enable_self_programming',
+                'human_completion_receipt_operator_submission_envelope_does_not_write_files_or_receipts',
             ],
             'safety_invariants' => [
                 'human_completion_receipt_requires_human_signature' => true,
@@ -349,6 +358,80 @@ final class AtlasSelfConstructionHumanCompletionReceiptClosureExecutionPackServi
     }
 
     /**
+     * @param  array<string, mixed>  $receipt
+     * @param  array<string, string>  $context
+     * @param  array<string, array<string, mixed>>  $prereqs
+     * @param  array<string, mixed>  $verificationResult
+     * @param  array<string, mixed>  $persistencePreflight
+     * @return array<string, mixed>
+     */
+    private function operatorSubmissionEnvelope(
+        array $receipt,
+        array $context,
+        array $prereqs,
+        array $verificationResult,
+        array $persistencePreflight,
+    ): array {
+        $receiptJson = $receipt === []
+            ? ''
+            : (string) json_encode($this->ksortRecursive($receipt), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        $allPrereqsGreen = $this->allPrereqsGreen($prereqs);
+        $verifierPassed = (string) data_get($verificationResult, 'status') === 'passed';
+        $canPersist = (bool) data_get($persistencePreflight, 'can_persist', false);
+
+        $status = match (true) {
+            ! $allPrereqsGreen => 'blocked_until_runtime_smoke_and_evidence_context_are_green',
+            $receipt === [] => 'blocked_until_human_completion_receipt_payload_exists',
+            ! $verifierPassed => 'blocked_until_human_completion_receipt_verifier_passes',
+            ! $canPersist => 'blocked_until_persistence_preflight_passes',
+            default => 'ready_for_explicit_operator_persistence',
+        };
+
+        $envelope = [
+            'schema_version' => 'atlas.self_construction.human_completion_receipt_operator_submission_envelope.v1',
+            'mode' => 'read_only_operator_submission_envelope',
+            'status' => $status,
+            'receipt_payload_under_review' => $receipt,
+            'receipt_json_sha256' => $receiptJson === '' ? '' : hash('sha256', $receiptJson),
+            'receipt_hash' => (string) ($receipt['receipt_hash'] ?? ''),
+            'current_evidence_context' => $context,
+            'verification_status' => (string) data_get($verificationResult, 'status', ''),
+            'persistence_preflight_status' => $canPersist ? 'passed' : 'blocked',
+            'can_persist_after_operator_review' => $status === 'ready_for_explicit_operator_persistence',
+            'persist_command' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --completion-receipt-json=@/path/to/completion-receipt.json --persist-completion-evidence --json',
+            'pre_persist_operator_checks' => [
+                'runtime_gap_matrix_all_runtime_y_is_green',
+                'runtime_promotion_receipt_hash_matches_current_context',
+                'real_provider_smoke_hash_matches_current_context',
+                'completion_audit_hash_release_dossier_hash_replay_diff_hash_and_certification_batch_hash_match_current_context',
+                'receipt_hash_matches_canonical_payload_hash',
+                'signed_by_is_real_operator_not_placeholder_or_agent',
+                'os_complete_approved_and_no_autopromotion_acknowledged_are_true',
+                'execution_dispatch_provider_token_adapter_and_self_programming_flags_are_false',
+                'persistence_flag_is_explicitly_present',
+                'completion_audit_must_be_rerun_after_persistence',
+            ],
+            'post_persistence_rerun_commands' => [
+                'completion_evidence_status' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --json',
+                'completion_audit' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --json',
+                'finalization_gate' => 'php artisan atlas:ai:self-construction --atlas-self-construction-completion-finalization-gate-status --json',
+            ],
+            'non_execution_guarantees' => [
+                'envelope_does_not_sign_for_operator' => true,
+                'envelope_does_not_persist_receipts' => true,
+                'envelope_does_not_promote_completion' => true,
+                'envelope_does_not_call_provider' => true,
+                'envelope_does_not_spend_tokens' => true,
+                'envelope_does_not_dispatch' => true,
+                'envelope_does_not_enable_runtime' => true,
+            ],
+        ];
+        $envelope['operator_submission_envelope_hash'] = $this->stableHash($envelope);
+
+        return $envelope;
+    }
+
+    /**
      * @param  array<string, array<string, mixed>>  $prereqs
      * @param  array<string, mixed>  $verificationResult
      * @return array<int, array<string, mixed>>
@@ -461,6 +544,7 @@ final class AtlasSelfConstructionHumanCompletionReceiptClosureExecutionPackServi
                 'adapter_execution_allowed',
                 'self_programming_allowed',
                 'completion_autopromoted',
+                'persistence_without_operator_submission_envelope',
             ],
             'hash_invariants' => [
                 'receipt_hash_must_be_64_hex',

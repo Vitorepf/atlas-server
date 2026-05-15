@@ -349,11 +349,11 @@ Sub-módulo do Self-Construction OS, irmão da Real Provider Smoke Endgame e da 
 
 ## Contratos
 
-Schemas: `atlas.self_construction.human_completion_receipt_closure_execution_pack.v1`, `atlas.self_construction.human_completion_receipt_pre_submission_verifier.v1`, `atlas.self_construction.completion_finalization_gate.v1`. Invariantes: `completion_claim_allowed=false` por construção; signer nunca pode ser placeholder ou identidade não-humana; persistência exige flag explícito no certifier real; finalization gate só vira true quando o completion audit canônico é `status=complete` com zero failed criteria.
+Schemas: `atlas.self_construction.human_completion_receipt_closure_execution_pack.v1`, `atlas.self_construction.human_completion_receipt_operator_submission_envelope.v1`, `atlas.self_construction.human_completion_receipt_pre_submission_verifier.v1`, `atlas.self_construction.completion_finalization_gate.v1`. Invariantes: `completion_claim_allowed=false` por construção; signer nunca pode ser placeholder ou identidade não-humana; persistência exige flag explícito no certifier real; finalization gate só vira true quando o completion audit canônico é `status=complete` com zero failed criteria.
 
 ## Fluxo
 
-Operador roda runbook → confere prereqs (runtime, smoke, dossier, replay, certification status batch) → monta receipt → roda pre-submission verifier → assina e persiste via flag explícito do certifier real → rerun completion audit → finalization gate avalia.
+Operador roda runbook → confere prereqs (runtime, smoke, dossier, replay, certification status batch) → monta receipt → roda pre-submission verifier → revisa o `operator_submission_envelope` com payload exato, `receipt_json_sha256`, `receipt_hash`, contexto de evidência atual, comando de persistência e checks pré-persistência → assina e persiste via flag explícito do certifier real → rerun completion audit → finalization gate avalia.
 
 ## Regras para IA
 
@@ -377,7 +377,7 @@ Operador interpretar `verifier passed` no test-storage como completion claim. Te
 
 ## Exemplos
 
-Operador chama o closure execution pack com `receipt_preimage`, vê `verification_result.status=blocked` com diagnostics, corrige, repete até `ready_to_persist_human_completion_receipt`, persiste via certifier real com flag explícito, rerun audit e finalization gate.
+Operador chama o closure execution pack com `receipt_preimage`, vê `verification_result.status=blocked` com diagnostics, corrige, repete até o envelope ficar `ready_for_explicit_operator_persistence`, persiste via certifier real com flag explícito, rerun audit e finalization gate.
 
 ## Proximas Acoes
 

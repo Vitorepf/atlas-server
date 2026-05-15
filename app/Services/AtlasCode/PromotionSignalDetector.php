@@ -167,6 +167,25 @@ final class PromotionSignalDetector
             ],
         ];
 
+        // Meta 8.5 · thin_small_bug veto.
+        // Canon doutrina: "Não obrigue Obra para bug pequeno, ajuste visual
+        // ou conversa técnica" (atlas-ai-conversation-surface-and-atlas-dev-v1.md).
+        // Mesmo que um sinal isolado dispare, conversa curta com ≤1 arquivo
+        // sem risco/arquitetura/gates/falha/pedido explícito é honestamente
+        // `none` — sem ambiguidade.
+        $thinSmallBug =
+            $messageCount <= 6
+            && count($fileMentions) <= 1
+            && $architectureHits === 0
+            && $riskHits === 0
+            && ($failureMatches + $traceFailureCount) === 0
+            && $operatorPromotionAt === null;
+        $signals['thin_small_bug'] = [
+            'detected' => $thinSmallBug,
+            'message_count' => $messageCount,
+            'file_count' => count($fileMentions),
+        ];
+
         // Scoring: weight each axis. Forge requires multiple strong signals;
         // obra_candidate triggers from a single strong heuristic or operator
         // request. quick_intervention is the soft fallback when only mild
@@ -237,6 +256,14 @@ final class PromotionSignalDetector
             $target = self::TARGET_OBRA_CANDIDATE;
         } elseif ($score >= 2) {
             $target = self::TARGET_QUICK_INTERVENTION;
+        }
+
+        // Meta 8.5 · thin_small_bug veto — overrides any soft signal.
+        // The veto only retires `quick_intervention`; obra_candidate / forge_obra
+        // only fire when meaningful signals exist, so the veto can't reach them.
+        if ($thinSmallBug && $target === self::TARGET_QUICK_INTERVENTION) {
+            $target = self::TARGET_NONE;
+            $reasons[] = 'thin_small_bug_veto';
         }
 
         return [

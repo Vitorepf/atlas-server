@@ -21,6 +21,11 @@ final class AtlasSelfConstructionHumanCompletionReceiptClosureExecutionPackTest 
         $this->assertFalse((bool) data_get($pack, 'current_prerequisites.end_to_end_real_provider_smoke_green.green'));
         $this->assertContains('human_completion_receipt_closure_pack_does_not_persist_receipts', $pack['non_execution_guarantees']);
         $this->assertContains('human_completion_receipt_closure_pack_does_not_sign_for_operator', $pack['non_execution_guarantees']);
+        $this->assertContains('human_completion_receipt_operator_submission_envelope_does_not_write_files_or_receipts', $pack['non_execution_guarantees']);
+        $this->assertSame(
+            'blocked_until_runtime_smoke_and_evidence_context_are_green',
+            (string) data_get($pack, 'operator_submission_envelope.status'),
+        );
     }
 
     public function test_closure_pack_requires_human_signature_when_only_human_receipt_missing(): void
@@ -32,6 +37,50 @@ final class AtlasSelfConstructionHumanCompletionReceiptClosureExecutionPackTest 
         $this->assertTrue((bool) data_get($pack, 'current_prerequisites.end_to_end_real_provider_smoke_green.green'));
         $this->assertFalse((bool) data_get($pack, 'persistence_preflight.can_persist'));
         $this->assertSame('blocked', (string) data_get($pack, 'verification_result.status'));
+        $this->assertSame(
+            'blocked_until_human_completion_receipt_payload_exists',
+            (string) data_get($pack, 'operator_submission_envelope.status'),
+        );
+    }
+
+    public function test_closure_pack_operator_submission_envelope_is_ready_for_valid_human_receipt(): void
+    {
+        $receipt = $this->fakeReceipt();
+        $pack = $this->buildPack(
+            audit: $this->auditWith(runtime: true, smoke: true, humanReceipt: false),
+            evidence: $this->evidence(allRuntimeY: true, smokeStatus: 'passed'),
+            receipt: $receipt,
+        );
+        $envelope = (array) data_get($pack, 'operator_submission_envelope', []);
+
+        $this->assertSame('ready_for_explicit_operator_persistence', (string) $envelope['status']);
+        $this->assertTrue((bool) $envelope['can_persist_after_operator_review']);
+        $this->assertSame($receipt['receipt_hash'], (string) $envelope['receipt_hash']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $envelope['receipt_json_sha256']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $envelope['operator_submission_envelope_hash']);
+        $this->assertStringContainsString('--persist-completion-evidence', (string) $envelope['persist_command']);
+        $this->assertContains(
+            'completion_audit_must_be_rerun_after_persistence',
+            (array) $envelope['pre_persist_operator_checks'],
+        );
+        $this->assertTrue((bool) data_get($envelope, 'non_execution_guarantees.envelope_does_not_persist_receipts'));
+    }
+
+    public function test_closure_pack_operator_submission_envelope_blocks_when_receipt_context_is_stale(): void
+    {
+        $receipt = $this->fakeReceipt(['real_provider_smoke_hash' => str_repeat('b', 64)]);
+        $pack = $this->buildPack(
+            audit: $this->auditWith(runtime: true, smoke: true, humanReceipt: false),
+            evidence: $this->evidence(allRuntimeY: true, smokeStatus: 'passed'),
+            receipt: $receipt,
+        );
+
+        $this->assertSame(
+            'blocked_until_human_completion_receipt_verifier_passes',
+            (string) data_get($pack, 'operator_submission_envelope.status'),
+        );
+        $this->assertFalse((bool) data_get($pack, 'operator_submission_envelope.can_persist_after_operator_review'));
+        $this->assertSame('blocked', (string) data_get($pack, 'operator_submission_envelope.verification_status'));
     }
 
     public function test_closure_pack_exposes_receipt_template_with_evidence_context_hashes(): void
@@ -191,10 +240,11 @@ final class AtlasSelfConstructionHumanCompletionReceiptClosureExecutionPackTest 
     }
 
     /** @return array<string, mixed> */
-    private function fakeReceipt(): array
+    /** @param array<string, mixed> $overrides */
+    private function fakeReceipt(array $overrides = []): array
     {
         $hash = str_repeat('a', 64);
-        $receipt = [
+        $receipt = array_merge([
             'receipt_id' => 'test-receipt-1',
             'signed_by' => 'Vitore Test Operator',
             'reason' => 'Operator reviewed the final audit, runtime, smoke, dossier and replay in this test context.',
@@ -209,7 +259,7 @@ final class AtlasSelfConstructionHumanCompletionReceiptClosureExecutionPackTest 
             'os_complete_approved' => true,
             'operator_reviewed_completion_audit' => true,
             'no_autopromotion_acknowledged' => true,
-        ];
+        ], $overrides);
         $receipt['receipt_hash'] = (new AtlasSelfConstructionCompletionEvidenceHashService)->humanCompletionReceiptHash($receipt);
 
         return $receipt;

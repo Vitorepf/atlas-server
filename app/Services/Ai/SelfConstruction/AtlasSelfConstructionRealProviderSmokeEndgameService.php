@@ -55,6 +55,7 @@ final class AtlasSelfConstructionRealProviderSmokeEndgameService
 
         $status = $this->resolveStatus($smoke, $verifierResult, $certification, $persistRequested);
         $persistenceAttempt = $this->resolvePersistenceAttempt($smoke, $persistRequested, $verifierResult, $certification);
+        $operatorSubmissionEnvelope = $this->operatorSubmissionEnvelope($smoke, $verifierResult, $certification);
 
         $payload = [
             'schema_version' => self::SCHEMA_VERSION,
@@ -64,6 +65,7 @@ final class AtlasSelfConstructionRealProviderSmokeEndgameService
             'generated_at' => CarbonImmutable::now()->toIso8601String(),
             'persist_completion_evidence_requested' => $persistRequested,
             'persistence_attempt' => $persistenceAttempt,
+            'operator_submission_envelope' => $operatorSubmissionEnvelope,
             'required_evidence_contract' => $this->requiredEvidenceContract(),
             'operator_approval_contract' => $this->operatorApprovalContract(),
             'single_packet_scope_contract' => $this->singlePacketScopeContract(),
@@ -95,6 +97,7 @@ final class AtlasSelfConstructionRealProviderSmokeEndgameService
                 'atlas_must_not_spend_tokens' => true,
                 'operator_must_observe_real_provider_run' => true,
                 'persistence_requires_explicit_flag' => true,
+                'reject_persistence_without_operator_submission_envelope' => true,
                 'no_os_complete_claim_from_endgame' => true,
             ],
             'non_execution_guarantees' => [
@@ -106,6 +109,7 @@ final class AtlasSelfConstructionRealProviderSmokeEndgameService
                 'does_not_promote_completion' => true,
                 'does_not_enable_runtime' => true,
                 'does_not_sign_for_operator' => true,
+                'operator_submission_envelope_does_not_write_files_or_receipts' => true,
             ],
             'persistence_allowed_here' => false,
         ];
@@ -183,6 +187,67 @@ final class AtlasSelfConstructionRealProviderSmokeEndgameService
             'persistence_blocker' => (string) ($persistResult['persistence_blocker'] ?? ''),
             'certifier_result' => $persistResult,
         ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $smoke
+     * @param  array<string, mixed>  $verifier
+     * @param  array<string, mixed>  $certification
+     * @return array<string, mixed>
+     */
+    private function operatorSubmissionEnvelope(array $smoke, array $verifier, array $certification): array
+    {
+        $verifierPassed = (string) data_get($verifier, 'status') === 'passed';
+        $certificationPassed = (string) data_get($certification, 'status') === 'passed';
+        $smokeJson = $smoke === []
+            ? ''
+            : (string) json_encode($this->ksortRecursive($smoke), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+
+        $status = match (true) {
+            $smoke === [] => 'blocked_until_operator_smoke_payload_exists',
+            ! $verifierPassed => 'blocked_until_endgame_verifier_passes',
+            ! $certificationPassed => 'blocked_until_smoke_certification_passes',
+            default => 'ready_for_explicit_operator_persistence',
+        };
+
+        $envelope = [
+            'schema_version' => 'atlas.self_construction.real_provider_smoke_operator_submission_envelope.v1',
+            'mode' => 'read_only_operator_submission_envelope',
+            'status' => $status,
+            'smoke_payload_under_review' => $smoke,
+            'smoke_json_sha256' => $smokeJson === '' ? '' : hash('sha256', $smokeJson),
+            'smoke_hash' => (string) ($smoke['smoke_hash'] ?? ''),
+            'verifier_status' => (string) data_get($verifier, 'status', ''),
+            'certification_status' => (string) data_get($certification, 'status', ''),
+            'can_persist_after_operator_review' => $status === 'ready_for_explicit_operator_persistence',
+            'persist_command' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --real-provider-smoke-json=@/path/to/real-provider-smoke.json --persist-completion-evidence --json',
+            'pre_persist_operator_checks' => [
+                'smoke_payload_is_from_real_operator_observed_provider_run',
+                'smoke_hash_matches_canonical_payload_hash',
+                'operator_approval_receipt_hash_is_current',
+                'provider_run_id_and_task_packet_id_are_non_placeholder',
+                'provider_response_hash_cost_event_hash_work_product_hash_continuation_hash_and_ledger_hash_are_current',
+                'provider_called_by_atlas_token_spent_by_atlas_dispatch_allowed_adapter_execution_allowed_self_programming_allowed_are_false',
+                'persistence_flag_is_explicitly_present',
+                'completion_audit_must_be_rerun_after_persistence',
+            ],
+            'post_persistence_rerun_commands' => [
+                'completion_evidence_status' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --json',
+                'completion_audit' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --json',
+                'human_completion_receipt_closure_pack' => 'php artisan atlas:ai:self-construction --atlas-self-construction-human-completion-receipt-closure-execution-pack-status --json',
+            ],
+            'non_execution_guarantees' => [
+                'envelope_does_not_call_provider' => true,
+                'envelope_does_not_spend_tokens' => true,
+                'envelope_does_not_dispatch' => true,
+                'envelope_does_not_persist_smoke' => true,
+                'envelope_does_not_promote_completion' => true,
+                'envelope_does_not_sign_for_operator' => true,
+            ],
+        ];
+        $envelope['operator_submission_envelope_hash'] = $this->stableHash($envelope);
+
+        return $envelope;
     }
 
     /** @return array<string, mixed> */

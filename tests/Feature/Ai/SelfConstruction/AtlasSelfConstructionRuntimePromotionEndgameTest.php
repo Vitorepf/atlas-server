@@ -99,6 +99,10 @@ final class AtlasSelfConstructionRuntimePromotionEndgameTest extends TestCase
         $this->assertSame('not_drafted', data_get($payload, 'receipt_draft.status'));
         $this->assertSame('passed', data_get($payload, 'receipt_pre_submission_verification.status'));
         $this->assertTrue(data_get($payload, 'receipt_pre_submission_verification.can_persist'));
+        $this->assertSame('ready_for_explicit_operator_persistence', data_get($payload, 'operator_submission_envelope.status'));
+        $this->assertSame($receipt['receipt_hash'], data_get($payload, 'operator_submission_envelope.receipt_hash'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) data_get($payload, 'operator_submission_envelope.receipt_json_sha256'));
+        $this->assertStringContainsString('--persist-runtime-promotion-receipt', (string) data_get($payload, 'operator_submission_envelope.exact_persist_command'));
         $this->assertFalse($payload['persisted']);
         $this->assertSame('persistence_flag_not_supplied', data_get($payload, 'persistence_preflight.persistence_blocked_reason'));
     }
@@ -120,6 +124,8 @@ final class AtlasSelfConstructionRuntimePromotionEndgameTest extends TestCase
         $this->assertTrue(data_get($payload, 'persistence_result.persisted'));
         $this->assertSame('passed', data_get($payload, 'persistence_result.status'));
         $this->assertSame('operator_supplied_runtime_promotion_receipt', data_get($payload, 'receipt_under_review.source'));
+        $this->assertSame('persisted_runtime_promotion_receipt', data_get($payload, 'operator_submission_envelope.status'));
+        $this->assertTrue(data_get($payload, 'operator_submission_envelope.persisted'));
         $this->assertNotEmpty(Storage::disk('local')->allFiles('atlas/self-construction/os-completion/runtime-promotion-receipts'));
     }
 
@@ -137,6 +143,7 @@ final class AtlasSelfConstructionRuntimePromotionEndgameTest extends TestCase
             'reject_hash_mismatch',
             'reject_runtime_enabled_flags_true',
             'reject_completion_claim_from_runtime_receipt_alone',
+            'reject_persistence_without_operator_submission_envelope',
         ] as $rule) {
             $this->assertContains($rule, $payload['anti_cheat_policy']);
         }
@@ -153,6 +160,7 @@ final class AtlasSelfConstructionRuntimePromotionEndgameTest extends TestCase
             'endgame_does_not_enable_self_programming',
             'endgame_does_not_promote_completion',
             'endgame_does_not_declare_os_complete',
+            'operator_submission_envelope_does_not_write_files_or_receipts',
         ] as $guarantee) {
             $this->assertContains($guarantee, $payload['non_execution_guarantees']);
         }

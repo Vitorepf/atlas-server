@@ -391,4 +391,130 @@ class AtlasCodeDevToForgePromotionTest extends TestCase
             ->getJson("/atlas-code/dev-to-forge/threads/{$bogus}/promotion-preview")
             ->assertNotFound();
     }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // Meta 8.5 · reconciliation tests
+    // (single canonical schema, single heuristic, no duplicate Obra)
+
+    public function test_thin_small_bug_axis_is_detected_on_small_chats(): void
+    {
+        // Canon doutrina (atlas-ai-conversation-surface-and-atlas-dev-v1.md):
+        // "Não obrigem Obra para bug pequeno." The detector must expose a
+        // `thin_small_bug` axis so the UI can warn honestly when the thread is
+        // tiny, single-file, no risk/architecture/gates/failure/operator hint.
+        // The veto then guarantees that even future scoring tunings can't leak
+        // such a thread into quick_intervention.
+        $threadId = $this->seedThread('atlas', [
+            ['role' => 'user', 'content' => 'pode renomear a variável foo para bar?'],
+            ['role' => 'assistant', 'content' => 'renomeado'],
+        ]);
+        $messages = DB::table('ai_messages')->where('thread_id', $threadId)->orderBy('position')->get()
+            ->map(fn ($r) => ['role' => $r->role, 'content' => $r->content])->all();
+        $report = (new PromotionSignalDetector())->analyse(
+            ['id' => $threadId, 'workspace' => 'atlas'],
+            $messages,
+        );
+
+        $this->assertSame(PromotionSignalDetector::TARGET_NONE, $report['recommended_target']);
+        $this->assertArrayHasKey('thin_small_bug', $report['signals']);
+        $this->assertTrue((bool) ($report['signals']['thin_small_bug']['detected'] ?? false));
+    }
+
+    public function test_thin_small_bug_axis_is_not_detected_when_signals_fire(): void
+    {
+        // Architecture + risk + multi-file → the conversation is clearly not a
+        // thin small bug. The axis must report `detected === false` so the UI
+        // doesn't show the "thread pequena demais" warning when it shouldn't.
+        $threadId = $this->seedThread('blackink', [
+            ['role' => 'user', 'content' => 'redesenhar arquitetura de auth em production. Migration de tokens.'],
+            ['role' => 'assistant', 'content' => 'Mexer em `app/Services/Auth/Login.php`, `app/Http/Controllers/AuthController.php`, `app/Models/User.php`.'],
+        ]);
+        $messages = DB::table('ai_messages')->where('thread_id', $threadId)->orderBy('position')->get()
+            ->map(fn ($r) => ['role' => $r->role, 'content' => $r->content])->all();
+        $report = (new PromotionSignalDetector())->analyse(
+            ['id' => $threadId, 'workspace' => 'blackink'],
+            $messages,
+        );
+
+        $this->assertFalse((bool) ($report['signals']['thin_small_bug']['detected'] ?? true));
+        $this->assertNotSame(PromotionSignalDetector::TARGET_NONE, $report['recommended_target']);
+    }
+
+    public function test_promoting_same_thread_twice_does_not_create_a_second_obra(): void
+    {
+        $threadId = $this->seedThread('blackink', [
+            ['role' => 'user', 'content' => 'Promove forge: refactor de auth em production. `src/auth/Login.tsx`.'],
+            ['role' => 'assistant', 'content' => 'Combinado.'],
+        ]);
+
+        $first = $this->withHeaders($this->headers())->postJson(
+            "/atlas-code/dev-to-forge/threads/{$threadId}/promote",
+            ['promotion_target' => 'forge_obra'],
+        )->assertCreated();
+
+        $firstCandidateId = $first->json('candidate.id');
+        $firstObraId = $first->json('candidate.promoted_obra_id');
+        $this->assertIsString($firstObraId);
+
+        // Hammer the endpoint a second time with the same target — idempotency
+        // must reuse the candidate id and NOT create a second AtlasProject.
+        $second = $this->withHeaders($this->headers())->postJson(
+            "/atlas-code/dev-to-forge/threads/{$threadId}/promote",
+            ['promotion_target' => 'forge_obra'],
+        )->assertCreated();
+
+        $this->assertSame($firstCandidateId, $second->json('candidate.id'));
+        $this->assertSame($firstObraId, $second->json('candidate.promoted_obra_id'));
+
+        $obraRows = DB::table('atlas_projects')
+            ->whereJsonContains('metadata->promoted_from_thread_id', $threadId)
+            ->count();
+        $this->assertSame(1, $obraRows, 'Exactly one Obra must exist for the thread after two promote() calls.');
+    }
+
+    public function test_dismissing_and_repromoting_creates_a_fresh_candidate(): void
+    {
+        $threadId = $this->seedThread('atlas', [
+            ['role' => 'user', 'content' => 'Promove forge: refactor de auth em production. `src/auth/Login.tsx`.'],
+            ['role' => 'assistant', 'content' => 'Combinado.'],
+        ]);
+
+        $first = $this->withHeaders($this->headers())->postJson(
+            "/atlas-code/dev-to-forge/threads/{$threadId}/promote",
+            ['promotion_target' => 'obra_candidate'],
+        )->assertCreated();
+        $firstId = $first->json('candidate.id');
+
+        $this->withHeaders($this->headers())->postJson(
+            "/atlas-code/dev-to-forge/candidates/{$firstId}/dismiss",
+            ['reason' => 'falso positivo'],
+        )->assertOk();
+
+        // After a dismiss, a new promote() may legitimately produce a new
+        // candidate id (the dismissed one is settled and out of the registry).
+        $second = $this->withHeaders($this->headers())->postJson(
+            "/atlas-code/dev-to-forge/threads/{$threadId}/promote",
+            ['promotion_target' => 'obra_candidate'],
+        )->assertCreated();
+        $this->assertNotSame($firstId, $second->json('candidate.id'));
+    }
+
+    public function test_deprecated_promotion_route_was_removed(): void
+    {
+        $threadId = $this->seedThread('atlas', [
+            ['role' => 'user', 'content' => 'ping'],
+        ]);
+
+        // The reconciled architecture exposes exactly ONE promotion route
+        // tree: /atlas-code/dev-to-forge/*. The earlier `/atlas-code/promotion/*`
+        // shims are gone — any caller still hitting them must 404 so the
+        // breakage is loud.
+        $this->withHeaders($this->headers())
+            ->getJson("/atlas-code/promotion/preview/{$threadId}")
+            ->assertNotFound();
+
+        $this->withHeaders($this->headers())
+            ->postJson("/atlas-code/promotion/{$threadId}/promote", ['promotion_target' => 'obra_candidate'])
+            ->assertNotFound();
+    }
 }

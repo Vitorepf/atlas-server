@@ -43426,6 +43426,11 @@ final class AtlasSelfConstructionReadinessService
             'atlas_self_construction_operator_evidence_artifact_template_pack_implementation_packet',
             'atlas_self_construction_operator_evidence_artifact_template_pack_service',
             'atlas_self_construction_operator_evidence_artifact_template_pack_status_projection',
+            'atlas_self_construction_operator_evidence_draft_workspace_inspector_contract',
+            'atlas_self_construction_operator_evidence_draft_workspace_inspector_preflight',
+            'atlas_self_construction_operator_evidence_draft_workspace_inspector_implementation_packet',
+            'atlas_self_construction_operator_evidence_draft_workspace_inspector_service',
+            'atlas_self_construction_operator_evidence_draft_workspace_inspector_status_projection',
             'atlas_self_construction_operator_evidence_submission_readiness_contract',
             'atlas_self_construction_operator_evidence_submission_readiness_preflight',
             'atlas_self_construction_operator_evidence_submission_readiness_implementation_packet',
@@ -76016,6 +76021,61 @@ final class AtlasSelfConstructionReadinessService
      * @param  array<string, mixed>  $options
      * @return array<string, mixed>
      */
+    public function atlasSelfConstructionOperatorEvidenceDraftWorkspaceInspectorContract(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_operator_evidence_draft_workspace_inspector', 'Atlas Self-Construction Operator Evidence Draft Workspace Inspector', AtlasSelfConstructionOperatorEvidenceDraftWorkspaceInspectorService::SCHEMA_VERSION, AtlasSelfConstructionOperatorEvidenceDraftWorkspaceInspectorService::class, 'contract');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function atlasSelfConstructionOperatorEvidenceDraftWorkspaceInspectorPreflight(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_operator_evidence_draft_workspace_inspector', 'Atlas Self-Construction Operator Evidence Draft Workspace Inspector', AtlasSelfConstructionOperatorEvidenceDraftWorkspaceInspectorService::SCHEMA_VERSION, AtlasSelfConstructionOperatorEvidenceDraftWorkspaceInspectorService::class, 'preflight');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function atlasSelfConstructionOperatorEvidenceDraftWorkspaceInspectorImplementationPacket(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_operator_evidence_draft_workspace_inspector', 'Atlas Self-Construction Operator Evidence Draft Workspace Inspector', AtlasSelfConstructionOperatorEvidenceDraftWorkspaceInspectorService::SCHEMA_VERSION, AtlasSelfConstructionOperatorEvidenceDraftWorkspaceInspectorService::class, 'implementation_packet');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function atlasSelfConstructionOperatorEvidenceDraftWorkspaceInspectorStatus(array $options = []): array
+    {
+        $result = (new AtlasSelfConstructionOperatorEvidenceDraftWorkspaceInspectorService)->inspect([
+            'operator_draft_workspace_path' => (string) ($options['operator_draft_workspace_path'] ?? ''),
+        ]);
+
+        return $this->wrapCertificationWorkbenchStatus(
+            keyPrefix: 'atlas_self_construction_operator_evidence_draft_workspace_inspector',
+            label: 'Atlas Self-Construction Operator Evidence Draft Workspace Inspector',
+            payload: $result,
+            statusKey: 'status',
+            extraStatusFields: [
+                'inspector_hash' => (string) data_get($result, 'inspector_hash'),
+                'manifest_path' => (string) data_get($result, 'manifest_path'),
+                'artifact_count' => (int) data_get($result, 'artifact_count', 0),
+                'violation_count' => (int) data_get($result, 'violation_count', 0),
+                'warning_count' => (int) data_get($result, 'warning_count', 0),
+                'workspace_safe_for_operator_editing' => (bool) data_get($result, 'workspace_safe_for_operator_editing', false),
+                'completion_allowed' => false,
+                'completion_claim_allowed' => false,
+            ],
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
     public function atlasSelfConstructionOperatorEvidenceSubmissionReadinessContract(array $options = []): array
     {
         return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_operator_evidence_submission_readiness', 'Atlas Self-Construction Operator Evidence Submission Readiness', AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService::SCHEMA_VERSION, AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService::class, 'contract');
@@ -76050,6 +76110,7 @@ final class AtlasSelfConstructionReadinessService
             'real_provider_smoke' => (array) ($options['real_provider_smoke'] ?? $this->decodeJsonOption($options['real_provider_smoke_json'] ?? null)),
             'completion_receipt' => (array) ($options['completion_receipt'] ?? $this->decodeJsonOption($options['completion_receipt_json'] ?? null)),
             'human_completion_receipt_context' => (array) ($options['human_completion_receipt_context'] ?? []),
+            'operator_draft_workspace_path' => (string) ($options['operator_draft_workspace_path'] ?? ''),
         ]);
 
         return $this->wrapCertificationWorkbenchStatus(
@@ -76064,6 +76125,10 @@ final class AtlasSelfConstructionReadinessService
                 'real_provider_smoke_passed' => (bool) data_get($result, 'real_provider_smoke_passed', false),
                 'human_completion_receipt_passed' => (bool) data_get($result, 'human_completion_receipt_passed', false),
                 'human_receipt_out_of_order' => (bool) data_get($result, 'human_receipt_out_of_order', false),
+                'draft_workspace_input_status' => (string) data_get($result, 'draft_workspace_input.status', ''),
+                'draft_workspace_loaded_artifacts' => (array) data_get($result, 'draft_workspace_input.loaded_artifacts', []),
+                'draft_workspace_refresh_required' => (bool) data_get($result, 'draft_workspace_refresh_required', false),
+                'draft_workspace_refresh_status' => (string) data_get($result, 'draft_workspace_refresh.status', ''),
                 'completion_allowed' => false,
                 'completion_claim_allowed' => false,
             ],

@@ -26,7 +26,8 @@ use Tests\TestCase;
  *   - `invalid` / `local_fake` run treats per-arm artifacts as optional and
  *     surfaces them in `optional_missing` rather than as blockers.
  *   - Invalid run never produces `claim_ready=true`.
- *   - Hard-gate failure keeps `atlas_score=null`, `rival_score=null`, no winner.
+ *   - Infrastructure hard-gate failure keeps `atlas_score=null`, `rival_score=null`, no winner.
+ *   - One-sided deterministic test failure produces `gate_winner` with `score=null` and `claim_ready=false`.
  *   - Report renders ZERO claim for invalid, replay-failed, hard-fail, and
  *     blocked-evidence outcomes — and always explains why.
  *   - The report writes `unlocks_external_rivals_certification=false`.
@@ -301,6 +302,60 @@ final class AtlasForgeRivalsEvidenceReplayAdjudicatorHardeningV2Test extends Tes
         $this->assertFalse($scorecard['claim_ready']);
         $this->assertNotEmpty($scorecard['hard_failures']);
         $this->assertContains('verdict_comparable', $scorecard['hard_failures']);
+    }
+
+    public function test_one_sided_test_failure_renders_gate_winner_without_quality_score_or_claim(): void
+    {
+        $runId = $this->newRunId('gate-winner');
+        $this->seedRunArtifacts(
+            $runId,
+            ['verdict' => 'invalid_tests_failed', 'mode' => 'fair'],
+            includePatchesAndLogs: true,
+        );
+        $paths = $this->paths->paths($runId);
+
+        $rivalReceipt = json_decode((string) file_get_contents($paths['evidence'].'/rival_receipt.json'), true);
+        $rivalReceipt['test_exit_code'] = 2;
+        $rivalReceipt['test_log_tail'] = 'FAILED Tests\\Feature\\SyntheticTest';
+        file_put_contents($paths['evidence'].'/rival_receipt.json', $this->jsonEncode($rivalReceipt));
+
+        $manifest = json_decode((string) file_get_contents($paths['manifest_json']), true);
+        $manifest['claim_ready'] = false;
+        $manifest['rival_receipt_hash'] = hash('sha256', $this->jsonEncode($rivalReceipt));
+        file_put_contents($paths['manifest_json'], $this->jsonEncode($manifest));
+
+        $this->collect->collect([
+            'run_id' => $runId,
+            'evidence_stage' => AtlasForgeRivalsEvidencePolicy::STAGE_PRE_ADJUDICATION,
+        ]);
+        $adjudication = $this->adjudicator->adjudicate(['run_id' => $runId]);
+        $scorecard = $adjudication['scorecard'];
+
+        $this->assertNull($scorecard['winner']);
+        $this->assertSame('atlas', $scorecard['gate_winner']);
+        $this->assertSame('gate_outcome', $scorecard['score_source']);
+        $this->assertNull($scorecard['atlas_score']);
+        $this->assertNull($scorecard['rival_score']);
+        $this->assertFalse($scorecard['quality_score_available']);
+        $this->assertFalse($scorecard['claim_ready']);
+
+        $this->collect->collect([
+            'run_id' => $runId,
+            'evidence_stage' => AtlasForgeRivalsEvidencePolicy::STAGE_FINAL,
+        ]);
+        $report = $this->report->render(['run_id' => $runId]);
+
+        $this->assertNull($report['winner']);
+        $this->assertSame('atlas', $report['gate_winner']);
+        $this->assertSame('gate_winner:atlas_no_quality_score', $report['declared_why']);
+        $this->assertNull($report['atlas_score']);
+        $this->assertNull($report['rival_score']);
+        $this->assertFalse($report['quality_score_available']);
+        $this->assertFalse($report['claim_ready']);
+        $body = (string) file_get_contents($report['report_path']);
+        $this->assertStringContainsString('GATE WINNER = Atlas Forge', $body);
+        $this->assertStringContainsString('QUALITY SCORE = N/A', $body);
+        $this->assertStringContainsString('external claim blocked', $body);
     }
 
     public function test_report_renders_invalid_run_without_winner_and_without_claim(): void

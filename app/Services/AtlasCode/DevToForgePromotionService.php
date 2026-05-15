@@ -139,12 +139,33 @@ final class DevToForgePromotionService
         $preview['candidate_status'] = 'pending_decision';
         $preview['promoted_obra_id'] = null;
 
-        $candidateId = 'pc_'.Str::ulid()->toBase32();
-        $preview['id'] = $candidateId;
+        // Meta 8.5 · idempotency.
+        // A thread cannot have two simultaneous live candidates: the registry
+        // is "the next decision the human will see", not a history log. When a
+        // non-dismissed candidate already exists for the same thread, reuse
+        // its id (and, when applicable, its already-created Obra) so a second
+        // POST refreshes fields instead of duplicating rows.
+        $existing = $this->findActiveCandidateForThread($threadId);
+        if ($existing !== null) {
+            $preview['id'] = (string) ($existing['id'] ?? '');
+            if (! empty($existing['promoted_obra_id'])) {
+                $preview['promoted_obra_id'] = (string) $existing['promoted_obra_id'];
+                $preview['candidate_status'] = 'promoted';
+            }
+        }
+        if ($preview['id'] === null || $preview['id'] === '') {
+            $preview['id'] = 'pc_'.Str::ulid()->toBase32();
+        }
+        $candidateId = (string) $preview['id'];
 
         // When target is forge_obra we ALSO create a real Obra (AtlasProject)
         // bound to the workspace. The candidate keeps the link.
-        if ($promotionTarget === PromotionSignalDetector::TARGET_FORGE_OBRA) {
+        // Idempotency: a candidate that ALREADY carries `promoted_obra_id`
+        // (set above when reusing an existing candidate) MUST NOT create a
+        // second Obra — Project/Obra boundary stays canonical.
+        $alreadyHasObra = isset($preview['promoted_obra_id']) && $preview['promoted_obra_id'] !== null
+            && $preview['promoted_obra_id'] !== '';
+        if ($promotionTarget === PromotionSignalDetector::TARGET_FORGE_OBRA && ! $alreadyHasObra) {
             $obra = AtlasProject::query()->create([
                 'title' => (string) ($preview['title'] ?? 'Obra promovida do Atlas Dev'),
                 'description' => (string) ($preview['context_summary'] ?? ''),
@@ -217,6 +238,31 @@ final class DevToForgePromotionService
                 return $entry;
             }
         }
+        return null;
+    }
+
+    /**
+     * Find the most recent non-dismissed candidate for a thread. Used by
+     * `promote()` to enforce idempotency (no duplicate candidate/Obra per
+     * thread). Returns null when the thread has never been promoted or every
+     * prior candidate was dismissed.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function findActiveCandidateForThread(string $threadId): ?array
+    {
+        foreach ($this->listCandidates(null) as $entry) {
+            if ((string) ($entry['source_thread_id'] ?? '') !== $threadId) {
+                continue;
+            }
+            $status = (string) ($entry['candidate_status'] ?? '');
+            if ($status === 'dismissed') {
+                continue;
+            }
+
+            return $entry;
+        }
+
         return null;
     }
 

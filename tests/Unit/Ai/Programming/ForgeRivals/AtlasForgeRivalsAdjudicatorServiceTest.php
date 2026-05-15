@@ -14,7 +14,8 @@ use Tests\TestCase;
  * Atlas Forge Rivals · Adjudicator (deterministic, local-only) contract tests.
  *
  * Builds synthetic evidence packs on disk and exercises the heuristics:
- *   - hard-fail forces score=null, winner=null
+ *   - infrastructure/evidence hard-fail forces score=null, winner=null
+ *   - one-sided deterministic test failure produces gate_winner with score=null and claim_ready=false
  *   - quality scoring fires only when every hard gate is green
  *   - statistical tie ⇒ winner=human_review_required_tie
  *   - clear quality lead ⇒ winner=atlas|rival with structured reason
@@ -145,6 +146,31 @@ final class AtlasForgeRivalsAdjudicatorServiceTest extends TestCase
         $scorecard = $this->adjudicator->adjudicate(['run_id' => $runId])['scorecard'];
         $this->assertNull($scorecard['winner']);
         $this->assertContains('patch_diff_present_atlas', $scorecard['hard_failures']);
+    }
+
+    public function test_one_sided_test_failure_produces_gate_winner_without_quality_score_or_external_claim(): void
+    {
+        $runId = $this->newRunId('rival-test-fails');
+        $paths = $this->paths->paths($runId);
+        $this->seedComparableRun(
+            $paths,
+            atlasOverrides: ['test_exit_code' => 0],
+            rivalOverrides: ['test_exit_code' => 2, 'test_log_tail' => 'FAILED Tests\\Feature\\SyntheticTest'],
+            manifestOverrides: ['verdict' => 'invalid_tests_failed', 'claim_ready' => false],
+        );
+
+        $scorecard = $this->adjudicator->adjudicate(['run_id' => $runId])['scorecard'];
+
+        $this->assertNull($scorecard['winner']);
+        $this->assertSame(AtlasForgeRivalsAdjudicatorService::WINNER_ATLAS, $scorecard['gate_winner']);
+        $this->assertSame('gate_outcome', $scorecard['score_source']);
+        $this->assertNull($scorecard['atlas_score']);
+        $this->assertNull($scorecard['rival_score']);
+        $this->assertFalse($scorecard['quality_score_available']);
+        $this->assertSame('one_sided_test_failure', $scorecard['gate_result']['kind']);
+        $this->assertContains('tests_passed_rival', $scorecard['hard_failures']);
+        $this->assertFalse($scorecard['claim_ready']);
+        $this->assertTrue($scorecard['separated_from_external_rivals_certification']);
     }
 
     public function test_atlas_wins_when_patch_focus_and_scope_clearly_better(): void

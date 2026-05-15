@@ -3,6 +3,7 @@
 namespace App\Services\Ai\SelfConstruction;
 
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * Operator Evidence Artifact Template Pack v1.
@@ -19,6 +20,12 @@ final class AtlasSelfConstructionOperatorEvidenceArtifactTemplatePackService
 
     public const MODE = 'read_only_operator_evidence_artifact_template_pack';
 
+    private const STORAGE_DISK = 'local';
+
+    private const STORAGE_PREFIX = 'atlas/self-construction/operator-evidence/template-pack-exports';
+
+    private const DRAFT_WORKSPACE_PREFIX = 'atlas/self-construction/operator-submissions/draft-workspaces';
+
     public function __construct(
         private readonly AtlasSelfConstructionReadinessService $readiness,
     ) {}
@@ -29,6 +36,8 @@ final class AtlasSelfConstructionOperatorEvidenceArtifactTemplatePackService
      */
     public function build(array $options = []): array
     {
+        $persistExport = (bool) ($options['persist_export'] ?? false);
+        $persistOperatorDraftWorkspace = (bool) ($options['persist_operator_draft_workspace'] ?? false);
         $completionAudit = (new AtlasSelfConstructionOsCompletionAuditService($this->readiness))->audit($options);
         $completionEvidence = $this->safeCall(fn () => $this->readiness->atlasSelfConstructionOsCompletionEvidenceStatus($options));
         $operatorPacket = (array) data_get($completionAudit, 'operator_action_packet', []);
@@ -132,14 +141,37 @@ final class AtlasSelfConstructionOperatorEvidenceArtifactTemplatePackService
             'real_provider_smoke_preimage_template' => $smokePreimageTemplate,
             'human_completion_receipt_template' => $humanReceiptTemplate,
         ];
+        $operatorSubmissionBundle = $this->operatorSubmissionBundle($templates);
+        $operatorSubmissionBundleMarkdown = $this->operatorSubmissionBundleMarkdown($operatorSubmissionBundle);
+        $operatorSubmissionBundleMarkdownHash = hash('sha256', $operatorSubmissionBundleMarkdown);
+        $operatorDraftWorkspace = $this->operatorDraftWorkspace($operatorSubmissionBundle, $persistOperatorDraftWorkspace);
+        $exportPath = '';
+        $persistedExport = false;
+        if ($persistExport) {
+            $timestamp = CarbonImmutable::now()->format('Ymd-His');
+            $exportPath = self::STORAGE_PREFIX.'/operator-submission-bundle-'.$timestamp.'-'.substr($operatorSubmissionBundleMarkdownHash, 0, 12).'.md';
+            Storage::disk(self::STORAGE_DISK)->put($exportPath, $operatorSubmissionBundleMarkdown);
+            $persistedExport = true;
+        }
 
         $payload = [
             'schema_version' => self::SCHEMA_VERSION,
             'mode' => self::MODE,
-            'status' => 'available',
+            'status' => $persistedExport ? 'exported' : 'available',
             'generated_at' => CarbonImmutable::now()->toIso8601String(),
+            'persist_export_requested' => $persistExport,
+            'persist_operator_draft_workspace_requested' => $persistOperatorDraftWorkspace,
+            'persist' => $persistedExport,
+            'export_path' => $exportPath,
+            'storage_disk' => self::STORAGE_DISK,
+            'storage_prefix' => self::STORAGE_PREFIX,
+            'draft_workspace_storage_prefix' => self::DRAFT_WORKSPACE_PREFIX,
             'template_count' => count($templates),
             'templates' => $templates,
+            'operator_submission_bundle' => $operatorSubmissionBundle,
+            'operator_submission_bundle_markdown' => $operatorSubmissionBundleMarkdown,
+            'operator_submission_bundle_markdown_hash' => $operatorSubmissionBundleMarkdownHash,
+            'operator_draft_workspace' => $operatorDraftWorkspace,
             'shared_context_hashes' => [
                 'completion_audit_hash' => $completionAuditHash,
                 'runtime_gap_matrix_hash' => $runtimeGapMatrixHash,
@@ -171,11 +203,331 @@ final class AtlasSelfConstructionOperatorEvidenceArtifactTemplatePackService
                 'operator_evidence_artifact_template_pack_does_not_enable_runtime',
                 'operator_evidence_artifact_template_pack_does_not_start_codex',
                 'operator_evidence_artifact_template_pack_does_not_promote_completion',
+                'operator_evidence_artifact_template_pack_does_not_write_operator_submission_bundle',
+                'operator_evidence_artifact_template_pack_only_exports_markdown_when_persist_export_true',
+                'operator_evidence_artifact_template_pack_only_exports_placeholder_drafts_when_persist_operator_draft_workspace_true',
+                'operator_evidence_artifact_template_pack_export_is_not_completion_evidence',
             ],
         ];
         $payload['template_pack_hash'] = $this->stableHash($payload);
 
         return $payload;
+    }
+
+    /** @param array<string, mixed> $bundle */
+    private function operatorDraftWorkspace(array $bundle, bool $persistOperatorDraftWorkspace): array
+    {
+        $workspaceHash = substr((string) data_get($bundle, 'operator_submission_bundle_hash', hash('sha256', 'empty-bundle')), 0, 12);
+        $workspaceDirectory = self::DRAFT_WORKSPACE_PREFIX.'/'.CarbonImmutable::now()->format('Ymd-His').'-'.$workspaceHash;
+        $files = [];
+
+        foreach ((array) data_get($bundle, 'artifacts', []) as $artifact) {
+            $artifactName = (string) data_get($artifact, 'artifact', '');
+            $draftFilename = match ($artifactName) {
+                'runtime_promotion_receipt' => 'runtime-promotion.json',
+                'real_provider_smoke' => 'real-provider-smoke.json',
+                'human_completion_receipt' => 'completion-receipt.json',
+                default => $artifactName.'.json',
+            };
+            $draftPath = $workspaceDirectory.'/'.$draftFilename;
+            $draftJson = $this->prettyJson((array) data_get($artifact, 'payload_template', []));
+            $draftSha = hash('sha256', $draftJson);
+            $draftCliPath = 'storage/app/'.$draftPath;
+            $recommendedFilePath = (string) data_get($artifact, 'recommended_file_path', '');
+
+            $files[] = [
+                'artifact' => $artifactName,
+                'draft_path' => $draftPath,
+                'recommended_file_path' => $recommendedFilePath,
+                'payload_template_json_sha256' => (string) data_get($artifact, 'payload_template_json_sha256', ''),
+                'draft_file_sha256' => $draftSha,
+                'sha256_matches_payload_template' => hash_equals((string) data_get($artifact, 'payload_template_json_sha256', ''), $draftSha),
+                'command_to_compute_hash_draft_file' => $this->commandForSavedFile((string) data_get($artifact, 'command_to_compute_hash', ''), $draftCliPath),
+                'command_to_verify_draft_file' => str_replace('@'.$recommendedFilePath, '@'.$draftCliPath, $this->commandWithoutPersistFlag((string) data_get($artifact, 'command_to_persist_saved_file', ''))),
+                'copy_to_recommended_file_path_before_persisting' => true,
+                'draft_is_evidence' => false,
+                'can_persist_draft_directly' => false,
+            ];
+
+            if ($persistOperatorDraftWorkspace) {
+                Storage::disk(self::STORAGE_DISK)->put($draftPath, $draftJson);
+            }
+        }
+
+        $manifest = [
+            'schema_version' => 'atlas.self_construction.operator_evidence_draft_workspace.v1',
+            'mode' => 'operator_placeholder_draft_workspace',
+            'status' => $persistOperatorDraftWorkspace ? 'persisted_placeholder_drafts' : 'not_persisted',
+            'workspace_directory' => $persistOperatorDraftWorkspace ? $workspaceDirectory : '',
+            'artifact_count' => count($files),
+            'files' => $files,
+            'operator_required_next_steps' => [
+                'replace_all_placeholders_with_real_operator_values',
+                'compute_canonical_hashes_after_editing',
+                'run_readiness_before_any_persistence',
+                'copy_verified_payloads_to_recommended_paths_or_update_cli_paths_explicitly',
+                'persist_only_through_canonical_verifier_commands',
+            ],
+            'non_execution_guarantees' => [
+                'draft_workspace_contains_placeholders_until_operator_edits',
+                'draft_workspace_is_not_completion_evidence',
+                'draft_workspace_is_not_a_receipt_registry',
+                'draft_workspace_does_not_sign_for_operator',
+                'draft_workspace_does_not_call_provider',
+                'draft_workspace_does_not_spend_tokens',
+                'draft_workspace_does_not_dispatch',
+                'draft_workspace_does_not_enable_runtime',
+                'draft_workspace_does_not_promote_completion',
+            ],
+        ];
+        $manifest['manifest_hash'] = $this->stableHash($manifest);
+
+        if ($persistOperatorDraftWorkspace) {
+            Storage::disk(self::STORAGE_DISK)->put($workspaceDirectory.'/manifest.json', $this->prettyJson($manifest));
+        }
+
+        return [
+            'schema_version' => 'atlas.self_construction.operator_evidence_draft_workspace_export.v1',
+            'mode' => 'explicit_placeholder_draft_workspace_export',
+            'status' => $persistOperatorDraftWorkspace ? 'persisted_placeholder_drafts' : 'not_requested',
+            'persist_operator_draft_workspace_requested' => $persistOperatorDraftWorkspace,
+            'persisted' => $persistOperatorDraftWorkspace,
+            'storage_disk' => self::STORAGE_DISK,
+            'workspace_directory' => $persistOperatorDraftWorkspace ? $workspaceDirectory : '',
+            'manifest_path' => $persistOperatorDraftWorkspace ? $workspaceDirectory.'/manifest.json' : '',
+            'manifest' => $manifest,
+            'can_persist_completion_evidence_from_draft_workspace' => false,
+            'can_promote_completion_from_draft_workspace' => false,
+            'operator_draft_workspace_hash' => $this->stableHash($manifest),
+        ];
+    }
+
+    /**
+     * @param  array<string, array<string, mixed>>  $templates
+     * @return array<string, mixed>
+     */
+    private function operatorSubmissionBundle(array $templates): array
+    {
+        $artifacts = [
+            $this->bundleArtifact(
+                artifact: 'runtime_promotion_receipt',
+                sequence: 1,
+                template: $templates['runtime_promotion_receipt_template'],
+                filePath: 'storage/app/atlas/self-construction/operator-submissions/runtime-promotion.json',
+                sourceOption: 'runtime_promotion_receipt',
+                blocks: ['runtime_gap_matrix_all_runtime_y'],
+                commandToVerify: (string) data_get($templates, 'runtime_promotion_receipt_template.command_to_verify', ''),
+                commandToPersist: (string) data_get($templates, 'runtime_promotion_receipt_template.command_to_persist', ''),
+                commandToComputeHash: (string) data_get($templates, 'runtime_promotion_receipt_template.command_to_compute_hash', ''),
+            ),
+            $this->bundleArtifact(
+                artifact: 'real_provider_smoke',
+                sequence: 2,
+                template: $templates['real_provider_smoke_preimage_template'],
+                filePath: 'storage/app/atlas/self-construction/operator-submissions/real-provider-smoke.json',
+                sourceOption: 'real_provider_smoke',
+                blocks: ['end_to_end_real_provider_smoke_green'],
+                commandToVerify: (string) data_get($templates, 'real_provider_smoke_preimage_template.command_to_verify', ''),
+                commandToPersist: (string) data_get($templates, 'real_provider_smoke_preimage_template.command_to_persist', ''),
+                commandToComputeHash: (string) data_get($templates, 'real_provider_smoke_preimage_template.command_to_compute_hash', ''),
+            ),
+            $this->bundleArtifact(
+                artifact: 'human_completion_receipt',
+                sequence: 3,
+                template: $templates['human_completion_receipt_template'],
+                filePath: 'storage/app/atlas/self-construction/operator-submissions/completion-receipt.json',
+                sourceOption: 'completion_receipt',
+                blocks: ['human_signed_os_complete_receipt_present'],
+                commandToVerify: (string) data_get($templates, 'human_completion_receipt_template.command_to_verify', ''),
+                commandToPersist: (string) data_get($templates, 'human_completion_receipt_template.command_to_persist', ''),
+                commandToComputeHash: (string) data_get($templates, 'human_completion_receipt_template.command_to_compute_hash', ''),
+            ),
+        ];
+
+        $bundle = [
+            'schema_version' => 'atlas.self_construction.operator_evidence_submission_bundle.v1',
+            'mode' => 'read_only_operator_submission_bundle_manifest',
+            'status' => 'available',
+            'artifact_count' => count($artifacts),
+            'recommended_directory' => 'storage/app/atlas/self-construction/operator-submissions',
+            'artifact_sequence' => array_column($artifacts, 'artifact'),
+            'artifacts' => $artifacts,
+            'bundle_usage_order' => [
+                'fill_runtime_promotion_receipt_from_current_template',
+                'compute_runtime_promotion_receipt_hash_and_verify',
+                'persist_runtime_promotion_receipt_with_explicit_flag',
+                'rerun_runtime_gap_matrix_and_completion_evidence',
+                'run_operator_approved_real_provider_smoke_outside_this_read_only_pack',
+                'fill_real_provider_smoke_payload_from_observed_evidence',
+                'compute_real_provider_smoke_hash_and_verify',
+                'persist_real_provider_smoke_with_explicit_flag',
+                'rerun_completion_evidence_and_completion_audit',
+                'fill_human_completion_receipt_only_after_runtime_and_smoke_are_green',
+                'compute_human_completion_receipt_hash_and_verify',
+                'persist_human_completion_receipt_with_explicit_flag',
+                'rerun_completion_audit_and_finalization_gate',
+            ],
+            'global_verify_command' => 'php artisan atlas:ai:self-construction --atlas-self-construction-operator-evidence-submission-readiness-status --json',
+            'global_completion_evidence_command' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --json',
+            'global_completion_audit_command' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --json',
+            'can_write_files_from_template_pack' => false,
+            'can_persist_from_template_pack' => false,
+            'non_execution_guarantees' => [
+                'operator_submission_bundle_manifest_does_not_write_files',
+                'operator_submission_bundle_manifest_does_not_persist_receipts',
+                'operator_submission_bundle_manifest_does_not_persist_smoke',
+                'operator_submission_bundle_manifest_does_not_sign_for_operator',
+                'operator_submission_bundle_manifest_does_not_call_provider',
+                'operator_submission_bundle_manifest_does_not_spend_tokens',
+                'operator_submission_bundle_manifest_does_not_dispatch',
+                'operator_submission_bundle_manifest_does_not_promote_completion',
+            ],
+        ];
+        $bundle['operator_submission_bundle_hash'] = $this->stableHash($bundle);
+
+        return $bundle;
+    }
+
+    /**
+     * @param  array<string, mixed>  $template
+     * @param  list<string>  $blocks
+     * @return array<string, mixed>
+     */
+    private function bundleArtifact(
+        string $artifact,
+        int $sequence,
+        array $template,
+        string $filePath,
+        string $sourceOption,
+        array $blocks,
+        string $commandToVerify,
+        string $commandToPersist,
+        string $commandToComputeHash,
+    ): array {
+        return [
+            'artifact' => $artifact,
+            'sequence' => $sequence,
+            'source_option_key' => $sourceOption,
+            'recommended_file_path' => $filePath,
+            'blocks_completion_criteria' => $blocks,
+            'schema_version' => (string) ($template['schema_version'] ?? ''),
+            'template_hash' => (string) ($template['template_hash'] ?? ''),
+            'required_fields' => (array) ($template['required_fields'] ?? []),
+            'placeholder_fields' => (array) ($template['placeholder_fields'] ?? []),
+            'fields_that_must_be_64_hex' => (array) ($template['fields_that_must_be_64_hex'] ?? []),
+            'boolean_acknowledgements' => (array) ($template['boolean_acknowledgements'] ?? []),
+            'forbidden_flags' => (array) ($template['forbidden_flags'] ?? []),
+            'payload_template' => (array) ($template['payload_template'] ?? []),
+            'payload_template_json_sha256' => $this->payloadJsonSha256((array) ($template['payload_template'] ?? [])),
+            'command_to_compute_hash' => $commandToComputeHash,
+            'command_to_compute_hash_saved_file' => $this->commandForSavedFile($commandToComputeHash, $filePath),
+            'command_to_verify_saved_file' => $this->commandForSavedFile($commandToVerify, $filePath),
+            'command_to_persist_saved_file' => $this->commandForSavedFile($commandToPersist, $filePath),
+            'operator_checks_before_saving' => [
+                'compare_initial_file_sha256_to_payload_template_json_sha256_before_editing',
+                'replace_every_placeholder_field',
+                'compute_and_set_canonical_hash_field',
+                'keep_forbidden_flags_absent_or_false',
+                'save_json_to_recommended_file_path',
+                'run_command_to_compute_hash_saved_file_after_editing',
+                'run_command_to_verify_saved_file_before_persisting',
+            ],
+            'can_write_file_from_template_pack' => false,
+            'can_persist_from_template_pack' => false,
+        ];
+    }
+
+    private function commandForSavedFile(string $command, string $filePath): string
+    {
+        return str_replace('@/path/to/runtime-promotion.json', '@'.$filePath, str_replace('@/path/to/real-provider-smoke.json', '@'.$filePath, str_replace('@/path/to/completion-receipt.json', '@'.$filePath, $command)));
+    }
+
+    private function commandWithoutPersistFlag(string $command): string
+    {
+        return trim(str_replace([' --persist-runtime-promotion-receipt', ' --persist-completion-evidence'], '', $command));
+    }
+
+    /** @param array<string, mixed> $bundle */
+    private function operatorSubmissionBundleMarkdown(array $bundle): string
+    {
+        $lines = [
+            '# Atlas Self-Construction Operator Evidence Submission Bundle v1',
+            '',
+            '> Read-only operator bundle for the final Atlas Self-Construction OS evidence blockers.',
+            '> This export does not create receipts, does not sign, does not call providers,',
+            '> does not persist completion evidence and does not promote completion.',
+            '',
+            '## Status',
+            '',
+            '- **schema_version**: `'.((string) data_get($bundle, 'schema_version', '')).'`',
+            '- **status**: `'.((string) data_get($bundle, 'status', '')).'`',
+            '- **artifact_count**: `'.((string) data_get($bundle, 'artifact_count', 0)).'`',
+            '- **recommended_directory**: `'.((string) data_get($bundle, 'recommended_directory', '')).'`',
+            '- **can_write_files_from_template_pack**: `'.(((bool) data_get($bundle, 'can_write_files_from_template_pack', false)) ? 'true' : 'false').'`',
+            '- **can_persist_from_template_pack**: `'.(((bool) data_get($bundle, 'can_persist_from_template_pack', false)) ? 'true' : 'false').'`',
+            '',
+            '## Artifact Sequence',
+            '',
+        ];
+
+        foreach ((array) data_get($bundle, 'artifacts', []) as $artifact) {
+            $lines[] = '### '.((int) ($artifact['sequence'] ?? 0)).'. `'.((string) ($artifact['artifact'] ?? '')).'`';
+            $lines[] = '';
+            $lines[] = '- **recommended_file_path**: `'.((string) ($artifact['recommended_file_path'] ?? '')).'`';
+            $lines[] = '- **source_option_key**: `'.((string) ($artifact['source_option_key'] ?? '')).'`';
+            $lines[] = '- **schema_version**: `'.((string) ($artifact['schema_version'] ?? '')).'`';
+            $lines[] = '- **template_hash**: `'.((string) ($artifact['template_hash'] ?? '')).'`';
+            $lines[] = '- **payload_template_json_sha256**: `'.((string) ($artifact['payload_template_json_sha256'] ?? '')).'`';
+            $lines[] = '- **blocks_completion_criteria**: `'.implode('`, `', (array) ($artifact['blocks_completion_criteria'] ?? [])).'`';
+            $lines[] = '';
+            $lines[] = '**Required fields**';
+            foreach ((array) ($artifact['required_fields'] ?? []) as $field) {
+                $lines[] = '- `'.$field.'`';
+            }
+            $lines[] = '';
+            $lines[] = '**Placeholder fields to replace**';
+            $placeholders = (array) ($artifact['placeholder_fields'] ?? []);
+            if ($placeholders === []) {
+                $lines[] = '- none';
+            } else {
+                foreach ($placeholders as $field) {
+                    $lines[] = '- `'.$field.'`';
+                }
+            }
+            $lines[] = '';
+            $lines[] = '**Commands**';
+            $lines[] = '';
+            $lines[] = '```bash';
+            $lines[] = (string) ($artifact['command_to_compute_hash_saved_file'] ?? '');
+            $lines[] = (string) ($artifact['command_to_verify_saved_file'] ?? '');
+            $lines[] = (string) ($artifact['command_to_persist_saved_file'] ?? '');
+            $lines[] = '```';
+            $lines[] = '';
+        }
+
+        $lines[] = '## Bundle Usage Order';
+        $lines[] = '';
+        foreach ((array) data_get($bundle, 'bundle_usage_order', []) as $step) {
+            $lines[] = '- `'.$step.'`';
+        }
+        $lines[] = '';
+        $lines[] = '## Global Commands';
+        $lines[] = '';
+        $lines[] = '```bash';
+        $lines[] = (string) data_get($bundle, 'global_verify_command', '');
+        $lines[] = (string) data_get($bundle, 'global_completion_evidence_command', '');
+        $lines[] = (string) data_get($bundle, 'global_completion_audit_command', '');
+        $lines[] = '```';
+        $lines[] = '';
+        $lines[] = '## Non-Execution Guarantees';
+        $lines[] = '';
+        foreach ((array) data_get($bundle, 'non_execution_guarantees', []) as $guarantee) {
+            $lines[] = '- `'.$guarantee.'`';
+        }
+        $lines[] = '';
+        $lines[] = '_Generated by Atlas Self-Construction Operator Evidence Artifact Template Pack v1._';
+
+        return implode("\n", $lines)."\n";
     }
 
     /**
@@ -194,6 +546,18 @@ final class AtlasSelfConstructionOperatorEvidenceArtifactTemplatePackService
         return $fields;
     }
 
+    /** @param array<string, mixed> $payload */
+    private function payloadJsonSha256(array $payload): string
+    {
+        return hash('sha256', $this->prettyJson($payload));
+    }
+
+    /** @param array<string, mixed> $payload */
+    private function prettyJson(array $payload): string
+    {
+        return (string) json_encode($this->ksortRecursive($payload), JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    }
+
     /** @return array<string, mixed> */
     private function safeCall(callable $fn): array
     {
@@ -210,6 +574,7 @@ final class AtlasSelfConstructionOperatorEvidenceArtifactTemplatePackService
     private function stableHash(array $payload): string
     {
         unset($payload['generated_at'], $payload['template_pack_hash']);
+        unset($payload['operator_submission_bundle_markdown']);
 
         return hash('sha256', (string) json_encode($this->ksortRecursive($payload), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
     }

@@ -5,13 +5,17 @@ namespace Tests\Feature\Ai\SelfConstruction;
 use App\Services\Ai\SelfConstruction\AtlasSelfConstructionOperatorEvidenceArtifactTemplatePackService;
 use App\Services\Ai\SelfConstruction\AtlasSelfConstructionReadinessService;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 final class AtlasSelfConstructionOperatorEvidenceArtifactTemplatePackTest extends TestCase
 {
+    /** @var array<string, mixed>|null */
+    private static ?array $cachedPayload = null;
+
     public function test_template_pack_generates_three_templates_without_persistence(): void
     {
-        $payload = (new AtlasSelfConstructionOperatorEvidenceArtifactTemplatePackService(app(AtlasSelfConstructionReadinessService::class)))->build();
+        $payload = $this->payload();
 
         $this->assertSame('atlas.self_construction.operator_evidence_artifact_template_pack.v1', $payload['schema_version']);
         $this->assertSame('read_only_operator_evidence_artifact_template_pack', $payload['mode']);
@@ -20,6 +24,24 @@ final class AtlasSelfConstructionOperatorEvidenceArtifactTemplatePackTest extend
         $this->assertArrayHasKey('runtime_promotion_receipt_template', $payload['templates']);
         $this->assertArrayHasKey('real_provider_smoke_preimage_template', $payload['templates']);
         $this->assertArrayHasKey('human_completion_receipt_template', $payload['templates']);
+        $this->assertSame('atlas.self_construction.operator_evidence_submission_bundle.v1', data_get($payload, 'operator_submission_bundle.schema_version'));
+        $this->assertSame(3, data_get($payload, 'operator_submission_bundle.artifact_count'));
+        $this->assertFalse(data_get($payload, 'operator_submission_bundle.can_write_files_from_template_pack'));
+        $this->assertFalse(data_get($payload, 'operator_submission_bundle.can_persist_from_template_pack'));
+        $this->assertFalse($payload['persist_export_requested']);
+        $this->assertFalse($payload['persist_operator_draft_workspace_requested']);
+        $this->assertFalse($payload['persist']);
+        $this->assertSame('', $payload['export_path']);
+        $this->assertSame('not_requested', data_get($payload, 'operator_draft_workspace.status'));
+        $this->assertFalse(data_get($payload, 'operator_draft_workspace.persisted'));
+        $this->assertFalse(data_get($payload, 'operator_draft_workspace.can_persist_completion_evidence_from_draft_workspace'));
+        $this->assertStringContainsString('Atlas Self-Construction Operator Evidence Submission Bundle v1', $payload['operator_submission_bundle_markdown']);
+        $this->assertStringContainsString('runtime_promotion_receipt', $payload['operator_submission_bundle_markdown']);
+        $this->assertStringContainsString('real_provider_smoke', $payload['operator_submission_bundle_markdown']);
+        $this->assertStringContainsString('human_completion_receipt', $payload['operator_submission_bundle_markdown']);
+        $this->assertStringContainsString('payload_template_json_sha256', $payload['operator_submission_bundle_markdown']);
+        $this->assertStringContainsString('--atlas-self-construction-completion-evidence-hash-composer-status', $payload['operator_submission_bundle_markdown']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $payload['operator_submission_bundle_markdown_hash']);
         $this->assertNotEmpty($payload['template_pack_hash']);
         $this->assertFalse($payload['completion_allowed']);
         $this->assertFalse($payload['completion_claim_allowed']);
@@ -33,7 +55,7 @@ final class AtlasSelfConstructionOperatorEvidenceArtifactTemplatePackTest extend
 
     public function test_runtime_promotion_template_carries_current_context_hashes_and_required_fields(): void
     {
-        $payload = (new AtlasSelfConstructionOperatorEvidenceArtifactTemplatePackService(app(AtlasSelfConstructionReadinessService::class)))->build();
+        $payload = $this->payload();
         $runtime = $payload['templates']['runtime_promotion_receipt_template'];
 
         $this->assertContains('runtime_gap_matrix_hash', $runtime['fields_that_must_be_64_hex']);
@@ -50,9 +72,113 @@ final class AtlasSelfConstructionOperatorEvidenceArtifactTemplatePackTest extend
         $this->assertStringContainsString('--persist-runtime-promotion-receipt', $runtime['command_to_persist']);
     }
 
+    public function test_operator_submission_bundle_maps_artifacts_to_saved_file_commands_and_completion_blockers(): void
+    {
+        $payload = $this->payload();
+        $bundle = (array) $payload['operator_submission_bundle'];
+        $artifacts = (array) $bundle['artifacts'];
+
+        $this->assertSame([
+            'runtime_promotion_receipt',
+            'real_provider_smoke',
+            'human_completion_receipt',
+        ], $bundle['artifact_sequence']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $bundle['operator_submission_bundle_hash']);
+
+        $runtime = $artifacts[0];
+        $this->assertSame('runtime_promotion_receipt', $runtime['artifact']);
+        $this->assertSame('storage/app/atlas/self-construction/operator-submissions/runtime-promotion.json', $runtime['recommended_file_path']);
+        $this->assertContains('runtime_gap_matrix_all_runtime_y', $runtime['blocks_completion_criteria']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $runtime['payload_template_json_sha256']);
+        $this->assertStringContainsString('@storage/app/atlas/self-construction/operator-submissions/runtime-promotion.json', $runtime['command_to_compute_hash_saved_file']);
+        $this->assertStringContainsString('@storage/app/atlas/self-construction/operator-submissions/runtime-promotion.json', $runtime['command_to_verify_saved_file']);
+        $this->assertStringContainsString('--persist-runtime-promotion-receipt', $runtime['command_to_persist_saved_file']);
+        $this->assertContains('compare_initial_file_sha256_to_payload_template_json_sha256_before_editing', $runtime['operator_checks_before_saving']);
+        $this->assertContains('run_command_to_compute_hash_saved_file_after_editing', $runtime['operator_checks_before_saving']);
+        $this->assertFalse($runtime['can_write_file_from_template_pack']);
+        $this->assertFalse($runtime['can_persist_from_template_pack']);
+
+        $smoke = $artifacts[1];
+        $this->assertSame('real_provider_smoke', $smoke['artifact']);
+        $this->assertContains('end_to_end_real_provider_smoke_green', $smoke['blocks_completion_criteria']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $smoke['payload_template_json_sha256']);
+        $this->assertStringContainsString('@storage/app/atlas/self-construction/operator-submissions/real-provider-smoke.json', $smoke['command_to_compute_hash_saved_file']);
+        $this->assertStringContainsString('@storage/app/atlas/self-construction/operator-submissions/real-provider-smoke.json', $smoke['command_to_persist_saved_file']);
+        $this->assertContains('real_provider_run_observed_by_operator', $smoke['boolean_acknowledgements']);
+
+        $human = $artifacts[2];
+        $this->assertSame('human_completion_receipt', $human['artifact']);
+        $this->assertContains('human_signed_os_complete_receipt_present', $human['blocks_completion_criteria']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $human['payload_template_json_sha256']);
+        $this->assertStringContainsString('@storage/app/atlas/self-construction/operator-submissions/completion-receipt.json', $human['command_to_compute_hash_saved_file']);
+        $this->assertStringContainsString('@storage/app/atlas/self-construction/operator-submissions/completion-receipt.json', $human['command_to_persist_saved_file']);
+        $this->assertContains('os_complete_approved', $human['boolean_acknowledgements']);
+    }
+
+    public function test_operator_submission_bundle_markdown_export_persists_only_with_explicit_flag(): void
+    {
+        Storage::fake('local');
+        self::$cachedPayload = null;
+
+        $payload = (new AtlasSelfConstructionOperatorEvidenceArtifactTemplatePackService(app(AtlasSelfConstructionReadinessService::class)))->build([
+            'persist_export' => true,
+        ]);
+
+        $this->assertSame('exported', $payload['status']);
+        $this->assertTrue($payload['persist_export_requested']);
+        $this->assertTrue($payload['persist']);
+        $this->assertStringStartsWith('atlas/self-construction/operator-evidence/template-pack-exports/', $payload['export_path']);
+        Storage::disk('local')->assertExists($payload['export_path']);
+        $this->assertSame($payload['operator_submission_bundle_markdown'], Storage::disk('local')->get($payload['export_path']));
+        $this->assertSame('not_requested', data_get($payload, 'operator_draft_workspace.status'));
+
+        Storage::disk('local')->assertMissing('atlas/self-construction/os-completion/runtime-promotion-receipts/registry.json');
+        Storage::disk('local')->assertMissing('atlas/self-construction/os-completion/completion-evidence/registry.json');
+
+        self::$cachedPayload = null;
+    }
+
+    public function test_operator_draft_workspace_export_writes_only_placeholder_drafts_with_explicit_flag(): void
+    {
+        Storage::fake('local');
+        self::$cachedPayload = null;
+
+        $payload = (new AtlasSelfConstructionOperatorEvidenceArtifactTemplatePackService(app(AtlasSelfConstructionReadinessService::class)))->build([
+            'persist_operator_draft_workspace' => true,
+        ]);
+
+        $workspace = (array) $payload['operator_draft_workspace'];
+        $this->assertSame('persisted_placeholder_drafts', $workspace['status']);
+        $this->assertTrue($payload['persist_operator_draft_workspace_requested']);
+        $this->assertTrue($workspace['persisted']);
+        $this->assertFalse($workspace['can_persist_completion_evidence_from_draft_workspace']);
+        $this->assertFalse($workspace['can_promote_completion_from_draft_workspace']);
+        $this->assertStringStartsWith('atlas/self-construction/operator-submissions/draft-workspaces/', $workspace['workspace_directory']);
+        Storage::disk('local')->assertExists($workspace['manifest_path']);
+
+        $files = (array) data_get($workspace, 'manifest.files', []);
+        $this->assertCount(3, $files);
+
+        foreach ($files as $file) {
+            Storage::disk('local')->assertExists($file['draft_path']);
+            $this->assertFalse($file['draft_is_evidence']);
+            $this->assertFalse($file['can_persist_draft_directly']);
+            $this->assertTrue($file['sha256_matches_payload_template']);
+            $this->assertStringContainsString('@storage/app/atlas/self-construction/operator-submissions/draft-workspaces/', $file['command_to_compute_hash_draft_file']);
+            $this->assertStringContainsString('@storage/app/atlas/self-construction/operator-submissions/draft-workspaces/', $file['command_to_verify_draft_file']);
+            $this->assertStringNotContainsString('--persist-runtime-promotion-receipt', $file['command_to_verify_draft_file']);
+            $this->assertStringNotContainsString('--persist-completion-evidence', $file['command_to_verify_draft_file']);
+        }
+
+        Storage::disk('local')->assertMissing('atlas/self-construction/os-completion/runtime-promotion-receipts/registry.json');
+        Storage::disk('local')->assertMissing('atlas/self-construction/os-completion/completion-evidence/registry.json');
+
+        self::$cachedPayload = null;
+    }
+
     public function test_real_provider_smoke_template_lists_required_hashes_and_observation_flags(): void
     {
-        $payload = (new AtlasSelfConstructionOperatorEvidenceArtifactTemplatePackService(app(AtlasSelfConstructionReadinessService::class)))->build();
+        $payload = $this->payload();
         $smoke = $payload['templates']['real_provider_smoke_preimage_template'];
 
         foreach ([
@@ -92,7 +218,7 @@ final class AtlasSelfConstructionOperatorEvidenceArtifactTemplatePackTest extend
 
     public function test_human_receipt_template_references_runtime_and_smoke_hashes_as_placeholders(): void
     {
-        $payload = (new AtlasSelfConstructionOperatorEvidenceArtifactTemplatePackService(app(AtlasSelfConstructionReadinessService::class)))->build();
+        $payload = $this->payload();
         $human = $payload['templates']['human_completion_receipt_template'];
 
         $this->assertContains('runtime_promotion_receipt_hash', $human['fields_that_must_be_64_hex']);
@@ -148,5 +274,15 @@ final class AtlasSelfConstructionOperatorEvidenceArtifactTemplatePackTest extend
         ] as $capability) {
             $this->assertContains($capability, $capabilities);
         }
+    }
+
+    /** @return array<string, mixed> */
+    private function payload(): array
+    {
+        if (self::$cachedPayload === null) {
+            self::$cachedPayload = (new AtlasSelfConstructionOperatorEvidenceArtifactTemplatePackService(app(AtlasSelfConstructionReadinessService::class)))->build();
+        }
+
+        return self::$cachedPayload;
     }
 }

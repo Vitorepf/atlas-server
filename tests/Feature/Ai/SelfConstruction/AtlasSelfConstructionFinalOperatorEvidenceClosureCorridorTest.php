@@ -24,6 +24,16 @@ final class AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorTest extend
         );
         $this->assertSame(3, $payload['blocking_artifact_count']);
         $this->assertNotEmpty($payload['closure_corridor_hash']);
+        $this->assertSame(
+            'blocked_until_all_required_operator_envelopes_are_ready',
+            (string) data_get($payload, 'operator_submission_envelopes.status'),
+        );
+        $this->assertSame('runtime_promotion_receipt', (string) data_get($payload, 'operator_submission_envelopes.next_required_envelope'));
+        $this->assertSame(3, (int) data_get($payload, 'operator_submission_envelopes.required_envelope_count'));
+        $this->assertArrayHasKey('runtime_promotion_receipt', (array) data_get($payload, 'operator_submission_envelopes', []));
+        $this->assertArrayHasKey('real_provider_smoke', (array) data_get($payload, 'operator_submission_envelopes', []));
+        $this->assertArrayHasKey('human_completion_receipt', (array) data_get($payload, 'operator_submission_envelopes', []));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) data_get($payload, 'operator_submission_envelopes.operator_submission_envelopes_hash'));
     }
 
     public function test_ordered_operator_path_contains_fourteen_canonical_steps_in_order(): void
@@ -111,6 +121,7 @@ final class AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorTest extend
             'reject_hash_mismatch',
             'reject_stale_replay_snapshot',
             'reject_direct_provider_call_from_read_only_surface',
+            'reject_persistence_without_operator_submission_envelope',
         ] as $rule) {
             $this->assertContains($rule, $payload['anti_cheat_policy']);
         }

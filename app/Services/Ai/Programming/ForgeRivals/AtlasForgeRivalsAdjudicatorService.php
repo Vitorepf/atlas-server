@@ -23,7 +23,13 @@ namespace App\Services\Ai\Programming\ForgeRivals;
  *   - evidence/evidence_pack.json
  *   - replay outcome (passed in by caller)
  *
- * Hard gates (each is fail-closed: any failure ⇒ score=null, winner=null):
+ * Hard gates (each is fail-closed for external claims). Infrastructure or
+ * evidence failures ⇒ score=null, winner=null. A one-sided test failure with
+ * every evidence/replay/scope gate intact produces a deterministic
+ * `gate_outcome` with `gate_winner`, but score remains null. That answers the
+ * operator's basic question (which arm survived?) without pretending that a
+ * failed arm earned a comparable quality score.
+ *
  *   - provider_exit_zero (both arms)
  *   - tests_passed (both arms)
  *   - replay_passes
@@ -146,6 +152,64 @@ final class AtlasForgeRivalsAdjudicatorService
         $hardFailureCodes = array_values(array_map(static fn (array $g): string => (string) $g['code'], $hardFailures));
 
         if ($hardFailures !== []) {
+            $gateOutcome = $this->oneSidedTestFailureOutcome($hardFailureCodes, $hardGates);
+            if ($gateOutcome !== null) {
+                $scorecard = [
+                    'schema_version' => self::SCHEMA_VERSION,
+                    'run_id' => $paths['run_id'],
+                    'generated_at' => (new \DateTimeImmutable('now', new \DateTimeZone('UTC')))->format(\DateTimeInterface::ATOM),
+                    'winner' => self::WINNER_NONE,
+                    'gate_winner' => $gateOutcome['winner'],
+                    'gate_loser' => $gateOutcome['loser'],
+                    'gate_result' => [
+                        'kind' => 'one_sided_test_failure',
+                        'winner' => $gateOutcome['winner'],
+                        'loser' => $gateOutcome['loser'],
+                        'quality_score_available' => false,
+                        'quality_score_reason' => 'one_side_failed_tests_before_comparable_quality_scoring',
+                    ],
+                    'winner_reason' => [
+                        'verdict:'.($manifest['verdict'] ?? 'unknown'),
+                        'hard_failures:'.implode(',', $hardFailureCodes),
+                        $gateOutcome['loser'].'_failed_tests',
+                        $gateOutcome['winner'].'_passed_tests',
+                        'gate_winner:'.$gateOutcome['winner'],
+                        'score_source:gate_outcome',
+                        'quality_score:null',
+                        'claim_ready:false',
+                    ],
+                    'atlas_score' => null,
+                    'rival_score' => null,
+                    'score_difference' => null,
+                    'score_source' => 'gate_outcome',
+                    'quality_score_available' => false,
+                    'quality_score_reason' => 'one_side_failed_tests_before_comparable_quality_scoring',
+                    'score_explanation' => 'One arm failed deterministic test gates while replay, evidence, scope, bytecode, provider exit, dirty-after-run and patch-presence gates remained intact. This is a gate outcome only: no comparable quality score is emitted.',
+                    'tie_threshold' => self::DEFAULT_TIE_THRESHOLD,
+                    'hard_gates' => $hardGates,
+                    'hard_failures' => $hardFailureCodes,
+                    'quality_dimensions' => null,
+                    'replay_passes' => $replayPasses,
+                    'claim_ready' => false,
+                    'human_review_required' => false,
+                    'separated_from_external_rivals_certification' => true,
+                    'note' => 'Gate winner by deterministic test outcome. Quality score is null because both arms did not pass gates. External rivals certification remains blocked; claim_ready=false.',
+                ];
+                $this->persistScorecard($paths, $scorecard);
+
+                return [
+                    'status' => 'ok',
+                    'schema_version' => self::SCHEMA_VERSION,
+                    'run_id' => $paths['run_id'],
+                    'scorecard' => $scorecard,
+                    'scorecard_path' => $paths['scorecard_json'],
+                    'evidence_paths' => [$paths['scorecard_json']],
+                    'next_command' => 'php artisan atlas:forge:rivals report --run-id='.$paths['run_id'].' --json',
+                    'external_provider_call' => false,
+                    'provider_tokens_spent' => false,
+                ];
+            }
+
             $scorecard = [
                 'schema_version' => self::SCHEMA_VERSION,
                 'run_id' => $paths['run_id'],
@@ -158,6 +222,7 @@ final class AtlasForgeRivalsAdjudicatorService
                 ],
                 'atlas_score' => null,
                 'rival_score' => null,
+                'score_source' => 'none',
                 'tie_threshold' => self::DEFAULT_TIE_THRESHOLD,
                 'hard_gates' => $hardGates,
                 'hard_failures' => $hardFailureCodes,
@@ -224,6 +289,7 @@ final class AtlasForgeRivalsAdjudicatorService
             'atlas_score' => round($atlasScore, 2),
             'rival_score' => round($rivalScore, 2),
             'score_difference' => round($diff, 2),
+            'score_source' => 'quality_dimensions',
             'tie_threshold' => $threshold,
             'hard_gates' => $hardGates,
             'hard_failures' => [],
@@ -248,6 +314,54 @@ final class AtlasForgeRivalsAdjudicatorService
             'external_provider_call' => false,
             'provider_tokens_spent' => false,
         ];
+    }
+
+    /**
+     * A real battery is still useful when one side fails deterministic tests
+     * and the other side passes. That is not a "quality dimensions" score and
+     * it never becomes an external claim, but it is a valid provider arena
+     * outcome. Keep every other hard failure fail-closed.
+     *
+     * @param  list<string>  $hardFailureCodes
+     * @param  list<array{code:string,ok:bool,detail:string}>  $hardGates
+     * @return array{winner:string,loser:string}|null
+     */
+    private function oneSidedTestFailureOutcome(array $hardFailureCodes, array $hardGates): ?array
+    {
+        $failures = array_values(array_unique($hardFailureCodes));
+        $allowed = ['verdict_comparable', 'tests_passed_atlas', 'tests_passed_rival'];
+        foreach ($failures as $failure) {
+            if (! in_array($failure, $allowed, true)) {
+                return null;
+            }
+        }
+
+        $atlasFailedTests = in_array('tests_passed_atlas', $failures, true);
+        $rivalFailedTests = in_array('tests_passed_rival', $failures, true);
+        if ($atlasFailedTests === $rivalFailedTests) {
+            return null;
+        }
+
+        $gateOk = [];
+        foreach ($hardGates as $gate) {
+            $gateOk[(string) $gate['code']] = (bool) $gate['ok'];
+        }
+
+        if ($atlasFailedTests && ($gateOk['tests_passed_rival'] ?? false)) {
+            return [
+                'winner' => self::WINNER_RIVAL,
+                'loser' => self::WINNER_ATLAS,
+            ];
+        }
+
+        if ($rivalFailedTests && ($gateOk['tests_passed_atlas'] ?? false)) {
+            return [
+                'winner' => self::WINNER_ATLAS,
+                'loser' => self::WINNER_RIVAL,
+            ];
+        }
+
+        return null;
     }
 
     /**

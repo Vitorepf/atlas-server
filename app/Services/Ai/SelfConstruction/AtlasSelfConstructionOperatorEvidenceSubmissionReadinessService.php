@@ -3,6 +3,7 @@
 namespace App\Services\Ai\SelfConstruction;
 
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * Operator Evidence Submission Readiness v1.
@@ -19,6 +20,8 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService
 
     public const MODE = 'read_only_operator_evidence_submission_readiness';
 
+    private const STORAGE_DISK = 'local';
+
     public function __construct(
         private readonly AtlasSelfConstructionReadinessService $readiness,
     ) {}
@@ -29,9 +32,24 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService
      */
     public function build(array $options = []): array
     {
-        $runtimeReceipt = (array) ($options['runtime_promotion_receipt'] ?? []);
-        $realProviderSmoke = (array) ($options['real_provider_smoke'] ?? []);
-        $completionReceipt = (array) ($options['completion_receipt'] ?? []);
+        $workspaceInput = $this->loadDraftWorkspaceInput((string) ($options['operator_draft_workspace_path'] ?? ''));
+        $workspacePayloads = (array) data_get($workspaceInput, 'payloads', []);
+
+        $runtimeReceipt = $this->payloadOrWorkspace(
+            explicit: (array) ($options['runtime_promotion_receipt'] ?? []),
+            workspacePayloads: $workspacePayloads,
+            workspaceKey: 'runtime_promotion_receipt',
+        );
+        $realProviderSmoke = $this->payloadOrWorkspace(
+            explicit: (array) ($options['real_provider_smoke'] ?? []),
+            workspacePayloads: $workspacePayloads,
+            workspaceKey: 'real_provider_smoke',
+        );
+        $completionReceipt = $this->payloadOrWorkspace(
+            explicit: (array) ($options['completion_receipt'] ?? []),
+            workspacePayloads: $workspacePayloads,
+            workspaceKey: 'human_completion_receipt',
+        );
 
         $runtimeGapMatrix = (new AtlasSelfConstructionRuntimeGapMatrixService($this->readiness))->matrix();
         $rows = (array) data_get($runtimeGapMatrix, 'rows', []);
@@ -109,6 +127,7 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService
                 (array) $diagnostics['real_provider_smoke']['errors'],
                 $missingProviderEvidence,
             )));
+            $diagnostics['real_provider_smoke']['ready'] = false;
         }
 
         $staleContextHashes = $this->staleContextHashes(
@@ -116,6 +135,11 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService
             currentRuntimeGapMatrixHashForPromotionReceipt: $expectedRuntimeGapMatrixHashForPromotionReceipt,
             currentRuntimePromotionBasisHash: $runtimePromotionBasisHash,
             currentRuntimePromotionClosureBasisHash: $runtimePromotionClosureBasisHash,
+        );
+        $draftWorkspaceRefresh = $this->draftWorkspaceRefreshDecision(
+            workspaceInput: $workspaceInput,
+            staleContextHashes: $staleContextHashes,
+            runtimeGapMatrix: $runtimeGapMatrix,
         );
 
         $nextRequired = match (true) {
@@ -135,6 +159,16 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService
                 : 'incomplete',
         };
 
+        $operatorSubmissionEnvelopes = $this->operatorSubmissionEnvelopes(
+            runtimeReceipt: $runtimeReceipt,
+            realProviderSmoke: $realProviderSmoke,
+            completionReceipt: $completionReceipt,
+            diagnostics: $diagnostics,
+            hashComposition: (array) $hashComposition,
+            humanContext: $humanContext,
+            nextRequired: $nextRequired,
+        );
+
         $payload = [
             'schema_version' => self::SCHEMA_VERSION,
             'mode' => self::MODE,
@@ -144,12 +178,16 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService
             'completion_claim_allowed' => false,
             'next_required' => $nextRequired,
             'next_required_command' => $this->nextRequiredCommand($nextRequired),
+            'draft_workspace_input' => $workspaceInput,
             'diagnostics' => $diagnostics,
+            'operator_submission_envelopes' => $operatorSubmissionEnvelopes,
             'runtime_promotion_receipt_passed' => $runtimePassed,
             'real_provider_smoke_passed' => $smokePassed,
             'human_completion_receipt_passed' => $humanPassed,
             'human_receipt_out_of_order' => $humanReceiptOutOfOrder,
             'stale_context_hashes' => $staleContextHashes,
+            'draft_workspace_refresh' => $draftWorkspaceRefresh,
+            'draft_workspace_refresh_required' => (bool) data_get($draftWorkspaceRefresh, 'required', false),
             'hash_composition' => [
                 'composer_hash' => (string) data_get($hashComposition, 'composer_hash', ''),
                 'status' => (string) data_get($hashComposition, 'status', ''),
@@ -180,11 +218,347 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService
                 'operator_evidence_submission_readiness_does_not_enable_runtime',
                 'operator_evidence_submission_readiness_does_not_sign_for_operator',
                 'operator_evidence_submission_readiness_does_not_promote_completion',
+                'operator_evidence_submission_readiness_does_not_persist_operator_submission_envelopes',
+                'operator_evidence_submission_readiness_reads_draft_workspace_without_marking_it_as_evidence',
             ],
         ];
         $payload['submission_readiness_hash'] = $this->stableHash($payload);
 
         return $payload;
+    }
+
+    /**
+     * @param  array<string, mixed>  $workspaceInput
+     * @param  list<string>  $staleContextHashes
+     * @param  array<string, mixed>  $runtimeGapMatrix
+     * @return array<string, mixed>
+     */
+    private function draftWorkspaceRefreshDecision(array $workspaceInput, array $staleContextHashes, array $runtimeGapMatrix): array
+    {
+        $workspaceLoaded = (string) data_get($workspaceInput, 'status') === 'loaded_for_read_only_submission_readiness';
+        $reasons = [];
+
+        if ($workspaceLoaded && $staleContextHashes !== []) {
+            $reasons[] = 'runtime_promotion_receipt_context_hashes_are_stale';
+        }
+        if ($workspaceLoaded && (int) data_get($workspaceInput, 'warning_count', 0) > 0) {
+            $reasons[] = 'draft_workspace_inspector_reported_warnings';
+        }
+        if ($workspaceLoaded && (int) data_get($workspaceInput, 'violation_count', 0) > 0) {
+            $reasons[] = 'draft_workspace_inspector_reported_violations';
+        }
+
+        $required = $reasons !== [];
+
+        return [
+            'schema_version' => 'atlas.self_construction.operator_evidence_draft_workspace_refresh_decision.v1',
+            'status' => $required ? 'refresh_recommended_before_operator_signature' : ($workspaceLoaded ? 'current_enough_for_readiness_review' : 'not_applicable'),
+            'required' => $required,
+            'reasons' => array_values(array_unique($reasons)),
+            'stale_context_hashes' => $staleContextHashes,
+            'current_hashes_for_new_workspace' => [
+                'runtime_gap_matrix_hash' => (string) data_get($runtimeGapMatrix, 'runtime_gap_matrix_hash', ''),
+                'expected_runtime_gap_matrix_hash_for_promotion_receipt' => (string) data_get($runtimeGapMatrix, 'expected_runtime_gap_matrix_hash_for_promotion_receipt', ''),
+                'runtime_promotion_basis_hash' => (string) data_get($runtimeGapMatrix, 'runtime_promotion_basis_hash', ''),
+                'runtime_promotion_closure_basis_hash' => (string) data_get($runtimeGapMatrix, 'runtime_promotion_closure_basis_hash', ''),
+            ],
+            'refresh_command' => 'php artisan atlas:ai:self-construction --atlas-self-construction-operator-evidence-artifact-template-pack-status --persist-operator-draft-workspace --json',
+            'post_refresh_review_command' => 'php artisan atlas:ai:self-construction --atlas-self-construction-operator-evidence-submission-readiness-status --operator-draft-workspace-path=<new_workspace_path> --json',
+            'can_refresh_from_readiness' => false,
+            'can_persist_evidence_from_refresh' => false,
+            'non_execution_guarantees' => [
+                'refresh_decision_does_not_write_workspace',
+                'refresh_decision_does_not_persist_evidence',
+                'refresh_decision_does_not_sign_for_operator',
+                'refresh_decision_does_not_call_provider',
+                'refresh_decision_does_not_spend_tokens',
+                'refresh_decision_does_not_dispatch',
+                'refresh_decision_does_not_promote_completion',
+            ],
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $explicit
+     * @param  array<string, mixed>  $workspacePayloads
+     * @return array<string, mixed>
+     */
+    private function payloadOrWorkspace(array $explicit, array $workspacePayloads, string $workspaceKey): array
+    {
+        if ($explicit !== []) {
+            return $explicit;
+        }
+
+        return (array) data_get($workspacePayloads, $workspaceKey, []);
+    }
+
+    /** @return array<string, mixed> */
+    private function loadDraftWorkspaceInput(string $requestedPath): array
+    {
+        if (trim($requestedPath) === '') {
+            return [
+                'status' => 'not_requested',
+                'requested_path' => '',
+                'manifest_path' => '',
+                'artifact_count' => 0,
+                'loaded_artifacts' => [],
+                'violations' => [],
+                'warnings' => [],
+                'payloads' => [],
+            ];
+        }
+
+        $inspection = (new AtlasSelfConstructionOperatorEvidenceDraftWorkspaceInspectorService)->inspect([
+            'operator_draft_workspace_path' => $requestedPath,
+        ]);
+        $payloads = [];
+        $violations = (array) data_get($inspection, 'violations', []);
+        $warnings = (array) data_get($inspection, 'warnings', []);
+
+        foreach ((array) data_get($inspection, 'files', []) as $file) {
+            $artifact = (string) data_get($file, 'artifact', '');
+            $draftPath = $this->normalizeStoragePath((string) data_get($file, 'draft_path', ''));
+            if ($artifact === '' || $draftPath === '' || ! Storage::disk(self::STORAGE_DISK)->exists($draftPath)) {
+                continue;
+            }
+
+            try {
+                $decoded = json_decode(Storage::disk(self::STORAGE_DISK)->get($draftPath), true, flags: JSON_THROW_ON_ERROR);
+                if (is_array($decoded)) {
+                    $payloads[$artifact] = $decoded;
+                }
+            } catch (\Throwable) {
+                $violations[] = 'draft_workspace_payload_invalid_json:'.$artifact;
+            }
+        }
+
+        return [
+            'status' => data_get($inspection, 'status') === 'no_workspace'
+                ? 'workspace_not_found'
+                : 'loaded_for_read_only_submission_readiness',
+            'requested_path' => $requestedPath,
+            'manifest_path' => (string) data_get($inspection, 'manifest_path', ''),
+            'workspace_directory' => (string) data_get($inspection, 'workspace_directory', ''),
+            'artifact_count' => (int) data_get($inspection, 'artifact_count', 0),
+            'loaded_artifacts' => array_keys($payloads),
+            'inspector_status' => (string) data_get($inspection, 'status', ''),
+            'inspector_hash' => (string) data_get($inspection, 'inspector_hash', ''),
+            'workspace_safe_for_operator_editing' => (bool) data_get($inspection, 'workspace_safe_for_operator_editing', false),
+            'violation_count' => count(array_values(array_unique($violations))),
+            'violations' => array_values(array_unique($violations)),
+            'warning_count' => count(array_values(array_unique($warnings))),
+            'warnings' => array_values(array_unique($warnings)),
+            'payloads' => $payloads,
+            'read_only' => true,
+            'draft_is_evidence' => false,
+            'can_persist_draft_directly' => false,
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $runtimeReceipt
+     * @param  array<string, mixed>  $realProviderSmoke
+     * @param  array<string, mixed>  $completionReceipt
+     * @param  array<string, array<string, mixed>>  $diagnostics
+     * @param  array<string, mixed>  $hashComposition
+     * @param  array<string, string>  $humanContext
+     * @return array<string, mixed>
+     */
+    private function operatorSubmissionEnvelopes(
+        array $runtimeReceipt,
+        array $realProviderSmoke,
+        array $completionReceipt,
+        array $diagnostics,
+        array $hashComposition,
+        array $humanContext,
+        string $nextRequired,
+    ): array {
+        $runtimeEnvelope = $this->operatorSubmissionEnvelope(
+            artifact: 'runtime_promotion_receipt',
+            schemaVersion: 'atlas.self_construction.runtime_promotion_operator_submission_envelope.v1',
+            sourceOptionKey: 'runtime_promotion_receipt',
+            payload: $runtimeReceipt,
+            payloadHash: (string) data_get($hashComposition, 'runtime_promotion_receipt.computed_hash', ''),
+            hashField: 'receipt_hash',
+            status: $this->envelopeStatus('runtime_promotion_receipt', (array) $diagnostics['runtime_promotion_receipt']),
+            diagnostic: (array) $diagnostics['runtime_promotion_receipt'],
+            persistCommand: 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --runtime-promotion-receipt-json=@/path/to/runtime-promotion.json --persist-runtime-promotion-receipt --json',
+            detailedEndgameCommand: 'php artisan atlas:ai:self-construction --atlas-self-construction-runtime-promotion-endgame-status --runtime-promotion-receipt-json=@/path/to/runtime-promotion.json --json',
+            postPersistenceCommands: [
+                'runtime_gap_matrix' => 'php artisan atlas:ai:self-construction --atlas-self-construction-runtime-gap-matrix --json',
+                'completion_evidence_status' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --json',
+                'completion_audit' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --json',
+            ],
+        );
+        $smokeEnvelope = $this->operatorSubmissionEnvelope(
+            artifact: 'real_provider_smoke',
+            schemaVersion: 'atlas.self_construction.real_provider_smoke_operator_submission_envelope.v1',
+            sourceOptionKey: 'real_provider_smoke',
+            payload: $realProviderSmoke,
+            payloadHash: (string) data_get($hashComposition, 'real_provider_smoke.computed_hash', ''),
+            hashField: 'smoke_hash',
+            status: $this->envelopeStatus('real_provider_smoke', (array) $diagnostics['real_provider_smoke']),
+            diagnostic: (array) $diagnostics['real_provider_smoke'],
+            persistCommand: 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --real-provider-smoke-json=@/path/to/real-provider-smoke.json --persist-completion-evidence --json',
+            detailedEndgameCommand: 'php artisan atlas:ai:self-construction --atlas-self-construction-real-provider-smoke-endgame-status --real-provider-smoke-json=@/path/to/real-provider-smoke.json --json',
+            postPersistenceCommands: [
+                'completion_evidence_status' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --json',
+                'completion_audit' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --json',
+                'human_completion_receipt_closure_pack' => 'php artisan atlas:ai:self-construction --atlas-self-construction-human-completion-receipt-closure-execution-pack-status --json',
+            ],
+        );
+        $humanEnvelope = $this->operatorSubmissionEnvelope(
+            artifact: 'human_completion_receipt',
+            schemaVersion: 'atlas.self_construction.human_completion_receipt_operator_submission_envelope.v1',
+            sourceOptionKey: 'completion_receipt',
+            payload: $completionReceipt,
+            payloadHash: (string) data_get($hashComposition, 'human_completion_receipt.computed_hash', ''),
+            hashField: 'receipt_hash',
+            status: $this->envelopeStatus('human_completion_receipt', (array) $diagnostics['human_completion_receipt']),
+            diagnostic: (array) $diagnostics['human_completion_receipt'],
+            persistCommand: 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --completion-receipt-json=@/path/to/completion-receipt.json --persist-completion-evidence --json',
+            detailedEndgameCommand: 'php artisan atlas:ai:self-construction --atlas-self-construction-human-completion-receipt-closure-execution-pack-status --completion-receipt-json=@/path/to/completion-receipt.json --json',
+            postPersistenceCommands: [
+                'completion_evidence_status' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --json',
+                'completion_audit' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --json',
+                'finalization_gate' => 'php artisan atlas:ai:self-construction --atlas-self-construction-completion-finalization-gate-status --json',
+            ],
+            context: $humanContext,
+        );
+
+        $envelopes = [
+            'schema_version' => 'atlas.self_construction.operator_evidence_submission_readiness_envelopes.v1',
+            'mode' => 'read_only_operator_submission_envelope_readiness',
+            'status' => $nextRequired === 'rerun_completion_audit'
+                ? 'all_operator_submission_envelopes_ready'
+                : 'blocked_until_required_operator_submission_envelopes_are_ready',
+            'next_required_envelope' => $nextRequired === 'rerun_completion_audit' ? '' : $nextRequired,
+            'required_envelope_count' => 3,
+            'ready_envelope_count' => count(array_filter([
+                $runtimeEnvelope,
+                $smokeEnvelope,
+                $humanEnvelope,
+            ], fn (array $envelope): bool => (bool) $envelope['ready_for_explicit_operator_persistence'])),
+            'source_option_keys' => [
+                'runtime_promotion_receipt',
+                'real_provider_smoke',
+                'completion_receipt',
+            ],
+            'runtime_promotion_receipt' => $runtimeEnvelope,
+            'real_provider_smoke' => $smokeEnvelope,
+            'human_completion_receipt' => $humanEnvelope,
+            'can_persist_from_readiness' => false,
+            'non_execution_guarantees' => [
+                'readiness_envelopes_do_not_persist_receipts',
+                'readiness_envelopes_do_not_persist_smoke',
+                'readiness_envelopes_do_not_sign_for_operator',
+                'readiness_envelopes_do_not_call_provider',
+                'readiness_envelopes_do_not_spend_tokens',
+                'readiness_envelopes_do_not_dispatch',
+                'readiness_envelopes_do_not_promote_completion',
+            ],
+        ];
+        $envelopes['operator_submission_envelopes_hash'] = $this->stableHash($envelopes);
+
+        return $envelopes;
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     * @param  array<string, mixed>  $diagnostic
+     * @param  array<string, string>  $postPersistenceCommands
+     * @param  array<string, string>  $context
+     * @return array<string, mixed>
+     */
+    private function operatorSubmissionEnvelope(
+        string $artifact,
+        string $schemaVersion,
+        string $sourceOptionKey,
+        array $payload,
+        string $payloadHash,
+        string $hashField,
+        string $status,
+        array $diagnostic,
+        string $persistCommand,
+        string $detailedEndgameCommand,
+        array $postPersistenceCommands,
+        array $context = [],
+    ): array {
+        $payloadJson = $payload === []
+            ? ''
+            : (string) json_encode($this->ksortRecursive($payload), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        $envelope = [
+            'schema_version' => $schemaVersion,
+            'mode' => 'read_only_operator_submission_envelope_readiness',
+            'artifact' => $artifact,
+            'status' => $status,
+            'source_option_key' => $sourceOptionKey,
+            'payload_present' => $payload !== [],
+            'payload_under_review' => $payload,
+            'payload_json_sha256' => $payloadJson === '' ? '' : hash('sha256', $payloadJson),
+            'payload_hash' => $payloadHash,
+            'payload_declared_hash' => (string) ($payload[$hashField] ?? ''),
+            'hash_field' => $hashField,
+            'verifier_status' => (string) ($diagnostic['status'] ?? ''),
+            'ready_for_explicit_operator_persistence' => (bool) ($diagnostic['ready'] ?? false),
+            'can_persist_from_readiness' => false,
+            'errors' => (array) ($diagnostic['errors'] ?? []),
+            'violation_count' => (int) ($diagnostic['violation_count'] ?? 0),
+            'placeholders' => (array) ($diagnostic['placeholders'] ?? []),
+            'forbidden_flags_true' => (array) ($diagnostic['forbidden_flags_true'] ?? []),
+            'persist_command' => $persistCommand,
+            'detailed_endgame_command' => $detailedEndgameCommand,
+            'pre_persist_operator_checks' => [
+                'payload_json_sha256_matches_saved_file',
+                'payload_hash_matches_canonical_payload_hash',
+                'verifier_status_is_passed',
+                'ready_for_explicit_operator_persistence_is_true',
+                'persist_command_contains_explicit_persist_flag',
+                'readiness_surface_is_not_the_persistence_surface',
+                'completion_audit_must_be_rerun_after_persistence',
+            ],
+            'post_persistence_rerun_commands' => $postPersistenceCommands,
+            'non_execution_guarantees' => [
+                'envelope_readiness_does_not_persist_payload',
+                'envelope_readiness_does_not_sign_for_operator',
+                'envelope_readiness_does_not_call_provider',
+                'envelope_readiness_does_not_spend_tokens',
+                'envelope_readiness_does_not_dispatch',
+                'envelope_readiness_does_not_enable_runtime',
+                'envelope_readiness_does_not_promote_completion',
+            ],
+        ];
+        if ($context !== []) {
+            $envelope['current_evidence_context'] = $context;
+        }
+        $envelope['operator_submission_envelope_hash'] = $this->stableHash($envelope);
+
+        return $envelope;
+    }
+
+    /** @param array<string, mixed> $diagnostic */
+    private function envelopeStatus(string $artifact, array $diagnostic): string
+    {
+        if (($diagnostic['supplied'] ?? false) !== true) {
+            return match ($artifact) {
+                'runtime_promotion_receipt' => 'blocked_until_operator_runtime_promotion_receipt_exists',
+                'real_provider_smoke' => 'blocked_until_operator_real_provider_smoke_payload_exists',
+                'human_completion_receipt' => 'blocked_until_operator_human_completion_receipt_exists',
+                default => 'blocked_until_operator_payload_exists',
+            };
+        }
+        if (($diagnostic['ready'] ?? false) === true) {
+            return 'ready_for_explicit_operator_persistence';
+        }
+
+        return match ($artifact) {
+            'human_completion_receipt' => in_array('human_completion_receipt_supplied_before_runtime_and_smoke_green', (array) ($diagnostic['errors'] ?? []), true)
+                ? 'blocked_until_runtime_and_smoke_envelopes_are_green'
+                : 'blocked_until_human_completion_receipt_verifier_passes',
+            'real_provider_smoke' => 'blocked_until_real_provider_smoke_verifier_passes',
+            'runtime_promotion_receipt' => 'blocked_until_runtime_promotion_receipt_verifier_passes',
+            default => 'blocked_until_verifier_passes',
+        };
     }
 
     /**
@@ -332,6 +706,17 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService
             'rerun_completion_audit' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --json',
             default => '',
         };
+    }
+
+    private function normalizeStoragePath(string $path): string
+    {
+        $path = trim($path);
+        if ($path === '' || str_contains($path, '..')) {
+            return '';
+        }
+        $path = preg_replace('#^storage/app/#', '', $path) ?? $path;
+
+        return trim($path, '/');
     }
 
     /** @return array<string, mixed> */

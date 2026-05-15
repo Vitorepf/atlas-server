@@ -71,6 +71,54 @@ final class AtlasSelfConstructionRealProviderSmokeEndgameTest extends TestCase
         $this->assertSame('persist_completion_evidence_flag_not_supplied', (string) $attempt['blocker']);
     }
 
+    public function test_operator_submission_envelope_blocks_until_smoke_payload_exists(): void
+    {
+        $result = $this->endgame()->build([]);
+        $envelope = (array) $result['operator_submission_envelope'];
+
+        $this->assertSame('atlas.self_construction.real_provider_smoke_operator_submission_envelope.v1', (string) $envelope['schema_version']);
+        $this->assertSame('blocked_until_operator_smoke_payload_exists', (string) $envelope['status']);
+        $this->assertFalse((bool) $envelope['can_persist_after_operator_review']);
+        $this->assertSame('', (string) $envelope['smoke_json_sha256']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $envelope['operator_submission_envelope_hash']);
+    }
+
+    public function test_operator_submission_envelope_is_ready_for_valid_smoke_payload_without_persisting(): void
+    {
+        Storage::fake('local');
+        $smoke = $this->validTestPayload();
+        $result = $this->endgame()->build(['real_provider_smoke' => $smoke]);
+        $envelope = (array) $result['operator_submission_envelope'];
+
+        $this->assertSame('ready_for_explicit_operator_persistence', (string) $envelope['status']);
+        $this->assertTrue((bool) $envelope['can_persist_after_operator_review']);
+        $this->assertSame($smoke['smoke_hash'], (string) $envelope['smoke_hash']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $envelope['smoke_json_sha256']);
+        $this->assertStringContainsString('--persist-completion-evidence', (string) $envelope['persist_command']);
+        $this->assertContains(
+            'completion_audit_must_be_rerun_after_persistence',
+            (array) $envelope['pre_persist_operator_checks'],
+        );
+        $this->assertTrue((bool) data_get($envelope, 'non_execution_guarantees.envelope_does_not_persist_smoke'));
+
+        $smokeFiles = array_filter(
+            Storage::disk('local')->allFiles(),
+            static fn (string $p): bool => str_contains($p, 'os-completion/real-provider-smokes'),
+        );
+        $this->assertSame([], array_values($smokeFiles), 'Envelope readiness must not persist smoke evidence.');
+    }
+
+    public function test_operator_submission_envelope_blocks_when_verifier_fails(): void
+    {
+        $payload = $this->validTestPayload(['provider_run_id' => '']);
+        $result = $this->endgame()->build(['real_provider_smoke' => $payload]);
+        $envelope = (array) $result['operator_submission_envelope'];
+
+        $this->assertSame('blocked_until_endgame_verifier_passes', (string) $envelope['status']);
+        $this->assertFalse((bool) $envelope['can_persist_after_operator_review']);
+        $this->assertSame('blocked', (string) $envelope['verifier_status']);
+    }
+
     public function test_persistence_blocked_when_verifier_fails_even_with_flag(): void
     {
         Storage::fake('local');
@@ -136,6 +184,7 @@ final class AtlasSelfConstructionRealProviderSmokeEndgameTest extends TestCase
             'atlas_must_not_spend_tokens',
             'operator_must_observe_real_provider_run',
             'persistence_requires_explicit_flag',
+            'reject_persistence_without_operator_submission_envelope',
             'no_os_complete_claim_from_endgame',
         ] as $key) {
             $this->assertTrue((bool) $policy[$key], "policy {$key} must be true");
@@ -149,6 +198,7 @@ final class AtlasSelfConstructionRealProviderSmokeEndgameTest extends TestCase
             'does_not_promote_completion',
             'does_not_enable_runtime',
             'does_not_sign_for_operator',
+            'operator_submission_envelope_does_not_write_files_or_receipts',
         ] as $key) {
             $this->assertTrue((bool) $guarantees[$key], "guarantee {$key} must be true");
         }

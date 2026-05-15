@@ -573,10 +573,10 @@ Route::prefix('atlas-code')->group(function () {
     Route::get('/attention', [\App\Http\Controllers\AtlasCodeAttentionControlPlaneController::class, 'index']);
     Route::post('/attention/{project}/decision', [\App\Http\Controllers\AtlasCodeAttentionControlPlaneController::class, 'decide']);
 
-    // DEV-TO-FORGE PROMOTION · ponte Atlas AI/Atlas Dev → Obra
-    // canon: docs/engineering-knowledge-base/atlas-ai-conversation-surface-and-atlas-dev-v1.md
-    Route::get('/promotion/preview/{thread}', [\App\Http\Controllers\AtlasDevToForgePromotionController::class, 'preview']);
-    Route::post('/promotion/{thread}/promote', [\App\Http\Controllers\AtlasDevToForgePromotionController::class, 'promote']);
+    // Meta 8.5 · Canonical Dev-to-Forge Promotion routes live at
+    // /atlas-code/dev-to-forge/* above. The earlier `/atlas-code/promotion/*`
+    // mount was removed during reconciliation — single schema, single
+    // controller, single signal detector.
 
     // PROVIDER OPERATING ROOM (per-Obra read-model)
     // canon: docs/engineering-knowledge-base/atlas-code-adaptive-provider-operating-room-v1.md

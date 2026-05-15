@@ -10,15 +10,18 @@ namespace App\Services\Ai\Programming\ForgeRivals;
  * Renders the executive-grade `report.md` for a run by combining the
  * evidence manifest, the replay outcome, and the adjudication scorecard.
  *
- * Refuses to declare a winner unless ALL of these are true:
+ * Refuses to declare a quality winner unless ALL of these are true:
  *   - manifest.verdict === 'comparable'
  *   - replay.replay_passes === true
  *   - scorecard.hard_failures is empty
  *   - scorecard.winner is one of {atlas, rival, human_review_required_tie}
  *
- * Hard-gate failures (any) force `winner=null`, `score=null`,
- * `claim_ready=false`, and a "ZERO claim" line. Tie outcomes force
- * `human_review_required=true` and surface a checklist for the operator.
+ * One-sided test failures may declare `gate_winner` when the adjudicator marks
+ * `score_source=gate_outcome`, but `winner=null`, scores remain null, and
+ * `claim_ready=false` remains absolute. Other hard-gate failures force
+ * `winner=null`, `score=null`, `claim_ready=false`, and a "ZERO claim" line.
+ * Tie outcomes force `human_review_required=true` and surface a checklist for
+ * the operator.
  *
  * Read-only. Never invokes provider. NEVER unlocks
  * `external_rivals_certification`.
@@ -72,11 +75,16 @@ final class AtlasForgeRivalsReportService
 
         $hardFailures = is_array($scorecard) ? (array) ($scorecard['hard_failures'] ?? []) : [];
         $scoreCardWinner = is_array($scorecard) ? ($scorecard['winner'] ?? null) : null;
+        $gateWinner = is_array($scorecard) ? ($scorecard['gate_winner'] ?? null) : null;
         $atlasScore = is_array($scorecard) ? ($scorecard['atlas_score'] ?? null) : null;
         $rivalScore = is_array($scorecard) ? ($scorecard['rival_score'] ?? null) : null;
         $threshold = is_array($scorecard) ? ($scorecard['tie_threshold'] ?? AtlasForgeRivalsAdjudicatorService::DEFAULT_TIE_THRESHOLD) : AtlasForgeRivalsAdjudicatorService::DEFAULT_TIE_THRESHOLD;
         $qualityDimensions = is_array($scorecard) ? ($scorecard['quality_dimensions'] ?? null) : null;
         $hardGates = is_array($scorecard) ? (array) ($scorecard['hard_gates'] ?? []) : [];
+        $scoreSource = is_array($scorecard) ? (string) ($scorecard['score_source'] ?? '') : '';
+        $gateOutcomeAvailable = $scoreSource === 'gate_outcome'
+            && $replayOk
+            && in_array($gateWinner, [AtlasForgeRivalsAdjudicatorService::WINNER_ATLAS, AtlasForgeRivalsAdjudicatorService::WINNER_RIVAL], true);
 
         $winner = null;
         $declaredWhy = null;
@@ -84,7 +92,10 @@ final class AtlasForgeRivalsReportService
         $claimReady = false;
         $adjudicationMissing = ! is_array($scorecard) || $scorecard === [];
 
-        if (str_starts_with($verdict, 'invalid')) {
+        if ($gateOutcomeAvailable) {
+            $declaredWhy = 'gate_winner:'.$gateWinner.'_no_quality_score';
+            $claimReady = false;
+        } elseif (str_starts_with($verdict, 'invalid')) {
             $declaredWhy = 'invalid:'.$verdict;
         } elseif (! $replayOk) {
             $declaredWhy = 'replay_failed';
@@ -140,6 +151,8 @@ final class AtlasForgeRivalsReportService
             'run_id' => $paths['run_id'],
             'verdict' => $verdict,
             'winner' => $winner,
+            'gate_winner' => $gateWinner,
+            'gate_result' => is_array($scorecard) ? ($scorecard['gate_result'] ?? null) : null,
             'winner_reason' => is_array($scorecard) ? ($scorecard['winner_reason'] ?? []) : [],
             'atlas_score' => $atlasScore,
             'rival_score' => $rivalScore,
@@ -158,7 +171,10 @@ final class AtlasForgeRivalsReportService
             'external_provider_call' => false,
             'separated_from_external_rivals_certification' => true,
             'unlocks_external_rivals_certification' => false,
-            'note' => 'Premium report — invalid/replay-failed/hard-fail ⇒ winner=null, ZERO claim. external_rivals_certification stays BLOCKED.',
+            'score_source' => $scoreSource,
+            'quality_score_available' => (bool) (is_array($scorecard) ? ($scorecard['quality_score_available'] ?? ($qualityDimensions !== null)) : false),
+            'quality_score_reason' => is_array($scorecard) ? ($scorecard['quality_score_reason'] ?? null) : null,
+            'note' => 'Premium report — evidence/replay/infrastructure invalid ⇒ winner=null. One-sided test failure may produce gate_winner only, with score=null and claim_ready=false. external_rivals_certification stays BLOCKED.',
             'next_command' => 'php artisan atlas:forge:rivals reset --run-id='.$paths['run_id'].' --reason=<text> --json',
         ];
     }
@@ -194,8 +210,13 @@ final class AtlasForgeRivalsReportService
         $winnerReason = (array) ($scorecard['winner_reason'] ?? []);
         $dimensions = is_array($scorecard['quality_dimensions'] ?? null) ? $scorecard['quality_dimensions'] : [];
         $hardGates = (array) ($scorecard['hard_gates'] ?? []);
+        $scoreSource = (string) ($scorecard['score_source'] ?? '');
+        $gateWinner = $scorecard['gate_winner'] ?? null;
+        $gateOutcome = $scoreSource === 'gate_outcome'
+            && in_array($gateWinner, [AtlasForgeRivalsAdjudicatorService::WINNER_ATLAS, AtlasForgeRivalsAdjudicatorService::WINNER_RIVAL], true);
 
         $summaryLine = match (true) {
+            $gateOutcome => '**Verdict:** GATE WINNER = '.($gateWinner === AtlasForgeRivalsAdjudicatorService::WINNER_ATLAS ? 'Atlas Forge' : 'Rival baseline').' · QUALITY SCORE = N/A · ZERO external claim',
             $isInvalid => '**Verdict:** INVALID · `'.$verdict.'` · ZERO claim · score=null',
             ! $replayOk => '**Verdict:** REPLAY FAILED · evidence pack untrustworthy · ZERO claim',
             $hardFailures !== [] => '**Verdict:** HARD-FAIL · '.count($hardFailures).' gate(s) failed · ZERO claim',
@@ -226,9 +247,11 @@ final class AtlasForgeRivalsReportService
                 (string) (($atlasScore !== null && $rivalScore !== null) ? round((float) $atlasScore - (float) $rivalScore, 2) : 'null'),
             );
 
-        $claimLine = $claimReady
+        $claimLine = $gateOutcome
+            ? 'claim_ready: **false** · gate_winner: **'.$gateWinner.'** · quality_score: **null** · external claim blocked'
+            : ($claimReady
             ? 'claim_ready: **true** · winner: **'.$winner.'**'
-            : 'claim_ready: **false** · ZERO claim';
+            : 'claim_ready: **false** · ZERO claim');
 
         $declaredWhyLine = $declaredWhy !== null ? '`'.$declaredWhy.'`' : '`unknown`';
 
@@ -260,6 +283,7 @@ final class AtlasForgeRivalsReportService
 - **Rival model:** {$rivalModel}
 - **Case:** {$caseId}
 - {$scoreLine}
+- gate_winner: **{$this->nullable($gateWinner)}**
 - replay_passes: **{$this->bool($replayOk)}**
 - {$claimLine}
 - declared_why: {$declaredWhyLine}
@@ -319,7 +343,7 @@ final class AtlasForgeRivalsReportService
 - `separated_from_external_rivals_certification` ⇒ **true**
 - **This report does NOT unlock `external_rivals_certification`.** External rivals claim remains operator-approval-gated, separately tracked.
 - Adjudicator is deterministic and local-only. No LLM judged this run.
-- Invalid ⇒ ZERO claim, score=null. Replay-failed ⇒ no winner. Hard-fail ⇒ no winner.
+- Invalid evidence/replay/scope ⇒ ZERO claim, score=null. One-sided deterministic test failure ⇒ gate_winner only, quality score=null, claim_ready=false.
 
 MD;
     }
@@ -500,6 +524,11 @@ MD;
     private function intOrNull(mixed $v): string
     {
         return is_int($v) ? (string) $v : 'null';
+    }
+
+    private function nullable(mixed $v): string
+    {
+        return $v === null || $v === '' ? 'null' : (string) $v;
     }
 
     private function bool(bool $b): string

@@ -182,12 +182,19 @@ all three flags + the missing-confirmation blocker.
 run. Schema: `atlas.forge.rivals.adjudication.v1`. **No LLM is ever asked to
 judge.** Every signal is computed from local artifacts.
 
-### Hard gates (each fail-closed ⇒ winner=null, scores=null)
+### Hard gates
 
 `verdict_comparable` · `provider_exit_zero_{atlas,rival}` ·
 `tests_passed_{atlas,rival}` · `replay_passes` · `evidence_complete` ·
 `no_out_of_scope_files_{atlas,rival}` · `no_bytecode_artifacts_{atlas,rival}` ·
 `dirty_after_run_false` · `patch_diff_present_{atlas,rival}`.
+
+Infrastructure, evidence, replay, scope, dirty-workspace, and missing-patch hard
+gates fail closed to `winner=null` and scores null. A one-sided
+`tests_passed_*` failure is reported differently: it may emit
+`gate_winner=atlas|rival` and `gate_result.kind=one_sided_test_failure`, but it
+still keeps `winner=null`, both scores null, and
+`quality_score_available=false`. That is a gate outcome, not a quality score.
 
 ### Quality dimensions (only when every hard gate green)
 
@@ -209,7 +216,11 @@ surfaces as a tiebreaker hint in `winner_reason`.
 
 ### Winner / tie / invalid
 
-- Hard fail ⇒ `winner=null`, scores null, gates explain failure.
+- Infrastructure/evidence/replay/scope hard fail ⇒ `winner=null`, scores null,
+  gates explain failure.
+- One-sided test failure ⇒ `gate_winner=atlas|rival`, `winner=null`, scores
+  null, `quality_score_available=false`. This says which arm survived the gate;
+  it is not a comparable quality result.
 - `|atlas-rival| < threshold` (default 5.0) ⇒ `winner=human_review_required_tie`.
 - Otherwise ⇒ `winner=atlas|rival`, `claim_ready=true`, structured `winner_reason`.
 
@@ -250,9 +261,14 @@ reads manifest + replay + scorecard and renders:
   "run_id": "...",
   "verdict": "comparable|invalid_*",
   "winner": "atlas|rival|human_review_required_tie|null",
+  "gate_winner": "atlas|rival|null",
+  "gate_result": null,
   "winner_reason": [],
   "atlas_score": 86.5,
   "rival_score": 79.2,
+  "score_source": "quality_dimensions|gate_outcome",
+  "quality_score_available": true,
+  "quality_score_reason": null,
   "threshold": 5.0,
   "hard_failures": [],
   "human_review_required": false,
@@ -355,6 +371,7 @@ non-`ok`/`completed` statuses to exit non-zero. Headline commands:
 | --- | --- | --- |
 | `winner: atlas` / `rival` | All hard gates green, diff ≥ threshold | Inspect diff; legitimate win — does NOT unlock external rivals |
 | `winner: human_review_required_tie` | Diff < threshold | Read checklist; do NOT force a winner |
+| `gate_winner: atlas` / `rival`, `winner: null` | Exactly one arm failed tests while replay/evidence gates stayed valid | Gate outcome only; quality score N/A; fix failed arm or run another case |
 | `winner: null` + `hard_failures` | A hard gate failed | Fix gates and re-run |
 | `verdict: invalid_*` | Run invalidated (dirty, timeout, no diff) | ZERO claim — investigate cause |
 | `replay_passes: false` | Hash mismatch | Evidence untrustworthy — re-run |
@@ -424,4 +441,3 @@ Operador interpretar `winner` como completion claim. Alias novo escapar do contr
 ## Proximas Acoes
 
 Acompanhar futuros polish em adjudicator e report. Mantersuit de testes sincronizada com mudanças de invariantes.
-

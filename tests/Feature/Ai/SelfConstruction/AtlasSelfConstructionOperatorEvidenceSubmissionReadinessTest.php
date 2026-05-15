@@ -25,6 +25,19 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessTest extends
         $this->assertFalse($payload['real_provider_smoke_passed']);
         $this->assertFalse($payload['human_completion_receipt_passed']);
         $this->assertFalse($payload['human_receipt_out_of_order']);
+        $this->assertSame(
+            'blocked_until_required_operator_submission_envelopes_are_ready',
+            data_get($payload, 'operator_submission_envelopes.status'),
+        );
+        $this->assertSame('runtime_promotion_receipt', data_get($payload, 'operator_submission_envelopes.next_required_envelope'));
+        $this->assertSame(3, data_get($payload, 'operator_submission_envelopes.required_envelope_count'));
+        $this->assertSame(0, data_get($payload, 'operator_submission_envelopes.ready_envelope_count'));
+        $this->assertSame(
+            'blocked_until_operator_runtime_promotion_receipt_exists',
+            data_get($payload, 'operator_submission_envelopes.runtime_promotion_receipt.status'),
+        );
+        $this->assertFalse(data_get($payload, 'operator_submission_envelopes.can_persist_from_readiness'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) data_get($payload, 'operator_submission_envelopes.operator_submission_envelopes_hash'));
         $this->assertNotEmpty($payload['submission_readiness_hash']);
     }
 
@@ -90,6 +103,21 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessTest extends
         $this->assertContains('missing_observation_flag_token_spend_observed', $errors);
         $this->assertContains('missing_observation_flag_work_product_collected', $errors);
         $this->assertFalse($payload['real_provider_smoke_passed']);
+        $this->assertSame(
+            'blocked_until_real_provider_smoke_verifier_passes',
+            data_get($payload, 'operator_submission_envelopes.real_provider_smoke.status'),
+        );
+        $this->assertSame(
+            'real_provider_smoke',
+            data_get($payload, 'operator_submission_envelopes.real_provider_smoke.artifact'),
+        );
+        $this->assertStringContainsString(
+            '--real-provider-smoke-json=@/path/to/real-provider-smoke.json',
+            (string) data_get($payload, 'operator_submission_envelopes.real_provider_smoke.persist_command'),
+        );
+        $this->assertFalse(data_get($payload, 'operator_submission_envelopes.real_provider_smoke.ready_for_explicit_operator_persistence'));
+        $this->assertFalse(data_get($payload, 'operator_submission_envelopes.real_provider_smoke.can_persist_from_readiness'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) data_get($payload, 'operator_submission_envelopes.real_provider_smoke.operator_submission_envelope_hash'));
     }
 
     public function test_human_receipt_supplied_before_runtime_and_smoke_is_marked_out_of_order(): void
@@ -119,6 +147,15 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessTest extends
             'human_completion_receipt_supplied_before_runtime_and_smoke_green',
             (array) data_get($payload, 'diagnostics.human_completion_receipt.errors', []),
         );
+        $this->assertSame(
+            'blocked_until_runtime_and_smoke_envelopes_are_green',
+            data_get($payload, 'operator_submission_envelopes.human_completion_receipt.status'),
+        );
+        $this->assertSame(
+            'completion_receipt',
+            data_get($payload, 'operator_submission_envelopes.human_completion_receipt.source_option_key'),
+        );
+        $this->assertIsArray(data_get($payload, 'operator_submission_envelopes.human_completion_receipt.current_evidence_context'));
         $this->assertSame('runtime_promotion_receipt', $payload['next_required']);
     }
 
@@ -182,6 +219,93 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessTest extends
         $this->assertContains('runtime_promotion_closure_basis_hash', $stale);
     }
 
+    public function test_submission_readiness_can_load_operator_draft_workspace_without_persisting(): void
+    {
+        Storage::fake('local');
+        $workspace = $this->writeDraftWorkspaceForSubmissionReadiness();
+
+        $payload = (new AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService(app(AtlasSelfConstructionReadinessService::class)))->build([
+            'operator_draft_workspace_path' => $workspace,
+        ]);
+
+        $this->assertSame('loaded_for_read_only_submission_readiness', data_get($payload, 'draft_workspace_input.status'));
+        $this->assertSame('workspace_safe_for_operator_editing', data_get($payload, 'draft_workspace_input.inspector_status'));
+        $this->assertSame([
+            'runtime_promotion_receipt',
+            'real_provider_smoke',
+            'human_completion_receipt',
+        ], data_get($payload, 'draft_workspace_input.loaded_artifacts'));
+        $this->assertTrue(data_get($payload, 'diagnostics.runtime_promotion_receipt.supplied'));
+        $this->assertTrue(data_get($payload, 'diagnostics.real_provider_smoke.supplied'));
+        $this->assertTrue(data_get($payload, 'diagnostics.human_completion_receipt.supplied'));
+        $this->assertFalse(data_get($payload, 'operator_submission_envelopes.can_persist_from_readiness'));
+        $this->assertFalse($payload['completion_allowed']);
+        $this->assertFalse($payload['dispatch_allowed']);
+        $this->assertFalse($payload['provider_call_allowed']);
+        $this->assertFalse($payload['token_spend_allowed']);
+        $this->assertFalse($payload['self_programming_allowed']);
+    }
+
+    public function test_submission_readiness_recommends_refresh_for_stale_draft_workspace_hashes(): void
+    {
+        Storage::fake('local');
+        $workspace = $this->writeDraftWorkspaceForSubmissionReadiness([
+            'runtime_promotion_receipt' => [
+                'receipt_id' => 'runtime-test',
+                'signed_by' => 'operator-real',
+                'reason' => 'Operator reviewed and signed under stale hashes.',
+                'runtime_gap_matrix_hash' => str_repeat('1', 64),
+                'runtime_promotion_basis_hash' => str_repeat('2', 64),
+                'runtime_promotion_closure_basis_hash' => str_repeat('3', 64),
+                'receipt_hash' => '<hash>',
+            ],
+        ]);
+
+        $payload = (new AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService(app(AtlasSelfConstructionReadinessService::class)))->build([
+            'operator_draft_workspace_path' => $workspace,
+        ]);
+
+        $this->assertTrue($payload['draft_workspace_refresh_required']);
+        $this->assertSame(
+            'refresh_recommended_before_operator_signature',
+            data_get($payload, 'draft_workspace_refresh.status'),
+        );
+        $this->assertContains(
+            'runtime_promotion_receipt_context_hashes_are_stale',
+            data_get($payload, 'draft_workspace_refresh.reasons'),
+        );
+        $this->assertContains('runtime_gap_matrix_hash', data_get($payload, 'draft_workspace_refresh.stale_context_hashes'));
+        $this->assertStringContainsString(
+            '--persist-operator-draft-workspace',
+            (string) data_get($payload, 'draft_workspace_refresh.refresh_command'),
+        );
+        $this->assertFalse(data_get($payload, 'draft_workspace_refresh.can_refresh_from_readiness'));
+        $this->assertFalse(data_get($payload, 'draft_workspace_refresh.can_persist_evidence_from_refresh'));
+    }
+
+    public function test_cli_submission_readiness_loads_operator_draft_workspace_path(): void
+    {
+        Storage::fake('local');
+        $workspace = $this->writeDraftWorkspaceForSubmissionReadiness();
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--atlas-self-construction-operator-evidence-submission-readiness-status' => true,
+            '--operator-draft-workspace-path' => $workspace,
+            '--json' => true,
+        ]);
+
+        $this->assertSame(0, $exit);
+        $decoded = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+        $this->assertSame('loaded_for_read_only_submission_readiness', data_get($decoded, 'agent_control_plane_atlas_self_construction_operator_evidence_submission_readiness.draft_workspace_input.status'));
+        $this->assertSame([
+            'runtime_promotion_receipt',
+            'real_provider_smoke',
+            'human_completion_receipt',
+        ], data_get($decoded, 'agent_control_plane_atlas_self_construction_operator_evidence_submission_readiness_status.draft_workspace_loaded_artifacts'));
+        $this->assertFalse(data_get($decoded, 'agent_control_plane_atlas_self_construction_operator_evidence_submission_readiness_status.draft_workspace_refresh_required'));
+        $this->assertFalse($decoded['dispatch_allowed']);
+    }
+
     public function test_readiness_status_and_cli_quartet_exist(): void
     {
         $status = app(AtlasSelfConstructionReadinessService::class)->atlasSelfConstructionOperatorEvidenceSubmissionReadinessStatus();
@@ -221,5 +345,56 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessTest extends
         ] as $capability) {
             $this->assertContains($capability, $capabilities);
         }
+    }
+
+    /** @param array<string, array<string, mixed>> $overrides */
+    private function writeDraftWorkspaceForSubmissionReadiness(array $overrides = []): string
+    {
+        $workspace = 'atlas/self-construction/operator-submissions/draft-workspaces/20260515-010000-readiness';
+        $artifacts = [
+            'runtime_promotion_receipt' => ['receipt_id' => 'runtime-test', 'signed_by' => '<operator>', 'receipt_hash' => '<hash>'],
+            'real_provider_smoke' => ['provider_run_id' => '<provider_run_id>', 'smoke_hash' => '<hash>'],
+            'human_completion_receipt' => ['receipt_id' => 'completion-test', 'signed_by' => '<operator>', 'receipt_hash' => '<hash>'],
+        ];
+        foreach ($overrides as $artifact => $override) {
+            $artifacts[$artifact] = array_merge($artifacts[$artifact] ?? [], $override);
+        }
+        $files = [];
+
+        foreach ($artifacts as $artifact => $payload) {
+            $filename = match ($artifact) {
+                'runtime_promotion_receipt' => 'runtime-promotion.json',
+                'real_provider_smoke' => 'real-provider-smoke.json',
+                default => 'completion-receipt.json',
+            };
+            $path = $workspace.'/'.$filename;
+            $json = $this->draftJson($payload);
+            Storage::disk('local')->put($path, $json);
+            $files[] = [
+                'artifact' => $artifact,
+                'draft_path' => $path,
+                'payload_template_json_sha256' => hash('sha256', $json),
+                'draft_file_sha256' => hash('sha256', $json),
+                'command_to_verify_draft_file' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --json',
+                'draft_is_evidence' => false,
+                'can_persist_draft_directly' => false,
+            ];
+        }
+
+        Storage::disk('local')->put($workspace.'/manifest.json', $this->draftJson([
+            'schema_version' => 'atlas.self_construction.operator_evidence_draft_workspace.v1',
+            'workspace_directory' => $workspace,
+            'files' => $files,
+        ]));
+
+        return $workspace;
+    }
+
+    /** @param array<string, mixed> $payload */
+    private function draftJson(array $payload): string
+    {
+        ksort($payload);
+
+        return (string) json_encode($payload, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
     }
 }

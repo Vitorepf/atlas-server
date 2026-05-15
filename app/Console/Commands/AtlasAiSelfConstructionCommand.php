@@ -221,6 +221,7 @@ class AtlasAiSelfConstructionCommand extends Command
         {--atlas-self-construction-completion-finalization-gate-implementation-packet : Generate the read-only Atlas Self-Construction Completion Finalization Gate implementation packet}
         {--atlas-self-construction-completion-finalization-gate-status : Run the read-only Atlas Self-Construction Completion Finalization Gate}
         {--persist-export : Persist the operator runbook export to local storage; default false}
+        {--persist-operator-draft-workspace : Persist placeholder-only operator evidence draft JSON files for manual editing; default false}
         {--atlas-self-construction-final-evidence-bundle-contract : Generate the read-only Atlas Self-Construction Final Evidence Bundle contract}
         {--atlas-self-construction-final-evidence-bundle-preflight : Generate the read-only Atlas Self-Construction Final Evidence Bundle preflight}
         {--atlas-self-construction-final-evidence-bundle-implementation-packet : Generate the read-only Atlas Self-Construction Final Evidence Bundle implementation packet}
@@ -253,6 +254,10 @@ class AtlasAiSelfConstructionCommand extends Command
         {--atlas-self-construction-operator-evidence-artifact-template-pack-preflight : Generate the read-only Atlas Self-Construction Operator Evidence Artifact Template Pack preflight}
         {--atlas-self-construction-operator-evidence-artifact-template-pack-implementation-packet : Generate the read-only Atlas Self-Construction Operator Evidence Artifact Template Pack implementation packet}
         {--atlas-self-construction-operator-evidence-artifact-template-pack-status : Run the read-only Atlas Self-Construction Operator Evidence Artifact Template Pack}
+        {--atlas-self-construction-operator-evidence-draft-workspace-inspector-contract : Generate the read-only Atlas Self-Construction Operator Evidence Draft Workspace Inspector contract}
+        {--atlas-self-construction-operator-evidence-draft-workspace-inspector-preflight : Generate the read-only Atlas Self-Construction Operator Evidence Draft Workspace Inspector preflight}
+        {--atlas-self-construction-operator-evidence-draft-workspace-inspector-implementation-packet : Generate the read-only Atlas Self-Construction Operator Evidence Draft Workspace Inspector implementation packet}
+        {--atlas-self-construction-operator-evidence-draft-workspace-inspector-status : Run the read-only Atlas Self-Construction Operator Evidence Draft Workspace Inspector}
         {--atlas-self-construction-operator-evidence-submission-readiness-contract : Generate the read-only Atlas Self-Construction Operator Evidence Submission Readiness contract}
         {--atlas-self-construction-operator-evidence-submission-readiness-preflight : Generate the read-only Atlas Self-Construction Operator Evidence Submission Readiness preflight}
         {--atlas-self-construction-operator-evidence-submission-readiness-implementation-packet : Generate the read-only Atlas Self-Construction Operator Evidence Submission Readiness implementation packet}
@@ -275,6 +280,7 @@ class AtlasAiSelfConstructionCommand extends Command
         {--real-provider-smoke-json= : Real provider smoke JSON payload or @path for completion evidence status}
         {--persist-completion-evidence : Persist valid completion receipt and/or real provider smoke evidence payloads}
         {--persist-runtime-promotion-receipt : Persist a valid runtime promotion receipt payload}
+        {--operator-draft-workspace-path= : Operator evidence draft workspace directory or manifest path for the draft workspace inspector}
         {--agent-control-plane-runtime-evidence-journal-contract : Generate the read-only Runtime Evidence Journal contract}
         {--agent-control-plane-runtime-evidence-journal-preflight : Generate the read-only Runtime Evidence Journal preflight}
         {--agent-control-plane-runtime-evidence-journal-implementation-packet : Generate the read-only Runtime Evidence Journal implementation packet}
@@ -1254,6 +1260,8 @@ class AtlasAiSelfConstructionCommand extends Command
             'persist_completion_evidence' => $this->option('persist-completion-evidence'),
             'persist_runtime_promotion_receipt' => $this->option('persist-runtime-promotion-receipt'),
             'persist_export' => $this->option('persist-export'),
+            'persist_operator_draft_workspace' => $this->option('persist-operator-draft-workspace'),
+            'operator_draft_workspace_path' => $this->option('operator-draft-workspace-path'),
         ];
 
         $payload = match (true) {
@@ -2125,6 +2133,10 @@ class AtlasAiSelfConstructionCommand extends Command
             (bool) $this->option('atlas-self-construction-operator-evidence-artifact-template-pack-implementation-packet') => $readiness->atlasSelfConstructionOperatorEvidenceArtifactTemplatePackImplementationPacket($options),
             (bool) $this->option('atlas-self-construction-operator-evidence-artifact-template-pack-preflight') => $readiness->atlasSelfConstructionOperatorEvidenceArtifactTemplatePackPreflight($options),
             (bool) $this->option('atlas-self-construction-operator-evidence-artifact-template-pack-contract') => $readiness->atlasSelfConstructionOperatorEvidenceArtifactTemplatePackContract($options),
+            (bool) $this->option('atlas-self-construction-operator-evidence-draft-workspace-inspector-status') => $readiness->atlasSelfConstructionOperatorEvidenceDraftWorkspaceInspectorStatus($options),
+            (bool) $this->option('atlas-self-construction-operator-evidence-draft-workspace-inspector-implementation-packet') => $readiness->atlasSelfConstructionOperatorEvidenceDraftWorkspaceInspectorImplementationPacket($options),
+            (bool) $this->option('atlas-self-construction-operator-evidence-draft-workspace-inspector-preflight') => $readiness->atlasSelfConstructionOperatorEvidenceDraftWorkspaceInspectorPreflight($options),
+            (bool) $this->option('atlas-self-construction-operator-evidence-draft-workspace-inspector-contract') => $readiness->atlasSelfConstructionOperatorEvidenceDraftWorkspaceInspectorContract($options),
             (bool) $this->option('atlas-self-construction-operator-evidence-submission-readiness-status') => $readiness->atlasSelfConstructionOperatorEvidenceSubmissionReadinessStatus($options),
             (bool) $this->option('atlas-self-construction-operator-evidence-submission-readiness-implementation-packet') => $readiness->atlasSelfConstructionOperatorEvidenceSubmissionReadinessImplementationPacket($options),
             (bool) $this->option('atlas-self-construction-operator-evidence-submission-readiness-preflight') => $readiness->atlasSelfConstructionOperatorEvidenceSubmissionReadinessPreflight($options),

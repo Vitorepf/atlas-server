@@ -214,12 +214,17 @@ listed in the pack as required, preserving v1 outcomes.
 
 ---
 
-## 5. Adjudicator contract (unchanged behavior, hardened wiring)
+## 5. Adjudicator contract (hardened wiring + gate outcome separation)
 
 The adjudicator remains:
 
 - Deterministic and local only — no LLM is ever asked to judge.
-- `score = null` and `winner = null` (`WINNER_NONE`) when any hard gate fails.
+- Infrastructure/evidence/replay/scope hard gates keep `score = null` and
+  `winner = null` (`WINNER_NONE`).
+- One-sided deterministic test failures may emit `gate_winner=atlas|rival` and
+  `gate_result.kind=one_sided_test_failure`, but still keep `winner = null`,
+  both scores null, and `quality_score_available=false`. This prevents
+  "Atlas 100 x 0 Claude" style false quality claims.
 - `tie_threshold` defaults to 5.0 (`|atlas_score - rival_score| < threshold` ⇒
   `human_review_required_tie`).
 - `claim_ready = true` only when winner ∈ `{atlas, rival}` and every hard
@@ -235,7 +240,7 @@ end-to-end.
 
 ---
 
-## 6. Report contract (unchanged outcomes, defensive rendering)
+## 6. Report contract (defensive rendering)
 
 The premium report keeps refusing to declare a winner unless ALL of:
 
@@ -244,12 +249,13 @@ The premium report keeps refusing to declare a winner unless ALL of:
 - `scorecard.hard_failures` is empty
 - `scorecard.winner ∈ {atlas, rival, human_review_required_tie}`
 
-It renders four outcomes:
+It renders these outcomes:
 
 | Outcome                  | `winner` | `claim_ready` | `declared_why`                |
 | ------------------------ | -------- | ------------- | ----------------------------- |
 | Comparable + quality win | `atlas` or `rival` | `true`  | `quality_winner:atlas|rival`  |
 | Comparable + tie         | `human_review_required_tie` | `false` | `statistical_tie_human_review_required` |
+| Gate outcome only        | `null` with `gate_winner=atlas|rival` | `false` | `gate_winner:atlas|rival_no_quality_score` |
 | Invalid                  | `null`   | `false`       | `invalid:<verdict>`           |
 | Replay-failed            | `null`   | `false`       | `replay_failed`               |
 | Hard-fail                | `null`   | `false`       | `hard_failures:<codes>`       |
@@ -414,4 +420,3 @@ Operador roda `php artisan atlas:forge:rivals run-battery --mode=fair ...`; pipe
 ## Proximas Acoes
 
 Manter doc sincronizado caso o conjunto de artefatos required/optional mude por fase. Não promover external rivals cert sem aprovação humana.
-

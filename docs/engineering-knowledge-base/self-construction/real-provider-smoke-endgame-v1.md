@@ -118,7 +118,7 @@ The endgame never calls a provider, never spends tokens, never dispatches, never
 ## Scope
 
 - Input: optional `real_provider_smoke`, optional `persist_completion_evidence` (bool), optional `completion_audit` payload.
-- Output: single endgame envelope with 5 status states, 9 contracts, 16 ordered operator steps, exact commands, stop conditions, anti-cheat policy, non-execution guarantees, a `persistence_attempt` block (always honest about what actually happened) and a deterministic `real_provider_smoke_endgame_hash`.
+- Output: single endgame envelope with 5 status states, 9 contracts, 16 ordered operator steps, exact commands, stop conditions, anti-cheat policy, non-execution guarantees, a read-only `operator_submission_envelope`, a `persistence_attempt` block (always honest about what actually happened) and a deterministic `real_provider_smoke_endgame_hash`.
 
 ## Non-Goals
 
@@ -336,6 +336,8 @@ Operador interpretar endgame como certifier. Persistir smoke sem endgame verifie
 ## Exemplos
 
 Operador chama `build(['real_provider_smoke' => $candidate, 'persist_completion_evidence' => false])`, ve `endgame_verifier_result.status=blocked` com diagnostics `missing_provider_run_id` e `invalid_cost_event_hash`. Operador corrige, rerun, ve `verifier_passed_ready_for_explicit_persistence`. Operador adiciona `persist_completion_evidence=true`, endgame chama certifier e marca `persistence_attempt.persisted=true`. Operador roda completion audit rerun e ve o blocker fora de failed_criteria.
+
+O `operator_submission_envelope` acompanha esse fluxo sem escrever nada: quando o smoke payload passa pelo endgame verifier e pelo certifier, ele expõe o payload exato sob revisão, `smoke_json_sha256`, `smoke_hash`, comando de persistência com `--persist-completion-evidence`, checks pré-persistência e comandos de rerun. Quando o payload está ausente ou inválido, o envelope fica bloqueado e aponta o estágio exato (`blocked_until_operator_smoke_payload_exists`, `blocked_until_endgame_verifier_passes` ou `blocked_until_smoke_certification_passes`).
 
 ## Proximas Acoes
 
