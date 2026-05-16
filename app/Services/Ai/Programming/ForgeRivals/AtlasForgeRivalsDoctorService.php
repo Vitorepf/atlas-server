@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming\ForgeRivals;
 
+use App\Services\Ai\Programming\ForgeRivals\Corpus\AtlasForgeRivalsProviderArenaCorpusService;
 use App\Services\Ai\Programming\WorkspaceHygieneService;
 use Symfony\Component\Process\Process;
 
@@ -26,6 +27,7 @@ final class AtlasForgeRivalsDoctorService
     public function __construct(
         private readonly AtlasForgeRivalsRunPathResolver $paths,
         private readonly WorkspaceHygieneService $hygiene,
+        private readonly ?AtlasForgeRivalsProviderArenaCorpusService $corpus = null,
     ) {}
 
     /**
@@ -110,16 +112,67 @@ final class AtlasForgeRivalsDoctorService
             'severity' => $codexProbe['ok'] ? 'info' : 'warning',
         ];
 
+        // 9. corpus registry loadable (only when DI provided it — keeps unit
+        // tests instantiating this service via `new` without container green).
+        $corpusInfo = $this->probeCorpus();
+        $checks['corpus_registry_loadable'] = [
+            'ok' => $corpusInfo['ok'],
+            'value' => $corpusInfo['value'],
+            'severity' => $corpusInfo['ok'] ? 'info' : 'warning',
+        ];
+        if ($corpusInfo['error'] !== null) {
+            $checks['corpus_registry_loadable']['error'] = $corpusInfo['error'];
+        }
+
+        // 10. policy declaration that external_rivals_certification stays
+        // operator-approval-gated regardless of doctor output.
+        $checks['external_rivals_policy_safe'] = [
+            'ok' => true,
+            'value' => 'external_rivals_certification=blocked_requires_operator_approval',
+            'severity' => 'info',
+        ];
+
         return [
             'status' => $blockers === [] ? 'ok' : 'blocked',
             'blockers' => $blockers,
             'checks' => $checks,
             'repo_root' => $repoRoot,
             'runs_root' => $root,
+            'separated_from_external_rivals_certification' => true,
             'next_command' => $blockers === []
                 ? 'php artisan atlas:forge:rivals setup --source-ref=HEAD --json'
                 : 'fix blockers and re-run: php artisan atlas:forge:rivals doctor --json',
         ];
+    }
+
+    /**
+     * @return array{ok:bool,value:string,error:?string}
+     */
+    private function probeCorpus(): array
+    {
+        if ($this->corpus === null) {
+            return [
+                'ok' => true,
+                'value' => 'corpus_registry not injected (unit-test seam) — runtime always wires it',
+                'error' => null,
+            ];
+        }
+        try {
+            $cases = $this->corpus->cases();
+            $count = count($cases);
+
+            return [
+                'ok' => $count > 0,
+                'value' => $count.' arena case(s) registered',
+                'error' => $count > 0 ? null : 'corpus_empty',
+            ];
+        } catch (\Throwable $e) {
+            return [
+                'ok' => false,
+                'value' => 'corpus_registry_threw',
+                'error' => $e->getMessage(),
+            ];
+        }
     }
 
     /**

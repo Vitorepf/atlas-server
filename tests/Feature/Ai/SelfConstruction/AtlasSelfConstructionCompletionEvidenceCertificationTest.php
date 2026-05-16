@@ -5,6 +5,7 @@ namespace Tests\Feature\Ai\SelfConstruction;
 use App\Services\Ai\SelfConstruction\AtlasSelfConstructionCompletionEvidenceHashService;
 use App\Services\Ai\SelfConstruction\AtlasSelfConstructionForgeSelfImprovementIntegrationSmokeService;
 use App\Services\Ai\SelfConstruction\AtlasSelfConstructionHumanSignedCompletionReceiptService;
+use App\Services\Ai\SelfConstruction\AtlasSelfConstructionReadinessService;
 use App\Services\Ai\SelfConstruction\AtlasSelfConstructionRealProviderSmokeCertificationService;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Storage;
@@ -377,6 +378,142 @@ final class AtlasSelfConstructionCompletionEvidenceCertificationTest extends Tes
         $this->assertSame('passed', data_get($payload, 'real_provider_smoke.status'));
     }
 
+    public function test_completion_evidence_status_requires_real_provider_smoke_to_be_persisted_before_human_receipt_command(): void
+    {
+        Storage::fake('local');
+        $readiness = app(AtlasSelfConstructionReadinessService::class);
+
+        $hash = str_repeat('f', 64);
+        $smoke = [
+            'kind' => 'real_provider_packet_claim_to_completion',
+            'status' => 'passed',
+            'provider_run_id' => 'provider-run-smoke-same-command',
+            'task_packet_id' => 'task-packet-smoke-same-command',
+            'observed_by' => 'operator',
+            'approval_reason' => 'Operator supplied real provider smoke evidence before human receipt persistence.',
+            'smoke_hash' => $hash,
+            'operator_approval_receipt_hash' => $hash,
+            'evidence_ledger_hash' => $hash,
+            'work_product_manifest_hash' => $hash,
+            'cost_event_hash' => $hash,
+            'continuation_summary_hash' => $hash,
+            'provider_response_hash' => $hash,
+            'provider_call_observed' => true,
+            'token_spend_observed' => true,
+            'claim_to_completion_observed' => true,
+            'work_product_collected' => true,
+            'operator_supplied_evidence' => true,
+            'real_provider_run_observed_by_operator' => true,
+        ];
+        $smoke['smoke_hash'] = (new AtlasSelfConstructionCompletionEvidenceHashService)->realProviderSmokeHash($smoke);
+
+        $contextPayload = $readiness->atlasSelfConstructionOsCompletionEvidenceStatus();
+        $receipt = array_merge((array) data_get($contextPayload, 'operator_action_packet.human_completion_receipt_template', []), [
+            'receipt_id' => 'os-complete-receipt-same-command-blocked',
+            'signed_by' => 'Vitorepf Completion Operator',
+            'reason' => 'Operator reviewed final completion evidence after runtime promotion and real provider smoke.',
+            'completion_audit_hash' => str_repeat('a', 64),
+            'runtime_promotion_receipt_hash' => str_repeat('b', 64),
+            'real_provider_smoke_hash' => $smoke['smoke_hash'],
+            'os_complete_approved' => true,
+            'operator_reviewed_completion_audit' => true,
+            'no_autopromotion_acknowledged' => true,
+        ]);
+        $receipt['receipt_hash'] = (new AtlasSelfConstructionCompletionEvidenceHashService)->humanCompletionReceiptHash($receipt);
+
+        $payload = $readiness->atlasSelfConstructionOsCompletionEvidenceStatus([
+            'real_provider_smoke' => $smoke,
+            'completion_receipt' => $receipt,
+            'persist_completion_evidence' => true,
+        ]);
+
+        $this->assertTrue(data_get($payload, 'real_provider_smoke.persisted'));
+        $this->assertFalse(data_get($payload, 'human_signed_completion_receipt.persisted'));
+        $this->assertSame('human_completion_receipt_prerequisites_not_green', data_get($payload, 'human_signed_completion_receipt.persistence_blocker'));
+        $this->assertContains(
+            'real_provider_smoke_persisted_before_human_receipt_command',
+            data_get($payload, 'human_signed_completion_receipt.missing_persistence_prerequisites'),
+        );
+    }
+
+    public function test_completion_evidence_status_loads_canonical_submissions_only_when_explicit_persist_flag_is_supplied(): void
+    {
+        Storage::fake('local');
+        $smokeHash = str_repeat('f', 64);
+
+        Artisan::call('atlas:ai:self-construction', [
+            '--atlas-self-construction-os-completion-evidence-status' => true,
+            '--json' => true,
+        ]);
+        $templatePayload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+        $receipt = array_merge((array) data_get($templatePayload, 'operator_action_packet.human_completion_receipt_template', []), [
+            'receipt_id' => 'os-complete-receipt-canonical-submission',
+            'signed_by' => 'Vitorepf Completion Operator',
+            'reason' => 'Canonical submission receipt loaded only when explicit persistence is requested.',
+            'os_complete_approved' => true,
+            'operator_reviewed_completion_audit' => true,
+            'no_autopromotion_acknowledged' => true,
+        ]);
+        $receipt['receipt_hash'] = (new AtlasSelfConstructionCompletionEvidenceHashService)->humanCompletionReceiptHash($receipt);
+        $smoke = [
+            'kind' => 'real_provider_packet_claim_to_completion',
+            'status' => 'passed',
+            'provider_run_id' => 'provider-run-smoke-canonical',
+            'task_packet_id' => 'task-packet-smoke-canonical',
+            'observed_by' => 'operator',
+            'approval_reason' => 'Canonical submission real provider smoke evidence.',
+            'smoke_hash' => $smokeHash,
+            'operator_approval_receipt_hash' => $smokeHash,
+            'evidence_ledger_hash' => $smokeHash,
+            'work_product_manifest_hash' => $smokeHash,
+            'cost_event_hash' => $smokeHash,
+            'continuation_summary_hash' => $smokeHash,
+            'provider_response_hash' => $smokeHash,
+            'provider_call_observed' => true,
+            'token_spend_observed' => true,
+            'claim_to_completion_observed' => true,
+            'work_product_collected' => true,
+            'operator_supplied_evidence' => true,
+            'real_provider_run_observed_by_operator' => true,
+        ];
+        $smoke['smoke_hash'] = (new AtlasSelfConstructionCompletionEvidenceHashService)->realProviderSmokeHash($smoke);
+
+        Storage::disk('local')->put('atlas/self-construction/operator-submissions/completion-receipt.json', json_encode($receipt, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT));
+        Storage::disk('local')->put('atlas/self-construction/operator-submissions/real-provider-smoke.json', json_encode($smoke, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT));
+
+        Artisan::call('atlas:ai:self-construction', [
+            '--atlas-self-construction-os-completion-evidence-status' => true,
+            '--json' => true,
+        ]);
+        $withoutFlag = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame('canonical_submission_not_loaded_without_explicit_persist_flag', data_get($withoutFlag, 'operator_submission_input.real_provider_smoke.status'));
+        $this->assertSame('canonical_submission_not_loaded_without_explicit_persist_flag', data_get($withoutFlag, 'operator_submission_input.completion_receipt.status'));
+        $this->assertFalse(data_get($withoutFlag, 'operator_submission_input.real_provider_smoke.payload_present'));
+        $this->assertFalse(data_get($withoutFlag, 'operator_submission_input.completion_receipt.payload_present'));
+
+        Storage::disk('local')->put('atlas/self-construction/operator-submissions/completion-receipt.json', json_encode($receipt, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT));
+        Storage::disk('local')->put('atlas/self-construction/operator-submissions/real-provider-smoke.json', json_encode($smoke, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT));
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--atlas-self-construction-os-completion-evidence-status' => true,
+            '--persist-completion-evidence' => true,
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertTrue($payload['persist_completion_evidence_requested']);
+        $this->assertSame('canonical_submission', data_get($payload, 'operator_submission_input.real_provider_smoke.source'));
+        $this->assertSame('canonical_submission', data_get($payload, 'operator_submission_input.completion_receipt.source'));
+        $this->assertTrue(data_get($payload, 'operator_submission_input.real_provider_smoke.canonical_loaded'));
+        $this->assertTrue(data_get($payload, 'operator_submission_input.completion_receipt.canonical_loaded'));
+        $this->assertTrue(data_get($payload, 'real_provider_smoke.persisted'));
+        $this->assertFalse(data_get($payload, 'human_signed_completion_receipt.persisted'));
+        $this->assertSame('human_completion_receipt_prerequisites_not_green', data_get($payload, 'human_signed_completion_receipt.persistence_blocker'));
+        $this->assertContains('runtime_promotion_receipt_present', data_get($payload, 'human_signed_completion_receipt.missing_persistence_prerequisites'));
+    }
+
     public function test_completion_evidence_status_command_rejects_fake_human_completion_signer(): void
     {
         Storage::fake('local');
@@ -471,6 +608,17 @@ final class AtlasSelfConstructionCompletionEvidenceCertificationTest extends Tes
         $this->assertArrayHasKey('prepare_real_provider_smoke_offline_harness', data_get($payload, 'agent_control_plane_atlas_self_construction_os_completion_operator_action_packet.commands'));
         $this->assertArrayHasKey('draft_real_provider_smoke', data_get($payload, 'agent_control_plane_atlas_self_construction_os_completion_operator_action_packet.commands'));
         $this->assertArrayHasKey('compose_completion_evidence_hashes', data_get($payload, 'agent_control_plane_atlas_self_construction_os_completion_operator_action_packet.commands'));
+        $this->assertArrayHasKey('persist_real_provider_smoke', data_get($payload, 'agent_control_plane_atlas_self_construction_os_completion_operator_action_packet.commands'));
+        $this->assertArrayHasKey('persist_human_completion_receipt', data_get($payload, 'agent_control_plane_atlas_self_construction_os_completion_operator_action_packet.commands'));
+        $this->assertArrayNotHasKey('persist_completion_evidence', data_get($payload, 'agent_control_plane_atlas_self_construction_os_completion_operator_action_packet.commands'));
+        $this->assertStringNotContainsString(
+            '--completion-receipt-json',
+            (string) data_get($payload, 'agent_control_plane_atlas_self_construction_os_completion_operator_action_packet.commands.persist_real_provider_smoke'),
+        );
+        $this->assertStringNotContainsString(
+            '--real-provider-smoke-json',
+            (string) data_get($payload, 'agent_control_plane_atlas_self_construction_os_completion_operator_action_packet.commands.persist_human_completion_receipt'),
+        );
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) data_get($payload, 'agent_control_plane_atlas_self_construction_os_completion_operator_action_packet.template_hashes.runtime_promotion_receipt_template_hash'));
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) data_get($payload, 'agent_control_plane_atlas_self_construction_os_completion_operator_action_packet_status.operator_action_packet_hash'));
     }

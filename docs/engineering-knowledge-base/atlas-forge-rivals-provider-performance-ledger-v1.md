@@ -29,29 +29,21 @@ maintenance:
   - When the adjudicator schema changes, update the entry mapping and the docs section that lists the canonical scorecard fields.
   - Keep the nine-invariant certification in sync with the service contract; never relax an invariant without a follow-up doc.
 related_paths:
+  - docs/engineering-knowledge-base/atlas-forge-rivals-benchmark-strategy-v1.md
   - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsProviderPerformanceLedgerService.php
   - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsDecideSignalProjectionService.php
   - app/Services/Ai/Kernel/Architecture/AtlasForgeRivalsProviderPerformanceLedgerCertification.php
   - docs/engineering-knowledge-base/atlas-forge-rivals-perfect-battery-and-adjudicator-v1.md
   - docs/engineering-knowledge-base/atlas-forge-rivals-operator-battery-v2.md
 doc_schema: atlas_canonical_module_doc.v1
-
 graph_id: atlas-forge-rivals-provider-performance-ledger-v1
-
 graph_title: Atlas Forge Rivals · Provider Performance Ledger v1
-
 graph_world: atlas
-
 graph_layer: system
-
 graph_kind: module
-
 graph_parent: atlas-forge-rivals-perfect-battery-and-adjudicator-v1
-
 graph_status: active
-
 graph_source: repo
-
 owner: programming
 
 repo_paths:
@@ -62,24 +54,19 @@ repo_paths:
 allowed_changes:
   - Atualizar quando o adjudicator emitir novos campos no scorecard ou quando os thresholds de confidence/stale precisarem evoluir.
   - Manter os 9 invariantes em sincronia com o contrato exposto na cert.
-
 forbidden_changes:
   - Permitir que o ledger ou o decide-signal chamem provider externo, gastem token, destravem external_rivals_certification, ou promovam claim_ready=true.
   - Ranquear runs com hard_failures em qualquer agregado ou no cost_quality_frontier.
-
 depends_on:
+  - atlas-forge-rivals-benchmark-strategy-v1
   - atlas-forge-rivals-perfect-battery-and-adjudicator-v1
   - atlas-forge-rivals-operator-battery-v2
-
 flows_to:
   - atlas-decide
-
 unlocks:
   - provider-performance-ranking-by-task-category-and-role
-
 governs:
   - rivals_provider_performance_intelligence
-
 evidence:
   - tests/Unit/Ai/Programming/ForgeRivals/AtlasForgeRivalsProviderPerformanceLedgerServiceTest.php
   - tests/Feature/Ai/Programming/AtlasForgeRivalsProviderPerformanceLedgerCertificationTest.php
@@ -90,11 +77,8 @@ evidence:
 required_tests:
   - "php artisan test --filter='ProviderPerformanceLedger'"
   - "php artisan atlas:forge:rivals audit --json"
-
 requires_evidence: true
-
 risk_level: medium
-
 next_actions:
   - Conectar atlas:decide para consumir decide-signal como input advisory.
   - Adicionar retention/compaction ao entries.jsonl quando volume justificar.
@@ -103,6 +87,7 @@ next_actions:
 
 # Atlas Forge Rivals · Provider Performance Ledger v1
 
+Strategy canon: `atlas-forge-rivals-benchmark-strategy-v1.md`
 Status: **available** (delivered 2026-05-15)
 Schema: `atlas.forge.rivals.provider_performance_ledger.v1`
 Entry schema: `atlas.forge.rivals.provider_performance_ledger_entry.v1`

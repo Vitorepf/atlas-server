@@ -16,7 +16,7 @@ use PHPUnit\Framework\TestCase;
  */
 final class AtlasForgeRivalsProviderArenaCorpusCertificationTest extends TestCase
 {
-    public function test_certification_evaluates_available_with_fifteen_invariants_green(): void
+    public function test_certification_evaluates_available_with_twenty_two_invariants_green(): void
     {
         $cert = new AtlasForgeRivalsProviderArenaCorpusCertification(
             new AtlasForgeRivalsProviderArenaCorpusService,
@@ -32,11 +32,16 @@ final class AtlasForgeRivalsProviderArenaCorpusCertificationTest extends TestCas
             AtlasForgeRivalsProviderArenaCorpusCertification::REQUIRED_INVARIANTS,
             array_keys($eval['invariants']),
         );
-        $this->assertCount(15, $eval['invariants']);
+        $this->assertCount(22, $eval['invariants']);
+        $this->assertArrayHasKey('every_case_has_canonical_difficulty_block_l1_to_l5', $eval['invariants']);
+        $this->assertArrayHasKey('release_matrix_has_exactly_forty_cases', $eval['invariants']);
+        $this->assertArrayHasKey('release_matrix_fills_every_cell_8x5', $eval['invariants']);
         foreach ($eval['invariants'] as $name => $row) {
             $this->assertTrue((bool) $row['ok'], "invariant '{$name}' não está verde: ".json_encode($row));
         }
-        $this->assertSame(12, $eval['corpus_count']);
+        $this->assertSame(40, $eval['corpus_count']);
+        $this->assertSame('release_v1', $eval['release_version']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $eval['corpus_content_hash']);
         $this->assertFalse($eval['external_provider_call']);
         $this->assertSame('external_rivals_certification', $eval['separated_from']);
     }

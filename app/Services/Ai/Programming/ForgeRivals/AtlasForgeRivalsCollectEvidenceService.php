@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming\ForgeRivals;
 
+use App\Services\Ai\Programming\ForgeRivals\Corpus\AtlasForgeRivalsProviderArenaCorpusService;
+
 /**
  * Atlas Forge Rivals · Collect Evidence (v2 hardened).
  *
@@ -21,15 +23,45 @@ namespace App\Services\Ai\Programming\ForgeRivals;
  * `missing_required` list, prefixed with `missing_evidence:` for legacy
  * adjudicator hard-gate `evidence_complete`).
  *
+ * Evidence Pack + Replay Hardening v2 (2026-05-15) additions, all additive:
+ *   - `provider_receipts` summary (per arm: exit_code, killed, test_mode flag,
+ *     command/prompt/stdout/stderr/test_log hashes, source).
+ *   - `workspace_hash_before` / `workspace_hash_after` / `after_clean_check`
+ *     surfaced from the run manifest so the verifier never has to re-derive
+ *     them from disk.
+ *   - `tracked_bytecode_artifacts` aggregated across arms (any tracked .pyc
+ *     blocks claim).
+ *   - `reason_missing` populated for every artifact where `present=false` so
+ *     "missing without explanation" can never sneak through.
+ *   - `claim_ready=false` is enforced when any required artifact is missing.
+ *   - `external_rivals_certification_status` is always `blocked`.
+ *   - Top-level `mode_for_evidence` records the operator mode the evidence
+ *     was produced under (fair|full_power|local_fake). Verifier uses this to
+ *     decide which strict checks to apply.
+ *   - Sidecar `artifact_index.json` lists every artifact key, path, sha256,
+ *     bytes, policy, reason_missing for replay-without-pack and CI audits.
+ *
  * Never invokes provider. Read-only.
  *
  * Schema: `atlas.forge.rivals.evidence_pack.v2` (v1 fields preserved).
+ * Sidecar schema: `atlas.forge.rivals.artifact_index.v1`.
  */
 final class AtlasForgeRivalsCollectEvidenceService
 {
     public const SCHEMA_VERSION = 'atlas.forge.rivals.evidence_pack.v2';
 
+    public const ARTIFACT_INDEX_SCHEMA_VERSION = 'atlas.forge.rivals.artifact_index.v1';
+
     public const SCHEMA_VERSION_LEGACY = 'atlas.forge.rivals.evidence_pack.v1';
+
+    /** Canonical evidence-mode values surfaced by the pack. */
+    public const EVIDENCE_MODE_DRY_RUN = 'dry_run';
+
+    public const EVIDENCE_MODE_FAKE_RUN = 'fake_run';
+
+    public const EVIDENCE_MODE_REAL_RUN = 'real_run';
+
+    public const EVIDENCE_MODE_UNKNOWN = 'unknown';
 
     public function __construct(
         private readonly AtlasForgeRivalsRunPathResolver $paths,
@@ -83,8 +115,12 @@ final class AtlasForgeRivalsCollectEvidenceService
             if ($path === null) {
                 continue;
             }
+            $policy = $plan['policy'][$key] ?? AtlasForgeRivalsEvidencePolicy::POLICY_OPTIONAL;
             $desc = $this->describeFile($path);
-            $desc['policy'] = $plan['policy'][$key] ?? AtlasForgeRivalsEvidencePolicy::POLICY_OPTIONAL;
+            $desc['policy'] = $policy;
+            if (! ($desc['present'] ?? false)) {
+                $desc['reason_missing'] = $this->reasonMissing($key, $policy, $plan);
+            }
             $artifacts[$key] = $desc;
         }
 
@@ -114,10 +150,26 @@ final class AtlasForgeRivalsCollectEvidenceService
         if (str_starts_with($verdict, 'invalid') || $missingRequired !== []) {
             $claimReady = false;
         }
+        if ($plan['stage'] === AtlasForgeRivalsEvidencePolicy::STAGE_FINAL && ($artifacts['scorecard']['present'] ?? false)) {
+            $scorecard = $this->readJson($paths['scorecard_json']);
+            $claimReady = $claimReady && (bool) ($scorecard['claim_ready'] ?? false);
+        }
+
+        $atlasReceipt = $this->readJson($paths['evidence'].'/atlas_receipt.json');
+        $rivalReceipt = $this->readJson($paths['evidence'].'/rival_receipt.json');
+        $providerReceipts = $this->summarizeProviderReceipts($atlasReceipt, $rivalReceipt, $manifest);
+        $workspaceHashes = $this->readJson($paths['evidence'].'/workspace_hashes.json');
+        $afterCleanCheck = $this->summarizeAfterCleanCheck($manifest, $workspaceHashes, $atlasReceipt, $rivalReceipt);
+        $trackedBytecode = $this->aggregateBytecodeArtifacts($atlasReceipt, $rivalReceipt);
+        $modeForEvidence = $this->resolveEvidenceMode($manifest);
+        $externalProviderCall = (bool) ($manifest['external_provider_call'] ?? false);
+        $providerTokensMayHaveBeenSpent = (bool) ($manifest['provider_tokens_spent'] ?? $externalProviderCall);
+        $multiCase = $this->buildMultiCaseSummary($manifest, $paths);
 
         $pack = [
             'schema_version' => self::SCHEMA_VERSION,
             'evidence_stage' => $plan['stage'],
+            'mode_for_evidence' => $modeForEvidence,
             'run_id' => $paths['run_id'],
             'collected_at' => now()->toJSON(),
             'paths' => $paths,
@@ -140,15 +192,32 @@ final class AtlasForgeRivalsCollectEvidenceService
                 'dirty_after_run' => $manifest['dirty_after_run'] ?? null,
             ],
             'is_comparable_real_run' => $plan['is_comparable_real_run'],
-            'external_provider_call' => (bool) ($manifest['external_provider_call'] ?? false),
-            'provider_tokens_spent' => (bool) ($manifest['provider_tokens_spent'] ?? false),
+            'workspace_hash_before' => $manifest['workspace_hash_before'] ?? ($workspaceHashes['before'] ?? null),
+            'workspace_hash_after' => $manifest['workspace_hash_after'] ?? ($workspaceHashes['after'] ?? null),
+            'after_clean_check' => $afterCleanCheck,
+            'provider_receipts' => $providerReceipts,
+            'tracked_bytecode_artifacts' => $trackedBytecode,
+            'external_provider_call' => $externalProviderCall,
+            'provider_tokens_spent' => $providerTokensMayHaveBeenSpent,
+            'provider_tokens_may_have_been_spent' => $providerTokensMayHaveBeenSpent,
+            'external_rivals_certification_status' => 'blocked',
+            'promotes_external_rivals_claim' => false,
             'separated_from_external_rivals_certification' => true,
+            'is_multi_case' => $multiCase['is_multi_case'],
+            'case_count' => $multiCase['case_count'],
+            'cases' => $multiCase['cases'],
+            'category_summary' => $multiCase['category_summary'],
+            'difficulty_summary' => $multiCase['difficulty_summary'],
         ];
 
         @mkdir($paths['evidence'], 0o755, true);
+        $packJson = (string) json_encode($pack, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        file_put_contents($paths['evidence'].'/evidence_pack.json', $packJson);
+
+        $artifactIndex = $this->buildArtifactIndex($paths['run_id'], $plan['stage'], $artifacts, $plan);
         file_put_contents(
-            $paths['evidence'].'/evidence_pack.json',
-            (string) json_encode($pack, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)
+            $paths['evidence'].'/artifact_index.json',
+            (string) json_encode($artifactIndex, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)
         );
 
         return [
@@ -199,5 +268,447 @@ final class AtlasForgeRivalsCollectEvidenceService
         $row = json_decode($blob, true);
 
         return is_array($row) ? $row : [];
+    }
+
+    /**
+     * Reason why a given artifact key is absent. Required artifacts get a
+     * blocking-flavored reason; optional artifacts get the policy-explained
+     * reason so the verifier never has to guess.
+     *
+     * @param  array<string,mixed>  $plan
+     */
+    private function reasonMissing(string $key, string $policy, array $plan): string
+    {
+        if ($policy === AtlasForgeRivalsEvidencePolicy::POLICY_REQUIRED) {
+            return 'required_artifact_absent_on_disk:'.$key;
+        }
+        $verdict = (string) ($plan['verdict'] ?? '');
+        $mode = (string) ($plan['mode'] ?? '');
+        if ($mode === 'local_fake') {
+            return 'optional_for_local_fake_mode:'.$key;
+        }
+        if (str_starts_with($verdict, 'invalid')) {
+            return 'optional_for_invalid_verdict:'.$verdict;
+        }
+        if ($verdict === 'inconclusive' || $verdict === 'unknown') {
+            return 'optional_for_'.$verdict.'_verdict';
+        }
+        if ($key === 'scorecard') {
+            return 'scorecard_not_required_for_pre_adjudication_stage';
+        }
+
+        return 'optional_artifact_absent:'.$key;
+    }
+
+    /**
+     * Summary of per-arm provider receipts for the verifier and the artifact
+     * index. Each entry carries the hashes + the booleans needed to decide if
+     * a real_run was satisfied or if a fake_run is being recycled. The
+     * `test_mode` flag is set to true when a receipt was produced by the
+     * local_fake in-process adapter — real_run must reject those.
+     *
+     * @param  array<string,mixed>  $atlasReceipt
+     * @param  array<string,mixed>  $rivalReceipt
+     * @param  array<string,mixed>  $manifest
+     * @return array<string,mixed>
+     */
+    private function summarizeProviderReceipts(array $atlasReceipt, array $rivalReceipt, array $manifest): array
+    {
+        $mode = strtolower((string) ($manifest['mode'] ?? ''));
+
+        return [
+            'atlas' => $this->summarizeArmReceipt($atlasReceipt, $mode),
+            'rival' => $this->summarizeArmReceipt($rivalReceipt, $mode),
+            'count_present' => ($atlasReceipt === [] ? 0 : 1) + ($rivalReceipt === [] ? 0 : 1),
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $receipt
+     * @return array<string,mixed>
+     */
+    private function summarizeArmReceipt(array $receipt, string $mode): array
+    {
+        if ($receipt === []) {
+            return [
+                'present' => false,
+                'reason_missing' => 'provider_receipt_not_supplied',
+                'test_mode' => false,
+                'fake' => false,
+                'killed' => false,
+                'exit_code' => null,
+                'test_exit_code' => null,
+                'patch_diff_bytes' => 0,
+                'stdout_hash' => null,
+                'stderr_hash' => null,
+                'command_hash' => null,
+                'prompt_hash' => null,
+                'test_log_hash' => null,
+                'patch_diff_hash' => null,
+            ];
+        }
+        $isFake = (bool) ($receipt['fake'] ?? false) || strtolower((string) ($receipt['mode'] ?? $mode)) === 'local_fake';
+
+        return [
+            'present' => true,
+            'test_mode' => $isFake,
+            'fake' => $isFake,
+            'arm' => $receipt['arm'] ?? null,
+            'mode' => $receipt['mode'] ?? null,
+            'model' => $receipt['model'] ?? null,
+            'exit_code' => $receipt['exit_code'] ?? null,
+            'test_exit_code' => $receipt['test_exit_code'] ?? null,
+            'killed' => (bool) ($receipt['killed'] ?? false),
+            'timeout_reason' => $receipt['timeout_reason'] ?? null,
+            'patch_diff_bytes' => (int) ($receipt['patch_diff_bytes'] ?? 0),
+            'stdout_hash' => $receipt['stdout_hash'] ?? null,
+            'stderr_hash' => $receipt['stderr_hash'] ?? null,
+            'command_hash' => $receipt['command_hash'] ?? null,
+            'prompt_hash' => $receipt['prompt_hash'] ?? null,
+            'test_log_hash' => $receipt['test_log_hash'] ?? null,
+            'patch_diff_hash' => $receipt['patch_diff_hash'] ?? null,
+            'source' => $isFake ? 'local_fake_in_process_provider' : 'provider_process_runner',
+        ];
+    }
+
+    /**
+     * Surface after-clean-check details that the operator harness recorded.
+     * Three signals are merged into a single object: (a) workspace_hashes.json
+     * (`dirty_after_run`, `workspace_blockers`), (b) the run manifest
+     * (`dirty_after_run`, `workspace_blockers`), and (c) per-arm receipts
+     * (`workspace_has_blocking_changes`, `bytecode_artifacts`, `changed_files`).
+     *
+     * The verifier reads `clean=true` to admit a real_run.
+     *
+     * @param  array<string,mixed>  $manifest
+     * @param  array<string,mixed>  $workspaceHashes
+     * @param  array<string,mixed>  $atlasReceipt
+     * @param  array<string,mixed>  $rivalReceipt
+     * @return array<string,mixed>
+     */
+    private function summarizeAfterCleanCheck(array $manifest, array $workspaceHashes, array $atlasReceipt, array $rivalReceipt): array
+    {
+        $manifestDirty = $manifest['dirty_after_run'] ?? null;
+        $workspaceDirty = $workspaceHashes['dirty_after_run'] ?? null;
+        $dirty = $manifestDirty === true || $workspaceDirty === true;
+        $ran = $manifest !== [] || $workspaceHashes !== [];
+        $clean = $ran ? ! $dirty : null;
+        $blockers = array_values(array_unique(array_merge(
+            $this->stringList($manifest['workspace_blockers'] ?? []),
+            $this->stringList($workspaceHashes['workspace_blockers'] ?? []),
+        )));
+        $atlasBlocking = (bool) ($atlasReceipt['workspace_has_blocking_changes'] ?? false);
+        $rivalBlocking = (bool) ($rivalReceipt['workspace_has_blocking_changes'] ?? false);
+        $changedFiles = [
+            'atlas' => $this->stringList($atlasReceipt['changed_files'] ?? []),
+            'rival' => $this->stringList($rivalReceipt['changed_files'] ?? []),
+        ];
+
+        return [
+            'ran' => $ran,
+            'clean' => $clean,
+            'dirty_after_run' => $dirty,
+            'workspace_blockers' => $blockers,
+            'arm_blocking_changes' => [
+                'atlas' => $atlasBlocking,
+                'rival' => $rivalBlocking,
+            ],
+            'changed_files' => $changedFiles,
+            'head_changed' => null,
+            'source' => $ran ? 'manifest+workspace_hashes+arm_receipts' : 'not_recorded',
+            'reason_not_run' => $ran ? null : 'no_run_manifest_or_workspace_hashes_on_disk',
+        ];
+    }
+
+    /**
+     * Aggregate every bytecode artifact across arms. Any tracked .pyc/.pyo or
+     * __pycache__ path is a terminal blocker for the run, regardless of mode.
+     *
+     * @param  array<string,mixed>  $atlasReceipt
+     * @param  array<string,mixed>  $rivalReceipt
+     * @return list<string>
+     */
+    private function aggregateBytecodeArtifacts(array $atlasReceipt, array $rivalReceipt): array
+    {
+        $atlas = $this->stringList($atlasReceipt['bytecode_artifacts'] ?? []);
+        $rival = $this->stringList($rivalReceipt['bytecode_artifacts'] ?? []);
+
+        return array_values(array_unique(array_merge($atlas, $rival)));
+    }
+
+    /**
+     * Translate the run's operator mode into a stable evidence-mode string
+     * the verifier consumes. `fair` and `full_power` both produce real_run
+     * evidence; `local_fake` produces fake_run; absence means dry_run.
+     *
+     * @param  array<string,mixed>  $manifest
+     */
+    private function resolveEvidenceMode(array $manifest): string
+    {
+        $mode = strtolower((string) ($manifest['mode'] ?? ''));
+
+        return match ($mode) {
+            'fair', 'full_power', 'power' => self::EVIDENCE_MODE_REAL_RUN,
+            'local_fake' => self::EVIDENCE_MODE_FAKE_RUN,
+            'diagnostic', 'replay_only', 'dry_run' => self::EVIDENCE_MODE_DRY_RUN,
+            '' => self::EVIDENCE_MODE_UNKNOWN,
+            default => self::EVIDENCE_MODE_UNKNOWN,
+        };
+    }
+
+    /**
+     * Build the sidecar artifact index for a (run_id, stage) pair. The verifier
+     * and the CLI `evidence`/`replay`/`verify-evidence` actions consume this
+     * file as the single source of truth for "what artifacts exist on disk and
+     * what is their sha256". The index is intentionally flat — one entry per
+     * artifact key — so CI tooling can diff it across runs without parsing the
+     * full evidence pack.
+     *
+     * Schema: `atlas.forge.rivals.artifact_index.v1`.
+     *
+     * @param  array<string,mixed>  $artifacts
+     * @param  array<string,mixed>  $plan
+     * @return array<string,mixed>
+     */
+    private function buildArtifactIndex(string $runId, string $stage, array $artifacts, array $plan): array
+    {
+        $entries = [];
+        foreach ($artifacts as $key => $desc) {
+            $entries[$key] = [
+                'path' => $desc['path'] ?? null,
+                'present' => (bool) ($desc['present'] ?? false),
+                'bytes' => (int) ($desc['bytes'] ?? 0),
+                'sha256' => $desc['sha256'] ?? null,
+                'policy' => $desc['policy'] ?? AtlasForgeRivalsEvidencePolicy::POLICY_OPTIONAL,
+                'reason_missing' => $desc['reason_missing'] ?? null,
+            ];
+        }
+
+        return [
+            'schema_version' => self::ARTIFACT_INDEX_SCHEMA_VERSION,
+            'run_id' => $runId,
+            'evidence_stage' => $stage,
+            'generated_at' => now()->toJSON(),
+            'required_artifacts' => $plan['required'],
+            'optional_artifacts' => $plan['optional'],
+            'artifacts' => $entries,
+            'external_rivals_certification_status' => 'blocked',
+            'separated_from_external_rivals_certification' => true,
+        ];
+    }
+
+    /**
+     * @param  mixed  $value
+     * @return list<string>
+     */
+    private function stringList(mixed $value): array
+    {
+        if (! is_array($value)) {
+            return [];
+        }
+
+        return array_values(array_map(static fn ($v): string => (string) $v, $value));
+    }
+
+    /**
+     * Build the multi-case summary surfaced on the evidence pack. Walks the
+     * run manifest's `cases[]` array (written by run-real) and produces three
+     * blocks the verifier consumes:
+     *
+     *   - `cases`: per-case digest with case_id, task_category, difficulty,
+     *     difficulty_level (L1-L5), verdict, evidence_subdir, per-arm patch /
+     *     test log paths + sha256 hashes. `difficulty_level` carries an
+     *     `origin` (`corpus`/`auto_mapped_from_legacy`/`missing`) so the
+     *     verifier can fail-closed when difficulty is absent.
+     *   - `category_summary`: counts by `task_category`.
+     *   - `difficulty_summary`: counts by L1-L5 level plus the canonical
+     *     ladder so a battery that runs only L1 cases never gets pretended as
+     *     a release-grade L5 score.
+     *
+     * Returns `is_multi_case=false` and zero-length lists for legacy single
+     * case runs that did not write a `cases[]` array.
+     *
+     * @param  array<string,mixed>  $manifest
+     * @param  array<string,string>  $paths
+     * @return array{
+     *   is_multi_case: bool,
+     *   case_count: int,
+     *   cases: list<array<string,mixed>>,
+     *   category_summary: array<string,mixed>,
+     *   difficulty_summary: array<string,mixed>,
+     * }
+     */
+    private function buildMultiCaseSummary(array $manifest, array $paths): array
+    {
+        $manifestCases = $manifest['cases'] ?? null;
+        $isMultiCase = (bool) ($manifest['is_multi_case'] ?? false);
+        if (! is_array($manifestCases) || $manifestCases === []) {
+            return [
+                'is_multi_case' => false,
+                'case_count' => 0,
+                'cases' => [],
+                'category_summary' => [
+                    'counts' => [],
+                    'present_categories' => [],
+                ],
+                'difficulty_summary' => [
+                    'counts' => array_fill_keys(AtlasForgeRivalsProviderArenaCorpusService::DIFFICULTY_LEVELS, 0),
+                    'missing_difficulty_count' => 0,
+                    'ladder' => AtlasForgeRivalsProviderArenaCorpusService::DIFFICULTY_LEVELS,
+                    'weights' => AtlasForgeRivalsProviderArenaCorpusService::DIFFICULTY_LEVEL_SCORE_WEIGHTS,
+                ],
+            ];
+        }
+
+        $cases = [];
+        $categoryCounts = [];
+        $difficultyCounts = array_fill_keys(AtlasForgeRivalsProviderArenaCorpusService::DIFFICULTY_LEVELS, 0);
+        $missingDifficultyCount = 0;
+        $totalWeight = 0.0;
+
+        foreach ($manifestCases as $entry) {
+            if (! is_array($entry)) {
+                continue;
+            }
+            $caseId = (string) ($entry['case_id'] ?? '');
+            if ($caseId === '') {
+                continue;
+            }
+
+            $taskCategory = isset($entry['task_category']) ? (string) $entry['task_category'] : '';
+            if ($taskCategory !== '') {
+                $categoryCounts[$taskCategory] = ($categoryCounts[$taskCategory] ?? 0) + 1;
+            }
+
+            $rawLevel = isset($entry['difficulty_level']) ? (string) $entry['difficulty_level'] : '';
+            $legacyDifficulty = isset($entry['difficulty']) ? (string) $entry['difficulty'] : '';
+            [$level, $origin] = $this->resolveDifficultyLevel($rawLevel, $legacyDifficulty);
+            if ($level === null) {
+                $missingDifficultyCount++;
+            } else {
+                $difficultyCounts[$level]++;
+                $totalWeight += AtlasForgeRivalsProviderArenaCorpusService::difficultyLevelWeight($level);
+            }
+            $weight = $level === null ? null : AtlasForgeRivalsProviderArenaCorpusService::difficultyLevelWeight($level);
+
+            $evidenceSubdir = isset($entry['evidence_subdir']) && is_string($entry['evidence_subdir']) && trim($entry['evidence_subdir']) !== ''
+                ? $paths['evidence'].'/'.$entry['evidence_subdir']
+                : $paths['evidence'];
+
+            $cases[] = [
+                'case_id' => $caseId,
+                'case_index' => (int) ($entry['case_index'] ?? 0),
+                'task_category' => $taskCategory !== '' ? $taskCategory : null,
+                'case_source' => (string) ($entry['case_source'] ?? 'legacy'),
+                'case_set' => $entry['case_set'] ?? null,
+                'difficulty' => $legacyDifficulty !== '' ? $legacyDifficulty : null,
+                'difficulty_level' => $level,
+                'difficulty_level_origin' => $origin,
+                'difficulty_weight' => $weight,
+                'verdict' => (string) ($entry['verdict'] ?? 'unknown'),
+                'evidence_subdir' => $entry['evidence_subdir'] ?? null,
+                'evidence_path' => $evidenceSubdir,
+                'workspace_hash_before' => $entry['workspace_hash_before'] ?? null,
+                'workspace_hash_after' => $entry['workspace_hash_after'] ?? null,
+                'workspace_blockers' => $this->stringList($entry['workspace_blockers'] ?? []),
+                'arms' => [
+                    'atlas' => $this->summarizeCaseArm((array) ($entry['atlas_arm'] ?? []), $evidenceSubdir, 'atlas'),
+                    'rival' => $this->summarizeCaseArm((array) ($entry['rival_arm'] ?? []), $evidenceSubdir, 'rival'),
+                ],
+            ];
+        }
+
+        return [
+            'is_multi_case' => $isMultiCase || count($cases) > 1,
+            'case_count' => count($cases),
+            'cases' => $cases,
+            'category_summary' => [
+                'counts' => $categoryCounts,
+                'present_categories' => array_keys($categoryCounts),
+            ],
+            'difficulty_summary' => [
+                'counts' => $difficultyCounts,
+                'missing_difficulty_count' => $missingDifficultyCount,
+                'ladder' => AtlasForgeRivalsProviderArenaCorpusService::DIFFICULTY_LEVELS,
+                'weights' => AtlasForgeRivalsProviderArenaCorpusService::DIFFICULTY_LEVEL_SCORE_WEIGHTS,
+                'total_weight' => $totalWeight,
+            ],
+        ];
+    }
+
+    /**
+     * Resolve the canonical L1-L5 difficulty level for a case entry. Returns
+     * `[level, origin]` where `level` is null when difficulty cannot be
+     * resolved from either the new canonical field or the legacy
+     * easy/medium/hard fallback. The verifier rejects the pack when this is
+     * the case.
+     *
+     * @return array{0: ?string, 1: string}
+     */
+    private function resolveDifficultyLevel(string $rawLevel, string $legacyDifficulty): array
+    {
+        $upper = strtoupper(trim($rawLevel));
+        if (in_array($upper, AtlasForgeRivalsProviderArenaCorpusService::DIFFICULTY_LEVELS, true)) {
+            return [$upper, 'corpus'];
+        }
+        $lower = strtolower(trim($legacyDifficulty));
+        if (isset(AtlasForgeRivalsProviderArenaCorpusService::DIFFICULTY_TO_LEVEL[$lower])) {
+            return [
+                AtlasForgeRivalsProviderArenaCorpusService::DIFFICULTY_TO_LEVEL[$lower],
+                'auto_mapped_from_legacy',
+            ];
+        }
+
+        return [null, 'missing'];
+    }
+
+    /**
+     * @param  array<string,mixed>  $armSummary
+     * @return array<string,mixed>
+     */
+    private function summarizeCaseArm(array $armSummary, string $evidencePath, string $armKey): array
+    {
+        if ($armSummary === []) {
+            return [
+                'present' => false,
+                'reason_missing' => 'arm_summary_not_recorded_in_manifest:'.$armKey,
+            ];
+        }
+
+        // Per-case provider receipt presence is decided by disk, not by the
+        // manifest snapshot. A missing receipt file under cases/<subdir>/
+        // means the case ran without a recordable provider receipt and must
+        // not be trusted as a real_run.
+        $receiptPath = $evidencePath.'/'.$armKey.'_receipt.json';
+        $receiptPresent = is_file($receiptPath);
+        if (! $receiptPresent) {
+            return [
+                'present' => false,
+                'reason_missing' => 'provider_receipt_missing_on_disk:'.$armKey,
+                'receipt_path' => $receiptPath,
+            ];
+        }
+
+        $patchPath = $evidencePath.'/'.$armKey.'_patch.diff';
+        $testLogPath = $evidencePath.'/'.$armKey.'_test.log';
+
+        return [
+            'present' => true,
+            'receipt_path' => $receiptPath,
+            'receipt_on_disk_sha256' => hash_file('sha256', $receiptPath) ?: null,
+            'exit_code' => $armSummary['exit_code'] ?? null,
+            'test_exit_code' => $armSummary['test_exit_code'] ?? null,
+            'killed' => (bool) ($armSummary['killed'] ?? false),
+            'timeout_reason' => $armSummary['timeout_reason'] ?? null,
+            'patch_diff_bytes' => (int) ($armSummary['patch_diff_bytes'] ?? 0),
+            'patch_diff_hash' => $armSummary['patch_diff_hash'] ?? null,
+            'patch_diff_path' => is_file($patchPath) ? $patchPath : ($armSummary['patch_diff_path'] ?? null),
+            'patch_diff_on_disk_sha256' => is_file($patchPath) ? (hash_file('sha256', $patchPath) ?: null) : null,
+            'test_log_path' => is_file($testLogPath) ? $testLogPath : ($armSummary['test_log_path'] ?? null),
+            'test_log_on_disk_sha256' => is_file($testLogPath) ? (hash_file('sha256', $testLogPath) ?: null) : null,
+            'changed_files' => $this->stringList($armSummary['changed_files'] ?? []),
+            'out_of_scope_files' => $this->stringList($armSummary['out_of_scope_files'] ?? []),
+            'bytecode_artifacts' => $this->stringList($armSummary['bytecode_artifacts'] ?? []),
+        ];
     }
 }

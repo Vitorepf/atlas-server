@@ -314,7 +314,16 @@ class AiContextPack
             $lines[] = '## Memoria Semantica Recuperada';
             $lines[] = 'Use silenciosamente quando ajudar. Nao anuncie "contexto mapeado" e nao liste estrutura interna do Atlas salvo se o operador pedir.';
             foreach ($memory as $item) {
-                $score = isset($item['score']) ? ' score='.$item['score'] : '';
+                // PHP 8.4+ refusa coerção NaN→string. Score pode chegar NaN
+                // quando rerank dá divisão zero — guardamos com is_finite().
+                $rawScore = $item['score'] ?? null;
+                $score = '';
+                if ($rawScore !== null) {
+                    $floatScore = is_numeric($rawScore) ? (float) $rawScore : NAN;
+                    if (is_finite($floatScore)) {
+                        $score = ' score='.number_format($floatScore, 4, '.', '');
+                    }
+                }
                 $lines[] = '### '.($item['title'] ?? 'Sem titulo').$score;
                 $lines[] = 'path: '.($item['path'] ?? 'n/a');
                 $lines[] = 'tipo: '.($item['type'] ?? 'n/a');

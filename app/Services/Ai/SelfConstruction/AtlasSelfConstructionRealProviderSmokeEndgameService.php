@@ -3,6 +3,7 @@
 namespace App\Services\Ai\SelfConstruction;
 
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\Storage;
 
 final class AtlasSelfConstructionRealProviderSmokeEndgameService
 {
@@ -11,6 +12,8 @@ final class AtlasSelfConstructionRealProviderSmokeEndgameService
     public const MODE = 'read_only_real_provider_smoke_endgame';
 
     public const BLOCKER_ID = 'end_to_end_real_provider_smoke_green';
+
+    private const CANONICAL_PUBLISHED_SMOKE_PATH = 'atlas/self-construction/operator-submissions/real-provider-smoke.json';
 
     public function __construct(
         private readonly AtlasSelfConstructionRealProviderSmokeOfflineHarnessService $harness = new AtlasSelfConstructionRealProviderSmokeOfflineHarnessService,
@@ -30,7 +33,17 @@ final class AtlasSelfConstructionRealProviderSmokeEndgameService
      */
     public function build(array $options = []): array
     {
-        $smoke = (array) ($options['real_provider_smoke'] ?? []);
+        $providedSmoke = (array) ($options['real_provider_smoke'] ?? []);
+        $canonicalSubmission = $providedSmoke === []
+            ? $this->loadRealProviderSmokeFromCanonicalSubmission()
+            : [];
+        $canonicalSmoke = (array) data_get($canonicalSubmission, 'smoke_payload', []);
+        $smoke = $providedSmoke !== [] ? $providedSmoke : $canonicalSmoke;
+        $smokeSource = match (true) {
+            $providedSmoke !== [] => 'operator_supplied_real_provider_smoke',
+            $canonicalSmoke !== [] => 'canonical_published_real_provider_smoke',
+            default => 'none',
+        };
         $persistRequested = (bool) ($options['persist_completion_evidence'] ?? false);
         $completionAudit = (array) ($options['completion_audit'] ?? []);
 
@@ -64,6 +77,16 @@ final class AtlasSelfConstructionRealProviderSmokeEndgameService
             'blocker_id' => self::BLOCKER_ID,
             'generated_at' => CarbonImmutable::now()->toIso8601String(),
             'persist_completion_evidence_requested' => $persistRequested,
+            'smoke_under_review' => [
+                'source' => $smokeSource,
+                'present' => $smoke !== [],
+                'provided_by_cli_payload' => $providedSmoke !== [],
+                'provided_by_canonical_submission' => $canonicalSmoke !== [],
+                'smoke_hash' => (string) ($smoke['smoke_hash'] ?? ''),
+                'provider_run_id' => (string) ($smoke['provider_run_id'] ?? ''),
+                'task_packet_id' => (string) ($smoke['task_packet_id'] ?? ''),
+            ],
+            'canonical_submission_smoke' => $canonicalSubmission,
             'persistence_attempt' => $persistenceAttempt,
             'operator_submission_envelope' => $operatorSubmissionEnvelope,
             'required_evidence_contract' => $this->requiredEvidenceContract(),
@@ -434,6 +457,49 @@ final class AtlasSelfConstructionRealProviderSmokeEndgameService
     private function finalEvidenceBundle(): AtlasSelfConstructionFinalEvidenceBundleService
     {
         return app(AtlasSelfConstructionFinalEvidenceBundleService::class);
+    }
+
+    /** @return array<string, mixed> */
+    private function loadRealProviderSmokeFromCanonicalSubmission(): array
+    {
+        if (! Storage::disk('local')->exists(self::CANONICAL_PUBLISHED_SMOKE_PATH)) {
+            return [
+                'status' => 'not_found',
+                'submission_path' => self::CANONICAL_PUBLISHED_SMOKE_PATH,
+                'smoke_payload' => [],
+                'violations' => [],
+            ];
+        }
+
+        try {
+            $decoded = json_decode(Storage::disk('local')->get(self::CANONICAL_PUBLISHED_SMOKE_PATH), true, flags: JSON_THROW_ON_ERROR);
+            $payload = is_array($decoded) ? $decoded : [];
+        } catch (\Throwable) {
+            $payload = [];
+        }
+
+        if ($payload === []) {
+            return [
+                'status' => 'blocked',
+                'submission_path' => self::CANONICAL_PUBLISHED_SMOKE_PATH,
+                'smoke_payload' => [],
+                'violations' => ['canonical_real_provider_smoke_submission_invalid_json_or_empty'],
+            ];
+        }
+
+        return [
+            'status' => 'loaded_for_endgame_review',
+            'submission_path' => self::CANONICAL_PUBLISHED_SMOKE_PATH,
+            'smoke_payload' => $payload,
+            'violations' => [],
+            'non_execution_guarantees' => [
+                'canonical_submission_loader_reads_only',
+                'canonical_submission_loader_does_not_mark_submission_as_persisted_evidence',
+                'canonical_submission_loader_does_not_call_provider',
+                'canonical_submission_loader_does_not_spend_tokens',
+                'canonical_submission_loader_does_not_persist_smoke',
+            ],
+        ];
     }
 
     /** @param array<string, mixed> $payload */

@@ -3,6 +3,7 @@
 namespace App\Services\Ai\SelfConstruction;
 
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * Closes the Atlas Self-Construction blocker
@@ -26,6 +27,8 @@ final class AtlasSelfConstructionHumanCompletionReceiptClosureExecutionPackServi
 
     public const MODE = 'read_only_human_completion_receipt_closure_execution_pack';
 
+    private const CANONICAL_PUBLISHED_RECEIPT_PATH = 'atlas/self-construction/operator-submissions/completion-receipt.json';
+
     public function __construct(
         private readonly AtlasSelfConstructionReadinessService $readiness,
     ) {}
@@ -36,9 +39,21 @@ final class AtlasSelfConstructionHumanCompletionReceiptClosureExecutionPackServi
      */
     public function build(array $options = []): array
     {
+        $providedReceipt = (array) ($options['completion_receipt'] ?? []);
+        $canonicalSubmissionReceipt = $providedReceipt === []
+            ? $this->loadCompletionReceiptFromCanonicalSubmission()
+            : [];
+        $canonicalReceipt = (array) data_get($canonicalSubmissionReceipt, 'receipt_payload', []);
+        $receiptInput = $providedReceipt !== [] ? $providedReceipt : $canonicalReceipt;
+        $receiptSource = match (true) {
+            $providedReceipt !== [] => 'operator_supplied_completion_receipt',
+            $canonicalReceipt !== [] => 'canonical_published_completion_receipt',
+            default => 'none',
+        };
+
         $completionAudit = (array) ($options['completion_audit']
             ?? (new AtlasSelfConstructionOsCompletionAuditService($this->readiness))->audit([
-                'completion_receipt' => (array) ($options['completion_receipt'] ?? []),
+                'completion_receipt' => $receiptInput,
                 'real_provider_smoke' => (array) ($options['real_provider_smoke'] ?? []),
                 'forge_self_improvement_smoke' => (array) ($options['forge_self_improvement_smoke'] ?? []),
             ]));
@@ -59,12 +74,12 @@ final class AtlasSelfConstructionHumanCompletionReceiptClosureExecutionPackServi
         $dossier = (array) ($options['human_completion_receipt_dossier']
             ?? (new AtlasSelfConstructionHumanCompletionReceiptDossierService($this->readiness))->build([
                 'completion_audit' => $completionAudit,
-                'completion_receipt' => (array) ($options['completion_receipt'] ?? []),
+                'completion_receipt' => $receiptInput,
             ]));
         $finalBundle = (array) ($options['final_evidence_bundle']
             ?? (new AtlasSelfConstructionFinalEvidenceBundleService($this->readiness))->build([
                 'completion_audit' => $completionAudit,
-                'completion_receipt' => (array) ($options['completion_receipt'] ?? []),
+                'completion_receipt' => $receiptInput,
                 'real_provider_smoke' => (array) ($options['real_provider_smoke'] ?? []),
                 'runtime_promotion_receipt' => (array) ($options['runtime_promotion_receipt'] ?? []),
                 'forge_self_improvement_smoke' => (array) ($options['forge_self_improvement_smoke'] ?? []),
@@ -79,7 +94,6 @@ final class AtlasSelfConstructionHumanCompletionReceiptClosureExecutionPackServi
         $prereqs = $this->currentPrerequisites($completionAudit, $completionEvidence);
         $failedCriteria = (array) data_get($completionAudit, 'failed_criteria', []);
 
-        $receiptInput = (array) ($options['completion_receipt'] ?? []);
         $receiptProvided = $receiptInput !== [];
         $verifierContext = $this->verifierContext($completionAudit, $completionEvidence);
         $verificationResult = (new AtlasSelfConstructionHumanCompletionReceiptPreSubmissionVerifierService)
@@ -173,6 +187,16 @@ final class AtlasSelfConstructionHumanCompletionReceiptClosureExecutionPackServi
             'current_prerequisites' => $prereqs,
             'receipt_template' => $receiptTemplate,
             'receipt_draft' => $receiptDraftPayload,
+            'receipt_under_review' => [
+                'source' => $receiptSource,
+                'present' => $receiptInput !== [],
+                'provided_by_cli_payload' => $providedReceipt !== [],
+                'provided_by_canonical_submission' => $canonicalReceipt !== [],
+                'receipt_hash' => (string) ($receiptInput['receipt_hash'] ?? ''),
+                'receipt_id' => (string) ($receiptInput['receipt_id'] ?? ''),
+                'signed_by' => (string) ($receiptInput['signed_by'] ?? ''),
+            ],
+            'canonical_submission_receipt' => $canonicalSubmissionReceipt,
             'verification_result' => $verificationResult,
             'persistence_preflight' => $persistencePreflight,
             'operator_submission_envelope' => $operatorSubmissionEnvelope,
@@ -526,6 +550,49 @@ final class AtlasSelfConstructionHumanCompletionReceiptClosureExecutionPackServi
             'persist_human_completion_receipt' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --completion-receipt-json=@/path/to/completion-receipt.json --persist-completion-evidence --json',
             'closure_execution_pack_status' => 'php artisan atlas:ai:self-construction --atlas-self-construction-human-completion-receipt-closure-execution-pack-status --json',
             'finalization_gate_status' => 'php artisan atlas:ai:self-construction --atlas-self-construction-completion-finalization-gate-status --json',
+        ];
+    }
+
+    /** @return array<string, mixed> */
+    private function loadCompletionReceiptFromCanonicalSubmission(): array
+    {
+        if (! Storage::disk('local')->exists(self::CANONICAL_PUBLISHED_RECEIPT_PATH)) {
+            return [
+                'status' => 'not_found',
+                'submission_path' => self::CANONICAL_PUBLISHED_RECEIPT_PATH,
+                'receipt_payload' => [],
+                'violations' => [],
+            ];
+        }
+
+        try {
+            $decoded = json_decode(Storage::disk('local')->get(self::CANONICAL_PUBLISHED_RECEIPT_PATH), true, flags: JSON_THROW_ON_ERROR);
+            $payload = is_array($decoded) ? $decoded : [];
+        } catch (\Throwable) {
+            $payload = [];
+        }
+
+        if ($payload === []) {
+            return [
+                'status' => 'blocked',
+                'submission_path' => self::CANONICAL_PUBLISHED_RECEIPT_PATH,
+                'receipt_payload' => [],
+                'violations' => ['canonical_completion_receipt_submission_invalid_json_or_empty'],
+            ];
+        }
+
+        return [
+            'status' => 'loaded_for_closure_pack_review',
+            'submission_path' => self::CANONICAL_PUBLISHED_RECEIPT_PATH,
+            'receipt_payload' => $payload,
+            'violations' => [],
+            'non_execution_guarantees' => [
+                'canonical_submission_loader_reads_only',
+                'canonical_submission_loader_does_not_mark_submission_as_persisted_evidence',
+                'canonical_submission_loader_does_not_persist_receipts',
+                'canonical_submission_loader_does_not_sign_for_operator',
+                'canonical_submission_loader_does_not_promote_completion',
+            ],
         ];
     }
 

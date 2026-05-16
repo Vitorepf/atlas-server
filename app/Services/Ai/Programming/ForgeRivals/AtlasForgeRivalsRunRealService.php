@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming\ForgeRivals;
 
+use App\Services\Ai\Programming\ForgeRivals\Corpus\AtlasForgeRivalsProviderArenaCorpusService;
 use App\Services\Ai\Programming\WorkspaceHygieneService;
 use DateTimeImmutable;
 use DateTimeInterface;
@@ -59,9 +60,11 @@ final class AtlasForgeRivalsRunRealService
         private readonly AtlasForgeRivalsModeRegistry $modes,
         private readonly AtlasForgeRivalsModelMatrix $matrix,
         private readonly AtlasForgeRivalsCasesRegistry $cases,
+        private readonly AtlasForgeRivalsProviderArenaCorpusService $corpus,
         private readonly AtlasForgeRivalsRunPathResolver $paths,
         private readonly AtlasForgeRivalsEventStream $events,
         private readonly WorkspaceHygieneService $hygiene,
+        private readonly AtlasForgeRivalsBatteryStateService $battery,
     ) {}
 
     /**
@@ -89,18 +92,18 @@ final class AtlasForgeRivalsRunRealService
             $blockers[] = $b;
         }
 
-        $cases = [];
+        $caseContext = [];
         try {
-            $cases = $this->cases->casesForPreset($preset);
+            $caseContext = $this->resolveCaseContext($input, $preset);
         } catch (EmptyPresetIsFatalHarnessBug $e) {
             $blockers[] = 'zero_case_preset_fatal_harness_bug:'.$preset;
         } catch (\Throwable $e) {
-            $blockers[] = 'preset_unknown:'.$preset;
+            $blockers[] = $e->getMessage() !== '' ? $e->getMessage() : 'case_resolution_failed';
         }
+        $cases = $caseContext['cases'] ?? [];
         if ($cases === []) {
             return $this->blocked($blockers, 'fix preset and re-run');
         }
-        $case = $cases[0];
 
         $requiresProvider = $modeDef['requires_provider'];
         $confirmsPresent = [
@@ -146,57 +149,411 @@ final class AtlasForgeRivalsRunRealService
             );
         }
 
+        $allCases = $cases;
+        $originalCaseCount = count($allCases);
+        $isMultiCase = $originalCaseCount > 1;
+        $firstCase = $allCases[0];
+
+        // Initialise the multi-case battery catalogue. On a fresh run this
+        // creates runs/<run_id>/battery.json with every case marked pending.
+        // On a resume (battery.json already on disk) this bumps resume_count
+        // and emits a battery_resumed event without overwriting any case
+        // that already reached a terminal state.
+        $batteryContext = [
+            'preset' => $preset,
+            'case_set' => trim((string) ($input['case_set'] ?? '')),
+            'mode' => $mode,
+            'atlas_model' => $atlasModel,
+            'rival_model' => $rivalModel,
+            'external_provider_call' => $requiresProvider && $mode !== AtlasForgeRivalsModeRegistry::MODE_LOCAL_FAKE,
+            'provider_tokens_spent' => $requiresProvider && $mode !== AtlasForgeRivalsModeRegistry::MODE_LOCAL_FAKE,
+        ];
+        $batteryPayload = $this->battery->initialize($runId, $batteryContext, $allCases);
+        $isResume = ((int) ($batteryPayload['resume_count'] ?? 0)) > 0;
+        if ($isResume) {
+            // Resume path: iterate only the cases still pending (or stuck
+            // in `running` — those become attempt 2 with a fresh hash).
+            $pendingIds = $this->battery->pendingCases($batteryPayload);
+            $cases = array_values(array_filter(
+                $allCases,
+                static fn (array $c): bool => in_array((string) ($c['id'] ?? ''), $pendingIds, true),
+            ));
+            if ($cases === []) {
+                // Every case already reached a terminal state. Don't re-run
+                // anything; report the battery as already settled and let
+                // the operator decide whether to reset and start over.
+                $finalSnapshot = $this->battery->snapshot($runId);
+
+                return [
+                    'status' => 'ok',
+                    'run_id' => $runId,
+                    'mode' => $mode,
+                    'verdict' => $this->batteryAggregateVerdict($finalSnapshot),
+                    'score' => null,
+                    'claim_ready' => false,
+                    'paths' => $paths,
+                    'manifest' => null,
+                    'atlas_receipt' => null,
+                    'rival_receipt' => null,
+                    'cases' => $finalSnapshot['cases'] ?? [],
+                    'case_count' => $originalCaseCount,
+                    'is_multi_case' => $isMultiCase,
+                    'battery_snapshot' => $finalSnapshot,
+                    'evidence_paths' => [
+                        $this->battery->batteryJsonPath($runId),
+                        $this->battery->batteryJsonlPath($runId),
+                    ],
+                    'external_provider_call' => false,
+                    'provider_tokens_spent' => false,
+                    'note' => 'all_cases_already_terminal_in_battery_resume',
+                    'next_command' => 'php artisan atlas:forge:rivals status --run-id='.$runId.' --json',
+                ];
+            }
+        }
+
         $this->events->start($runId, [
             'mode' => $mode,
             'atlas_model' => $atlasModel,
             'rival_model' => $rivalModel,
             'preset' => $preset,
-            'case_id' => $case['id'],
+            'case_id' => $firstCase['id'],
+            'case_source' => $firstCase['case_source'] ?? 'legacy',
+            'case_count' => $originalCaseCount,
+            'case_ids' => array_values(array_map(static fn (array $c): string => (string) $c['id'], $allCases)),
+            'cases_remaining_this_session' => count($cases),
+            'is_resume' => $isResume,
+            'resume_count' => (int) ($batteryPayload['resume_count'] ?? 0),
             'requires_provider' => $requiresProvider,
             'started_at' => $this->nowIso(),
         ]);
 
-        $beforeAtlas = $this->workspaceHash($paths['atlas']);
-        $beforeRival = $this->workspaceHash($paths['rival']);
-        $this->events->event($runId, 'step_started', ['step' => 'before_workspace_hash']);
+        $perCase = [];
+        $aggregateChangedAtlas = [];
+        $aggregateChangedRival = [];
+        $aggregateOosAtlas = [];
+        $aggregateOosRival = [];
+        $aggregateBytecodeAtlas = [];
+        $aggregateBytecodeRival = [];
+        $aggregateWorkspaceBlockers = [];
+        $aggregateVerdict = 'comparable';
+        $aggregateClaimReady = $mode !== AtlasForgeRivalsModeRegistry::MODE_LOCAL_FAKE;
+        $earliestStartedAt = null;
+        $latestFinishedAt = null;
+        $fixtureBlockedFatally = false;
+        $representativeAtlasReceipt = null;
+        $representativeRivalReceipt = null;
+        $representativeBeforeAtlas = null;
+        $representativeBeforeRival = null;
+        $representativeAfterAtlas = null;
+        $representativeAfterRival = null;
+        $representativeFixtureStageAtlas = null;
+        $representativeFixtureStageRival = null;
 
-        // Run atlas arm + rival arm sequentially (orchestrator-simple in slice 3)
-        $atlasReceipt = $this->runArm($runId, 'atlas', $paths['atlas'], $mode, $atlasModel, $case);
-        $rivalReceipt = $this->runArm($runId, 'rival', $paths['rival'], $mode, $rivalModel, $case);
+        foreach ($cases as $caseIndex => $case) {
+            $caseSubdir = $isMultiCase ? 'cases/'.$this->safeCaseDir((string) $case['id']) : '';
 
-        $afterAtlas = $this->workspaceHash($paths['atlas']);
-        $afterRival = $this->workspaceHash($paths['rival']);
+            $this->battery->markCaseRunning($runId, (string) $case['id']);
 
-        $dirtyAtlas = $this->workspaceDirty($paths['atlas']);
-        $dirtyRival = $this->workspaceDirty($paths['rival']);
-        $workspaceBlockers = array_values(array_merge(
-            $this->stringList($atlasReceipt['workspace_blockers'] ?? []),
-            $this->stringList($rivalReceipt['workspace_blockers'] ?? []),
-        ));
-        $dirtyAfterRun = $workspaceBlockers !== [];
-        $this->events->event($runId, 'after_clean_check', [
-            'atlas_clean' => ! (bool) ($atlasReceipt['workspace_has_blocking_changes'] ?? false),
-            'rival_clean' => ! (bool) ($rivalReceipt['workspace_has_blocking_changes'] ?? false),
-            'atlas_dirty_count' => $dirtyAtlas['count'],
-            'rival_dirty_count' => $dirtyRival['count'],
-            'atlas_changed_files' => $atlasReceipt['changed_files'] ?? [],
-            'rival_changed_files' => $rivalReceipt['changed_files'] ?? [],
-            'workspace_blockers' => $workspaceBlockers,
-        ]);
+            $this->events->event($runId, 'case_started', [
+                'case_id' => $case['id'],
+                'case_index' => $caseIndex,
+                'case_count' => count($cases),
+                'case_source' => $case['case_source'] ?? 'legacy',
+                'difficulty_level' => $case['difficulty_level'] ?? null,
+                'task_category' => $case['task_category'] ?? null,
+                'difficulty_weight' => $case['difficulty_weight'] ?? null,
+            ]);
 
-        // Verdict
-        $verdict = 'comparable';
+            // Between cases we must restore each worktree to HEAD so the
+            // next case starts from a clean, deterministic baseline. This
+            // guarantees that workspace_hash_before captures only the
+            // current case's fixture, not the previous case's diff.
+            if ($caseIndex > 0) {
+                $this->resetWorktree($paths['atlas']);
+                $this->resetWorktree($paths['rival']);
+            }
+
+            $seedAtlas = $this->stageCaseFixture($runId, 'atlas', $paths['atlas'], $case);
+            $seedRival = $this->stageCaseFixture($runId, 'rival', $paths['rival'], $case);
+            if (($seedAtlas['blockers'] ?? []) !== [] || ($seedRival['blockers'] ?? []) !== []) {
+                $seedBlockers = array_values(array_merge(
+                    $this->stringList($seedAtlas['blockers'] ?? []),
+                    $this->stringList($seedRival['blockers'] ?? []),
+                ));
+
+                if ($isMultiCase) {
+                    $perCase[] = [
+                        'case_id' => (string) $case['id'],
+                        'case_index' => $caseIndex,
+                        'case_source' => $case['case_source'] ?? 'legacy',
+                        'verdict' => 'invalid_fixture_blocked',
+                        'fixture_stage' => ['atlas' => $seedAtlas, 'rival' => $seedRival],
+                        'workspace_blockers' => $seedBlockers,
+                        'atlas_receipt' => null,
+                        'rival_receipt' => null,
+                        'workspace_hash_before' => null,
+                        'workspace_hash_after' => null,
+                        'evidence_subdir' => $caseSubdir,
+                    ];
+                    $aggregateWorkspaceBlockers = array_values(array_unique(array_merge(
+                        $aggregateWorkspaceBlockers,
+                        $seedBlockers,
+                    )));
+                    if ($aggregateVerdict === 'comparable') {
+                        $aggregateVerdict = 'invalid_fixture_blocked';
+                    }
+                    $aggregateClaimReady = false;
+                    $this->events->event($runId, 'case_finished', [
+                        'case_id' => (string) $case['id'],
+                        'verdict' => 'invalid_fixture_blocked',
+                        'blockers' => $seedBlockers,
+                    ]);
+                    $this->battery->markCaseFinished($runId, (string) $case['id'], 'invalid_fixture_blocked', [
+                        'blockers' => $seedBlockers,
+                        'fixture_stage' => ['atlas' => $seedAtlas, 'rival' => $seedRival],
+                    ]);
+
+                    continue;
+                }
+
+                $this->battery->markCaseFinished($runId, (string) $case['id'], 'invalid_fixture_blocked', [
+                    'blockers' => $seedBlockers,
+                ]);
+
+                return $this->blocked($seedBlockers, 'fix Provider Arena fixture before running real battery');
+            }
+
+            $beforeAtlas = $this->workspaceHash($paths['atlas']);
+            $beforeRival = $this->workspaceHash($paths['rival']);
+            $this->events->event($runId, 'step_started', [
+                'step' => 'before_workspace_hash',
+                'case_id' => (string) $case['id'],
+            ]);
+
+            $atlasReceipt = $this->runArm($runId, 'atlas', $paths['atlas'], $mode, $atlasModel, $case, $caseSubdir);
+            $rivalReceipt = $this->runArm($runId, 'rival', $paths['rival'], $mode, $rivalModel, $case, $caseSubdir);
+
+            $afterAtlas = $this->workspaceHash($paths['atlas']);
+            $afterRival = $this->workspaceHash($paths['rival']);
+
+            $dirtyAtlas = $this->workspaceDirty($paths['atlas']);
+            $dirtyRival = $this->workspaceDirty($paths['rival']);
+            $caseWorkspaceBlockers = array_values(array_merge(
+                $this->stringList($atlasReceipt['workspace_blockers'] ?? []),
+                $this->stringList($rivalReceipt['workspace_blockers'] ?? []),
+            ));
+            $caseDirty = $caseWorkspaceBlockers !== [];
+
+            $this->events->event($runId, 'after_clean_check', [
+                'case_id' => (string) $case['id'],
+                'atlas_clean' => ! (bool) ($atlasReceipt['workspace_has_blocking_changes'] ?? false),
+                'rival_clean' => ! (bool) ($rivalReceipt['workspace_has_blocking_changes'] ?? false),
+                'atlas_dirty_count' => $dirtyAtlas['count'],
+                'rival_dirty_count' => $dirtyRival['count'],
+                'atlas_changed_files' => $atlasReceipt['changed_files'] ?? [],
+                'rival_changed_files' => $rivalReceipt['changed_files'] ?? [],
+                'workspace_blockers' => $caseWorkspaceBlockers,
+            ]);
+
+            $caseVerdict = 'comparable';
+            if ($caseDirty) {
+                $caseVerdict = 'invalid_workspace_after_run';
+            } elseif (($atlasReceipt['exit_code'] ?? -1) !== 0 || ($rivalReceipt['exit_code'] ?? -1) !== 0) {
+                $caseVerdict = (! empty($atlasReceipt['killed']) || ! empty($rivalReceipt['killed']))
+                    ? 'invalid_provider_timeout'
+                    : 'inconclusive';
+            } elseif (($atlasReceipt['test_exit_code'] ?? -1) !== 0 || ($rivalReceipt['test_exit_code'] ?? -1) !== 0) {
+                $caseVerdict = 'invalid_tests_failed';
+            } elseif ((int) ($atlasReceipt['patch_diff_bytes'] ?? 0) <= 0 || (int) ($rivalReceipt['patch_diff_bytes'] ?? 0) <= 0) {
+                $caseVerdict = 'invalid_no_patch_diff';
+            }
+
+            // Persist per-case receipts in a stable subfolder so each case
+            // keeps its own atlas_receipt.json / rival_receipt.json /
+            // workspace_hashes.json — the matter-prima Claude C/D/E consume.
+            if ($isMultiCase) {
+                $caseDir = $paths['evidence'].'/'.$caseSubdir;
+                @mkdir($caseDir, 0o755, true);
+                file_put_contents($caseDir.'/atlas_receipt.json', $this->jsonEncode($atlasReceipt));
+                file_put_contents($caseDir.'/rival_receipt.json', $this->jsonEncode($rivalReceipt));
+                file_put_contents($caseDir.'/workspace_hashes.json', $this->jsonEncode([
+                    'before' => ['atlas' => $beforeAtlas, 'rival' => $beforeRival],
+                    'after' => ['atlas' => $afterAtlas, 'rival' => $afterRival],
+                    'dirty_after_run' => $caseDirty,
+                    'workspace_blockers' => $caseWorkspaceBlockers,
+                    'workspace_changes_after_run' => [
+                        'atlas' => $atlasReceipt['changed_files'] ?? [],
+                        'rival' => $rivalReceipt['changed_files'] ?? [],
+                    ],
+                ]));
+            }
+
+            $perCase[] = [
+                'case_id' => (string) $case['id'],
+                'case_index' => $caseIndex,
+                'case_source' => $case['case_source'] ?? 'legacy',
+                'task_category' => $case['task_category'] ?? null,
+                'case_set' => $case['case_set'] ?? null,
+                'difficulty' => $case['difficulty'] ?? null,
+                'difficulty_level' => $case['difficulty_level'] ?? null,
+                'difficulty_weight' => $case['difficulty_weight'] ?? null,
+                'verdict' => $caseVerdict,
+                'workspace_blockers' => $caseWorkspaceBlockers,
+                'workspace_hash_before' => ['atlas' => $beforeAtlas, 'rival' => $beforeRival],
+                'workspace_hash_after' => ['atlas' => $afterAtlas, 'rival' => $afterRival],
+                'fixture_stage' => ['atlas' => $seedAtlas, 'rival' => $seedRival],
+                'atlas_receipt' => $atlasReceipt,
+                'rival_receipt' => $rivalReceipt,
+                'evidence_subdir' => $isMultiCase ? $caseSubdir : null,
+            ];
+
+            $aggregateChangedAtlas = array_values(array_unique(array_merge(
+                $aggregateChangedAtlas,
+                $this->stringList($atlasReceipt['changed_files'] ?? []),
+            )));
+            $aggregateChangedRival = array_values(array_unique(array_merge(
+                $aggregateChangedRival,
+                $this->stringList($rivalReceipt['changed_files'] ?? []),
+            )));
+            $aggregateOosAtlas = array_values(array_unique(array_merge(
+                $aggregateOosAtlas,
+                $this->stringList($atlasReceipt['out_of_scope_files'] ?? []),
+            )));
+            $aggregateOosRival = array_values(array_unique(array_merge(
+                $aggregateOosRival,
+                $this->stringList($rivalReceipt['out_of_scope_files'] ?? []),
+            )));
+            $aggregateBytecodeAtlas = array_values(array_unique(array_merge(
+                $aggregateBytecodeAtlas,
+                $this->stringList($atlasReceipt['bytecode_artifacts'] ?? []),
+            )));
+            $aggregateBytecodeRival = array_values(array_unique(array_merge(
+                $aggregateBytecodeRival,
+                $this->stringList($rivalReceipt['bytecode_artifacts'] ?? []),
+            )));
+            $aggregateWorkspaceBlockers = array_values(array_unique(array_merge(
+                $aggregateWorkspaceBlockers,
+                $caseWorkspaceBlockers,
+            )));
+
+            if ($caseVerdict !== 'comparable' && $aggregateVerdict === 'comparable') {
+                $aggregateVerdict = $caseVerdict;
+            }
+            if ($caseVerdict !== 'comparable') {
+                $aggregateClaimReady = false;
+            }
+            if (! empty($atlasReceipt['killed']) || ! empty($rivalReceipt['killed'])) {
+                $aggregateClaimReady = false;
+            }
+
+            if ($representativeAtlasReceipt === null) {
+                $representativeAtlasReceipt = $atlasReceipt;
+                $representativeRivalReceipt = $rivalReceipt;
+                $representativeBeforeAtlas = $beforeAtlas;
+                $representativeBeforeRival = $beforeRival;
+                $representativeAfterAtlas = $afterAtlas;
+                $representativeAfterRival = $afterRival;
+                $representativeFixtureStageAtlas = $seedAtlas;
+                $representativeFixtureStageRival = $seedRival;
+            }
+
+            $caseStartedAt = (string) ($atlasReceipt['started_at'] ?? '');
+            $caseFinishedAt = (string) ($rivalReceipt['finished_at'] ?? $atlasReceipt['finished_at'] ?? '');
+            if ($caseStartedAt !== '' && ($earliestStartedAt === null || $caseStartedAt < $earliestStartedAt)) {
+                $earliestStartedAt = $caseStartedAt;
+            }
+            if ($caseFinishedAt !== '' && ($latestFinishedAt === null || $caseFinishedAt > $latestFinishedAt)) {
+                $latestFinishedAt = $caseFinishedAt;
+            }
+
+            $this->events->event($runId, 'case_finished', [
+                'case_id' => (string) $case['id'],
+                'verdict' => $caseVerdict,
+                'atlas_exit_code' => (int) ($atlasReceipt['exit_code'] ?? -1),
+                'rival_exit_code' => (int) ($rivalReceipt['exit_code'] ?? -1),
+                'atlas_test_exit_code' => (int) ($atlasReceipt['test_exit_code'] ?? -1),
+                'rival_test_exit_code' => (int) ($rivalReceipt['test_exit_code'] ?? -1),
+                'atlas_patch_diff_bytes' => (int) ($atlasReceipt['patch_diff_bytes'] ?? 0),
+                'rival_patch_diff_bytes' => (int) ($rivalReceipt['patch_diff_bytes'] ?? 0),
+                'workspace_blockers' => $caseWorkspaceBlockers,
+                'difficulty_level' => $case['difficulty_level'] ?? null,
+                'task_category' => $case['task_category'] ?? null,
+            ]);
+
+            $this->battery->markCaseFinished($runId, (string) $case['id'], $caseVerdict, [
+                'verdict' => $caseVerdict,
+                'atlas_exit_code' => (int) ($atlasReceipt['exit_code'] ?? -1),
+                'rival_exit_code' => (int) ($rivalReceipt['exit_code'] ?? -1),
+                'atlas_test_exit_code' => (int) ($atlasReceipt['test_exit_code'] ?? -1),
+                'rival_test_exit_code' => (int) ($rivalReceipt['test_exit_code'] ?? -1),
+                'atlas_patch_diff_bytes' => (int) ($atlasReceipt['patch_diff_bytes'] ?? 0),
+                'rival_patch_diff_bytes' => (int) ($rivalReceipt['patch_diff_bytes'] ?? 0),
+                'workspace_blockers' => $caseWorkspaceBlockers,
+                'evidence_subdir' => $caseSubdir !== '' ? $caseSubdir : null,
+            ]);
+        }
+
+        // No case actually executed (all fixture-blocked in multi mode) —
+        // surface honestly instead of pretending we have receipts.
+        if ($representativeAtlasReceipt === null || $representativeRivalReceipt === null) {
+            $this->battery->finalize($runId, [
+                'aggregate_verdict' => 'invalid_fixture_blocked',
+                'claim_ready' => false,
+                'external_provider_call' => false,
+                'provider_tokens_spent' => false,
+                'blocked' => true,
+                'stalled' => false,
+            ]);
+
+            return $this->blocked(
+                array_values(array_unique(array_merge(
+                    ['no_executable_cases_in_run'],
+                    $aggregateWorkspaceBlockers,
+                ))),
+                'fix Provider Arena fixture for all cases before running release battery',
+            );
+        }
+
+        // Build a single source-of-truth top-level atlas/rival receipt the
+        // adjudicator's hard gates can read. For single-case this is identical
+        // to v1 (zero shape drift). For multi-case it is the worst-of:
+        //   - exit_code / test_exit_code   = first non-zero across cases
+        //   - patch_diff_bytes             = MIN across cases (smallest case wins gate)
+        //   - changed_files/oos/bytecode   = UNION
+        //   - killed                       = OR
+        //   - workspace_has_blocking_changes = OR
+        // This is honest: any single case bleeding bytecode or going out of
+        // scope trips the adjudicator's hard gate without inventing scores.
+        $atlasReceipt = $representativeAtlasReceipt;
+        $rivalReceipt = $representativeRivalReceipt;
+        if ($isMultiCase) {
+            $atlasReceipt = $this->aggregateReceipt(
+                $representativeAtlasReceipt,
+                array_values(array_filter(array_map(
+                    static fn (array $p): ?array => is_array($p['atlas_receipt'] ?? null) ? $p['atlas_receipt'] : null,
+                    $perCase,
+                ))),
+                $aggregateChangedAtlas,
+                $aggregateOosAtlas,
+                $aggregateBytecodeAtlas,
+            );
+            $rivalReceipt = $this->aggregateReceipt(
+                $representativeRivalReceipt,
+                array_values(array_filter(array_map(
+                    static fn (array $p): ?array => is_array($p['rival_receipt'] ?? null) ? $p['rival_receipt'] : null,
+                    $perCase,
+                ))),
+                $aggregateChangedRival,
+                $aggregateOosRival,
+                $aggregateBytecodeRival,
+            );
+        }
+
+        $verdict = $aggregateVerdict;
+        $dirtyAfterRun = $aggregateWorkspaceBlockers !== [];
+
         $score = null;
         $claimReady = false;
-        if ($dirtyAfterRun) {
-            $verdict = 'invalid_workspace_after_run';
-        } elseif (($atlasReceipt['exit_code'] ?? -1) !== 0 || ($rivalReceipt['exit_code'] ?? -1) !== 0) {
-            $verdict = $atlasReceipt['killed'] || $rivalReceipt['killed'] ? 'invalid_provider_timeout' : 'inconclusive';
-        } elseif (($atlasReceipt['test_exit_code'] ?? -1) !== 0 || ($rivalReceipt['test_exit_code'] ?? -1) !== 0) {
-            $verdict = 'invalid_tests_failed';
-        } elseif ((int) ($atlasReceipt['patch_diff_bytes'] ?? 0) <= 0 || (int) ($rivalReceipt['patch_diff_bytes'] ?? 0) <= 0) {
-            $verdict = 'invalid_no_patch_diff';
-        }
         if ($verdict === 'comparable') {
             $score = [
                 'comparable_score' => null,
@@ -206,25 +563,79 @@ final class AtlasForgeRivalsRunRealService
                     'winner' => 'automated_quality_tie_requires_human_diff_review',
                 ],
                 'quality_claim' => 'automated gates passed; human diff review still required for qualitative winner',
+                'case_count' => count($cases),
             ];
-            $claimReady = $mode !== AtlasForgeRivalsModeRegistry::MODE_LOCAL_FAKE
-                && ! $atlasReceipt['killed'] && ! $rivalReceipt['killed'];
+            $claimReady = $aggregateClaimReady;
         }
 
-        // Persist receipts
+        // Persist top-level receipts (legacy compat). When multi-case, these
+        // are the worst-of aggregate so adjudicator/replay/collect-evidence
+        // stay on the same contract surface.
         @mkdir($paths['evidence'], 0o755, true);
         file_put_contents($paths['evidence'].'/atlas_receipt.json', $this->jsonEncode($atlasReceipt));
         file_put_contents($paths['evidence'].'/rival_receipt.json', $this->jsonEncode($rivalReceipt));
         file_put_contents($paths['evidence'].'/workspace_hashes.json', $this->jsonEncode([
-            'before' => ['atlas' => $beforeAtlas, 'rival' => $beforeRival],
-            'after' => ['atlas' => $afterAtlas, 'rival' => $afterRival],
+            'before' => ['atlas' => $representativeBeforeAtlas, 'rival' => $representativeBeforeRival],
+            'after' => ['atlas' => $representativeAfterAtlas, 'rival' => $representativeAfterRival],
             'dirty_after_run' => $dirtyAfterRun,
-            'workspace_blockers' => $workspaceBlockers,
+            'workspace_blockers' => $aggregateWorkspaceBlockers,
             'workspace_changes_after_run' => [
-                'atlas' => $atlasReceipt['changed_files'] ?? [],
-                'rival' => $rivalReceipt['changed_files'] ?? [],
+                'atlas' => $aggregateChangedAtlas,
+                'rival' => $aggregateChangedRival,
             ],
+            'case_count' => count($cases),
         ]));
+
+        $perCaseSummary = array_values(array_map(
+            static function (array $entry): array {
+                $atlas = is_array($entry['atlas_receipt'] ?? null) ? $entry['atlas_receipt'] : null;
+                $rival = is_array($entry['rival_receipt'] ?? null) ? $entry['rival_receipt'] : null;
+
+                return [
+                    'case_id' => (string) ($entry['case_id'] ?? ''),
+                    'case_index' => (int) ($entry['case_index'] ?? 0),
+                    'case_source' => (string) ($entry['case_source'] ?? 'legacy'),
+                    'task_category' => $entry['task_category'] ?? null,
+                    'case_set' => $entry['case_set'] ?? null,
+                    'difficulty' => $entry['difficulty'] ?? null,
+                    'difficulty_level' => $entry['difficulty_level'] ?? null,
+                    'difficulty_weight' => $entry['difficulty_weight'] ?? null,
+                    'verdict' => (string) ($entry['verdict'] ?? 'unknown'),
+                    'evidence_subdir' => $entry['evidence_subdir'] ?? null,
+                    'workspace_hash_before' => $entry['workspace_hash_before'] ?? null,
+                    'workspace_hash_after' => $entry['workspace_hash_after'] ?? null,
+                    'workspace_blockers' => $entry['workspace_blockers'] ?? [],
+                    'fixture_stage' => $entry['fixture_stage'] ?? null,
+                    'atlas_arm' => $atlas === null ? null : [
+                        'exit_code' => (int) ($atlas['exit_code'] ?? -1),
+                        'test_exit_code' => (int) ($atlas['test_exit_code'] ?? -1),
+                        'killed' => (bool) ($atlas['killed'] ?? false),
+                        'timeout_reason' => $atlas['timeout_reason'] ?? null,
+                        'patch_diff_bytes' => (int) ($atlas['patch_diff_bytes'] ?? 0),
+                        'patch_diff_hash' => $atlas['patch_diff_hash'] ?? null,
+                        'patch_diff_path' => $atlas['patch_diff_path'] ?? null,
+                        'test_log_path' => $atlas['test_log_path'] ?? null,
+                        'changed_files' => $atlas['changed_files'] ?? [],
+                        'out_of_scope_files' => $atlas['out_of_scope_files'] ?? [],
+                        'bytecode_artifacts' => $atlas['bytecode_artifacts'] ?? [],
+                    ],
+                    'rival_arm' => $rival === null ? null : [
+                        'exit_code' => (int) ($rival['exit_code'] ?? -1),
+                        'test_exit_code' => (int) ($rival['test_exit_code'] ?? -1),
+                        'killed' => (bool) ($rival['killed'] ?? false),
+                        'timeout_reason' => $rival['timeout_reason'] ?? null,
+                        'patch_diff_bytes' => (int) ($rival['patch_diff_bytes'] ?? 0),
+                        'patch_diff_hash' => $rival['patch_diff_hash'] ?? null,
+                        'patch_diff_path' => $rival['patch_diff_path'] ?? null,
+                        'test_log_path' => $rival['test_log_path'] ?? null,
+                        'changed_files' => $rival['changed_files'] ?? [],
+                        'out_of_scope_files' => $rival['out_of_scope_files'] ?? [],
+                        'bytecode_artifacts' => $rival['bytecode_artifacts'] ?? [],
+                    ],
+                ];
+            },
+            $perCase,
+        ));
 
         $manifest = [
             'schema_version' => self::SCHEMA_VERSION,
@@ -233,21 +644,31 @@ final class AtlasForgeRivalsRunRealService
             'atlas_model' => $atlasModel,
             'rival_model' => $rivalModel,
             'preset' => $preset,
-            'case_id' => $case['id'],
-            'started_at' => $this->nowIso(),
-            'finished_at' => $this->nowIso(),
+            'case_id' => $isMultiCase ? 'multi_case_aggregate' : (string) $firstCase['id'],
+            'case_source' => $firstCase['case_source'] ?? 'legacy',
+            'case_set' => $firstCase['case_set'] ?? null,
+            'task_category' => $firstCase['task_category'] ?? null,
+            'case_count' => count($cases),
+            'is_multi_case' => $isMultiCase,
+            'cases' => $perCaseSummary,
+            'fixture_stage' => [
+                'atlas' => $representativeFixtureStageAtlas,
+                'rival' => $representativeFixtureStageRival,
+            ],
+            'started_at' => $earliestStartedAt ?? $this->nowIso(),
+            'finished_at' => $latestFinishedAt ?? $this->nowIso(),
             'verdict' => $verdict,
             'score' => $score,
             'claim_ready' => $claimReady,
             'atlas_receipt_hash' => hash('sha256', $this->jsonEncode($atlasReceipt)),
             'rival_receipt_hash' => hash('sha256', $this->jsonEncode($rivalReceipt)),
-            'workspace_hash_before' => ['atlas' => $beforeAtlas, 'rival' => $beforeRival],
-            'workspace_hash_after' => ['atlas' => $afterAtlas, 'rival' => $afterRival],
+            'workspace_hash_before' => ['atlas' => $representativeBeforeAtlas, 'rival' => $representativeBeforeRival],
+            'workspace_hash_after' => ['atlas' => $representativeAfterAtlas, 'rival' => $representativeAfterRival],
             'dirty_after_run' => $dirtyAfterRun,
-            'workspace_blockers' => $workspaceBlockers,
+            'workspace_blockers' => $aggregateWorkspaceBlockers,
             'workspace_changes_after_run' => [
-                'atlas' => $atlasReceipt['changed_files'] ?? [],
-                'rival' => $rivalReceipt['changed_files'] ?? [],
+                'atlas' => $aggregateChangedAtlas,
+                'rival' => $aggregateChangedRival,
             ],
             'external_provider_call' => $requiresProvider && $mode !== AtlasForgeRivalsModeRegistry::MODE_LOCAL_FAKE,
             'provider_tokens_spent' => $requiresProvider && $mode !== AtlasForgeRivalsModeRegistry::MODE_LOCAL_FAKE,
@@ -259,12 +680,53 @@ final class AtlasForgeRivalsRunRealService
             'verdict' => $verdict,
             'claim_ready' => $claimReady,
             'manifest_path' => $paths['evidence'].'/manifest.json',
+            'case_count' => count($cases),
         ]);
         $this->events->event($runId, 'final_report', [
             'verdict' => $verdict,
             'score' => $score,
             'claim_ready' => $claimReady,
+            'case_count' => count($cases),
         ]);
+
+        $evidencePaths = [
+            $paths['events_jsonl'],
+            $paths['manifest_json'],
+            $paths['evidence'].'/atlas_receipt.json',
+            $paths['evidence'].'/rival_receipt.json',
+            $paths['evidence'].'/workspace_hashes.json',
+        ];
+        if ($isMultiCase) {
+            foreach ($perCase as $entry) {
+                $subdir = (string) ($entry['evidence_subdir'] ?? '');
+                if ($subdir === '') {
+                    continue;
+                }
+                $caseEvidenceDir = $paths['evidence'].'/'.$subdir;
+                foreach (['atlas_receipt.json', 'rival_receipt.json', 'workspace_hashes.json'] as $artifact) {
+                    if (is_file($caseEvidenceDir.'/'.$artifact)) {
+                        $evidencePaths[] = $caseEvidenceDir.'/'.$artifact;
+                    }
+                }
+            }
+        }
+
+        // Finalise the battery: persist aggregate_verdict + claim_ready at
+        // the battery-level so resume / status / report all read the same
+        // source of truth. battery.json reflects every case across every
+        // resume; manifest.json reflects only this session.
+        $batterySnapshot = $this->battery->finalize($runId, [
+            'aggregate_verdict' => $this->computeBatteryAggregateVerdict($runId),
+            'claim_ready' => $this->computeBatteryClaimReady($runId, $mode),
+            'external_provider_call' => $manifest['external_provider_call'],
+            'provider_tokens_spent' => $manifest['provider_tokens_spent'],
+            'blocked' => false,
+            'stalled' => false,
+        ]);
+        if ($batterySnapshot !== null) {
+            $evidencePaths[] = $this->battery->batteryJsonPath($runId);
+            $evidencePaths[] = $this->battery->batteryJsonlPath($runId);
+        }
 
         return [
             'status' => 'ok',
@@ -277,13 +739,13 @@ final class AtlasForgeRivalsRunRealService
             'manifest' => $manifest,
             'atlas_receipt' => $atlasReceipt,
             'rival_receipt' => $rivalReceipt,
-            'evidence_paths' => [
-                $paths['events_jsonl'],
-                $paths['manifest_json'],
-                $paths['evidence'].'/atlas_receipt.json',
-                $paths['evidence'].'/rival_receipt.json',
-                $paths['evidence'].'/workspace_hashes.json',
-            ],
+            'cases' => $perCaseSummary,
+            'case_count' => $originalCaseCount,
+            'cases_executed_this_session' => count($cases),
+            'is_multi_case' => $isMultiCase,
+            'is_resume' => $isResume,
+            'battery_snapshot' => $batterySnapshot,
+            'evidence_paths' => array_values(array_unique($evidencePaths)),
             'external_provider_call' => $manifest['external_provider_call'],
             'provider_tokens_spent' => $manifest['provider_tokens_spent'],
             'next_command' => 'php artisan atlas:forge:rivals collect-evidence --run-id='.$paths['run_id'].' --json',
@@ -291,10 +753,489 @@ final class AtlasForgeRivalsRunRealService
     }
 
     /**
+     * Compute the battery-level aggregate verdict by scanning every case in
+     * battery.json (across all sessions). Worst-of: an `invalid` case wins
+     * over `failed`, which wins over `comparable`. Used by finalize so
+     * resume runs surface honest aggregate state.
+     */
+    private function computeBatteryAggregateVerdict(string $runId): ?string
+    {
+        $battery = $this->battery->load($runId);
+        if ($battery === null) {
+            return null;
+        }
+        $hasInvalid = false;
+        $hasFailed = false;
+        $hasSkipped = false;
+        $hasPending = false;
+        $allCompleted = true;
+        foreach ((array) ($battery['cases'] ?? []) as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+            $state = (string) ($row['state'] ?? '');
+            if ($state !== AtlasForgeRivalsBatteryStateService::CASE_STATE_COMPLETED) {
+                $allCompleted = false;
+            }
+            switch ($state) {
+                case AtlasForgeRivalsBatteryStateService::CASE_STATE_INVALID:
+                    $hasInvalid = true;
+                    break;
+                case AtlasForgeRivalsBatteryStateService::CASE_STATE_FAILED:
+                    $hasFailed = true;
+                    break;
+                case AtlasForgeRivalsBatteryStateService::CASE_STATE_SKIPPED:
+                    $hasSkipped = true;
+                    break;
+                case AtlasForgeRivalsBatteryStateService::CASE_STATE_PENDING:
+                case AtlasForgeRivalsBatteryStateService::CASE_STATE_RUNNING:
+                    $hasPending = true;
+                    break;
+            }
+        }
+        if ($hasPending) {
+            return 'battery_partial';
+        }
+        if ($hasInvalid) {
+            return 'invalid_workspace_after_run';
+        }
+        if ($hasFailed) {
+            return 'invalid_tests_failed';
+        }
+        if ($hasSkipped && ! $allCompleted) {
+            return 'battery_partial_with_skips';
+        }
+
+        return 'comparable';
+    }
+
+    /**
+     * The battery is claim-ready only when every case reached `completed`,
+     * the run mode is not local_fake, and no case carries a kill / timeout
+     * signal. Resume runs preserve this — a single failed case keeps
+     * claim_ready=false until the operator addresses it.
+     */
+    private function computeBatteryClaimReady(string $runId, string $mode): bool
+    {
+        if ($mode === AtlasForgeRivalsModeRegistry::MODE_LOCAL_FAKE) {
+            return false;
+        }
+        $battery = $this->battery->load($runId);
+        if ($battery === null) {
+            return false;
+        }
+        foreach ((array) ($battery['cases'] ?? []) as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+            $state = (string) ($row['state'] ?? '');
+            if ($state !== AtlasForgeRivalsBatteryStateService::CASE_STATE_COMPLETED) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Map a battery snapshot's aggregate state into a single verdict string
+     * the caller can surface as `verdict` on the outer envelope. Used by
+     * the resume early-return path when every case is already terminal.
+     *
+     * @param  array<string,mixed>  $snapshot
+     */
+    private function batteryAggregateVerdict(array $snapshot): string
+    {
+        return (string) ($snapshot['aggregate_verdict'] ?? 'battery_partial');
+    }
+
+    /**
+     * Aggregate per-case receipts into a single worst-of receipt the
+     * adjudicator can read. Top-level shape stays compatible with
+     * single-case receipts; only summary fields change semantics.
+     *
+     * @param  array<string,mixed>  $base
+     * @param  list<array<string,mixed>>  $perCaseReceipts
+     * @param  list<string>  $changedFiles
+     * @param  list<string>  $outOfScopeFiles
+     * @param  list<string>  $bytecodeArtifacts
+     * @return array<string,mixed>
+     */
+    private function aggregateReceipt(
+        array $base,
+        array $perCaseReceipts,
+        array $changedFiles,
+        array $outOfScopeFiles,
+        array $bytecodeArtifacts,
+    ): array {
+        $aggregated = $base;
+        $aggregated['changed_files'] = $changedFiles;
+        $aggregated['out_of_scope_files'] = $outOfScopeFiles;
+        $aggregated['bytecode_artifacts'] = $bytecodeArtifacts;
+        $aggregated['workspace_has_blocking_changes'] = ($outOfScopeFiles !== [] || $bytecodeArtifacts !== []);
+
+        $worstExit = 0;
+        $worstTestExit = 0;
+        $killed = false;
+        $minPatchBytes = null;
+        $sumStdoutBytes = 0;
+        $sumStderrBytes = 0;
+        $caseIds = [];
+
+        foreach ($perCaseReceipts as $receipt) {
+            $exit = (int) ($receipt['exit_code'] ?? -1);
+            if ($exit !== 0) {
+                $worstExit = $exit;
+            }
+            $testExit = (int) ($receipt['test_exit_code'] ?? -1);
+            if ($testExit !== 0) {
+                $worstTestExit = $testExit;
+            }
+            if (! empty($receipt['killed'])) {
+                $killed = true;
+            }
+            $patchBytes = (int) ($receipt['patch_diff_bytes'] ?? 0);
+            $minPatchBytes = $minPatchBytes === null ? $patchBytes : min($minPatchBytes, $patchBytes);
+            $sumStdoutBytes += (int) ($receipt['stdout_bytes'] ?? 0);
+            $sumStderrBytes += (int) ($receipt['stderr_bytes'] ?? 0);
+            $cid = (string) ($receipt['case_id'] ?? '');
+            if ($cid !== '') {
+                $caseIds[] = $cid;
+            }
+        }
+
+        $aggregated['exit_code'] = $worstExit;
+        $aggregated['test_exit_code'] = $worstTestExit;
+        $aggregated['killed'] = $killed;
+        $aggregated['timeout'] = $killed;
+        $aggregated['patch_diff_bytes'] = $minPatchBytes ?? 0;
+        $aggregated['stdout_bytes'] = $sumStdoutBytes;
+        $aggregated['stderr_bytes'] = $sumStderrBytes;
+        $aggregated['case_ids'] = array_values(array_unique($caseIds));
+        $aggregated['aggregate_kind'] = 'worst_of_per_case';
+
+        $workspaceBlockers = [];
+        if ($outOfScopeFiles !== []) {
+            foreach ($outOfScopeFiles as $file) {
+                $workspaceBlockers[] = 'out_of_scope_change:'.$file;
+            }
+        }
+        if ($bytecodeArtifacts !== []) {
+            foreach ($bytecodeArtifacts as $file) {
+                $workspaceBlockers[] = 'bytecode_artifact_after_run:'.$file;
+            }
+        }
+        $aggregated['workspace_blockers'] = array_values(array_unique($workspaceBlockers));
+
+        return $aggregated;
+    }
+
+    /**
+     * Reset a worktree to its tracked HEAD state, including removing any
+     * untracked files the previous case produced. Required between cases so
+     * the next case starts from a deterministic baseline. Used only between
+     * cases; the initial state is whatever Setup provisioned.
+     */
+    private function resetWorktree(string $worktree): void
+    {
+        if (! is_dir($worktree)) {
+            return;
+        }
+        $reset = new Process(['git', '-C', $worktree, 'reset', '--hard', 'HEAD']);
+        $reset->setTimeout(30);
+        try {
+            $reset->run();
+        } catch (\Throwable) {
+            // best-effort; if reset fails, next case's after-clean-check
+            // will surface the dirty state as a blocker honestly.
+        }
+
+        $clean = new Process(['git', '-C', $worktree, 'clean', '-fdx']);
+        $clean->setTimeout(30);
+        try {
+            $clean->run();
+        } catch (\Throwable) {
+        }
+    }
+
+    /**
+     * Sanitize a case id into a filesystem-safe directory name. Falls back
+     * to a deterministic short hash if the id contains anything unusual.
+     */
+    private function safeCaseDir(string $caseId): string
+    {
+        $trimmed = trim($caseId);
+        if ($trimmed === '') {
+            return 'case-unknown';
+        }
+        if (preg_match('/^[A-Za-z0-9_.\-]{1,96}$/', $trimmed) === 1) {
+            return $trimmed;
+        }
+
+        return 'case-'.substr(hash('sha256', $trimmed), 0, 12);
+    }
+
+    /**
+     * @param  array<string,mixed>  $input
+     * @return array{cases:list<array<string,mixed>>,source:string}
+     */
+    private function resolveCaseContext(array $input, string $preset): array
+    {
+        $explicitCase = trim((string) ($input['case'] ?? ''));
+        $explicitCases = $this->stringList($input['cases'] ?? []);
+        $caseSet = trim((string) ($input['case_set'] ?? ''));
+
+        if ($explicitCase !== '') {
+            return [
+                'source' => 'provider_arena_corpus',
+                'cases' => [$this->adaptCorpusCase($this->corpus->case($explicitCase), $preset, $caseSet)],
+            ];
+        }
+
+        if ($explicitCases !== []) {
+            return [
+                'source' => 'provider_arena_corpus',
+                'cases' => array_values(array_map(
+                    fn (string $caseId): array => $this->adaptCorpusCase($this->corpus->case($caseId), $preset, $caseSet),
+                    $explicitCases,
+                )),
+            ];
+        }
+
+        if ($caseSet !== '') {
+            $cases = $this->corpus->casesForCaseSet($caseSet);
+            if ($cases === []) {
+                throw new \InvalidArgumentException('empty_case_set:'.$caseSet);
+            }
+
+            return [
+                'source' => 'provider_arena_corpus',
+                'cases' => array_values(array_map(
+                    fn (array $c): array => $this->adaptCorpusCase($c, $preset, $caseSet),
+                    $cases,
+                )),
+            ];
+        }
+
+        // Preset=release without explicit case-set maps to the canonical
+        // provider arena release corpus (the 12-case battery). Quick/smoke/full
+        // remain on the legacy preset registry for back-compat with single-case
+        // tests and the original v1 harness.
+        if (strtolower(trim($preset)) === AtlasForgeRivalsCasesRegistry::PRESET_RELEASE) {
+            $corpusReleaseSet = AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_RELEASE;
+            $cases = $this->corpus->casesForCaseSet($corpusReleaseSet);
+            if ($cases === []) {
+                throw new \InvalidArgumentException('empty_case_set:'.$corpusReleaseSet);
+            }
+
+            return [
+                'source' => 'provider_arena_corpus',
+                'cases' => array_values(array_map(
+                    fn (array $c): array => $this->adaptCorpusCase($c, $preset, $corpusReleaseSet),
+                    $cases,
+                )),
+            ];
+        }
+
+        return [
+            'source' => 'legacy_preset',
+            'cases' => $this->cases->casesForPreset($preset),
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $corpusCase
+     * @return array<string,mixed>
+     */
+    private function adaptCorpusCase(array $corpusCase, string $preset, string $caseSet): array
+    {
+        $fixture = is_array($corpusCase['setup_fixture'] ?? null) ? $corpusCase['setup_fixture'] : [];
+        $quickCommand = trim((string) ($corpusCase['quick_test_command'] ?? ''));
+        $fullCommand = trim((string) ($corpusCase['full_test_command'] ?? ''));
+        $testCommand = strtolower($preset) === AtlasForgeRivalsCasesRegistry::PRESET_QUICK && $quickCommand !== ''
+            ? $quickCommand
+            : ($fullCommand !== '' ? $fullCommand : $quickCommand);
+
+        $difficulty = (string) ($corpusCase['difficulty'] ?? '');
+        $difficultyLevel = (string) ($corpusCase['difficulty_level'] ?? '');
+        if ($difficultyLevel === '' && $difficulty !== '') {
+            $difficultyLevel = AtlasForgeRivalsProviderArenaCorpusService::difficultyToLevel($difficulty);
+        }
+        if ($difficultyLevel === '') {
+            $difficultyLevel = AtlasForgeRivalsProviderArenaCorpusService::DIFFICULTY_LEVEL_L3;
+        }
+        $difficultyWeight = AtlasForgeRivalsProviderArenaCorpusService::difficultyLevelWeight($difficultyLevel);
+
+        // Canonical L1..L5 difficulty block — passed through verbatim to the
+        // manifest so adjudicator/report/evidence can compute the difficulty
+        // multiplier consistently downstream. Real cases declare every field;
+        // for unknown sources we fall back to the canonical neutral block.
+        $difficultyScoreMap = AtlasForgeRivalsProviderArenaCorpusService::DIFFICULTY_LEVEL_SCORE
+            ?? null;
+        $declaredScore = $corpusCase['difficulty_score'] ?? null;
+        if (is_int($declaredScore) || is_float($declaredScore)) {
+            $difficultyScore = (float) $declaredScore;
+        } else {
+            $contractMap = \App\Services\Ai\Programming\ForgeRivals\Schema\AtlasForgeRivalsSchemaContractService::DIFFICULTY_LEVEL_SCORE;
+            $difficultyScore = $contractMap[$difficultyLevel] ?? 3.0;
+        }
+
+        return [
+            'id' => (string) ($corpusCase['case_id'] ?? ''),
+            'case_source' => 'provider_arena_corpus',
+            'case_set' => $caseSet !== '' ? $caseSet : null,
+            'task_category' => (string) ($corpusCase['task_category'] ?? ''),
+            'category' => (string) ($corpusCase['category'] ?? ''),
+            'difficulty' => $difficulty,
+            'difficulty_level' => $difficultyLevel,
+            'difficulty_score' => $difficultyScore,
+            'difficulty_reason' => (string) ($corpusCase['difficulty_reason'] ?? ''),
+            'planning_weight' => is_numeric($corpusCase['planning_weight'] ?? null) ? (float) $corpusCase['planning_weight'] : null,
+            'execution_weight' => is_numeric($corpusCase['execution_weight'] ?? null) ? (float) $corpusCase['execution_weight'] : null,
+            'ambiguity_level' => (string) ($corpusCase['ambiguity_level'] ?? ''),
+            'risk_level' => (string) ($corpusCase['risk_level'] ?? ''),
+            'difficulty_weight' => $difficultyWeight,
+            'role_focus' => (string) ($corpusCase['role_focus'] ?? ''),
+            'objective' => (string) ($corpusCase['objective'] ?? ''),
+            'business_rule' => (string) ($corpusCase['business_rule'] ?? ''),
+            'allowed_files' => $this->normalizeWorkspacePaths($this->stringList($corpusCase['allowed_files_scope'] ?? [])),
+            'forbidden_files' => $this->normalizeWorkspacePaths($this->stringList($corpusCase['forbidden_files_scope'] ?? [])),
+            'acceptance_criteria' => $this->stringList($corpusCase['acceptance_criteria'] ?? []),
+            'quick_test_command' => $quickCommand,
+            'full_test_command' => $fullCommand,
+            'test_command' => $testCommand,
+            'expected_artifacts' => $this->stringList($corpusCase['expected_evidence'] ?? []),
+            'expected_signal' => (string) ($corpusCase['expected_signal'] ?? ''),
+            'setup_fixture' => [
+                'seed_dir' => (string) ($fixture['seed_dir'] ?? ''),
+                'base_files' => $this->stringList($fixture['base_files'] ?? []),
+            ],
+            'quality_gates' => is_array($corpusCase['quality_gates'] ?? null) ? $corpusCase['quality_gates'] : [],
+            'timeout_policy' => is_array($corpusCase['timeout_policy'] ?? null) ? $corpusCase['timeout_policy'] : [],
+            'tags' => ['provider-arena:'.$preset, 'rivals:v2', 'forge:atlas-arm', 'difficulty:'.$difficultyLevel],
+        ];
+    }
+
+    /**
+     * @param  list<string>  $paths
+     * @return list<string>
+     */
+    private function normalizeWorkspacePaths(array $paths): array
+    {
+        return array_values(array_map(function (string $path): string {
+            $path = trim($path);
+            foreach (['atlas-server/', './atlas-server/'] as $prefix) {
+                if (str_starts_with($path, $prefix)) {
+                    return substr($path, strlen($prefix));
+                }
+            }
+
+            return $path;
+        }, $paths));
+    }
+
+    /**
+     * Provider Arena corpus cases keep fixtures under storage/. The real run
+     * must stage those seed files into the declared worktree scope before
+     * hashing or invoking providers, otherwise models edit storage fixtures
+     * and the harness correctly invalidates the run as out-of-scope.
+     *
+     * @param  array<string,mixed>  $case
+     * @return array{status:string,staged_files:list<string>,ignored_files:list<string>,blockers:list<string>}
+     */
+    private function stageCaseFixture(string $runId, string $arm, string $worktree, array $case): array
+    {
+        if (($case['case_source'] ?? '') !== 'provider_arena_corpus') {
+            return [
+                'status' => 'not_required',
+                'staged_files' => [],
+                'ignored_files' => [],
+                'blockers' => [],
+            ];
+        }
+
+        $fixture = is_array($case['setup_fixture'] ?? null) ? $case['setup_fixture'] : [];
+        $seedDir = trim((string) ($fixture['seed_dir'] ?? ''));
+        if ($seedDir === '') {
+            return [
+                'status' => 'blocked',
+                'staged_files' => [],
+                'ignored_files' => [],
+                'blockers' => ['fixture_seed_dir_missing:'.$case['id']],
+            ];
+        }
+
+        $seedRoot = $worktree.'/'.$seedDir;
+        if (! is_dir($seedRoot)) {
+            return [
+                'status' => 'blocked',
+                'staged_files' => [],
+                'ignored_files' => [],
+                'blockers' => ['fixture_seed_dir_not_found:'.$seedDir],
+            ];
+        }
+
+        $allowed = $this->stringList($case['allowed_files'] ?? []);
+        $targetsByBasename = [];
+        foreach ($allowed as $target) {
+            $targetsByBasename[basename($target)] = $target;
+        }
+
+        $staged = [];
+        $ignored = [];
+        $blockers = [];
+        $files = glob($seedRoot.'/*') ?: [];
+        sort($files);
+
+        foreach ($files as $sourcePath) {
+            if (! is_file($sourcePath)) {
+                continue;
+            }
+            $basename = basename($sourcePath);
+            $target = $targetsByBasename[$basename] ?? null;
+            if ($target === null) {
+                $ignored[] = $basename;
+                continue;
+            }
+            if (! $this->matchesAnyAllowedScope($target, $allowed)) {
+                $blockers[] = 'fixture_target_out_of_scope:'.$target;
+                continue;
+            }
+            $targetPath = $worktree.'/'.$target;
+            $targetDir = dirname($targetPath);
+            if (! is_dir($targetDir) && ! @mkdir($targetDir, 0o755, true) && ! is_dir($targetDir)) {
+                $blockers[] = 'fixture_target_dir_create_failed:'.$target;
+                continue;
+            }
+            if (! @copy($sourcePath, $targetPath)) {
+                $blockers[] = 'fixture_copy_failed:'.$basename.'->'.$target;
+                continue;
+            }
+            $staged[] = $target;
+        }
+
+        $this->events->event($runId, 'fixture_staged', [
+            'arm' => $arm,
+            'case_id' => $case['id'],
+            'seed_dir' => $seedDir,
+            'staged_files' => $staged,
+            'ignored_files' => $ignored,
+            'blockers' => $blockers,
+        ]);
+
+        return [
+            'status' => $blockers === [] ? 'ok' : 'blocked',
+            'staged_files' => array_values(array_unique($staged)),
+            'ignored_files' => array_values(array_unique($ignored)),
+            'blockers' => array_values(array_unique($blockers)),
+        ];
+    }
+
+    /**
      * @param  array<string,mixed>  $case
      * @return array<string,mixed>
      */
-    private function runArm(string $runId, string $arm, string $worktree, string $mode, string $model, array $case): array
+    private function runArm(string $runId, string $arm, string $worktree, string $mode, string $model, array $case, string $caseSubdir = ''): array
     {
         $startedAt = $this->nowIso();
         $this->events->event($runId, 'provider_started', [
@@ -302,10 +1243,12 @@ final class AtlasForgeRivalsRunRealService
             'mode' => $mode,
             'model' => $model,
             'worktree' => $worktree,
+            'case_id' => (string) ($case['id'] ?? ''),
+            'case_subdir' => $caseSubdir !== '' ? $caseSubdir : null,
         ]);
 
         if ($mode === AtlasForgeRivalsModeRegistry::MODE_LOCAL_FAKE) {
-            return $this->fakeArm($runId, $arm, $worktree, $model, $case, $startedAt);
+            return $this->fakeArm($runId, $arm, $worktree, $model, $case, $startedAt, $caseSubdir);
         }
 
         // Real provider: build provider command per arm, spawn subprocess.
@@ -429,12 +1372,12 @@ final class AtlasForgeRivalsRunRealService
             'stderr_tail' => substr($stderrBuf, -500),
         ]);
 
-        $logPaths = $this->writeProviderLogs($runId, $arm, $stdoutBuf, $stderrBuf);
-        $patch = $this->capturePatch($runId, $arm, $worktree);
+        $logPaths = $this->writeProviderLogs($runId, $arm, $stdoutBuf, $stderrBuf, $caseSubdir);
+        $patch = $this->capturePatch($runId, $arm, $worktree, $caseSubdir);
         $scope = $this->scopeCheck($worktree, $case);
         $test = $killed
-            ? $this->skippedValidationCommand($runId, $arm, $case, (string) $timeoutReason)
-            : $this->runValidationCommand($runId, $arm, $worktree, $case);
+            ? $this->skippedValidationCommand($runId, $arm, $case, (string) $timeoutReason, $caseSubdir)
+            : $this->runValidationCommand($runId, $arm, $worktree, $case, $caseSubdir);
 
         return [
             'arm' => $arm,
@@ -481,20 +1424,21 @@ final class AtlasForgeRivalsRunRealService
      * @param  array<string,mixed>  $case
      * @return array<string,mixed>
      */
-    private function fakeArm(string $runId, string $arm, string $worktree, string $model, array $case, string $startedAt): array
+    private function fakeArm(string $runId, string $arm, string $worktree, string $model, array $case, string $startedAt, string $caseSubdir = ''): array
     {
         // In-process fake provider: deterministic, fast, zero side-effects on worktree.
         // It still writes real evidence artifacts so the local battery proves
         // the comparable/report path instead of succeeding with an empty diff.
         $paths = $this->paths->paths($runId);
-        @mkdir($paths['evidence'], 0o755, true);
+        $artifactDir = $this->artifactDir($paths['evidence'], $caseSubdir);
+        @mkdir($artifactDir, 0o755, true);
 
         $command = ['atlas:forge-rivals-fake-provider', '--arm='.$arm, '--model='.$model, '--case='.$case['id']];
         $fakeStdout = sprintf("[FAKE %s/%s] case=%s status=ok\n", $arm, $model, $case['id']);
         $fakeStderr = '';
         $fakeChangedFiles = $this->fakeChangedFiles($arm);
         $fakePatch = $this->fakePatch($arm, $model, $case, $fakeChangedFiles);
-        $patchPath = $paths['evidence'].'/'.$arm.'_patch.diff';
+        $patchPath = $artifactDir.'/'.$arm.'_patch.diff';
         file_put_contents($patchPath, $fakePatch);
 
         $testLog = sprintf(
@@ -506,9 +1450,9 @@ final class AtlasForgeRivalsRunRealService
             (string) $case['id'],
             $model,
         );
-        $testLogPath = $paths['evidence'].'/'.$arm.'_test.log';
+        $testLogPath = $artifactDir.'/'.$arm.'_test.log';
         file_put_contents($testLogPath, $testLog);
-        $logPaths = $this->writeProviderLogs($runId, $arm, $fakeStdout, $fakeStderr);
+        $logPaths = $this->writeProviderLogs($runId, $arm, $fakeStdout, $fakeStderr, $caseSubdir);
 
         $this->events->event($runId, 'provider_stdout_chunk', [
             'arm' => $arm,
@@ -689,6 +1633,11 @@ DIFF;
         $allowed = implode("\n- ", $this->stringList($case['allowed_files'] ?? []));
         $acceptance = implode("\n- ", $this->stringList($case['acceptance_criteria'] ?? []));
         $testCommand = $this->testCommand($case);
+        $businessRule = trim((string) ($case['business_rule'] ?? ''));
+        $expectedSignal = trim((string) ($case['expected_signal'] ?? ''));
+        $fixtureNote = ($case['case_source'] ?? '') === 'provider_arena_corpus'
+            ? "\nEstado inicial:\n- Os arquivos de seed ja foram posicionados dentro do escopo permitido deste workspace. Trate esses arquivos como o codigo inicial a corrigir.\n"
+            : '';
 
         return <<<PROMPT
 {$role}
@@ -696,11 +1645,18 @@ DIFF;
 Objetivo:
 {$case['objective']}
 
+Regra de negocio:
+{$businessRule}
+
 Escopo permitido:
 - {$allowed}
 
 Critérios de aceitação:
 - {$acceptance}
+
+Sinal esperado:
+{$expectedSignal}
+{$fixtureNote}
 
 Comando obrigatório de validação:
 {$testCommand}
@@ -728,6 +1684,10 @@ PROMPT;
      */
     private function testCommand(array $case): string
     {
+        $preferred = trim((string) ($case['test_command'] ?? ''));
+        if ($preferred !== '') {
+            return $preferred;
+        }
         $full = trim((string) ($case['full_test_command'] ?? ''));
         if ($full !== '') {
             return $full;
@@ -740,12 +1700,13 @@ PROMPT;
     /**
      * @return array{stdout_path:string,stderr_path:string}
      */
-    private function writeProviderLogs(string $runId, string $arm, string $stdout, string $stderr): array
+    private function writeProviderLogs(string $runId, string $arm, string $stdout, string $stderr, string $caseSubdir = ''): array
     {
         $paths = $this->paths->paths($runId);
-        @mkdir($paths['evidence'], 0o755, true);
-        $stdoutPath = $paths['evidence'].'/'.$arm.'_provider_stdout.log';
-        $stderrPath = $paths['evidence'].'/'.$arm.'_provider_stderr.log';
+        $dir = $this->artifactDir($paths['evidence'], $caseSubdir);
+        @mkdir($dir, 0o755, true);
+        $stdoutPath = $dir.'/'.$arm.'_provider_stdout.log';
+        $stderrPath = $dir.'/'.$arm.'_provider_stderr.log';
         file_put_contents($stdoutPath, $stdout);
         file_put_contents($stderrPath, $stderr);
 
@@ -753,13 +1714,29 @@ PROMPT;
     }
 
     /**
+     * Resolve the on-disk directory where this case's artifacts should land.
+     * Empty caseSubdir keeps the v1 single-case layout (artifacts straight
+     * under evidence/); a non-empty subdir nests them under
+     * evidence/cases/<case_id>/ for multi-case release runs.
+     */
+    private function artifactDir(string $evidenceRoot, string $caseSubdir): string
+    {
+        if ($caseSubdir === '') {
+            return $evidenceRoot;
+        }
+
+        return rtrim($evidenceRoot, '/').'/'.ltrim($caseSubdir, '/');
+    }
+
+    /**
      * @return array{path:string,sha256:string,bytes:int}
      */
-    private function capturePatch(string $runId, string $arm, string $worktree): array
+    private function capturePatch(string $runId, string $arm, string $worktree, string $caseSubdir = ''): array
     {
         $paths = $this->paths->paths($runId);
-        @mkdir($paths['evidence'], 0o755, true);
-        $patchPath = $paths['evidence'].'/'.$arm.'_patch.diff';
+        $dir = $this->artifactDir($paths['evidence'], $caseSubdir);
+        @mkdir($dir, 0o755, true);
+        $patchPath = $dir.'/'.$arm.'_patch.diff';
 
         $proc = new Process(['git', '-C', $worktree, 'diff', '--binary', '--']);
         $proc->setTimeout(60);
@@ -849,12 +1826,13 @@ PROMPT;
      * @param  array<string,mixed>  $case
      * @return array{command:string,exit_code:int,log_path:string,log_hash:string,tail:string}
      */
-    private function runValidationCommand(string $runId, string $arm, string $worktree, array $case): array
+    private function runValidationCommand(string $runId, string $arm, string $worktree, array $case, string $caseSubdir = ''): array
     {
         $command = $this->testCommand($case);
         $paths = $this->paths->paths($runId);
-        @mkdir($paths['evidence'], 0o755, true);
-        $logPath = $paths['evidence'].'/'.$arm.'_test.log';
+        $dir = $this->artifactDir($paths['evidence'], $caseSubdir);
+        @mkdir($dir, 0o755, true);
+        $logPath = $dir.'/'.$arm.'_test.log';
 
         $proc = Process::fromShellCommandline($command, $worktree, $this->subprocessEnv(), null, 900);
         $proc->run();
@@ -880,12 +1858,13 @@ PROMPT;
      * @param  array<string,mixed>  $case
      * @return array{command:string,exit_code:int,log_path:string,log_hash:string,tail:string}
      */
-    private function skippedValidationCommand(string $runId, string $arm, array $case, string $reason): array
+    private function skippedValidationCommand(string $runId, string $arm, array $case, string $reason, string $caseSubdir = ''): array
     {
         $command = $this->testCommand($case);
         $paths = $this->paths->paths($runId);
-        @mkdir($paths['evidence'], 0o755, true);
-        $logPath = $paths['evidence'].'/'.$arm.'_test.log';
+        $dir = $this->artifactDir($paths['evidence'], $caseSubdir);
+        @mkdir($dir, 0o755, true);
+        $logPath = $dir.'/'.$arm.'_test.log';
         $log = "SKIPPED: provider timed out before validation could run.\nReason: {$reason}\nCommand: {$command}\n";
         file_put_contents($logPath, $log);
         $this->events->event($runId, 'validation_skipped', [
@@ -911,7 +1890,7 @@ PROMPT;
         if (! is_dir($workspace)) {
             return [];
         }
-        $proc = new Process(['git', '-C', $workspace, 'status', '--porcelain']);
+        $proc = new Process(['git', '-C', $workspace, 'status', '--porcelain', '-uall']);
         $proc->setTimeout(15);
         $proc->run();
         if (! $proc->isSuccessful()) {
@@ -1032,7 +2011,7 @@ PROMPT;
         if (! is_dir($workspace)) {
             return null;
         }
-        $proc = new Process(['git', '-C', $workspace, 'status', '--porcelain']);
+        $proc = new Process(['git', '-C', $workspace, 'status', '--porcelain', '-uall']);
         $proc->setTimeout(15);
         $proc->run();
         if (! $proc->isSuccessful()) {
@@ -1050,7 +2029,7 @@ PROMPT;
         if (! is_dir($workspace)) {
             return ['dirty' => false, 'count' => 0, 'sample' => []];
         }
-        $proc = new Process(['git', '-C', $workspace, 'status', '--porcelain']);
+        $proc = new Process(['git', '-C', $workspace, 'status', '--porcelain', '-uall']);
         $proc->setTimeout(15);
         $proc->run();
         if (! $proc->isSuccessful()) {

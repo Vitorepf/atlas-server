@@ -129,6 +129,31 @@ final class AtlasAiSelfConstructionAgentControlPlaneCertificationMutationGuardTe
         $this->assertSame('failed', $guard['status']);
     }
 
+    public function test_guard_ignores_storage_writes_outside_self_construction_scope(): void
+    {
+        $guard = $this->newGuard()->guard(static function () {
+            Storage::disk('local')->put('forge-rivals-corpus/synthetic/receipt.json', '{}');
+        });
+
+        $this->assertFalse((bool) $guard['storage_mutated']);
+        $this->assertSame('passed', $guard['status']);
+        $this->assertSame(0, (int) $guard['mutation_count']);
+    }
+
+    public function test_guard_detects_self_construction_storage_writes_outside_allowed_snapshot_prefix(): void
+    {
+        $guard = $this->newGuard()->guard(static function () {
+            Storage::disk('local')->put('atlas/self-construction/operator-submissions/synthetic.json', '{}');
+        });
+
+        $this->assertTrue((bool) $guard['storage_mutated']);
+        $this->assertSame('failed', $guard['status']);
+        $this->assertContains(
+            'storage_outside_allowed_prefix_changed_from_0_to_1',
+            $guard['forbidden_mutations'],
+        );
+    }
+
     public function test_guard_allows_snapshot_prefix_mutation_only_when_configured(): void
     {
         $guard = $this->newGuard()->guard(null, [

@@ -34,10 +34,20 @@ final class AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorService
         $blockerExplainer = (new AtlasSelfConstructionCompletionAuditBlockerExplainerService)->build($completionAudit);
         $submissionPreflight = (new AtlasSelfConstructionCompletionEvidenceSubmissionPreflightService)
             ->build($completionAudit, $completionEvidence, $blockerExplainer);
+        $submissionReadiness = $this->safeCall(fn () => (new AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService($this->readiness))->build($options));
         $finalEvidenceBundle = $this->safeCall(fn () => $this->readiness->atlasSelfConstructionFinalEvidenceBundleStatus($options));
         $runtimeReceiptInput = (array) ($options['runtime_promotion_receipt'] ?? []);
         $realProviderSmokeInput = (array) ($options['real_provider_smoke'] ?? []);
         $completionReceiptInput = (array) ($options['completion_receipt'] ?? []);
+        $draftWorkspaceLoaded = (string) data_get($submissionReadiness, 'draft_workspace_input.status', '') === 'loaded_for_read_only_submission_readiness';
+        $draftHashFinalizationRequired = (bool) data_get($submissionReadiness, 'draft_hash_finalization_required', false);
+        $draftHashFinalizationStatus = (string) data_get($submissionReadiness, 'draft_hash_finalization.status', 'not_requested');
+        $draftWorkspacePublisher = $this->safeCall(fn () => (new AtlasSelfConstructionOperatorEvidenceDraftWorkspacePublisherService)->publish($options));
+        $draftWorkspacePublisherStatus = (string) data_get($draftWorkspacePublisher, 'status', 'not_requested');
+        $draftWorkspacePublishableCount = (int) data_get($draftWorkspacePublisher, 'publishable_artifact_count', 0);
+        $draftWorkspacePublishedCount = (int) data_get($draftWorkspacePublisher, 'published_artifact_count', 0);
+        $draftWorkspaceAtomicPublishRequired = (bool) data_get($draftWorkspacePublisher, 'atomic_bundle_publish_required', true);
+        $draftWorkspaceAtomicBundleReady = (bool) data_get($draftWorkspacePublisher, 'atomic_bundle_ready', false);
 
         $runtimeReceiptReady = (string) data_get($completionEvidence, 'runtime_gap_matrix.runtime_promotion_receipt.status') === 'passed'
             && (bool) data_get($completionEvidence, 'runtime_gap_matrix.all_runtime_y', false);
@@ -76,6 +86,13 @@ final class AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorService
             realProviderSmokeHash: $realProviderSmokeHash,
             humanReceiptHash: $humanReceiptHash,
             completionAuditHash: $completionAuditHash,
+            draftWorkspaceLoaded: $draftWorkspaceLoaded,
+            draftHashFinalizationRequired: $draftHashFinalizationRequired,
+            draftHashFinalizationStatus: $draftHashFinalizationStatus,
+            draftWorkspacePublisherStatus: $draftWorkspacePublisherStatus,
+            draftWorkspacePublishableCount: $draftWorkspacePublishableCount,
+            draftWorkspacePublishedCount: $draftWorkspacePublishedCount,
+            draftWorkspaceAtomicBundleReady: $draftWorkspaceAtomicBundleReady,
         );
 
         $artifactVerificationMatrix = [
@@ -207,6 +224,37 @@ final class AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorService
                 'ready_step_count' => (int) data_get($submissionPreflight, 'ready_step_count', 0),
                 'blocked_step_count' => (int) data_get($submissionPreflight, 'blocked_step_count', 0),
             ],
+            'operator_workspace_diagnostics' => [
+                'schema_version' => 'atlas.self_construction.final_operator_evidence_closure_corridor_workspace_diagnostics.v1',
+                'status' => $draftWorkspaceLoaded ? 'operator_draft_workspace_loaded' : 'operator_draft_workspace_not_loaded',
+                'requested_path' => (string) data_get($submissionReadiness, 'draft_workspace_input.requested_path', ''),
+                'workspace_directory' => (string) data_get($submissionReadiness, 'draft_workspace_input.workspace_directory', ''),
+                'manifest_path' => (string) data_get($submissionReadiness, 'draft_workspace_input.manifest_path', ''),
+                'loaded_artifacts' => (array) data_get($submissionReadiness, 'draft_workspace_input.loaded_artifacts', []),
+                'violation_count' => (int) data_get($submissionReadiness, 'draft_workspace_input.violation_count', 0),
+                'warning_count' => (int) data_get($submissionReadiness, 'draft_workspace_input.warning_count', 0),
+                'draft_hash_finalization_status' => $draftHashFinalizationStatus,
+                'draft_hash_finalization_required' => $draftHashFinalizationRequired,
+                'draft_hash_finalization_ready_artifact_count' => (int) data_get($submissionReadiness, 'draft_hash_finalization.ready_artifact_count', 0),
+                'draft_hash_finalization_blocked_artifact_count' => (int) data_get($submissionReadiness, 'draft_hash_finalization.blocked_artifact_count', 0),
+                'draft_hash_finalization_write_command' => (string) data_get($submissionReadiness, 'draft_hash_finalization.write_command', ''),
+                'draft_workspace_publisher_status' => $draftWorkspacePublisherStatus,
+                'draft_workspace_publishable_artifact_count' => $draftWorkspacePublishableCount,
+                'draft_workspace_published_artifact_count' => $draftWorkspacePublishedCount,
+                'draft_workspace_atomic_bundle_publish_required' => $draftWorkspaceAtomicPublishRequired,
+                'draft_workspace_atomic_bundle_ready' => $draftWorkspaceAtomicBundleReady,
+                'draft_workspace_publish_command' => (string) data_get($draftWorkspacePublisher, 'publish_command', 'php artisan atlas:ai:self-construction --atlas-self-construction-operator-evidence-draft-workspace-publisher-status --operator-draft-workspace-path=<workspace_path> --publish-operator-draft-workspace --json'),
+                'draft_workspace_post_publish_readiness_command' => (string) data_get($draftWorkspacePublisher, 'post_publish_readiness_command', ''),
+                'draft_workspace_post_publish_persistence_sequence' => (array) data_get($draftWorkspacePublisher, 'post_publish_persistence_sequence', []),
+                'draft_workspace_post_publish_persistence_step_count' => (int) data_get($draftWorkspacePublisher, 'post_publish_persistence_step_count', 0),
+                'draft_workspace_post_publish_persistence_sequence_ordered' => (bool) data_get($draftWorkspacePublisher, 'post_publish_persistence_sequence_ordered', false),
+                'draft_workspace_requires_explicit_operator_persistence_commands' => (bool) data_get($draftWorkspacePublisher, 'requires_explicit_operator_persistence_commands', true),
+                'draft_workspace_can_persist_from_publisher' => (bool) data_get($draftWorkspacePublisher, 'can_persist_from_publisher', false),
+                'submission_readiness_status' => (string) data_get($submissionReadiness, 'status', 'unknown'),
+                'submission_readiness_next_required' => (string) data_get($submissionReadiness, 'next_required', ''),
+                'can_write_from_corridor' => false,
+                'can_persist_from_corridor' => false,
+            ],
             'blocker_explainer' => [
                 'status' => (string) data_get($blockerExplainer, 'status', 'unknown'),
                 'explainer_hash' => (string) data_get($blockerExplainer, 'explainer_hash', ''),
@@ -243,6 +291,8 @@ final class AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorService
                 'rerun_completion_audit' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --json',
                 'operator_evidence_submission_readiness' => 'php artisan atlas:ai:self-construction --atlas-self-construction-operator-evidence-submission-readiness-status --json',
                 'operator_evidence_artifact_template_pack' => 'php artisan atlas:ai:self-construction --atlas-self-construction-operator-evidence-artifact-template-pack-status --json',
+                'finalize_operator_draft_workspace_hashes' => 'php artisan atlas:ai:self-construction --atlas-self-construction-operator-evidence-draft-hash-finalizer-status --operator-draft-workspace-path=<workspace_path> --write-computed-operator-draft-hashes --json',
+                'publish_finalized_operator_draft_workspace' => 'php artisan atlas:ai:self-construction --atlas-self-construction-operator-evidence-draft-workspace-publisher-status --operator-draft-workspace-path=<workspace_path> --publish-operator-draft-workspace --json',
             ],
             'anti_cheat_policy' => [
                 'reject_fake_real_provider_smoke',
@@ -457,6 +507,13 @@ final class AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorService
         string $realProviderSmokeHash,
         string $humanReceiptHash,
         string $completionAuditHash,
+        bool $draftWorkspaceLoaded,
+        bool $draftHashFinalizationRequired,
+        string $draftHashFinalizationStatus,
+        string $draftWorkspacePublisherStatus,
+        int $draftWorkspacePublishableCount,
+        int $draftWorkspacePublishedCount,
+        bool $draftWorkspaceAtomicBundleReady,
     ): array {
         $captureSnapshotCommand = (string) data_get($blockerExplainer, 'command_plan.capture_snapshot_if_stale', '');
         $draftRuntime = (string) data_get($blockerExplainer, 'command_plan.draft_runtime_promotion_receipt', '');
@@ -468,6 +525,8 @@ final class AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorService
         $draftHumanReceipt = (string) data_get($blockerExplainer, 'command_plan.draft_human_completion_receipt', '');
         $persistHumanReceipt = (string) data_get($blockerExplainer, 'command_plan.persist_human_completion_receipt', '');
         $completionAuditCommand = (string) data_get($blockerExplainer, 'command_plan.completion_audit', '');
+        $finalizeWorkspaceHashes = 'php artisan atlas:ai:self-construction --atlas-self-construction-operator-evidence-draft-hash-finalizer-status --operator-draft-workspace-path=<workspace_path> --write-computed-operator-draft-hashes --json';
+        $publishFinalizedWorkspace = 'php artisan atlas:ai:self-construction --atlas-self-construction-operator-evidence-draft-workspace-publisher-status --operator-draft-workspace-path=<workspace_path> --publish-operator-draft-workspace --json';
 
         $hashAvailableRuntime = $runtimeReceiptHash !== '';
         $hashAvailableSmoke = $realProviderSmokeHash !== '';
@@ -641,6 +700,74 @@ final class AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorService
                 canRunAutomatically: true,
             ),
             $this->pathStep(
+                id: 'finalize_operator_draft_workspace_hashes',
+                phase: 'operator_workspace_hash_finalization',
+                status: $this->draftHashFinalizationStepStatus(
+                    runtimeReceiptReady: $runtimeReceiptReady,
+                    realProviderSmokeReady: $realProviderSmokeReady,
+                    humanReceiptReady: $humanReceiptReady,
+                    draftWorkspaceLoaded: $draftWorkspaceLoaded,
+                    draftHashFinalizationRequired: $draftHashFinalizationRequired,
+                    draftHashFinalizationStatus: $draftHashFinalizationStatus,
+                ),
+                requiredInputs: ['operator_draft_workspace_path', 'operator_edited_runtime_promotion_receipt', 'operator_edited_real_provider_smoke', 'operator_edited_human_completion_receipt'],
+                producedArtifacts: ['runtime_promotion_receipt_hash_written_to_draft', 'real_provider_smoke_hash_written_to_draft', 'human_completion_receipt_hash_written_to_draft'],
+                verifierService: AtlasSelfConstructionOperatorEvidenceDraftHashFinalizerService::class,
+                command: $finalizeWorkspaceHashes,
+                persistCommand: '',
+                stopCondition: 'stop_if_any_draft_contains_placeholders_invalid_hashes_or_forbidden_flags',
+                forbiddenShortcuts: ['persisting_drafts_before_hash_finalization', 'accepting_operator_generated_hash_without_recomputation'],
+                evidenceHashesCurrentlyAvailable: array_values(array_filter([
+                    $hashAvailableRuntime ? 'runtime_promotion_receipt_hash' : null,
+                    $hashAvailableSmoke ? 'real_provider_smoke_hash' : null,
+                    $hashAvailableHuman ? 'human_completion_receipt_hash' : null,
+                ])),
+                missingInputs: $this->draftHashFinalizationMissingInputs(
+                    runtimeReceiptReady: $runtimeReceiptReady,
+                    realProviderSmokeReady: $realProviderSmokeReady,
+                    humanReceiptReady: $humanReceiptReady,
+                    draftWorkspaceLoaded: $draftWorkspaceLoaded,
+                    draftHashFinalizationRequired: $draftHashFinalizationRequired,
+                ),
+                canRunAutomatically: false,
+            ),
+            $this->pathStep(
+                id: 'publish_finalized_operator_draft_workspace',
+                phase: 'operator_workspace_submission_staging',
+                status: $this->draftWorkspacePublisherStepStatus(
+                    runtimeReceiptReady: $runtimeReceiptReady,
+                    realProviderSmokeReady: $realProviderSmokeReady,
+                    humanReceiptReady: $humanReceiptReady,
+                    draftWorkspaceLoaded: $draftWorkspaceLoaded,
+                    draftWorkspacePublisherStatus: $draftWorkspacePublisherStatus,
+                    draftWorkspacePublishableCount: $draftWorkspacePublishableCount,
+                    draftWorkspacePublishedCount: $draftWorkspacePublishedCount,
+                    draftWorkspaceAtomicBundleReady: $draftWorkspaceAtomicBundleReady,
+                ),
+                requiredInputs: ['operator_draft_workspace_path', 'finalized_operator_draft_hashes'],
+                producedArtifacts: ['runtime_promotion_submission_json', 'real_provider_smoke_submission_json', 'human_completion_receipt_submission_json'],
+                verifierService: AtlasSelfConstructionOperatorEvidenceDraftWorkspacePublisherService::class,
+                command: $publishFinalizedWorkspace,
+                persistCommand: '',
+                stopCondition: 'stop_if_any_finalized_draft_is_not_publishable_or_destination_path_is_not_allowed',
+                forbiddenShortcuts: ['publishing_unfinalized_drafts', 'publishing_to_non_canonical_submission_paths', 'treating_published_submission_json_as_persisted_evidence'],
+                evidenceHashesCurrentlyAvailable: array_values(array_filter([
+                    $hashAvailableRuntime ? 'runtime_promotion_receipt_hash' : null,
+                    $hashAvailableSmoke ? 'real_provider_smoke_hash' : null,
+                    $hashAvailableHuman ? 'human_completion_receipt_hash' : null,
+                ])),
+                missingInputs: $this->draftWorkspacePublisherMissingInputs(
+                    runtimeReceiptReady: $runtimeReceiptReady,
+                    realProviderSmokeReady: $realProviderSmokeReady,
+                    humanReceiptReady: $humanReceiptReady,
+                    draftWorkspaceLoaded: $draftWorkspaceLoaded,
+                    draftWorkspacePublishableCount: $draftWorkspacePublishableCount,
+                    draftWorkspacePublishedCount: $draftWorkspacePublishedCount,
+                    draftWorkspaceAtomicBundleReady: $draftWorkspaceAtomicBundleReady,
+                ),
+                canRunAutomatically: false,
+            ),
+            $this->pathStep(
                 id: 'persist_human_completion_receipt_after_prerequisites_green',
                 phase: 'human_completion_receipt',
                 status: $humanReceiptReady ? 'completed' : 'waiting_for_runtime_and_smoke_and_human_draft',
@@ -686,6 +813,116 @@ final class AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorService
                 canRunAutomatically: false,
             ),
         ];
+    }
+
+    private function draftHashFinalizationStepStatus(
+        bool $runtimeReceiptReady,
+        bool $realProviderSmokeReady,
+        bool $humanReceiptReady,
+        bool $draftWorkspaceLoaded,
+        bool $draftHashFinalizationRequired,
+        string $draftHashFinalizationStatus,
+    ): string {
+        if ($runtimeReceiptReady && $realProviderSmokeReady && $humanReceiptReady) {
+            return 'completed';
+        }
+        if (! $draftWorkspaceLoaded) {
+            return 'waiting_for_operator_edited_draft_workspace';
+        }
+        if ($draftHashFinalizationRequired) {
+            return 'ready_to_finalize_operator_draft_workspace_hashes';
+        }
+        if (in_array($draftHashFinalizationStatus, ['ready_to_write_computed_hashes', 'partially_ready_to_write_computed_hashes'], true)) {
+            return 'ready_for_operator_hash_finalization_review';
+        }
+        if ($draftHashFinalizationStatus === 'blocked_operator_drafts_not_ready_for_hash_write') {
+            return 'blocked_until_operator_drafts_are_hashable';
+        }
+
+        return 'operator_draft_workspace_loaded_no_hash_write_required';
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function draftHashFinalizationMissingInputs(
+        bool $runtimeReceiptReady,
+        bool $realProviderSmokeReady,
+        bool $humanReceiptReady,
+        bool $draftWorkspaceLoaded,
+        bool $draftHashFinalizationRequired,
+    ): array {
+        if ($runtimeReceiptReady && $realProviderSmokeReady && $humanReceiptReady) {
+            return [];
+        }
+        if (! $draftWorkspaceLoaded) {
+            return ['operator_edited_draft_workspace_with_all_required_artifacts'];
+        }
+        if ($draftHashFinalizationRequired) {
+            return ['operator_must_run_workspace_hash_finalizer_write_command'];
+        }
+
+        return ['operator_must_finish_draft_workspace_or_run_readiness'];
+    }
+
+    private function draftWorkspacePublisherStepStatus(
+        bool $runtimeReceiptReady,
+        bool $realProviderSmokeReady,
+        bool $humanReceiptReady,
+        bool $draftWorkspaceLoaded,
+        string $draftWorkspacePublisherStatus,
+        int $draftWorkspacePublishableCount,
+        int $draftWorkspacePublishedCount,
+        bool $draftWorkspaceAtomicBundleReady,
+    ): string {
+        if ($runtimeReceiptReady && $realProviderSmokeReady && $humanReceiptReady) {
+            return 'completed';
+        }
+        if ($draftWorkspacePublisherStatus === 'operator_draft_workspace_published' || $draftWorkspacePublishedCount >= 3) {
+            return 'completed_submission_json_staged';
+        }
+        if (! $draftWorkspaceLoaded) {
+            return 'waiting_for_operator_edited_draft_workspace';
+        }
+        if ($draftWorkspaceAtomicBundleReady && $draftWorkspacePublishableCount >= 3) {
+            return 'ready_to_publish_finalized_operator_draft_workspace';
+        }
+        if ($draftWorkspacePublishableCount > 0) {
+            return 'blocked_until_all_operator_draft_artifacts_are_publishable';
+        }
+
+        return 'blocked_until_operator_draft_hashes_are_finalized';
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function draftWorkspacePublisherMissingInputs(
+        bool $runtimeReceiptReady,
+        bool $realProviderSmokeReady,
+        bool $humanReceiptReady,
+        bool $draftWorkspaceLoaded,
+        int $draftWorkspacePublishableCount,
+        int $draftWorkspacePublishedCount,
+        bool $draftWorkspaceAtomicBundleReady,
+    ): array {
+        if ($runtimeReceiptReady && $realProviderSmokeReady && $humanReceiptReady) {
+            return [];
+        }
+        if ($draftWorkspacePublishedCount >= 3) {
+            return [];
+        }
+        if (! $draftWorkspaceLoaded) {
+            return ['operator_edited_draft_workspace_with_all_required_artifacts'];
+        }
+        if ($draftWorkspaceAtomicBundleReady && $draftWorkspacePublishableCount >= 3) {
+            return ['operator_must_run_draft_workspace_publisher_write_command'];
+        }
+        if ($draftWorkspacePublishableCount > 0) {
+            return ['operator_must_make_all_three_draft_artifacts_publishable_before_atomic_publish'];
+        }
+
+        return ['operator_must_finalize_all_draft_hashes_before_publishing'];
     }
 
     /**

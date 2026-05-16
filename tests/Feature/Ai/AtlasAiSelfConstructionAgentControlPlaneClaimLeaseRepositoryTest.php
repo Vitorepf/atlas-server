@@ -22,6 +22,7 @@ final class AtlasAiSelfConstructionAgentControlPlaneClaimLeaseRepositoryTest ext
         $this->assertSame('atlas/self-construction/agent-control-plane/leases', AgentControlPlaneClaimLeaseRepository::STORAGE_PREFIX);
         $this->assertGreaterThanOrEqual(60, AgentControlPlaneClaimLeaseRepository::MIN_TTL_SECONDS);
         $this->assertGreaterThan(AgentControlPlaneClaimLeaseRepository::MIN_TTL_SECONDS, AgentControlPlaneClaimLeaseRepository::DEFAULT_TTL_SECONDS);
+        $this->assertGreaterThanOrEqual(100, AgentControlPlaneClaimLeaseRepository::MAX_REGISTRY_ENTRIES);
     }
 
     public function test_claim_available_task(): void
@@ -157,6 +158,7 @@ final class AtlasAiSelfConstructionAgentControlPlaneClaimLeaseRepositoryTest ext
         $disk->put($registryPath, json_encode($registry, JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR));
 
         $active = $repo->activeLeases();
+        $this->assertEmpty($active);
         foreach ($active as $lease) {
             $this->assertNotSame($r['lease_id'], $lease['lease_id']);
         }
@@ -314,6 +316,42 @@ final class AtlasAiSelfConstructionAgentControlPlaneClaimLeaseRepositoryTest ext
         $only1 = $repo->activeLeases(['agent_id' => 'agent-1']);
         $this->assertCount(1, $only1);
         $this->assertSame('agent-1', $only1[0]['agent_id']);
+    }
+
+    public function test_registry_compaction_keeps_active_index_entries_and_preserves_lease_files(): void
+    {
+        $disk = Storage::disk('local');
+        $entries = [];
+        for ($i = 0; $i < AgentControlPlaneClaimLeaseRepository::MAX_REGISTRY_ENTRIES + 25; $i++) {
+            $entries[] = [
+                'lease_id' => "lease_old_{$i}",
+                'task_packet_id' => "old-task-{$i}",
+                'agent_id' => 'agent-old',
+                'lease_status' => AgentControlPlaneClaimLeaseRepository::LEASE_STATUS_RELEASED,
+                'acquired_at' => now()->subMinutes($i + 1)->toIso8601String(),
+                'expires_at' => now()->subMinutes($i)->toIso8601String(),
+                'expires_at_unix' => time() - $i,
+                'write_set' => ["app/Old{$i}.php"],
+                'read_set' => [],
+            ];
+        }
+        $disk->put(
+            AgentControlPlaneClaimLeaseRepository::REGISTRY_PATH,
+            json_encode(['entries' => $entries], JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT),
+        );
+
+        $repo = new AgentControlPlaneClaimLeaseRepository;
+        $claimed = $repo->claim('compact-active-task', 'agent-active', $this->scope(['app/Active.php']));
+
+        $registry = json_decode((string) $disk->get(AgentControlPlaneClaimLeaseRepository::REGISTRY_PATH), true, flags: JSON_THROW_ON_ERROR);
+        $this->assertSame('ok', $claimed['status']);
+        $this->assertTrue((bool) ($registry['compacted'] ?? false));
+        $this->assertLessThanOrEqual(AgentControlPlaneClaimLeaseRepository::MAX_REGISTRY_ENTRIES, count($registry['entries']));
+        $this->assertTrue(collect($registry['entries'])->contains(
+            fn (array $entry): bool => (string) $entry['lease_id'] === (string) $claimed['lease_id']
+                && (string) $entry['lease_status'] === AgentControlPlaneClaimLeaseRepository::LEASE_STATUS_ACTIVE,
+        ));
+        $this->assertTrue($disk->exists(AgentControlPlaneClaimLeaseRepository::STORAGE_PREFIX.'/'.$claimed['lease_id'].'.json'));
     }
 
     public function test_constants_receipt_kinds_canonical(): void

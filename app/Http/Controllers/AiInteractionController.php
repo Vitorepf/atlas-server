@@ -748,7 +748,25 @@ class AiInteractionController extends Controller
             $relations[] = 'streamEvents';
         }
 
+        if ($this->toolEventsAvailable()) {
+            $relations[] = 'toolEvents';
+        }
+
+        if ($this->metricSummaryAvailable()) {
+            $relations[] = 'metricSummary';
+        }
+
         return $relations;
+    }
+
+    private function toolEventsAvailable(): bool
+    {
+        return Schema::hasTable('ai_tool_events');
+    }
+
+    private function metricSummaryAvailable(): bool
+    {
+        return Schema::hasTable('ai_trace_metric_summaries');
     }
 
     private function routerDecisionsAvailable(): bool

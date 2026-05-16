@@ -55,6 +55,7 @@ final class AtlasForgeRivalsRunPathResolver
      *   events_jsonl:string,
      *   manifest_json:string,
      *   scorecard_json:string,
+     *   scorecard_v2_json:string,
      *   report_md:string
      * }
      */
@@ -78,6 +79,7 @@ final class AtlasForgeRivalsRunPathResolver
             'events_jsonl' => $base.'/events.jsonl',
             'manifest_json' => $evidence.'/manifest.json',
             'scorecard_json' => $evidence.'/scorecard.json',
+            'scorecard_v2_json' => $evidence.'/scorecard.v2.json',
             'report_md' => $evidence.'/report.md',
         ];
     }

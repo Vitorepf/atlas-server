@@ -39,6 +39,12 @@ final class AtlasSelfConstructionCompletionEvidenceHashComposerTest extends Test
         $this->assertFalse($payload['ledger_write_allowed']);
         $this->assertFalse($payload['runtime_write_allowed']);
         $this->assertFalse($payload['completion_claim_allowed']);
+        $this->assertArrayNotHasKey('persist_verified_evidence', $payload['commands_after_composition']);
+        $this->assertArrayHasKey('persist_runtime_promotion_receipt', $payload['commands_after_composition']);
+        $this->assertArrayHasKey('persist_real_provider_smoke', $payload['commands_after_composition']);
+        $this->assertArrayHasKey('persist_human_completion_receipt', $payload['commands_after_composition']);
+        $this->assertStringNotContainsString('--completion-receipt-json', $payload['commands_after_composition']['persist_real_provider_smoke']);
+        $this->assertStringNotContainsString('--real-provider-smoke-json', $payload['commands_after_composition']['persist_human_completion_receipt']);
         $this->assertFalse(Storage::disk('local')->exists('atlas/self-construction/os-completion/human-signed-receipts/registry.json'));
     }
 

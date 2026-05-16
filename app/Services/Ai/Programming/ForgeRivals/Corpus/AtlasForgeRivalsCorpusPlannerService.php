@@ -75,7 +75,7 @@ final class AtlasForgeRivalsCorpusPlannerService
         if ($taskCategory !== '' && $caseId === '' && $caseSet !== '') {
             $resolved = array_values(array_filter(
                 $resolved,
-                static fn (array $c): bool => (string) ($c['task_category'] ?? '') === $taskCategory,
+                static fn (array $c): bool => (string) ($c['category'] ?? '') === $taskCategory,
             ));
             $appliedFilters[] = 'task_category='.$taskCategory;
         }
@@ -119,10 +119,20 @@ final class AtlasForgeRivalsCorpusPlannerService
         return array_values(array_map(
             static fn (array $c): array => [
                 'case_id' => (string) ($c['case_id'] ?? ''),
+                'title' => (string) ($c['title'] ?? ''),
+                'category' => (string) ($c['category'] ?? ''),
+                'secondary_categories' => array_values(array_map(
+                    static fn ($s): string => (string) $s,
+                    (array) ($c['secondary_categories'] ?? []),
+                )),
+                'difficulty' => (string) ($c['difficulty'] ?? ''),
                 'task_category' => (string) ($c['task_category'] ?? ''),
                 'role_focus' => (string) ($c['role_focus'] ?? ''),
                 'objective' => (string) ($c['objective'] ?? ''),
+                'business_rule' => (string) ($c['business_rule'] ?? ''),
+                'fixture_seed_path' => (string) ($c['fixture_seed_path'] ?? ''),
                 'quick_test_command' => (string) ($c['quick_test_command'] ?? ''),
+                'full_test_command' => (string) ($c['full_test_command'] ?? ''),
                 'allowed_files_scope' => array_values(array_map(
                     static fn ($g): string => (string) $g,
                     (array) ($c['allowed_files_scope'] ?? []),
@@ -131,8 +141,28 @@ final class AtlasForgeRivalsCorpusPlannerService
                     static fn ($g): string => (string) $g,
                     (array) ($c['forbidden_files_scope'] ?? []),
                 )),
+                'expected_changed_files' => array_values(array_map(
+                    static fn ($g): string => (string) $g,
+                    (array) ($c['expected_changed_files'] ?? []),
+                )),
+                'acceptance_criteria' => array_values(array_map(
+                    static fn ($v): string => (string) $v,
+                    (array) ($c['acceptance_criteria'] ?? []),
+                )),
+                'quality_weights' => $c['quality_weights'] ?? null,
                 'quality_gates' => $c['quality_gates'] ?? null,
                 'timeout_policy' => $c['timeout_policy'] ?? null,
+                'evidence_requirements' => array_values(array_map(
+                    static fn ($v): string => (string) $v,
+                    (array) ($c['evidence_requirements'] ?? []),
+                )),
+                'replay_requirements' => array_values(array_map(
+                    static fn ($v): string => (string) $v,
+                    (array) ($c['replay_requirements'] ?? []),
+                )),
+                'fairness_notes' => (string) ($c['fairness_notes'] ?? ''),
+                'human_review_notes' => (string) ($c['human_review_notes'] ?? ''),
+                'claim_level' => (string) ($c['claim_level'] ?? ''),
                 'invalid_if' => array_values(array_map(
                     static fn ($v): string => (string) $v,
                     (array) ($c['invalid_if'] ?? []),
@@ -149,16 +179,27 @@ final class AtlasForgeRivalsCorpusPlannerService
      */
     private function replayManifest(array $cases, array $appliedFilters): array
     {
-        return [
+        $caseIds = array_values(array_map(
+            static fn (array $c): string => (string) ($c['case_id'] ?? ''),
+            $cases,
+        ));
+
+        $deterministic = [
             'schema_version' => 'atlas.forge.rivals.provider_arena_corpus_replay.v1',
-            'generated_at_utc' => gmdate('Y-m-d\TH:i:s\Z'),
+            'corpus_content_hash' => $this->corpus->contentHash(),
             'applied_filters' => $appliedFilters,
-            'case_ids' => array_values(array_map(
-                static fn (array $c): string => (string) ($c['case_id'] ?? ''),
-                $cases,
-            )),
+            'case_ids' => $caseIds,
             'external_provider_call' => false,
             'separated_from_external_rivals_certification' => true,
+        ];
+
+        $deterministic['plan_hash'] = hash(
+            'sha256',
+            (string) json_encode($deterministic, JSON_UNESCAPED_SLASHES),
+        );
+
+        return $deterministic + [
+            'generated_at_utc' => gmdate('Y-m-d\TH:i:s\Z'),
             'replay_contract' => 'rodar planner com os mesmos filters em qualquer host reproduz a mesma lista, na mesma ordem, byte a byte.',
         ];
     }

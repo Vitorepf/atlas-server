@@ -203,6 +203,33 @@ final class AtlasForgeRivalsEvidenceReplayAdjudicatorHardeningV2Test extends Tes
         $this->assertContains('scorecard:hash_mismatch', $result['hash_mismatches']);
     }
 
+    public function test_final_evidence_and_replay_do_not_override_scorecard_claim_gate(): void
+    {
+        $runId = $this->newRunId('replay-final-scorecard-claim');
+        $this->seedRunArtifacts($runId, ['verdict' => 'comparable', 'mode' => 'fair'], includePatchesAndLogs: true);
+        $paths = $this->paths->paths($runId);
+        file_put_contents($paths['scorecard_json'], $this->jsonEncode([
+            'winner' => AtlasForgeRivalsAdjudicatorService::WINNER_TIE,
+            'claim_ready' => false,
+            'hard_failures' => [],
+        ]));
+
+        $collect = $this->collect->collect([
+            'run_id' => $runId,
+            'evidence_stage' => AtlasForgeRivalsEvidencePolicy::STAGE_FINAL,
+        ]);
+        $this->assertSame('ok', $collect['status']);
+        $this->assertFalse($collect['evidence_pack']['claim_ready']);
+
+        $result = $this->replay->replay([
+            'run_id' => $runId,
+            'evidence_stage' => AtlasForgeRivalsEvidencePolicy::STAGE_FINAL,
+        ]);
+
+        $this->assertTrue($result['replay_passes']);
+        $this->assertFalse($result['decision']['claim_ready']);
+    }
+
     public function test_replay_local_fake_invalid_run_lists_optional_missing_without_blocking(): void
     {
         $runId = $this->newRunId('replay-localfake-optional');

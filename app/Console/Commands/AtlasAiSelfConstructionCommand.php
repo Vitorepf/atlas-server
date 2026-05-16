@@ -242,6 +242,18 @@ class AtlasAiSelfConstructionCommand extends Command
         {--atlas-self-construction-runtime-promotion-receipt-draft-preflight : Generate the read-only Atlas Self-Construction Runtime Promotion Receipt Draft preflight}
         {--atlas-self-construction-runtime-promotion-receipt-draft-implementation-packet : Generate the read-only Atlas Self-Construction Runtime Promotion Receipt Draft implementation packet}
         {--atlas-self-construction-runtime-promotion-receipt-draft-status : Build a runtime promotion receipt draft when operator signer and reason are supplied; persists only with --persist-runtime-promotion-receipt}
+        {--atlas-self-construction-runtime-promotion-draft-hash-finalizer-contract : Generate the read-only Atlas Self-Construction Runtime Promotion Draft Hash Finalizer contract}
+        {--atlas-self-construction-runtime-promotion-draft-hash-finalizer-preflight : Generate the read-only Atlas Self-Construction Runtime Promotion Draft Hash Finalizer preflight}
+        {--atlas-self-construction-runtime-promotion-draft-hash-finalizer-implementation-packet : Generate the read-only Atlas Self-Construction Runtime Promotion Draft Hash Finalizer implementation packet}
+        {--atlas-self-construction-runtime-promotion-draft-hash-finalizer-status : Review a runtime promotion draft workspace and optionally write only the computed receipt_hash with an explicit flag}
+        {--atlas-self-construction-operator-evidence-draft-hash-finalizer-contract : Generate the read-only Atlas Self-Construction Operator Evidence Draft Hash Finalizer contract}
+        {--atlas-self-construction-operator-evidence-draft-hash-finalizer-preflight : Generate the read-only Atlas Self-Construction Operator Evidence Draft Hash Finalizer preflight}
+        {--atlas-self-construction-operator-evidence-draft-hash-finalizer-implementation-packet : Generate the read-only Atlas Self-Construction Operator Evidence Draft Hash Finalizer implementation packet}
+        {--atlas-self-construction-operator-evidence-draft-hash-finalizer-status : Review an operator draft workspace and optionally write computed hashes to all ready draft JSON files}
+        {--atlas-self-construction-operator-evidence-draft-workspace-publisher-contract : Generate the Atlas Self-Construction Operator Evidence Draft Workspace Publisher contract}
+        {--atlas-self-construction-operator-evidence-draft-workspace-publisher-preflight : Generate the Atlas Self-Construction Operator Evidence Draft Workspace Publisher preflight}
+        {--atlas-self-construction-operator-evidence-draft-workspace-publisher-implementation-packet : Generate the Atlas Self-Construction Operator Evidence Draft Workspace Publisher implementation packet}
+        {--atlas-self-construction-operator-evidence-draft-workspace-publisher-status : Publish finalized operator draft JSON files to recommended submission paths only with an explicit flag}
         {--atlas-self-construction-human-completion-receipt-draft-contract : Generate the read-only Atlas Self-Construction Human Completion Receipt Draft contract}
         {--atlas-self-construction-human-completion-receipt-draft-preflight : Generate the read-only Atlas Self-Construction Human Completion Receipt Draft preflight}
         {--atlas-self-construction-human-completion-receipt-draft-implementation-packet : Generate the read-only Atlas Self-Construction Human Completion Receipt Draft implementation packet}
@@ -281,6 +293,9 @@ class AtlasAiSelfConstructionCommand extends Command
         {--persist-completion-evidence : Persist valid completion receipt and/or real provider smoke evidence payloads}
         {--persist-runtime-promotion-receipt : Persist a valid runtime promotion receipt payload}
         {--operator-draft-workspace-path= : Operator evidence draft workspace directory or manifest path for the draft workspace inspector}
+        {--write-computed-runtime-promotion-receipt-hash : Write only the computed runtime promotion receipt_hash back to the operator draft JSON; default false}
+        {--write-computed-operator-draft-hashes : Write only computed receipt_hash/smoke_hash fields back to ready operator draft JSON files; default false}
+        {--publish-operator-draft-workspace : Copy finalized operator draft JSON files to recommended submission paths; default false}
         {--agent-control-plane-runtime-evidence-journal-contract : Generate the read-only Runtime Evidence Journal contract}
         {--agent-control-plane-runtime-evidence-journal-preflight : Generate the read-only Runtime Evidence Journal preflight}
         {--agent-control-plane-runtime-evidence-journal-implementation-packet : Generate the read-only Runtime Evidence Journal implementation packet}
@@ -1262,6 +1277,9 @@ class AtlasAiSelfConstructionCommand extends Command
             'persist_export' => $this->option('persist-export'),
             'persist_operator_draft_workspace' => $this->option('persist-operator-draft-workspace'),
             'operator_draft_workspace_path' => $this->option('operator-draft-workspace-path'),
+            'write_computed_runtime_promotion_receipt_hash' => $this->option('write-computed-runtime-promotion-receipt-hash'),
+            'write_computed_operator_draft_hashes' => $this->option('write-computed-operator-draft-hashes'),
+            'publish_operator_draft_workspace' => $this->option('publish-operator-draft-workspace'),
         ];
 
         $payload = match (true) {
@@ -2121,6 +2139,18 @@ class AtlasAiSelfConstructionCommand extends Command
             (bool) $this->option('atlas-self-construction-runtime-promotion-receipt-draft-implementation-packet') => $readiness->atlasSelfConstructionRuntimePromotionReceiptDraftImplementationPacket($options),
             (bool) $this->option('atlas-self-construction-runtime-promotion-receipt-draft-preflight') => $readiness->atlasSelfConstructionRuntimePromotionReceiptDraftPreflight($options),
             (bool) $this->option('atlas-self-construction-runtime-promotion-receipt-draft-contract') => $readiness->atlasSelfConstructionRuntimePromotionReceiptDraftContract($options),
+            (bool) $this->option('atlas-self-construction-runtime-promotion-draft-hash-finalizer-status') => $readiness->atlasSelfConstructionRuntimePromotionDraftHashFinalizerStatus($options),
+            (bool) $this->option('atlas-self-construction-runtime-promotion-draft-hash-finalizer-implementation-packet') => $readiness->atlasSelfConstructionRuntimePromotionDraftHashFinalizerImplementationPacket($options),
+            (bool) $this->option('atlas-self-construction-runtime-promotion-draft-hash-finalizer-preflight') => $readiness->atlasSelfConstructionRuntimePromotionDraftHashFinalizerPreflight($options),
+            (bool) $this->option('atlas-self-construction-runtime-promotion-draft-hash-finalizer-contract') => $readiness->atlasSelfConstructionRuntimePromotionDraftHashFinalizerContract($options),
+            (bool) $this->option('atlas-self-construction-operator-evidence-draft-hash-finalizer-status') => $readiness->atlasSelfConstructionOperatorEvidenceDraftHashFinalizerStatus($options),
+            (bool) $this->option('atlas-self-construction-operator-evidence-draft-hash-finalizer-implementation-packet') => $readiness->atlasSelfConstructionOperatorEvidenceDraftHashFinalizerImplementationPacket($options),
+            (bool) $this->option('atlas-self-construction-operator-evidence-draft-hash-finalizer-preflight') => $readiness->atlasSelfConstructionOperatorEvidenceDraftHashFinalizerPreflight($options),
+            (bool) $this->option('atlas-self-construction-operator-evidence-draft-hash-finalizer-contract') => $readiness->atlasSelfConstructionOperatorEvidenceDraftHashFinalizerContract($options),
+            (bool) $this->option('atlas-self-construction-operator-evidence-draft-workspace-publisher-status') => $readiness->atlasSelfConstructionOperatorEvidenceDraftWorkspacePublisherStatus($options),
+            (bool) $this->option('atlas-self-construction-operator-evidence-draft-workspace-publisher-implementation-packet') => $readiness->atlasSelfConstructionOperatorEvidenceDraftWorkspacePublisherImplementationPacket($options),
+            (bool) $this->option('atlas-self-construction-operator-evidence-draft-workspace-publisher-preflight') => $readiness->atlasSelfConstructionOperatorEvidenceDraftWorkspacePublisherPreflight($options),
+            (bool) $this->option('atlas-self-construction-operator-evidence-draft-workspace-publisher-contract') => $readiness->atlasSelfConstructionOperatorEvidenceDraftWorkspacePublisherContract($options),
             (bool) $this->option('atlas-self-construction-human-completion-receipt-draft-status') => $readiness->atlasSelfConstructionHumanCompletionReceiptDraftStatus($options),
             (bool) $this->option('atlas-self-construction-human-completion-receipt-draft-implementation-packet') => $readiness->atlasSelfConstructionHumanCompletionReceiptDraftImplementationPacket($options),
             (bool) $this->option('atlas-self-construction-human-completion-receipt-draft-preflight') => $readiness->atlasSelfConstructionHumanCompletionReceiptDraftPreflight($options),

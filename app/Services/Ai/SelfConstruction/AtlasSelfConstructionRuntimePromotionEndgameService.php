@@ -3,6 +3,7 @@
 namespace App\Services\Ai\SelfConstruction;
 
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * Runtime Promotion Endgame v1.
@@ -23,6 +24,8 @@ final class AtlasSelfConstructionRuntimePromotionEndgameService
 
     public const MODE = 'read_only_runtime_promotion_endgame';
 
+    private const CANONICAL_PUBLISHED_RECEIPT_PATH = 'atlas/self-construction/operator-submissions/runtime-promotion.json';
+
     public function __construct(
         private readonly AtlasSelfConstructionReadinessService $readiness,
     ) {}
@@ -37,11 +40,27 @@ final class AtlasSelfConstructionRuntimePromotionEndgameService
         $reason = trim((string) ($options['reason'] ?? ''));
         $providedReceipt = (array) ($options['runtime_promotion_receipt'] ?? []);
         $receiptProvided = $providedReceipt !== [];
+        $draftWorkspaceReceipt = $receiptProvided ? [] : $this->loadRuntimePromotionReceiptFromDraftWorkspace(
+            (string) ($options['operator_draft_workspace_path'] ?? ''),
+        );
+        $workspaceReceipt = (array) data_get($draftWorkspaceReceipt, 'receipt_payload', []);
+        $workspaceReceiptLoaded = $workspaceReceipt !== [];
+        $canonicalSubmissionReceipt = (! $receiptProvided && ! $workspaceReceiptLoaded)
+            ? $this->loadRuntimePromotionReceiptFromCanonicalSubmission()
+            : [];
+        $canonicalReceipt = (array) data_get($canonicalSubmissionReceipt, 'receipt_payload', []);
+        $canonicalReceiptLoaded = $canonicalReceipt !== [];
         $persistRequested = (bool) ($options['persist_runtime_promotion_receipt'] ?? false);
         $skipCompletionSurfaces = (bool) ($options['skip_completion_surfaces'] ?? false);
 
+        $receiptForMatrix = match (true) {
+            $receiptProvided => $providedReceipt,
+            $workspaceReceiptLoaded => $workspaceReceipt,
+            $canonicalReceiptLoaded => $canonicalReceipt,
+            default => [],
+        };
         $matrix = (array) ($options['runtime_gap_matrix'] ?? (new AtlasSelfConstructionRuntimeGapMatrixService($this->readiness))->matrix([
-            'runtime_promotion_receipt' => $providedReceipt,
+            'runtime_promotion_receipt' => $receiptForMatrix,
             'persist_runtime_promotion_receipt' => false,
         ]));
         $rows = array_values(array_filter((array) data_get($matrix, 'rows', []), 'is_array'));
@@ -85,8 +104,20 @@ final class AtlasSelfConstructionRuntimePromotionEndgameService
         }
         $draftPayload = (array) data_get($receiptDraft, 'receipt_payload', []);
         $draftReady = (string) data_get($receiptDraft, 'status', '') === 'ready_for_operator_persistence';
-        $receiptUnderReview = $receiptProvided ? $providedReceipt : $draftPayload;
-        $receiptUnderReviewSource = $receiptProvided ? 'operator_supplied_runtime_promotion_receipt' : ($draftPayload !== [] ? 'generated_runtime_promotion_receipt_draft' : 'none');
+        $receiptUnderReview = match (true) {
+            $receiptProvided => $providedReceipt,
+            $workspaceReceiptLoaded => $workspaceReceipt,
+            $canonicalReceiptLoaded => $canonicalReceipt,
+            default => $draftPayload,
+        };
+        $receiptUnderReviewSource = match (true) {
+            $receiptProvided => 'operator_supplied_runtime_promotion_receipt',
+            $workspaceReceiptLoaded => 'operator_draft_workspace_runtime_promotion_receipt',
+            $canonicalReceiptLoaded => 'canonical_published_runtime_promotion_receipt',
+            $draftPayload !== [] => 'generated_runtime_promotion_receipt_draft',
+            default => 'none',
+        };
+        $receiptReadyForPersistence = $receiptProvided || $workspaceReceiptLoaded || $canonicalReceiptLoaded || $draftReady;
 
         $endgameVerifier = new AtlasSelfConstructionRuntimePromotionEndgameVerifierService;
         $preSubmissionVerification = $receiptUnderReview !== []
@@ -100,9 +131,13 @@ final class AtlasSelfConstructionRuntimePromotionEndgameService
             'verifier_passed' => $preSubmissionPassed,
             'receipt_source' => $receiptUnderReviewSource,
             'receipt_provided' => $receiptProvided,
+            'operator_draft_workspace_receipt_loaded' => $workspaceReceiptLoaded,
+            'operator_draft_workspace_status' => (string) data_get($draftWorkspaceReceipt, 'status', 'not_requested'),
+            'canonical_submission_receipt_loaded' => $canonicalReceiptLoaded,
+            'canonical_submission_status' => (string) data_get($canonicalSubmissionReceipt, 'status', 'not_checked'),
             'draft_status' => (string) data_get($receiptDraft, 'status', $draftRequested ? 'blocked_operator_input_required' : 'not_drafted'),
             'persist_requested' => $persistRequested,
-            'persistence_blocked_reason' => $this->persistenceBlockedReason($receiptUnderReview !== [], $receiptProvided || $draftReady, $preSubmissionPassed, $persistRequested),
+            'persistence_blocked_reason' => $this->persistenceBlockedReason($receiptUnderReview !== [], $receiptReadyForPersistence, $preSubmissionPassed, $persistRequested),
             'persist_command' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --runtime-promotion-receipt-json=@/path/to/runtime-promotion.json --persist-runtime-promotion-receipt --json',
             'rerun_matrix_command' => 'php artisan atlas:ai:self-construction --atlas-self-construction-runtime-gap-matrix --json',
             'rerun_audit_command' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --json',
@@ -154,6 +189,7 @@ final class AtlasSelfConstructionRuntimePromotionEndgameService
             $persisted => 'receipt_persisted_runtime_gap_matrix_should_be_rerun',
             $preSubmissionPassed && $receiptUnderReview !== [] => 'receipt_verifier_passed_ready_for_explicit_persistence',
             $draftRequested && $draftReady => 'draft_ready_for_operator_review',
+            $receiptUnderReview !== [] => 'receipt_loaded_verifier_blocked',
             default => 'blocked_runtime_promotion_receipt_required',
         };
 
@@ -272,12 +308,17 @@ final class AtlasSelfConstructionRuntimePromotionEndgameService
             ],
             'receipt_under_review' => [
                 'source' => $receiptUnderReviewSource,
-                'provided' => $receiptProvided,
+                'provided' => $receiptProvided || $workspaceReceiptLoaded || $canonicalReceiptLoaded,
+                'provided_by_cli_payload' => $receiptProvided,
+                'provided_by_operator_draft_workspace' => $workspaceReceiptLoaded,
+                'provided_by_canonical_submission' => $canonicalReceiptLoaded,
                 'present' => $receiptUnderReview !== [],
                 'receipt_hash' => (string) ($receiptUnderReview['receipt_hash'] ?? ''),
                 'receipt_id' => (string) ($receiptUnderReview['receipt_id'] ?? ''),
                 'signed_by' => (string) ($receiptUnderReview['signed_by'] ?? ''),
             ],
+            'operator_draft_workspace_receipt' => $draftWorkspaceReceipt,
+            'canonical_submission_receipt' => $canonicalSubmissionReceipt,
             'operator_submission_envelope' => $operatorSubmissionEnvelope,
             'receipt_pre_submission_verification' => $preSubmissionVerification,
             'persistence_preflight' => $persistencePreflight,
@@ -430,6 +471,158 @@ final class AtlasSelfConstructionRuntimePromotionEndgameService
         return '';
     }
 
+    /** @return array<string, mixed> */
+    private function loadRuntimePromotionReceiptFromDraftWorkspace(string $requestedPath): array
+    {
+        $requestedPath = trim($requestedPath);
+        if ($requestedPath === '') {
+            return [
+                'status' => 'not_requested',
+                'requested_path' => '',
+                'manifest_path' => '',
+                'draft_path' => '',
+                'receipt_payload' => [],
+                'violations' => [],
+            ];
+        }
+
+        $path = $this->normalizeStoragePath($requestedPath);
+        if ($path === '') {
+            return [
+                'status' => 'blocked',
+                'requested_path' => $requestedPath,
+                'manifest_path' => '',
+                'draft_path' => '',
+                'receipt_payload' => [],
+                'violations' => ['invalid_operator_draft_workspace_path'],
+            ];
+        }
+
+        $manifestPath = '';
+        $draftPath = '';
+        if (str_ends_with($path, 'runtime-promotion.json')) {
+            $draftPath = $path;
+        } else {
+            $manifestPath = str_ends_with($path, 'manifest.json') ? $path : rtrim($path, '/').'/manifest.json';
+            if (! Storage::disk('local')->exists($manifestPath)) {
+                return [
+                    'status' => 'blocked',
+                    'requested_path' => $requestedPath,
+                    'manifest_path' => $manifestPath,
+                    'draft_path' => '',
+                    'receipt_payload' => [],
+                    'violations' => ['operator_draft_workspace_manifest_not_found'],
+                ];
+            }
+            $manifest = $this->readStorageJson($manifestPath);
+            foreach ((array) data_get($manifest, 'files', []) as $file) {
+                if ((string) data_get($file, 'artifact') === 'runtime_promotion_receipt') {
+                    $draftPath = (string) data_get($file, 'draft_path', '');
+                    break;
+                }
+            }
+        }
+
+        if ($draftPath === '' || ! Storage::disk('local')->exists($draftPath)) {
+            return [
+                'status' => 'blocked',
+                'requested_path' => $requestedPath,
+                'manifest_path' => $manifestPath,
+                'draft_path' => $draftPath,
+                'receipt_payload' => [],
+                'violations' => ['runtime_promotion_draft_file_not_found'],
+            ];
+        }
+
+        $payload = $this->readStorageJson($draftPath);
+        if ($payload === []) {
+            return [
+                'status' => 'blocked',
+                'requested_path' => $requestedPath,
+                'manifest_path' => $manifestPath,
+                'draft_path' => $draftPath,
+                'receipt_payload' => [],
+                'violations' => ['runtime_promotion_draft_file_invalid_json_or_empty'],
+            ];
+        }
+
+        return [
+            'status' => 'loaded_for_endgame_review',
+            'requested_path' => $requestedPath,
+            'manifest_path' => $manifestPath,
+            'draft_path' => $draftPath,
+            'receipt_payload' => $payload,
+            'violations' => [],
+            'non_execution_guarantees' => [
+                'operator_draft_workspace_loader_reads_only',
+                'operator_draft_workspace_loader_does_not_mark_draft_as_evidence',
+                'operator_draft_workspace_loader_does_not_persist_receipts',
+                'operator_draft_workspace_loader_does_not_sign_for_operator',
+            ],
+        ];
+    }
+
+    /** @return array<string, mixed> */
+    private function loadRuntimePromotionReceiptFromCanonicalSubmission(): array
+    {
+        if (! Storage::disk('local')->exists(self::CANONICAL_PUBLISHED_RECEIPT_PATH)) {
+            return [
+                'status' => 'not_found',
+                'submission_path' => self::CANONICAL_PUBLISHED_RECEIPT_PATH,
+                'receipt_payload' => [],
+                'violations' => [],
+            ];
+        }
+
+        $payload = $this->readStorageJson(self::CANONICAL_PUBLISHED_RECEIPT_PATH);
+        if ($payload === []) {
+            return [
+                'status' => 'blocked',
+                'submission_path' => self::CANONICAL_PUBLISHED_RECEIPT_PATH,
+                'receipt_payload' => [],
+                'violations' => ['canonical_runtime_promotion_submission_invalid_json_or_empty'],
+            ];
+        }
+
+        return [
+            'status' => 'loaded_for_endgame_review',
+            'submission_path' => self::CANONICAL_PUBLISHED_RECEIPT_PATH,
+            'receipt_payload' => $payload,
+            'violations' => [],
+            'non_execution_guarantees' => [
+                'canonical_submission_loader_reads_only',
+                'canonical_submission_loader_does_not_mark_submission_as_persisted_evidence',
+                'canonical_submission_loader_does_not_persist_receipts',
+                'canonical_submission_loader_does_not_sign_for_operator',
+            ],
+        ];
+    }
+
+    /** @return array<string, mixed> */
+    private function readStorageJson(string $path): array
+    {
+        try {
+            $decoded = json_decode(Storage::disk('local')->get($path), true, flags: JSON_THROW_ON_ERROR);
+
+            return is_array($decoded) ? $decoded : [];
+        } catch (\Throwable) {
+            return [];
+        }
+    }
+
+    private function normalizeStoragePath(string $path): string
+    {
+        $path = trim($path);
+        if ($path === '' || str_contains($path, '..')) {
+            return '';
+        }
+
+        $path = preg_replace('#^storage/app/private/#', '', $path) ?? $path;
+        $path = preg_replace('#^storage/app/#', '', $path) ?? $path;
+
+        return trim($path, '/');
+    }
+
     /** @param array<string, mixed> $receipt */
     private function operatorSubmissionEnvelope(
         array $receipt,
@@ -462,8 +655,8 @@ final class AtlasSelfConstructionRuntimePromotionEndgameService
             'receipt_hash' => (string) ($receipt['receipt_hash'] ?? ''),
             'receipt_payload' => $receipt,
             'receipt_json_sha256' => $receiptJsonHash,
-            'receipt_file_hint' => 'storage/app/atlas/self-construction/operator-submissions/runtime-promotion-receipt.json',
-            'exact_persist_command' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --runtime-promotion-receipt-json=@storage/app/atlas/self-construction/operator-submissions/runtime-promotion-receipt.json --persist-runtime-promotion-receipt --json',
+            'receipt_file_hint' => 'storage/app/atlas/self-construction/operator-submissions/runtime-promotion.json',
+            'exact_persist_command' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --runtime-promotion-receipt-json=@storage/app/atlas/self-construction/operator-submissions/runtime-promotion.json --persist-runtime-promotion-receipt --json',
             'post_persistence_commands' => [
                 'php artisan atlas:ai:self-construction --atlas-self-construction-runtime-gap-matrix --json',
                 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --json',

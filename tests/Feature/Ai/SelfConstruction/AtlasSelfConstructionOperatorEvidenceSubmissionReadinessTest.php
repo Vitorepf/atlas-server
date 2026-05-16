@@ -4,6 +4,7 @@ namespace Tests\Feature\Ai\SelfConstruction;
 
 use App\Services\Ai\SelfConstruction\AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService;
 use App\Services\Ai\SelfConstruction\AtlasSelfConstructionReadinessService;
+use App\Services\Ai\SelfConstruction\AtlasSelfConstructionRuntimeGapMatrixService;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
@@ -37,6 +38,8 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessTest extends
             data_get($payload, 'operator_submission_envelopes.runtime_promotion_receipt.status'),
         );
         $this->assertFalse(data_get($payload, 'operator_submission_envelopes.can_persist_from_readiness'));
+        $this->assertSame('no_canonical_submission_files_loaded', data_get($payload, 'canonical_submission_persistence_plan.status'));
+        $this->assertFalse(data_get($payload, 'canonical_submission_persistence_plan.can_persist_from_readiness'));
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) data_get($payload, 'operator_submission_envelopes.operator_submission_envelopes_hash'));
         $this->assertNotEmpty($payload['submission_readiness_hash']);
     }
@@ -244,6 +247,132 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessTest extends
         $this->assertFalse($payload['provider_call_allowed']);
         $this->assertFalse($payload['token_spend_allowed']);
         $this->assertFalse($payload['self_programming_allowed']);
+        $this->assertSame('blocked_operator_drafts_not_ready_for_hash_write', data_get($payload, 'draft_hash_finalization.status'));
+        $this->assertSame(3, data_get($payload, 'draft_hash_finalization.artifact_count'));
+        $this->assertStringContainsString('--atlas-self-construction-operator-evidence-draft-hash-finalizer-status', data_get($payload, 'draft_hash_finalization.write_command'));
+        $this->assertFalse($payload['draft_hash_finalization_required']);
+    }
+
+    public function test_submission_readiness_auto_loads_canonical_published_submission_files_without_persisting(): void
+    {
+        Storage::fake('local');
+        $this->writeCanonicalSubmissionFilesForReadiness();
+
+        $payload = (new AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService(app(AtlasSelfConstructionReadinessService::class)))->build();
+
+        $this->assertSame('loaded_for_read_only_submission_readiness', data_get($payload, 'canonical_submission_input.status'));
+        $this->assertEqualsCanonicalizing(
+            ['runtime_promotion_receipt', 'real_provider_smoke', 'human_completion_receipt'],
+            data_get($payload, 'canonical_submission_input.loaded_artifacts'),
+        );
+        $this->assertTrue(data_get($payload, 'diagnostics.runtime_promotion_receipt.supplied'));
+        $this->assertTrue(data_get($payload, 'diagnostics.real_provider_smoke.supplied'));
+        $this->assertTrue(data_get($payload, 'diagnostics.human_completion_receipt.supplied'));
+        $this->assertSame('runtime_promotion_receipt', $payload['next_required']);
+        $this->assertFalse(data_get($payload, 'canonical_submission_input.published_submission_json_is_evidence'));
+        $this->assertFalse(data_get($payload, 'canonical_submission_input.can_persist_canonical_submission_files_directly'));
+        $this->assertFalse(data_get($payload, 'operator_submission_envelopes.can_persist_from_readiness'));
+        $this->assertSame(
+            'blocked_until_canonical_submission_files_are_ready',
+            data_get($payload, 'canonical_submission_persistence_plan.status'),
+        );
+        $this->assertTrue(data_get($payload, 'canonical_submission_persistence_plan.canonical_source_authoritative'));
+        $this->assertTrue(data_get($payload, 'canonical_submission_persistence_plan.sequence_ordered'));
+        $this->assertTrue(data_get($payload, 'canonical_submission_persistence_plan.requires_explicit_operator_persistence_commands'));
+        $this->assertFalse(data_get($payload, 'canonical_submission_persistence_plan.can_persist_from_readiness'));
+        $this->assertSame(
+            [
+                'persist_runtime_promotion_receipt',
+                'persist_real_provider_smoke',
+                'persist_human_completion_receipt',
+                'rerun_completion_audit',
+            ],
+            array_column(data_get($payload, 'canonical_submission_persistence_plan.steps'), 'id'),
+        );
+        $this->assertStringContainsString(
+            '--runtime-promotion-receipt-json=@storage/app/atlas/self-construction/operator-submissions/runtime-promotion.json',
+            data_get($payload, 'canonical_submission_persistence_plan.steps.0.command'),
+        );
+        $this->assertStringContainsString(
+            '--real-provider-smoke-json=@storage/app/atlas/self-construction/operator-submissions/real-provider-smoke.json',
+            data_get($payload, 'canonical_submission_persistence_plan.steps.1.command'),
+        );
+        $this->assertStringContainsString(
+            '--completion-receipt-json=@storage/app/atlas/self-construction/operator-submissions/completion-receipt.json',
+            data_get($payload, 'canonical_submission_persistence_plan.steps.2.command'),
+        );
+        $this->assertSame(
+            'canonical_submission_verifier_not_ready',
+            data_get($payload, 'canonical_submission_persistence_plan.steps.0.blocker'),
+        );
+        $this->assertFalse($payload['completion_allowed']);
+        $this->assertFalse($payload['dispatch_allowed']);
+        $this->assertFalse($payload['provider_call_allowed']);
+        $this->assertFalse($payload['token_spend_allowed']);
+        $this->assertFalse($payload['self_programming_allowed']);
+
+        $status = app(AtlasSelfConstructionReadinessService::class)->atlasSelfConstructionOperatorEvidenceSubmissionReadinessStatus();
+        $this->assertSame(
+            'loaded_for_read_only_submission_readiness',
+            data_get($status, 'agent_control_plane_atlas_self_construction_operator_evidence_submission_readiness_status.canonical_submission_input_status'),
+        );
+        $this->assertEqualsCanonicalizing(
+            ['runtime_promotion_receipt', 'real_provider_smoke', 'human_completion_receipt'],
+            data_get($status, 'agent_control_plane_atlas_self_construction_operator_evidence_submission_readiness_status.canonical_submission_loaded_artifacts'),
+        );
+        $this->assertSame(
+            'blocked_until_canonical_submission_files_are_ready',
+            data_get($status, 'agent_control_plane_atlas_self_construction_operator_evidence_submission_readiness_status.canonical_submission_persistence_plan_status'),
+        );
+        $this->assertSame(
+            'persist_runtime_promotion_receipt',
+            data_get($status, 'agent_control_plane_atlas_self_construction_operator_evidence_submission_readiness_status.canonical_submission_persistence_plan_next_step_id'),
+        );
+        $this->assertSame(
+            4,
+            data_get($status, 'agent_control_plane_atlas_self_construction_operator_evidence_submission_readiness_status.canonical_submission_persistence_plan_step_count'),
+        );
+        $this->assertTrue(data_get($status, 'agent_control_plane_atlas_self_construction_operator_evidence_submission_readiness_status.canonical_submission_persistence_plan_sequence_ordered'));
+        $this->assertFalse(data_get($status, 'agent_control_plane_atlas_self_construction_operator_evidence_submission_readiness_status.canonical_submission_can_persist_from_readiness'));
+    }
+
+    public function test_submission_readiness_reports_when_workspace_hash_finalization_is_required(): void
+    {
+        Storage::fake('local');
+        $runtimeMatrix = (new AtlasSelfConstructionRuntimeGapMatrixService(app(AtlasSelfConstructionReadinessService::class)))->matrix();
+        $workspace = $this->writeDraftWorkspaceForSubmissionReadiness([
+            'runtime_promotion_receipt' => [
+                'receipt_id' => 'runtime-test',
+                'signed_by' => 'operator-real',
+                'reason' => 'Operator reviewed runtime promotion candidates and approves without enabling execution.',
+                'runtime_gap_matrix_hash' => (string) data_get($runtimeMatrix, 'expected_runtime_gap_matrix_hash_for_promotion_receipt'),
+                'runtime_promotion_basis_hash' => (string) data_get($runtimeMatrix, 'runtime_promotion_basis_hash'),
+                'runtime_promotion_closure_basis_hash' => (string) data_get($runtimeMatrix, 'runtime_promotion_closure_basis_hash'),
+                'promoted_gap_ids' => (array) data_get($runtimeMatrix, 'blocked_gap_ids', []),
+                'graduation_evidence_hashes' => [],
+                'receipt_hash' => '<operator_generated_64_hex_receipt_hash>',
+                'runtime_promotion_approved' => true,
+                'operator_reviewed_runtime_graduations' => true,
+                'no_runtime_autopromotion_acknowledged' => true,
+                'execution_allowed' => false,
+                'dispatch_allowed' => false,
+                'provider_call_allowed' => false,
+                'token_spend_allowed' => false,
+                'adapter_execution_allowed' => false,
+                'self_programming_allowed' => false,
+            ],
+        ]);
+
+        $payload = (new AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService(app(AtlasSelfConstructionReadinessService::class)))->build([
+            'operator_draft_workspace_path' => $workspace,
+        ]);
+
+        $this->assertTrue($payload['draft_hash_finalization_required']);
+        $this->assertTrue(data_get($payload, 'draft_hash_finalization.artifacts.runtime_promotion_receipt.can_write_hash_to_draft'));
+        $this->assertFalse(data_get($payload, 'draft_hash_finalization.artifacts.runtime_promotion_receipt.input_hash_matches_computed_hash'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) data_get($payload, 'draft_hash_finalization.artifacts.runtime_promotion_receipt.computed_hash'));
+        $this->assertStringContainsString('--write-computed-operator-draft-hashes', data_get($payload, 'draft_hash_finalization.write_command'));
+        $this->assertFalse(data_get($payload, 'draft_hash_finalization.can_write_from_submission_readiness'));
     }
 
     public function test_submission_readiness_recommends_refresh_for_stale_draft_workspace_hashes(): void
@@ -388,6 +517,24 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessTest extends
         ]));
 
         return $workspace;
+    }
+
+    private function writeCanonicalSubmissionFilesForReadiness(): void
+    {
+        Storage::disk('local')->put('atlas/self-construction/operator-submissions/runtime-promotion.json', $this->draftJson([
+            'receipt_id' => 'runtime-canonical',
+            'signed_by' => '<operator>',
+            'receipt_hash' => '<hash>',
+        ]));
+        Storage::disk('local')->put('atlas/self-construction/operator-submissions/real-provider-smoke.json', $this->draftJson([
+            'provider_run_id' => '<provider_run_id>',
+            'smoke_hash' => '<hash>',
+        ]));
+        Storage::disk('local')->put('atlas/self-construction/operator-submissions/completion-receipt.json', $this->draftJson([
+            'receipt_id' => 'completion-canonical',
+            'signed_by' => '<operator>',
+            'receipt_hash' => '<hash>',
+        ]));
     }
 
     /** @param array<string, mixed> $payload */

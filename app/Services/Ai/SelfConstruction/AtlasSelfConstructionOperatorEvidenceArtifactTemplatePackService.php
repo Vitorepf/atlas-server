@@ -234,20 +234,31 @@ final class AtlasSelfConstructionOperatorEvidenceArtifactTemplatePackService
             $draftSha = hash('sha256', $draftJson);
             $draftCliPath = 'storage/app/'.$draftPath;
             $recommendedFilePath = (string) data_get($artifact, 'recommended_file_path', '');
+            $isRuntimePromotionReceipt = $artifactName === 'runtime_promotion_receipt';
 
-            $files[] = [
+            $file = [
                 'artifact' => $artifactName,
                 'draft_path' => $draftPath,
                 'recommended_file_path' => $recommendedFilePath,
                 'payload_template_json_sha256' => (string) data_get($artifact, 'payload_template_json_sha256', ''),
                 'draft_file_sha256' => $draftSha,
                 'sha256_matches_payload_template' => hash_equals((string) data_get($artifact, 'payload_template_json_sha256', ''), $draftSha),
+                'command_to_finalize_workspace_hashes' => 'php artisan atlas:ai:self-construction --atlas-self-construction-operator-evidence-draft-hash-finalizer-status --operator-draft-workspace-path=storage/app/'.$workspaceDirectory.' --write-computed-operator-draft-hashes --json',
                 'command_to_compute_hash_draft_file' => $this->commandForSavedFile((string) data_get($artifact, 'command_to_compute_hash', ''), $draftCliPath),
                 'command_to_verify_draft_file' => str_replace('@'.$recommendedFilePath, '@'.$draftCliPath, $this->commandWithoutPersistFlag((string) data_get($artifact, 'command_to_persist_saved_file', ''))),
-                'copy_to_recommended_file_path_before_persisting' => true,
+                'copy_to_recommended_file_path_before_persisting' => ! $isRuntimePromotionReceipt,
                 'draft_is_evidence' => false,
                 'can_persist_draft_directly' => false,
             ];
+
+            if ($isRuntimePromotionReceipt) {
+                $file['command_to_finalize_draft_receipt_hash'] = 'php artisan atlas:ai:self-construction --atlas-self-construction-runtime-promotion-draft-hash-finalizer-status --operator-draft-workspace-path='.$draftCliPath.' --write-computed-runtime-promotion-receipt-hash --json';
+                $file['command_to_review_draft_file_with_endgame'] = 'php artisan atlas:ai:self-construction --atlas-self-construction-runtime-promotion-endgame-status --operator-draft-workspace-path='.$draftCliPath.' --json';
+                $file['command_to_persist_draft_file_with_endgame'] = 'php artisan atlas:ai:self-construction --atlas-self-construction-runtime-promotion-endgame-status --operator-draft-workspace-path='.$draftCliPath.' --persist-runtime-promotion-receipt --json';
+                $file['copy_not_required_reason'] = 'runtime_promotion_endgame_can_read_operator_draft_workspace_path_directly_after_operator_edits_and_hash_recompute';
+            }
+
+            $files[] = $file;
 
             if ($persistOperatorDraftWorkspace) {
                 Storage::disk(self::STORAGE_DISK)->put($draftPath, $draftJson);
@@ -264,10 +275,14 @@ final class AtlasSelfConstructionOperatorEvidenceArtifactTemplatePackService
             'operator_required_next_steps' => [
                 'replace_all_placeholders_with_real_operator_values',
                 'compute_canonical_hashes_after_editing',
+                'run_operator_evidence_draft_hash_finalizer_against_the_draft_workspace_path',
+                'publish_finalized_operator_drafts_to_recommended_submission_paths',
+                'for_runtime_promotion_receipt_run_hash_finalizer_against_the_draft_workspace_path',
+                'for_runtime_promotion_receipt_run_endgame_against_the_draft_workspace_path',
                 'run_readiness_before_any_persistence',
-                'copy_verified_payloads_to_recommended_paths_or_update_cli_paths_explicitly',
                 'persist_only_through_canonical_verifier_commands',
             ],
+            'command_to_publish_finalized_workspace' => 'php artisan atlas:ai:self-construction --atlas-self-construction-operator-evidence-draft-workspace-publisher-status --operator-draft-workspace-path=storage/app/'.$workspaceDirectory.' --publish-operator-draft-workspace --json',
             'non_execution_guarantees' => [
                 'draft_workspace_contains_placeholders_until_operator_edits',
                 'draft_workspace_is_not_completion_evidence',
@@ -278,6 +293,7 @@ final class AtlasSelfConstructionOperatorEvidenceArtifactTemplatePackService
                 'draft_workspace_does_not_dispatch',
                 'draft_workspace_does_not_enable_runtime',
                 'draft_workspace_does_not_promote_completion',
+                'draft_workspace_publisher_copies_only_finalized_json_and_never_persists_evidence',
             ],
         ];
         $manifest['manifest_hash'] = $this->stableHash($manifest);

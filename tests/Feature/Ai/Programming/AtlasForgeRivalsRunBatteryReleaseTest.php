@@ -1,0 +1,427 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Tests\Feature\Ai\Programming;
+
+use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsActionDispatcher;
+use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsCasesRegistry;
+use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsModelMatrix;
+use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsRunRealService;
+use App\Services\Ai\Programming\ForgeRivals\Corpus\AtlasForgeRivalsProviderArenaCorpusService;
+use Symfony\Component\Process\Process;
+use Tests\TestCase;
+
+/**
+ * Atlas Forge Rivals · Runner Real release-ready contract tests.
+ *
+ * Locks the multi-case orchestrator that turns `atlas:forge:rivals
+ * run-battery --preset=release --mode=fair --atlas-model=sonnet
+ * --rival=claude_sonnet` into the operator-facing real battery:
+ *
+ *   - three operator confirmations are mandatory for any real-provider mode;
+ *   - preset=release without an explicit case-set maps to the full provider
+ *     arena release corpus (multi-case);
+ *   - unknown case-sets and unknown models block honestly before any
+ *     provider invocation;
+ *   - external_rivals_certification stays sealed regardless of mode;
+ *   - claim_ready=false until adjudicator/report run end-to-end on a green
+ *     pipeline (local_fake never claims).
+ *
+ * No provider is invoked in these tests; the three confirmation gates and
+ * driver-availability guards keep every case fail-closed before run-real.
+ */
+final class AtlasForgeRivalsRunBatteryReleaseTest extends TestCase
+{
+    public function test_run_battery_preset_release_blocks_without_any_of_the_three_confirmations(): void
+    {
+        $response = $this->dispatchRunBattery([
+            'mode' => 'fair',
+            'atlas_model' => 'sonnet',
+            'rival' => 'claude_sonnet',
+            'preset' => 'release',
+            'confirmations' => [
+                'runbook_reviewed' => false,
+                'provider_cost' => false,
+                'real_provider_call' => false,
+            ],
+        ]);
+
+        $this->assertSame('blocked', $response['status']);
+        foreach (['runbook_reviewed', 'provider_cost', 'real_provider_call'] as $required) {
+            $this->assertContains('missing_confirmation:'.$required, $response['blockers']);
+        }
+        $this->assertFalse($response['external_provider_call']);
+        $this->assertFalse($response['provider_tokens_spent']);
+        $this->assertNull($response['winner']);
+    }
+
+    public function test_run_battery_preset_release_with_partial_confirmations_still_blocks_without_provider_call(): void
+    {
+        $response = $this->dispatchRunBattery([
+            'mode' => 'fair',
+            'atlas_model' => 'sonnet',
+            'rival' => 'claude_sonnet',
+            'preset' => 'release',
+            'confirmations' => [
+                'runbook_reviewed' => true,
+                'provider_cost' => true,
+                'real_provider_call' => false,
+            ],
+        ]);
+
+        $this->assertSame('blocked', $response['status']);
+        $this->assertContains('missing_confirmation:real_provider_call', $response['blockers']);
+        $this->assertFalse($response['external_provider_call']);
+        $this->assertFalse($response['provider_tokens_spent']);
+    }
+
+    public function test_run_battery_preset_release_rejects_unknown_case_set_honestly(): void
+    {
+        $response = $this->dispatchRunBattery([
+            'mode' => 'fair',
+            'atlas_model' => 'sonnet',
+            'rival' => 'claude_sonnet',
+            'preset' => 'release',
+            'case_set' => 'no-such-case-set',
+            'confirmations' => [
+                'runbook_reviewed' => true,
+                'provider_cost' => true,
+                'real_provider_call' => true,
+            ],
+        ]);
+
+        $this->assertSame('blocked', $response['status']);
+        // honest fail-closed before any provider call
+        $this->assertFalse($response['external_provider_call']);
+        $this->assertFalse($response['provider_tokens_spent']);
+        // blocker either surfaces from preflight (cases registry) or run-real
+        // (corpus). Either is honest — assert at least one fingerprint exists.
+        $joined = implode('|', array_map('strval', $response['blockers'] ?? []));
+        $this->assertTrue(
+            str_contains($joined, 'unknown_case_set:no-such-case-set')
+            || str_contains($joined, 'empty_case_set:no-such-case-set')
+            || str_contains($joined, 'preset_unknown'),
+            'expected an honest unknown-case-set blocker, got: '.$joined,
+        );
+    }
+
+    public function test_run_battery_fair_blocks_model_mismatch_before_any_provider_call(): void
+    {
+        // fair mode demands the same model on both arms; opus vs sonnet must
+        // trip the model matrix gate, not the confirmation gate.
+        $response = $this->dispatchRunBattery([
+            'mode' => 'fair',
+            'atlas_model' => 'sonnet',
+            'rival' => 'claude_opus',
+            'preset' => 'release',
+            'confirmations' => [
+                'runbook_reviewed' => true,
+                'provider_cost' => true,
+                'real_provider_call' => true,
+            ],
+        ]);
+
+        $this->assertSame('blocked', $response['status']);
+        $this->assertFalse($response['external_provider_call']);
+        $this->assertFalse($response['provider_tokens_spent']);
+        $joined = implode('|', array_map('strval', $response['blockers'] ?? []));
+        $this->assertTrue(
+            str_contains($joined, 'fair_mode_requires_same_model')
+            || str_contains($joined, 'model_matrix'),
+            'expected an honest fair-mode same-model blocker, got: '.$joined,
+        );
+    }
+
+    public function test_run_battery_release_pipeline_keeps_external_rivals_certification_sealed(): void
+    {
+        $response = $this->dispatchRunBattery([
+            'mode' => 'fair',
+            'atlas_model' => 'sonnet',
+            'rival' => 'claude_sonnet',
+            'preset' => 'release',
+            'confirmations' => [
+                'runbook_reviewed' => false,
+                'provider_cost' => false,
+                'real_provider_call' => false,
+            ],
+        ]);
+
+        $this->assertSame('blocked', $response['status']);
+        $this->assertTrue(
+            $response['separated_from_external_rivals_certification'] ?? false,
+            'release pipeline must always keep external_rivals_certification sealed',
+        );
+        $this->assertNull($response['winner']);
+        $this->assertNull($response['scorecard']);
+    }
+
+    public function test_case_set_release_resolves_to_full_provider_arena_corpus(): void
+    {
+        $corpus = app(AtlasForgeRivalsProviderArenaCorpusService::class);
+        $cases = $corpus->casesForCaseSet(AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_RELEASE);
+
+        $this->assertGreaterThanOrEqual(
+            10,
+            count($cases),
+            'release case_set must carry the full canonical corpus, not a single legacy case',
+        );
+
+        $ids = array_values(array_map(static fn (array $c): string => (string) $c['case_id'], $cases));
+        $this->assertCount(
+            count($ids),
+            array_unique($ids),
+            'release corpus must not repeat the same case id twice',
+        );
+    }
+
+    public function test_run_real_resolves_preset_release_to_multi_case_corpus_without_truncation(): void
+    {
+        // Verify the runner consumes ALL cases from the release case_set,
+        // not just the first one. This is the core multi-case gap fix.
+        $runReal = app(AtlasForgeRivalsRunRealService::class);
+        $reflection = new \ReflectionMethod($runReal, 'resolveCaseContext');
+        $reflection->setAccessible(true);
+
+        $context = $reflection->invoke(
+            $runReal,
+            ['case_set' => AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_RELEASE],
+            AtlasForgeRivalsCasesRegistry::PRESET_RELEASE,
+        );
+
+        $this->assertSame('provider_arena_corpus', $context['source']);
+        $this->assertGreaterThanOrEqual(
+            10,
+            count($context['cases']),
+            'resolveCaseContext must return the full release corpus, not [cases[0]]',
+        );
+    }
+
+    public function test_run_real_resolves_preset_release_without_explicit_case_set_via_corpus(): void
+    {
+        // preset=release without --case-set should auto-map to the canonical
+        // provider arena release corpus (the spec's "single button" command
+        // path: `php artisan atlas:forge:rivals run-battery --preset=release …`).
+        $runReal = app(AtlasForgeRivalsRunRealService::class);
+        $reflection = new \ReflectionMethod($runReal, 'resolveCaseContext');
+        $reflection->setAccessible(true);
+
+        $context = $reflection->invoke($runReal, [], AtlasForgeRivalsCasesRegistry::PRESET_RELEASE);
+
+        $this->assertSame('provider_arena_corpus', $context['source']);
+        $this->assertGreaterThanOrEqual(10, count($context['cases']));
+    }
+
+    public function test_run_battery_codex_rival_blocks_when_binary_missing_before_provider_call(): void
+    {
+        if ($this->whichBinary('codex') !== '') {
+            $this->markTestSkipped('codex CLI is installed; cannot exercise the honest blocker path.');
+        }
+
+        $response = $this->dispatchRunBattery([
+            'mode' => 'full_power',
+            'atlas_model' => 'sonnet',
+            'rival' => 'codex',
+            'preset' => 'release',
+            'confirmations' => [
+                'runbook_reviewed' => true,
+                'provider_cost' => true,
+                'real_provider_call' => true,
+            ],
+        ]);
+
+        $this->assertSame('blocked', $response['status']);
+        $this->assertContains('rival_driver_not_configured:codex', $response['blockers']);
+        $this->assertFalse($response['external_provider_call']);
+        $this->assertFalse($response['provider_tokens_spent']);
+    }
+
+    public function test_run_battery_release_dry_run_path_never_calls_provider(): void
+    {
+        // dry-run never requires the three operator confirmations because it
+        // is provider-free by contract. It must complete or block without
+        // touching any external provider, regardless of preset.
+        $dispatcher = app(AtlasForgeRivalsActionDispatcher::class);
+        $response = $dispatcher->dispatch('dry-run', [
+            'mode' => 'fair',
+            'atlas_model' => 'sonnet',
+            'rival' => 'claude_sonnet',
+            'preset' => 'release',
+            'confirmations' => [
+                'runbook_reviewed' => false,
+                'provider_cost' => false,
+                'real_provider_call' => false,
+            ],
+        ]);
+
+        $this->assertFalse($response['external_provider_call'] ?? true);
+        $this->assertFalse($response['provider_tokens_spent'] ?? true);
+    }
+
+    public function test_runtime_aggregate_receipt_worst_of_propagates_failures_through_hard_gates(): void
+    {
+        // Confirm the worst-of aggregation contract: if any case has a non-zero
+        // exit code, the top-level receipt surfaces a non-zero exit code so the
+        // adjudicator's hard gate trips honestly instead of letting a partial
+        // success hide a single-case failure.
+        $runReal = app(AtlasForgeRivalsRunRealService::class);
+        $reflection = new \ReflectionMethod($runReal, 'aggregateReceipt');
+        $reflection->setAccessible(true);
+
+        $base = [
+            'arm' => 'atlas',
+            'exit_code' => 0,
+            'test_exit_code' => 0,
+            'patch_diff_bytes' => 2_000,
+            'changed_files' => [],
+            'out_of_scope_files' => [],
+            'bytecode_artifacts' => [],
+            'workspace_blockers' => [],
+            'killed' => false,
+        ];
+        $perCase = [
+            ['exit_code' => 0, 'test_exit_code' => 0, 'patch_diff_bytes' => 1_500, 'killed' => false],
+            ['exit_code' => 1, 'test_exit_code' => 1, 'patch_diff_bytes' => 0, 'killed' => false],
+            ['exit_code' => 0, 'test_exit_code' => 0, 'patch_diff_bytes' => 4_200, 'killed' => false],
+        ];
+        $aggregated = $reflection->invoke($runReal, $base, $perCase, ['file_a.php'], [], []);
+
+        $this->assertSame(1, $aggregated['exit_code'], 'worst-of exit_code must propagate the failing case');
+        $this->assertSame(1, $aggregated['test_exit_code'], 'worst-of test_exit_code must propagate the failing case');
+        $this->assertSame(0, $aggregated['patch_diff_bytes'], 'worst-of patch_diff_bytes must surface the empty-patch case');
+        $this->assertSame('worst_of_per_case', $aggregated['aggregate_kind']);
+    }
+
+    public function test_runtime_aggregate_receipt_clean_run_keeps_top_level_receipt_green(): void
+    {
+        $runReal = app(AtlasForgeRivalsRunRealService::class);
+        $reflection = new \ReflectionMethod($runReal, 'aggregateReceipt');
+        $reflection->setAccessible(true);
+
+        $base = [
+            'arm' => 'atlas',
+            'exit_code' => 0,
+            'test_exit_code' => 0,
+            'patch_diff_bytes' => 3_000,
+            'changed_files' => [],
+            'out_of_scope_files' => [],
+            'bytecode_artifacts' => [],
+            'workspace_blockers' => [],
+            'killed' => false,
+        ];
+        $perCase = [
+            ['exit_code' => 0, 'test_exit_code' => 0, 'patch_diff_bytes' => 1_500, 'killed' => false],
+            ['exit_code' => 0, 'test_exit_code' => 0, 'patch_diff_bytes' => 3_200, 'killed' => false],
+        ];
+        $aggregated = $reflection->invoke($runReal, $base, $perCase, ['file_a.php', 'file_b.php'], [], []);
+
+        $this->assertSame(0, $aggregated['exit_code']);
+        $this->assertSame(0, $aggregated['test_exit_code']);
+        $this->assertSame(1_500, $aggregated['patch_diff_bytes'], 'patch_diff_bytes must be MIN across cases');
+        $this->assertFalse($aggregated['workspace_has_blocking_changes']);
+        $this->assertSame(['file_a.php', 'file_b.php'], $aggregated['changed_files']);
+    }
+
+    public function test_runtime_aggregate_receipt_trips_when_any_case_bleeds_out_of_scope_or_bytecode(): void
+    {
+        $runReal = app(AtlasForgeRivalsRunRealService::class);
+        $reflection = new \ReflectionMethod($runReal, 'aggregateReceipt');
+        $reflection->setAccessible(true);
+
+        $base = [
+            'arm' => 'atlas',
+            'exit_code' => 0,
+            'test_exit_code' => 0,
+            'patch_diff_bytes' => 1_000,
+            'changed_files' => [],
+            'out_of_scope_files' => [],
+            'bytecode_artifacts' => [],
+            'workspace_blockers' => [],
+            'killed' => false,
+        ];
+        $aggregated = $reflection->invoke(
+            $runReal,
+            $base,
+            [['exit_code' => 0, 'test_exit_code' => 0, 'patch_diff_bytes' => 1_000, 'killed' => false]],
+            ['file_a.php', 'bad/foo.php'],
+            ['bad/foo.php'],
+            ['runtimes/python/__pycache__/x.pyc'],
+        );
+
+        $this->assertTrue($aggregated['workspace_has_blocking_changes']);
+        $this->assertContains('out_of_scope_change:bad/foo.php', $aggregated['workspace_blockers']);
+        $this->assertContains('bytecode_artifact_after_run:runtimes/python/__pycache__/x.pyc', $aggregated['workspace_blockers']);
+    }
+
+    public function test_safe_case_dir_normalises_unusual_case_ids_without_path_traversal(): void
+    {
+        $runReal = app(AtlasForgeRivalsRunRealService::class);
+        $reflection = new \ReflectionMethod($runReal, 'safeCaseDir');
+        $reflection->setAccessible(true);
+
+        $this->assertSame('case-unknown', $reflection->invoke($runReal, ''));
+        $this->assertSame('backend-pagination-off-by-one', $reflection->invoke($runReal, 'backend-pagination-off-by-one'));
+        $sanitized = $reflection->invoke($runReal, 'a/b/../etc/passwd');
+        $this->assertStringStartsWith('case-', $sanitized);
+        $this->assertStringNotContainsString('/', $sanitized);
+        $this->assertStringNotContainsString('..', $sanitized);
+    }
+
+    public function test_artisan_command_for_release_battery_emits_json_envelope_with_blocked_status_without_confirmations(): void
+    {
+        \Illuminate\Support\Facades\Artisan::call('atlas:forge:rivals', [
+            'action' => 'run-battery',
+            '--mode' => 'fair',
+            '--atlas-model' => 'sonnet',
+            '--rival' => 'claude_sonnet',
+            '--preset' => 'release',
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(\Illuminate\Support\Facades\Artisan::output(), true);
+        $this->assertIsArray($payload);
+        $this->assertSame('run-battery', $payload['action']);
+        $this->assertSame('atlas.forge.rivals.action_response.v1', $payload['schema_version']);
+        $this->assertSame('blocked', $payload['status']);
+        $this->assertFalse($payload['external_provider_call']);
+        $this->assertFalse($payload['provider_tokens_spent']);
+        $this->assertTrue($payload['separated_from_external_rivals_certification'] ?? false);
+    }
+
+    public function test_existing_quick_preset_path_keeps_single_case_backward_compat(): void
+    {
+        // Quick preset still maps to the legacy single-case registry; the
+        // release multi-case path must not regress quick's contract.
+        $runReal = app(AtlasForgeRivalsRunRealService::class);
+        $reflection = new \ReflectionMethod($runReal, 'resolveCaseContext');
+        $reflection->setAccessible(true);
+
+        $context = $reflection->invoke($runReal, [], AtlasForgeRivalsCasesRegistry::PRESET_QUICK);
+
+        $this->assertCount(1, $context['cases'], 'quick preset stays single-case for legacy compat');
+        $this->assertSame('legacy_preset', $context['source']);
+    }
+
+    /**
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    private function dispatchRunBattery(array $input): array
+    {
+        $dispatcher = app(AtlasForgeRivalsActionDispatcher::class);
+
+        return $dispatcher->dispatch('run-battery', $input);
+    }
+
+    private function whichBinary(string $binary): string
+    {
+        $proc = Process::fromShellCommandline('which '.escapeshellarg($binary));
+        $proc->setTimeout(5);
+        $proc->run();
+        if (! $proc->isSuccessful()) {
+            return '';
+        }
+
+        return trim((string) $proc->getOutput());
+    }
+}

@@ -158,15 +158,22 @@ final class AtlasForgeRivalsReplayService
         $replayPasses = $mismatches === [];
 
         $verdict = (string) ($manifest['verdict'] ?? 'unknown');
+        $scorecard = $stage === AtlasForgeRivalsEvidencePolicy::STAGE_FINAL
+            ? $this->readJson($paths['scorecard_json'])
+            : [];
+        $claimReady = $replayPasses
+            && (bool) ($manifest['claim_ready'] ?? false)
+            && $verdict === 'comparable'
+            && ! str_starts_with($verdict, 'invalid');
+        if ($stage === AtlasForgeRivalsEvidencePolicy::STAGE_FINAL && $scorecard !== []) {
+            $claimReady = $claimReady && (bool) ($scorecard['claim_ready'] ?? false);
+        }
 
         $decision = [
             'verdict' => $verdict,
             'evidence_stage' => $plan['stage'],
             'replay_passes' => $replayPasses,
-            'claim_ready' => $replayPasses
-                && (bool) ($manifest['claim_ready'] ?? false)
-                && $verdict === 'comparable'
-                && ! str_starts_with($verdict, 'invalid'),
+            'claim_ready' => $claimReady,
             'score' => $replayPasses ? ($manifest['score'] ?? null) : null,
         ];
 

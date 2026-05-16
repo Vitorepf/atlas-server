@@ -39,6 +39,9 @@ final class AtlasForgeRivalsActionDispatcher
         private readonly AtlasForgeRivalsStatusService $status,
         private readonly AtlasForgeRivalsCollectEvidenceService $collectEvidence,
         private readonly AtlasForgeRivalsReplayService $replay,
+        private readonly AtlasForgeRivalsEvidencePackVerifierService $evidenceVerifier,
+        private readonly AtlasForgeRivalsBatteryEvidenceService $batteryEvidence,
+        private readonly AtlasForgeRivalsBatteryReplayVerifierService $batteryReplayVerifier,
         private readonly AtlasForgeRivalsAdjudicatorService $adjudicator,
         private readonly AtlasForgeRivalsReportService $report,
         private readonly AtlasForgeRivalsFullSmokeService $fullSmoke,
@@ -48,6 +51,9 @@ final class AtlasForgeRivalsActionDispatcher
         private readonly AtlasForgeRivalsProviderPerformanceLedgerService $ledger,
         private readonly AtlasForgeRivalsDecideSignalProjectionService $decideSignal,
         private readonly AtlasForgeRivalsCorpusCasesActionService $corpusCases,
+        private readonly AtlasForgeRivalsNextService $nextAdvisor,
+        private readonly AtlasForgeRivalsBatteryReportService $batteryReport,
+        private readonly AtlasForgeRivalsMatrixReportService $matrixReport,
     ) {}
 
     /**
@@ -71,7 +77,11 @@ final class AtlasForgeRivalsActionDispatcher
             'run-real' => $this->wrap($action, $this->runReal->run($input)),
             'status' => $this->wrap($action, $this->status->status($input)),
             'collect-evidence' => $this->wrap($action, $this->collectEvidence->collect($input)),
+            'evidence' => $this->wrap($action, $this->collectEvidence->collect($input)),
             'replay' => $this->wrap($action, $this->replay->replay($input)),
+            'verify-evidence' => $this->wrap($action, $this->evidenceVerifier->verify($this->prepareVerifyInput($input))),
+            'battery-evidence' => $this->wrap($action, $this->batteryEvidence->aggregate($this->prepareBatteryInput($input))),
+            'battery-verify-evidence' => $this->wrap($action, $this->batteryReplayVerifier->verify($this->prepareBatteryInput($input))),
             'adjudicate' => $this->wrap($action, $this->adjudicator->adjudicate($input)),
             'report' => $this->wrap($action, $this->report->render($input)),
             'full-smoke' => $this->wrap($action, $this->fullSmoke->run($input)),
@@ -82,6 +92,13 @@ final class AtlasForgeRivalsActionDispatcher
             'ledger' => $this->wrap($action, $this->ledger->snapshot($input)),
             'ledger-record' => $this->wrap($action, $this->ledger->record($input)),
             'decide-signal' => $this->wrap($action, $this->decideSignal->project($input)),
+            'next' => $this->wrap($action, $this->nextAdvisor->next($input)),
+            'resume' => $this->wrap(
+                'run-battery',
+                $this->runBattery->run(array_replace($input, ['resume' => true])),
+            ),
+            'battery-report' => $this->wrap($action, $this->batteryReport->render($input)),
+            'matrix-report' => $this->wrap($action, $this->matrixReport->render($this->prepareBatteryInput($input))),
             'audit' => $this->responses->audit($action),
             default => $this->responses->unknownAction($action, AtlasForgeRivalsCommand::ACTIONS),
         };
@@ -122,6 +139,10 @@ final class AtlasForgeRivalsActionDispatcher
             'plan', 'quick-real-plan' => 'plan-real',
             'run', 'quick-real', 'run-quick-real' => 'run-real',
             'collect' => 'collect-evidence',
+            'verify', 'evidence-verify', 'verify-pack', 'verify-evidence-pack' => 'verify-evidence',
+            'battery-pack', 'aggregate-evidence', 'battery-collect-evidence' => 'battery-evidence',
+            'battery-verify', 'battery-replay', 'verify-battery', 'multi-case-verify' => 'battery-verify-evidence',
+            'report-matrix', 'matrix', 'final-report' => 'matrix-report',
             'smoke' => 'full-smoke',
             'reset-test-worktrees' => 'reset',
             'battery', 'run-battery-real', 'battery-run' => 'run-battery',
@@ -133,6 +154,63 @@ final class AtlasForgeRivalsActionDispatcher
             'decide', 'signal', 'decide-signal-projection' => 'decide-signal',
             default => $action,
         };
+    }
+
+    /**
+     * Map the operator CLI input to the verifier service input. Honors the
+     * dedicated `--verify-mode` flag; falls back to `--mode` for the canon
+     * form `verify-evidence --mode=real_run` documented in the briefing.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    private function prepareVerifyInput(array $input): array
+    {
+        $mode = null;
+        if (is_string($input['verify_mode'] ?? null) && trim($input['verify_mode']) !== '') {
+            $mode = trim($input['verify_mode']);
+        } elseif (is_string($input['mode'] ?? null) && trim($input['mode']) !== '') {
+            $maybe = strtolower(trim($input['mode']));
+            if (in_array($maybe, ['dry_run', 'fake_run', 'real_run', 'replay', 'integrity', 'check'], true)) {
+                $mode = $maybe;
+            }
+        }
+
+        return [
+            'run_id' => $input['run_id'] ?? null,
+            'mode' => $mode,
+            'evidence_stage' => $input['evidence_stage'] ?? null,
+        ];
+    }
+
+    /**
+     * Map operator CLI input to the battery aggregator / verifier input.
+     * Honors `--run-ids` (CSV) plus repeated `--run-id`, propagates
+     * `--battery-id`, `--output-path`, `--stage` and `--verify-mode`.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    private function prepareBatteryInput(array $input): array
+    {
+        $mode = null;
+        if (is_string($input['verify_mode'] ?? null) && trim($input['verify_mode']) !== '') {
+            $mode = trim($input['verify_mode']);
+        } elseif (is_string($input['mode'] ?? null) && trim($input['mode']) !== '') {
+            $maybe = strtolower(trim($input['mode']));
+            if (in_array($maybe, ['dry_run', 'fake_run', 'real_run', 'replay', 'integrity', 'check'], true)) {
+                $mode = $maybe;
+            }
+        }
+
+        return [
+            'run_id' => $input['run_id'] ?? null,
+            'run_ids' => $input['run_ids'] ?? null,
+            'battery_id' => $input['battery_id'] ?? null,
+            'output_path' => $input['output_path'] ?? null,
+            'evidence_stage' => $input['evidence_stage'] ?? null,
+            'mode' => $mode,
+        ];
     }
 
     /**

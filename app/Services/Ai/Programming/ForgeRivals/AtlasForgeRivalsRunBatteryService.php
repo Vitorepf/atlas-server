@@ -67,8 +67,16 @@ final class AtlasForgeRivalsRunBatteryService
         $atlasModel = $this->normalizeModel($rawAtlasModel);
         $rivalModel = $this->normalizeModel($rawRivalModel);
         $preset = trim((string) ($input['preset'] ?? AtlasForgeRivalsCasesRegistry::PRESET_QUICK));
+        $case = trim((string) ($input['case'] ?? ''));
+        $cases = array_values(array_filter(
+            array_map(static fn ($entry): string => trim((string) $entry), (array) ($input['cases'] ?? [])),
+            static fn (string $entry): bool => $entry !== '',
+        ));
+        $caseSet = trim((string) ($input['case_set'] ?? ''));
         $sourceRef = trim((string) ($input['source_ref'] ?? 'HEAD'));
         $confirmations = (array) ($input['confirmations'] ?? []);
+        $dryRunOnly = (bool) ($input['dry_run'] ?? false);
+        $resumeRequested = (bool) ($input['resume'] ?? false);
         $runId = trim((string) ($input['run_id'] ?? ''));
         if ($runId === '') {
             $runId = 'battery-'.now()->format('Ymd-His').'-'.Str::lower(Str::random(6));
@@ -95,8 +103,14 @@ final class AtlasForgeRivalsRunBatteryService
         $modeDef = $this->modes->mode($mode);
         $requiresProvider = $modeDef['requires_provider'];
 
-        // For real-provider modes, refuse to start without all three confirms.
-        if ($requiresProvider) {
+        // --dry-run flag short-circuits the pipeline at plan-real: preflight
+        // and dry-run still execute (those never invoke a provider), but the
+        // confirmation gates are not required because no real provider will
+        // be reached. This keeps `run-battery --dry-run` a safe planning
+        // operation for any preset, including release.
+        // For real-provider modes (without --dry-run), refuse to start
+        // without all three confirms.
+        if ($requiresProvider && ! $dryRunOnly) {
             foreach (['runbook_reviewed', 'provider_cost', 'real_provider_call'] as $required) {
                 if (! ($confirmations[$required] ?? false)) {
                     $blockers[] = 'missing_confirmation:'.$required;
@@ -113,10 +127,14 @@ final class AtlasForgeRivalsRunBatteryService
             }
         }
 
+        // In --dry-run mode the pipeline never invokes a provider, so the
+        // preflight gates that exist to guard provider spend would block for
+        // no reason. Mark them satisfied; the run-real phase is skipped
+        // entirely below, so this is an honest pass.
         $sharedConfirms = [
-            'runbook_reviewed' => (bool) ($confirmations['runbook_reviewed'] ?? ! $requiresProvider),
-            'provider_cost' => (bool) ($confirmations['provider_cost'] ?? ! $requiresProvider),
-            'real_provider_call' => (bool) ($confirmations['real_provider_call'] ?? ! $requiresProvider),
+            'runbook_reviewed' => $dryRunOnly || (bool) ($confirmations['runbook_reviewed'] ?? ! $requiresProvider),
+            'provider_cost' => $dryRunOnly || (bool) ($confirmations['provider_cost'] ?? ! $requiresProvider),
+            'real_provider_call' => $dryRunOnly || (bool) ($confirmations['real_provider_call'] ?? ! $requiresProvider),
         ];
 
         // Phase 1 — doctor (honest codex driver check happens here for rival=codex)
@@ -185,6 +203,9 @@ final class AtlasForgeRivalsRunBatteryService
             'atlas_model' => $atlasModel,
             'rival' => $rivalModel,
             'preset' => $preset,
+            'case' => $case !== '' ? $case : null,
+            'cases' => $cases,
+            'case_set' => $caseSet !== '' ? $caseSet : null,
             'workspace' => $runPaths['atlas'],
             'baseline_workspace' => $runPaths['rival'],
             'confirmations' => $sharedConfirms,
@@ -198,6 +219,9 @@ final class AtlasForgeRivalsRunBatteryService
         $dryRun = $this->dryRun->plan([
             'mode' => $mode,
             'preset' => $preset,
+            'case' => $case !== '' ? $case : null,
+            'cases' => $cases,
+            'case_set' => $caseSet !== '' ? $caseSet : null,
             'workspace' => $runPaths['atlas'],
             'baseline_workspace' => $runPaths['rival'],
         ]);
@@ -212,11 +236,44 @@ final class AtlasForgeRivalsRunBatteryService
             'atlas_model' => $atlasModel,
             'rival' => $rivalModel,
             'preset' => $preset,
+            'case' => $case !== '' ? $case : null,
+            'cases' => $cases,
+            'case_set' => $caseSet !== '' ? $caseSet : null,
             'confirmations' => $sharedConfirms,
         ]);
         $phases[] = $this->phase('plan-real', $planReal);
         if (($planReal['status'] ?? '') !== 'ok') {
             return $this->terminal($runId, $mode, $phases, (array) ($planReal['blockers'] ?? []), 'fix plan-real blockers');
+        }
+
+        // --dry-run short-circuit: stop after plan-real with a planning-only
+        // verdict. No worktrees executed, no provider invoked, no scorecard.
+        if ($dryRunOnly) {
+            return [
+                'status' => 'ok',
+                'run_battery_schema_version' => self::SCHEMA_VERSION,
+                'run_id' => $runId,
+                'mode' => $mode,
+                'atlas_model' => $atlasModel,
+                'rival_model' => $rivalModel,
+                'preset' => $preset,
+                'case' => $case !== '' ? $case : null,
+                'case_set' => $caseSet !== '' ? $caseSet : null,
+                'dry_run' => true,
+                'verdict' => 'dry_run_planned',
+                'phases' => $phases,
+                'phases_passed' => count(array_filter($phases, static fn (array $p): bool => $p['ok'])),
+                'phases_failed' => count(array_filter($phases, static fn (array $p): bool => ! $p['ok'])),
+                'winner' => null,
+                'scorecard' => null,
+                'requires_provider' => $requiresProvider,
+                'external_provider_call' => false,
+                'provider_tokens_spent' => false,
+                'claim_ready' => false,
+                'separated_from_external_rivals_certification' => true,
+                'next_command' => 'php artisan atlas:forge:rivals run-battery --mode='.$mode.' --atlas-model='.$atlasModel.' --rival='.$rivalModel.' --preset='.$preset.' --confirm-runbook-reviewed --confirm-provider-cost --confirm-real-provider-call --json',
+                'note' => 'Dry-run completed (preflight + dry-run + plan-real). No provider invoked. No score, no winner. Re-run without --dry-run to execute the battery.',
+            ];
         }
 
         // Phase 6 — run-real (real provider gated; or local_fake)
@@ -225,8 +282,12 @@ final class AtlasForgeRivalsRunBatteryService
             'atlas_model' => $atlasModel,
             'rival' => $rivalModel,
             'preset' => $preset,
+            'case' => $case !== '' ? $case : null,
+            'cases' => $cases,
+            'case_set' => $caseSet !== '' ? $caseSet : null,
             'run_id' => $runId,
             'confirmations' => $sharedConfirms,
+            'resume' => $resumeRequested,
         ]);
         $phases[] = $this->phase('run-real', $runReal);
         if (($runReal['status'] ?? '') !== 'ok') {
@@ -309,6 +370,8 @@ final class AtlasForgeRivalsRunBatteryService
             'atlas_model' => $atlasModel,
             'rival_model' => $rivalModel,
             'preset' => $preset,
+            'case' => $case !== '' ? $case : null,
+            'case_set' => $caseSet !== '' ? $caseSet : null,
             'requires_provider' => $requiresProvider,
             'external_provider_call' => $requiresProvider && $mode !== AtlasForgeRivalsModeRegistry::MODE_LOCAL_FAKE,
             'provider_tokens_spent' => $requiresProvider && $mode !== AtlasForgeRivalsModeRegistry::MODE_LOCAL_FAKE,

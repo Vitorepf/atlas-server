@@ -24,6 +24,7 @@ maintenance:
   - Atualizar quando o registry ganhar arm novo, runner novo ou flag de safety nova.
   - Não desbloquear arm `placeholder` ou arm `not_yet_executable` fora de `local_fake`.
 related_paths:
+  - docs/engineering-knowledge-base/atlas-forge-rivals-benchmark-strategy-v1.md
   - app/Services/Ai/Programming/ForgeRivals/Arms/AtlasForgeRivalsArmRegistryService.php
   - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsArenaRunService.php
   - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsModeRegistry.php
@@ -57,6 +58,7 @@ forbidden_changes:
   - Tratar categoria não declarada como válida.
   - Promover `external_rivals_certification` a partir do veredito da arena.
 depends_on:
+  - atlas-forge-rivals-benchmark-strategy-v1
   - atlas-forge-rivals-perfect-battery-and-adjudicator-v1
   - atlas-forge-rivals-evidence-replay-adjudicator-hardening-v2
 flows_to:
@@ -78,6 +80,7 @@ next_actions:
 
 # Atlas Forge Rivals · Provider Arena Core v1
 
+**Strategy canon:** `atlas-forge-rivals-benchmark-strategy-v1.md`
 **Run schema:** `atlas.forge.rivals.provider_arena_run.v1`
 **Registry schema:** `atlas.forge.rivals.runner_registry.v1`
 **Contract schema:** `atlas.forge.rivals.arm_contract.v1`

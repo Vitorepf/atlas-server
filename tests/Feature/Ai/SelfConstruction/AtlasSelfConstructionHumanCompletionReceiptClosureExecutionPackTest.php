@@ -6,6 +6,7 @@ use App\Services\Ai\SelfConstruction\AtlasSelfConstructionCompletionEvidenceHash
 use App\Services\Ai\SelfConstruction\AtlasSelfConstructionHumanCompletionReceiptClosureExecutionPackService;
 use App\Services\Ai\SelfConstruction\AtlasSelfConstructionReadinessService;
 use App\Services\Ai\SelfConstruction\AtlasSelfConstructionReservationRepository;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 final class AtlasSelfConstructionHumanCompletionReceiptClosureExecutionPackTest extends TestCase
@@ -64,6 +65,35 @@ final class AtlasSelfConstructionHumanCompletionReceiptClosureExecutionPackTest 
             (array) $envelope['pre_persist_operator_checks'],
         );
         $this->assertTrue((bool) data_get($envelope, 'non_execution_guarantees.envelope_does_not_persist_receipts'));
+    }
+
+    public function test_closure_pack_loads_canonical_published_completion_receipt_without_persisting(): void
+    {
+        Storage::fake('local');
+        $receipt = $this->fakeReceipt();
+        Storage::disk('local')->put(
+            'atlas/self-construction/operator-submissions/completion-receipt.json',
+            json_encode($receipt, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT)
+        );
+
+        $pack = $this->buildPack(
+            audit: $this->auditWith(runtime: true, smoke: true, humanReceipt: false),
+            evidence: $this->evidence(allRuntimeY: true, smokeStatus: 'passed'),
+        );
+        $envelope = (array) data_get($pack, 'operator_submission_envelope', []);
+
+        $this->assertSame('human_completion_receipt_verified', $pack['status']);
+        $this->assertSame('canonical_published_completion_receipt', data_get($pack, 'receipt_under_review.source'));
+        $this->assertTrue(data_get($pack, 'receipt_under_review.present'));
+        $this->assertFalse(data_get($pack, 'receipt_under_review.provided_by_cli_payload'));
+        $this->assertTrue(data_get($pack, 'receipt_under_review.provided_by_canonical_submission'));
+        $this->assertSame('loaded_for_closure_pack_review', data_get($pack, 'canonical_submission_receipt.status'));
+        $this->assertSame('atlas/self-construction/operator-submissions/completion-receipt.json', data_get($pack, 'canonical_submission_receipt.submission_path'));
+        $this->assertSame($receipt['receipt_hash'], (string) $envelope['receipt_hash']);
+        $this->assertSame('passed', (string) data_get($pack, 'verification_result.status'));
+        $this->assertSame('ready_for_explicit_operator_persistence', (string) $envelope['status']);
+        $this->assertFalse($pack['completion_claim_allowed']);
+        Storage::disk('local')->assertMissing('atlas/self-construction/os-completion/completion-receipts/registry.json');
     }
 
     public function test_closure_pack_operator_submission_envelope_blocks_when_receipt_context_is_stale(): void

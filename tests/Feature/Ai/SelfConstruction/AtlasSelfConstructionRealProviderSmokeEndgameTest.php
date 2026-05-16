@@ -108,6 +108,37 @@ final class AtlasSelfConstructionRealProviderSmokeEndgameTest extends TestCase
         $this->assertSame([], array_values($smokeFiles), 'Envelope readiness must not persist smoke evidence.');
     }
 
+    public function test_endgame_loads_canonical_published_real_provider_smoke_without_persisting(): void
+    {
+        Storage::fake('local');
+        $smoke = $this->validTestPayload();
+        Storage::disk('local')->put(
+            'atlas/self-construction/operator-submissions/real-provider-smoke.json',
+            json_encode($smoke, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT)
+        );
+
+        $result = $this->endgame()->build([]);
+        $envelope = (array) $result['operator_submission_envelope'];
+
+        $this->assertSame('verifier_passed_ready_for_explicit_persistence', $result['status']);
+        $this->assertSame('canonical_published_real_provider_smoke', data_get($result, 'smoke_under_review.source'));
+        $this->assertTrue(data_get($result, 'smoke_under_review.present'));
+        $this->assertFalse(data_get($result, 'smoke_under_review.provided_by_cli_payload'));
+        $this->assertTrue(data_get($result, 'smoke_under_review.provided_by_canonical_submission'));
+        $this->assertSame('loaded_for_endgame_review', data_get($result, 'canonical_submission_smoke.status'));
+        $this->assertSame('atlas/self-construction/operator-submissions/real-provider-smoke.json', data_get($result, 'canonical_submission_smoke.submission_path'));
+        $this->assertSame($smoke['smoke_hash'], (string) $envelope['smoke_hash']);
+        $this->assertSame('ready_for_explicit_operator_persistence', (string) $envelope['status']);
+        $this->assertSame('passed', (string) $result['endgame_verifier_result']['status']);
+        $this->assertFalse((bool) data_get($result, 'persistence_attempt.persisted'));
+
+        $smokeFiles = array_filter(
+            Storage::disk('local')->allFiles(),
+            static fn (string $p): bool => str_contains($p, 'os-completion/real-provider-smokes'),
+        );
+        $this->assertSame([], array_values($smokeFiles), 'Canonical submission loading must not persist smoke evidence.');
+    }
+
     public function test_operator_submission_envelope_blocks_when_verifier_fails(): void
     {
         $payload = $this->validTestPayload(['provider_run_id' => '']);

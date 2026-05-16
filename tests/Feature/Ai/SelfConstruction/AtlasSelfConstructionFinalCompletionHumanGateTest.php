@@ -104,6 +104,14 @@ final class AtlasSelfConstructionFinalCompletionHumanGateTest extends TestCase
         $steps = array_column((array) data_get($gate, 'ordered_operator_steps', []), 'id');
 
         $this->assertArrayHasKey('refresh_completion_audit', $commands);
+        $this->assertSame(
+            'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --runtime-promotion-receipt-json=@/path/to/runtime-promotion.json --persist-runtime-promotion-receipt --json',
+            $commands['persist_runtime_promotion_receipt'] ?? null
+        );
+        $this->assertStringNotContainsString(
+            'runtime-promotion-receipt.json',
+            (string) ($commands['persist_runtime_promotion_receipt'] ?? '')
+        );
         $this->assertArrayHasKey('persist_human_completion_receipt', $commands);
         $this->assertArrayHasKey('final_completion_readiness_gate_status', $commands);
         $this->assertContains('refresh_completion_audit', $steps);

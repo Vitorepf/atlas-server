@@ -25,6 +25,17 @@ final class AgentControlPlaneCertificationMutationGuard
 
     public const ALLOWED_SNAPSHOT_PREFIX = AgentControlPlaneReplaySnapshotStore::STORAGE_PREFIX;
 
+    /**
+     * Storage writes from parallel Atlas subsystems should not make the
+     * Self-Construction certification stack look mutable. The guard monitors
+     * the canonical operator-submission evidence namespace outside the
+     * allowed replay snapshot prefix; other product areas and transient
+     * Self-Construction workspaces are intentionally out of scope here.
+     */
+    private const MONITORED_STORAGE_PREFIXES = [
+        'atlas/self-construction/operator-submissions',
+    ];
+
     public function __construct(
         private readonly AtlasSelfConstructionReadinessService $readiness,
         private readonly AgentControlPlaneDeterministicChainReplayService $replay,
@@ -184,6 +195,10 @@ final class AgentControlPlaneCertificationMutationGuard
             'runtime_safety_all_false' => (bool) data_get($replay, 'runtime_safety.runtime_safety_all_false', false),
             'ledger_count' => $this->countLedgerEvents(),
             'storage_outside_prefix_count' => $this->countStorageOutsidePrefix(),
+            'monitored_storage_prefixes' => self::MONITORED_STORAGE_PREFIXES,
+            'allowed_storage_prefixes' => [
+                self::ALLOWED_SNAPSHOT_PREFIX,
+            ],
         ];
     }
 
@@ -207,7 +222,8 @@ final class AgentControlPlaneCertificationMutationGuard
             $all = $disk->allFiles();
             $outside = array_filter(
                 $all,
-                static fn (string $path) => ! str_starts_with($path, self::ALLOWED_SNAPSHOT_PREFIX.'/')
+                static fn (string $path) => self::isMonitoredStoragePath($path)
+                    && ! str_starts_with($path, self::ALLOWED_SNAPSHOT_PREFIX.'/')
                     && $path !== self::ALLOWED_SNAPSHOT_PREFIX,
             );
 
@@ -215,6 +231,17 @@ final class AgentControlPlaneCertificationMutationGuard
         } catch (\Throwable) {
             return 0;
         }
+    }
+
+    private static function isMonitoredStoragePath(string $path): bool
+    {
+        foreach (self::MONITORED_STORAGE_PREFIXES as $prefix) {
+            if ($path === $prefix || str_starts_with($path, $prefix.'/')) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

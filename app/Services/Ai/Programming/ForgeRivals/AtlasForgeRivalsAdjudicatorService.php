@@ -87,10 +87,18 @@ final class AtlasForgeRivalsAdjudicatorService
         'cost_time_efficiency' => 0.08,
     ];
 
+    private readonly AtlasForgeRivalsAdjudicatorV2Service $v2;
+
     public function __construct(
         private readonly AtlasForgeRivalsRunPathResolver $paths,
         private readonly AtlasForgeRivalsReplayService $replay,
-    ) {}
+        ?AtlasForgeRivalsAdjudicatorV2Service $v2 = null,
+    ) {
+        // Lazy default keeps legacy tests that instantiate the service with two
+        // args working untouched. Laravel's container injects the explicit v2
+        // service in production.
+        $this->v2 = $v2 ?? new AtlasForgeRivalsAdjudicatorV2Service($paths);
+    }
 
     /**
      * @param  array<string,mixed>  $input
@@ -98,6 +106,30 @@ final class AtlasForgeRivalsAdjudicatorService
      */
     public function adjudicate(array $input): array
     {
+        // Batch mode: --input=<path> OR an in-memory payload. The v2 service
+        // owns this branch end-to-end (no single-run on disk required) so it
+        // can adjudicate fixtures and multi-case release batteries without
+        // calling a provider. v1 scorecard is NOT emitted in this branch
+        // because there is no single run on disk to attach it to.
+        if (! empty($input['input']) || ! empty($input['input_path']) || ! empty($input['payload'])) {
+            $envelope = $this->v2->adjudicateBatch($input);
+            if (($envelope['status'] ?? 'ok') !== 'ok' && isset($envelope['blockers'])) {
+                return $envelope;
+            }
+
+            return [
+                'status' => 'ok',
+                'schema_version' => $envelope['schema_version'] ?? AtlasForgeRivalsAdjudicatorV2Service::SCHEMA_VERSION,
+                'schema_version_v2' => AtlasForgeRivalsAdjudicatorV2Service::SCHEMA_VERSION,
+                'scorecard_v2' => $envelope,
+                'scorecard_v2_path' => $envelope['scorecard_v2_path'] ?? null,
+                'evidence_paths' => array_values(array_filter([$envelope['scorecard_v2_path'] ?? null])),
+                'next_command' => '',
+                'external_provider_call' => false,
+                'provider_tokens_spent' => false,
+            ];
+        }
+
         $runId = trim((string) ($input['run_id'] ?? ''));
         if ($runId === '') {
             return [
@@ -197,17 +229,14 @@ final class AtlasForgeRivalsAdjudicatorService
                 ];
                 $this->persistScorecard($paths, $scorecard);
 
-                return [
-                    'status' => 'ok',
-                    'schema_version' => self::SCHEMA_VERSION,
-                    'run_id' => $paths['run_id'],
-                    'scorecard' => $scorecard,
-                    'scorecard_path' => $paths['scorecard_json'],
-                    'evidence_paths' => [$paths['scorecard_json']],
-                    'next_command' => 'php artisan atlas:forge:rivals report --run-id='.$paths['run_id'].' --json',
-                    'external_provider_call' => false,
-                    'provider_tokens_spent' => false,
-                ];
+                return $this->finalizeSingleRunEnvelope(
+                    paths: $paths,
+                    scorecard: $scorecard,
+                    manifest: $manifest,
+                    atlasReceipt: $atlasReceipt,
+                    rivalReceipt: $rivalReceipt,
+                    evidencePack: $evidencePack,
+                );
             }
 
             $scorecard = [
@@ -235,17 +264,14 @@ final class AtlasForgeRivalsAdjudicatorService
             ];
             $this->persistScorecard($paths, $scorecard);
 
-            return [
-                'status' => 'ok',
-                'schema_version' => self::SCHEMA_VERSION,
-                'run_id' => $paths['run_id'],
-                'scorecard' => $scorecard,
-                'scorecard_path' => $paths['scorecard_json'],
-                'evidence_paths' => [$paths['scorecard_json']],
-                'next_command' => 'php artisan atlas:forge:rivals report --run-id='.$paths['run_id'].' --json',
-                'external_provider_call' => false,
-                'provider_tokens_spent' => false,
-            ];
+            return $this->finalizeSingleRunEnvelope(
+                paths: $paths,
+                scorecard: $scorecard,
+                manifest: $manifest,
+                atlasReceipt: $atlasReceipt,
+                rivalReceipt: $rivalReceipt,
+                evidencePack: $evidencePack,
+            );
         }
 
         // All hard gates green ⇒ compute quality scores.
@@ -303,13 +329,59 @@ final class AtlasForgeRivalsAdjudicatorService
         ];
         $this->persistScorecard($paths, $scorecard);
 
+        return $this->finalizeSingleRunEnvelope(
+            paths: $paths,
+            scorecard: $scorecard,
+            manifest: $manifest,
+            atlasReceipt: $atlasReceipt,
+            rivalReceipt: $rivalReceipt,
+            evidencePack: $evidencePack,
+        );
+    }
+
+    /**
+     * Shared coda for every single-run branch: persists v1 (already done by
+     * caller), builds the v2 envelope, and returns the canonical CLI response
+     * with both v1 and v2 attached. Keeps the legacy `scorecard` /
+     * `scorecard_path` keys intact so downstream consumers (ledger,
+     * report v2, tests) do not break.
+     *
+     * @param  array<string,mixed>  $paths
+     * @param  array<string,mixed>  $scorecard
+     * @param  array<string,mixed>  $manifest
+     * @param  array<string,mixed>  $atlasReceipt
+     * @param  array<string,mixed>  $rivalReceipt
+     * @param  array<string,mixed>  $evidencePack
+     * @return array<string,mixed>
+     */
+    private function finalizeSingleRunEnvelope(
+        array $paths,
+        array $scorecard,
+        array $manifest,
+        array $atlasReceipt,
+        array $rivalReceipt,
+        array $evidencePack,
+    ): array {
+        $v2 = $this->v2->enrichFromSingleRun(
+            runId: (string) $paths['run_id'],
+            v1Scorecard: $scorecard,
+            manifest: $manifest,
+            atlasReceipt: $atlasReceipt,
+            rivalReceipt: $rivalReceipt,
+            evidencePack: $evidencePack,
+        );
+        $scorecardV2Path = $v2['scorecard_v2_path'] ?? $paths['scorecard_v2_json'];
+
         return [
             'status' => 'ok',
             'schema_version' => self::SCHEMA_VERSION,
+            'schema_version_v2' => AtlasForgeRivalsAdjudicatorV2Service::SCHEMA_VERSION,
             'run_id' => $paths['run_id'],
             'scorecard' => $scorecard,
             'scorecard_path' => $paths['scorecard_json'],
-            'evidence_paths' => [$paths['scorecard_json']],
+            'scorecard_v2' => $v2,
+            'scorecard_v2_path' => $scorecardV2Path,
+            'evidence_paths' => [$paths['scorecard_json'], $scorecardV2Path],
             'next_command' => 'php artisan atlas:forge:rivals report --run-id='.$paths['run_id'].' --json',
             'external_provider_call' => false,
             'provider_tokens_spent' => false,

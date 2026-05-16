@@ -8,67 +8,74 @@ use Illuminate\Support\Facades\Artisan;
 use Tests\TestCase;
 
 /**
- * Atlas Forge Rivals · Provider Arena Corpus — end-to-end via artisan.
+ * Atlas Forge Rivals · Provider Arena Corpus Release v1 — end-to-end via artisan.
  *
- * No provider is ever invoked; every action runs in-process. Asserts the
- * `cases` action contract, the corpus filters, the run-arena corpus
- * dry-run path and the safety guarantees (no provider call, no external
- * rivals unlock).
+ * Sem provider invocado. Asserts: action `cases`, filtros, run-arena
+ * local_fake, safety (no provider call / no external_rivals unlock).
  */
 final class AtlasForgeRivalsProviderArenaCorpusTest extends TestCase
 {
-    public function test_cases_action_returns_corpus_with_at_least_twelve_entries(): void
+    public function test_cases_action_returns_release_matrix_with_forty_entries(): void
     {
-        $payload = $this->runCases();
+        $payload = $this->runCases(['--case-set' => 'release']);
 
         $this->assertSame('ok', $payload['status']);
         $this->assertSame('atlas.forge.rivals.provider_arena_corpus_cases.v1', $payload['cases_schema_version']);
         $this->assertSame('atlas.forge.rivals.provider_arena_corpus.v1', $payload['corpus_schema_version']);
-        $this->assertGreaterThanOrEqual(12, $payload['snapshot']['count']);
+        $this->assertSame(40, $payload['snapshot']['count']);
+        $this->assertSame('release_v1', $payload['snapshot']['release_version']);
         $this->assertFalse($payload['external_provider_call']);
         $this->assertTrue($payload['separated_from_external_rivals_certification']);
     }
 
-    public function test_cases_action_default_filter_returns_quick_case_set(): void
+    public function test_cases_action_default_filter_returns_quick_case_set_with_three_cases(): void
     {
         $payload = $this->runCases();
         $this->assertContains('case_set=quick (default)', $payload['applied_filters']);
-        $this->assertGreaterThanOrEqual(3, $payload['count']);
-        $this->assertLessThanOrEqual(4, $payload['count']);
+        $this->assertSame(3, $payload['count']);
     }
 
-    public function test_cases_action_filters_by_case_set_release(): void
-    {
-        $payload = $this->runCases(['--case-set' => 'release']);
-        $this->assertSame('ok', $payload['status']);
-        $this->assertSame($payload['snapshot']['count'], $payload['count']);
-    }
-
-    public function test_cases_action_filters_by_case_set_frontend(): void
+    public function test_cases_action_filter_by_case_set_frontend_returns_frontend_ui_only(): void
     {
         $payload = $this->runCases(['--case-set' => 'frontend']);
         $this->assertSame('ok', $payload['status']);
         $this->assertNotEmpty($payload['cases']);
         foreach ($payload['cases'] as $case) {
-            $this->assertSame('frontend', $case['task_category']);
+            $this->assertSame('frontend_ui', $case['category']);
         }
     }
 
-    public function test_cases_action_filters_by_case_set_bugfix(): void
+    public function test_cases_action_filter_by_case_set_backend_returns_backend_or_integration_performance(): void
+    {
+        $payload = $this->runCases(['--case-set' => 'backend']);
+        $this->assertSame('ok', $payload['status']);
+        $this->assertNotEmpty($payload['cases']);
+        foreach ($payload['cases'] as $case) {
+            $this->assertContains(
+                (string) $case['category'],
+                ['backend_logic', 'integration_performance'],
+            );
+        }
+    }
+
+    public function test_cases_action_filter_by_case_set_bugfix_returns_realistic_bugfix(): void
     {
         $payload = $this->runCases(['--case-set' => 'bugfix']);
         $this->assertSame('ok', $payload['status']);
+        $this->assertNotEmpty($payload['cases']);
         foreach ($payload['cases'] as $case) {
-            $this->assertSame('bugfix', $case['task_category']);
+            $primary = $case['category'] === 'realistic_bugfix';
+            $secondary = in_array('realistic_bugfix', (array) $case['secondary_categories'], true);
+            $this->assertTrue($primary || $secondary);
         }
     }
 
-    public function test_cases_action_filters_by_case_set_architecture_includes_three_categories(): void
+    public function test_cases_action_filter_by_case_set_architecture_returns_architecture_or_refactor(): void
     {
         $payload = $this->runCases(['--case-set' => 'architecture']);
-        $cats = array_unique(array_map(static fn (array $c): string => (string) $c['task_category'], $payload['cases']));
+        $cats = array_unique(array_map(static fn (array $c): string => (string) $c['category'], $payload['cases']));
         sort($cats);
-        $this->assertSame(['architecture', 'docs', 'refactor'], $cats);
+        $this->assertSame(['architecture', 'refactor'], $cats);
     }
 
     public function test_cases_action_unknown_case_set_blocks_with_honest_reason(): void
@@ -81,27 +88,39 @@ final class AtlasForgeRivalsProviderArenaCorpusTest extends TestCase
 
     public function test_cases_action_unknown_case_id_blocks_with_honest_reason(): void
     {
-        $payload = $this->runCases(['--case' => ['arena-does-not-exist']]);
+        $payload = $this->runCases(['--case' => ['case-does-not-exist']]);
         $this->assertSame('blocked', $payload['status']);
-        $this->assertContains('unknown_case_id:arena-does-not-exist', (array) $payload['blockers']);
+        $this->assertContains('unknown_case_id:case-does-not-exist', (array) $payload['blockers']);
         $this->assertFalse($payload['external_provider_call']);
     }
 
     public function test_cases_action_filter_by_specific_case_id_returns_single_manifest(): void
     {
-        $payload = $this->runCases(['--case' => ['arena-bugfix-off-by-one-paginator']]);
+        $payload = $this->runCases(['--case' => ['backend-pagination-off-by-one']]);
         $this->assertSame('ok', $payload['status']);
         $this->assertSame(1, $payload['count']);
-        $this->assertSame('arena-bugfix-off-by-one-paginator', $payload['cases'][0]['case_id']);
+        $this->assertSame('backend-pagination-off-by-one', $payload['cases'][0]['case_id']);
+        $this->assertSame('realistic_bugfix', $payload['cases'][0]['category']);
     }
 
-    public function test_cases_action_emits_replay_manifest_for_every_result(): void
+    public function test_cases_action_emits_deterministic_replay_manifest(): void
     {
-        $payload = $this->runCases(['--case-set' => 'quick']);
-        $this->assertArrayHasKey('replay_manifest', $payload);
-        $this->assertSame('atlas.forge.rivals.provider_arena_corpus_replay.v1', $payload['replay_manifest']['schema_version']);
-        $this->assertSame(['case_set=quick'], $payload['replay_manifest']['applied_filters']);
-        $this->assertCount($payload['count'], $payload['replay_manifest']['case_ids']);
+        $first = $this->runCases(['--case-set' => 'quick']);
+        $second = $this->runCases(['--case-set' => 'quick']);
+
+        $this->assertArrayHasKey('replay_manifest', $first);
+        $this->assertSame('atlas.forge.rivals.provider_arena_corpus_replay.v1', $first['replay_manifest']['schema_version']);
+        $this->assertSame(['case_set=quick'], $first['replay_manifest']['applied_filters']);
+        $this->assertCount($first['count'], $first['replay_manifest']['case_ids']);
+
+        // plan_hash não pode depender de timestamp → duas execuções com o mesmo filter têm o mesmo hash.
+        $this->assertSame(
+            $first['replay_manifest']['plan_hash'],
+            $second['replay_manifest']['plan_hash'],
+            'plan_hash precisa ser determinístico entre execuções',
+        );
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $first['replay_manifest']['plan_hash']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $first['replay_manifest']['corpus_content_hash']);
     }
 
     public function test_run_arena_with_corpus_local_fake_emits_multi_case_dry_run_plan(): void
@@ -133,12 +152,12 @@ final class AtlasForgeRivalsProviderArenaCorpusTest extends TestCase
             '--arm-b' => 'claude_code',
             '--arm-b-model' => 'sonnet',
             '--mode' => 'local_fake',
-            '--case' => ['arena-frontend-button-loading-state'],
+            '--case' => ['frontend-execution-status-panel'],
         ]);
 
         $this->assertSame('ok', $payload['status']);
         $this->assertSame(1, $payload['count']);
-        $this->assertSame('arena-frontend-button-loading-state', $payload['cases'][0]['case_id']);
+        $this->assertSame('frontend-execution-status-panel', $payload['cases'][0]['case_id']);
     }
 
     public function test_run_arena_with_unknown_case_id_surfaces_blocker(): void

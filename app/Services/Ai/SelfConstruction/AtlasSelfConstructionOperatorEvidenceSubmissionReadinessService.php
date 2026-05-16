@@ -22,6 +22,13 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService
 
     private const STORAGE_DISK = 'local';
 
+    /** @var array<string, string> */
+    private const CANONICAL_SUBMISSION_PATHS = [
+        'runtime_promotion_receipt' => 'atlas/self-construction/operator-submissions/runtime-promotion.json',
+        'real_provider_smoke' => 'atlas/self-construction/operator-submissions/real-provider-smoke.json',
+        'human_completion_receipt' => 'atlas/self-construction/operator-submissions/completion-receipt.json',
+    ];
+
     public function __construct(
         private readonly AtlasSelfConstructionReadinessService $readiness,
     ) {}
@@ -32,22 +39,34 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService
      */
     public function build(array $options = []): array
     {
-        $workspaceInput = $this->loadDraftWorkspaceInput((string) ($options['operator_draft_workspace_path'] ?? ''));
+        $operatorDraftWorkspacePath = (string) ($options['operator_draft_workspace_path'] ?? '');
+        $workspaceInput = $this->loadDraftWorkspaceInput($operatorDraftWorkspacePath);
+        $canonicalSubmissionInput = $this->loadCanonicalSubmissionInput();
+        $draftHashFinalization = $operatorDraftWorkspacePath === ''
+            ? $this->draftHashFinalizationNotRequested()
+            : (new AtlasSelfConstructionOperatorEvidenceDraftHashFinalizerService)->finalize([
+                'operator_draft_workspace_path' => $operatorDraftWorkspacePath,
+                'write_computed_operator_draft_hashes' => false,
+            ]);
         $workspacePayloads = (array) data_get($workspaceInput, 'payloads', []);
+        $canonicalSubmissionPayloads = (array) data_get($canonicalSubmissionInput, 'payloads', []);
 
-        $runtimeReceipt = $this->payloadOrWorkspace(
+        $runtimeReceipt = $this->payloadOrWorkspaceOrCanonicalSubmission(
             explicit: (array) ($options['runtime_promotion_receipt'] ?? []),
             workspacePayloads: $workspacePayloads,
+            canonicalSubmissionPayloads: $canonicalSubmissionPayloads,
             workspaceKey: 'runtime_promotion_receipt',
         );
-        $realProviderSmoke = $this->payloadOrWorkspace(
+        $realProviderSmoke = $this->payloadOrWorkspaceOrCanonicalSubmission(
             explicit: (array) ($options['real_provider_smoke'] ?? []),
             workspacePayloads: $workspacePayloads,
+            canonicalSubmissionPayloads: $canonicalSubmissionPayloads,
             workspaceKey: 'real_provider_smoke',
         );
-        $completionReceipt = $this->payloadOrWorkspace(
+        $completionReceipt = $this->payloadOrWorkspaceOrCanonicalSubmission(
             explicit: (array) ($options['completion_receipt'] ?? []),
             workspacePayloads: $workspacePayloads,
+            canonicalSubmissionPayloads: $canonicalSubmissionPayloads,
             workspaceKey: 'human_completion_receipt',
         );
 
@@ -179,8 +198,19 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService
             'next_required' => $nextRequired,
             'next_required_command' => $this->nextRequiredCommand($nextRequired),
             'draft_workspace_input' => $workspaceInput,
+            'canonical_submission_input' => $canonicalSubmissionInput,
+            'draft_hash_finalization' => $this->draftHashFinalizationSummary($draftHashFinalization, $operatorDraftWorkspacePath),
+            'draft_hash_finalization_required' => $this->draftHashFinalizationRequired($draftHashFinalization),
             'diagnostics' => $diagnostics,
             'operator_submission_envelopes' => $operatorSubmissionEnvelopes,
+            'canonical_submission_persistence_plan' => $this->canonicalSubmissionPersistencePlan(
+                canonicalSubmissionInput: $canonicalSubmissionInput,
+                diagnostics: $diagnostics,
+                explicitPayloadSupplied: (array) ($options['runtime_promotion_receipt'] ?? []) !== []
+                    || (array) ($options['real_provider_smoke'] ?? []) !== []
+                    || (array) ($options['completion_receipt'] ?? []) !== [],
+                workspacePayloadSupplied: (string) data_get($workspaceInput, 'status', '') === 'loaded_for_read_only_submission_readiness',
+            ),
             'runtime_promotion_receipt_passed' => $runtimePassed,
             'real_provider_smoke_passed' => $smokePassed,
             'human_completion_receipt_passed' => $humanPassed,
@@ -220,11 +250,78 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService
                 'operator_evidence_submission_readiness_does_not_promote_completion',
                 'operator_evidence_submission_readiness_does_not_persist_operator_submission_envelopes',
                 'operator_evidence_submission_readiness_reads_draft_workspace_without_marking_it_as_evidence',
+                'operator_evidence_submission_readiness_reads_canonical_submission_files_without_marking_them_as_persisted_evidence',
             ],
         ];
         $payload['submission_readiness_hash'] = $this->stableHash($payload);
 
         return $payload;
+    }
+
+    /** @return array<string, mixed> */
+    private function draftHashFinalizationNotRequested(): array
+    {
+        return [
+            'schema_version' => AtlasSelfConstructionOperatorEvidenceDraftHashFinalizerService::SCHEMA_VERSION,
+            'mode' => AtlasSelfConstructionOperatorEvidenceDraftHashFinalizerService::MODE,
+            'status' => 'not_requested',
+            'workspace_loaded' => false,
+            'artifact_count' => 0,
+            'ready_artifact_count' => 0,
+            'blocked_artifact_count' => 0,
+            'written_artifact_count' => 0,
+            'artifacts' => [],
+            'finalizer_hash' => '',
+        ];
+    }
+
+    /** @return array<string, mixed> */
+    private function draftHashFinalizationSummary(array $finalization, string $operatorDraftWorkspacePath): array
+    {
+        $artifactSummaries = [];
+        foreach ((array) data_get($finalization, 'artifacts', []) as $artifact => $details) {
+            $artifactSummaries[(string) $artifact] = [
+                'status' => (string) data_get($details, 'status', ''),
+                'hash_field' => (string) data_get($details, 'hash_field', ''),
+                'original_hash' => (string) data_get($details, 'original_hash', ''),
+                'computed_hash' => (string) data_get($details, 'computed_hash', ''),
+                'input_hash_matches_computed_hash' => (bool) data_get($details, 'input_hash_matches_computed_hash', false),
+                'can_write_hash_to_draft' => (bool) data_get($details, 'can_write_hash_to_draft', false),
+                'write_blocker' => (string) data_get($details, 'write_blocker', ''),
+                'placeholder_fields' => (array) data_get($details, 'placeholder_fields', []),
+                'invalid_hash_fields' => (array) data_get($details, 'invalid_hash_fields', []),
+                'forbidden_flags_true' => (array) data_get($details, 'forbidden_flags_true', []),
+            ];
+        }
+
+        return [
+            'schema_version' => 'atlas.self_construction.operator_evidence_submission_readiness_draft_hash_finalization.v1',
+            'status' => (string) data_get($finalization, 'status', 'not_requested'),
+            'workspace_loaded' => (bool) data_get($finalization, 'workspace_loaded', false),
+            'artifact_count' => (int) data_get($finalization, 'artifact_count', 0),
+            'ready_artifact_count' => (int) data_get($finalization, 'ready_artifact_count', 0),
+            'blocked_artifact_count' => (int) data_get($finalization, 'blocked_artifact_count', 0),
+            'written_artifact_count' => (int) data_get($finalization, 'written_artifact_count', 0),
+            'artifacts' => $artifactSummaries,
+            'finalizer_hash' => (string) data_get($finalization, 'finalizer_hash', ''),
+            'write_command' => $operatorDraftWorkspacePath === ''
+                ? ''
+                : 'php artisan atlas:ai:self-construction --atlas-self-construction-operator-evidence-draft-hash-finalizer-status --operator-draft-workspace-path='.$operatorDraftWorkspacePath.' --write-computed-operator-draft-hashes --json',
+            'can_write_from_submission_readiness' => false,
+            'can_persist_from_submission_readiness' => false,
+        ];
+    }
+
+    private function draftHashFinalizationRequired(array $finalization): bool
+    {
+        foreach ((array) data_get($finalization, 'artifacts', []) as $artifact) {
+            if ((bool) data_get($artifact, 'can_write_hash_to_draft', false)
+                && ! (bool) data_get($artifact, 'input_hash_matches_computed_hash', false)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -281,15 +378,78 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService
     /**
      * @param  array<string, mixed>  $explicit
      * @param  array<string, mixed>  $workspacePayloads
+     * @param  array<string, mixed>  $canonicalSubmissionPayloads
      * @return array<string, mixed>
      */
-    private function payloadOrWorkspace(array $explicit, array $workspacePayloads, string $workspaceKey): array
+    private function payloadOrWorkspaceOrCanonicalSubmission(array $explicit, array $workspacePayloads, array $canonicalSubmissionPayloads, string $workspaceKey): array
     {
         if ($explicit !== []) {
             return $explicit;
         }
+        $workspacePayload = (array) data_get($workspacePayloads, $workspaceKey, []);
+        if ($workspacePayload !== []) {
+            return $workspacePayload;
+        }
 
-        return (array) data_get($workspacePayloads, $workspaceKey, []);
+        return (array) data_get($canonicalSubmissionPayloads, $workspaceKey, []);
+    }
+
+    /** @return array<string, mixed> */
+    private function loadCanonicalSubmissionInput(): array
+    {
+        $payloads = [];
+        $files = [];
+        $violations = [];
+
+        foreach (self::CANONICAL_SUBMISSION_PATHS as $artifact => $path) {
+            $exists = Storage::disk(self::STORAGE_DISK)->exists($path);
+            $file = [
+                'artifact' => $artifact,
+                'path' => $path,
+                'exists' => $exists,
+                'json_sha256' => '',
+                'loaded' => false,
+            ];
+
+            if ($exists) {
+                $raw = (string) Storage::disk(self::STORAGE_DISK)->get($path);
+                $file['json_sha256'] = hash('sha256', $raw);
+                try {
+                    $decoded = json_decode($raw, true, flags: JSON_THROW_ON_ERROR);
+                    if (is_array($decoded)) {
+                        $payloads[$artifact] = $decoded;
+                        $file['loaded'] = true;
+                    } else {
+                        $violations[] = 'canonical_submission_payload_not_object:'.$artifact;
+                    }
+                } catch (\Throwable) {
+                    $violations[] = 'canonical_submission_payload_invalid_json:'.$artifact;
+                }
+            }
+
+            $files[] = $file;
+        }
+
+        $loadedArtifacts = array_keys($payloads);
+
+        return [
+            'schema_version' => 'atlas.self_construction.operator_evidence_canonical_submission_input.v1',
+            'status' => $loadedArtifacts === [] ? 'no_canonical_submission_files_loaded' : 'loaded_for_read_only_submission_readiness',
+            'directory' => 'storage/app/atlas/self-construction/operator-submissions',
+            'artifact_count' => count(self::CANONICAL_SUBMISSION_PATHS),
+            'loaded_artifacts' => $loadedArtifacts,
+            'loaded_artifact_count' => count($loadedArtifacts),
+            'files' => $files,
+            'violation_count' => count(array_values(array_unique($violations))),
+            'violations' => array_values(array_unique($violations)),
+            'payloads' => $payloads,
+            'read_only' => true,
+            'published_submission_json_is_evidence' => false,
+            'can_persist_canonical_submission_files_directly' => false,
+            'can_promote_completion_from_canonical_submission_files' => false,
+            'recommended_readiness_command' => 'php artisan atlas:ai:self-construction --atlas-self-construction-operator-evidence-submission-readiness-status --json',
+            'recommended_persistence_boundary' => 'use_explicit_canonical_verifier_persist_commands_after_this_readiness_surface_reports_ready',
+        ];
     }
 
     /** @return array<string, mixed> */
@@ -461,6 +621,155 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService
         $envelopes['operator_submission_envelopes_hash'] = $this->stableHash($envelopes);
 
         return $envelopes;
+    }
+
+    /**
+     * @param  array<string, mixed>  $canonicalSubmissionInput
+     * @param  array<string, array<string, mixed>>  $diagnostics
+     * @return array<string, mixed>
+     */
+    private function canonicalSubmissionPersistencePlan(array $canonicalSubmissionInput, array $diagnostics, bool $explicitPayloadSupplied, bool $workspacePayloadSupplied): array
+    {
+        $loadedArtifacts = (array) data_get($canonicalSubmissionInput, 'loaded_artifacts', []);
+        $canonicalSourceAuthoritative = ! $explicitPayloadSupplied && ! $workspacePayloadSupplied;
+
+        $runtimeReady = $canonicalSourceAuthoritative
+            && in_array('runtime_promotion_receipt', $loadedArtifacts, true)
+            && (bool) data_get($diagnostics, 'runtime_promotion_receipt.ready', false);
+        $smokeReady = $canonicalSourceAuthoritative
+            && $runtimeReady
+            && in_array('real_provider_smoke', $loadedArtifacts, true)
+            && (bool) data_get($diagnostics, 'real_provider_smoke.ready', false);
+        $humanReady = $canonicalSourceAuthoritative
+            && $runtimeReady
+            && $smokeReady
+            && in_array('human_completion_receipt', $loadedArtifacts, true)
+            && (bool) data_get($diagnostics, 'human_completion_receipt.ready', false);
+
+        $steps = [
+            $this->canonicalSubmissionPersistenceStep(
+                order: 1,
+                id: 'persist_runtime_promotion_receipt',
+                artifact: 'runtime_promotion_receipt',
+                loadedArtifacts: $loadedArtifacts,
+                diagnostic: (array) $diagnostics['runtime_promotion_receipt'],
+                prerequisiteReady: $canonicalSourceAuthoritative,
+                command: 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --runtime-promotion-receipt-json=@storage/app/atlas/self-construction/operator-submissions/runtime-promotion.json --persist-runtime-promotion-receipt --json',
+                prerequisiteBlocker: $canonicalSourceAuthoritative ? '' : 'canonical_submission_files_not_authoritative_for_current_readiness_input',
+            ),
+            $this->canonicalSubmissionPersistenceStep(
+                order: 2,
+                id: 'persist_real_provider_smoke',
+                artifact: 'real_provider_smoke',
+                loadedArtifacts: $loadedArtifacts,
+                diagnostic: (array) $diagnostics['real_provider_smoke'],
+                prerequisiteReady: $runtimeReady,
+                command: 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --real-provider-smoke-json=@storage/app/atlas/self-construction/operator-submissions/real-provider-smoke.json --persist-completion-evidence --json',
+                prerequisiteBlocker: $runtimeReady ? '' : 'runtime_promotion_receipt_must_be_ready_first',
+            ),
+            $this->canonicalSubmissionPersistenceStep(
+                order: 3,
+                id: 'persist_human_completion_receipt',
+                artifact: 'human_completion_receipt',
+                loadedArtifacts: $loadedArtifacts,
+                diagnostic: (array) $diagnostics['human_completion_receipt'],
+                prerequisiteReady: $runtimeReady && $smokeReady,
+                command: 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --completion-receipt-json=@storage/app/atlas/self-construction/operator-submissions/completion-receipt.json --persist-completion-evidence --json',
+                prerequisiteBlocker: ($runtimeReady && $smokeReady) ? '' : 'runtime_promotion_and_real_provider_smoke_must_be_ready_first',
+            ),
+            [
+                'order' => 4,
+                'id' => 'rerun_completion_audit',
+                'artifact' => 'atlas_self_construction_os_completion_audit',
+                'canonical_submission_path' => '',
+                'status' => $runtimeReady && $smokeReady && $humanReady
+                    ? 'ready_after_explicit_operator_persistence_steps'
+                    : 'blocked_until_all_canonical_submission_persistence_steps_are_ready',
+                'command' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --json',
+                'requires_explicit_persistence_flag' => false,
+                'can_run_from_readiness' => false,
+                'blocker' => $runtimeReady && $smokeReady && $humanReady ? '' : 'canonical_submission_persistence_not_ready',
+            ],
+        ];
+
+        $nextStep = '';
+        foreach ($steps as $step) {
+            if (! str_starts_with((string) $step['status'], 'ready')) {
+                $nextStep = (string) $step['id'];
+                break;
+            }
+        }
+
+        $payload = [
+            'schema_version' => 'atlas.self_construction.canonical_submission_persistence_plan.v1',
+            'mode' => 'read_only_canonical_submission_persistence_plan',
+            'status' => $humanReady ? 'ready_for_explicit_operator_persistence_sequence' : ($loadedArtifacts === [] ? 'no_canonical_submission_files_loaded' : 'blocked_until_canonical_submission_files_are_ready'),
+            'canonical_submission_directory' => 'storage/app/atlas/self-construction/operator-submissions',
+            'canonical_source_authoritative' => $canonicalSourceAuthoritative,
+            'explicit_payload_supplied' => $explicitPayloadSupplied,
+            'workspace_payload_supplied' => $workspacePayloadSupplied,
+            'loaded_artifacts' => $loadedArtifacts,
+            'loaded_artifact_count' => count($loadedArtifacts),
+            'required_artifact_count' => 3,
+            'sequence_ordered' => true,
+            'requires_explicit_operator_persistence_commands' => true,
+            'human_receipt_persistence_requires_runtime_and_smoke_green' => true,
+            'next_step_id' => $nextStep,
+            'steps' => $steps,
+            'can_persist_from_readiness' => false,
+            'can_promote_completion_from_plan' => false,
+            'non_execution_guarantees' => [
+                'canonical_submission_persistence_plan_does_not_persist_receipts',
+                'canonical_submission_persistence_plan_does_not_persist_smoke',
+                'canonical_submission_persistence_plan_does_not_sign_for_operator',
+                'canonical_submission_persistence_plan_does_not_call_provider',
+                'canonical_submission_persistence_plan_does_not_spend_tokens',
+                'canonical_submission_persistence_plan_does_not_dispatch',
+                'canonical_submission_persistence_plan_does_not_enable_runtime',
+                'canonical_submission_persistence_plan_does_not_promote_completion',
+            ],
+        ];
+        $payload['canonical_submission_persistence_plan_hash'] = $this->stableHash($payload);
+
+        return $payload;
+    }
+
+    /**
+     * @param  list<string>  $loadedArtifacts
+     * @param  array<string, mixed>  $diagnostic
+     * @return array<string, mixed>
+     */
+    private function canonicalSubmissionPersistenceStep(int $order, string $id, string $artifact, array $loadedArtifacts, array $diagnostic, bool $prerequisiteReady, string $command, string $prerequisiteBlocker): array
+    {
+        $loaded = in_array($artifact, $loadedArtifacts, true);
+        $ready = $loaded && $prerequisiteReady && (bool) data_get($diagnostic, 'ready', false);
+        $path = match ($artifact) {
+            'runtime_promotion_receipt' => 'storage/app/atlas/self-construction/operator-submissions/runtime-promotion.json',
+            'real_provider_smoke' => 'storage/app/atlas/self-construction/operator-submissions/real-provider-smoke.json',
+            default => 'storage/app/atlas/self-construction/operator-submissions/completion-receipt.json',
+        };
+
+        $blocker = match (true) {
+            ! $loaded => 'canonical_submission_file_missing',
+            ! $prerequisiteReady => $prerequisiteBlocker,
+            ! (bool) data_get($diagnostic, 'ready', false) => 'canonical_submission_verifier_not_ready',
+            default => '',
+        };
+
+        return [
+            'order' => $order,
+            'id' => $id,
+            'artifact' => $artifact,
+            'canonical_submission_path' => $path,
+            'status' => $ready ? 'ready_for_explicit_operator_persistence' : 'blocked_until_canonical_submission_verifier_passes',
+            'verifier_status' => (string) data_get($diagnostic, 'status', 'not_supplied'),
+            'ready_for_explicit_operator_persistence' => $ready,
+            'command' => $command,
+            'requires_explicit_persistence_flag' => true,
+            'can_run_from_readiness' => false,
+            'blocker' => $blocker,
+            'errors' => (array) data_get($diagnostic, 'errors', []),
+        ];
     }
 
     /**

@@ -10,10 +10,9 @@ use App\Services\Ai\Programming\WorkspaceHygieneService;
 use PHPUnit\Framework\TestCase;
 
 /**
- * Atlas Forge Rivals · Corpus Fixture Runner — unit tests.
+ * Atlas Forge Rivals · Corpus Fixture Runner — unit tests (Release v1).
  *
- * Uses a temporary repo root + temporary runs root so the suite stays
- * hermetic — no git, no provider, no shared state.
+ * Hermético: tempRepo + tempRuns próprios, sem git, sem provider, sem DB.
  */
 final class AtlasForgeRivalsCorpusFixtureRunnerTest extends TestCase
 {
@@ -42,10 +41,9 @@ final class AtlasForgeRivalsCorpusFixtureRunnerTest extends TestCase
             $this->tempRuns,
         );
 
-        $this->seedCaseFixture('arena-frontend-button-loading-state', [
-            'CaptureForm.tsx' => "// seed file\n",
-            'Button.tsx' => "// seed file\n",
-            '__tests__/CaptureForm.test.tsx' => "// seed test\n",
+        $this->seedCaseFixture('backend-pagination-off-by-one', [
+            'PageCalculator.php' => "// seed file\n",
+            'PageCalculatorTest.php' => "// seed test\n",
             'README.md' => "# seed\n",
         ]);
     }
@@ -59,23 +57,25 @@ final class AtlasForgeRivalsCorpusFixtureRunnerTest extends TestCase
 
     public function test_prepare_creates_clean_isolated_workspace(): void
     {
-        $result = $this->runner->prepare('run-123', 'arena-frontend-button-loading-state');
+        $result = $this->runner->prepare('run-123', 'backend-pagination-off-by-one');
 
         $this->assertSame('ok', $result['status']);
         $this->assertNotNull($result['workspace']);
-        $this->assertSame($this->tempRuns.'/run-123/corpus/arena-frontend-button-loading-state/workspace', $result['workspace']);
+        $this->assertSame(
+            $this->tempRuns.'/run-123/corpus/backend-pagination-off-by-one/workspace',
+            $result['workspace'],
+        );
         $this->assertDirectoryExists($result['workspace']);
-        $this->assertFileExists($result['workspace'].'/CaptureForm.tsx');
-        $this->assertFileExists($result['workspace'].'/Button.tsx');
-        $this->assertFileExists($result['workspace'].'/__tests__/CaptureForm.test.tsx');
-        $this->assertContains('CaptureForm.tsx', $result['files_copied']);
-        $this->assertContains('__tests__/CaptureForm.test.tsx', $result['files_copied']);
+        $this->assertFileExists($result['workspace'].'/PageCalculator.php');
+        $this->assertFileExists($result['workspace'].'/PageCalculatorTest.php');
+        $this->assertContains('PageCalculator.php', $result['files_copied']);
+        $this->assertContains('PageCalculatorTest.php', $result['files_copied']);
         $this->assertFalse($result['external_provider_call']);
     }
 
     public function test_prepare_blocks_when_seed_dir_missing(): void
     {
-        $result = $this->runner->prepare('run-x', 'arena-backend-pagination-cursor');
+        $result = $this->runner->prepare('run-x', 'frontend-execution-status-panel');
         $this->assertSame('blocked', $result['status']);
         $this->assertNotEmpty(array_filter(
             (array) $result['blockers'],
@@ -95,32 +95,32 @@ final class AtlasForgeRivalsCorpusFixtureRunnerTest extends TestCase
 
     public function test_check_scope_flags_paths_outside_allowed_scope(): void
     {
-        // atlas-server/app/** is in this case's forbidden_files_scope, so the
-        // model path triggers forbidden_path_touched (deny-first). A path that
-        // is neither allowed nor forbidden surfaces as scope_violation.
+        // backend-pagination-off-by-one tem allowed=app/Services/Pagination/PageCalculator.php +
+        // tests/Unit/Pagination/PageCalculatorTest.php. forbidden inclui app/Http/**, app/Services/Ai/**,
+        // database/migrations/**, atlas-desktop/src/voice/**, atlas-cartografia/**.
         $violations = $this->runner->checkScope(
-            'arena-frontend-button-loading-state',
+            'backend-pagination-off-by-one',
             [
-                'atlas-desktop/src/components/inbox/CaptureForm.tsx',     // allowed
-                'atlas-server/app/Models/Capture.php',                    // forbidden (atlas-server/app/**)
-                'atlas-cartografia/cockpit.tsx',                          // forbidden (atlas-cartografia/**)
-                'unrelated/Random.go',                                    // truly outside any scope
+                'app/Services/Pagination/PageCalculator.php', // allowed
+                'app/Http/Controllers/PageController.php',    // forbidden (app/Http/**)
+                'atlas-cartografia/cockpit.tsx',              // forbidden (atlas-cartografia/**)
+                'unrelated/Random.go',                        // truly outside
             ],
         );
 
-        $this->assertContains('forbidden_path_touched:atlas-server/app/Models/Capture.php', $violations);
+        $this->assertContains('forbidden_path_touched:app/Http/Controllers/PageController.php', $violations);
         $this->assertContains('forbidden_path_touched:atlas-cartografia/cockpit.tsx', $violations);
         $this->assertContains('scope_violation:unrelated/Random.go', $violations);
         $this->assertNotContains(
-            'scope_violation:atlas-desktop/src/components/inbox/CaptureForm.tsx',
+            'scope_violation:app/Services/Pagination/PageCalculator.php',
             $violations,
         );
     }
 
-    public function test_check_scope_blocks_voice_paths_even_when_in_allowed(): void
+    public function test_check_scope_blocks_voice_paths_even_when_not_in_allowed(): void
     {
         $violations = $this->runner->checkScope(
-            'arena-frontend-button-loading-state',
+            'frontend-form-validation-accessibility',
             ['atlas-desktop/src/voice/CaptureVoice.tsx'],
         );
         $this->assertContains('forbidden_path_touched:atlas-desktop/src/voice/CaptureVoice.tsx', $violations);
@@ -128,18 +128,22 @@ final class AtlasForgeRivalsCorpusFixtureRunnerTest extends TestCase
 
     public function test_cleanup_removes_workspace_but_returns_ok_when_absent(): void
     {
-        $absent = $this->runner->cleanup('never-existed', 'arena-frontend-button-loading-state');
+        $absent = $this->runner->cleanup('never-existed', 'backend-pagination-off-by-one');
         $this->assertSame('ok', $absent['status']);
         $this->assertFalse($absent['removed']);
 
-        $this->runner->prepare('run-clean', 'arena-frontend-button-loading-state');
-        $this->assertDirectoryExists($this->tempRuns.'/run-clean/corpus/arena-frontend-button-loading-state/workspace');
-        $cleaned = $this->runner->cleanup('run-clean', 'arena-frontend-button-loading-state');
+        $this->runner->prepare('run-clean', 'backend-pagination-off-by-one');
+        $workspace = $this->tempRuns.'/run-clean/corpus/backend-pagination-off-by-one/workspace';
+        $this->assertDirectoryExists($workspace);
+        $cleaned = $this->runner->cleanup('run-clean', 'backend-pagination-off-by-one');
         $this->assertSame('ok', $cleaned['status']);
         $this->assertTrue($cleaned['removed']);
-        $this->assertDirectoryDoesNotExist($this->tempRuns.'/run-clean/corpus/arena-frontend-button-loading-state/workspace');
+        $this->assertDirectoryDoesNotExist($workspace);
     }
 
+    /**
+     * @param  array<string,string>  $files
+     */
     private function seedCaseFixture(string $caseId, array $files): void
     {
         $base = $this->tempRepo.'/storage/forge-rivals-corpus/'.$caseId.'/seed';

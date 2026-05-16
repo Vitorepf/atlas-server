@@ -49,6 +49,8 @@ class AiTraceResource extends JsonResource
             'stream_events' => $this->whenLoaded('streamEvents', fn () => AiStreamEventResource::collection($this->streamEvents)->resolve()),
             'quality_evaluation' => $this->whenLoaded('qualityEvaluation', fn () => $this->qualityEvaluation ? new AiQualityEvaluationResource($this->qualityEvaluation) : null),
             'quality_actions' => $this->whenLoaded('qualityActions', fn () => AiQualityActionResource::collection($this->qualityActions)->resolve()),
+            'tool_events' => $this->whenLoaded('toolEvents', fn () => AiToolEventResource::collection($this->toolEvents)->resolve()),
+            'metric_summary' => $this->whenLoaded('metricSummary', fn () => $this->metricSummary ? new AiTraceMetricSummaryResource($this->metricSummary) : null),
             'created_at' => $this->created_at?->toJSON(),
             'updated_at' => $this->updated_at?->toJSON(),
         ];

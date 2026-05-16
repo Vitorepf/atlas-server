@@ -3,6 +3,9 @@
 namespace Tests\Feature\Ai\SelfConstruction;
 
 use App\Services\Ai\SelfConstruction\AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorService;
+use App\Services\Ai\SelfConstruction\AtlasSelfConstructionOperatorEvidenceArtifactTemplatePackService;
+use App\Services\Ai\SelfConstruction\AtlasSelfConstructionOperatorEvidenceDraftHashFinalizerService;
+use App\Services\Ai\SelfConstruction\AtlasSelfConstructionOperatorEvidenceDraftWorkspacePublisherService;
 use App\Services\Ai\SelfConstruction\AtlasSelfConstructionReadinessService;
 use Illuminate\Support\Facades\Artisan;
 use Tests\TestCase;
@@ -36,13 +39,13 @@ final class AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorTest extend
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) data_get($payload, 'operator_submission_envelopes.operator_submission_envelopes_hash'));
     }
 
-    public function test_ordered_operator_path_contains_fourteen_canonical_steps_in_order(): void
+    public function test_ordered_operator_path_contains_sixteen_canonical_steps_in_order(): void
     {
         $payload = (new AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorService(app(AtlasSelfConstructionReadinessService::class)))->build();
         $path = $payload['ordered_operator_path'];
 
-        $this->assertCount(14, $path);
-        $this->assertSame(14, $payload['ordered_operator_path_step_count']);
+        $this->assertCount(16, $path);
+        $this->assertSame(16, $payload['ordered_operator_path_step_count']);
         $this->assertSame([
             'refresh_replay_snapshot_if_stale',
             'draft_runtime_promotion_receipt',
@@ -55,6 +58,8 @@ final class AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorTest extend
             'persist_real_provider_smoke_after_verifier_passes',
             'draft_human_completion_receipt',
             'compose_human_completion_receipt_hash',
+            'finalize_operator_draft_workspace_hashes',
+            'publish_finalized_operator_draft_workspace',
             'persist_human_completion_receipt_after_prerequisites_green',
             'rerun_completion_audit',
             'promote_next_stage_only_after_completion_audit_complete',
@@ -88,6 +93,8 @@ final class AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorTest extend
             'draft_real_provider_smoke_payload',
             'persist_real_provider_smoke_after_verifier_passes',
             'draft_human_completion_receipt',
+            'finalize_operator_draft_workspace_hashes',
+            'publish_finalized_operator_draft_workspace',
             'persist_human_completion_receipt_after_prerequisites_green',
             'promote_next_stage_only_after_completion_audit_complete',
         ] as $stepId) {
@@ -110,6 +117,23 @@ final class AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorTest extend
     {
         $payload = (new AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorService(app(AtlasSelfConstructionReadinessService::class)))->build();
 
+        $this->assertSame(
+            AtlasSelfConstructionOperatorEvidenceDraftHashFinalizerService::class,
+            collect($payload['ordered_operator_path'])->firstWhere('id', 'finalize_operator_draft_workspace_hashes')['verifier_service'],
+        );
+        $this->assertSame(
+            AtlasSelfConstructionOperatorEvidenceDraftWorkspacePublisherService::class,
+            collect($payload['ordered_operator_path'])->firstWhere('id', 'publish_finalized_operator_draft_workspace')['verifier_service'],
+        );
+        $this->assertStringContainsString(
+            '--atlas-self-construction-operator-evidence-draft-hash-finalizer-status',
+            data_get($payload, 'operator_command_plan.finalize_operator_draft_workspace_hashes'),
+        );
+        $this->assertStringContainsString(
+            '--atlas-self-construction-operator-evidence-draft-workspace-publisher-status',
+            data_get($payload, 'operator_command_plan.publish_finalized_operator_draft_workspace'),
+        );
+
         foreach ([
             'reject_fake_real_provider_smoke',
             'reject_synthetic_provider_call',
@@ -125,6 +149,55 @@ final class AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorTest extend
         ] as $rule) {
             $this->assertContains($rule, $payload['anti_cheat_policy']);
         }
+    }
+
+    public function test_closure_corridor_surfaces_operator_draft_workspace_diagnostics(): void
+    {
+        $workspacePayload = (new AtlasSelfConstructionOperatorEvidenceArtifactTemplatePackService(app(AtlasSelfConstructionReadinessService::class)))->build([
+            'persist_operator_draft_workspace' => true,
+        ]);
+        $workspace = (string) data_get($workspacePayload, 'operator_draft_workspace.workspace_directory');
+
+        $payload = (new AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorService(app(AtlasSelfConstructionReadinessService::class)))->build([
+            'operator_draft_workspace_path' => 'storage/app/'.$workspace,
+        ]);
+
+        $this->assertSame('operator_draft_workspace_loaded', data_get($payload, 'operator_workspace_diagnostics.status'));
+        $this->assertSame($workspace, data_get($payload, 'operator_workspace_diagnostics.workspace_directory'));
+        $this->assertEqualsCanonicalizing(
+            ['runtime_promotion_receipt', 'real_provider_smoke', 'human_completion_receipt'],
+            data_get($payload, 'operator_workspace_diagnostics.loaded_artifacts'),
+        );
+        $this->assertSame('blocked_operator_drafts_not_ready_for_hash_write', data_get($payload, 'operator_workspace_diagnostics.draft_hash_finalization_status'));
+        $this->assertSame('blocked_operator_draft_workspace_not_publishable', data_get($payload, 'operator_workspace_diagnostics.draft_workspace_publisher_status'));
+        $this->assertSame(0, data_get($payload, 'operator_workspace_diagnostics.draft_workspace_publishable_artifact_count'));
+        $this->assertTrue((bool) data_get($payload, 'operator_workspace_diagnostics.draft_workspace_atomic_bundle_publish_required'));
+        $this->assertFalse((bool) data_get($payload, 'operator_workspace_diagnostics.draft_workspace_atomic_bundle_ready'));
+        $this->assertStringContainsString('--atlas-self-construction-operator-evidence-draft-workspace-publisher-status', data_get($payload, 'operator_workspace_diagnostics.draft_workspace_publish_command'));
+        $this->assertSame(4, data_get($payload, 'operator_workspace_diagnostics.draft_workspace_post_publish_persistence_step_count'));
+        $this->assertTrue((bool) data_get($payload, 'operator_workspace_diagnostics.draft_workspace_post_publish_persistence_sequence_ordered'));
+        $this->assertTrue((bool) data_get($payload, 'operator_workspace_diagnostics.draft_workspace_requires_explicit_operator_persistence_commands'));
+        $this->assertFalse((bool) data_get($payload, 'operator_workspace_diagnostics.draft_workspace_can_persist_from_publisher'));
+        $this->assertSame(
+            [
+                'persist_runtime_promotion_receipt',
+                'persist_real_provider_smoke',
+                'persist_human_completion_receipt',
+                'rerun_completion_audit',
+            ],
+            array_column(data_get($payload, 'operator_workspace_diagnostics.draft_workspace_post_publish_persistence_sequence'), 'id'),
+        );
+        $this->assertFalse(data_get($payload, 'operator_workspace_diagnostics.can_write_from_corridor'));
+        $this->assertFalse(data_get($payload, 'operator_workspace_diagnostics.can_persist_from_corridor'));
+
+        $finalizeStep = collect($payload['ordered_operator_path'])->firstWhere('id', 'finalize_operator_draft_workspace_hashes');
+        $this->assertSame('blocked_until_operator_drafts_are_hashable', $finalizeStep['status']);
+        $this->assertSame(['operator_must_finish_draft_workspace_or_run_readiness'], $finalizeStep['missing_inputs']);
+
+        $publishStep = collect($payload['ordered_operator_path'])->firstWhere('id', 'publish_finalized_operator_draft_workspace');
+        $this->assertSame('blocked_until_operator_draft_hashes_are_finalized', $publishStep['status']);
+        $this->assertSame(['operator_must_finalize_all_draft_hashes_before_publishing'], $publishStep['missing_inputs']);
+        $this->assertFalse($publishStep['can_run_automatically']);
     }
 
     public function test_non_execution_guarantees_block_every_runtime_capability(): void

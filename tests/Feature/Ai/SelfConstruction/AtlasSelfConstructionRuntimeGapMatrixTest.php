@@ -36,6 +36,53 @@ final class AtlasSelfConstructionRuntimeGapMatrixTest extends TestCase
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $matrix['runtime_gap_matrix_hash']);
     }
 
+    public function test_runtime_gap_matrix_hashes_are_stable_across_read_only_evaluations(): void
+    {
+        $service = new AtlasSelfConstructionRuntimeGapMatrixService(app(AtlasSelfConstructionReadinessService::class));
+
+        $first = $service->matrix();
+        $second = $service->matrix();
+
+        $this->assertSame($first['runtime_promotion_basis_hash'], $second['runtime_promotion_basis_hash']);
+        $this->assertSame($first['runtime_promotion_closure_basis_hash'], $second['runtime_promotion_closure_basis_hash']);
+        $this->assertSame($first['expected_runtime_gap_matrix_hash_for_promotion_receipt'], $second['expected_runtime_gap_matrix_hash_for_promotion_receipt']);
+        $this->assertSame($first['runtime_gap_matrix_hash'], $second['runtime_gap_matrix_hash']);
+    }
+
+    public function test_expected_runtime_gap_matrix_hash_uses_stable_signable_base(): void
+    {
+        $matrix = (new AtlasSelfConstructionRuntimeGapMatrixService(app(AtlasSelfConstructionReadinessService::class)))->matrix();
+        $rows = (array) $matrix['rows'];
+        $runtimeRows = array_values(array_filter($rows, static fn (array $row): bool => ! (bool) ($row['runtime_y'] ?? false)));
+        $graduationRows = array_values(array_filter($rows, static fn (array $row): bool => (bool) ($row['runtime_y_candidate'] ?? false)));
+        $base = [
+            'schema_version' => $matrix['schema_version'],
+            'mode' => $matrix['mode'],
+            'status' => $matrix['status'],
+            'assessed_at' => $matrix['assessed_at'],
+            'all_runtime_y' => $matrix['all_runtime_y'],
+            'execution_allowed' => $matrix['execution_allowed'],
+            'not_yet_runtime_capable' => $matrix['not_yet_runtime_capable'],
+            'next_required_slice' => $matrix['next_required_slice'],
+            'rows' => $rows,
+            'runtime_promotion_basis_hash' => $matrix['runtime_promotion_basis_hash'],
+            'runtime_gap_count' => count($runtimeRows),
+            'runtime_y_count' => count(array_filter($rows, static fn (array $row): bool => (bool) ($row['runtime_y'] ?? false))),
+            'runtime_y_candidate_count' => count($graduationRows),
+            'blocked_gap_ids' => array_values(array_map(static fn (array $row): string => (string) $row['gap_id'], $runtimeRows)),
+            'graduation_candidate_gap_ids' => array_values(array_map(static fn (array $row): string => (string) $row['gap_id'], $graduationRows)),
+            'non_execution_guarantees' => $matrix['non_execution_guarantees'],
+        ];
+        unset($base['assessed_at']);
+
+        $expected = hash('sha256', (string) json_encode(
+            $this->ksortRecursive($base),
+            JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
+        ));
+
+        $this->assertSame($expected, $matrix['expected_runtime_gap_matrix_hash_for_promotion_receipt']);
+    }
+
     public function test_runtime_gap_matrix_includes_certification_status_for_runtime_boundaries(): void
     {
         $matrix = (new AtlasSelfConstructionRuntimeGapMatrixService(app(AtlasSelfConstructionReadinessService::class)))->matrix();

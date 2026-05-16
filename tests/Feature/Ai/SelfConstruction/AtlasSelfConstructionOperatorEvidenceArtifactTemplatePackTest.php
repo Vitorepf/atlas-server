@@ -164,11 +164,30 @@ final class AtlasSelfConstructionOperatorEvidenceArtifactTemplatePackTest extend
             $this->assertFalse($file['draft_is_evidence']);
             $this->assertFalse($file['can_persist_draft_directly']);
             $this->assertTrue($file['sha256_matches_payload_template']);
+            $this->assertStringContainsString('--atlas-self-construction-operator-evidence-draft-hash-finalizer-status', $file['command_to_finalize_workspace_hashes']);
+            $this->assertStringContainsString('--write-computed-operator-draft-hashes', $file['command_to_finalize_workspace_hashes']);
             $this->assertStringContainsString('@storage/app/atlas/self-construction/operator-submissions/draft-workspaces/', $file['command_to_compute_hash_draft_file']);
             $this->assertStringContainsString('@storage/app/atlas/self-construction/operator-submissions/draft-workspaces/', $file['command_to_verify_draft_file']);
             $this->assertStringNotContainsString('--persist-runtime-promotion-receipt', $file['command_to_verify_draft_file']);
             $this->assertStringNotContainsString('--persist-completion-evidence', $file['command_to_verify_draft_file']);
         }
+
+        $runtimeFile = collect($files)->firstWhere('artifact', 'runtime_promotion_receipt');
+        $this->assertFalse($runtimeFile['copy_to_recommended_file_path_before_persisting']);
+        $this->assertStringContainsString('--atlas-self-construction-runtime-promotion-draft-hash-finalizer-status', $runtimeFile['command_to_finalize_draft_receipt_hash']);
+        $this->assertStringContainsString('--write-computed-runtime-promotion-receipt-hash', $runtimeFile['command_to_finalize_draft_receipt_hash']);
+        $this->assertStringContainsString('--atlas-self-construction-runtime-promotion-endgame-status', $runtimeFile['command_to_review_draft_file_with_endgame']);
+        $this->assertStringContainsString('--operator-draft-workspace-path=storage/app/atlas/self-construction/operator-submissions/draft-workspaces/', $runtimeFile['command_to_review_draft_file_with_endgame']);
+        $this->assertStringContainsString('--persist-runtime-promotion-receipt', $runtimeFile['command_to_persist_draft_file_with_endgame']);
+        $this->assertStringContainsString('runtime_promotion_endgame_can_read_operator_draft_workspace_path_directly', $runtimeFile['copy_not_required_reason']);
+
+        $smokeFile = collect($files)->firstWhere('artifact', 'real_provider_smoke');
+        $humanFile = collect($files)->firstWhere('artifact', 'human_completion_receipt');
+        $this->assertTrue($smokeFile['copy_to_recommended_file_path_before_persisting']);
+        $this->assertTrue($humanFile['copy_to_recommended_file_path_before_persisting']);
+        $this->assertContains('run_operator_evidence_draft_hash_finalizer_against_the_draft_workspace_path', data_get($workspace, 'manifest.operator_required_next_steps'));
+        $this->assertContains('for_runtime_promotion_receipt_run_hash_finalizer_against_the_draft_workspace_path', data_get($workspace, 'manifest.operator_required_next_steps'));
+        $this->assertContains('for_runtime_promotion_receipt_run_endgame_against_the_draft_workspace_path', data_get($workspace, 'manifest.operator_required_next_steps'));
 
         Storage::disk('local')->assertMissing('atlas/self-construction/os-completion/runtime-promotion-receipts/registry.json');
         Storage::disk('local')->assertMissing('atlas/self-construction/os-completion/completion-evidence/registry.json');

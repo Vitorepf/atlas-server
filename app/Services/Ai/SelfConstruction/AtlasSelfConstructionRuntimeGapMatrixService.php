@@ -74,7 +74,6 @@ final class AtlasSelfConstructionRuntimeGapMatrixService
             notYet: $notYet,
             executionAllowed: $executionAllowed,
             nextRequiredSlice: $nextRequiredSlice,
-            promotionReceiptService: $promotionReceiptService,
         );
         $runtimePromotionClosureBasisHash = $this->runtimePromotionClosureBasisHash($rows, $runtimePromotionBasisHash, $expectedRuntimeGapMatrixHash);
         $runtimePromotionReceipt = $persistPromotionReceipt && $promotionReceiptInput !== []
@@ -128,32 +127,20 @@ final class AtlasSelfConstructionRuntimeGapMatrixService
         array $notYet,
         bool $executionAllowed,
         string $nextRequiredSlice,
-        AtlasSelfConstructionRuntimePromotionReceiptService $promotionReceiptService,
     ): string {
         $runtimeRows = array_values(array_filter($rows, static fn (array $row): bool => ! (bool) ($row['runtime_y'] ?? false)));
         $graduationRows = array_values(array_filter($rows, static fn (array $row): bool => (bool) ($row['runtime_y_candidate'] ?? false)));
-        $emptyReceipt = $promotionReceiptService->verify(
-            receipt: [],
-            rows: $rows,
-            expectedRuntimePromotionBasisHash: $runtimePromotionBasisHash,
-            expectedRuntimeGapMatrixHash: '',
-            loadLatestWhenEmpty: false,
-        );
 
         return $this->stableHash([
             'schema_version' => self::SCHEMA_VERSION,
             'mode' => self::MODE,
             'status' => $runtimeRows === [] ? 'passed' : 'blocked',
-            'assessed_at' => CarbonImmutable::now()->toIso8601String(),
             'all_runtime_y' => $runtimeRows === [],
             'execution_allowed' => $executionAllowed,
             'not_yet_runtime_capable' => $notYet,
             'next_required_slice' => $nextRequiredSlice,
             'rows' => $rows,
             'runtime_promotion_basis_hash' => $runtimePromotionBasisHash,
-            'runtime_promotion_closure_basis_hash' => $this->runtimePromotionClosureBasisHash($rows, $runtimePromotionBasisHash, ''),
-            'expected_runtime_gap_matrix_hash_for_promotion_receipt' => '',
-            'runtime_promotion_receipt' => $emptyReceipt,
             'runtime_gap_count' => count($runtimeRows),
             'runtime_y_count' => count(array_filter($rows, static fn (array $row): bool => (bool) ($row['runtime_y'] ?? false))),
             'runtime_y_candidate_count' => count($graduationRows),
@@ -300,6 +287,8 @@ final class AtlasSelfConstructionRuntimeGapMatrixService
     private function stableHash(array $payload): string
     {
         unset($payload['assessed_at'], $payload['runtime_gap_matrix_hash']);
+        unset($payload['runtime_promotion_receipt']['verified_at'], $payload['runtime_promotion_receipt']['receipt_verification_hash']);
+        unset($payload['runtime_promotion_receipt']['expected_runtime_gap_matrix_hash'], $payload['runtime_promotion_receipt']['expected_runtime_promotion_closure_basis_hash']);
 
         return hash('sha256', (string) json_encode($this->ksortRecursive($payload), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
     }
