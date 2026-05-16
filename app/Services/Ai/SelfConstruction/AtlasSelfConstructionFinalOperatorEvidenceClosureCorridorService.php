@@ -257,6 +257,11 @@ final class AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorService
             operatorCompletionProgressMeter: $operatorCompletionProgressMeter,
         );
         $operatorFailureRecoveryMatrix = $this->operatorFailureRecoveryMatrix($operatorNextActionShellPacket);
+        $operatorNextActionReadinessGate = $this->operatorNextActionReadinessGate(
+            operatorNextActionShellPacket: $operatorNextActionShellPacket,
+            operatorFailureRecoveryMatrix: $operatorFailureRecoveryMatrix,
+            operatorCompletionProgressMeter: $operatorCompletionProgressMeter,
+        );
 
         $payload = [
             'schema_version' => self::SCHEMA_VERSION,
@@ -367,6 +372,7 @@ final class AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorService
             'operator_execution_runbook' => $operatorExecutionRunbook,
             'operator_next_action_shell_packet' => $operatorNextActionShellPacket,
             'operator_failure_recovery_matrix' => $operatorFailureRecoveryMatrix,
+            'operator_next_action_readiness_gate' => $operatorNextActionReadinessGate,
             'operator_command_surface_integrity' => $this->operatorCommandSurfaceIntegrity([
                 'operator_command_plan' => $operatorCommandPlan,
                 'operator_closure_command_replay' => $operatorClosureCommandReplay,
@@ -581,6 +587,69 @@ final class AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorService
         $matrix['failure_recovery_matrix_hash'] = $this->stableHash($matrix);
 
         return $matrix;
+    }
+
+    /**
+     * @param  array<string, mixed>  $operatorNextActionShellPacket
+     * @param  array<string, mixed>  $operatorFailureRecoveryMatrix
+     * @param  array<string, mixed>  $operatorCompletionProgressMeter
+     * @return array<string, mixed>
+     */
+    private function operatorNextActionReadinessGate(
+        array $operatorNextActionShellPacket,
+        array $operatorFailureRecoveryMatrix,
+        array $operatorCompletionProgressMeter,
+    ): array {
+        $blockingReasons = [];
+        if ((bool) data_get($operatorNextActionShellPacket, 'command_contains_placeholders', false)) {
+            $blockingReasons[] = 'operator_must_replace_placeholders_before_copy';
+        }
+        if ((string) data_get($operatorNextActionShellPacket, 'post_action_verification_bundle.status', '') !== 'verify_before_next_artifact_or_persist') {
+            $blockingReasons[] = 'post_action_verification_bundle_missing_or_unexpected';
+        }
+        if ((int) data_get($operatorFailureRecoveryMatrix, 'row_count', 0) < 5) {
+            $blockingReasons[] = 'operator_failure_recovery_matrix_incomplete';
+        }
+        if (! (bool) data_get($operatorFailureRecoveryMatrix, 'recovery_requires_fresh_corridor_status', false)) {
+            $blockingReasons[] = 'fresh_corridor_status_not_required_by_recovery_matrix';
+        }
+        if ((string) data_get($operatorCompletionProgressMeter, 'current_required_artifact', '') === '') {
+            $blockingReasons[] = 'current_required_artifact_missing';
+        }
+
+        $gate = [
+            'schema_version' => 'atlas.self_construction.final_operator_next_action_readiness_gate.v1',
+            'mode' => 'read_only_operator_next_action_readiness_gate',
+            'status' => $blockingReasons === [] ? 'ready_for_operator_review' : 'blocked_operator_review_required',
+            'ready_for_operator_review' => $blockingReasons === [],
+            'safe_to_copy_after_operator_review' => (bool) data_get($operatorNextActionShellPacket, 'safe_to_copy_after_operator_review', false),
+            'current_required_artifact' => (string) data_get($operatorCompletionProgressMeter, 'current_required_artifact', ''),
+            'current_step_id' => (string) data_get($operatorNextActionShellPacket, 'current_step_id', ''),
+            'blocking_reasons' => $blockingReasons,
+            'blocking_reason_count' => count($blockingReasons),
+            'required_before_copy' => [
+                'replace_all_placeholders',
+                'rerun_final_operator_evidence_closure_corridor_status',
+                'review_post_action_verification_bundle',
+                'review_operator_failure_recovery_matrix',
+            ],
+            'required_after_action' => [
+                'run_post_action_verification_commands',
+                'stop_if_any_verifier_is_not_green',
+                'rerun_completion_audit_before_claiming_completion',
+            ],
+            'resume_command' => (string) data_get($operatorNextActionShellPacket, 'resume_after_interruption.resume_command', ''),
+            'post_action_verification_hash' => (string) data_get($operatorNextActionShellPacket, 'post_action_verification_bundle.verification_bundle_hash', ''),
+            'failure_recovery_matrix_hash' => (string) data_get($operatorFailureRecoveryMatrix, 'failure_recovery_matrix_hash', ''),
+            'can_execute_from_gate' => false,
+            'can_persist_from_gate' => false,
+            'can_call_provider_from_gate' => false,
+            'can_sign_for_operator_from_gate' => false,
+            'can_mark_completion_from_gate' => false,
+        ];
+        $gate['readiness_gate_hash'] = $this->stableHash($gate);
+
+        return $gate;
     }
 
     /**

@@ -82,6 +82,27 @@ final class RunEndpointTest extends AtlasDevHttpTestCase
         $this->assertCount(1, $this->fakeExecutor->calls);
     }
 
+    public function test_run_after_response_mode_accepts_without_inline_completion_payload(): void
+    {
+        config()->set('atlas_dev.efficient.run_dispatch_mode', 'after_response');
+        $plan = $this->plan();
+
+        $response = $this->withHeaders($this->headers)
+            ->postJson('/ai/interactions/atlas-dev/run', [
+                'run_id' => $plan['run_id'],
+                'task_contract_hash' => $plan['task_contract_hash'],
+                'confirmation_token' => $plan['confirmation_token'],
+                'operator_confirmed' => true,
+            ]);
+
+        $response->assertStatus(202);
+        $response->assertJsonPath('data.ok', true);
+        $response->assertJsonPath('data.run_id', $plan['run_id']);
+        $response->assertJsonPath('data.state', 'queued');
+        $response->assertJsonPath('data.completion_state', null);
+        $this->assertArrayNotHasKey('provider_call', $response->json('data'));
+    }
+
     public function test_run_extends_php_execution_time_before_provider_call(): void
     {
         $previous = ini_get('max_execution_time');

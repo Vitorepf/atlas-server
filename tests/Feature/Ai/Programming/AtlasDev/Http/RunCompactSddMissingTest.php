@@ -11,6 +11,7 @@ use App\Http\Controllers\AtlasDev\Support\RunExecutor;
 use App\Http\Requests\AtlasDev\RunRequest;
 use App\Services\Ai\Programming\AtlasDev\Persistence\ArtifactNames;
 use App\Services\Ai\Programming\AtlasDev\Persistence\ReceiptStorage;
+use App\Services\Ai\Programming\AtlasDev\RunIndex\AtlasDevRunIndexRepository;
 use App\Services\Ai\Programming\AtlasDev\Schemas\LightTaskContract;
 use App\Services\Ai\Programming\AtlasDev\Schemas\OperationEnvelope;
 use App\Services\Ai\Programming\AtlasDev\Schemas\ProviderPromptProjection;
@@ -123,13 +124,14 @@ final class RunCompactSddMissingTest extends TestCase
                 'efficient' => [
                     'run_enabled' => true,
                     'desktop_enabled' => true,
+                    'run_dispatch_mode' => 'inline',
                 ],
             ],
         ]);
         $tokens = new AlwaysOkTokenService;
         $storage = $this->app->make(ReceiptStorage::class);
 
-        return new RunController($executor, $storage, $tokens, $config);
+        return new RunController($executor, $storage, $tokens, $config, $this->app->make(AtlasDevRunIndexRepository::class));
     }
 
     private function makeRunRequest(string $runId, string $providedHash, string $token): RunRequest

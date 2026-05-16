@@ -25,6 +25,8 @@ use InvalidArgumentException;
  */
 final class AtlasCliDevAdapter implements AtlasDevSurfaceAdapter
 {
+    use SurfacePayloadFields;
+
     public const SURFACE_ID = 'atlas_cli_dev';
 
     private const ACCEPTED_SURFACE_IDS = [
@@ -44,13 +46,13 @@ final class AtlasCliDevAdapter implements AtlasDevSurfaceAdapter
 
     /**
      * @param  array<string, mixed>  $payload  shaped by the CLI command:
-     *   - workspace: string (absolute, defaulted by command to cwd)
-     *   - raw_intent: string (joined task text)
-     *   - user_constraints: list<string>
-     *   - surface_id?: string (override; restricted to ACCEPTED_SURFACE_IDS)
-     *   - thread_id?, conversation_id?, composer_mode?, composer_task?
-     *   - provider_choice?, previous_run_id?
-     *   - flow_origin?, command_intent? (Router-resolved when present)
+     *                                         - workspace: string (absolute, defaulted by command to cwd)
+     *                                         - raw_intent: string (joined task text)
+     *                                         - user_constraints: list<string>
+     *                                         - surface_id?: string (override; restricted to ACCEPTED_SURFACE_IDS)
+     *                                         - thread_id?, conversation_id?, composer_mode?, composer_task?
+     *                                         - provider_choice?, previous_run_id?
+     *                                         - flow_origin?, command_intent? (Router-resolved when present)
      */
     public function buildEnvelope(array $payload): OperationEnvelope
     {
@@ -105,47 +107,13 @@ final class AtlasCliDevAdapter implements AtlasDevSurfaceAdapter
 
     /**
      * @param  array<string, mixed>  $payload
-     */
-    private function stringField(array $payload, string $key): string
-    {
-        $value = $payload[$key] ?? '';
-        if (! is_string($value)) {
-            return '';
-        }
-
-        return trim($value);
-    }
-
-    /**
-     * @param  array<string, mixed>  $payload
-     * @return list<string>
-     */
-    private function stringListField(array $payload, string $key): array
-    {
-        $value = $payload[$key] ?? [];
-        if (! is_array($value)) {
-            return [];
-        }
-        $out = [];
-        foreach ($value as $entry) {
-            if (is_string($entry) && trim($entry) !== '') {
-                $out[] = trim($entry);
-            }
-        }
-
-        return $out;
-    }
-
-    /**
-     * @param  array<string, mixed>  $payload
      * @return array<string, mixed>
      */
     private function extractSurfaceHints(array $payload): array
     {
         $hints = [];
         foreach (
-            ['thread_id', 'conversation_id', 'composer_mode', 'composer_task', 'provider_choice', 'previous_run_id', 'flow_origin', 'command_intent']
-            as $key
+            ['thread_id', 'conversation_id', 'composer_mode', 'composer_task', 'provider_choice', 'previous_run_id', 'flow_origin', 'command_intent'] as $key
         ) {
             $value = $payload[$key] ?? null;
             if (is_string($value) && trim($value) !== '') {

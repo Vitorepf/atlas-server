@@ -546,6 +546,33 @@ final class AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorTest extend
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $matrix['failure_recovery_matrix_hash']);
     }
 
+    public function test_operator_next_action_readiness_gate_blocks_until_operator_review_is_safe(): void
+    {
+        $payload = (new AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorService(app(AtlasSelfConstructionReadinessService::class)))->build();
+        $gate = $payload['operator_next_action_readiness_gate'];
+
+        $this->assertSame('atlas.self_construction.final_operator_next_action_readiness_gate.v1', $gate['schema_version']);
+        $this->assertSame('read_only_operator_next_action_readiness_gate', $gate['mode']);
+        $this->assertSame('blocked_operator_review_required', $gate['status']);
+        $this->assertFalse($gate['ready_for_operator_review']);
+        $this->assertFalse($gate['safe_to_copy_after_operator_review']);
+        $this->assertSame('runtime_promotion_receipt', $gate['current_required_artifact']);
+        $this->assertSame('draft_runtime_promotion_receipt', $gate['current_step_id']);
+        $this->assertContains('operator_must_replace_placeholders_before_copy', $gate['blocking_reasons']);
+        $this->assertSame(1, $gate['blocking_reason_count']);
+        $this->assertContains('replace_all_placeholders', $gate['required_before_copy']);
+        $this->assertContains('stop_if_any_verifier_is_not_green', $gate['required_after_action']);
+        $this->assertStringContainsString('--atlas-self-construction-final-operator-evidence-closure-corridor-status', $gate['resume_command']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $gate['post_action_verification_hash']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $gate['failure_recovery_matrix_hash']);
+        $this->assertFalse($gate['can_execute_from_gate']);
+        $this->assertFalse($gate['can_persist_from_gate']);
+        $this->assertFalse($gate['can_call_provider_from_gate']);
+        $this->assertFalse($gate['can_sign_for_operator_from_gate']);
+        $this->assertFalse($gate['can_mark_completion_from_gate']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $gate['readiness_gate_hash']);
+    }
+
     public function test_operator_next_action_shell_packet_is_copy_ready_only_after_placeholders_are_replaced(): void
     {
         $payload = (new AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorService(app(AtlasSelfConstructionReadinessService::class)))->build();
@@ -782,6 +809,23 @@ final class AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorTest extend
         $this->assertMatchesRegularExpression(
             '/^[a-f0-9]{64}$/',
             data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.operator_failure_recovery_matrix_hash'),
+        );
+        $this->assertSame(
+            'blocked_operator_review_required',
+            data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.operator_next_action_readiness_gate_status'),
+        );
+        $this->assertFalse((bool) data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.operator_next_action_readiness_gate_ready_for_operator_review'));
+        $this->assertSame(
+            1,
+            data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.operator_next_action_readiness_gate_blocking_reason_count'),
+        );
+        $this->assertSame(
+            'draft_runtime_promotion_receipt',
+            data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.operator_next_action_readiness_gate_current_step_id'),
+        );
+        $this->assertMatchesRegularExpression(
+            '/^[a-f0-9]{64}$/',
+            data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.operator_next_action_readiness_gate_hash'),
         );
         $this->assertSame(
             'command_surface_aligned',

@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming\AtlasDev\Surface;
 
+use App\Services\Ai\Programming\AtlasDev\Pipeline\IntakeNormalizer;
+
 /**
  * Shared, byte-identical helpers used by every concrete
  * {@see AtlasDevSurfaceAdapter} to pluck primitives out of a surface-native
- * payload before handing them to {@see \App\Services\Ai\Programming\AtlasDev\Pipeline\IntakeNormalizer}.
+ * payload before handing them to {@see IntakeNormalizer}.
  *
  * The trait is intentionally narrow: only the two helpers that were duplicated
  * verbatim across all four adapters (`stringField` and `stringListField`). The

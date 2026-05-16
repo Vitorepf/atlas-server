@@ -36,6 +36,13 @@ return [
         'run_enabled' => (bool) env('ATLAS_DEV_EFFICIENT_RUN_ENABLED', false),
 
         'desktop_enabled' => (bool) env('ATLAS_DEV_EFFICIENT_DESKTOP_ENABLED', false),
+
+        // `after_response` keeps Desktop/API callers responsive: /run accepts
+        // the operator-confirmed work, returns immediately, then executes the
+        // provider path after the response has been flushed. Tests and CLI
+        // smoke paths can force `inline` when they need the full receipt in
+        // the same process.
+        'run_dispatch_mode' => env('ATLAS_DEV_RUN_DISPATCH_MODE', 'after_response'),
     ],
 
     'confirmation_token' => [

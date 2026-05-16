@@ -308,7 +308,7 @@ final class AtlasCliDevEfficientCommandTest extends TestCase
     {
         $this->bindFakeRunExecutor();
 
-        $spy = new SpyConfirmationTokenService();
+        $spy = new SpyConfirmationTokenService;
         // Force every consume to fail with INVALID — simulates the
         // post-issue race / config drift path.
         $spy->failConsumeWith = ConfirmationTokenResult::REASON_INVALID;
@@ -399,7 +399,7 @@ final class AtlasCliDevEfficientCommandTest extends TestCase
      */
     private function bindTokenSpyWithRealService(): SpyConfirmationTokenService
     {
-        $spy = new SpyConfirmationTokenService();
+        $spy = new SpyConfirmationTokenService;
         $this->app->instance(ConfirmationTokenService::class, $spy);
 
         return $spy;

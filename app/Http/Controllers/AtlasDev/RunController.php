@@ -10,6 +10,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\AtlasDev\RunRequest;
 use App\Services\Ai\Programming\AtlasDev\Persistence\ArtifactNames;
 use App\Services\Ai\Programming\AtlasDev\Persistence\ReceiptStorage;
+use App\Services\Ai\Programming\AtlasDev\RunIndex\AtlasDevRunIndexRepository;
 use App\Services\Ai\Programming\AtlasDev\Schemas\LightTaskContract;
 use App\Services\Ai\Programming\AtlasDev\Schemas\OperationEnvelope;
 use App\Services\Ai\Programming\AtlasDev\Schemas\ProviderPromptProjection;
@@ -43,6 +44,7 @@ final class RunController extends Controller
         private readonly ReceiptStorage $storage,
         private readonly ConfirmationTokenService $tokens,
         private readonly ConfigRepository $config,
+        private readonly AtlasDevRunIndexRepository $runIndex,
         private readonly HttpResponseRedactor $redactor = new HttpResponseRedactor,
     ) {}
 
@@ -108,36 +110,10 @@ final class RunController extends Controller
             return $this->tokenFailureResponse($tokenResult);
         }
 
-        $this->extendRequestTimeLimitForProviderRun();
-
         try {
             $envelope = OperationEnvelope::fromArray($envelopePayload);
             $taskContract = LightTaskContract::fromArray($taskContractPayload);
             $promptProjection = ProviderPromptProjection::fromArray($promptPayload);
-
-            $result = $this->executor->execute(
-                envelope: $envelope,
-                taskContract: $taskContract,
-                promptProjection: $promptProjection,
-                runId: $runId,
-                // F-03 tamper-protection: the confirmation_token row pinned
-                // the CompactSDD hash at Plan time. Forwarding it here lets
-                // the executor fail closed BEFORE invoking the provider when
-                // compact_sdd.json has been mutated between Plan and Run.
-                expectedCompactSddHash: $tokenResult->expectedCompactSddHash,
-            );
-        } catch (CompactSddUnavailableException $e) {
-            // F-03 fail-closed: the receipt cannot be composed without an
-            // honest task_kind / risk_level. Provider was NOT invoked.
-            return response()->json([
-                'error' => [
-                    'code' => $e->errorCode(),
-                    'message' => $e->getMessage(),
-                    'reason' => $e->reasonCode,
-                    'detail' => $e->detail,
-                    'run_id' => $e->runId,
-                ],
-            ], 422);
         } catch (Throwable $e) {
             return response()->json([
                 'error' => [
@@ -146,6 +122,128 @@ final class RunController extends Controller
                 ],
             ], 500);
         }
+
+        $dispatchMode = (string) $this->config->get('atlas_dev.efficient.run_dispatch_mode', 'after_response');
+        if ($dispatchMode === 'inline') {
+            try {
+                $result = $this->executeProviderRun(
+                    envelope: $envelope,
+                    taskContract: $taskContract,
+                    promptProjection: $promptProjection,
+                    runId: $runId,
+                    providedHash: $providedHash,
+                    expectedCompactSddHash: $tokenResult->expectedCompactSddHash,
+                );
+            } catch (CompactSddUnavailableException $e) {
+                // F-03 fail-closed: the receipt cannot be composed without an
+                // honest task_kind / risk_level. Provider was NOT invoked.
+                return response()->json([
+                    'error' => [
+                        'code' => $e->errorCode(),
+                        'message' => $e->getMessage(),
+                        'reason' => $e->reasonCode,
+                        'detail' => $e->detail,
+                        'run_id' => $e->runId,
+                    ],
+                ], 422);
+            } catch (Throwable $e) {
+                return response()->json([
+                    'error' => [
+                        'code' => 'ATLAS_DEV_RUN_FAILED',
+                        'message' => $this->redactThrowableMessage($e->getMessage(), $token),
+                    ],
+                ], 500);
+            }
+
+            return response()->json([
+                'data' => array_merge($result, [
+                    'run_id' => $runId,
+                    'task_contract_hash' => $providedHash,
+                ]),
+            ], 200);
+        }
+
+        $this->recordRunState($runId, 'queued', [
+            'dispatch_mode' => $dispatchMode,
+            'task_contract_hash' => $providedHash,
+        ]);
+        $this->runIndex->updateCompletion($runId, 'queued');
+
+        app()->terminating(function () use ($envelope, $taskContract, $promptProjection, $runId, $providedHash, $tokenResult, $token): void {
+            $this->recordRunState($runId, 'running', [
+                'task_contract_hash' => $providedHash,
+            ]);
+            $this->runIndex->updateCompletion($runId, 'running');
+
+            try {
+                $result = $this->executeProviderRun(
+                    envelope: $envelope,
+                    taskContract: $taskContract,
+                    promptProjection: $promptProjection,
+                    runId: $runId,
+                    providedHash: $providedHash,
+                    expectedCompactSddHash: $tokenResult->expectedCompactSddHash,
+                );
+                $this->recordRunState($runId, 'complete', [
+                    'completion_state' => $result['completion_state'] ?? null,
+                    'task_contract_hash' => $providedHash,
+                ]);
+            } catch (CompactSddUnavailableException $e) {
+                $this->recordRunState($runId, 'failed', [
+                    'error_code' => $e->errorCode(),
+                    'reason' => $e->reasonCode,
+                    'detail' => $e->detail,
+                    'task_contract_hash' => $providedHash,
+                ]);
+                $this->runIndex->updateCompletion($runId, 'failed');
+            } catch (Throwable $e) {
+                $this->recordRunState($runId, 'failed', [
+                    'error_code' => 'ATLAS_DEV_RUN_FAILED',
+                    'message' => $this->redactThrowableMessage($e->getMessage(), $token),
+                    'task_contract_hash' => $providedHash,
+                ]);
+                $this->runIndex->updateCompletion($runId, 'failed');
+            }
+        });
+
+        return response()->json([
+            'data' => [
+                'ok' => true,
+                'run_id' => $runId,
+                'task_contract_hash' => $providedHash,
+                'state' => 'queued',
+                'completion_state' => null,
+                'dispatch_mode' => $dispatchMode,
+            ],
+        ], 202);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function executeProviderRun(
+        OperationEnvelope $envelope,
+        LightTaskContract $taskContract,
+        ProviderPromptProjection $promptProjection,
+        string $runId,
+        string $providedHash,
+        ?string $expectedCompactSddHash,
+    ): array {
+        $this->extendRequestTimeLimitForProviderRun();
+
+        $result = $this->executor->execute(
+            envelope: $envelope,
+            taskContract: $taskContract,
+            promptProjection: $promptProjection,
+            runId: $runId,
+            // F-03 tamper-protection: the confirmation_token row pinned
+            // the CompactSDD hash at Plan time. Forwarding it here lets
+            // the executor fail closed BEFORE invoking the provider when
+            // compact_sdd.json has been mutated between Plan and Run.
+            expectedCompactSddHash: $expectedCompactSddHash,
+        );
+
+        $this->runIndex->updateCompletion($runId, $result->completionState, $result->verificationReceiptHash);
 
         // F-04: redact persisted receipt paths into provider-safe refs before
         // surfacing them in the HTTP body. The struct still carries the
@@ -156,12 +254,24 @@ final class RunController extends Controller
             unset($body['persisted_receipt_paths']);
         }
 
-        return response()->json([
-            'data' => array_merge($body, [
-                'run_id' => $runId,
-                'task_contract_hash' => $providedHash,
-            ]),
-        ], 200);
+        return array_merge($body, [
+            'run_id' => $runId,
+            'task_contract_hash' => $providedHash,
+        ]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $extra
+     */
+    private function recordRunState(string $runId, string $status, array $extra = []): void
+    {
+        $this->storage->writeMonotonic($runId, ArtifactNames::RUN_EXECUTION_STATE_BASE, array_filter([
+            'schema_version' => 'atlas.dev.run_execution_state.v1',
+            'run_id' => $runId,
+            'status' => $status,
+            'recorded_at' => now()->toISOString(),
+            ...$extra,
+        ], static fn (mixed $value): bool => $value !== null));
     }
 
     private function tokenFailureResponse(ConfirmationTokenResult $result): JsonResponse

@@ -74,6 +74,98 @@ final class SurfaceNamespaceBoundaryTest extends TestCase
     }
 
     /**
+     * Surface dependency direction is strictly one-way: Surface → Core. Any
+     * core file `use`-ing the Surface namespace would invert the dependency
+     * and re-couple the pipeline to Desktop/CLI/App/API vocabulary. Catch it
+     * statically before it lands.
+     */
+    public function test_core_namespaces_do_not_import_surface_namespace(): void
+    {
+        $root = $this->coreRoot();
+        $needle = 'App\\Services\\Ai\\Programming\\AtlasDev\\Surface';
+        $offending = [];
+
+        foreach (self::FORBIDDEN_SUBDIRS as $subdir) {
+            $dir = $root.'/'.$subdir;
+            if (! is_dir($dir)) {
+                continue;
+            }
+            foreach ($this->phpFilesIn($dir) as $file) {
+                $contents = (string) file_get_contents($file);
+                foreach (preg_split('/\R/', $contents) ?: [] as $line) {
+                    $trim = ltrim($line);
+                    if (! str_starts_with($trim, 'use ')) {
+                        continue;
+                    }
+                    if (str_contains($trim, $needle)) {
+                        $offending[] = $file.': imports Surface via `'.trim($trim).'`';
+                    }
+                }
+            }
+        }
+
+        $this->assertSame(
+            [],
+            $offending,
+            "Core namespaces imported the Surface namespace:\n - ".implode("\n - ", $offending),
+        );
+    }
+
+    /**
+     * Adapter purity gate. After the {@see SurfacePayloadFields} trait pulled
+     * the duplicated `stringField` / `stringListField` helpers out of every
+     * adapter, each adapter should stay near a thin envelope-translation +
+     * response-projection size. The budget is intentionally generous (250
+     * effective LOC, ignoring blank lines and pure docblock prose) because
+     * App / API still carry mobile-friendly badge logic and OpenAPI-friendly
+     * projection. Any adapter blowing past the cap is a signal that pipeline
+     * decisions leaked back into the adapter — that's the failure mode this
+     * test exists to catch.
+     */
+    public function test_adapters_respect_loc_budget(): void
+    {
+        $surfaceRoot = $this->coreRoot().'/Surface';
+        $budget = 250;
+        $offending = [];
+
+        foreach ([
+            'AtlasDesktopAiAdapter.php',
+            'AtlasCliDevAdapter.php',
+            'AtlasAppAdapter.php',
+            'AtlasApiInteractionAdapter.php',
+        ] as $name) {
+            $loc = $this->effectiveLoc($surfaceRoot.'/'.$name);
+            if ($loc > $budget) {
+                $offending[] = "{$name}: effective_loc={$loc} > budget={$budget}";
+            }
+        }
+
+        $this->assertSame(
+            [],
+            $offending,
+            "Surface adapters over the LOC budget:\n - ".implode("\n - ", $offending),
+        );
+    }
+
+    private function effectiveLoc(string $file): int
+    {
+        $contents = (string) file_get_contents($file);
+        $count = 0;
+        foreach (preg_split('/\R/', $contents) ?: [] as $line) {
+            $trim = trim($line);
+            if ($trim === '' || $trim === '/**' || $trim === '*/' || $trim === '*') {
+                continue;
+            }
+            if (str_starts_with($trim, '* ') || str_starts_with($trim, '//')) {
+                continue;
+            }
+            $count++;
+        }
+
+        return $count;
+    }
+
+    /**
      * @return list<string>
      */
     private function phpFilesIn(string $dir): array

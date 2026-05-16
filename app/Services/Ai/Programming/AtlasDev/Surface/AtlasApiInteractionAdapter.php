@@ -26,6 +26,8 @@ use InvalidArgumentException;
  */
 final class AtlasApiInteractionAdapter implements AtlasDevSurfaceAdapter
 {
+    use SurfacePayloadFields;
+
     public const SURFACE_ID = 'atlas_api_interaction';
 
     private const ACCEPTED_SURFACE_IDS = [
@@ -186,39 +188,6 @@ final class AtlasApiInteractionAdapter implements AtlasDevSurfaceAdapter
         }
 
         return self::SURFACE_ID;
-    }
-
-    /**
-     * @param  array<string, mixed>  $payload
-     */
-    private function stringField(array $payload, string $key): string
-    {
-        $value = $payload[$key] ?? '';
-        if (! is_string($value)) {
-            return '';
-        }
-
-        return trim($value);
-    }
-
-    /**
-     * @param  array<string, mixed>  $payload
-     * @return list<string>
-     */
-    private function stringListField(array $payload, string $key): array
-    {
-        $value = $payload[$key] ?? [];
-        if (! is_array($value)) {
-            return [];
-        }
-        $out = [];
-        foreach ($value as $entry) {
-            if (is_string($entry) && trim($entry) !== '') {
-                $out[] = trim($entry);
-            }
-        }
-
-        return $out;
     }
 
     /**

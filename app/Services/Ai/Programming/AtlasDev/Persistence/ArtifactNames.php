@@ -44,6 +44,8 @@ final class ArtifactNames
 
     public const FAST_PATH_TELEMETRY = 'fast_path_telemetry.json';
 
+    public const RUN_EXECUTION_STATE_BASE = 'run_execution_state';
+
     public const FAILURE_CAPSULE_BASE = 'failure_capsule';
 
     public const ERROR_LEDGER_BASE = 'error_ledger';

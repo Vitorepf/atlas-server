@@ -86,6 +86,23 @@ final class StreamController extends Controller
 
     private function emitSnapshot(string $runId): void
     {
+        $runState = $this->storage->readLatestVersion($runId, ArtifactNames::RUN_EXECUTION_STATE_BASE);
+        if (is_array($runState)) {
+            $phase = match ($runState['status'] ?? null) {
+                'running' => 'executing',
+                'complete', 'failed' => 'complete',
+                default => 'queued',
+            };
+            $this->emit('phase', [
+                'run_id' => $runId,
+                'phase' => $phase,
+                'artifact' => 'run_execution_state',
+                'persisted_at' => isset($runState['recorded_at']) && is_string($runState['recorded_at'])
+                    ? $runState['recorded_at']
+                    : null,
+            ]);
+        }
+
         foreach (self::PHASE_LOOKUP as $phaseName => $filename) {
             if (! $this->storage->exists($runId, $filename)) {
                 continue;

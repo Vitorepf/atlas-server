@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\AtlasDev\PlanRequest;
 use App\Services\Ai\Programming\AtlasDev\Pipeline\AtlasDevFastPathOrchestrator;
 use App\Services\Ai\Programming\AtlasDev\Pipeline\RoutingDecision;
+use App\Services\Ai\Programming\AtlasDev\RunIndex\AtlasDevRunIndexRepository;
 use App\Services\Ai\Programming\AtlasDev\Security\ConfirmationTokenKeyMissingException;
 use App\Services\Ai\Programming\AtlasDev\Security\ConfirmationTokenService;
 use App\Services\Ai\Programming\AtlasDev\Surface\HttpResponseRedactor;
@@ -40,6 +41,7 @@ final class PlanController extends Controller
         private readonly ConfirmationTokenService $tokens,
         private readonly ConfigRepository $config,
         private readonly AtlasCodeWorkspaceProfileService $workspaces,
+        private readonly AtlasDevRunIndexRepository $runIndex,
         private readonly HttpResponseRedactor $redactor = new HttpResponseRedactor,
     ) {}
 
@@ -87,6 +89,16 @@ final class PlanController extends Controller
         }
 
         $summary = $plan->toSummaryArray();
+
+        $this->runIndex->upsertFromPlan(
+            runId: $plan->envelope->runId,
+            surfaceId: $plan->envelope->surfaceId,
+            workspaceHash: $plan->envelope->workspaceHash,
+            routingDecision: $plan->routing->kind,
+            taskKind: $plan->compactSdd->taskKind,
+            riskLevel: $plan->compactSdd->riskLevel,
+            threadId: $plan->envelope->surfaceContext->threadId,
+        );
 
         $confirmation = null;
         if ($plan->routing->kind === RoutingDecision::ATLAS_DEV_FAST_PATH) {

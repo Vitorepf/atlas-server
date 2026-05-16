@@ -53,6 +53,13 @@ final class ShowController extends Controller
                 $artifactRefs[$key] = $this->redactor->artifactRef($runId, $filename);
             }
         }
+        $stateVersion = $this->storage->latestVersion($runId, ArtifactNames::RUN_EXECUTION_STATE_BASE);
+        if ($stateVersion !== null) {
+            $artifactRefs['run_execution_state'] = $this->redactor->artifactRef(
+                $runId,
+                ArtifactNames::RUN_EXECUTION_STATE_BASE.".v{$stateVersion}.json",
+            );
+        }
 
         if ($artifactRefs === []) {
             return response()->json([
@@ -69,6 +76,7 @@ final class ShowController extends Controller
         $receipt = $this->storage->read($runId, ArtifactNames::VERIFICATION_RECEIPT);
         $scope = $this->storage->read($runId, ArtifactNames::SCOPE_GUARD_RECEIPT);
         $diffParse = $this->storage->read($runId, ArtifactNames::DIFF_PARSE_RESULT);
+        $runExecutionState = $this->storage->readLatestVersion($runId, ArtifactNames::RUN_EXECUTION_STATE_BASE);
         $diffPreview = $this->diffPreview($diffParse);
         if (is_array($receipt) && $diffPreview !== null) {
             $receipt['ui_hints'] = array_merge(
@@ -79,6 +87,11 @@ final class ShowController extends Controller
 
         $completion = is_array($receipt) ? ($receipt['completion'] ?? null) : null;
         $completionState = is_array($completion) ? ($completion['status'] ?? null) : null;
+        if (! is_string($completionState) || $completionState === '') {
+            $completionState = is_array($runExecutionState) && ($runExecutionState['status'] ?? null) === 'failed'
+                ? 'failed'
+                : null;
+        }
 
         $workspaceLabel = null;
         $workspaceHash = null;
@@ -94,7 +107,9 @@ final class ShowController extends Controller
         return response()->json([
             'data' => [
                 'run_id' => $runId,
+                'state' => $this->phaseFromRunExecutionState($runExecutionState, $completionState),
                 'completion_state' => $completionState,
+                'run_execution' => is_array($runExecutionState) ? $runExecutionState : null,
                 'has_receipt' => $receipt !== null,
                 'has_scope_guard_receipt' => $scope !== null,
                 'has_plan' => $taskContract !== null,
@@ -130,5 +145,26 @@ final class ShowController extends Controller
         $trimmed = trim($diff);
 
         return $trimmed === '' ? null : $trimmed;
+    }
+
+    /**
+     * @param  array<string, mixed>|null  $runExecutionState
+     */
+    private function phaseFromRunExecutionState(?array $runExecutionState, ?string $completionState): string
+    {
+        if ($completionState === 'escalate_forge') {
+            return 'escalation_triggered';
+        }
+        if (is_string($completionState) && $completionState !== '') {
+            return 'complete';
+        }
+
+        $status = is_array($runExecutionState) ? ($runExecutionState['status'] ?? null) : null;
+
+        return match ($status) {
+            'running' => 'executing',
+            'complete', 'failed' => 'complete',
+            default => 'queued',
+        };
     }
 }

@@ -36,6 +36,7 @@ abstract class AtlasDevHttpTestCase extends TestCase
         config()->set('atlas.token', 'test-token-with-enough-length-123');
         config()->set('atlas_dev.efficient.plan_enabled', true);
         config()->set('atlas_dev.efficient.run_enabled', true);
+        config()->set('atlas_dev.efficient.run_dispatch_mode', 'inline');
         // F-09: HMAC signing key for ConfirmationTokenService. The endpoint
         // suite always sets a hermetic key so test outcomes are not coupled
         // to whatever the developer's .env happens to expose.
