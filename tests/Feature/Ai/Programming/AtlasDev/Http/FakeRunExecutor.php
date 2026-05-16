@@ -20,6 +20,8 @@ final class FakeRunExecutor implements RunExecutor
     /** @var list<array{run_id:string, envelope_hash:string, task_contract_hash:string, prompt_hash:string}> */
     public array $calls = [];
 
+    public ?int $maxExecutionTimeAtExecute = null;
+
     public function __construct(
         private readonly RunExecutionResult $result,
     ) {}
@@ -29,12 +31,16 @@ final class FakeRunExecutor implements RunExecutor
         LightTaskContract $taskContract,
         ProviderPromptProjection $promptProjection,
         string $runId,
+        ?string $expectedCompactSddHash = null,
     ): RunExecutionResult {
+        $this->maxExecutionTimeAtExecute = (int) ini_get('max_execution_time');
+
         $this->calls[] = [
             'run_id' => $runId,
             'envelope_hash' => $envelope->envelopeHash,
             'task_contract_hash' => $taskContract->taskContractHash,
             'prompt_hash' => $promptProjection->promptProjectionHash,
+            'expected_compact_sdd_hash' => $expectedCompactSddHash,
         ];
 
         return $this->result;

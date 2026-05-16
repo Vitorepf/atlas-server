@@ -165,7 +165,16 @@ final class SymfonyClaudeCliGateway implements ClaudeCliGateway
             }
         }
         if (is_string($home) && trim($home) !== '') {
+            $home = rtrim($home, '/');
             $env['HOME'] = $home;
+
+            $claudeConfigDir = getenv('CLAUDE_CONFIG_DIR');
+            if (! is_string($claudeConfigDir) || trim($claudeConfigDir) === '') {
+                $claudeConfigDir = $_SERVER['CLAUDE_CONFIG_DIR'] ?? $_ENV['CLAUDE_CONFIG_DIR'] ?? null;
+            }
+            if (is_string($claudeConfigDir) && trim($claudeConfigDir) !== '') {
+                $env['CLAUDE_CONFIG_DIR'] = $claudeConfigDir;
+            }
         }
 
         $path = getenv('PATH');
@@ -174,6 +183,16 @@ final class SymfonyClaudeCliGateway implements ClaudeCliGateway
         }
         if (is_string($path) && trim($path) !== '') {
             $env['PATH'] = $path;
+        }
+
+        foreach (['USER', 'LOGNAME'] as $key) {
+            $value = getenv($key);
+            if (! is_string($value) || trim($value) === '') {
+                $value = $_SERVER[$key] ?? $_ENV[$key] ?? null;
+            }
+            if (is_string($value) && trim($value) !== '') {
+                $env[$key] = $value;
+            }
         }
 
         return $env;

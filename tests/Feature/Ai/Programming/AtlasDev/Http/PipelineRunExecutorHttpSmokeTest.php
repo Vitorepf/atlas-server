@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Ai\Programming\AtlasDev\Http;
 
+use App\Http\Controllers\AtlasDev\Support\PipelineRunExecutor;
+use App\Http\Controllers\AtlasDev\Support\RunExecutor;
+use App\Models\AtlasDevConfirmationToken;
 use App\Services\Ai\Programming\AtlasDev\Gate\VerificationCommandResult;
 use App\Services\Ai\Programming\AtlasDev\Gate\VerificationCommandRunner;
 use App\Services\Ai\Programming\AtlasDev\Persistence\ArtifactNames;
@@ -11,12 +14,14 @@ use App\Services\Ai\Programming\AtlasDev\Persistence\ReceiptStorage;
 use App\Services\Ai\Programming\AtlasDev\Provider\ClaudeCliGateway;
 use App\Services\Ai\Programming\AtlasDev\Provider\ClaudeCliResponse;
 use App\Services\Ai\Programming\AtlasDev\Provider\SonnetClaudeCliAdapter;
+use App\Services\Ai\Programming\AtlasDev\Schemas\CompactSdd;
+use App\Services\Ai\Programming\AtlasDev\Schemas\Components\CompletionSummary;
 use App\Services\Ai\Programming\AtlasDev\Schemas\VerificationReceipt;
 use Tests\Unit\Ai\Programming\AtlasDev\Gate\FakeCommandRunner;
 use Tests\Unit\Ai\Programming\AtlasDev\Provider\FakeClaudeCliGateway;
 
 /**
- * HTTP smoke for the real {@see \App\Http\Controllers\AtlasDev\Support\PipelineRunExecutor}.
+ * HTTP smoke for the real {@see PipelineRunExecutor}.
  *
  * Closes the residual risk left behind by the previous slice: every other HTTP
  * test in this folder swaps the executor for {@see FakeRunExecutor::passing()},
@@ -68,6 +73,26 @@ final class PipelineRunExecutorHttpSmokeTest extends AtlasDevHttpTestCase
         $this->app->instance(VerificationCommandRunner::class, $this->commandRunner);
     }
 
+    public function test_container_resolves_real_pipeline_run_executor_not_fake(): void
+    {
+        // Defence in depth: the rest of this file asserts behaviour, but if a
+        // future change ever rebinds RunExecutor::class to a fake at the
+        // provider level, this assertion catches it before behavioural drift
+        // is silently masked. AtlasDevHttpTestCase does NOT touch the binding.
+        $executor = $this->app->make(RunExecutor::class);
+        $this->assertInstanceOf(
+            PipelineRunExecutor::class,
+            $executor,
+            'AtlasDevServiceProvider must bind RunExecutor → PipelineRunExecutor for HTTP requests.',
+        );
+        $this->assertNotInstanceOf(
+            FakeRunExecutor::class,
+            $executor,
+            'HTTP smoke for the real executor must not resolve a FakeRunExecutor.',
+        );
+        $this->app->forgetInstance(RunExecutor::class);
+    }
+
     public function test_real_executor_composes_receipt_with_task_kind_and_risk_level_from_compact_sdd(): void
     {
         $this->queuePassingProviderResponse();
@@ -94,9 +119,20 @@ final class PipelineRunExecutorHttpSmokeTest extends AtlasDevHttpTestCase
             ]);
 
         $response->assertStatus(200);
+        // Completion is the load-bearing assertion: the executor must compose
+        // a receipt with status=passed for an executable run with no-patch +
+        // passing verification. Anything else means we silently completed
+        // unverified, which is the exact gap this smoke is supposed to close.
+        $response->assertJsonPath('data.completion_state', CompletionSummary::STATUS_PASSED);
         $response->assertJsonPath('data.provider_call.provider', SonnetClaudeCliAdapter::PROVIDER);
         $response->assertJsonPath('data.provider_call.model_family', SonnetClaudeCliAdapter::MODEL_FAMILY);
         $response->assertJsonPath('data.provider_call.provider_calls', 1);
+        $response->assertJsonPath('data.provider_call.exit_code', 0);
+        $this->assertSame(
+            [],
+            $response->json('data.provider_call.error_codes'),
+            'provider_call.error_codes must be empty for a successful run.',
+        );
 
         // (1) the production adapter dispatched exactly one request to the
         // fake gateway — proving the real executor walked the provider path,
@@ -115,6 +151,16 @@ final class PipelineRunExecutorHttpSmokeTest extends AtlasDevHttpTestCase
         $this->assertSame($expectedTaskKind, $receipt->taskKind);
         $this->assertSame($expectedRiskLevel, $receipt->riskLevel);
         $this->assertSame($plan['run_id'], $receipt->runId);
+        $this->assertSame(
+            CompletionSummary::STATUS_PASSED,
+            $receipt->completion->status,
+            'Persisted receipt completion.status must match the HTTP completion_state.',
+        );
+        $this->assertSame(
+            [],
+            $receipt->completion->honestyFlags,
+            'Passed completion forbids honesty flags (CompletionSummary invariant).',
+        );
 
         // The verification_gate consumed the queued command runner result —
         // proves the gate ran through the fake (no shell, no real composer).
@@ -193,6 +239,122 @@ final class PipelineRunExecutorHttpSmokeTest extends AtlasDevHttpTestCase
         );
     }
 
+    public function test_hash_tampered_compact_sdd_returns_422_and_provider_is_never_called(): void
+    {
+        $this->queuePassingProviderResponse();
+        $this->queuePassingVerificationResults();
+
+        $plan = $this->plan();
+
+        // R3 is a valid VerificationReceipt risk level, so enum validation
+        // would pass. The run must still fail because the CompactSDD payload
+        // no longer matches the hash pinned during Plan.
+        $this->mutateArtifact($plan['run_id'], ArtifactNames::COMPACT_SDD, function (array $payload): array {
+            $payload['risk_level'] = 'R3';
+
+            return $payload;
+        });
+
+        $response = $this->withHeaders($this->headers)
+            ->postJson('/ai/interactions/atlas-dev/run', [
+                'run_id' => $plan['run_id'],
+                'task_contract_hash' => $plan['task_contract_hash'],
+                'confirmation_token' => $plan['confirmation_token'],
+                'operator_confirmed' => true,
+            ]);
+
+        $response->assertStatus(422);
+        $response->assertJsonPath('error.code', 'COMPACT_SDD_TAMPERED');
+        $response->assertJsonPath('error.reason', 'tampered');
+        $response->assertJsonPath('error.run_id', $plan['run_id']);
+
+        $this->assertSame(
+            [],
+            $this->gateway->requests,
+            'Provider MUST NOT be called when compact_sdd.json was hash-tampered.',
+        );
+        $this->assertSame([], $this->commandRunner->calls);
+        $this->assertNull($this->readArtifact($plan['run_id'], ArtifactNames::VERIFICATION_RECEIPT));
+    }
+
+    public function test_rehashed_compact_sdd_still_fails_when_server_side_pin_disagrees(): void
+    {
+        $this->queuePassingProviderResponse();
+        $this->queuePassingVerificationResults();
+
+        $plan = $this->plan();
+
+        // Stronger tamper attempt: mutate to another valid risk level and
+        // update compact_sdd_hash to match the mutated payload. The self hash
+        // now passes, but the confirmation_token DB row still pins the
+        // original hash captured at Plan time.
+        $this->mutateArtifact($plan['run_id'], ArtifactNames::COMPACT_SDD, function (array $payload): array {
+            $payload['risk_level'] = 'R3';
+            $payload['compact_sdd_hash'] = CompactSdd::fromArray($payload)->hash();
+
+            return $payload;
+        });
+
+        $response = $this->withHeaders($this->headers)
+            ->postJson('/ai/interactions/atlas-dev/run', [
+                'run_id' => $plan['run_id'],
+                'task_contract_hash' => $plan['task_contract_hash'],
+                'confirmation_token' => $plan['confirmation_token'],
+                'operator_confirmed' => true,
+            ]);
+
+        $response->assertStatus(422);
+        $response->assertJsonPath('error.code', 'COMPACT_SDD_TAMPERED');
+        $response->assertJsonPath('error.reason', 'tampered');
+        $this->assertStringContainsString('server-side pin', (string) $response->json('error.detail'));
+        $this->assertSame([], $this->gateway->requests);
+        $this->assertSame([], $this->commandRunner->calls);
+    }
+
+    public function test_rehashed_compact_sdd_still_fails_when_mini_spec_pin_disagrees(): void
+    {
+        $this->queuePassingProviderResponse();
+        $this->queuePassingVerificationResults();
+
+        $plan = $this->plan();
+
+        // Stronger tamper attempt: mutate to another valid risk level and
+        // update compact_sdd_hash to match the mutated payload. The self hash
+        // now passes, and this test updates the DB-side pin intentionally so
+        // the mini_programming_spec pin is the next independent guard.
+        $mutatedHash = null;
+        $this->mutateArtifact($plan['run_id'], ArtifactNames::COMPACT_SDD, function (array $payload) use (&$mutatedHash): array {
+            $payload['risk_level'] = 'R3';
+            $mutatedHash = CompactSdd::fromArray($payload)->hash();
+            $payload['compact_sdd_hash'] = $mutatedHash;
+
+            return $payload;
+        });
+        $this->assertIsString($mutatedHash);
+
+        // This test intentionally bypasses the DB-side compact_sdd pin so the
+        // next independent guard can be proven: mini_programming_spec still
+        // pins the original compact_sdd hash through the plan artifacts.
+        AtlasDevConfirmationToken::query()
+            ->where('run_id', $plan['run_id'])
+            ->update(['compact_sdd_hash' => $mutatedHash]);
+
+        $response = $this->withHeaders($this->headers)
+            ->postJson('/ai/interactions/atlas-dev/run', [
+                'run_id' => $plan['run_id'],
+                'task_contract_hash' => $plan['task_contract_hash'],
+                'confirmation_token' => $plan['confirmation_token'],
+                'operator_confirmed' => true,
+            ]);
+
+        $response->assertStatus(422);
+        $response->assertJsonPath('error.code', 'COMPACT_SDD_TAMPERED');
+        $response->assertJsonPath('error.reason', 'tampered');
+        $this->assertStringContainsString('mini_programming_spec', (string) $response->json('error.detail'));
+        $this->assertSame([], $this->gateway->requests);
+        $this->assertSame([], $this->commandRunner->calls);
+    }
+
     public function test_missing_compact_sdd_returns_422_and_provider_is_never_called(): void
     {
         $this->queuePassingProviderResponse();
@@ -251,15 +413,28 @@ final class PipelineRunExecutorHttpSmokeTest extends AtlasDevHttpTestCase
 
     private function queuePassingProviderResponse(): void
     {
-        // `no_patch_needed: true` is the canonical stdout that produces an
-        // empty diff (DiffParser → no changed files → ScopeGuard passed). It
-        // keeps the smoke focused on the receipt composition path rather than
-        // on diff-application logic, which has its own dedicated coverage.
+        // A tiny in-scope patch drives the full provider → diff parser →
+        // scope guard → patch applier → verification → receipt path. This is
+        // intentionally stronger than `no_patch_needed`, because the smoke is
+        // proving the HTTP production executor can complete a real write run.
         $this->gateway->queue(new ClaudeCliResponse(
             actualProvider: SonnetClaudeCliAdapter::PROVIDER,
             actualModelFamily: SonnetClaudeCliAdapter::MODEL_FAMILY,
             exitCode: 0,
-            stdout: 'no_patch_needed: true',
+            stdout: <<<'DIFF'
+```diff
+diff --git a/tests/Unit/Services/Foo/FooServiceTest.php b/tests/Unit/Services/Foo/FooServiceTest.php
+--- a/tests/Unit/Services/Foo/FooServiceTest.php
++++ b/tests/Unit/Services/Foo/FooServiceTest.php
+@@ -1,2 +1,5 @@
+ <?php
+-class FooServiceTest {}
++class FooServiceTest
++{
++    public function test_service(): void {}
++}
+```
+DIFF,
             stderr: '',
             durationMs: 1200,
             tokensIn: 100,

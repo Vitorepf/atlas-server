@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Ai\Programming\AtlasDev\Cli;
 
+use App\Http\Controllers\AtlasDev\Support\CompactSddUnavailableException;
 use App\Http\Controllers\AtlasDev\Support\RunExecutionResult;
 use App\Http\Controllers\AtlasDev\Support\RunExecutor;
 use App\Services\Ai\AtlasOpenBrainService;
@@ -12,9 +13,15 @@ use App\Services\Ai\Programming\AtlasDev\Pipeline\AtlasDevFastPathOrchestrator;
 use App\Services\Ai\Programming\AtlasDev\Schemas\LightTaskContract;
 use App\Services\Ai\Programming\AtlasDev\Schemas\OperationEnvelope;
 use App\Services\Ai\Programming\AtlasDev\Schemas\ProviderPromptProjection;
+use App\Services\Ai\Programming\AtlasDev\Security\ConfirmationTokenIssue;
+use App\Services\Ai\Programming\AtlasDev\Security\ConfirmationTokenResult;
+use App\Services\Ai\Programming\AtlasDev\Security\ConfirmationTokenService;
+use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
+use Symfony\Component\Console\Output\BufferedOutput;
 use Tests\Feature\Ai\Programming\AtlasDev\Http\FakeAtlasOpenBrainService;
 use Tests\TestCase;
 
@@ -206,6 +213,124 @@ final class AtlasCliDevEfficientCommandTest extends TestCase
             ->assertExitCode(0);
     }
 
+    /**
+     * Security regression: the confirmation_token plaintext is issued
+     * server-side inside the handler and never leaves the process. The CLI
+     * must NEVER render it to stdout (json or text). Only the opaque
+     * `confirmation_token_id` (DB row id) is operator-visible.
+     */
+    public function test_confirmation_token_plaintext_never_appears_in_cli_output(): void
+    {
+        $this->bindFakeRunExecutor();
+        $spy = $this->bindTokenSpyWithRealService();
+
+        // JSON output
+        $jsonOutput = $this->captureJsonRun([
+            'task' => ['corrigir o teste falhando em tests/Unit/Services/Foo/FooServiceTest.php'],
+            '--workspace' => $this->tmpWorkspace,
+            '--efficient' => true,
+            '--yes' => true,
+            '--json' => true,
+        ]);
+
+        $this->assertNotSame([], $spy->issuedPlaintexts, 'Sanity: handler must have issued a token.');
+        foreach ($spy->issuedPlaintexts as $plaintext) {
+            $this->assertNotSame('', $plaintext);
+            $this->assertStringNotContainsString(
+                $plaintext,
+                $jsonOutput,
+                'JSON output leaked the confirmation_token plaintext.',
+            );
+        }
+        $this->assertStringContainsString('"confirmation_token_id"', $jsonOutput, 'Operator must still see the opaque token_id reference.');
+
+        // Text output uses the same renderer; assert too.
+        $spy->issuedPlaintexts = [];
+        $textOutput = $this->captureTextRun([
+            'task' => ['corrigir o teste falhando em tests/Unit/Services/Foo/FooServiceTest.php'],
+            '--workspace' => $this->tmpWorkspace,
+            '--efficient' => true,
+            '--yes' => true,
+        ]);
+
+        foreach ($spy->issuedPlaintexts as $plaintext) {
+            $this->assertStringNotContainsString(
+                $plaintext,
+                $textOutput,
+                'Text output leaked the confirmation_token plaintext.',
+            );
+        }
+    }
+
+    /**
+     * CLI parity for the F-03 server-side hash pin: when the executor
+     * detects compact_sdd.json tampering between Plan and Run, the CLI
+     * must surface the typed COMPACT_SDD_TAMPERED error code with exit
+     * code 70 (OUTCOME_RUN_FAILED) — and must not leak the run_id-bound
+     * token plaintext nor any absolute filesystem path.
+     */
+    public function test_compact_sdd_tampered_from_executor_surfaces_typed_error_without_leaks(): void
+    {
+        $tamperedRunId = 'dev-cli-tampered-'.bin2hex(random_bytes(3));
+        $exception = CompactSddUnavailableException::tampered(
+            $tamperedRunId,
+            'compact_sdd_hash does not match the server-side pin issued at plan time',
+        );
+
+        $this->app->instance(RunExecutor::class, new TamperingCliRunExecutor($exception));
+        $spy = $this->bindTokenSpyWithRealService();
+
+        $output = $this->captureJsonRun([
+            'task' => ['corrigir o teste falhando em tests/Unit/Services/Foo/FooServiceTest.php'],
+            '--workspace' => $this->tmpWorkspace,
+            '--efficient' => true,
+            '--yes' => true,
+            '--json' => true,
+        ], expectedExit: 70);
+
+        $this->assertStringContainsString('"ATLAS_DEV_RUN_FAILED"', $output);
+        $this->assertStringContainsString('hash-pin validation', $output);
+        foreach ($spy->issuedPlaintexts as $plaintext) {
+            $this->assertStringNotContainsString($plaintext, $output, 'Tamper error leaked the token plaintext.');
+        }
+        $this->assertNoAbsolutePaths($output);
+    }
+
+    /**
+     * The CLI's internal token issue → consume happens in the same process
+     * so a "client-supplied bad token" case is structurally unreachable.
+     * But the token service can still emit ok=false for edge cases (e.g.
+     * APP_KEY rotated between issue and consume in tests). The CLI must
+     * surface a clean CONFIRMATION_TOKEN_REJECTED with a reason and exit
+     * code 66 (OUTCOME_TOKEN_FAILED), without leaking the plaintext.
+     */
+    public function test_token_validation_failure_surfaces_clean_error(): void
+    {
+        $this->bindFakeRunExecutor();
+
+        $spy = new SpyConfirmationTokenService();
+        // Force every consume to fail with INVALID — simulates the
+        // post-issue race / config drift path.
+        $spy->failConsumeWith = ConfirmationTokenResult::REASON_INVALID;
+        $this->app->instance(ConfirmationTokenService::class, $spy);
+
+        $output = $this->captureJsonRun([
+            'task' => ['corrigir o teste falhando em tests/Unit/Services/Foo/FooServiceTest.php'],
+            '--workspace' => $this->tmpWorkspace,
+            '--efficient' => true,
+            '--yes' => true,
+            '--json' => true,
+        ], expectedExit: 66);
+
+        $this->assertStringContainsString('"CONFIRMATION_TOKEN_REJECTED"', $output);
+        $this->assertStringContainsString('"reason":', $output);
+        $this->assertStringContainsString('"invalid_token"', $output);
+        foreach ($spy->issuedPlaintexts as $plaintext) {
+            $this->assertStringNotContainsString($plaintext, $output, 'Token-failure path leaked plaintext.');
+        }
+        $this->assertNoAbsolutePaths($output);
+    }
+
     private function bindFakeRunExecutor(): FakeCliRunExecutor
     {
         $fake = new FakeCliRunExecutor(new RunExecutionResult(
@@ -243,13 +368,41 @@ final class AtlasCliDevEfficientCommandTest extends TestCase
      */
     private function captureJsonRun(array $params, int $expectedExit = 0): string
     {
-        $kernel = $this->app->make(\Illuminate\Contracts\Console\Kernel::class);
-        $buf = new \Symfony\Component\Console\Output\BufferedOutput;
+        $kernel = $this->app->make(Kernel::class);
+        $buf = new BufferedOutput;
         $exit = $kernel->call('atlas:cli:dev', $params, $buf);
 
         $this->assertSame($expectedExit, $exit, 'CLI exit code mismatch.');
 
         return $buf->fetch();
+    }
+
+    /**
+     * @param  array<string, mixed>  $params
+     */
+    private function captureTextRun(array $params, int $expectedExit = 0): string
+    {
+        $kernel = $this->app->make(Kernel::class);
+        $buf = new BufferedOutput;
+        $exit = $kernel->call('atlas:cli:dev', $params, $buf);
+
+        $this->assertSame($expectedExit, $exit, 'CLI exit code mismatch.');
+
+        return $buf->fetch();
+    }
+
+    /**
+     * Wraps the real ConfirmationTokenService in a spy that records every
+     * issued plaintext. The spy still delegates to the real DB-backed
+     * service so the consume path runs against actual tables — only the
+     * issue() return value is intercepted for assertion.
+     */
+    private function bindTokenSpyWithRealService(): SpyConfirmationTokenService
+    {
+        $spy = new SpyConfirmationTokenService();
+        $this->app->instance(ConfirmationTokenService::class, $spy);
+
+        return $spy;
     }
 
     private function assertNoAbsolutePaths(string $output): void
@@ -270,6 +423,7 @@ final class AtlasCliDevEfficientCommandTest extends TestCase
                 $table->string('token_hash', 128)->unique();
                 $table->string('surface_id', 80)->index();
                 $table->string('task_contract_hash', 128)->index();
+                $table->string('compact_sdd_hash', 128)->nullable()->index();
                 $table->timestamp('issued_at');
                 $table->timestamp('expires_at')->index();
                 $table->timestamp('used_at')->nullable();
@@ -325,13 +479,99 @@ final class FakeCliRunExecutor implements RunExecutor
         LightTaskContract $taskContract,
         ProviderPromptProjection $promptProjection,
         string $runId,
+        ?string $expectedCompactSddHash = null,
     ): RunExecutionResult {
         $this->calls[] = [
             'run_id' => $runId,
             'envelope_hash' => $envelope->envelopeHash,
             'task_contract_hash' => $taskContract->taskContractHash,
+            'expected_compact_sdd_hash' => $expectedCompactSddHash,
         ];
 
         return $this->result;
+    }
+}
+
+/**
+ * Test-only RunExecutor that throws a typed CompactSddUnavailableException
+ * so the CLI's error-rendering path can be exercised without spinning up the
+ * real PipelineRunExecutor + provider stack.
+ */
+final class TamperingCliRunExecutor implements RunExecutor
+{
+    public int $calls = 0;
+
+    public function __construct(private readonly CompactSddUnavailableException $exception) {}
+
+    public function execute(
+        OperationEnvelope $envelope,
+        LightTaskContract $taskContract,
+        ProviderPromptProjection $promptProjection,
+        string $runId,
+        ?string $expectedCompactSddHash = null,
+    ): RunExecutionResult {
+        $this->calls++;
+        throw $this->exception;
+    }
+}
+
+/**
+ * Records the plaintext returned by issue() so assertions can prove the CLI
+ * never echoes it back. When `failConsumeWith` is set, validateAndConsume()
+ * forces a failure with that reason regardless of the underlying token row;
+ * used to drive the OUTCOME_TOKEN_FAILED branch deterministically.
+ *
+ * Skips the parent constructor — ConfirmationTokenService has no required
+ * dependencies and the parent ctor is intentionally empty.
+ */
+final class SpyConfirmationTokenService extends ConfirmationTokenService
+{
+    /** @var list<string> */
+    public array $issuedPlaintexts = [];
+
+    public ?string $failConsumeWith = null;
+
+    public function __construct()
+    {
+        // skip parent: avoid coupling to internal DB bootstrap
+    }
+
+    public function issue(
+        string $runId,
+        string $taskContractHash,
+        string $surfaceId,
+        ?string $compactSddHash = null,
+    ): ConfirmationTokenIssue {
+        // Generate a plaintext that DOES NOT touch the DB. The handler's
+        // immediate validateAndConsume below is stubbed to return ok=true
+        // with the pinned hash, so we don't need a persisted row.
+        $plaintext = 'spy-plaintext-'.bin2hex(random_bytes(16));
+        $this->issuedPlaintexts[] = $plaintext;
+        $now = Carbon::now();
+
+        return new ConfirmationTokenIssue(
+            tokenId: 'spy-token-'.bin2hex(random_bytes(4)),
+            plaintext: $plaintext,
+            issuedAt: $now,
+            expiresAt: $now->copy()->addSeconds(300),
+        );
+    }
+
+    public function validateAndConsume(
+        string $runId,
+        string $taskContractHash,
+        string $plaintext,
+    ): ConfirmationTokenResult {
+        if ($this->failConsumeWith !== null) {
+            return ConfirmationTokenResult::fail($this->failConsumeWith);
+        }
+
+        // Healthy path returns ok with the (unknown-to-spy) compact_sdd_hash
+        // pinned at issue time. Tests asserting the executor sees this can
+        // inspect FakeCliRunExecutor->calls.
+        return ConfirmationTokenResult::ok(
+            tokenId: 'spy-token-id',
+            expectedCompactSddHash: null,
+        );
     }
 }

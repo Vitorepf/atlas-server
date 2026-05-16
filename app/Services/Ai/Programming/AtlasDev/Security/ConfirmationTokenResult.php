@@ -22,19 +22,32 @@ final class ConfirmationTokenResult
 
     public const REASON_KEY_MISSING = 'key_missing';
 
+    /**
+     * @param  string|null  $expectedCompactSddHash  the CompactSDD hash that
+     *                                               was pinned in the DB row when this token was issued. The caller
+     *                                               (RunController) feeds it back to the executor so the run can fail
+     *                                               closed when the on-disk compact_sdd has been tampered with between
+     *                                               Plan and Run. Null when the token row pre-dates the hash-pin column.
+     */
     public function __construct(
         public readonly bool $ok,
         public readonly string $reason,
         public readonly ?string $tokenId = null,
+        public readonly ?string $expectedCompactSddHash = null,
     ) {}
 
-    public static function ok(string $tokenId): self
+    public static function ok(string $tokenId, ?string $expectedCompactSddHash = null): self
     {
-        return new self(ok: true, reason: self::REASON_OK, tokenId: $tokenId);
+        return new self(
+            ok: true,
+            reason: self::REASON_OK,
+            tokenId: $tokenId,
+            expectedCompactSddHash: $expectedCompactSddHash,
+        );
     }
 
     public static function fail(string $reason): self
     {
-        return new self(ok: false, reason: $reason, tokenId: null);
+        return new self(ok: false, reason: $reason, tokenId: null, expectedCompactSddHash: null);
     }
 }

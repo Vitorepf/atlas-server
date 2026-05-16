@@ -91,7 +91,7 @@ required_tests:
   - "php artisan test tests/Feature/AtlasDev"
 requires_evidence: true
 risk_level: high
-line_limit: 2150
+line_limit: 2400
 ---
 # Atlas Dev Efficient Programming Flow Runbook v1
 
@@ -314,7 +314,7 @@ atlas-server/tests/Feature/AtlasDev/
 
 ### 6.1 Objetivo
 
-Construir os **14 DTOs** read-only descritos no contracts doc, com:
+Construir os **17 DTOs** read-only operacionais descritos no contracts doc, com:
 
 - serializacao canonica;
 - hashing determinístico;
@@ -1131,45 +1131,45 @@ DoD do PR 2.3:
 - [x] Todos os artefatos persistidos.
 - [x] Feature test `tests/Feature/AtlasDev/EndToEndPlanOnlyTest.php` cobrindo 6 cenarios.
 
-#### PR 2.4 — CLI command `atlas:dev:plan`
+#### PR 2.4 — CLI parity via `atlas:cli:dev --efficient`
 
 Arquivo:
 
 ```text
-app/Console/Commands/AtlasDevPlanCommand.php
+app/Console/Commands/AtlasCliDevCommand.php
+app/Services/Ai/Cli/AtlasCliDevEfficientHandler.php
 ```
 
-Signature:
+Signature relevante:
 
 ```php
-final class AtlasDevPlanCommand extends Command
-{
-    protected $signature = 'atlas:dev:plan
-                            {intent : intent text}
-                            {--workspace= : absolute workspace path, defaults to git root}
-                            {--surface=atlas_cli_dev}
-                            {--constraints=* : user constraints}
-                            {--json : output JSON}';
-}
+atlas:cli:dev {task?}
+  --efficient
+  --yes
+  --flow-origin=
+  --command-intent=
+  --json
 ```
 
 Comportamento:
 
-- chama `AtlasDevFastPathOrchestrator.planOnly()`;
-- output humano por default (resumo + hashes + routing decision);
-- output JSON com tudo se `--json`.
+- `--efficient` chama o mesmo pipeline Atlas Dev Efficient usado pelo Desktop;
+- sem `--yes`, imprime plan-only e para antes do provider;
+- com `--yes`, consome `confirmation_token` e executa run confirmado;
+- output humano por default; output JSON se `--json`;
+- comando tecnico oculto `atlas:dev:debug:smoke` existe apenas para smoke local/debug e nao e contrato publico de CLI.
 
 DoD do PR 2.4:
 
-- [x] `php artisan atlas:dev:plan "corrija teste X" --json` retorna JSON valido.
-- [x] Comando registrado no `Kernel.php` console.
-- [x] `php artisan list | grep atlas:dev:plan` mostra o comando.
-- [x] Help (`php artisan atlas:dev:plan --help`) documenta flags.
+- [x] `php artisan atlas:cli:dev "corrija teste X" --efficient --json` retorna JSON valido sem provider call.
+- [x] `php artisan atlas:cli:dev "corrija teste X" --efficient --yes --json` consome token e invoca executor.
+- [x] Comando registrado no console existente.
+- [x] Help (`php artisan atlas:cli:dev --help`) documenta flags `--efficient`, `--yes`, `--flow-origin`, `--command-intent`.
 
 ### 9.3 DoD Operacional Da Fatia 2
 
 - `composer test --filter=AtlasDev/Pipeline` + `tests/Feature/AtlasDev/EndToEndPlanOnlyTest.php` verdes.
-- Comando `atlas:dev:plan` rodando em workspace real (`atlas-server`) produz artefatos validos.
+- Comando `atlas:cli:dev --efficient` rodando em workspace real (`atlas-server`) produz artefatos validos.
 - Artefatos persistidos em `storage/atlas-dev/receipts/<run_id>/`.
 - Telemetria emitida com `completion_state = no_patch_needed` (plan-only nao escreve).
 - **Sem provider call. Sem patch.**
@@ -1191,17 +1191,28 @@ Request minimo:
 ```json
 {
   "surface_id": "atlas_desktop_ai",
-  "workspace": "/abs/workspace",
+  "workspace": "atlas-server",
   "raw_intent": "texto do composer",
   "user_constraints": [],
   "policy_hints": {
     "open_brain_mode": "auto",
+    "decision_mode": "atlas_decide",
     "task_kind_override": null
+  },
+  "surface_context": {
+    "composer_mode": "programming",
+    "composer_task": "dev",
+    "provider_choice": null
   },
   "thread_id": null,
   "previous_run_id": null
 }
 ```
+
+No Desktop, `workspace` pode ser o slug do Projeto selecionado. O `PlanController`
+resolve esse slug via `config/atlas_projects.php` para `workspace_path` real antes
+de chamar o core. `policy_hints` fica no topo do body; o backend nao le
+`policy_hints` dentro de `surface_context`.
 
 Response:
 
@@ -1943,7 +1954,7 @@ Esta secao define **testes mecanicos** que validam o codigo. Nao define benchmar
 Apos cada fatia ficar verde em CI, **smoke test manual**:
 
 - Fatia 0: nao tem; e so codigo de schema.
-- Fatia 1: rodar `php artisan atlas:dev:plan "test"` em modo dry e inspecionar JSON.
+- Fatia 1: rodar `php artisan atlas:cli:dev "test" --efficient --json` em modo plan-only e inspecionar JSON.
 - Fatia 1.5: rodar plan + inspecionar `storage/atlas-dev/receipts/<run_id>/`.
 - Fatia 2: rodar plan-only em workspace real.
 - Fatia 3: rodar one-call com Sonnet real em caso seguro (typo em comentario).
@@ -2007,7 +2018,7 @@ Ordem segura:
 
 1. Subir backend com migrations aplicadas + APP_KEY válida.
 2. `ATLAS_DEV_EFFICIENT_PLAN_ENABLED=true` (Plan zero-provider, seguro habilitar primeiro).
-3. Confirmar smoke: `php artisan atlas:dev:smoke --json` retorna `routing.kind` esperado e `persisted_artifact_refs` relativos.
+3. Confirmar smoke publico: `php artisan atlas:cli:dev "corrija teste X" --efficient --json` retorna `routing.kind` esperado e refs relativos. Para diagnostico local isolado, existe o comando oculto `php artisan atlas:dev:debug:smoke --intent="..." --workspace=/abs/path --json`.
 4. `ATLAS_DEV_EFFICIENT_RUN_ENABLED=true` apenas depois de Plan verde em produção.
 5. Para a surface Desktop: `ATLAS_DEV_EFFICIENT_DESKTOP_ENABLED=true` (quando o flag existir no ambiente).
 
@@ -2074,6 +2085,270 @@ Erros canônicos:
 - [ ] Show retorna `workspace_label`/`workspace_hash` e `persisted_artifact_refs`; sem path absoluto.
 - [ ] Run rejeita corretamente truthy-string, hash mismatch, token reutilizado.
 - [ ] Stream emite `stream_closed` final; cliente cai em REST se a conexão for cortada.
+
+### 15.1.11 Tokens HTTP do operador (`ATLAS_TOKEN` / `X-Atlas-Token`)
+
+Plan/Run/Stream/Show vivem no grupo de rotas autenticado por `X-Atlas-Token`
+(middleware `atlas.token`). Operador precisa garantir os dois lados:
+
+- Backend (`atlas-server`): `ATLAS_TOKEN` no `.env` (ou `config('atlas.token')`)
+  com pelo menos um valor não vazio que o middleware aceita. Mesma chave é
+  usada por todas as 4 rotas Atlas Dev.
+- Desktop / surfaces consumindo HTTP: variável de ambiente Vite
+  `VITE_ATLAS_TOKEN` deve casar com o `ATLAS_TOKEN` do backend. Sem isso
+  Plan responde `401` no Desktop e qualquer cliente.
+- Rotação: trocar `ATLAS_TOKEN` invalida sessões existentes. Refletir nos
+  clients antes do swap.
+- Em logs/telemetria/Sentry: nunca emitir `confirmation.token` (plaintext)
+  nem `X-Atlas-Token`. Redator existente já filtra `confirmation_token`; é
+  responsabilidade do operador não logar headers brutos.
+
+### 15.1.12 Perfis de Projeto (`config/atlas_projects.php`)
+
+Slug de Projeto é a única forma que a surface Desktop tem de apontar
+workspace; resto dos surfaces pode mandar path absoluto direto. Garantir:
+
+- `config/atlas_projects.php` tem `profiles[]` com `slug` + `workspace_path`
+  apontando para path absoluto que **existe** no host.
+- `ATLAS_CODE_DEFAULT_PROJECT` (env) define o slug fallback quando o payload
+  Desktop não trouxer explicitamente.
+- Adicionar Projeto novo:
+  1. Editar `config/atlas_projects.php` (id, slug, name, kind,
+     workspace_path, repo_root, production_status, stack_summary, commands,
+     test_commands, build_commands, dev_server_command, critical_areas,
+     docs_status, default_risk, deployment_notes).
+  2. Reiniciar workers (queue/SSE) para reler config cacheada.
+  3. Validar com `php artisan tinker -> config('atlas_projects.profiles')`.
+- Slug com `workspace_path` inexistente: Plan retorna 422 antes de mintar
+  token (sem efeito colateral; nenhum receipt criado).
+
+### 15.1.13 Comandos de validação operacional
+
+Backend (executar em `atlas-server/`):
+
+```bash
+# Suíte canônica que cobre core + endpoints + adapters
+/opt/homebrew/bin/php artisan test tests/Unit/Ai/Programming/AtlasDev tests/Feature/Ai/Programming/AtlasDev
+
+# CLI legado + workflow (compat com Atlas CLI Dev)
+/opt/homebrew/bin/php artisan test tests/Feature/AtlasCliDevCommandTest.php tests/Unit/AtlasCliDevWorkflowServiceTest.php
+
+# Health de docs canônicos
+/opt/homebrew/bin/php artisan atlas:engineering:knowledge docs-health --json
+
+# Smoke público pela CLI (igual ao Desktop usaria; --yes só se quiser executar)
+/opt/homebrew/bin/php artisan atlas:cli:dev "corrija teste X" --efficient --json
+
+# Smoke técnico hidden (plan-only, zero provider, output JSON)
+/opt/homebrew/bin/php artisan atlas:dev:debug:smoke --intent="..." --workspace=/abs/path --json
+```
+
+Desktop (executar em `atlas-desktop/apps/desktop/`):
+
+```bash
+pnpm install -r        # se vier limpo
+pnpm --filter @atlas/desktop lint
+pnpm --filter @atlas/desktop build
+pnpm --filter @atlas/desktop test    # quando suite vitest existir
+```
+
+Stream / endpoints (sem provider, basta `ATLAS_TOKEN` válido):
+
+```bash
+curl -s -X POST http://localhost:8000/ai/interactions/atlas-dev/plan \
+  -H "X-Atlas-Token: $ATLAS_TOKEN" -H "Content-Type: application/json" \
+  -d '{"surface_id":"atlas_cli_dev","workspace":"/abs/path","raw_intent":"smoke","user_constraints":[]}' | jq
+
+curl -s http://localhost:8000/ai/interactions/atlas-dev/runs/<run_id> \
+  -H "X-Atlas-Token: $ATLAS_TOKEN" | jq
+
+curl -N -s http://localhost:8000/ai/interactions/atlas-dev/runs/<run_id>/stream \
+  -H "X-Atlas-Token: $ATLAS_TOKEN" -H "Accept: text/event-stream"
+```
+
+### 15.1.14 Smoke do provider (consumindo token)
+
+Validar end-to-end Plan → Run em workspace **isolado** (não em produção):
+
+1. `ATLAS_DEV_EFFICIENT_PLAN_ENABLED=true` e
+   `ATLAS_DEV_EFFICIENT_RUN_ENABLED=true` no ambiente.
+2. Garantir `ClaudeCliGateway` bind real configurado no container (provider
+   adapter de produção). Sem isso o `RunController` cai no
+   `PipelineRunExecutor` que devolve `completion=blocked` honesto e o smoke
+   detecta o gap antes de gastar token.
+3. Plan via CLI ou curl, capturar `run_id` + `confirmation.token` +
+   `task_contract_hash`.
+4. Run:
+
+   ```bash
+   curl -s -X POST http://localhost:8000/ai/interactions/atlas-dev/run \
+     -H "X-Atlas-Token: $ATLAS_TOKEN" -H "Content-Type: application/json" \
+     -d '{"run_id":"<id>","task_contract_hash":"<hash>","confirmation_token":"<plain>","operator_confirmed":true}'
+   ```
+
+5. Conferir `verification_receipt` em `storage/atlas-dev/receipts/<run_id>/`
+   com `completion.status = passed` (caso happy path) e diff aplicado.
+6. Conferir `atlas_dev_run_index` populado por `run_id` para servir Show
+   rápido.
+
+Smoke já comprovado em workspace de desenvolvimento; replicar em staging
+antes de habilitar `run_enabled` em produção.
+
+### 15.1.14a Follow-ups operacionais ainda nao entregues
+
+Estado real do P1+ apos a fatia atual. Tudo aqui e **follow-up explicito** — nao
+prometer como entregue ate o runbook listar a fatia que fecha:
+
+- **Bundle hash publico para o operador.** O Plan ja pina server-side dois
+  hashes na linha HMAC-keyed do confirmation_token (`task_contract_hash` e
+  `compact_sdd_hash` — coluna adicionada pela migration
+  `2026_05_16_020000_add_compact_sdd_hash_to_atlas_dev_confirmation_tokens.php`).
+  O `PipelineRunExecutor` valida tres camadas antes de chamar o provider:
+  (a) self-hash do `compact_sdd.json`, (b) `compact_sdd_hash` pinado pelo
+  `mini_programming_spec.json`, (c) pin server-side no token row. Qualquer
+  divergencia rejeita 422 (`COMPACT_SDD_TAMPERED` /
+  `TASK_CONTRACT_HASH_MISMATCH`) sem custo de token. O que **ainda nao**
+  existe: (i) hash unico do bundle completo `(envelope, compact_sdd,
+  mini_spec, task_contract, prompt_projection)` publicado pelo Plan para o
+  operador pinar lado a lado, e (ii) pin HMAC para `envelope_hash` e
+  `prompt_projection_hash` (so `task_contract_hash` e `compact_sdd_hash`
+  estao cobertos). Documentado como gap em
+  `atlas-dev-efficient-programming-flow-v1.md` §26.4 ("Follow-ups
+  explicitos").
+- **Live async stream.** §15.1.6 ja deixa claro: o canal e
+  snapshot-replay-then-close + REST poll. Live `phase:` durante a execucao
+  real ainda nao existe. Cliente atual trata `stream_closed` como fim
+  canonico.
+- **Paridade de surface alem de Desktop + CLI.** App / API publica
+  consumindo Plan/Run ainda nao tem adapter dedicado. Smokes operacionais
+  cobrem somente Desktop (`atlas_desktop_ai`) e CLI (`atlas_cli_dev`).
+
+### 15.1.15 Limitações de QA visual
+
+Atlas Dev fast-path **não** roda Playwright/Browser por dentro do
+`PipelineRunExecutor`. Frontend gate visual fica a cargo do operador:
+
+- Sem Playwright/Browser disponível no host: declarar
+  `verification_profile = generic_no_test` (ou usar `no_test_reason`
+  documentado no `LightTaskContract`). O `verification_gate` aceita esse
+  caminho como `no_patch_needed` ou `needs_review`, mas nunca como `passed`
+  silencioso.
+- Frontend changes que dependem de QA visual sobem para `R3` por default e
+  exigem revisão humana antes de `completed`. Atlas Dev pode preparar o
+  diff, mas a aprovação visual fica fora do receipt automático.
+- Se a equipe tiver Browser/Playwright configurado, anexar comandos no
+  `verification_plan.commands` do `LightTaskContract`; o gate só roda o que
+  estiver listado.
+- Limitação conhecida: SSE atual é snapshot-replay-then-close; não há
+  streaming live de execução visual, então clientes Desktop devem consultar
+  o REST Show ao final para conferir status.
+
+### 15.1.16 Diagnóstico operacional — receitas curtas
+
+#### A. Diagnosticar `ATLAS_DEV_KEY_MISSING` (500)
+
+Resposta canônica do Plan/Run quando o HMAC do confirmation token não tem
+chave forte o bastante. Sequência de diagnóstico:
+
+```bash
+# 1. Reproduzir o erro deterministicamente (sem chamar provider).
+/opt/homebrew/bin/php artisan tinker --execute='echo strlen(base64_decode(str_replace("base64:", "", config("app.key"))));'
+# Esperado: número ≥ 32. Se < 32 (ou erro de decode), APP_KEY está fraca.
+
+# 2. Conferir env real carregado no processo PHP.
+/opt/homebrew/bin/php artisan tinker --execute='echo (config("app.key") === "" ? "EMPTY" : substr(config("app.key"), 0, 8) . "...");'
+# Esperado: começa em "base64:". "EMPTY" = APP_KEY ausente no .env / variável de ambiente.
+
+# 3. Rotacionar (idempotente; gera chave nova base64:<256bits>).
+/opt/homebrew/bin/php artisan key:generate --show
+# Copiar para .env como APP_KEY=base64:... e reiniciar workers (queue/SSE) para
+# ler config cacheada — em produção, `php artisan config:cache` antes do restart.
+
+# 4. Re-validar smoke imediatamente após restart.
+/opt/homebrew/bin/php artisan atlas:dev:debug:smoke --intent="diag" --workspace=/tmp/empty --json
+# Esperado: JSON com routing.kind preenchido, sem error.code ATLAS_DEV_KEY_MISSING.
+```
+
+Não há fallback público nem "default key" — é fail-closed propositalmente
+(§15.1.4 / contracts §3.5.1 invariante 2). Não comentar o cheque para
+"desbloquear" o ambiente.
+
+#### B. Sequência canônica de smoke pré-release
+
+Ordem mínima antes de habilitar `run_enabled=true` em produção/staging:
+
+```bash
+# 1. Suite canônica (core + endpoints + adapters).
+/opt/homebrew/bin/php artisan test tests/Unit/Ai/Programming/AtlasDev tests/Feature/Ai/Programming/AtlasDev
+# Esperado: 100% passed, zero warnings de schema mismatch.
+
+# 2. Compat com CLI legada.
+/opt/homebrew/bin/php artisan test tests/Feature/AtlasCliDevCommandTest.php tests/Unit/AtlasCliDevWorkflowServiceTest.php
+
+# 3. Health dos docs canônicos.
+/opt/homebrew/bin/php artisan atlas:engineering:knowledge docs-health --json
+# Esperado: status=ok, violations=[], required_missing_count=0.
+
+# 4. Smoke público plan-only (zero-provider, com flag Plan já habilitada).
+ATLAS_DEV_EFFICIENT_PLAN_ENABLED=true /opt/homebrew/bin/php artisan atlas:cli:dev "corrija typo X" --efficient --json
+# Esperado: routing_decision presente, persisted_artifact_refs relativos, sem `/Users/` no body.
+
+# 5. Smoke técnico isolado (hidden, plan-only).
+/opt/homebrew/bin/php artisan atlas:dev:debug:smoke --intent="smoke" --workspace="$(pwd)" --json
+# Esperado: completion_state ausente (plan-only), confirmation.token presente quando routing=fast_path.
+
+# 6. Smoke HTTP fim-a-fim (Plan + Run + Show + Stream) com fakes determinísticos.
+/opt/homebrew/bin/php artisan test tests/Feature/Ai/Programming/AtlasDev/Http/PipelineRunExecutorHttpSmokeTest.php
+# Esperado: PASS, completion_state=passed, scope_guard=passed.
+```
+
+Só promover `run_enabled=true` depois do passo 6 verde **e** §15.1.14
+executado em staging com workspace real.
+
+#### C. Como verificar visual Desktop (Atlas AI surface)
+
+Atlas Dev é um fluxo interno; a verificação visual happens na surface
+Atlas AI Desktop Mac. Sequência mínima:
+
+```bash
+# 1. Garantir flag Desktop habilitada (default false em prod).
+export ATLAS_DEV_EFFICIENT_DESKTOP_ENABLED=true
+
+# 2. Validar contract.ts do Desktop bate com o response real do Plan/Run.
+cd ../atlas-desktop
+pnpm install -r
+pnpm --filter @atlas/desktop lint
+pnpm --filter @atlas/desktop build
+# Erros em `runtime policy.atlas_dev_efficient` sinalizam contract drift.
+
+# 3. Rodar o app em dev mode + apontar para o backend local.
+VITE_ATLAS_API_BASE=http://localhost:8000 \
+VITE_ATLAS_TOKEN=$ATLAS_TOKEN \
+pnpm --filter @atlas/desktop dev
+```
+
+Checklist visual no Atlas AI (aba Workspace Dev):
+
+- Composer mostra raw_intent + workspace selecionado (slug do Projeto).
+- Após `Plan`, painel "Plano" lista CompactSDD + MiniSpec + TaskContract
+  sem strings absolutas (`/Users/...`); só `workspace_label` (basename) +
+  hashes parciais.
+- Botão `Run` só habilita quando `routing_decision = atlas_dev_fast_path`
+  E há `confirmation.token` no payload do Plan.
+- Durante Run: stream entrega `phase:` e `receipt:` em ordem
+  determinística, depois fecha imediatamente (`stream_closed`). Não há
+  spinner indefinido — se ficar carregando >2s, o cliente caiu no fallback
+  REST `GET /runs/{run_id}` (esperado e correto).
+- Receipt renderizado mostra `persisted_receipt_refs` como
+  `receipts/<run_id>/<file>`, `workspace_label`, `workspace_hash`. Se
+  aparecer `/Users/` em qualquer campo: bug F-04 (path leak), abrir issue.
+- `completion.status` exibido literalmente (`passed | needs_review |
+  failed | blocked | escalate_forge | no_patch_needed`). Surface não
+  reinterpretar.
+
+Sem Playwright/Browser configurado, esses passos são manuais. O fluxo
+Atlas Dev não substitui QA visual — apenas garante que o receipt textual
+seja honesto (§15.1.15).
 
 ## 16. Sequencia De Trabalho Recomendada Por Agente IA
 

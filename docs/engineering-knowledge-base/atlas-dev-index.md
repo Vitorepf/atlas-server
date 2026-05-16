@@ -127,7 +127,7 @@ Atlas AI (produto / superficie unica do programador)
 | [`atlas-dev-patamares.md`](atlas-dev-patamares.md) | module | qual patamar Atlas Dev esta hoje + futuros planejados |
 | [`atlas-dev-flow-map-and-product-options-v1.md`](atlas-dev-flow-map-and-product-options-v1.md) | module | caderno mae: contexto historico, fluxos atuais, opcoes de produto |
 | [`atlas-dev-efficient-programming-flow-v1.md`](atlas-dev-efficient-programming-flow-v1.md) | contract | contrato do patamar atual (alto nivel) |
-| [`atlas-dev-efficient-programming-flow-contracts-v1.md`](atlas-dev-efficient-programming-flow-contracts-v1.md) | contracts | schemas detalhados (14 artefatos em 4 camadas) |
+| [`atlas-dev-efficient-programming-flow-contracts-v1.md`](atlas-dev-efficient-programming-flow-contracts-v1.md) | contracts | schemas detalhados (17 artefatos operacionais em 4 camadas) |
 | [`atlas-dev-efficient-programming-flow-runbook-v1.md`](atlas-dev-efficient-programming-flow-runbook-v1.md) | runbook | implementacao fatia por fatia |
 
 ## 4. Ordem De Leitura Obrigatoria Para IA
@@ -157,7 +157,7 @@ IA que pula este index e vai direto pro efficient-flow perde contexto de patamar
 | Qual o escopo de Atlas Dev (dentro vs fora)? | `atlas-dev-policy` + `atlas-dev-efficient-programming-flow-v1` secao Escopo |
 | Quando escalar para Forge? | `atlas-dev-policy` + `atlas-dev-efficient-programming-flow-v1` Forge Escalation |
 | Qual o patamar atual de Atlas Dev? | `atlas-dev-patamares` |
-| Quais sao os 14 artefatos canonicos? | `atlas-dev-efficient-programming-flow-contracts-v1` |
+| Quais sao os 17 artefatos canonicos? | `atlas-dev-efficient-programming-flow-contracts-v1` |
 | Como implementar Fatia 0? | `atlas-dev-efficient-programming-flow-runbook-v1` PR 0.1+ |
 | Quais decisoes ja estao locked? | `atlas-dev-policy` + frontmatter `atlas-dev-efficient-programming-flow-v1` |
 | Quais sao as regras de governance? | `atlas-dev-policy` |

@@ -16,6 +16,7 @@ use App\Services\Ai\Programming\AtlasDev\Schemas\ProviderPromptProjection;
 use App\Services\Ai\Programming\AtlasDev\Security\ConfirmationTokenResult;
 use App\Services\Ai\Programming\AtlasDev\Security\ConfirmationTokenService;
 use App\Services\Ai\Programming\AtlasDev\Surface\HttpResponseRedactor;
+use App\Support\AtlasSecurity;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use Illuminate\Http\JsonResponse;
 use Throwable;
@@ -107,6 +108,8 @@ final class RunController extends Controller
             return $this->tokenFailureResponse($tokenResult);
         }
 
+        $this->extendRequestTimeLimitForProviderRun();
+
         try {
             $envelope = OperationEnvelope::fromArray($envelopePayload);
             $taskContract = LightTaskContract::fromArray($taskContractPayload);
@@ -117,6 +120,11 @@ final class RunController extends Controller
                 taskContract: $taskContract,
                 promptProjection: $promptProjection,
                 runId: $runId,
+                // F-03 tamper-protection: the confirmation_token row pinned
+                // the CompactSDD hash at Plan time. Forwarding it here lets
+                // the executor fail closed BEFORE invoking the provider when
+                // compact_sdd.json has been mutated between Plan and Run.
+                expectedCompactSddHash: $tokenResult->expectedCompactSddHash,
             );
         } catch (CompactSddUnavailableException $e) {
             // F-03 fail-closed: the receipt cannot be composed without an
@@ -134,7 +142,7 @@ final class RunController extends Controller
             return response()->json([
                 'error' => [
                     'code' => 'ATLAS_DEV_RUN_FAILED',
-                    'message' => $e->getMessage(),
+                    'message' => $this->redactThrowableMessage($e->getMessage(), $token),
                 ],
             ], 500);
         }
@@ -175,6 +183,30 @@ final class RunController extends Controller
                 'message' => 'confirmation_token rejected: '.$result->reason,
             ],
         ], 403);
+    }
+
+    private function extendRequestTimeLimitForProviderRun(): void
+    {
+        if (! function_exists('set_time_limit')) {
+            return;
+        }
+
+        $providerTimeout = (int) $this->config->get('atlas.ai.timeout_seconds', 600);
+        $seconds = max(360, $providerTimeout + 60);
+
+        @set_time_limit($seconds);
+    }
+
+    private function redactThrowableMessage(string $message, string $confirmationToken): string
+    {
+        $message = AtlasSecurity::redactString($message);
+        if ($confirmationToken !== '') {
+            $message = str_replace($confirmationToken, '[redacted]', $message);
+        }
+
+        $redacted = preg_replace('#/(?:Users|private/var|var/folders|tmp)/[^\s"\']+#', '[path-redacted]', $message);
+
+        return is_string($redacted) ? $redacted : $message;
     }
 
     private function errorCodeFor(string $reason): string

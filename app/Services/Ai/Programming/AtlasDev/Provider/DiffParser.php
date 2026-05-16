@@ -85,22 +85,37 @@ final class DiffParser
 
     private function extractDiff(string $text): ?string
     {
-        if (preg_match(self::DIFF_FENCE_PATTERN, $text, $m)) {
-            $body = trim($m['body']);
-            if ($body !== '' && $this->looksLikeUnifiedDiff($body)) {
-                return $body;
+        if (preg_match_all(self::DIFF_FENCE_PATTERN, $text, $matches)) {
+            foreach ($matches['body'] as $bodyCandidate) {
+                $body = trim((string) $bodyCandidate);
+                if ($body !== '' && $this->looksLikeUnifiedDiff($body)) {
+                    return $body;
+                }
             }
         }
 
         if ($this->looksLikeUnifiedDiff($text)) {
-            // Extract from first `--- ` line to end-of-text or next fence
+            // Extract from first `--- ` line to end-of-text or next fence.
+            // Provider prose may include a non-unified snippet first, then a
+            // real unified diff, then Markdown sections. Never let trailing
+            // Markdown flow into git apply.
             $offset = $this->firstDiffOffset($text);
             if ($offset !== null) {
-                return rtrim(substr($text, $offset));
+                return $this->trimRawDiffTail(substr($text, $offset));
             }
         }
 
         return null;
+    }
+
+    private function trimRawDiffTail(string $diffAndMaybeMarkdown): string
+    {
+        $cut = strpos($diffAndMaybeMarkdown, "\n```");
+        if ($cut !== false) {
+            $diffAndMaybeMarkdown = substr($diffAndMaybeMarkdown, 0, $cut);
+        }
+
+        return rtrim($diffAndMaybeMarkdown);
     }
 
     private function looksLikeUnifiedDiff(string $body): bool

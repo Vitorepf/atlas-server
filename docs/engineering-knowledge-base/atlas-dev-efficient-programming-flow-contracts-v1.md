@@ -280,6 +280,7 @@ atlas_dev_confirmation_tokens
   - id                  bigint primary key
   - run_id              string indexed
   - task_contract_hash  string(64) indexed
+  - compact_sdd_hash    string(128) nullable indexed  -- F-03 server-side pin
   - surface_id          string
   - token_hash          string(64) unique  -- HMAC-SHA256(APP_KEY, plaintext)
   - issued_at           timestamp
@@ -287,6 +288,13 @@ atlas_dev_confirmation_tokens
   - used_at             timestamp | null
   - business_context    jsonb              -- snapshot opcional no momento da emissão
 ```
+
+> A coluna `compact_sdd_hash` é adicionada pela migration
+> `2026_05_16_020000_add_compact_sdd_hash_to_atlas_dev_confirmation_tokens.php`.
+> Ela carrega o `compact_sdd_hash` canônico produzido pelo Plan, fica somente
+> no servidor (cliente nunca vê) e é HMAC-pinned indiretamente — quem altera
+> a linha precisa de acesso DB, e quem reescrever `compact_sdd.json` entre
+> Plan e Run sem ter `APP_KEY` produz mismatch (`COMPACT_SDD_TAMPERED`).
 
 Invariantes:
 
@@ -296,6 +304,7 @@ Invariantes:
 4. Token é single-use: `used_at` populado atomicamente no consume; reutilização rejeita 403 `CONFIRMATION_TOKEN_ALREADY_CONSUMED`.
 5. Vinculado a `(run_id, task_contract_hash)`: token de um plan não redime outro (403 `CONFIRMATION_TOKEN_CONTRACT_MISMATCH`).
 6. Token expirado/ausente/inválido bloqueia o Run com 403 e error.code específico (`CONFIRMATION_TOKEN_EXPIRED`, `CONFIRMATION_TOKEN_INVALID`, `CONFIRMATION_TOKEN_NOT_FOUND`).
+7. `compact_sdd_hash` é gravado no Plan e validado no Run **antes** da chamada ao provider. O executor compara três camadas: (a) self-hash do `compact_sdd.json` recomputado, (b) `mini_programming_spec.compact_sdd_hash` no disco, (c) pin server-side desta tabela. Qualquer divergência rejeita 422 `COMPACT_SDD_TAMPERED` sem custo de token. A coluna é `nullable` apenas para linhas legadas; novos Plans sempre preenchem.
 
 ### 3.5.2 Run Index (REST fallback cache)
 
@@ -426,6 +435,15 @@ OperationEnvelope:
 - Hash: `envelope_hash`.
 
 #### Exemplo Valido
+
+> Nota: este exemplo mostra o envelope **interno**, ja apos a resolucao
+> Surface -> core. Em payloads de entrada HTTP, a surface Desktop envia
+> `workspace` como **slug** de Projeto (ex: `"atlas-server"`); o `PlanController`
+> resolve esse slug por `config/atlas_projects.php` antes de criar o
+> `OperationEnvelope`. CLI/App/API podem enviar path absoluto direto. Em
+> qualquer caso, o `OperationEnvelope` persistido carrega `workspace` absoluto
+> e canonico. A projecao HTTP de saida troca `workspace` por `workspace_label`
+> + `workspace_hash` (ver 3.5.3).
 
 ```yaml
 schema_version: atlas.dev.operation_envelope.v1

@@ -39,6 +39,7 @@ final class AtlasDevSecurityMigrationTest extends TestCase
 
         $this->assertTrue(Schema::hasColumns('atlas_dev_confirmation_tokens', [
             'id', 'run_id', 'token_hash', 'surface_id', 'task_contract_hash',
+            'compact_sdd_hash',
             'issued_at', 'expires_at', 'used_at', 'created_at', 'updated_at',
         ]));
 

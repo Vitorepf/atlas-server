@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming\AtlasDev\Security;
 
+use App\Http\Controllers\AtlasDev\Support\PipelineRunExecutor;
 use App\Models\AtlasDevConfirmationToken;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -29,8 +30,21 @@ class ConfirmationTokenService
 {
     public function __construct() {}
 
-    public function issue(string $runId, string $taskContractHash, string $surfaceId): ConfirmationTokenIssue
-    {
+    /**
+     * Mint a single-use confirmation token bound to (run_id, task_contract_hash,
+     * compact_sdd_hash). The compact_sdd_hash is the server-side pin used by
+     * {@see PipelineRunExecutor} to
+     * detect tampering of compact_sdd.json between Plan and Run.
+     *
+     * The pin is optional only because the column is nullable for older rows.
+     * Plan-time callers MUST supply it for new runs.
+     */
+    public function issue(
+        string $runId,
+        string $taskContractHash,
+        string $surfaceId,
+        ?string $compactSddHash = null,
+    ): ConfirmationTokenIssue {
         $this->assertNonEmpty('run_id', $runId);
         $this->assertNonEmpty('task_contract_hash', $taskContractHash);
         $this->assertNonEmpty('surface_id', $surfaceId);
@@ -47,6 +61,7 @@ class ConfirmationTokenService
             'token_hash' => $this->hashSecret($plaintext),
             'surface_id' => $surfaceId,
             'task_contract_hash' => $taskContractHash,
+            'compact_sdd_hash' => $this->normaliseHash($compactSddHash),
             'issued_at' => $now,
             'expires_at' => $expiresAt,
             'used_at' => null,
@@ -109,8 +124,27 @@ class ConfirmationTokenService
 
             $token->forceFill(['used_at' => Carbon::now()])->save();
 
-            return ConfirmationTokenResult::ok((string) $token->id);
+            $expectedCompactSddHash = $this->normaliseHash($token->compact_sdd_hash ?? null);
+
+            return ConfirmationTokenResult::ok(
+                tokenId: (string) $token->id,
+                expectedCompactSddHash: $expectedCompactSddHash,
+            );
         });
+    }
+
+    /**
+     * Trim whitespace and treat empty / null as "no pin". Hashes are 64 hex
+     * chars (sha256) or 128 (HMAC-SHA512); both fit within the 128-column.
+     */
+    private function normaliseHash(?string $hash): ?string
+    {
+        if ($hash === null) {
+            return null;
+        }
+        $trimmed = trim($hash);
+
+        return $trimmed === '' ? null : $trimmed;
     }
 
     /**

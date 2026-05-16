@@ -17,13 +17,15 @@ use RuntimeException;
  * would all read a fabricated risk profile. So the run fails closed.
  *
  * The RunController maps this exception to HTTP 422 with one of the codes
- * `COMPACT_SDD_MISSING` or `COMPACT_SDD_INVALID`.
+ * `COMPACT_SDD_MISSING`, `COMPACT_SDD_INVALID` or `COMPACT_SDD_TAMPERED`.
  */
 final class CompactSddUnavailableException extends RuntimeException
 {
     public const REASON_MISSING = 'missing';
 
     public const REASON_INVALID = 'invalid';
+
+    public const REASON_TAMPERED = 'tampered';
 
     private function __construct(
         public readonly string $runId,
@@ -54,10 +56,21 @@ final class CompactSddUnavailableException extends RuntimeException
         );
     }
 
+    public static function tampered(string $runId, string $detail): self
+    {
+        return new self(
+            runId: $runId,
+            reasonCode: self::REASON_TAMPERED,
+            detail: $detail,
+            message: "compact_sdd.json for run_id '{$runId}' failed hash-pin validation: {$detail}.",
+        );
+    }
+
     public function errorCode(): string
     {
         return match ($this->reasonCode) {
             self::REASON_MISSING => 'COMPACT_SDD_MISSING',
+            self::REASON_TAMPERED => 'COMPACT_SDD_TAMPERED',
             default => 'COMPACT_SDD_INVALID',
         };
     }

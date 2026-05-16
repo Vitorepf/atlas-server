@@ -95,6 +95,10 @@ final class PlanController extends Controller
                     runId: $plan->envelope->runId,
                     taskContractHash: $plan->taskContract->taskContractHash,
                     surfaceId: $surfaceId,
+                    // F-03 tamper-protection: pin the CompactSDD hash inside
+                    // the (HMAC-signed) token row so Run can detect any post-
+                    // plan modification of compact_sdd.json on disk.
+                    compactSddHash: $plan->compactSdd->compactSddHash,
                 );
             } catch (ConfirmationTokenKeyMissingException $e) {
                 // F-09: fail closed at the surface boundary. Operator must

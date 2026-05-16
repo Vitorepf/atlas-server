@@ -13,7 +13,6 @@ use App\Services\Ai\Programming\AtlasDev\Pipeline\RoutingDecision;
 use App\Services\Ai\Programming\AtlasDev\Schemas\LightTaskContract;
 use App\Services\Ai\Programming\AtlasDev\Schemas\OperationEnvelope;
 use App\Services\Ai\Programming\AtlasDev\Schemas\ProviderPromptProjection;
-use App\Services\Ai\Programming\AtlasDev\Security\ConfirmationTokenResult;
 use App\Services\Ai\Programming\AtlasDev\Security\ConfirmationTokenService;
 use App\Services\Ai\Programming\AtlasDev\Surface\AtlasCliDevAdapter;
 use App\Services\Ai\Programming\AtlasDev\Surface\HttpResponseRedactor;
@@ -60,11 +59,11 @@ final class AtlasCliDevEfficientHandler
 
     /**
      * @param  array<string, mixed>  $input  validated input bag from the command:
-     *   - workspace, raw_intent (strings, required)
-     *   - user_constraints (list<string>)
-     *   - operator_confirmed (bool — true when --yes was passed)
-     *   - flow_origin, command_intent (optional Router hints)
-     *   - thread_id, conversation_id, composer_mode, composer_task, provider_choice (optional)
+     *                                       - workspace, raw_intent (strings, required)
+     *                                       - user_constraints (list<string>)
+     *                                       - operator_confirmed (bool — true when --yes was passed)
+     *                                       - flow_origin, command_intent (optional Router hints)
+     *                                       - thread_id, conversation_id, composer_mode, composer_task, provider_choice (optional)
      * @return array{outcome:string,exit_code:int,payload:array<string,mixed>}
      */
     public function run(array $input): array
@@ -131,6 +130,7 @@ final class AtlasCliDevEfficientHandler
             runId: $plan->envelope->runId,
             taskContractHash: $plan->taskContract->taskContractHash,
             surfaceId: $plan->envelope->surfaceId,
+            compactSddHash: $plan->compactSdd->compactSddHash,
         );
 
         $consume = $this->tokens->validateAndConsume(
@@ -155,6 +155,7 @@ final class AtlasCliDevEfficientHandler
                 taskContract: $taskContract,
                 promptProjection: $promptProjection,
                 runId: $plan->envelope->runId,
+                expectedCompactSddHash: $consume->expectedCompactSddHash,
             );
         } catch (Throwable $e) {
             return $this->fail(self::OUTCOME_RUN_FAILED, 70, [

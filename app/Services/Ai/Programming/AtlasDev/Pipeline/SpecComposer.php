@@ -32,17 +32,25 @@ use InvalidArgumentException;
 class SpecComposer
 {
     public const PROFILE_PHP_LARAVEL = 'php_laravel';
+
     public const PROFILE_TS_REACT = 'ts_react';
+
     public const PROFILE_GENERIC_NO_TEST = 'generic_no_test';
 
     public const SCOPE_COMPACT = 'compact';
+
     public const SCOPE_STRUCTURAL = 'structural';
 
     public const MODE_READ_ONLY = 'read_only';
+
     public const MODE_PATCH = 'patch';
+
     public const MODE_REPAIR = 'repair';
+
     public const MODE_REVIEW = 'review';
+
     public const MODE_FRONTEND_VISUAL = 'frontend_visual';
+
     public const MODE_ESCALATE_PREVIEW = 'escalate_preview';
 
     /**
@@ -334,17 +342,21 @@ class SpecComposer
             || $classification->taskKind === TaskClassification::KIND_REVIEW) {
             return self::PROFILE_GENERIC_NO_TEST;
         }
-        // The runbook table 19.3 maps profiles to repo layout. Without a
-        // workspace we cannot scan; default to php_laravel for atlas-server,
-        // ts_react for *desktop* surfaces. Generic_no_test for docs intent.
+        // The runbook table 19.3 maps profiles to repo layout. Surface is
+        // only a fallback: Desktop may point at any workspace, so the actual
+        // project files must win over the caller surface.
         $intent = strtolower($envelope->normalizedIntent);
         if (str_contains($intent, 'docs/') || str_contains($intent, '.md')
             || $classification->taskKind === TaskClassification::KIND_REVIEW) {
             return self::PROFILE_GENERIC_NO_TEST;
         }
-        if (in_array($envelope->surfaceId, ['atlas_desktop_ai', 'atlas_app', 'atlas_code'], true)
+        if (is_file(rtrim($envelope->workspace, '/').'/composer.json')) {
+            return self::PROFILE_PHP_LARAVEL;
+        }
+        if (is_file(rtrim($envelope->workspace, '/').'/package.json')
             || str_contains($envelope->workspace, 'atlas-desktop')
-            || str_contains($envelope->workspace, 'atlas-app')) {
+            || str_contains($envelope->workspace, 'atlas-app')
+            || in_array($envelope->surfaceId, ['atlas_desktop_ai', 'atlas_app', 'atlas_code'], true)) {
             return self::PROFILE_TS_REACT;
         }
 

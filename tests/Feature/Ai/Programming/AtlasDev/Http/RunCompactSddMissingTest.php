@@ -192,6 +192,7 @@ final class ThrowingExecutor implements RunExecutor
         LightTaskContract $taskContract,
         ProviderPromptProjection $promptProjection,
         string $runId,
+        ?string $expectedCompactSddHash = null,
     ): RunExecutionResult {
         $this->calls++;
         throw $this->exception;

@@ -19,6 +19,7 @@ use App\Services\Ai\Programming\AtlasDev\Provider\DiffParser;
 use App\Services\Ai\Programming\AtlasDev\Provider\DiffParseResult;
 use App\Services\Ai\Programming\AtlasDev\Provider\ProviderCallResult;
 use App\Services\Ai\Programming\AtlasDev\Provider\SonnetClaudeCliAdapter;
+use App\Services\Ai\Programming\AtlasDev\Schemas\CompactSdd;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\GateOutcome;
 use App\Services\Ai\Programming\AtlasDev\Schemas\LightTaskContract;
 use App\Services\Ai\Programming\AtlasDev\Schemas\OperationEnvelope;
@@ -54,12 +55,14 @@ final class PipelineRunExecutor implements RunExecutor
         LightTaskContract $taskContract,
         ProviderPromptProjection $promptProjection,
         string $runId,
+        ?string $expectedCompactSddHash = null,
     ): RunExecutionResult {
         // F-03: derive task_kind / risk_level from the persisted CompactSDD
-        // BEFORE the provider is invoked. If it is missing or invalid we
+        // BEFORE the provider is invoked. If it is missing, invalid, or its
+        // canonical hash no longer matches the value pinned at Plan time, we
         // fail closed (CompactSddUnavailableException → 422) instead of
         // wasting a provider call on a run we cannot honestly attest.
-        [$taskKind, $riskLevel] = $this->resolveTaskKindAndRiskLevel($runId);
+        [$taskKind, $riskLevel] = $this->resolveTaskKindAndRiskLevel($runId, $expectedCompactSddHash);
 
         $gateway = $this->resolve(ClaudeCliGateway::class);
         $commandRunner = $this->resolve(VerificationCommandRunner::class);
@@ -318,14 +321,15 @@ final class PipelineRunExecutor implements RunExecutor
      * different vocabulary and would silently corrupt the receipt if used
      * as task_kind.
      *
-     * If compact_sdd.json is missing or carries values outside the receipt's
-     * allowed enums, we throw {@see CompactSddUnavailableException}. The
+     * If compact_sdd.json is missing, carries values outside the receipt's
+     * allowed enums, or no longer matches the hash pinned by the persisted
+     * MiniProgrammingSpec, we throw {@see CompactSddUnavailableException}. The
      * RunController maps that to HTTP 422 with a typed error code, and the
      * provider is never invoked — no wasted call on an unattestable run.
      *
      * @return array{0:string,1:string}
      */
-    private function resolveTaskKindAndRiskLevel(string $runId): array
+    private function resolveTaskKindAndRiskLevel(string $runId, ?string $expectedCompactSddHash = null): array
     {
         $compactSdd = $this->storage->read($runId, ArtifactNames::COMPACT_SDD);
         if (! is_array($compactSdd)) {
@@ -350,6 +354,86 @@ final class PipelineRunExecutor implements RunExecutor
             );
         }
 
+        $this->assertCompactSddHashPinned($runId, $compactSdd, $expectedCompactSddHash);
+
         return [$taskKind, $riskLevel];
+    }
+
+    /**
+     * Three-layer integrity check on the on-disk CompactSDD:
+     *
+     *   1. **Self-hash**: the embedded `compact_sdd_hash` field must match the
+     *      recomputed canonical hash of the same payload (catches tampering
+     *      where the attacker forgot to recompute, OR didn't have the source
+     *      data needed to recompute consistently).
+     *   2. **Disk pin**: MiniProgrammingSpec was written by the orchestrator
+     *      with the same `compact_sdd_hash`. The two on-disk artifacts must
+     *      agree (catches single-file tampering).
+     *   3. **Server-side pin**: when a confirmation_token row was issued at
+     *      Plan time, it stored the canonical hash too. The token row is HMAC-
+     *      keyed (only the server can forge it). The disk hash MUST match
+     *      this server-side pin — this is what stops a coordinated rewrite
+     *      of compact_sdd.json + mini_programming_spec.json.
+     *
+     * The third check is gated on `$expectedCompactSddHash` being provided.
+     * The Run endpoint always passes it (sourced from
+     * {@see ConfirmationTokenResult::$expectedCompactSddHash}); legacy / test
+     * paths that bypass the controller can supply null and rely on the two
+     * disk-only layers.
+     *
+     * @param  array<string, mixed>  $compactSdd
+     */
+    private function assertCompactSddHashPinned(
+        string $runId,
+        array $compactSdd,
+        ?string $expectedCompactSddHash = null,
+    ): void {
+        $declaredHash = $compactSdd['compact_sdd_hash'] ?? null;
+        if (! is_string($declaredHash) || $declaredHash === '') {
+            throw CompactSddUnavailableException::invalid($runId, 'compact_sdd_hash is missing');
+        }
+
+        try {
+            $dto = CompactSdd::fromArray($compactSdd);
+        } catch (\Throwable $e) {
+            throw CompactSddUnavailableException::invalid($runId, 'compact_sdd cannot be reconstructed: '.$e->getMessage());
+        }
+
+        $computedHash = $dto->hash();
+        if (! hash_equals($declaredHash, $computedHash)) {
+            throw CompactSddUnavailableException::tampered(
+                $runId,
+                'compact_sdd_hash does not match the current compact_sdd payload',
+            );
+        }
+
+        // F-03 server-side pin: defeats the case where an attacker rewrites
+        // BOTH compact_sdd.json AND mini_programming_spec.json with a fresh
+        // hash. The expected hash here came from the HMAC-keyed token row,
+        // which the attacker cannot forge without APP_KEY.
+        if ($expectedCompactSddHash !== null && $expectedCompactSddHash !== '') {
+            if (! hash_equals($expectedCompactSddHash, $declaredHash)) {
+                throw CompactSddUnavailableException::tampered(
+                    $runId,
+                    'compact_sdd_hash does not match the server-side pin issued at plan time',
+                );
+            }
+        }
+
+        $miniSpec = $this->storage->read($runId, ArtifactNames::MINI_PROGRAMMING_SPEC);
+        $pinnedHash = is_array($miniSpec) ? ($miniSpec['compact_sdd_hash'] ?? null) : null;
+        if (! is_string($pinnedHash) || $pinnedHash === '') {
+            throw CompactSddUnavailableException::tampered(
+                $runId,
+                'mini_programming_spec compact_sdd_hash pin is missing',
+            );
+        }
+
+        if (! hash_equals($pinnedHash, $declaredHash)) {
+            throw CompactSddUnavailableException::tampered(
+                $runId,
+                'compact_sdd_hash does not match the hash pinned by mini_programming_spec',
+            );
+        }
     }
 }

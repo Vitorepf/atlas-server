@@ -196,6 +196,54 @@ final class ConfirmationTokenServiceTest extends TestCase
         $this->assertSame(ConfirmationTokenResult::REASON_KEY_MISSING, $result->reason);
     }
 
+    public function test_issue_persists_compact_sdd_hash_pin(): void
+    {
+        $pin = str_repeat('c', 64);
+        $issue = $this->service->issue('run-pin-1', 'task-contract-pin', 'cli', $pin);
+        $this->assertNotSame('', $issue->plaintext);
+
+        $row = AtlasDevConfirmationToken::query()->where('run_id', 'run-pin-1')->firstOrFail();
+        $this->assertSame($pin, $row->compact_sdd_hash);
+    }
+
+    public function test_validate_returns_pinned_compact_sdd_hash_on_success(): void
+    {
+        $pin = str_repeat('d', 64);
+        $issue = $this->service->issue('run-pin-2', 'task-contract-pin-2', 'cli', $pin);
+
+        $result = $this->service->validateAndConsume('run-pin-2', 'task-contract-pin-2', $issue->plaintext);
+
+        $this->assertTrue($result->ok);
+        $this->assertSame($pin, $result->expectedCompactSddHash);
+    }
+
+    public function test_validate_returns_null_pin_for_legacy_row_without_hash(): void
+    {
+        $issue = $this->service->issue('run-pin-3', 'task-contract-pin-3', 'cli');
+
+        $result = $this->service->validateAndConsume('run-pin-3', 'task-contract-pin-3', $issue->plaintext);
+
+        $this->assertTrue($result->ok);
+        $this->assertNull($result->expectedCompactSddHash);
+    }
+
+    public function test_client_supplied_hash_cannot_override_server_pin(): void
+    {
+        // Sanity: validateAndConsume only takes the plaintext; nothing in the
+        // public surface allows the client to override the pinned hash. The
+        // ok() result always reflects what the SERVER stored at issue() time.
+        $pin = str_repeat('e', 64);
+        $issue = $this->service->issue('run-pin-4', 'task-contract-pin-4', 'cli', $pin);
+
+        // No matter the API caller's input, only (runId, taskContractHash,
+        // plaintext) are passed in. The pin lives server-side.
+        $result = $this->service->validateAndConsume('run-pin-4', 'task-contract-pin-4', $issue->plaintext);
+
+        $this->assertTrue($result->ok);
+        $this->assertSame($pin, $result->expectedCompactSddHash);
+        $this->assertNotSame('forged-by-client', $result->expectedCompactSddHash);
+    }
+
     private function createTokensTable(): void
     {
         Schema::dropIfExists('atlas_dev_confirmation_tokens');
@@ -205,6 +253,7 @@ final class ConfirmationTokenServiceTest extends TestCase
             $table->string('token_hash', 128)->unique();
             $table->string('surface_id', 80)->index();
             $table->string('task_contract_hash', 128)->index();
+            $table->string('compact_sdd_hash', 128)->nullable()->index();
             $table->timestamp('issued_at');
             $table->timestamp('expires_at')->index();
             $table->timestamp('used_at')->nullable();

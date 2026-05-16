@@ -7,6 +7,8 @@ namespace App\Http\Controllers\AtlasDev;
 use App\Http\Controllers\Controller;
 use App\Services\Ai\Programming\AtlasDev\Persistence\ArtifactNames;
 use App\Services\Ai\Programming\AtlasDev\Persistence\ReceiptStorage;
+use App\Services\Ai\Programming\AtlasDev\Surface\HttpResponseRedactor;
+use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use Illuminate\Http\JsonResponse;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -54,6 +56,8 @@ final class StreamController extends Controller
 
     public function __construct(
         private readonly ReceiptStorage $storage,
+        private readonly ConfigRepository $config,
+        private readonly HttpResponseRedactor $redactor = new HttpResponseRedactor,
     ) {}
 
     public function __invoke(string $runId): StreamedResponse|JsonResponse
@@ -96,15 +100,30 @@ final class StreamController extends Controller
 
         $receipt = $this->storage->read($runId, ArtifactNames::VERIFICATION_RECEIPT);
         if ($receipt !== null) {
+            $diffPreview = $this->diffPreview($runId);
+            if ($diffPreview !== null) {
+                $receipt['ui_hints'] = array_merge(
+                    is_array($receipt['ui_hints'] ?? null) ? $receipt['ui_hints'] : [],
+                    ['diff_preview' => $diffPreview],
+                );
+            }
             $completion = is_array($receipt['completion'] ?? null) ? $receipt['completion'] : [];
-            $this->emit('receipt', [
+
+            // F-04: SSE crosses the same HTTP boundary as the Show endpoint, so
+            // the receipt MUST be projected through the redactor before emit.
+            // Without this, evidence_refs[].path, persisted_artifact_paths, and
+            // any diff_preview carrying absolute paths leak directly to the
+            // Desktop/CLI surface.
+            $payload = [
                 'run_id' => $runId,
                 'completion_state' => $completion['status'] ?? null,
                 'receipt_hash' => $receipt['receipt_hash'] ?? null,
                 'verification_status' => $this->extractGateStatus($receipt, 'verification_gate'),
                 'scope_guard_status' => $this->extractGateStatus($receipt, 'scope_guard_light'),
                 'receipt' => $receipt,
-            ]);
+            ];
+
+            $this->emit('receipt', $this->redactPayload($runId, $payload));
         }
 
         $this->emit('stream_closed', [
@@ -147,5 +166,46 @@ final class StreamController extends Controller
         }
 
         return null;
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
+    private function redactPayload(string $runId, array $payload): array
+    {
+        // Walk both prefixes: the workspace root (from the persisted envelope)
+        // turns absolute repo paths into workspace-relative form, and the
+        // storage base (from config) turns absolute receipt paths into the
+        // canonical `receipts/<run_id>/<file>` ref.
+        $envelope = $this->storage->read($runId, ArtifactNames::OPERATION_ENVELOPE);
+        $workspace = is_array($envelope) && is_string($envelope['workspace'] ?? null)
+            ? (string) $envelope['workspace']
+            : '';
+        if ($workspace !== '') {
+            $payload = $this->redactor->redactWorkspaceIn($payload, $workspace);
+        }
+
+        $storageBase = (string) $this->config->get('atlas_dev.receipts_path', '');
+        if ($storageBase !== '') {
+            $payload = $this->redactor->redactStorageIn($payload, $storageBase);
+        }
+
+        return $payload;
+    }
+
+    private function diffPreview(string $runId): ?string
+    {
+        $diffParse = $this->storage->read($runId, ArtifactNames::DIFF_PARSE_RESULT);
+        if (! is_array($diffParse)) {
+            return null;
+        }
+        $diff = $diffParse['diff'] ?? null;
+        if (! is_string($diff)) {
+            return null;
+        }
+        $trimmed = trim($diff);
+
+        return $trimmed === '' ? null : $trimmed;
     }
 }

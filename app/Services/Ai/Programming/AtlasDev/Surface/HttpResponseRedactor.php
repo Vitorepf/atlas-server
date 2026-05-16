@@ -41,7 +41,7 @@ final class HttpResponseRedactor
 
     /**
      * @param  array<string, string>  $absoluteByName  artifact_name => absolute_path
-     * @return array<string, string>  artifact_name => `receipts/<run_id>/<basename>`
+     * @return array<string, string> artifact_name => `receipts/<run_id>/<basename>`
      */
     public function artifactRefs(string $runId, array $absoluteByName): array
     {
@@ -102,6 +102,20 @@ final class HttpResponseRedactor
         $real = @realpath($workspace);
         if (is_string($real) && $real !== '' && $real !== $workspace) {
             $prefixes[] = rtrim($real, DIRECTORY_SEPARATOR);
+        }
+
+        // macOS symlink topology: `/var` → `/private/var`, `/tmp` → `/private/tmp`,
+        // `/etc` → `/private/etc`. When the canonical workspace is the realpath
+        // form (`/private/var/...`), strings persisted by other layers may still
+        // carry the symlink form (`/var/...`) — they share the same inode but
+        // are different prefixes. Register both so neither leaks through SSE.
+        foreach ($prefixes as $existing) {
+            if (str_starts_with($existing, '/private/')) {
+                $alias = substr($existing, strlen('/private'));
+                if ($alias !== '' && ! in_array($alias, $prefixes, true)) {
+                    $prefixes[] = $alias;
+                }
+            }
         }
 
         return $this->walk($payload, function ($value) use ($prefixes, $label) {

@@ -30,6 +30,7 @@ return new class extends Migration
                 $table->string('token_hash', 128)->unique();
                 $table->string('surface_id', 80)->index();
                 $table->string('task_contract_hash', 128)->index();
+                $table->string('compact_sdd_hash', 128)->nullable()->index();
                 $table->timestamp('issued_at');
                 $table->timestamp('expires_at')->index();
                 $table->timestamp('used_at')->nullable();

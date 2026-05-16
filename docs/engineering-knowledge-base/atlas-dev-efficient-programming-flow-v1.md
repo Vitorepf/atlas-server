@@ -43,7 +43,8 @@ decisions:
   - decision_locked surface_agnostic_core adapters_only_know_surfaces_core_never_knows_desktop_cli_app_api 2026-05-16
   - decision_locked delivery_strategy vertical_desktop_first_then_surface_parity 2026-05-16
   - decision_locked atlas_dev_http_routes ai_interactions_atlas_dev_plan_run_stream 2026-05-16
-  - decision_locked atlas_dev_realtime sse_primary_with_rest_status_fallback 2026-05-16
+  - decision_locked atlas_dev_realtime snapshot_replay_then_close_with_rest_show_as_source_of_truth 2026-05-16
+  - decision_superseded atlas_dev_realtime_sse_primary_with_rest_status_fallback replaced_by_snapshot_replay_then_close 2026-05-16
   - decision_locked programming_dev_successor efficient_flow_replaces_classic_programming_dev_only_when_feature_flag_enabled_and_workspace_present 2026-05-16
   - decision_locked run_confirmation single_use_confirmation_token_required_for_provider_run 2026-05-16
   - decision_locked evidence_bridge verification_receipt_references_filesystem_receipts_and_optional_governance_ledger_refs 2026-05-16
@@ -51,7 +52,7 @@ decisions:
   - decision_locked endpoint_paths POST_ai_interactions_atlas_dev_plan_and_POST_ai_interactions_atlas_dev_run 2026-05-16
   - decision_locked plan_endpoint_invariants plan_never_calls_provider_never_applies_patch_zero_token_cost 2026-05-16
   - decision_locked run_endpoint_invariants run_requires_operator_confirmed_true_and_valid_task_contract_hash_referencing_persisted_plan 2026-05-16
-  - decision_locked streaming_paths GET_ai_interactions_atlas_dev_runs_run_id_stream_sse_primary_GET_ai_interactions_atlas_dev_runs_run_id_rest_fallback 2026-05-16
+  - decision_locked streaming_paths GET_ai_interactions_atlas_dev_runs_run_id_stream_snapshot_replay_then_close_GET_ai_interactions_atlas_dev_runs_run_id_rest_source_of_truth 2026-05-16
   - decision_locked product_positioning atlas_ai_is_enterprise_programmer_surface_atlas_dev_is_workspace_development_flow_forge_is_obra_production_os 2026-05-16
   - decision_locked engine_strategy atlas_ai_wraps_best_available_engines_atlas_dev_applies_governance_multiplier_for_workspace_development_provider_lock_fixed_per_run_atlas_decide_between_runs 2026-05-16
   - decision_locked atlas_ai_hierarchy atlas_ai_router_routes_to_specialized_flows_atlas_dev_is_workspace_development_flow 2026-05-16
@@ -182,7 +183,7 @@ required_tests:
   - "php artisan test tests/Feature/AtlasCliDevCommandTest.php tests/Unit/AtlasCliDevWorkflowServiceTest.php tests/Unit/Ai/Programming/AtlasDevRuntimeServiceTest.php"
 requires_evidence: true
 risk_level: high
-line_limit: 1200
+line_limit: 1300
 ---
 # Atlas Dev Efficient Programming Flow v1
 
@@ -637,7 +638,7 @@ Regras:
 
 ## 12. Artefatos (Visao Geral)
 
-Os artefatos canonicos sao **14**, agrupados em quatro camadas. Schemas detalhados, invariants, exemplos e signatures PHP DTO vivem em `atlas-dev-efficient-programming-flow-contracts-v1.md`.
+Os artefatos canonicos operacionais sao **17**, agrupados em quatro camadas. Schemas detalhados, invariants, exemplos e signatures PHP DTO vivem em `atlas-dev-efficient-programming-flow-contracts-v1.md`.
 
 ### 12.1 Camada Plano (o que vamos fazer)
 
@@ -661,6 +662,9 @@ Os artefatos canonicos sao **14**, agrupados em quatro camadas. Schemas detalhad
 
 | Artefato | Funcao |
 | --- | --- |
+| `ProviderCallResult` | receipt seguro da chamada ao provider (provider/model, exit, duration, hashes e erros; sem stdout/stderr cru em surface) |
+| `DiffParseResult` | resultado deterministico do parser de diff (`patch`, `no_patch_needed`, `blocked`, `invalid`) antes de aplicar patch |
+| `PatchApplyResult` | receipt da aplicacao do patch no workspace antes de scope guard e verification |
 | `ScopeGuardReceipt` | diff vs `LightTaskContract.allowed_files` + watched/forbidden |
 | `VerificationReceipt` | gates + tests + cost + completion + escalation (schema `atlas.dev.verification_receipt.v1`) |
 | `FailureCapsule` | input determinístico para repair (gate, command, exit_code, primary_error_excerpt, failure_signature, decision) |
@@ -1008,10 +1012,10 @@ Sequencia operacional de fatias (detalhe em `atlas-dev-efficient-programming-flo
 
 | Fatia | Entrega | Valor user-facing |
 | --- | --- | --- |
-| 0 | Schemas (DTOs read-only dos 14 artefatos) + validators + testes de serializacao/hash | fundacao, sem efeito user-facing |
+| 0 | Schemas (DTOs read-only dos 17 artefatos operacionais) + validators + testes de serializacao/hash | fundacao, sem efeito user-facing |
 | 1 | `DocContextTierSelector` + `CodeDiscoveryEngine` + `OpenBrainProjectionAdapter` | Atlas passa a achar arquivos certos antes de chamar provider |
 | 1.5 | `ProviderPromptBuilder` + `TelemetryEmitter` + `ErrorLedgerWriter` + `ReceiptStorage` | prompt nasce de contratos + persistencia + telemetria desde dia 1 |
-| 2 | Plan-only pipeline end-to-end (Intake, Classifier, RiskScorer, SpecComposer, Orchestrator) + comando `atlas:dev:plan` | operador ve plano curado antes de gastar token |
+| 2 | Plan-only pipeline end-to-end (Intake, Classifier, RiskScorer, SpecComposer, Orchestrator) + CLI `atlas:cli:dev --efficient` | operador ve plano curado antes de gastar token |
 | 3 | One-call Sonnet via `claude_cli` + `ScopeGuard` + `VerificationGate` + `CompletionStateGate` + `VerificationReceipt` + comando `atlas:dev:run` | write real com evidence determinística |
 | 4 | `FailureCapsuleBuilder` + `RepairOrchestrator` + limites por R-level | recovery loop completo |
 | 5 | `EscalationDecisionEngine` + Atlas AI Desktop Mac first + Surface Adapters de paridade (CLI Dev, App, API) + evolucao de `AtlasCliDevWorkflowService` | fluxo disponivel primeiro na surface primaria e depois nas demais surfaces |
@@ -1039,7 +1043,7 @@ Apos Fatia 5, esta equipe **encerra**. Outra equipe (Medicao / Rivals) toma o fl
 | 5 | Code namespace | `app/Services/Ai/Programming/AtlasDev/{Schemas,Discovery,Gate,Persistence,...}` | 2026-05-16 |
 | 6 | Provider lock | `claude_cli` + Sonnet, sem fallback | 2026-05-16 |
 | 7 | Schema de receipt | `atlas.dev.verification_receipt.v1` | 2026-05-16 |
-| 8 | Artefatos canonicos | 14 artefatos em 4 camadas (Plano/Contexto/Receipt/Telemetria) | 2026-05-16 |
+| 8 | Artefatos canonicos | 17 artefatos operacionais em 4 camadas (Plano/Contexto/Receipt/Telemetria) | 2026-05-16 |
 | 9 | Ordem de fatias | 0 -> 1 -> 1.5 -> 2 -> 3 -> 4 -> 5; nao pular | 2026-05-16 |
 | 10 | Surface inicial | Atlas AI Desktop Mac via `surface_id=atlas_desktop_ai` | 2026-05-16 |
 | 11 | Relacao com Governance | Atlas Dev gates sao projecoes de Governance ou Dev-only justificados que nao contradizem Governance | 2026-05-16 |
@@ -1176,6 +1180,67 @@ Implicacoes para esta equipe:
 - ao desenhar artefatos, separar mentalmente o que e **especifico de Programming** vs o que pode virar **Core compartilhado** com outras verticais;
 - naming, schemas e contratos devem ser **suficientemente genericos** para futura promocao a Core sem rename forcado;
 - evitar acoplar Atlas Dev a `programming.*` em nomes de schema quando o conceito for genérico (ex: `OperationEnvelope` e generico; `MiniProgrammingSpec` e Programming-specific).
+
+## 26.4 Sumario Operacional (Estado Real Implementado)
+
+Resumo curto do que **ja foi entregue** e do que ainda e follow-up. Detalhe operacional vive em `atlas-dev-efficient-programming-flow-runbook-v1.md` §15.1.
+
+### Flags Atlas Dev Efficient
+
+Tres niveis (todos `false` por padrao em production):
+
+- `ATLAS_DEV_EFFICIENT_PLAN_ENABLED` → libera `POST /ai/interactions/atlas-dev/plan` (zero-provider, seguro ligar primeiro).
+- `ATLAS_DEV_EFFICIENT_RUN_ENABLED` → libera `POST /ai/interactions/atlas-dev/run` (so apos Plan verde em prod).
+- `ATLAS_DEV_EFFICIENT_DESKTOP_ENABLED` → libera consumo via surface Desktop.
+
+Desligar = flag `false` → controller responde 503 `ATLAS_DEV_{PLAN,RUN}_DISABLED`, sem efeito colateral.
+
+### APP_KEY obrigatorio (fail-closed)
+
+- `APP_KEY` precisa ser `base64:...` com ao menos 32 bytes decodificados (saida canonica de `php artisan key:generate`).
+- Plan e Run **falham fechado** com `500 ATLAS_DEV_KEY_MISSING` quando a chave esta ausente ou curta. Nao ha fallback publico, nao ha "default key", e o operador sempre precisa rotacionar antes de habilitar runs.
+- Detalhe canonico em `atlas-dev-efficient-programming-flow-runbook-v1.md` §15.1.2 e §15.1.4.
+
+### Smoke CLI canonico
+
+- Publico (igual ao que o Desktop emite): `php artisan atlas:cli:dev "..." --efficient --json`.
+- Diagnostico interno (zero-provider, sem token): `php artisan atlas:dev:debug:smoke --intent="..." --workspace=/abs/path --json`. **Nao** e contrato publico de CLI; serve so para isolar regressao no pipeline plan-only.
+
+### Stream snapshot-replay-then-close
+
+- `GET /ai/interactions/atlas-dev/runs/{run_id}/stream` faz **snapshot-replay-then-close**: replay deterministico de eventos `phase:`, `receipt:` (se houver) e `stream_closed:` final, depois fecha a conexao.
+- Nao ha long-lived keepalive nesta fase. Cliente trata `stream_closed` como fim canonico; qualquer estado intermediario ou retomada vem de `GET /runs/{run_id}` (REST, fonte de verdade).
+- Live async (tail de log incremental) e evolucao futura — clientes ja devem ler o REST como source-of-truth.
+
+### Path redaction nas respostas HTTP
+
+- `HttpResponseRedactor` (camada surface) reescreve toda string que comece com o workspace absoluto:
+  - `workspace_label = basename($workspace)` (sem `/Users/...`);
+  - `workspace_hash` continua sendo o identifier provider-safe;
+  - artefatos persistidos surgem como `persisted_artifact_refs` / `persisted_receipt_refs` no formato `receipts/<run_id>/<file>`, nao como path absoluto.
+- Paths absolutos permanecem **so** internamente (storage, discovery, telemetria local).
+- Smoke de verificacao: o body de `POST /plan` ou `POST /run` nunca pode conter `/Users/` nem o caminho de `storage/atlas-dev/receipts/`.
+
+### Validacao operacional
+
+```bash
+# Suite canonica (core + endpoints + adapters)
+/opt/homebrew/bin/php artisan test tests/Unit/Ai/Programming/AtlasDev tests/Feature/Ai/Programming/AtlasDev
+
+# Smoke HTTP end-to-end com PipelineRunExecutor real + fakes deterministicos
+/opt/homebrew/bin/php artisan test tests/Feature/Ai/Programming/AtlasDev/Http/PipelineRunExecutorHttpSmokeTest.php
+
+# Health dos docs canonicos Atlas Dev
+/opt/homebrew/bin/php artisan atlas:engineering:knowledge docs-health --json
+```
+
+`atlas:engineering:knowledge docs-health --json` deve devolver `status: ok` com zero `violations`. Qualquer claim alterado neste doc passa por esse gate antes de virar canon.
+
+### Follow-ups explicitos (nao entregues)
+
+- **Bundle hash publico para o operador** — o Plan ja pina server-side dois hashes na linha HMAC-keyed do confirmation_token (`task_contract_hash` e `compact_sdd_hash`), e o `PipelineRunExecutor` valida ambos antes de chamar o provider (mismatch = 422 `TASK_CONTRACT_HASH_MISMATCH` / `COMPACT_SDD_TAMPERED`). MiniSpec ainda carrega `compact_sdd_hash` no disco como terceira camada. O que **ainda** nao existe e um hash unico do bundle completo `(envelope, compact_sdd, mini_spec, task_contract, prompt_projection)` publicado pelo Plan para o operador validar lado a lado, e o pin HMAC ainda nao cobre `envelope_hash` ou `prompt_projection_hash` (so `task_contract_hash` + `compact_sdd_hash`). Esperado em fatia futura.
+- **Live async stream** (`phase:` em tempo real durante a execucao real) — ver §26.1 / `15.1.6`. Hoje so existe snapshot-replay-then-close + REST poll.
+- **Outras surfaces** (App, API publica) — Desktop e canonico hoje; CLI tem paridade limitada via `atlas:cli:dev`. App/API completos sao trabalho futuro.
 
 ## 27. Regra Final
 

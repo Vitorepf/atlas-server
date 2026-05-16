@@ -36,6 +36,13 @@ final class TaskClassifierTest extends TestCase
         $this->assertTrue($classification->writeImplied);
     }
 
+    public function test_repair_kind_for_common_portuguese_conserte(): void
+    {
+        $classification = $this->classify('Conserte FooService para retornar 42', surface: 'atlas_desktop_ai');
+        $this->assertSame(TaskClassification::KIND_REPAIR, $classification->taskKind);
+        $this->assertTrue($classification->writeImplied);
+    }
+
     public function test_review_kind_is_read_only(): void
     {
         $classification = $this->classify('revisar este diff em app/Foo.php', surface: 'atlas_cli_dev');

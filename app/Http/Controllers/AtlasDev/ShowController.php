@@ -68,6 +68,14 @@ final class ShowController extends Controller
         $routing = $this->storage->read($runId, ArtifactNames::ROUTING_DECISION);
         $receipt = $this->storage->read($runId, ArtifactNames::VERIFICATION_RECEIPT);
         $scope = $this->storage->read($runId, ArtifactNames::SCOPE_GUARD_RECEIPT);
+        $diffParse = $this->storage->read($runId, ArtifactNames::DIFF_PARSE_RESULT);
+        $diffPreview = $this->diffPreview($diffParse);
+        if (is_array($receipt) && $diffPreview !== null) {
+            $receipt['ui_hints'] = array_merge(
+                is_array($receipt['ui_hints'] ?? null) ? $receipt['ui_hints'] : [],
+                ['diff_preview' => $diffPreview],
+            );
+        }
 
         $completion = is_array($receipt) ? ($receipt['completion'] ?? null) : null;
         $completionState = is_array($completion) ? ($completion['status'] ?? null) : null;
@@ -104,8 +112,23 @@ final class ShowController extends Controller
                 'verification_receipt_hash' => is_array($receipt) ? ($receipt['receipt_hash'] ?? null) : null,
                 'scope_guard_receipt_hash' => is_array($scope) ? ($scope['receipt_hash'] ?? null) : null,
                 'persisted_artifact_refs' => $artifactRefs,
+                'diff_preview' => $diffPreview,
                 'receipt' => is_array($receipt) ? $receipt : null,
             ],
         ], 200);
+    }
+
+    /**
+     * @param  array<string, mixed>|null  $diffParse
+     */
+    private function diffPreview(?array $diffParse): ?string
+    {
+        $diff = $diffParse['diff'] ?? null;
+        if (! is_string($diff)) {
+            return null;
+        }
+        $trimmed = trim($diff);
+
+        return $trimmed === '' ? null : $trimmed;
     }
 }

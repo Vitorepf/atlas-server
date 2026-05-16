@@ -44,7 +44,13 @@ final class SymfonyProcessCommandRunner implements VerificationCommandRunner
             );
         }
 
-        $process = Process::fromShellCommandline($command, $workspace, env: null, input: null, timeout: max(1, $timeoutSeconds));
+        $process = Process::fromShellCommandline(
+            command: $command,
+            cwd: $workspace,
+            env: $this->processEnv(),
+            input: null,
+            timeout: max(1, $timeoutSeconds),
+        );
         $start = hrtime(true);
         $timedOut = false;
         try {
@@ -62,5 +68,24 @@ final class SymfonyProcessCommandRunner implements VerificationCommandRunner
             durationMs: $durationMs,
             timedOut: $timedOut,
         );
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function processEnv(): array
+    {
+        $env = [];
+        foreach (['HOME', 'PATH', 'USER', 'LOGNAME'] as $key) {
+            $value = getenv($key);
+            if (! is_string($value) || trim($value) === '') {
+                $value = $_SERVER[$key] ?? $_ENV[$key] ?? null;
+            }
+            if (is_string($value) && trim($value) !== '') {
+                $env[$key] = $value;
+            }
+        }
+
+        return $env;
     }
 }

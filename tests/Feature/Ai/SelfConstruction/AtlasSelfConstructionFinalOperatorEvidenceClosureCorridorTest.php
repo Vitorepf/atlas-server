@@ -511,6 +511,41 @@ final class AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorTest extend
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $meter['progress_meter_hash']);
     }
 
+    public function test_operator_failure_recovery_matrix_centralizes_safe_recovery_paths(): void
+    {
+        $payload = (new AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorService(app(AtlasSelfConstructionReadinessService::class)))->build();
+        $matrix = $payload['operator_failure_recovery_matrix'];
+
+        $this->assertSame('atlas.self_construction.final_operator_failure_recovery_matrix.v1', $matrix['schema_version']);
+        $this->assertSame('read_only_operator_failure_recovery_matrix', $matrix['mode']);
+        $this->assertSame('operator_recovery_guidance_available', $matrix['status']);
+        $this->assertSame(5, $matrix['row_count']);
+        $this->assertSame(
+            [
+                'placeholder_command_detected',
+                'post_action_verifier_not_green',
+                'hash_mismatch_detected',
+                'stale_replay_snapshot_or_runtime_basis',
+                'real_provider_smoke_aborted_or_incomplete',
+            ],
+            array_column($matrix['rows'], 'failure_id'),
+        );
+        $this->assertTrue($matrix['recovery_requires_fresh_corridor_status']);
+        $this->assertFalse($matrix['can_recover_from_matrix']);
+        $this->assertFalse($matrix['can_execute_from_matrix']);
+        $this->assertFalse($matrix['can_persist_from_matrix']);
+        $this->assertFalse($matrix['can_call_provider_from_matrix']);
+        $this->assertFalse($matrix['can_sign_for_operator_from_matrix']);
+        $this->assertStringContainsString('--atlas-self-construction-final-operator-evidence-closure-corridor-status', data_get($matrix, 'rows.0.safe_recovery_command'));
+        $this->assertContains('do_not_execute_placeholder_command', data_get($matrix, 'rows.0.do_not_do'));
+        $this->assertContains('do_not_advance_to_next_artifact', data_get($matrix, 'rows.1.do_not_do'));
+        $this->assertStringContainsString('--atlas-self-construction-completion-evidence-hash-composer-status', data_get($matrix, 'rows.2.safe_recovery_command'));
+        $this->assertStringContainsString('--agent-control-plane-replay-snapshot-store-capture', data_get($matrix, 'rows.3.safe_recovery_command'));
+        $this->assertStringContainsString('--atlas-self-construction-real-provider-smoke-offline-harness-status', data_get($matrix, 'rows.4.safe_recovery_command'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($matrix, 'rows.0.recovery_row_hash'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $matrix['failure_recovery_matrix_hash']);
+    }
+
     public function test_operator_next_action_shell_packet_is_copy_ready_only_after_placeholders_are_replaced(): void
     {
         $payload = (new AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorService(app(AtlasSelfConstructionReadinessService::class)))->build();
@@ -526,7 +561,41 @@ final class AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorTest extend
         $this->assertFalse($packet['safe_to_copy_after_operator_review']);
         $this->assertTrue($packet['operator_must_replace_placeholders']);
         $this->assertContains('<operator>', $packet['placeholder_fields_to_replace']);
+        $this->assertSame(2, $packet['placeholder_replacement_contract_count']);
+        $this->assertSame('<operator>', data_get($packet, 'placeholder_replacement_contract.0.placeholder'));
+        $this->assertSame('operator_identity', data_get($packet, 'placeholder_replacement_contract.0.replacement_kind'));
+        $this->assertContains('codex', data_get($packet, 'placeholder_replacement_contract.0.must_not_equal'));
+        $this->assertSame('operator_reason', data_get($packet, 'placeholder_replacement_contract.1.replacement_kind'));
+        $this->assertSame(32, data_get($packet, 'placeholder_replacement_contract.1.minimum_length'));
         $this->assertStringContainsString('--atlas-self-construction-final-operator-evidence-closure-corridor-status', $packet['preflight_command']);
+        $this->assertSame('runtime_promotion_receipt_draft', data_get($packet, 'post_action_success_checks.0.surface'));
+        $this->assertStringContainsString('ready_for_operator_persistence', data_get($packet, 'post_action_success_checks.0.expected'));
+        $this->assertSame('atlas.self_construction.final_operator_next_action_post_action_verification_bundle.v1', data_get($packet, 'post_action_verification_bundle.schema_version'));
+        $this->assertSame('verify_before_next_artifact_or_persist', data_get($packet, 'post_action_verification_bundle.status'));
+        $this->assertSame('runtime_promotion_receipt', data_get($packet, 'post_action_verification_bundle.next_required_submission'));
+        $this->assertGreaterThanOrEqual(2, data_get($packet, 'post_action_verification_bundle.verification_command_count'));
+        $this->assertSame(3, data_get($packet, 'post_action_verification_bundle.success_check_count'));
+        $this->assertStringContainsString(
+            '--atlas-self-construction-os-completion-audit-status',
+            json_encode(data_get($packet, 'post_action_verification_bundle.verification_commands'), JSON_THROW_ON_ERROR),
+        );
+        $this->assertTrue((bool) data_get($packet, 'post_action_verification_bundle.failure_policy.do_not_advance_to_next_artifact'));
+        $this->assertTrue((bool) data_get($packet, 'post_action_verification_bundle.failure_policy.do_not_persist_receipt_until_verifier_green'));
+        $this->assertFalse((bool) data_get($packet, 'post_action_verification_bundle.can_execute_from_bundle'));
+        $this->assertFalse((bool) data_get($packet, 'post_action_verification_bundle.can_persist_from_bundle'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($packet, 'post_action_verification_bundle.verification_bundle_hash'));
+        $this->assertSame('atlas.self_construction.final_operator_next_action_shell_packet_resume.v1', data_get($packet, 'resume_after_interruption.schema_version'));
+        $this->assertSame('resume_by_rerunning_closure_corridor_status', data_get($packet, 'resume_after_interruption.status'));
+        $this->assertSame('runtime_promotion_receipt', data_get($packet, 'resume_after_interruption.current_required_artifact'));
+        $this->assertSame('draft_runtime_promotion_receipt', data_get($packet, 'resume_after_interruption.current_step_id'));
+        $this->assertStringContainsString('--atlas-self-construction-final-operator-evidence-closure-corridor-status', data_get($packet, 'resume_after_interruption.resume_command'));
+        $this->assertTrue((bool) data_get($packet, 'resume_after_interruption.requires_fresh_preflight_before_persist'));
+        $this->assertTrue((bool) data_get($packet, 'resume_after_interruption.do_not_run_persist_command_until_verifier_green'));
+        $this->assertTrue((bool) data_get($packet, 'resume_after_interruption.can_resume_without_chat_history'));
+        $this->assertFalse((bool) data_get($packet, 'resume_after_interruption.can_execute_from_resume_contract'));
+        $this->assertFalse((bool) data_get($packet, 'resume_after_interruption.can_persist_from_resume_contract'));
+        $this->assertContains('do_not_persist_from_stale_chat_memory', data_get($packet, 'resume_after_interruption.forbidden_resume_shortcuts'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($packet, 'resume_after_interruption.resume_contract_hash'));
         $this->assertGreaterThanOrEqual(4, $packet['ordered_shell_command_count']);
         $this->assertSame(1, data_get($packet, 'ordered_shell_commands.0.order'));
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($packet, 'ordered_shell_commands.0.command_hash'));
@@ -648,9 +717,71 @@ final class AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorTest extend
             4,
             data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.operator_next_action_shell_packet_ordered_command_count'),
         );
+        $this->assertSame(
+            2,
+            data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.operator_next_action_shell_packet_placeholder_count'),
+        );
+        $this->assertSame(
+            2,
+            data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.operator_next_action_shell_packet_placeholder_replacement_contract_count'),
+        );
+        $this->assertSame(
+            3,
+            data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.operator_next_action_shell_packet_post_action_success_check_count'),
+        );
+        $this->assertSame(
+            'verify_before_next_artifact_or_persist',
+            data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.operator_next_action_shell_packet_post_action_verification_status'),
+        );
+        $this->assertGreaterThanOrEqual(
+            2,
+            data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.operator_next_action_shell_packet_post_action_verification_command_count'),
+        );
+        $this->assertSame(
+            3,
+            data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.operator_next_action_shell_packet_post_action_verification_success_check_count'),
+        );
+        $this->assertTrue((bool) data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.operator_next_action_shell_packet_post_action_verification_failure_stops_advance'));
+        $this->assertMatchesRegularExpression(
+            '/^[a-f0-9]{64}$/',
+            data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.operator_next_action_shell_packet_post_action_verification_hash'),
+        );
+        $this->assertSame(
+            'resume_by_rerunning_closure_corridor_status',
+            data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.operator_next_action_shell_packet_resume_status'),
+        );
+        $this->assertStringContainsString(
+            '--atlas-self-construction-final-operator-evidence-closure-corridor-status',
+            data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.operator_next_action_shell_packet_resume_command'),
+        );
+        $this->assertSame(
+            'draft_runtime_promotion_receipt',
+            data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.operator_next_action_shell_packet_resume_current_step_id'),
+        );
+        $this->assertTrue((bool) data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.operator_next_action_shell_packet_requires_fresh_preflight_before_persist'));
+        $this->assertTrue((bool) data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.operator_next_action_shell_packet_do_not_persist_until_verifier_green'));
+        $this->assertTrue((bool) data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.operator_next_action_shell_packet_can_resume_without_chat_history'));
+        $this->assertMatchesRegularExpression(
+            '/^[a-f0-9]{64}$/',
+            data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.operator_next_action_shell_packet_resume_contract_hash'),
+        );
         $this->assertMatchesRegularExpression(
             '/^[a-f0-9]{64}$/',
             data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.operator_next_action_shell_packet_hash'),
+        );
+        $this->assertSame(
+            'operator_recovery_guidance_available',
+            data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.operator_failure_recovery_matrix_status'),
+        );
+        $this->assertSame(
+            5,
+            data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.operator_failure_recovery_matrix_row_count'),
+        );
+        $this->assertTrue((bool) data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.operator_failure_recovery_matrix_requires_fresh_corridor_status'));
+        $this->assertFalse((bool) data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.operator_failure_recovery_matrix_can_recover_from_matrix'));
+        $this->assertMatchesRegularExpression(
+            '/^[a-f0-9]{64}$/',
+            data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.operator_failure_recovery_matrix_hash'),
         );
         $this->assertSame(
             'command_surface_aligned',

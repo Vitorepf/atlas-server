@@ -292,6 +292,103 @@ DIFF;
         $this->assertSame([], $gateway->requests);
     }
 
+    /**
+     * F-03 server-side pin: when the caller (RunController, sourced from
+     * the HMAC-keyed confirmation_token row) supplies an expected
+     * compact_sdd_hash that does NOT match the on-disk value, the executor
+     * fails closed before invoking the provider.
+     */
+    public function test_server_side_hash_pin_mismatch_fails_closed_with_tampered(): void
+    {
+        $runId = 'dev-pin-mismatch-'.bin2hex(random_bytes(3));
+        $storage = new ReceiptStorage($this->tmpStorage);
+        $this->seedRun($storage, $runId, taskKind: 'repair', riskLevel: 'R2');
+
+        $gateway = new FakeClaudeCliGateway;
+        $commandRunner = new FakeCommandRunner;
+        $executor = $this->wireExecutor($storage, $gateway, $commandRunner);
+
+        $envelope = $this->envelope();
+        try {
+            $executor->execute(
+                envelope: $envelope,
+                taskContract: $this->taskContractFixture(),
+                promptProjection: $this->buildSendableProjection(envelope: $envelope),
+                runId: $runId,
+                // Forge a different expected hash to simulate the disk being
+                // mutated AFTER the plan-time pin was captured.
+                expectedCompactSddHash: str_repeat('f', 64),
+            );
+            $this->fail('Expected CompactSddUnavailableException when server-side pin disagrees.');
+        } catch (CompactSddUnavailableException $e) {
+            $this->assertSame('COMPACT_SDD_TAMPERED', $e->errorCode());
+            $this->assertSame(CompactSddUnavailableException::REASON_TAMPERED, $e->reasonCode);
+            $this->assertStringContainsString('server-side pin', $e->detail);
+        }
+
+        $this->assertSame(
+            [],
+            $gateway->requests,
+            'Provider MUST NOT be called when the server-side compact_sdd pin disagrees.',
+        );
+        $this->assertSame([], $commandRunner->calls);
+        $this->assertNull(
+            $storage->read($runId, ArtifactNames::VERIFICATION_RECEIPT),
+            'No verification_receipt should be persisted for a tampered run.',
+        );
+    }
+
+    public function test_server_side_hash_pin_match_allows_run_to_complete(): void
+    {
+        $runId = 'dev-pin-match-'.bin2hex(random_bytes(3));
+        $storage = new ReceiptStorage($this->tmpStorage);
+        $this->seedRun($storage, $runId, taskKind: 'repair', riskLevel: 'R2');
+
+        // The hash currently on disk (re-read so we compare exactly what
+        // resolveTaskKindAndRiskLevel will see).
+        $compact = $storage->read($runId, ArtifactNames::COMPACT_SDD);
+        $this->assertIsArray($compact);
+        $expected = (string) $compact['compact_sdd_hash'];
+
+        $executor = $this->makeExecutor($storage, gatewayStdout: 'no_patch_needed: true');
+        $envelope = $this->envelope();
+
+        $executor->execute(
+            envelope: $envelope,
+            taskContract: $this->taskContractFixture(),
+            promptProjection: $this->buildSendableProjection(envelope: $envelope),
+            runId: $runId,
+            expectedCompactSddHash: $expected,
+        );
+
+        $receipt = $this->loadReceipt($storage, $runId);
+        $this->assertSame('R2', $receipt->riskLevel);
+        $this->assertSame('repair', $receipt->taskKind);
+    }
+
+    public function test_null_server_side_pin_falls_back_to_disk_only_chain(): void
+    {
+        // Legacy / CLI paths that pre-date the token row column may pass
+        // null. The executor must still defend via the on-disk pin chain
+        // (self-hash + mini_programming_spec pin).
+        $runId = 'dev-null-pin-'.bin2hex(random_bytes(3));
+        $storage = new ReceiptStorage($this->tmpStorage);
+        $this->seedRun($storage, $runId, taskKind: 'repair', riskLevel: 'R2');
+
+        $executor = $this->makeExecutor($storage, gatewayStdout: 'no_patch_needed: true');
+        $envelope = $this->envelope();
+
+        $executor->execute(
+            envelope: $envelope,
+            taskContract: $this->taskContractFixture(),
+            promptProjection: $this->buildSendableProjection(envelope: $envelope),
+            runId: $runId,
+            expectedCompactSddHash: null,
+        );
+
+        $this->assertNotNull($storage->read($runId, ArtifactNames::VERIFICATION_RECEIPT));
+    }
+
     // ------------------------------------------------------------------
     // Helpers
     // ------------------------------------------------------------------
@@ -332,7 +429,12 @@ DIFF;
     private function seedRun(ReceiptStorage $storage, string $runId, string $taskKind, string $riskLevel): void
     {
         $compactSdd = $this->compactSddFixture(['task_kind' => $taskKind, 'risk_level' => $riskLevel]);
-        $storage->writeAtomic($runId, ArtifactNames::COMPACT_SDD, $compactSdd->toCanonicalArray());
+        $compactPayload = $compactSdd->toCanonicalArray();
+        $compactPayload['compact_sdd_hash'] = $compactSdd->hash();
+        $storage->writeAtomic($runId, ArtifactNames::COMPACT_SDD, $compactPayload);
+
+        $miniSpec = $this->miniSpecFixture(['compact_sdd_hash' => $compactPayload['compact_sdd_hash']]);
+        $storage->writeAtomic($runId, ArtifactNames::MINI_PROGRAMMING_SPEC, $miniSpec->toCanonicalArray());
 
         $storage->writeAtomic($runId, ArtifactNames::OPEN_BRAIN_PROJECTION, [
             'context_pack_hash' => 'atlas-dev:context_pack:'.bin2hex(random_bytes(4)),

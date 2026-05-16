@@ -38,6 +38,44 @@ MD;
         $this->assertNotNull($result->diffHash());
     }
 
+    public function test_ignores_non_unified_fence_and_stops_at_unified_diff_closing_fence(): void
+    {
+        $payload = <<<'MD'
+The direct edit was blocked, but here is the change:
+
+```diff
+-        return 41;
++        return 42;
+```
+
+**Diff (unified):**
+```diff
+--- app/Services/Foo/FooService.php
++++ app/Services/Foo/FooService.php
+@@ -4,6 +4,6 @@
+     public function answer(): int
+     {
+-        return 41;
++        return 42;
+     }
+ }
+```
+
+**changed_files:** `app/Services/Foo/FooService.php`
+**blocked:** `true`
+MD;
+
+        $result = $this->parser()->parse($payload);
+
+        $this->assertTrue($result->hasPatch());
+        $this->assertSame(['app/Services/Foo/FooService.php'], $result->changedFiles);
+        $this->assertNotNull($result->diff);
+        $this->assertStringContainsString('+        return 42;', $result->diff);
+        $this->assertStringNotContainsString('```', $result->diff);
+        $this->assertStringNotContainsString('changed_files', $result->diff);
+        $this->assertStringNotContainsString('blocked', $result->diff);
+    }
+
     public function test_parses_raw_unified_diff_without_fence(): void
     {
         $diff = <<<'DIFF'

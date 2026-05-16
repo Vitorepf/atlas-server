@@ -120,6 +120,18 @@ final class StreamEndpointTest extends AtlasDevHttpTestCase
                 ],
             ],
         );
+        $this->app->make(ReceiptStorage::class)->writeAtomic(
+            $runId,
+            ArtifactNames::DIFF_PARSE_RESULT,
+            [
+                'schema_version' => 'atlas.dev.diff_parse_result.v1',
+                'mode' => 'patch',
+                'diff' => "--- app/Services/Foo/FooService.php\n+++ app/Services/Foo/FooService.php\n@@ -1 +1 @@\n-return 41;\n+return 42;",
+                'diff_hash' => str_repeat('d', 64),
+                'changed_files' => ['app/Services/Foo/FooService.php'],
+                'errors' => [],
+            ],
+        );
 
         $body = (string) $this->withHeaders($this->headers)
             ->get('/ai/interactions/atlas-dev/runs/'.$runId.'/stream')
@@ -129,5 +141,62 @@ final class StreamEndpointTest extends AtlasDevHttpTestCase
         $this->assertStringContainsString('"receipt":{', $body);
         $this->assertStringContainsString('"tests":[', $body);
         $this->assertStringContainsString('composer test', $body);
+        $this->assertStringContainsString('"ui_hints":{"diff_preview":"--- app/Services/Foo/FooService.php', $body);
+        $this->assertStringContainsString('return 42;', $body);
+    }
+
+    /**
+     * F-04 regression: SSE crosses the same HTTP boundary as the Show endpoint
+     * and MUST run the receipt payload through HttpResponseRedactor before
+     * emit. Pre-patch the receipt with workspace-absolute paths and a storage-
+     * absolute path; both forms must be redacted to provider-safe forms.
+     */
+    public function test_stream_receipt_event_redacts_absolute_paths(): void
+    {
+        $plan = $this->postPlan($this->defaultRepairPayload());
+        $runId = $plan['run_id'];
+
+        $absoluteFooPath = $this->tmpWorkspace.'/app/Services/Foo/FooService.php';
+        $absoluteEvidencePath = $this->tmpStorage.'/'.$runId.'/evidence-test.log';
+
+        $this->app->make(ReceiptStorage::class)->writeAtomic(
+            $runId,
+            ArtifactNames::VERIFICATION_RECEIPT,
+            [
+                'completion' => [
+                    'honesty_flags' => [],
+                    'residual_risks' => [],
+                    'status' => 'passed',
+                ],
+                'gates' => [],
+                'receipt_hash' => str_repeat('a', 64),
+                'run_id' => $runId,
+                'task_contract_hash' => $plan['hashes']['task_contract'],
+                'evidence_refs' => [
+                    [
+                        'governance_ledger_ref' => null,
+                        'hash' => str_repeat('e', 64),
+                        'kind' => 'test_log',
+                        'path' => $absoluteEvidencePath,
+                        'provider_safe' => true,
+                    ],
+                ],
+                'changed_files' => [$absoluteFooPath],
+                'tests' => [],
+            ],
+        );
+
+        $body = (string) $this->withHeaders($this->headers)
+            ->get('/ai/interactions/atlas-dev/runs/'.$runId.'/stream')
+            ->streamedContent();
+
+        // Hard requirements: no absolute filesystem prefixes leak via SSE.
+        $this->assertStringNotContainsString($this->tmpWorkspace, $body, 'absolute workspace path leaked in SSE');
+        $this->assertStringNotContainsString($this->tmpStorage, $body, 'absolute storage path leaked in SSE');
+        $this->assertStringNotContainsString('/Users/', $body, 'home-relative path leaked in SSE');
+        $this->assertStringNotContainsString('/private/var/', $body, 'macOS realpath leaked in SSE');
+
+        // Soft expectations: the redacted ref form survives.
+        $this->assertStringContainsString('receipts/'.$runId.'/evidence-test.log', $body, 'storage path missing redacted ref');
     }
 }

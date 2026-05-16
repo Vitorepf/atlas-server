@@ -175,6 +175,7 @@ final class SmokeFakeRunExecutor implements RunExecutor
         LightTaskContract $taskContract,
         ProviderPromptProjection $promptProjection,
         string $runId,
+        ?string $expectedCompactSddHash = null,
     ): RunExecutionResult {
         $this->calls[] = $runId;
 

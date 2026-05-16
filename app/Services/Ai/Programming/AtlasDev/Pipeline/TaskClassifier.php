@@ -35,7 +35,7 @@ class TaskClassifier
     ];
 
     private const REPAIR_TOKENS = [
-        'corrija', 'corrigir', 'corrige', 'fix ', 'fixar', 'conserta', 'consertar',
+        'corrija', 'corrigir', 'corrige', 'fix ', 'fixar', 'conserta', 'conserte', 'consertar',
         'teste falhando', 'testes falhando', 'failing test', 'failing tests',
         'broken', 'quebrado', 'quebrada', 'red ci', 'ci vermelho',
         'bug', 'regressao', 'regressão', 'regression',
@@ -66,7 +66,7 @@ class TaskClassifier
         'corrija', 'corrigir', 'corrige', 'fix ', 'ajuste', 'ajusta',
         'remova', 'remover', 'remove', 'apagar', 'delete', 'adicione',
         'adicionar', 'add ', 'crie', 'create', 'rename', 'renomeie',
-        'refator', 'refactor', 'extract', 'extraia', 'rode', 'execute',
+        'conserta', 'conserte', 'consertar', 'refator', 'refactor', 'extract', 'extraia', 'rode', 'execute',
         'altere', 'alterar', 'update ', 'atualize', 'atualizar', 'edit ',
     ];
 

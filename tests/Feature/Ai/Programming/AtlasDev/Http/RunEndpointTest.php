@@ -2,10 +2,14 @@
 
 namespace Tests\Feature\Ai\Programming\AtlasDev\Http;
 
+use App\Http\Controllers\AtlasDev\Support\RunExecutionResult;
 use App\Http\Controllers\AtlasDev\Support\RunExecutor;
 use App\Models\AtlasDevConfirmationToken;
 use App\Services\Ai\Programming\AtlasDev\Persistence\ArtifactNames;
 use App\Services\Ai\Programming\AtlasDev\Persistence\ReceiptStorage;
+use App\Services\Ai\Programming\AtlasDev\Schemas\LightTaskContract;
+use App\Services\Ai\Programming\AtlasDev\Schemas\OperationEnvelope;
+use App\Services\Ai\Programming\AtlasDev\Schemas\ProviderPromptProjection;
 use Illuminate\Support\Carbon;
 
 final class RunEndpointTest extends AtlasDevHttpTestCase
@@ -76,6 +80,70 @@ final class RunEndpointTest extends AtlasDevHttpTestCase
         $response->assertJsonPath('data.provider_call.model_family', 'sonnet');
         $response->assertJsonPath('data.provider_call.provider_calls', 1);
         $this->assertCount(1, $this->fakeExecutor->calls);
+    }
+
+    public function test_run_extends_php_execution_time_before_provider_call(): void
+    {
+        $previous = ini_get('max_execution_time');
+        ini_set('max_execution_time', '30');
+        config()->set('atlas.ai.timeout_seconds', 600);
+
+        try {
+            $plan = $this->plan();
+
+            $this->withHeaders($this->headers)
+                ->postJson('/ai/interactions/atlas-dev/run', [
+                    'run_id' => $plan['run_id'],
+                    'task_contract_hash' => $plan['task_contract_hash'],
+                    'confirmation_token' => $plan['confirmation_token'],
+                    'operator_confirmed' => true,
+                ])
+                ->assertStatus(200);
+
+            $this->assertGreaterThanOrEqual(660, $this->fakeExecutor->maxExecutionTimeAtExecute);
+        } finally {
+            ini_set('max_execution_time', (string) $previous);
+        }
+    }
+
+    public function test_run_500_error_redacts_token_and_absolute_paths(): void
+    {
+        $plan = $this->plan();
+        $token = $plan['confirmation_token'];
+
+        $this->app->instance(RunExecutor::class, new class($token) implements RunExecutor
+        {
+            public function __construct(private readonly string $token) {}
+
+            public function execute(
+                OperationEnvelope $envelope,
+                LightTaskContract $taskContract,
+                ProviderPromptProjection $promptProjection,
+                string $runId,
+                ?string $expectedCompactSddHash = null,
+            ): RunExecutionResult {
+                throw new \RuntimeException(
+                    "provider failed for token {$this->token} at /Users/operator/dev/Atlas/atlas-server/app/Foo.php",
+                );
+            }
+        });
+
+        $response = $this->withHeaders($this->headers)
+            ->postJson('/ai/interactions/atlas-dev/run', [
+                'run_id' => $plan['run_id'],
+                'task_contract_hash' => $plan['task_contract_hash'],
+                'confirmation_token' => $token,
+                'operator_confirmed' => true,
+            ]);
+
+        $response->assertStatus(500)
+            ->assertJsonPath('error.code', 'ATLAS_DEV_RUN_FAILED');
+
+        $body = $response->getContent();
+        $this->assertIsString($body);
+        $this->assertStringNotContainsString($token, $body);
+        $this->assertStringNotContainsString('/Users/operator', $body);
+        $this->assertStringNotContainsString('/atlas-server/app/Foo.php', $body);
     }
 
     public function test_run_rejects_when_operator_not_confirmed(): void

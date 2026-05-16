@@ -22,7 +22,7 @@ final class SpecComposerTest extends TestCase
 {
     public function test_compact_sdd_for_question_picks_read_only_mode_and_low_budget(): void
     {
-        $composer = new SpecComposer();
+        $composer = new SpecComposer;
         $compact = $composer->composeCompactSdd(
             envelope: $this->envelope('explique fluxo'),
             classification: new TaskClassification(
@@ -42,7 +42,7 @@ final class SpecComposerTest extends TestCase
 
     public function test_compact_sdd_for_repair_r2_uses_php_laravel_profile(): void
     {
-        $composer = new SpecComposer();
+        $composer = new SpecComposer;
         $compact = $composer->composeCompactSdd(
             envelope: $this->envelope('corrija o teste falhando em tests/Unit/FooTest.php'),
             classification: new TaskClassification(
@@ -59,9 +59,34 @@ final class SpecComposerTest extends TestCase
         $this->assertContains('sdd', $compact->docTiersRequired);
     }
 
+    public function test_desktop_surface_uses_workspace_composer_json_before_surface_fallback(): void
+    {
+        $workspace = sys_get_temp_dir().'/atlas-dev-profile-'.bin2hex(random_bytes(4));
+        mkdir($workspace, 0o755, true);
+        file_put_contents($workspace.'/composer.json', '{"scripts":{"test":"phpunit"}}');
+
+        $composer = new SpecComposer;
+        $compact = $composer->composeCompactSdd(
+            envelope: $this->envelope(
+                'corrija o teste falhando em tests/Unit/FooTest.php',
+                surfaceId: 'atlas_desktop_ai',
+                workspace: $workspace,
+            ),
+            classification: new TaskClassification(
+                taskKind: TaskClassification::KIND_REPAIR,
+                intentClarityLevel: IntakeNormalizer::CLARITY_HIGH,
+                matchedRules: ['repair:corrija'],
+                writeImplied: true,
+            ),
+            riskLevel: RiskLevelScorer::R2,
+        );
+
+        $this->assertSame(SpecComposer::PROFILE_PHP_LARAVEL, $compact->verificationProfile);
+    }
+
     public function test_compact_sdd_for_r4_forces_escalate_preview(): void
     {
-        $composer = new SpecComposer();
+        $composer = new SpecComposer;
         $compact = $composer->composeCompactSdd(
             envelope: $this->envelope('mexer no fluxo de billing em production'),
             classification: new TaskClassification(
@@ -81,7 +106,7 @@ final class SpecComposerTest extends TestCase
 
     public function test_mini_spec_for_repair_populates_acceptance_and_validation_commands(): void
     {
-        $composer = new SpecComposer();
+        $composer = new SpecComposer;
         $envelope = $this->envelope('corrija o teste falhando em tests/Unit/FooTest.php');
         $classification = new TaskClassification(
             taskKind: TaskClassification::KIND_REPAIR,
@@ -121,7 +146,7 @@ final class SpecComposerTest extends TestCase
 
     public function test_task_contract_for_r2_repair_locks_provider_and_caps_max_files(): void
     {
-        $composer = new SpecComposer();
+        $composer = new SpecComposer;
         $envelope = $this->envelope('corrija o teste falhando em tests/Unit/FooTest.php');
         $classification = new TaskClassification(
             taskKind: TaskClassification::KIND_REPAIR,
@@ -160,7 +185,7 @@ final class SpecComposerTest extends TestCase
 
     public function test_compose_compact_sdd_is_idempotent(): void
     {
-        $composer = new SpecComposer();
+        $composer = new SpecComposer;
         $envelope = $this->envelope('corrija o teste falhando em tests/Unit/FooTest.php');
         $classification = new TaskClassification(
             taskKind: TaskClassification::KIND_REPAIR,
@@ -175,14 +200,17 @@ final class SpecComposerTest extends TestCase
         $this->assertSame($a->toJson(), $b->toJson());
     }
 
-    private function envelope(string $intent): OperationEnvelope
-    {
+    private function envelope(
+        string $intent,
+        string $surfaceId = 'atlas_cli_dev',
+        string $workspace = '/ws',
+    ): OperationEnvelope {
         return new OperationEnvelope(
             runId: 'dev-test',
-            surfaceId: 'atlas_cli_dev',
-            surfaceContext: new SurfaceContext(productSurface: 'atlas_cli_dev'),
-            workspace: '/ws',
-            workspaceHash: hash('sha256', '/ws'),
+            surfaceId: $surfaceId,
+            surfaceContext: new SurfaceContext(productSurface: $surfaceId),
+            workspace: $workspace,
+            workspaceHash: hash('sha256', $workspace),
             gitState: new GitState(headSha: null, dirty: false, untrackedCount: 0, pendingChangesCount: 0),
             rawIntent: $intent,
             normalizedIntent: trim($intent),

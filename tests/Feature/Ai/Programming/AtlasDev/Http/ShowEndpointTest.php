@@ -86,6 +86,18 @@ final class ShowEndpointTest extends AtlasDevHttpTestCase
             ArtifactNames::VERIFICATION_RECEIPT,
             $receipt,
         );
+        $this->app->make(ReceiptStorage::class)->writeAtomic(
+            $runId,
+            ArtifactNames::DIFF_PARSE_RESULT,
+            [
+                'schema_version' => 'atlas.dev.diff_parse_result.v1',
+                'mode' => 'patch',
+                'diff' => "--- app/Services/Foo/FooService.php\n+++ app/Services/Foo/FooService.php\n@@ -1 +1 @@\n-return 41;\n+return 42;",
+                'diff_hash' => str_repeat('d', 64),
+                'changed_files' => ['app/Services/Foo/FooService.php'],
+                'errors' => [],
+            ],
+        );
 
         $response = $this->withHeaders($this->headers)
             ->get('/ai/interactions/atlas-dev/runs/'.$runId);
@@ -97,6 +109,8 @@ final class ShowEndpointTest extends AtlasDevHttpTestCase
         $response->assertJsonPath('data.receipt.tests.0.command', 'composer test');
         $response->assertJsonPath('data.receipt.tests.0.ok', true);
         $response->assertJsonPath('data.receipt.completion.honesty_flags', []);
+        $response->assertJsonPath('data.receipt.ui_hints.diff_preview', "--- app/Services/Foo/FooService.php\n+++ app/Services/Foo/FooService.php\n@@ -1 +1 @@\n-return 41;\n+return 42;");
+        $response->assertJsonPath('data.diff_preview', "--- app/Services/Foo/FooService.php\n+++ app/Services/Foo/FooService.php\n@@ -1 +1 @@\n-return 41;\n+return 42;");
     }
 
     /**

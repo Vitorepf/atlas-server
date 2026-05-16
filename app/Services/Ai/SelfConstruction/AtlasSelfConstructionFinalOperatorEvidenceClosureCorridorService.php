@@ -256,6 +256,7 @@ final class AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorService
             operatorNextAction: $operatorNextAction,
             operatorCompletionProgressMeter: $operatorCompletionProgressMeter,
         );
+        $operatorFailureRecoveryMatrix = $this->operatorFailureRecoveryMatrix($operatorNextActionShellPacket);
 
         $payload = [
             'schema_version' => self::SCHEMA_VERSION,
@@ -365,6 +366,7 @@ final class AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorService
             'operator_closure_handoff' => $operatorClosureHandoff,
             'operator_execution_runbook' => $operatorExecutionRunbook,
             'operator_next_action_shell_packet' => $operatorNextActionShellPacket,
+            'operator_failure_recovery_matrix' => $operatorFailureRecoveryMatrix,
             'operator_command_surface_integrity' => $this->operatorCommandSurfaceIntegrity([
                 'operator_command_plan' => $operatorCommandPlan,
                 'operator_closure_command_replay' => $operatorClosureCommandReplay,
@@ -435,6 +437,7 @@ final class AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorService
             $proofCommands,
         )));
         $placeholderFields = (array) data_get($operatorNextAction, 'placeholder_fields_to_replace', []);
+        $placeholderReplacementContract = $this->placeholderReplacementContract($placeholderFields);
         $commandRows = [];
         foreach ($commands as $index => $command) {
             $commandRows[] = [
@@ -455,10 +458,22 @@ final class AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorService
             'exact_persist_command' => $exactPersistCommand,
             'command_contains_placeholders' => $placeholderFields !== [],
             'placeholder_fields_to_replace' => $placeholderFields,
+            'placeholder_replacement_contract' => $placeholderReplacementContract,
+            'placeholder_replacement_contract_count' => count($placeholderReplacementContract),
             'safe_to_copy_after_operator_review' => $placeholderFields === [],
             'operator_must_replace_placeholders' => $placeholderFields !== [],
             'preflight_command' => 'php artisan atlas:ai:self-construction --atlas-self-construction-final-operator-evidence-closure-corridor-status --json',
             'post_action_proof_commands' => $proofCommands,
+            'post_action_success_checks' => $this->postActionSuccessChecks((string) data_get($operatorNextAction, 'next_required_submission', '')),
+            'post_action_verification_bundle' => $this->postActionVerificationBundle(
+                (string) data_get($operatorNextAction, 'next_required_submission', ''),
+                $proofCommands,
+            ),
+            'resume_after_interruption' => $this->operatorNextActionResumeAfterInterruption(
+                $operatorNextAction,
+                $operatorCompletionProgressMeter,
+                $proofCommands,
+            ),
             'ordered_shell_commands' => $commandRows,
             'ordered_shell_command_count' => count($commandRows),
             'stop_condition' => (string) data_get($operatorNextAction, 'stop_condition', ''),
@@ -480,6 +495,265 @@ final class AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorService
         $packet['shell_packet_hash'] = $this->stableHash($packet);
 
         return $packet;
+    }
+
+    /**
+     * @param  array<string, mixed>  $operatorNextActionShellPacket
+     * @return array<string, mixed>
+     */
+    private function operatorFailureRecoveryMatrix(array $operatorNextActionShellPacket): array
+    {
+        $resumeCommand = (string) data_get(
+            $operatorNextActionShellPacket,
+            'resume_after_interruption.resume_command',
+            'php artisan atlas:ai:self-construction --atlas-self-construction-final-operator-evidence-closure-corridor-status --json',
+        );
+        $verificationCommands = array_map(
+            static fn (array $row): string => (string) ($row['command'] ?? ''),
+            (array) data_get($operatorNextActionShellPacket, 'post_action_verification_bundle.verification_commands', []),
+        );
+
+        $rows = [
+            [
+                'failure_id' => 'placeholder_command_detected',
+                'classification' => 'operator_input_required',
+                'trigger' => 'exact command still contains <operator>, <operator reason...> or @/path/to placeholders',
+                'safe_recovery_command' => $resumeCommand,
+                'required_operator_action' => 'Replace placeholders with reviewed operator identity, reason or file path, then rerun the shell packet preflight.',
+                'do_not_do' => ['do_not_execute_placeholder_command', 'do_not_persist_placeholder_receipt'],
+            ],
+            [
+                'failure_id' => 'post_action_verifier_not_green',
+                'classification' => 'verification_failed',
+                'trigger' => 'post_action_verification_bundle success check fails or reports a blocked verifier',
+                'safe_recovery_command' => $resumeCommand,
+                'required_operator_action' => 'Inspect the failed verifier payload, keep the current artifact as the active step, and do not advance to the next artifact.',
+                'do_not_do' => ['do_not_advance_to_next_artifact', 'do_not_persist_until_verifier_green'],
+            ],
+            [
+                'failure_id' => 'hash_mismatch_detected',
+                'classification' => 'evidence_integrity_failed',
+                'trigger' => 'receipt_hash, smoke_hash, command hash or draft hash does not match the normalized payload',
+                'safe_recovery_command' => 'php artisan atlas:ai:self-construction --atlas-self-construction-completion-evidence-hash-composer-status --runtime-promotion-receipt-json=@/path/to/runtime-promotion.json --completion-receipt-json=@/path/to/completion-receipt.json --real-provider-smoke-json=@/path/to/real-provider-smoke.json --json',
+                'required_operator_action' => 'Recompute the canonical hash with the composer, update only the reviewed draft hash field, then rerun readiness.',
+                'do_not_do' => ['do_not_edit_hash_by_hand', 'do_not_persist_mismatched_hash'],
+            ],
+            [
+                'failure_id' => 'stale_replay_snapshot_or_runtime_basis',
+                'classification' => 'stale_context',
+                'trigger' => 'completion audit, release dossier, runtime gap matrix, promotion basis or closure basis hash changed after a draft was prepared',
+                'safe_recovery_command' => 'php artisan atlas:ai:self-construction --agent-control-plane-replay-snapshot-store-capture --json',
+                'required_operator_action' => 'Refresh the replay snapshot if required, regenerate the affected draft against current hashes, then rerun the closure corridor.',
+                'do_not_do' => ['do_not_sign_stale_hashes', 'do_not_reuse_old_draft_after_basis_drift'],
+            ],
+            [
+                'failure_id' => 'real_provider_smoke_aborted_or_incomplete',
+                'classification' => 'real_provider_operator_stop',
+                'trigger' => 'operator aborts the external smoke, kill switch fires, or provider/cost/work-product evidence is incomplete',
+                'safe_recovery_command' => 'php artisan atlas:ai:self-construction --atlas-self-construction-real-provider-smoke-offline-harness-status --json',
+                'required_operator_action' => 'Record the aborted smoke as non-passing operator evidence, inspect kill-switch expectations, and rerun a bounded smoke only after operator approval.',
+                'do_not_do' => ['do_not_mark_aborted_smoke_green', 'do_not_fabricate_provider_run_or_cost_event'],
+            ],
+        ];
+
+        foreach ($rows as $index => &$row) {
+            $row['order'] = $index + 1;
+            $row['rerun_verification_commands'] = $verificationCommands;
+            $row['can_recover_automatically'] = false;
+            $row['requires_operator_review'] = true;
+            $row['recovery_row_hash'] = $this->stableHash($row);
+        }
+        unset($row);
+
+        $matrix = [
+            'schema_version' => 'atlas.self_construction.final_operator_failure_recovery_matrix.v1',
+            'mode' => 'read_only_operator_failure_recovery_matrix',
+            'status' => 'operator_recovery_guidance_available',
+            'row_count' => count($rows),
+            'rows' => $rows,
+            'recovery_requires_fresh_corridor_status' => true,
+            'can_recover_from_matrix' => false,
+            'can_execute_from_matrix' => false,
+            'can_persist_from_matrix' => false,
+            'can_call_provider_from_matrix' => false,
+            'can_sign_for_operator_from_matrix' => false,
+        ];
+        $matrix['failure_recovery_matrix_hash'] = $this->stableHash($matrix);
+
+        return $matrix;
+    }
+
+    /**
+     * @param  array<string, mixed>  $operatorNextAction
+     * @param  array<string, mixed>  $operatorCompletionProgressMeter
+     * @param  list<string>  $proofCommands
+     * @return array<string, mixed>
+     */
+    private function operatorNextActionResumeAfterInterruption(
+        array $operatorNextAction,
+        array $operatorCompletionProgressMeter,
+        array $proofCommands,
+    ): array {
+        $resumeCommand = 'php artisan atlas:ai:self-construction --atlas-self-construction-final-operator-evidence-closure-corridor-status --json';
+        $resume = [
+            'schema_version' => 'atlas.self_construction.final_operator_next_action_shell_packet_resume.v1',
+            'mode' => 'read_only_resume_after_interruption_contract',
+            'status' => 'resume_by_rerunning_closure_corridor_status',
+            'current_required_artifact' => (string) data_get($operatorCompletionProgressMeter, 'current_required_artifact', ''),
+            'current_step_id' => (string) data_get($operatorNextAction, 'next_step_id', ''),
+            'resume_command' => $resumeCommand,
+            'resumption_checkpoint_command' => $resumeCommand,
+            'exact_command_to_recompare_after_resume' => (string) data_get($operatorNextAction, 'exact_command', ''),
+            'exact_persist_command_to_recompare_after_resume' => (string) data_get($operatorNextAction, 'exact_persist_command', ''),
+            'proof_commands_to_rerun' => $proofCommands,
+            'requires_fresh_preflight_before_persist' => true,
+            'do_not_run_persist_command_until_verifier_green' => true,
+            'can_resume_without_chat_history' => true,
+            'if_command_failed_next_action' => 'Rerun the closure corridor status, inspect the reported blocker, do not persist evidence, and do not skip to the next artifact.',
+            'if_chat_context_was_lost_next_action' => 'Rerun resume_command and continue only from current_required_artifact/current_step_id reported by the JSON payload.',
+            'forbidden_resume_shortcuts' => [
+                'do_not_persist_from_stale_chat_memory',
+                'do_not_skip_preflight_after_interruption',
+                'do_not_reuse_placeholder_commands',
+                'do_not_mark_completion_without_fresh_audit_green',
+                'do_not_fabricate_operator_or_provider_evidence',
+            ],
+            'can_execute_from_resume_contract' => false,
+            'can_persist_from_resume_contract' => false,
+            'can_call_provider_from_resume_contract' => false,
+            'can_sign_for_operator_from_resume_contract' => false,
+        ];
+        $resume['resume_contract_hash'] = $this->stableHash($resume);
+
+        return $resume;
+    }
+
+    /**
+     * @param  list<string>  $placeholderFields
+     * @return list<array<string, mixed>>
+     */
+    private function placeholderReplacementContract(array $placeholderFields): array
+    {
+        $rows = [];
+        foreach ($placeholderFields as $placeholder) {
+            $placeholder = (string) $placeholder;
+            $rows[] = match (true) {
+                $placeholder === '<operator>' => [
+                    'placeholder' => $placeholder,
+                    'replacement_kind' => 'operator_identity',
+                    'required' => true,
+                    'minimum_length' => 3,
+                    'must_not_equal' => ['<operator>', 'operator', 'codex', 'claude', 'assistant', 'system', 'atlas'],
+                    'validation_hint' => 'Use the real human/operator signer identity.',
+                ],
+                str_contains($placeholder, 'reason') => [
+                    'placeholder' => $placeholder,
+                    'replacement_kind' => 'operator_reason',
+                    'required' => true,
+                    'minimum_length' => 32,
+                    'must_not_contain' => ['todo', 'placeholder', 'autosigned', 'lorem'],
+                    'validation_hint' => 'Explain the operator judgment in at least 32 characters.',
+                ],
+                str_starts_with($placeholder, '@/path/to/') => [
+                    'placeholder' => $placeholder,
+                    'replacement_kind' => 'operator_file_path',
+                    'required' => true,
+                    'minimum_length' => 2,
+                    'must_point_to_existing_operator_reviewed_json' => true,
+                    'validation_hint' => 'Replace with an operator-reviewed JSON artifact path.',
+                ],
+                default => [
+                    'placeholder' => $placeholder,
+                    'replacement_kind' => 'generic_operator_input',
+                    'required' => true,
+                    'minimum_length' => 1,
+                    'validation_hint' => 'Replace before running; never execute a command with placeholders.',
+                ],
+            };
+        }
+
+        return $rows;
+    }
+
+    /**
+     * @return list<array<string, string>>
+     */
+    private function postActionSuccessChecks(string $nextRequiredSubmission): array
+    {
+        return match ($nextRequiredSubmission) {
+            'runtime_promotion_receipt' => [
+                ['surface' => 'runtime_promotion_receipt_draft', 'expected' => 'status=ready_for_operator_persistence'],
+                ['surface' => 'operator_evidence_submission_readiness', 'expected' => 'next_required remains runtime_promotion_receipt until explicit persist succeeds'],
+                ['surface' => 'completion_audit', 'expected' => 'runtime_gap_matrix_all_runtime_y remains blocked until persistence'],
+            ],
+            'real_provider_smoke' => [
+                ['surface' => 'real_provider_smoke_offline_harness', 'expected' => 'operator has a bounded external smoke procedure'],
+                ['surface' => 'real_provider_smoke_endgame', 'expected' => 'status becomes verifier_passed_ready_for_explicit_persistence only after real evidence'],
+                ['surface' => 'completion_audit', 'expected' => 'end_to_end_real_provider_smoke_green remains blocked until persistence'],
+            ],
+            'human_completion_receipt' => [
+                ['surface' => 'human_completion_receipt_draft', 'expected' => 'status=ready_for_operator_persistence only after runtime and smoke are green'],
+                ['surface' => 'human_completion_receipt_endgame_verifier', 'expected' => 'can_persist=true before explicit persistence'],
+                ['surface' => 'completion_audit', 'expected' => 'human_signed_os_complete_receipt_present remains blocked until persistence'],
+            ],
+            default => [
+                ['surface' => 'completion_audit', 'expected' => 'status=complete AND completion_allowed=true AND failed_count=0'],
+            ],
+        };
+    }
+
+    /**
+     * @param  list<string>  $proofCommands
+     * @return array<string, mixed>
+     */
+    private function postActionVerificationBundle(string $nextRequiredSubmission, array $proofCommands): array
+    {
+        $commands = array_values(array_unique(array_filter(array_merge(
+            $proofCommands,
+            [
+                'php artisan atlas:ai:self-construction --atlas-self-construction-final-operator-evidence-closure-corridor-status --json',
+                'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --json',
+            ],
+        ))));
+        $commandRows = [];
+        foreach ($commands as $index => $command) {
+            $commandRows[] = [
+                'order' => $index + 1,
+                'command' => $command,
+                'command_hash' => hash('sha256', (string) $command),
+            ];
+        }
+
+        $bundle = [
+            'schema_version' => 'atlas.self_construction.final_operator_next_action_post_action_verification_bundle.v1',
+            'mode' => 'read_only_post_action_verification_bundle',
+            'status' => 'verify_before_next_artifact_or_persist',
+            'next_required_submission' => $nextRequiredSubmission,
+            'verification_commands' => $commandRows,
+            'verification_command_count' => count($commandRows),
+            'success_checks' => $this->postActionSuccessChecks($nextRequiredSubmission),
+            'success_check_count' => count($this->postActionSuccessChecks($nextRequiredSubmission)),
+            'failure_policy' => [
+                'if_any_check_fails' => 'stop_and_rerun_final_operator_evidence_closure_corridor_status',
+                'do_not_advance_to_next_artifact' => true,
+                'do_not_persist_receipt_until_verifier_green' => true,
+                'do_not_mark_os_complete_from_partial_verification' => true,
+            ],
+            'expected_completion_audit_after_action' => match ($nextRequiredSubmission) {
+                'runtime_promotion_receipt' => 'runtime_gap_matrix_all_runtime_y remains blocked until explicit runtime promotion persistence succeeds',
+                'real_provider_smoke' => 'end_to_end_real_provider_smoke_green remains blocked until operator-approved smoke evidence is persisted',
+                'human_completion_receipt' => 'human_signed_os_complete_receipt_present remains blocked until explicit human receipt persistence succeeds',
+                default => 'status=complete only when completion_allowed=true and failed_count=0',
+            },
+            'can_verify_from_bundle' => false,
+            'can_execute_from_bundle' => false,
+            'can_persist_from_bundle' => false,
+            'can_call_provider_from_bundle' => false,
+            'can_sign_for_operator_from_bundle' => false,
+        ];
+        $bundle['verification_bundle_hash'] = $this->stableHash($bundle);
+
+        return $bundle;
     }
 
     /**

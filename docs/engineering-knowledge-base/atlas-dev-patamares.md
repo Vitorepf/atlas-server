@@ -126,11 +126,11 @@ Patamares conceituais do Atlas Dev. Identidade propria, nao "v1/v2". Cada patama
 **Pre-requisito**: A0 passado + decisoes locked do `atlas-dev-efficient-programming-flow-v1`.
 
 **Componentes**:
-- 14 DTOs read-only em `app/Services/Ai/Programming/AtlasDev/Schemas/` (4 camadas: Plano + Contexto + Receipt + Telemetria)
+- 17 DTOs read-only em `app/Services/Ai/Programming/AtlasDev/Schemas/` (4 camadas: Plano + Contexto + Receipt + Telemetria — inclui `ProviderCallResult`, `DiffParseResult`, `PatchApplyResult` além dos 14 originais)
 - `DocContextTierSelector` + `CodeDiscoveryEngine` + `OpenBrainProjectionAdapter` em `Discovery/`
 - `ProviderPromptBuilder` + `PromptQualityChecker` em `PromptProjection/`
 - `TelemetryEmitter` + `ErrorLedgerWriter` em `Telemetry/`
-- `ReceiptStorage` + 14 `<Artifact>Persister` em `Persistence/`
+- `ReceiptStorage` + persisters dos 17 artefatos em `Persistence/`
 - `AtlasDevEfficientFlowServiceProvider` registrado em `bootstrap/providers.php`
 
 **Ready when**:
