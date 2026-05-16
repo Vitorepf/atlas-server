@@ -97,6 +97,132 @@ final class AtlasAiSelfConstructionAgentControlPlaneTaskAutoReplenishmentTest ex
         $this->assertSame(['claimable_queue_below_target_after_replenishment'], $result['blockers']);
     }
 
+    public function test_does_not_duplicate_active_seed_when_claimed_task_drops_claimable_count(): void
+    {
+        $svc = $this->service();
+        $first = $svc->replenish($this->context(), [
+            'target_min_claimable_tasks' => 1,
+            'max_new_tasks' => 1,
+            'queue_tags' => ['lane_long_loop'],
+        ]);
+
+        $taskPacketId = (string) data_get($first, 'generated_tasks.0.task_packet_id');
+        $this->assertNotSame('', $taskPacketId);
+        (new AgentControlPlaneTaskPacketQueueRepository)->updateStatus($taskPacketId, 'claimed', [
+            'lease_id' => 'lease_long_loop_1',
+            'agent_id' => 'claude-long-loop-1',
+        ]);
+
+        $second = $svc->replenish($this->context(), [
+            'target_min_claimable_tasks' => 1,
+            'max_new_tasks' => 1,
+            'queue_tags' => ['lane_long_loop'],
+        ]);
+
+        $this->assertSame(0, $second['generated_task_count']);
+        $this->assertSame(1, $second['skipped_duplicate_seed_count']);
+        $this->assertSame(1, $second['active_seed_count']);
+        $this->assertSame(['all_candidate_replenishment_seeds_already_active'], $second['blockers']);
+        $this->assertSame('all_candidate_seeds_already_active', data_get($second, 'plan_evaluation.status'));
+        $this->assertSame('auto_replenishment_seed_already_active', data_get($second, 'plan_evaluation.skipped_duplicate_seeds.0.reason'));
+        $this->assertSame($taskPacketId, data_get($second, 'plan_evaluation.skipped_duplicate_seeds.0.existing_task_packet_id'));
+    }
+
+    public function test_released_auto_replenishment_seed_does_not_starve_future_supply(): void
+    {
+        $svc = $this->service();
+        $first = $svc->replenish($this->context(), [
+            'target_min_claimable_tasks' => 1,
+            'max_new_tasks' => 1,
+            'queue_tags' => ['lane_released_loop'],
+        ]);
+
+        $taskPacketId = (string) data_get($first, 'generated_tasks.0.task_packet_id');
+        $this->assertNotSame('', $taskPacketId);
+        $queue = new AgentControlPlaneTaskPacketQueueRepository;
+        $queue->updateStatus($taskPacketId, 'claimed', [
+            'lease_id' => 'lease_released_loop_1',
+            'agent_id' => 'claude-released-loop-1',
+        ]);
+        $queue->updateStatus($taskPacketId, 'released', [
+            'lease_id' => 'lease_released_loop_1',
+            'agent_id' => 'claude-released-loop-1',
+            'release_reason' => 'worker_stopped_before_completion',
+        ]);
+
+        $second = $svc->replenish($this->context(), [
+            'target_min_claimable_tasks' => 1,
+            'max_new_tasks' => 1,
+            'queue_tags' => ['lane_released_loop'],
+        ]);
+
+        $this->assertSame(1, $second['generated_task_count']);
+        $this->assertSame(0, $second['skipped_duplicate_seed_count']);
+        $this->assertSame(0, $second['active_seed_count']);
+        $this->assertSame(1, $second['claimable_task_count_after']);
+        $this->assertSame([], $second['blockers']);
+        $this->assertContains('released', data_get($second, 'replenishment_loop_contract.terminal_statuses_not_blocking_future_replenishment'));
+        $this->assertNotSame($taskPacketId, data_get($second, 'generated_tasks.0.task_packet_id'));
+    }
+
+    public function test_avoids_stale_task_file_id_collision_beyond_registry_cap(): void
+    {
+        $staleTaskPacketId = 'acp-auto-0001-current_pointer_activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_';
+        Storage::disk('local')->put(
+            AgentControlPlaneTaskPacketQueueRepository::STORAGE_PREFIX.'/task_'.$staleTaskPacketId.'.json',
+            json_encode([
+                'schema_version' => AgentControlPlaneTaskPacketQueueRepository::SCHEMA_VERSION,
+                'task_packet_id' => $staleTaskPacketId,
+                'task_packet_hash' => str_repeat('a', 64),
+                'status' => 'completed_dry_run',
+                'tags' => ['old_capped_registry_entry'],
+                'task_packet' => [
+                    'task_packet_id' => $staleTaskPacketId,
+                    'task_packet_hash' => str_repeat('a', 64),
+                    'continuation_context' => [
+                        'auto_replenishment_seed_key' => 'current_pointer_stale_old_seed',
+                    ],
+                ],
+            ], JSON_THROW_ON_ERROR),
+        );
+
+        $result = $this->service()->replenish($this->context(), [
+            'target_min_claimable_tasks' => 1,
+            'max_new_tasks' => 1,
+        ]);
+
+        $generatedTaskPacketId = (string) data_get($result, 'generated_tasks.0.task_packet_id');
+        $this->assertSame(1, $result['generated_task_count']);
+        $this->assertSame('enqueued', data_get($result, 'generated_tasks.0.queue_event'));
+        $this->assertNotSame($staleTaskPacketId, $generatedTaskPacketId);
+        $this->assertStringStartsWith($staleTaskPacketId.'-', $generatedTaskPacketId);
+        $this->assertSame(1, $result['claimable_task_count_after']);
+        $this->assertSame([], $result['blockers']);
+    }
+
+    public function test_loop_contract_explains_sources_stop_conditions_and_evidence_policy(): void
+    {
+        $result = $this->service()->replenish($this->context(), [
+            'target_min_claimable_tasks' => 2,
+            'max_new_tasks' => 2,
+        ]);
+
+        $this->assertSame(
+            'atlas.self_construction.agent_control_plane_task_auto_replenishment_loop_contract.v1',
+            data_get($result, 'replenishment_loop_contract.schema_version'),
+        );
+        $this->assertSame(
+            'task_packet.continuation_context.auto_replenishment_seed_key scoped by queue_tags/lane',
+            data_get($result, 'replenishment_loop_contract.dedupe_key'),
+        );
+        $this->assertContains('all_candidate_replenishment_seeds_already_active', data_get($result, 'replenishment_loop_contract.stop_conditions'));
+        $this->assertTrue((bool) data_get($result, 'replenishment_loop_contract.claim_before_work_required'));
+        $this->assertTrue((bool) data_get($result, 'replenishment_loop_contract.completion_evidence_required'));
+        $this->assertContains('current_pointer', array_column((array) $result['source_catalog'], 'source'));
+        $this->assertSame(2, data_get($result, 'plan_evaluation.accepted_seed_count'));
+        $this->assertIsString(data_get($result, 'plan_evaluation.active_seed_index_hash'));
+    }
+
     public function test_includes_completion_audit_failed_criteria_seed(): void
     {
         $result = $this->service()->replenish($this->context([
@@ -113,6 +239,33 @@ final class AtlasAiSelfConstructionAgentControlPlaneTaskAutoReplenishmentTest ex
             $result['generated_tasks'],
         ));
         $this->assertStringContainsString('runtime_gap_matrix_all_runtime_y', $objectives);
+    }
+
+    public function test_includes_not_yet_runtime_capable_gap_seeds(): void
+    {
+        $result = $this->service()->replenish($this->context(), [
+            'target_min_claimable_tasks' => 4,
+            'max_new_tasks' => 4,
+        ]);
+
+        $references = implode("\n", array_map(
+            static fn (array $entry): string => (string) $entry['reference'],
+            $result['generated_tasks'],
+        ));
+        $this->assertStringContainsString('adapter_execution_runtime', $references);
+        $this->assertStringContainsString('automatic_cost_import_runtime', $references);
+
+        $records = (new AgentControlPlaneTaskPacketQueueRepository)->list(['status' => 'claimable']);
+        $runtimeGapRecords = array_values(array_filter(
+            $records,
+            static fn (array $record): bool => in_array('not_yet_runtime_capable', (array) ($record['tags'] ?? []), true),
+        ));
+        $this->assertCount(2, $runtimeGapRecords);
+        foreach ($runtimeGapRecords as $record) {
+            $this->assertSame('not_yet_runtime_capable', data_get($record, 'task_packet.continuation_context.auto_replenishment_source'));
+            $this->assertNotEmpty(data_get($record, 'task_packet.continuation_context.auto_replenishment_reference'));
+            $this->assertContains('app/Services/Ai/SelfConstruction/', data_get($record, 'task_packet.normalized_scope.scope_in'));
+        }
     }
 
     public function test_generated_task_packets_are_claimable_and_scope_safe(): void
@@ -189,6 +342,28 @@ final class AtlasAiSelfConstructionAgentControlPlaneTaskAutoReplenishmentTest ex
         $this->assertSame('available', data_get($payload, 'agent_control_plane_task_auto_replenishment_status.status'));
         $this->assertGreaterThanOrEqual(1, (int) data_get($payload, 'agent_control_plane_task_auto_replenishment_status.claimable_task_count_after'));
         $this->assertNotEmpty(data_get($payload, 'agent_control_plane_task_auto_replenishment_status.replenishment_plan_hash'));
+    }
+
+    public function test_cli_status_accepts_queue_tag_lane_isolation(): void
+    {
+        Artisan::call('atlas:ai:self-construction', [
+            '--agent-control-plane-task-auto-replenishment-status' => true,
+            '--actor' => 'cli-replenisher',
+            '--target-min-claimable-tasks' => 1,
+            '--max-new-tasks' => 1,
+            '--queue-tag' => ['cli_lane_a'],
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(['cli_lane_a'], data_get($payload, 'agent_control_plane_task_auto_replenishment_status.queue_tags'));
+        $this->assertSame(1, data_get($payload, 'agent_control_plane_task_auto_replenishment_status.target_min_claimable_tasks'));
+        $this->assertSame(1, data_get($payload, 'agent_control_plane_task_auto_replenishment.generated_task_count'));
+        $laneRecords = (new AgentControlPlaneTaskPacketQueueRepository)->list(['status' => 'claimable', 'tag' => 'cli_lane_a']);
+        $this->assertNotEmpty($laneRecords);
+        foreach ($laneRecords as $record) {
+            $this->assertContains('cli_lane_a', (array) ($record['tags'] ?? []));
+        }
     }
 
     public function test_cli_quartet_works(): void

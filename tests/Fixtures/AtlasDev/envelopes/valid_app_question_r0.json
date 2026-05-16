@@ -1,0 +1,37 @@
+{
+    "command_intent": null,
+    "dirty_worktree_policy": "preserve_user_changes",
+    "envelope_hash": "PLACEHOLDER_recomputed_by_test",
+    "flow_id": "atlas_dev",
+    "flow_origin": "atlas_ai_router",
+    "git_state": {
+        "dirty": false,
+        "head_sha": null,
+        "pending_changes_count": 0,
+        "untracked_count": 0
+    },
+    "intent_clarity_level": "high",
+    "normalized_intent": "listar capturas recentes do inbox",
+    "preflight": {
+        "operator_explicit": false,
+        "permission_mode": "read",
+        "workspace_resolved": true,
+        "write_allowed": false
+    },
+    "provider_safe": true,
+    "raw_intent": "lista as capturas recentes do inbox",
+    "run_id": "0192b5d2-5001-7c4f-9d2a-4f3b8e9a4c2d",
+    "schema_version": "atlas.dev.operation_envelope.v1",
+    "surface_context": {
+        "composer_mode": "general",
+        "composer_task": "direct",
+        "conversation_id": "conversation_01J7XYZ200",
+        "product_surface": "atlas_app",
+        "provider_choice": null,
+        "thread_id": "thread_01J7XYZ200"
+    },
+    "surface_id": "atlas_app",
+    "user_constraints": [],
+    "workspace": "/Users/op/code/atlas-server",
+    "workspace_hash": "d4e5f60718293041526374859617283940515263"
+}

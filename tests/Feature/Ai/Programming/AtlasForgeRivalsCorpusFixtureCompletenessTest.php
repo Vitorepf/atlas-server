@@ -4,6 +4,7 @@ namespace Tests\Feature\Ai\Programming;
 
 use App\Services\Ai\Programming\ForgeRivals\Corpus\AtlasForgeRivalsProviderArenaCorpusService;
 use PHPUnit\Framework\Attributes\DataProvider;
+use Symfony\Component\Process\Process;
 use Tests\TestCase;
 
 /**
@@ -114,7 +115,7 @@ final class AtlasForgeRivalsCorpusFixtureCompletenessTest extends TestCase
             $caseId = (string) ($case['case_id'] ?? '');
             foreach ((array) ($case['expected_changed_files'] ?? []) as $path) {
                 $relative = str_replace('\\', '/', (string) $path);
-                if ($relative === '' || ! is_file(base_path($relative))) {
+                if ($relative === '' || ! is_file(base_path($relative)) || ! $this->isTrackedByGit($relative)) {
                     continue;
                 }
 
@@ -127,6 +128,15 @@ final class AtlasForgeRivalsCorpusFixtureCompletenessTest extends TestCase
             $preexisting,
             'expected_changed_files already exist in the base workspace, so providers can pass with zero diff: '.implode(', ', $preexisting),
         );
+    }
+
+    private function isTrackedByGit(string $relative): bool
+    {
+        $proc = new Process(['git', '-C', base_path(), 'ls-files', '--error-unmatch', $relative]);
+        $proc->setTimeout(10);
+        $proc->run();
+
+        return $proc->isSuccessful();
     }
 
     /** @return list<string> relative paths under $dir, recursive */

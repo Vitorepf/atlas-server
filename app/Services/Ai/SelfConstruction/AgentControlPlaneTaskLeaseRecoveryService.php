@@ -33,6 +33,8 @@ final class AgentControlPlaneTaskLeaseRecoveryService
 
     public const RECOVERABILITY_RECOVERABLE_ORPHAN = 'recoverable_orphaned_claim';
 
+    public const RECOVERABILITY_RECOVERABLE_RELEASED = 'recoverable_released_task';
+
     public const RECOVERABILITY_ACTIVE_LEASE = 'active_lease_skip';
 
     public const RECOVERABILITY_TERMINAL = 'terminal_skip';
@@ -44,6 +46,10 @@ final class AgentControlPlaneTaskLeaseRecoveryService
     public const RECEIPT_TASK_LEASE_RECOVERY_EXECUTED = 'task_lease_recovery_executed';
 
     public const RECEIPT_TASK_LEASE_RECOVERY_SKIPPED = 'task_lease_recovery_skipped';
+
+    public const RECEIPT_RELEASED_TASK_REQUEUED = 'released_task_requeued';
+
+    public const RECEIPT_RELEASED_TASK_REQUEUE_SKIPPED = 'released_task_requeue_skipped';
 
     public function __construct(
         private readonly ?AgentControlPlaneTaskPacketQueueRepository $queue = null,
@@ -64,6 +70,7 @@ final class AgentControlPlaneTaskLeaseRecoveryService
         $leaseRepo = $this->leaseRepo();
         $actor = $this->actor($options);
         $reasonOverride = $this->reasonOverride($options);
+        $taskPacketFilter = trim((string) ($options['packet'] ?? ''));
 
         $expireResult = $leaseRepo->expireLeases();
         $expiredLeaseIds = array_values((array) ($expireResult['expired_lease_ids'] ?? []));
@@ -84,6 +91,17 @@ final class AgentControlPlaneTaskLeaseRecoveryService
                     'task_packet_id' => '',
                     'skip_reason' => 'lease_has_no_task_packet_id',
                 ];
+
+                continue;
+            }
+            if ($taskPacketFilter !== '' && $taskPacketId !== $taskPacketFilter) {
+                $skipped[] = [
+                    'lease_id' => $leaseId,
+                    'task_packet_id' => $taskPacketId,
+                    'skip_reason' => 'packet_filter_mismatch',
+                    'task_packet_filter' => $taskPacketFilter,
+                ];
+
                 continue;
             }
 
@@ -129,8 +147,14 @@ final class AgentControlPlaneTaskLeaseRecoveryService
         $leaseRepo = $this->leaseRepo();
         $actor = $this->actor($options);
         $reasonOverride = $this->reasonOverride($options);
+        $taskPacketFilter = trim((string) ($options['packet'] ?? ''));
 
-        $claimedRecords = $queueRepo->list(['status' => 'claimed']);
+        $claimedRecords = $taskPacketFilter !== ''
+            ? array_values(array_filter(
+                [$queueRepo->get($taskPacketFilter)],
+                static fn ($record): bool => is_array($record) && (string) ($record['status'] ?? '') === 'claimed',
+            ))
+            : $queueRepo->list(['status' => 'claimed']);
         $recovered = [];
         $skipped = [];
 
@@ -143,11 +167,22 @@ final class AgentControlPlaneTaskLeaseRecoveryService
             $previousAgentId = (string) data_get($record, 'metadata.agent_id', '');
 
             if ($leaseId === '') {
-                $skipped[] = [
-                    'task_packet_id' => $taskPacketId,
-                    'lease_id' => '',
-                    'skip_reason' => 'claimed_without_lease_metadata',
-                ];
+                $outcome = $this->returnTaskToClaimable(
+                    queue: $queueRepo,
+                    taskPacketId: $taskPacketId,
+                    leaseId: '',
+                    previousAgentId: $previousAgentId,
+                    recoveryReason: $reasonOverride !== '' ? $reasonOverride : self::REASON_LEASE_EXPIRED_ORPHANED,
+                    actor: $actor,
+                    leaseStatusAtRecovery: 'missing_lease_metadata',
+                );
+
+                if ((string) ($outcome['status'] ?? '') === 'recovered') {
+                    $recovered[] = $outcome;
+                } else {
+                    $skipped[] = $outcome;
+                }
+
                 continue;
             }
 
@@ -162,6 +197,7 @@ final class AgentControlPlaneTaskLeaseRecoveryService
                     'skip_reason' => 'lease_still_active',
                     'lease_status' => $leaseStatus,
                 ];
+
                 continue;
             }
 
@@ -185,6 +221,110 @@ final class AgentControlPlaneTaskLeaseRecoveryService
         return $this->envelope([
             'event' => 'recover_orphaned_claims',
             'claimed_record_count' => count($claimedRecords),
+            'recovered_count' => count($recovered),
+            'skipped_count' => count($skipped),
+            'recovered' => $recovered,
+            'skipped' => $skipped,
+            'actor' => $actor,
+        ]);
+    }
+
+    /**
+     * Return explicitly released, non-terminal tasks to `claimable` when they
+     * were paused/released rather than blocked by a failed worker packet.
+     *
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function recoverReleasedTasks(array $options = []): array
+    {
+        $queueRepo = $this->queueRepo();
+        $actor = $this->actor($options);
+        $reasonOverride = $this->reasonOverride($options);
+        $taskPacketId = trim((string) ($options['packet'] ?? ''));
+
+        $releasedRecords = $taskPacketId !== ''
+            ? array_values(array_filter([$queueRepo->get($taskPacketId)], static fn ($record): bool => is_array($record)))
+            : $queueRepo->list(['status' => 'released']);
+        $recovered = [];
+        $skipped = [];
+
+        foreach ($releasedRecords as $record) {
+            $id = (string) ($record['task_packet_id'] ?? '');
+            if ($id === '') {
+                continue;
+            }
+            $status = (string) ($record['status'] ?? '');
+            if ($status !== 'released') {
+                $skipped[] = [
+                    'status' => 'skipped',
+                    'task_packet_id' => $id,
+                    'queue_status' => $status,
+                    'skip_reason' => 'queue_record_not_released',
+                ];
+
+                continue;
+            }
+
+            $releaseReason = $this->releaseReason($record);
+            if (! $this->releasedTaskCanBeRequeued($releaseReason)) {
+                $queueRepo->appendReceipt($id, [
+                    'receipt_kind' => self::RECEIPT_RELEASED_TASK_REQUEUE_SKIPPED,
+                    'release_reason' => $releaseReason,
+                    'skip_reason' => 'released_task_requires_operator_investigation',
+                    'recovered_by' => $actor,
+                ]);
+                $skipped[] = [
+                    'status' => 'skipped',
+                    'task_packet_id' => $id,
+                    'queue_status' => $status,
+                    'release_reason' => $releaseReason,
+                    'skip_reason' => 'released_task_requires_operator_investigation',
+                ];
+
+                continue;
+            }
+
+            $transition = $queueRepo->updateStatus($id, 'claimable', [
+                'previous_status' => 'released',
+                'release_reason' => $releaseReason,
+                'recovery_reason' => $reasonOverride !== '' ? $reasonOverride : 'released_task_requeued_for_terminal_loop',
+                'recovered_by' => $actor,
+                'recovery_id' => 'recovery_'.(string) Str::ulid(),
+            ]);
+            if ((string) ($transition['status'] ?? '') !== 'ok') {
+                $skipped[] = [
+                    'status' => 'skipped',
+                    'task_packet_id' => $id,
+                    'queue_status' => $status,
+                    'release_reason' => $releaseReason,
+                    'skip_reason' => 'claimable_transition_failed',
+                    'transition' => $transition,
+                ];
+
+                continue;
+            }
+
+            $queueRepo->appendReceipt($id, [
+                'receipt_kind' => self::RECEIPT_RELEASED_TASK_REQUEUED,
+                'release_reason' => $releaseReason,
+                'recovery_reason' => $reasonOverride !== '' ? $reasonOverride : 'released_task_requeued_for_terminal_loop',
+                'recovered_by' => $actor,
+                'final_queue_status' => 'claimable',
+            ]);
+            $recovered[] = [
+                'status' => 'recovered',
+                'task_packet_id' => $id,
+                'release_reason' => $releaseReason,
+                'recovery_reason' => $reasonOverride !== '' ? $reasonOverride : 'released_task_requeued_for_terminal_loop',
+                'recovered_by' => $actor,
+                'final_queue_status' => 'claimable',
+            ];
+        }
+
+        return $this->envelope([
+            'event' => 'recover_released_tasks',
+            'released_record_count' => count($releasedRecords),
             'recovered_count' => count($recovered),
             'skipped_count' => count($skipped),
             'recovered' => $recovered,
@@ -255,6 +395,14 @@ final class AgentControlPlaneTaskLeaseRecoveryService
                     'continuation_summary' => $continuationSummary,
                     'safe_next_action' => 'do_not_reopen_terminal_task',
                     'recommended_claim_command' => null,
+                    'resume_contract' => $this->resumeContract(
+                        taskPacketId: $taskPacketId,
+                        queueStatus: $status,
+                        previousLeaseId: $latestLeaseId,
+                        previousAgentId: $previousAgentId,
+                        safeNextAction: 'do_not_reopen_terminal_task',
+                        recommendedClaimCommand: null,
+                    ),
                 ],
             ]);
         }
@@ -263,7 +411,8 @@ final class AgentControlPlaneTaskLeaseRecoveryService
             'claimable' => 'reclaim_via_orchestrator',
             'claimed' => 'inspect_lease_then_recover_or_renew',
             'lease_expired' => 'transition_to_claimable_via_recovery',
-            'released', 'blocked' => 'investigate_blocker_then_requeue',
+            'released' => $this->releasedTaskCanBeRequeued($this->releaseReason($record)) ? 'requeue_released_task_via_recovery' : 'investigate_release_blocker_before_requeue',
+            'blocked' => 'investigate_blocker_then_requeue',
             default => 'inspect_status_before_acting',
         };
 
@@ -287,6 +436,14 @@ final class AgentControlPlaneTaskLeaseRecoveryService
                 'continuation_summary' => $continuationSummary,
                 'safe_next_action' => $safeNextAction,
                 'recommended_claim_command' => $recommendedClaimCommand,
+                'resume_contract' => $this->resumeContract(
+                    taskPacketId: $taskPacketId,
+                    queueStatus: $status,
+                    previousLeaseId: $latestLeaseId,
+                    previousAgentId: $previousAgentId,
+                    safeNextAction: $safeNextAction,
+                    recommendedClaimCommand: $recommendedClaimCommand,
+                ),
             ],
         ]);
     }
@@ -322,6 +479,7 @@ final class AgentControlPlaneTaskLeaseRecoveryService
         $totals = [
             self::RECOVERABILITY_RECOVERABLE_EXPIRED => 0,
             self::RECOVERABILITY_RECOVERABLE_ORPHAN => 0,
+            self::RECOVERABILITY_RECOVERABLE_RELEASED => 0,
             self::RECOVERABILITY_ACTIVE_LEASE => 0,
             self::RECOVERABILITY_TERMINAL => 0,
             self::RECOVERABILITY_CLAIMABLE => 0,
@@ -341,10 +499,12 @@ final class AgentControlPlaneTaskLeaseRecoveryService
             $leaseExpired = $lease !== null
                 && $leaseStatus === AgentControlPlaneClaimLeaseRepository::LEASE_STATUS_ACTIVE
                 && $expiresAt > 0 && $expiresAt <= $now;
+            $releaseReason = $this->releaseReason($record);
 
             $classification = match (true) {
                 in_array($status, ['completed_dry_run', 'cancelled'], true) => self::RECOVERABILITY_TERMINAL,
                 $status === 'claimable' => self::RECOVERABILITY_CLAIMABLE,
+                $status === 'released' && $this->releasedTaskCanBeRequeued($releaseReason) => self::RECOVERABILITY_RECOVERABLE_RELEASED,
                 $status === 'claimed' && $lease !== null && $leaseStatus === AgentControlPlaneClaimLeaseRepository::LEASE_STATUS_ACTIVE && ! $leaseExpired => self::RECOVERABILITY_ACTIVE_LEASE,
                 $status === 'claimed' && $leaseExpired => self::RECOVERABILITY_RECOVERABLE_EXPIRED,
                 $status === 'claimed' && ($lease === null || $leaseStatus !== AgentControlPlaneClaimLeaseRepository::LEASE_STATUS_ACTIVE) => self::RECOVERABILITY_RECOVERABLE_ORPHAN,
@@ -355,13 +515,15 @@ final class AgentControlPlaneTaskLeaseRecoveryService
             $classifications[] = [
                 'task_packet_id' => $id,
                 'queue_status' => $status,
+                'queue_tags' => array_values(array_map('strval', (array) ($record['tags'] ?? []))),
                 'lease_id' => $leaseId,
                 'lease_status' => $leaseStatus,
+                'release_reason' => $releaseReason,
                 'lease_expires_at_unix' => $expiresAt,
                 'classification' => $classification,
                 'recoverable' => in_array(
                     $classification,
-                    [self::RECOVERABILITY_RECOVERABLE_EXPIRED, self::RECOVERABILITY_RECOVERABLE_ORPHAN],
+                    [self::RECOVERABILITY_RECOVERABLE_EXPIRED, self::RECOVERABILITY_RECOVERABLE_ORPHAN, self::RECOVERABILITY_RECOVERABLE_RELEASED],
                     true,
                 ),
             ];
@@ -371,7 +533,7 @@ final class AgentControlPlaneTaskLeaseRecoveryService
             'event' => 'inspect_recoverability',
             'task_packet_filter' => $taskPacketId,
             'inspected_count' => count($classifications),
-            'recoverable_count' => $totals[self::RECOVERABILITY_RECOVERABLE_EXPIRED] + $totals[self::RECOVERABILITY_RECOVERABLE_ORPHAN],
+            'recoverable_count' => $totals[self::RECOVERABILITY_RECOVERABLE_EXPIRED] + $totals[self::RECOVERABILITY_RECOVERABLE_ORPHAN] + $totals[self::RECOVERABILITY_RECOVERABLE_RELEASED],
             'totals_by_classification' => $totals,
             'classifications' => $classifications,
         ]);
@@ -540,6 +702,36 @@ final class AgentControlPlaneTaskLeaseRecoveryService
 
     /**
      * @param  array<string, mixed>  $record
+     */
+    private function releaseReason(array $record): string
+    {
+        $reason = trim((string) data_get($record, 'metadata.release_reason', ''));
+        if ($reason !== '') {
+            return $reason;
+        }
+
+        $history = array_reverse((array) ($record['history'] ?? []));
+        foreach ($history as $entry) {
+            $reason = trim((string) data_get($entry, 'metadata.release_reason', ''));
+            if ($reason !== '') {
+                return $reason;
+            }
+        }
+
+        return '';
+    }
+
+    private function releasedTaskCanBeRequeued(string $releaseReason): bool
+    {
+        return ! in_array($releaseReason, [
+            'worker_packet_blocked_before_handoff',
+            'scope_validation_blocked',
+            'task_packet_or_validation_blocked',
+        ], true);
+    }
+
+    /**
+     * @param  array<string, mixed>  $record
      * @return array<string, mixed>|null
      */
     private function extractContinuationSummary(array $record): ?array
@@ -554,6 +746,72 @@ final class AgentControlPlaneTaskLeaseRecoveryService
         }
 
         return null;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function resumeContract(
+        string $taskPacketId,
+        string $queueStatus,
+        string $previousLeaseId,
+        string $previousAgentId,
+        string $safeNextAction,
+        ?string $recommendedClaimCommand,
+    ): array {
+        $recoverCommand = 'php artisan atlas:ai:self-construction --agent-control-plane-task-lease-recovery-status --packet='.$taskPacketId.' --actor=<actor> --reason=resume_recovery --json';
+        $claimCommand = $recommendedClaimCommand
+            ?: 'php artisan atlas:ai:self-construction --agent-control-plane-task-queue-claim-next-status --actor=<agent-id> --json';
+
+        return [
+            'schema_version' => 'atlas.self_construction.agent_control_plane_task_resume_contract.v1',
+            'task_packet_id' => $taskPacketId,
+            'queue_status' => $queueStatus,
+            'previous_lease_id' => $previousLeaseId,
+            'previous_agent_id' => $previousAgentId,
+            'safe_next_action' => $safeNextAction,
+            'can_resume_without_new_lease' => false,
+            'requires_fresh_claim_before_work' => ! in_array($queueStatus, ['completed_dry_run', 'cancelled'], true),
+            'requires_one_shot_packet_regeneration_after_claim' => ! in_array($queueStatus, ['completed_dry_run', 'cancelled'], true),
+            'requires_structured_completion_evidence' => true,
+            'pre_resume_checks' => [
+                'inspect_recoverability_before_reclaim',
+                'confirm_queue_status_is_not_terminal',
+                'confirm_previous_lease_is_not_active_for_another_actor',
+                'claim_new_lease_before_editing_files',
+                'regenerate_one_shot_worker_packet_after_claim',
+            ],
+            'commands' => [
+                'inspect_or_recover' => $recoverCommand,
+                'claim_after_recovery' => $claimCommand,
+                'one_shot_after_claim' => 'php artisan atlas:ai:self-construction --agent-control-plane-one-shot-worker-packet-status --packet='.$taskPacketId.' --lease-id=<fresh-lease-id> --json',
+                'renew_fresh_lease' => 'php artisan atlas:ai:self-construction --agent-control-plane-task-queue-renew-lease-status --lease-id=<fresh-lease-id> --actor=<agent-id> --lease-minutes=30 --json',
+                'complete_with_evidence' => 'php artisan atlas:ai:self-construction --agent-control-plane-task-queue-complete-dry-run-status --packet='.$taskPacketId.' --lease-id=<fresh-lease-id> --evidence-hash=<sha256-of-final-evidence> --completion-evidence-json=@/path/to/completion-evidence.json --json',
+            ],
+            'stop_conditions' => [
+                'task_is_terminal',
+                'lease_still_active_for_another_actor',
+                'recoverability_classification_not_recoverable_or_claimable',
+                'fresh_claim_not_acquired',
+                'one_shot_worker_packet_not_ready',
+                'completion_evidence_validation_not_valid',
+            ],
+            'forbidden_resume_shortcuts' => [
+                'do_not_reuse_previous_lease_id_for_new_agent',
+                'do_not_complete_without_active_fresh_lease',
+                'do_not_skip_one_shot_packet_regeneration',
+                'do_not_mark_real_completion',
+                'do_not_dispatch_provider_or_adapter',
+            ],
+            'non_execution_guarantees' => [
+                'resume_contract_does_not_start_codex',
+                'resume_contract_does_not_call_codex_cli_or_app',
+                'resume_contract_does_not_spawn_subprocess',
+                'resume_contract_does_not_dispatch_work',
+                'resume_contract_does_not_spend_tokens',
+                'resume_contract_does_not_mark_real_completion',
+            ],
+        ];
     }
 
     /**

@@ -19,14 +19,14 @@ use Tests\TestCase;
  */
 final class AtlasForgeRivalsProviderArenaCoreTest extends TestCase
 {
-    public function test_registry_lists_seven_canonical_arms(): void
+    public function test_registry_lists_canonical_arms_including_atlas_dev_light(): void
     {
         $registry = app(AtlasForgeRivalsArmRegistryService::class);
         $arms = $registry->arms();
 
-        $this->assertCount(7, $arms);
+        $this->assertCount(8, $arms);
         $this->assertSame(
-            ['atlas_forge', 'claude_code', 'codex_cli', 'gemini_cli', 'scripted_runner', 'manual_runner', 'future_runner'],
+            ['atlas_forge', 'atlas_dev_light', 'claude_code', 'codex_cli', 'gemini_cli', 'scripted_runner', 'manual_runner', 'future_runner'],
             $arms,
         );
     }
@@ -37,7 +37,7 @@ final class AtlasForgeRivalsProviderArenaCoreTest extends TestCase
         $snapshot = $registry->snapshot();
 
         $this->assertSame('atlas.forge.rivals.runner_registry.v1', $snapshot['schema_version']);
-        $this->assertSame(7, $snapshot['arm_count']);
+        $this->assertSame(8, $snapshot['arm_count']);
         $this->assertTrue($snapshot['separated_from_external_rivals_certification']);
 
         foreach ($snapshot['arms'] as $armId => $arm) {
@@ -46,6 +46,65 @@ final class AtlasForgeRivalsProviderArenaCoreTest extends TestCase
             $this->assertTrue($arm['safety_contract']['never_unlocks_external_rivals_certification']);
             $this->assertSame(0, $arm['safety_contract']['max_score_without_evidence']);
         }
+    }
+
+    public function test_atlas_dev_light_is_declared_as_lightweight_sonnet_arm_with_honest_real_run_blocker(): void
+    {
+        $registry = app(AtlasForgeRivalsArmRegistryService::class);
+        $arm = $registry->arm('atlas_dev_light');
+
+        $this->assertSame('atlas_dev_light', $arm['arm_id']);
+        $this->assertSame('atlas_dev', $arm['runner_type']);
+        $this->assertSame('claude', $arm['provider']);
+        $this->assertSame(['sonnet', 'claude_sonnet'], $arm['model_options']);
+        $this->assertSame('not_yet_executable', $arm['status']);
+        $this->assertSame('atlas_dev_light_driver_pending', $arm['not_executable_reason']);
+        $this->assertTrue($arm['safety_contract']['escalates_to_forge_on_high_risk']);
+        $this->assertTrue($arm['safety_contract']['keeps_call_budget_low']);
+    }
+
+    public function test_atlas_dev_light_can_join_local_fake_corpus_dry_run_without_provider_spend(): void
+    {
+        $dispatcher = app(AtlasForgeRivalsActionDispatcher::class);
+        $response = $dispatcher->dispatch('run-arena', [
+            'arm_a' => 'atlas_dev_light',
+            'arm_b' => 'claude_code',
+            'arm_a_model' => 'sonnet',
+            'arm_b_model' => 'sonnet',
+            'case_set' => 'quick',
+            'mode' => 'local_fake',
+            'confirmations' => ['runbook_reviewed' => false, 'provider_cost' => false, 'real_provider_call' => false],
+        ]);
+
+        $this->assertSame('ok', $response['status']);
+        $this->assertTrue($response['corpus_dry_run']);
+        $this->assertSame('atlas_dev_light', $response['arm_a']['arm_id']);
+        $this->assertSame('atlas_dev', $response['arm_a']['runner_type']);
+        $this->assertFalse($response['external_provider_call']);
+        $this->assertFalse($response['provider_tokens_spent']);
+    }
+
+    public function test_atlas_dev_light_real_run_blocks_until_driver_exists(): void
+    {
+        $dispatcher = app(AtlasForgeRivalsActionDispatcher::class);
+        $response = $dispatcher->dispatch('run-arena', [
+            'arm_a' => 'atlas_dev_light',
+            'arm_b' => 'claude_code',
+            'arm_a_model' => 'sonnet',
+            'arm_b_model' => 'sonnet',
+            'task_category' => 'bugfix',
+            'mode' => 'fair',
+            'preset' => 'quick',
+            'confirmations' => [
+                'runbook_reviewed' => true,
+                'provider_cost' => true,
+                'real_provider_call' => true,
+            ],
+        ]);
+
+        $this->assertSame('blocked', $response['status']);
+        $this->assertContains('arm_runner_not_yet_executable:atlas_dev_light', $response['blockers']);
+        $this->assertFalse($response['external_provider_call']);
     }
 
     public function test_atlas_forge_vs_claude_code_local_fake_does_not_call_provider(): void
@@ -301,7 +360,7 @@ final class AtlasForgeRivalsProviderArenaCoreTest extends TestCase
 
         $this->assertSame('arms', $response['action']);
         $this->assertSame('atlas.forge.rivals.runner_registry.v1', $response['schema_version']);
-        $this->assertSame(7, $response['arm_count']);
+        $this->assertSame(8, $response['arm_count']);
         $this->assertCount(9, $response['task_categories']);
     }
 

@@ -305,7 +305,7 @@ All commands below are read-only and keep `execution_allowed=false`.
 | `php artisan atlas:ai:self-construction --json` | Readiness, docs, maturity, build graph, priority bias and safety contract. |
 | `php artisan atlas:ai:self-construction --meta-sdd --json` | Candidate Meta-SDD packet with assumptions, priority, tasks and gates. |
 | `php artisan atlas:ai:self-construction --receipt-preview --json` | Preview receipt with allowed/forbidden scope, rollback and evidence. |
-| `php artisan atlas:ai:self-construction --traceability --json` | Required-doc reachability, tag and layer audit. |
+| `php artisan atlas:ai:self-construction --traceability --json` | Required-doc reachability, tag and layer audit; related cross-layer docs must declare a `layer:` value, but do not need to claim `0.8-self-construction`. |
 | `php artisan atlas:ai:self-construction --promotion-gate --json` | Consolidated promotion recommendation for human-reviewed planning. |
 | `php artisan atlas:ai:self-construction --execution-candidate --json` | Deterministic Phase 5 candidate for docs/tests/report scope only. |
 | `php artisan atlas:ai:self-construction --approval-packet --json` | Human review packet with checklist, reviewers and decision fields. |

@@ -29168,6 +29168,11 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('agent_control_plane_task_queue_orchestrator_implementation_packet', data_get($payload, 'control_plane.current_capability'));
         $this->assertContains('agent_control_plane_task_queue_orchestrator_service', data_get($payload, 'control_plane.current_capability'));
         $this->assertContains('agent_control_plane_task_queue_orchestrator_status_projection', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_terminal_loop_operational_proof_contract', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_terminal_loop_operational_proof_preflight', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_terminal_loop_operational_proof_implementation_packet', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_terminal_loop_operational_proof_service', data_get($payload, 'control_plane.current_capability'));
+        $this->assertContains('agent_control_plane_terminal_loop_operational_proof_status_projection', data_get($payload, 'control_plane.current_capability'));
         $this->assertContains('agent_control_plane_task_queue_lease_certification_contract', data_get($payload, 'control_plane.current_capability'));
         $this->assertContains('agent_control_plane_task_queue_lease_certification_preflight', data_get($payload, 'control_plane.current_capability'));
         $this->assertContains('agent_control_plane_task_queue_lease_certification_implementation_packet', data_get($payload, 'control_plane.current_capability'));
@@ -43929,6 +43934,41 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         ] as $expected) {
             $this->assertContains($expected, $keys, "Status batch missing {$expected}");
         }
+    }
+
+    public function test_final_operator_evidence_closure_corridor_human_output_lists_next_action_command(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--atlas-self-construction-final-operator-evidence-closure-corridor-status' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Next required submission', $output);
+        $this->assertStringContainsString('Next action step', $output);
+        $this->assertStringContainsString('Exact command', $output);
+        $this->assertStringContainsString('--atlas-self-construction-runtime-promotion-receipt-draft-status', $output);
+        $this->assertStringContainsString('Can run automatically', $output);
+        $this->assertStringContainsString('requires_operator_signature_and_runtime_promotion_judgment', $output);
+    }
+
+    public function test_operator_evidence_submission_readiness_human_output_lists_next_action_command(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--atlas-self-construction-operator-evidence-submission-readiness-status' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
+        $this->assertStringContainsString('Next required', $output);
+        $this->assertStringContainsString('Next action source', $output);
+        $this->assertStringContainsString('Next action artifact', $output);
+        $this->assertStringContainsString('Exact command', $output);
+        $this->assertStringContainsString('--atlas-self-construction-runtime-promotion-receipt-draft-status', $output);
+        $this->assertStringContainsString('Can persist from readiness', $output);
+        $this->assertStringContainsString('requires_operator_signature_and_runtime_promotion_judgment', $output);
     }
 
     private function ensureAgentControlPlaneProviderStartTables(): void

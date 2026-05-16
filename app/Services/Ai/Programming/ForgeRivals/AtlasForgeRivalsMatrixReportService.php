@@ -690,10 +690,10 @@ final class AtlasForgeRivalsMatrixReportService
     }
 
     /**
-     * Atlas Decide recommendation per category. Advisory only — it suggests
-     * "use Atlas Forge for X, use the raw provider for Y" based on observed
-     * wins. Categories with insufficient samples (< 2 comparable cases)
-     * surface `insufficient_sample`.
+     * Provider performance signal per category. Advisory only: Rivals emits
+     * measured evidence; Atlas Decide remains the only routing authority.
+     * Categories with insufficient samples (< 2 comparable cases) surface
+     * `insufficient_sample`.
      *
      * @param  list<array<string,mixed>>  $categoryRanking
      * @param  list<array<string,mixed>>  $comparable
@@ -710,11 +710,12 @@ final class AtlasForgeRivalsMatrixReportService
             $recommendation = match (true) {
                 $total < 2 => 'insufficient_sample',
                 $atlasWins === $rivalWins => 'human_review_inconclusive',
-                $atlasWins > $rivalWins => 'route_to_atlas_forge',
-                default => 'route_to_raw_provider',
+                $atlasWins > $rivalWins => 'atlas_forge_measured_ahead',
+                default => 'rival_measured_ahead',
             };
             $entries[] = [
                 'category' => $category,
+                'signal' => $recommendation,
                 'recommendation' => $recommendation,
                 'atlas_win_rate' => $row['atlas_win_rate'],
                 'rival_win_rate' => $row['rival_win_rate'],
@@ -725,7 +726,11 @@ final class AtlasForgeRivalsMatrixReportService
 
         return [
             'status' => $entries === [] ? 'insufficient_evidence' : 'advisory',
-            'note' => 'Sinal consultivo para Atlas Decide; nunca substitui revisão humana.',
+            'note' => 'Rivals emits measured evidence; Atlas Decide decides model routing.',
+            'advisory_only' => true,
+            'should_update_provider_topology' => false,
+            'never_changes_atlas_decide_topology' => true,
+            'owner_of_model_routing' => 'atlas_decide',
             'entries' => $entries,
             'global_recommendation' => $this->globalAtlasDecideRecommendation($entries, $comparable),
         ];
@@ -743,9 +748,10 @@ final class AtlasForgeRivalsMatrixReportService
         $atlasCount = 0;
         $rivalCount = 0;
         foreach ($entries as $entry) {
-            if ($entry['recommendation'] === 'route_to_atlas_forge') {
+            $signal = (string) ($entry['signal'] ?? $entry['recommendation'] ?? '');
+            if ($signal === 'atlas_forge_measured_ahead') {
                 $atlasCount++;
-            } elseif ($entry['recommendation'] === 'route_to_raw_provider') {
+            } elseif ($signal === 'rival_measured_ahead') {
                 $rivalCount++;
             }
         }
@@ -753,13 +759,13 @@ final class AtlasForgeRivalsMatrixReportService
             return 'human_review_required';
         }
         if ($atlasCount > $rivalCount) {
-            return 'default_to_atlas_forge_with_per_category_overrides';
+            return 'atlas_forge_measured_ahead_over_more_categories';
         }
         if ($rivalCount > $atlasCount) {
-            return 'default_to_raw_provider_with_per_category_overrides';
+            return 'rival_measured_ahead_over_more_categories';
         }
 
-        return 'split_routing_per_category';
+        return 'split_measured_evidence_by_category';
     }
 
     /**
@@ -769,7 +775,11 @@ final class AtlasForgeRivalsMatrixReportService
     {
         return [
             'status' => 'insufficient_evidence',
-            'note' => 'Sem cases comparable+scored — recomendação omitida por desenho.',
+            'note' => 'Sem cases comparable+scored — sinal consultivo omitido por desenho.',
+            'advisory_only' => true,
+            'should_update_provider_topology' => false,
+            'never_changes_atlas_decide_topology' => true,
+            'owner_of_model_routing' => 'atlas_decide',
             'entries' => [],
             'global_recommendation' => 'insufficient_evidence',
         ];
@@ -1002,19 +1012,22 @@ final class AtlasForgeRivalsMatrixReportService
         $lines[] = '';
 
         $atlasDecide = (array) ($matrix['atlas_decide_recommendation'] ?? []);
-        $lines[] = '## Recomendação para Atlas Decide';
+        $lines[] = '## Sinal medido para Atlas Decide';
         $lines[] = '';
         $lines[] = '- **Global:** `'.($atlasDecide['global_recommendation'] ?? 'insufficient_evidence').'`';
         $lines[] = '- **Status:** `'.($atlasDecide['status'] ?? 'insufficient_evidence').'`';
+        $lines[] = '- **Advisory only:** `'.($atlasDecide['advisory_only'] ?? true ? 'true' : 'false').'` · **Topology update:** `false`';
+        $lines[] = '- Rivals emits measured evidence; Atlas Decide decides model routing.';
         $lines[] = '';
         $entries = (array) ($atlasDecide['entries'] ?? []);
         if ($entries === []) {
-            $lines[] = '_Sem recomendação por categoria — amostragem insuficiente._';
+            $lines[] = '_Sem sinal por categoria — amostragem insuficiente._';
         } else {
-            $lines[] = '| Categoria | Recomendação | Atlas win-rate | Rival win-rate | Amostra |';
+            $lines[] = '| Categoria | Sinal | Atlas win-rate | Rival win-rate | Amostra |';
             $lines[] = '|---|---|---:|---:|---:|';
             foreach ($entries as $entry) {
-                $lines[] = '| `'.$entry['category'].'` | `'.$entry['recommendation'].'` | '.$entry['atlas_win_rate'].' | '.$entry['rival_win_rate'].' | '.$entry['sample_size'].' |';
+                $signal = (string) ($entry['signal'] ?? $entry['recommendation'] ?? 'insufficient_sample');
+                $lines[] = '| `'.$entry['category'].'` | `'.$signal.'` | '.$entry['atlas_win_rate'].' | '.$entry['rival_win_rate'].' | '.$entry['sample_size'].' |';
             }
         }
         $lines[] = '';

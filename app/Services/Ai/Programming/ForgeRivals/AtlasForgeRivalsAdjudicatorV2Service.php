@@ -1840,7 +1840,7 @@ final class AtlasForgeRivalsAdjudicatorV2Service
                 suspiciousAffects: $suspiciousAffectsWinner,
             );
 
-            $recommended = $winner === self::WINNER_ATLAS
+            $measuredSignal = $winner === self::WINNER_ATLAS
                 ? 'atlas_forge'
                 : ($winner === self::WINNER_RIVAL ? 'rival_provider' : 'inconclusive_run_more_cases');
 
@@ -1855,7 +1855,8 @@ final class AtlasForgeRivalsAdjudicatorV2Service
                 'confidence' => $confidence,
                 'reasons' => $reasons,
                 'suspicious_results' => $b['suspicious'],
-                'recommended_provider_signal' => $recommended,
+                'measured_provider_signal' => $measuredSignal,
+                'routing_effect' => 'none',
             ];
         }
 

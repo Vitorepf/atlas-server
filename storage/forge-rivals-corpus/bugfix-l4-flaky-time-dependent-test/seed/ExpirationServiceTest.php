@@ -24,7 +24,7 @@ final class ExpirationServiceTest extends TestCase
 
     public function test_service_does_not_call_real_microtime(): void
     {
-        $source = file_get_contents(__DIR__.'/ExpirationService.php');
+        $source = file_get_contents(dirname(__DIR__, 3).'/app/Domain/Expiration/ExpirationService.php');
         $this->assertNotFalse($source);
         $this->assertStringNotContainsString('microtime(', $source, 'ExpirationService must not reference microtime() directly');
     }

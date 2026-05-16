@@ -1,0 +1,61 @@
+{
+    "allowed_files": [
+        "app/Services/Ai/Programming/AtlasForgeRuntimeDispatchService.php",
+        "app/Services/Ai/Programming/AtlasForgeProviderCoordinator.php"
+    ],
+    "allowed_tools": [
+        "read",
+        "grep"
+    ],
+    "blocked_actions": [
+        "production_write",
+        "migration_apply",
+        "secret_access",
+        "broad_refactor",
+        "council_invoke",
+        "forge_invoke_direct"
+    ],
+    "escalation_on": [
+        "same_signature_failure_twice",
+        "diff_grew_without_progress",
+        "new_scope_appeared",
+        "test_failure_requires_architecture",
+        "context_required_exceeds_budget",
+        "risk_escalated_to_r4_or_above"
+    ],
+    "evidence_required": [
+        "scope_guard_receipt",
+        "verification_receipt"
+    ],
+    "forbidden_files": [
+        "vendor/*",
+        "node_modules/*",
+        ".env"
+    ],
+    "max_files_changed": 2,
+    "no_test_reason": null,
+    "owner": "atlas_dev_sonnet",
+    "provider_lock": {
+        "fallback_allowed": false,
+        "model_family": "sonnet",
+        "provider": "claude_cli"
+    },
+    "provider_safe": true,
+    "repair_policy": {
+        "abort_on_same_signature_twice": true,
+        "max_attempts": 0,
+        "requires_failed_gate_output": true,
+        "same_provider": true
+    },
+    "run_id": "0192b5d2-4001-7c4f-9d2a-3f3b8e9a4c2d",
+    "schema_version": "atlas.dev.light_task_contract.v1",
+    "spec_hash": "8feedface112233445566778899aabbccddeeff0",
+    "task_contract_hash": "PLACEHOLDER_recomputed_by_test",
+    "task_id": "0192b5d2-4001-7c4f-9d2a-2a3b4c5d6e7f",
+    "validation_commands": [
+        "composer test"
+    ],
+    "watched_files": [
+        "app/Services/Ai/Programming/Sdd/AtlasSddPipeline.php"
+    ]
+}

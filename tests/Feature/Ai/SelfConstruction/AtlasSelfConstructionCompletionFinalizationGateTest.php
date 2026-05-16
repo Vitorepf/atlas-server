@@ -20,6 +20,25 @@ final class AtlasSelfConstructionCompletionFinalizationGateTest extends TestCase
         $this->assertNotEmpty((array) $gate['next_stage_blockers']);
         $this->assertGreaterThan(0, count((array) $gate['failed_check_ids']));
         $this->assertNotEmpty((string) $gate['completion_evidence_status_hash']);
+        $this->assertSame(
+            'atlas.self_construction.completion_finalization_operator_handoff.v1',
+            data_get($gate, 'completion_finalization_operator_handoff.schema_version'),
+        );
+        $this->assertSame(
+            'blocked_operator_or_provider_evidence_required',
+            data_get($gate, 'completion_finalization_operator_handoff.status'),
+        );
+        $this->assertContains(
+            data_get($gate, 'completion_finalization_operator_handoff.current_required_operator_artifact'),
+            ['runtime_promotion_receipt', 'real_provider_smoke_certification', 'human_signed_completion_receipt', 'technical_completion_audit_repair', 'completion_finalization_gate_repair'],
+        );
+        $this->assertFalse((bool) data_get($gate, 'completion_finalization_operator_handoff.can_execute_from_handoff'));
+        $this->assertFalse((bool) data_get($gate, 'completion_finalization_operator_handoff.can_persist_from_handoff'));
+        $this->assertFalse((bool) data_get($gate, 'completion_finalization_operator_handoff.can_promote_completion_from_handoff'));
+        $this->assertMatchesRegularExpression(
+            '/^[a-f0-9]{64}$/',
+            (string) data_get($gate, 'completion_finalization_operator_handoff.completion_finalization_operator_handoff_hash'),
+        );
         $this->assertMatchesRegularExpression(
             '/^[a-f0-9]{64}$/',
             (string) data_get($gate, 'checks.evidence_hashes_match_completion_audit.evidence.actual_runtime_gap_matrix_hash'),
@@ -52,6 +71,15 @@ final class AtlasSelfConstructionCompletionFinalizationGateTest extends TestCase
         $this->assertTrue((bool) $gate['evidence_hashes_match_completion_audit']);
         $this->assertSame([], (array) $gate['next_stage_blockers']);
         $this->assertSame([], (array) $gate['failed_check_ids']);
+        $this->assertSame(
+            'ready_for_final_operator_review',
+            data_get($gate, 'completion_finalization_operator_handoff.status'),
+        );
+        $this->assertSame(
+            'final_operator_review',
+            data_get($gate, 'completion_finalization_operator_handoff.current_required_operator_artifact'),
+        );
+        $this->assertTrue((bool) data_get($gate, 'completion_finalization_operator_handoff.required_success_predicate.completion_claim_allowed_must_be_true'));
     }
 
     public function test_finalization_gate_blocks_when_green_audit_and_completion_evidence_hashes_drift(): void
@@ -70,6 +98,25 @@ final class AtlasSelfConstructionCompletionFinalizationGateTest extends TestCase
         $this->assertContains('finalization_gate_blocked_by_evidence_hashes_match_completion_audit', (array) $gate['next_stage_blockers']);
     }
 
+    public function test_finalization_gate_blocks_when_terminal_loop_criterion_is_missing_or_not_green(): void
+    {
+        $audit = $this->auditAllPassedExcept([]);
+        $audit['criteria'] = array_values(array_filter(
+            $audit['criteria'],
+            static fn (array $criterion): bool => (string) ($criterion['id'] ?? '') !== 'agent_control_plane_terminal_loop_certification_green',
+        ));
+
+        $gate = $this->service()->evaluate([
+            'completion_audit' => $audit,
+            'completion_evidence' => $this->evidenceAllGreen(),
+        ]);
+
+        $this->assertSame('blocked', $gate['status']);
+        $this->assertFalse((bool) $gate['terminal_loop_green']);
+        $this->assertFalse((bool) $gate['completion_claim_allowed']);
+        $this->assertContains('finalization_gate_blocked_by_terminal_loop_green', (array) $gate['next_stage_blockers']);
+    }
+
     public function test_finalization_gate_never_mutates_or_promotes_completion(): void
     {
         $gate = $this->service()->evaluate();
@@ -79,8 +126,11 @@ final class AtlasSelfConstructionCompletionFinalizationGateTest extends TestCase
         $this->assertFalse((bool) $gate['provider_call_allowed']);
         $this->assertFalse((bool) $gate['token_spend_allowed']);
         $this->assertFalse((bool) $gate['self_programming_allowed']);
+        $this->assertFalse((bool) data_get($gate, 'completion_finalization_operator_handoff.can_call_provider_from_handoff'));
+        $this->assertFalse((bool) data_get($gate, 'completion_finalization_operator_handoff.can_sign_from_handoff'));
         $this->assertContains('completion_finalization_gate_does_not_promote_completion', (array) $gate['non_execution_guarantees']);
         $this->assertContains('completion_finalization_gate_does_not_persist_receipts', (array) $gate['non_execution_guarantees']);
+        $this->assertContains('handoff_does_not_promote_os_completion', (array) data_get($gate, 'completion_finalization_operator_handoff.non_execution_guarantees', []));
     }
 
     public function test_finalization_gate_hash_is_deterministic(): void
@@ -123,6 +173,7 @@ final class AtlasSelfConstructionCompletionFinalizationGateTest extends TestCase
             'end_to_end_real_provider_smoke_green',
             'forge_self_improvement_integration_smoke_green',
             'certification_status_batch_green',
+            'agent_control_plane_terminal_loop_certification_green',
         ];
         $criteria = [];
         foreach ($ids as $id) {

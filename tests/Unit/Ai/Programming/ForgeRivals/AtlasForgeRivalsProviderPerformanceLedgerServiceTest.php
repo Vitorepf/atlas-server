@@ -219,10 +219,13 @@ final class AtlasForgeRivalsProviderPerformanceLedgerServiceTest extends TestCas
         $signal = $this->signal->project(['task_category' => 'frontend', 'role' => 'builder']);
 
         $this->assertSame('insufficient_evidence', $signal['signal']);
-        $this->assertNull($signal['recommended_provider']);
-        $this->assertNull($signal['recommended_model']);
+        $this->assertNull($signal['top_measured_provider']);
+        $this->assertNull($signal['top_measured_model']);
         $this->assertSame('insufficient_evidence', $signal['confidence']);
         $this->assertTrue($signal['advisory_only']);
+        $this->assertFalse($signal['should_update_provider_topology']);
+        $this->assertTrue($signal['never_changes_atlas_decide_topology']);
+        $this->assertSame('atlas_decide', $signal['owner_of_model_routing']);
         $this->assertTrue($signal['separated_from_external_rivals_certification']);
         $this->assertFalse($signal['external_provider_call']);
     }
@@ -235,7 +238,7 @@ final class AtlasForgeRivalsProviderPerformanceLedgerServiceTest extends TestCas
         $this->assertContains('task_category_and_role_required', $signal['reason']);
     }
 
-    public function test_decide_signal_recommends_provider_with_higher_score(): void
+    public function test_decide_signal_emits_top_measured_provider_without_routing(): void
     {
         // Seed several frontend/builder runs: Claude consistently outperforms codex.
         for ($i = 0; $i < 4; $i++) {
@@ -255,10 +258,12 @@ final class AtlasForgeRivalsProviderPerformanceLedgerServiceTest extends TestCas
         $signal = $this->signal->project(['task_category' => 'frontend', 'role' => 'builder']);
 
         $this->assertSame('ok', $signal['signal']);
-        $this->assertNotNull($signal['recommended_provider']);
-        $this->assertNotNull($signal['recommended_model']);
+        $this->assertNotNull($signal['top_measured_provider']);
+        $this->assertNotNull($signal['top_measured_model']);
         $this->assertGreaterThanOrEqual(1, $signal['evidence_count']);
         $this->assertTrue($signal['advisory_only']);
+        $this->assertFalse($signal['should_update_provider_topology']);
+        $this->assertSame('none', $signal['routing_effect']);
     }
 
     public function test_atlas_forge_vs_raw_provider_delta_computed(): void

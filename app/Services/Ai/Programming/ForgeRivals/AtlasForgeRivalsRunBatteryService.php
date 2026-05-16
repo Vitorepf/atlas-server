@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\Programming\ForgeRivals;
 
 use Illuminate\Support\Str;
+use Symfony\Component\Process\Process;
 
 /**
  * Atlas Forge Rivals · Run Battery (single-button orchestrator).
@@ -68,6 +69,7 @@ final class AtlasForgeRivalsRunBatteryService
         $atlasModel = $this->normalizeModel($rawAtlasModel);
         $rivalModel = $this->normalizeModel($rawRivalModel);
         $preset = trim((string) ($input['preset'] ?? AtlasForgeRivalsCasesRegistry::PRESET_QUICK));
+        $promptMode = $this->normalizePromptMode((string) ($input['prompt_mode'] ?? ''));
         $case = trim((string) ($input['case'] ?? ''));
         $cases = array_values(array_filter(
             array_map(static fn ($entry): string => trim((string) $entry), (array) ($input['cases'] ?? [])),
@@ -98,6 +100,15 @@ final class AtlasForgeRivalsRunBatteryService
                 phases: $phases,
                 blockers: ['mode_not_admissible_for_run_battery:'.$rawMode],
                 hint: 'pick --mode=fair|power|local_fake',
+            );
+        }
+        if (! in_array($promptMode, ['spec-perfect', 'human-normal', 'messy-real', 'enterprise-change'], true)) {
+            return $this->terminal(
+                runId: $runId,
+                mode: $mode,
+                phases: $phases,
+                blockers: ['prompt_mode_not_admissible_for_run_battery:'.$promptMode],
+                hint: 'pick --prompt-mode=spec-perfect|human-normal|messy-real|enterprise-change',
             );
         }
 
@@ -198,6 +209,30 @@ final class AtlasForgeRivalsRunBatteryService
         $runId = (string) ($setup['run_id'] ?? $runId);
         $runPaths = $this->paths->paths($runId);
 
+        if ($resumeRequested) {
+            $activeRunnerBlockers = $this->resumeActiveRunnerBlockers($runPaths);
+            if ($activeRunnerBlockers !== []) {
+                return $this->terminal(
+                    $runId,
+                    $mode,
+                    $phases,
+                    $activeRunnerBlockers,
+                    'wait for the active battery runner to finish or become stalled before resuming',
+                );
+            }
+
+            $resumeCleanup = $this->prepareResumeWorktrees($runPaths);
+            if (($resumeCleanup['blockers'] ?? []) !== []) {
+                return $this->terminal(
+                    $runId,
+                    $mode,
+                    $phases,
+                    (array) $resumeCleanup['blockers'],
+                    'fix resume worktree cleanup blockers before continuing the battery',
+                );
+            }
+        }
+
         // Phase 3 — preflight
         $preflight = $this->preflight->preflight([
             'mode' => $mode,
@@ -207,6 +242,7 @@ final class AtlasForgeRivalsRunBatteryService
             'case' => $case !== '' ? $case : null,
             'cases' => $cases,
             'case_set' => $caseSet !== '' ? $caseSet : null,
+            'prompt_mode' => $promptMode,
             'workspace' => $runPaths['atlas'],
             'baseline_workspace' => $runPaths['rival'],
             'confirmations' => $sharedConfirms,
@@ -223,6 +259,7 @@ final class AtlasForgeRivalsRunBatteryService
             'case' => $case !== '' ? $case : null,
             'cases' => $cases,
             'case_set' => $caseSet !== '' ? $caseSet : null,
+            'prompt_mode' => $promptMode,
             'workspace' => $runPaths['atlas'],
             'baseline_workspace' => $runPaths['rival'],
         ]);
@@ -271,6 +308,7 @@ final class AtlasForgeRivalsRunBatteryService
             'case' => $case !== '' ? $case : null,
             'cases' => $cases,
             'case_set' => $caseSet !== '' ? $caseSet : null,
+            'prompt_mode' => $promptMode,
             'confirmations' => $sharedConfirms,
         ]);
         $phases[] = $this->phase('plan-real', $planReal);
@@ -291,6 +329,7 @@ final class AtlasForgeRivalsRunBatteryService
                 'preset' => $preset,
                 'case' => $case !== '' ? $case : null,
                 'case_set' => $caseSet !== '' ? $caseSet : null,
+                'prompt_mode' => $promptMode,
                 'dry_run' => true,
                 'verdict' => 'dry_run_planned',
                 'phases' => $phases,
@@ -303,7 +342,7 @@ final class AtlasForgeRivalsRunBatteryService
                 'provider_tokens_spent' => false,
                 'claim_ready' => false,
                 'separated_from_external_rivals_certification' => true,
-                'next_command' => 'php artisan atlas:forge:rivals run-battery --mode='.$mode.' --atlas-model='.$atlasModel.' --rival='.$rivalModel.' --preset='.$preset.' --confirm-runbook-reviewed --confirm-provider-cost --confirm-real-provider-call --json',
+                'next_command' => 'php artisan atlas:forge:rivals run-battery --mode='.$mode.' --atlas-model='.$atlasModel.' --rival='.$rivalModel.' --preset='.$preset.' --prompt-mode='.$promptMode.' --confirm-runbook-reviewed --confirm-provider-cost --confirm-real-provider-call --json',
                 'note' => 'Dry-run completed (preflight + dry-run + plan-real). No provider invoked. No score, no winner. Re-run without --dry-run to execute the battery.',
             ];
         }
@@ -317,6 +356,7 @@ final class AtlasForgeRivalsRunBatteryService
             'case' => $case !== '' ? $case : null,
             'cases' => $cases,
             'case_set' => $caseSet !== '' ? $caseSet : null,
+            'prompt_mode' => $promptMode,
             'run_id' => $runId,
             'confirmations' => $sharedConfirms,
             'resume' => $resumeRequested,
@@ -404,6 +444,7 @@ final class AtlasForgeRivalsRunBatteryService
             'preset' => $preset,
             'case' => $case !== '' ? $case : null,
             'case_set' => $caseSet !== '' ? $caseSet : null,
+            'prompt_mode' => $promptMode,
             'requires_provider' => $requiresProvider,
             'external_provider_call' => $requiresProvider && $mode !== AtlasForgeRivalsModeRegistry::MODE_LOCAL_FAKE,
             'provider_tokens_spent' => $requiresProvider && $mode !== AtlasForgeRivalsModeRegistry::MODE_LOCAL_FAKE,
@@ -454,6 +495,17 @@ final class AtlasForgeRivalsRunBatteryService
             'power', 'full-power' => AtlasForgeRivalsModeRegistry::MODE_FULL_POWER,
             '' => AtlasForgeRivalsModeRegistry::MODE_FAIR,
             default => strtolower($mode),
+        };
+    }
+
+    private function normalizePromptMode(string $mode): string
+    {
+        return match (strtolower(trim($mode))) {
+            '', 'spec', 'spec_perfect', 'spec-perfect' => 'spec-perfect',
+            'human', 'human_normal', 'human-normal' => 'human-normal',
+            'messy', 'messy_real', 'messy-real' => 'messy-real',
+            'enterprise', 'enterprise_change', 'enterprise-change' => 'enterprise-change',
+            default => strtolower(trim($mode)),
         };
     }
 
@@ -572,6 +624,123 @@ final class AtlasForgeRivalsRunBatteryService
         }
 
         return false;
+    }
+
+    /**
+     * Refuse resume while another process is still emitting events for the
+     * same run. A resume is only for crashed/stalled runners; concurrent
+     * resume can mutate an arm while a provider is still working.
+     *
+     * @param  array<string,string>  $runPaths
+     * @return list<string>
+     */
+    private function resumeActiveRunnerBlockers(array $runPaths): array
+    {
+        $batteryPath = (string) ($runPaths['base'] ?? '').DIRECTORY_SEPARATOR.'battery.json';
+        $eventsPath = (string) ($runPaths['events_jsonl'] ?? '');
+        if (! is_file($batteryPath) || ! is_file($eventsPath)) {
+            return [];
+        }
+
+        $battery = json_decode((string) @file_get_contents($batteryPath), true);
+        if (! is_array($battery)) {
+            return [];
+        }
+
+        $hasRunningCase = false;
+        foreach ((array) ($battery['cases'] ?? []) as $case) {
+            if (is_array($case) && (string) ($case['state'] ?? '') === 'running') {
+                $hasRunningCase = true;
+                break;
+            }
+        }
+        if (! $hasRunningCase) {
+            return [];
+        }
+
+        $mtime = @filemtime($eventsPath);
+        if (! is_int($mtime)) {
+            return [];
+        }
+
+        $ageSeconds = max(0, time() - $mtime);
+        if ($ageSeconds <= 30) {
+            return ['resume_refused_active_runner_heartbeat:'.$ageSeconds.'s'];
+        }
+
+        return [];
+    }
+
+    /**
+     * Resume can restart a case that was interrupted while an arm worktree
+     * still contains provider output. Clean only the generated rival arms,
+     * never the operator's source workspace, so preflight sees the same clean
+     * baseline that run-real would restore between cases.
+     *
+     * @param  array<string,string>  $runPaths
+     * @return array{status:string,blockers:list<string>}
+     */
+    private function prepareResumeWorktrees(array $runPaths): array
+    {
+        $blockers = [];
+        $armsRoot = realpath((string) ($runPaths['arms_root'] ?? '')) ?: null;
+
+        foreach (['atlas', 'rival'] as $arm) {
+            $worktree = (string) ($runPaths[$arm] ?? '');
+            $realWorktree = realpath($worktree) ?: null;
+            if ($armsRoot === null || $realWorktree === null || ! str_starts_with($realWorktree, $armsRoot.DIRECTORY_SEPARATOR)) {
+                $blockers[] = 'resume_worktree_cleanup_refused:'.$arm;
+
+                continue;
+            }
+            if (! is_dir($worktree.'/.git') && ! is_file($worktree.'/.git')) {
+                $blockers[] = 'resume_worktree_not_git:'.$arm;
+
+                continue;
+            }
+
+            $reset = new Process(['git', '-C', $worktree, 'reset', '--hard', 'HEAD']);
+            $reset->setTimeout(30);
+            $reset->run();
+            if (! $reset->isSuccessful()) {
+                $blockers[] = 'resume_worktree_reset_failed:'.$arm;
+
+                continue;
+            }
+
+            $clean = new Process([
+                'git',
+                '-C',
+                $worktree,
+                'clean',
+                '-ffdx',
+                '-e',
+                '/vendor',
+                '-e',
+                '/.env',
+                '-e',
+                '/.env.testing',
+            ]);
+            $clean->setTimeout(30);
+            $clean->run();
+            if (! $clean->isSuccessful()) {
+                $blockers[] = 'resume_worktree_clean_failed:'.$arm;
+
+                continue;
+            }
+
+            $status = new Process(['git', '-C', $worktree, 'status', '--porcelain']);
+            $status->setTimeout(15);
+            $status->run();
+            if (! $status->isSuccessful() || trim((string) $status->getOutput()) !== '') {
+                $blockers[] = 'resume_worktree_still_dirty:'.$arm;
+            }
+        }
+
+        return [
+            'status' => $blockers === [] ? 'ok' : 'blocked',
+            'blockers' => $blockers,
+        ];
     }
 
     /**

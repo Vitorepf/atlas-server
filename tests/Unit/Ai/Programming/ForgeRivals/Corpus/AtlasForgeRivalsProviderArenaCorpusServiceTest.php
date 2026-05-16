@@ -108,6 +108,18 @@ final class AtlasForgeRivalsProviderArenaCorpusServiceTest extends TestCase
         }
     }
 
+    public function test_default_canonical_test_command_uses_hermetic_quick_command(): void
+    {
+        foreach ($this->corpus->cases() as $case) {
+            $this->assertNotSame('', trim((string) $case['test_command']), "Caso {$case['case_id']} sem test_command.");
+            $this->assertSame(
+                $case['quick_test_command'],
+                $case['test_command'],
+                "Caso {$case['case_id']} deve validar o desafio com quick_test_command, não com full_test_command amplo.",
+            );
+        }
+    }
+
     public function test_every_case_quality_weights_sum_to_one(): void
     {
         foreach ($this->corpus->cases() as $case) {

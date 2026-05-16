@@ -11,7 +11,7 @@ namespace App\Services\Ai\Programming\ForgeRivals\Arms;
  * `arm_b` in an arena run. Every arm declares:
  *
  *   - arm_id                              canonical id
- *   - runner_type                         forge | cli_provider | scripted | manual | placeholder
+ *   - runner_type                         forge | atlas_dev | cli_provider | scripted | manual | placeholder
  *   - provider                            claude | codex | gemini | null
  *   - model_options                       allowed shorthand or canonical model names
  *   - execution_mode                      forge_real_provider | cli_provider_real | scripted | manual | placeholder
@@ -30,7 +30,9 @@ namespace App\Services\Ai\Programming\ForgeRivals\Arms;
  * can see them) but the real-run path returns an honest
  * `arm_runner_not_yet_executable:<arm_id>` blocker. `atlas_forge`,
  * `claude_code` and `codex_cli` are fully executable (subject to the
- * Real Battery operator harness contract).
+ * Real Battery operator harness contract). `atlas_dev_light` is declared
+ * for honest planning/corpus dry-runs now, and blocks real runs until its
+ * own lightweight Atlas Dev driver is wired.
  *
  * Schema: atlas.forge.rivals.runner_registry.v1
  */
@@ -39,6 +41,8 @@ final class AtlasForgeRivalsArmRegistryService
     public const SCHEMA_VERSION = 'atlas.forge.rivals.runner_registry.v1';
 
     public const ARM_ATLAS_FORGE = 'atlas_forge';
+
+    public const ARM_ATLAS_DEV_LIGHT = 'atlas_dev_light';
 
     public const ARM_CLAUDE_CODE = 'claude_code';
 
@@ -55,6 +59,7 @@ final class AtlasForgeRivalsArmRegistryService
     /** @var list<string> */
     public const ARMS = [
         self::ARM_ATLAS_FORGE,
+        self::ARM_ATLAS_DEV_LIGHT,
         self::ARM_CLAUDE_CODE,
         self::ARM_CODEX_CLI,
         self::ARM_GEMINI_CLI,
@@ -70,6 +75,8 @@ final class AtlasForgeRivalsArmRegistryService
     public const STATUS_PLACEHOLDER = 'placeholder';
 
     public const RUNNER_FORGE = 'forge';
+
+    public const RUNNER_ATLAS_DEV = 'atlas_dev';
 
     public const RUNNER_CLI_PROVIDER = 'cli_provider';
 
@@ -140,6 +147,7 @@ final class AtlasForgeRivalsArmRegistryService
 
         return match ($id) {
             self::ARM_ATLAS_FORGE => $this->atlasForge(),
+            self::ARM_ATLAS_DEV_LIGHT => $this->atlasDevLight(),
             self::ARM_CLAUDE_CODE => $this->claudeCode(),
             self::ARM_CODEX_CLI => $this->codexCli(),
             self::ARM_GEMINI_CLI => $this->geminiCli(),
@@ -202,6 +210,36 @@ final class AtlasForgeRivalsArmRegistryService
             'not_executable_reason' => null,
             'human_label' => 'Atlas Forge',
             'human_description' => 'Atlas Forge wrapper around Claude (sonnet/opus). Honors scope, evidence, replay.',
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function atlasDevLight(): array
+    {
+        return [
+            'arm_id' => self::ARM_ATLAS_DEV_LIGHT,
+            'runner_type' => self::RUNNER_ATLAS_DEV,
+            'provider' => 'claude',
+            'model_options' => ['sonnet', 'claude_sonnet'],
+            'execution_mode' => 'atlas_dev_light_real_provider_pending',
+            'requires_external_provider_call' => true,
+            'requires_cost_confirmation' => true,
+            'supports_streaming' => true,
+            'supports_replay' => true,
+            'supports_patch_diff' => true,
+            'supports_test_log' => true,
+            'allowed_task_categories' => ['frontend', 'backend', 'bugfix', 'tests', 'refactor', 'docs'],
+            'safety_contract' => $this->safety(realProvider: true) + [
+                'escalates_to_forge_on_high_risk' => true,
+                'forbids_enterprise_claim_without_forge_escalation' => true,
+                'keeps_call_budget_low' => true,
+            ],
+            'status' => self::STATUS_NOT_YET_EXECUTABLE,
+            'not_executable_reason' => 'atlas_dev_light_driver_pending',
+            'human_label' => 'Atlas Dev Light',
+            'human_description' => 'Lightweight Atlas Dev wrapper around Claude Sonnet: scoped context, short plan, patch, focused tests, simple verification, then escalation to Forge on risk/failure.',
         ];
     }
 

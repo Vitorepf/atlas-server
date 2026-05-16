@@ -118,6 +118,65 @@ final class AtlasAiSelfConstructionAgentControlPlaneOneShotWorkerPacketTest exte
         $this->assertSame('task_packet_not_found', $result['reason']);
     }
 
+    public function test_blocks_when_worker_scope_has_no_allowed_files(): void
+    {
+        [$queue, $leases] = $this->wirings();
+        $packet = $this->seedTaskPacket($queue, 'AIP-empty-scope', overrides: [
+            'allowed_files' => [],
+            'normalized_scope' => [
+                'allowed_files' => [],
+            ],
+        ]);
+        $lease = $leases->claim($packet['task_packet_id'], 'agent-empty', $this->scope(['app/Placeholder.php']));
+
+        $service = new AgentControlPlaneOneShotWorkerPacketService($leases, $queue);
+        $result = $service->generate([
+            'task_packet_id' => $packet['task_packet_id'],
+            'lease_id' => $lease['lease_id'],
+            'actor' => 'agent-empty',
+        ]);
+
+        $this->assertSame('blocked', $result['status']);
+        $this->assertSame('unsafe_worker_scope', $result['reason']);
+        $this->assertContains('allowed_files_empty', $result['scope_blockers']);
+        $this->assertSame([], $result['allowed_files']);
+    }
+
+    public function test_uses_normalized_scope_allowed_files_when_top_level_allowed_files_are_absent(): void
+    {
+        [$queue, $leases] = $this->wirings();
+        $packet = $this->seedTaskPacket($queue, 'AIP-normalized-scope', overrides: [
+            'allowed_files' => [],
+            'normalized_scope' => [
+                'allowed_files' => [
+                    'app/Services/Ai/SelfConstruction/AgentControlPlaneTaskPacketBuilder.php',
+                ],
+                'forbidden_files' => [
+                    'routes/api.php',
+                ],
+                'forbidden_in_allowed' => [],
+                'forbidden_axis_hits' => [],
+            ],
+        ]);
+        $lease = $leases->claim($packet['task_packet_id'], 'agent-normalized', $this->scope([
+            'app/Services/Ai/SelfConstruction/AgentControlPlaneTaskPacketBuilder.php',
+        ]));
+
+        $service = new AgentControlPlaneOneShotWorkerPacketService($leases, $queue);
+        $result = $service->generate([
+            'task_packet_id' => $packet['task_packet_id'],
+            'lease_id' => $lease['lease_id'],
+            'actor' => 'agent-normalized',
+        ]);
+
+        $this->assertSame('ok', $result['status']);
+        $this->assertContains(
+            'app/Services/Ai/SelfConstruction/AgentControlPlaneTaskPacketBuilder.php',
+            $result['allowed_files'],
+        );
+        $this->assertStringNotContainsString('_(nenhum arquivo permitido', $result['worker_prompt_full']);
+    }
+
     public function test_returns_full_envelope_when_packet_and_lease_match(): void
     {
         [$queue, $leases] = $this->wirings();
@@ -149,6 +208,22 @@ final class AtlasAiSelfConstructionAgentControlPlaneOneShotWorkerPacketTest exte
         $this->assertNotEmpty($result['required_tests']);
         $this->assertArrayHasKey('evidence_contract', $result);
         $this->assertSame(
+            'atlas.self_construction.agent_control_plane_task_queue_completion_evidence.v1',
+            data_get($result, 'evidence_contract.completion_evidence_schema_version'),
+        );
+        $this->assertSame(
+            'atlas.self_construction.agent_control_plane_task_queue_completion_evidence.v1',
+            data_get($result, 'completion_evidence_template.schema_version'),
+        );
+        $this->assertSame($packet['task_packet_id'], data_get($result, 'completion_evidence_template.packet_id'));
+        $this->assertSame($lease['lease_id'], data_get($result, 'completion_evidence_template.lease_id'));
+        $this->assertSame('passed', data_get($result, 'completion_evidence_template.tests_or_gates_result'));
+        $this->assertSame('clean', data_get($result, 'completion_evidence_template.git_diff_check_result'));
+        $this->assertStringContainsString(
+            '"schema_version": "atlas.self_construction.agent_control_plane_task_queue_completion_evidence.v1"',
+            $result['completion_evidence_template_json'],
+        );
+        $this->assertSame(
             'atlas.self_construction.agent_control_plane_worker_resumption_contract.v1',
             data_get($result, 'resumption_contract.schema_version'),
         );
@@ -176,10 +251,16 @@ final class AtlasAiSelfConstructionAgentControlPlaneOneShotWorkerPacketTest exte
         $this->assertStringContainsString('--packet='.$packet['task_packet_id'], $result['completion_command']);
         $this->assertStringContainsString('--lease-id='.$lease['lease_id'], $result['completion_command']);
         $this->assertStringContainsString('agent-c', $result['completion_command']);
+        $this->assertStringContainsString('--evidence-hash=<sha256-of-final-evidence>', $result['completion_command']);
+        $this->assertStringContainsString('--completion-evidence-json=@/path/to/completion-evidence.json', $result['completion_command']);
         $this->assertStringContainsString($result['completion_command'], $result['worker_prompt_full']);
+        $this->assertStringContainsString('"git_diff_check_result": "clean"', $result['worker_prompt_full']);
         $this->assertStringContainsString('Se você for interrompido ou a lease expirar', $result['worker_prompt_full']);
         $this->assertStringContainsString('--agent-control-plane-task-lease-recovery-status', $result['worker_prompt_full']);
         $this->assertStringContainsString('--agent-control-plane-terminal-worker-bootstrap-status', $result['worker_prompt_full']);
+        $this->assertSame('/path/to/completion-evidence.json', data_get($result, 'evidence_contract.completion_evidence_template_path'));
+        $this->assertContains('app/Foo.php', data_get($result, 'completion_evidence_template.files_changed'));
+        $this->assertStringContainsString('php artisan test --filter=ScopedSuite => <passed|failed>', data_get($result, 'completion_evidence_template.commands_run.0'));
     }
 
     public function test_prompt_includes_preserve_worktree_and_forbidden_axes(): void
@@ -280,6 +361,10 @@ final class AtlasAiSelfConstructionAgentControlPlaneOneShotWorkerPacketTest exte
         $this->assertNotEmpty($inner['worker_prompt_full']);
         $this->assertNotEmpty($inner['one_shot_packet_hash']);
         $this->assertSame(
+            'atlas.self_construction.agent_control_plane_task_queue_completion_evidence.v1',
+            data_get($inner, 'completion_evidence_template.schema_version'),
+        );
+        $this->assertSame(
             'atlas.self_construction.agent_control_plane_worker_resumption_contract.v1',
             data_get($inner, 'resumption_contract.schema_version'),
         );
@@ -309,6 +394,7 @@ final class AtlasAiSelfConstructionAgentControlPlaneOneShotWorkerPacketTest exte
         AgentControlPlaneTaskPacketQueueRepository $queue,
         string $packetId,
         string $objective = 'Implementar a próxima fatia canônica',
+        array $overrides = [],
     ): array {
         $packet = [
             'task_packet_id' => $packetId,
@@ -334,6 +420,9 @@ final class AtlasAiSelfConstructionAgentControlPlaneOneShotWorkerPacketTest exte
                 'php artisan test --filter=ScopedSuite',
             ],
         ];
+        foreach ($overrides as $key => $value) {
+            $packet[$key] = $value;
+        }
         $enqueueResult = $queue->enqueue($packet);
         $this->assertSame('ok', $enqueueResult['status']);
 

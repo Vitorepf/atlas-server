@@ -1,0 +1,37 @@
+{
+    "command_intent": "dev",
+    "dirty_worktree_policy": "preserve_user_changes",
+    "envelope_hash": "PLACEHOLDER_recomputed_by_test",
+    "flow_id": "atlas_dev",
+    "flow_origin": "atlas_ai_router",
+    "git_state": {
+        "dirty": false,
+        "head_sha": "f4e5d6c7b8a9101112131415161718191a1b1c1d",
+        "pending_changes_count": 0,
+        "untracked_count": 0
+    },
+    "intent_clarity_level": "high",
+    "normalized_intent": "corrigir teste falhando em AtlasCliDevWorkflowServiceTest",
+    "preflight": {
+        "operator_explicit": false,
+        "permission_mode": "write",
+        "workspace_resolved": true,
+        "write_allowed": true
+    },
+    "provider_safe": true,
+    "raw_intent": "corrija o teste falhando em AtlasCliDevWorkflowServiceTest",
+    "run_id": "0192b5d2-2fe0-7c4f-9d2a-1f3b8e9a4c2d",
+    "schema_version": "atlas.dev.operation_envelope.v1",
+    "surface_context": {
+        "composer_mode": "programming",
+        "composer_task": "dev",
+        "conversation_id": "conversation_01J7XYZ123",
+        "product_surface": "atlas_ai_desktop_mac",
+        "provider_choice": "auto",
+        "thread_id": "thread_01J7XYZ456"
+    },
+    "surface_id": "atlas_desktop_ai",
+    "user_constraints": [],
+    "workspace": "/Users/op/code/atlas-server",
+    "workspace_hash": "a1b2c3d4e5f60718192a2b3c4d5e6f70819293a4"
+}

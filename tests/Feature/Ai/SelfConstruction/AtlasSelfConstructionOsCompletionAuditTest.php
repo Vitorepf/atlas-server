@@ -40,9 +40,22 @@ final class AtlasSelfConstructionOsCompletionAuditTest extends TestCase
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $audit['completion_audit_hash']);
 
         $runtimeCriterion = collect($audit['criteria'])->firstWhere('id', 'runtime_gap_matrix_all_runtime_y');
+        $humanCriterion = collect($audit['criteria'])->firstWhere('id', 'human_signed_os_complete_receipt_present');
+        $smokeCriterion = collect($audit['criteria'])->firstWhere('id', 'end_to_end_real_provider_smoke_green');
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) data_get($runtimeCriterion, 'evidence.expected_runtime_gap_matrix_hash_for_promotion_receipt'));
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) data_get($runtimeCriterion, 'evidence.runtime_promotion_basis_hash'));
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) data_get($runtimeCriterion, 'evidence.runtime_promotion_closure_basis_hash'));
+        if (! (bool) data_get($runtimeCriterion, 'passed')) {
+            $this->assertSame('human', data_get($runtimeCriterion, 'blocker_type'));
+            $this->assertStringContainsString('--atlas-self-construction-runtime-promotion-receipt-draft-status', (string) data_get($runtimeCriterion, 'remediation_command'));
+        }
+        $this->assertSame('human', data_get($humanCriterion, 'blocker_type'));
+        $this->assertSame('real_provider', data_get($smokeCriterion, 'blocker_type'));
+        $this->assertStringContainsString('--atlas-self-construction-human-completion-receipt-draft-status', (string) data_get($humanCriterion, 'remediation_command'));
+        $this->assertStringContainsString('--atlas-self-construction-real-provider-smoke-draft-status', (string) data_get($smokeCriterion, 'remediation_command'));
+        $this->assertSame('atlas.self_construction.runtime_promotion_receipt.v1', data_get($runtimeCriterion, 'expected_receipt_schema'));
+        $this->assertSame('atlas.self_construction.human_signed_completion_receipt.v1', data_get($humanCriterion, 'expected_receipt_schema'));
+        $this->assertSame('atlas.self_construction.real_provider_smoke_certification.v1', data_get($smokeCriterion, 'expected_receipt_schema'));
 
         $batchCriterion = collect($audit['criteria'])->firstWhere('id', 'certification_status_batch_green');
         $this->assertTrue((bool) data_get($batchCriterion, 'evidence.full_batch_required'));
@@ -272,7 +285,7 @@ final class AtlasSelfConstructionOsCompletionAuditTest extends TestCase
             AtlasSelfConstructionOsCompletionAuditService::TERMINAL_LOOP_CERTIFICATION_SCHEMA_VERSION,
             $block['schema_version'] ?? null,
         );
-        $this->assertSame(7, $block['module_count']);
+        $this->assertSame(8, $block['module_count']);
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $block['certification_hash']);
 
         $moduleIds = array_column($block['modules'], 'id');
@@ -282,6 +295,7 @@ final class AtlasSelfConstructionOsCompletionAuditTest extends TestCase
             'task_queue_complete_dry_run_status',
             'one_shot_worker_packet_status',
             'terminal_worker_bootstrap_status',
+            'terminal_loop_health_digest_status',
             'task_lease_recovery_status',
             'multi_agent_loop_certification_status',
         ] as $expected) {
@@ -297,6 +311,22 @@ final class AtlasSelfConstructionOsCompletionAuditTest extends TestCase
             'completion_requires_active_lease',
             'recovery_handles_orphaned_leases',
             'completion_does_not_mark_real_os_completion',
+            'completion_evidence_files_within_scope',
+            'terminal_loop_health_digest_present',
+            'terminal_loop_fleet_launch_plan_present',
+            'terminal_loop_fleet_launch_plan_ready_path_verified',
+            'terminal_loop_fleet_replenishment_plan_present',
+            'terminal_loop_fleet_resume_rollup_present',
+            'terminal_loop_fleet_resume_recovery_path_verified',
+            'terminal_loop_fleet_metadata_orphan_recovery_verified',
+            'terminal_loop_fleet_released_task_requeue_verified',
+            'terminal_loop_fleet_evidence_rollup_present',
+            'terminal_loop_fleet_evidence_rollup_green_path_verified',
+            'terminal_loop_fleet_operator_handoff_present',
+            'terminal_loop_fleet_operator_handoff_recovery_priority_verified',
+            'terminal_loop_fleet_lane_isolation_present',
+            'terminal_loop_fleet_lane_bound_commands_verified',
+            'terminal_loop_fleet_lane_no_cross_lane_launch_verified',
         ] as $invariant) {
             $this->assertArrayHasKey($invariant, $block['invariants']);
         }
@@ -313,7 +343,7 @@ final class AtlasSelfConstructionOsCompletionAuditTest extends TestCase
 
         $this->assertTrue($block['passed']);
         $this->assertSame('available', $block['status']);
-        $this->assertSame(7, $block['modules_passed']);
+        $this->assertSame(8, $block['modules_passed']);
         $this->assertSame(0, $block['modules_blocked']);
         $this->assertSame([], $block['invariant_violations']);
         foreach ($block['modules'] as $module) {

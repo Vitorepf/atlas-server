@@ -12,8 +12,8 @@ use Symfony\Component\Process\Process;
  * Atlas Forge Rivals · Setup.
  *
  * Provisions two isolated worktrees per run via `git worktree add`:
- *   /Users/vitorepf/develop/Atlas-rivals/runs/<run_id>/atlas
- *   /Users/vitorepf/develop/Atlas-rivals/runs/<run_id>/rival
+ *   /Users/vitorepf/develop/Atlas-rivals/arms/<run_id>-atlas/workspace
+ *   /Users/vitorepf/develop/Atlas-rivals/arms/<run_id>-rival/workspace
  *
  * Does NOT depend on the source workspace being clean. The worktrees are
  * checkouts of a specific git ref (defaults to current HEAD commit); the
@@ -81,10 +81,12 @@ final class AtlasForgeRivalsSetupService
         $paths = $this->paths->paths($runId);
         @mkdir($paths['base'], 0o755, true);
         @mkdir($paths['evidence'], 0o755, true);
+        @mkdir($paths['arms_root'], 0o755, true);
 
         $worktrees = [];
         foreach (['atlas', 'rival'] as $arm) {
             $target = $paths[$arm];
+            @mkdir(dirname($target), 0o755, true);
             // If already present, treat as idempotent (operator may re-run setup)
             if (is_dir($target.'/.git') || is_file($target.'/.git')) {
                 $runtime = $this->provisionRuntime($repoRoot, $target);

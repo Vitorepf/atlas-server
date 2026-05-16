@@ -33,6 +33,7 @@ maintenance:
   - Toda mudanca na escala de dificuldade exige atualizar corpus, adjudicator e report.
   - Manter em sincronia com corpus, adjudicator, performance ledger e Provider Arena UI.
 related_paths:
+  - docs/engineering-knowledge-base/atlas-forge-rivals-battery-modes-and-human-prompts-v1.md
   - docs/engineering-knowledge-base/atlas-forge-rivals-perfect-battery-and-adjudicator-v1.md
   - docs/engineering-knowledge-base/atlas-forge-rivals-provider-arena-core-v1.md
   - docs/engineering-knowledge-base/atlas-forge-rivals-provider-arena-corpus-v1.md
@@ -87,8 +88,9 @@ required_tests:
 requires_evidence: true
 risk_level: high
 next_actions:
-  - Implementar `release` com 12 casos reais multi-categoria.
-  - Implementar `deep` com 25+ casos e confidence interval por categoria.
+  - Validar `release` com 40 casos reais multi-categoria.
+  - Rodar `human-normal`, `messy-real` e `enterprise-change` como modos de prompt com hidden oracle.
+  - Implementar `deep` com 25+ casos por dominio e confidence interval por categoria.
   - Fazer Provider Performance Ledger alimentar Atlas Decide como sinal consultivo.
 ---
 
@@ -134,13 +136,25 @@ consome apenas o sinal consultivo derivado.
 | Preset | Casos | Uso | Claim permitido |
 | --- | ---: | --- | --- |
 | `quick` | 3 | Provar que harness, provider, evidence e replay funcionam. | Nao declara superioridade. |
-| `release` | 12 | Comparacao seria por varias categorias. | Pode declarar vencedor da bateria se trusted. |
+| `release` | 40 | Comparacao seria por 8 categorias x 5 niveis. | Pode declarar vencedor da bateria se trusted. |
 | `deep` | 25+ | Ranking confiavel e tendencia por dominio. | Pode alimentar ranking com confianca alta. |
 | `frontend` | 5+ | Medir UI, acessibilidade, estados e polish. | Vencedor por frontend. |
 | `backend` | 5+ | Medir logica, integracao, estado, policy e dados. | Vencedor por backend. |
 | `architecture` | 5+ | Medir boundary, schema, fail-closed e extensibilidade. | Vencedor por arquitetura. |
 | `provider-arena` | variavel | Claude vs Codex vs Opus vs Gemini vs futuros runners. | Ranking por provider/modelo. |
 | `atlas-power` | 8+ | Atlas Forge full_power contra baseline puro. | Delta Atlas-vs-provider puro. |
+
+### Modos de prompt
+
+O canon completo dos modos vive em
+`atlas-forge-rivals-battery-modes-and-human-prompts-v1.md`.
+
+| Modo | O que mede |
+| --- | --- |
+| `spec-perfect` | Execucao quando a spec ja esta completa, com escopo e criterios claros. |
+| `human-normal` | Pedido humano comum, sem schema perfeito, para medir produto real. |
+| `messy-real` | Ambiguidade, ruido e informacao faltando; mede investigacao e fail-closed. |
+| `enterprise-change` | Mudanca longa com docs, risco, rollback, migracao e evidencia. |
 
 ### Categorias obrigatorias
 
@@ -297,7 +311,7 @@ timeline com timestamps, replay manifest e report do adjudicator.
 | --- | --- | --- |
 | `flow_validated` | `quick` com 3 casos, replay verde. | O harness funciona. |
 | `directional_signal` | 5+ casos, 2+ categorias, sem suspicious result. | Tendencia inicial. |
-| `trusted_battery` | `release` 12 casos, 8 categorias, evidence completo. | Declarar vencedor da bateria. |
+| `trusted_battery` | `release` 40 casos, 8 categorias x 5 niveis, evidence completo. | Declarar vencedor da bateria. |
 | `provider_ranking` | 25+ casos, varias rodadas, por categoria. | Alimentar ranking. |
 | `decide_signal` | Ledger com historico e freshness. | Atlas Decide usa como sinal consultivo. |
 
@@ -358,7 +372,7 @@ Entregue 2026-05-15. Detalhe canon em
   `winner=null`, `valid=false`. NUNCA aceita synthetic score, NUNCA mascara
   hard fail, NUNCA promove `claim_ready`.
 - Confidence ladder: `flow_validated < directional_signal < trusted_battery <
-  provider_ranking < decide_signal`. `release` (12 casos, 8 categorias) =
+  provider_ranking < decide_signal`. `release` (40 casos, 8 categorias x 5 niveis) =
   `trusted_battery`; `quick` (3 casos) jamais declara superioridade global.
 - Triage automatizada: Claude/Codex/Opus < 70 sem hard fail ⇒
   `rival_underperformed_unexpectedly` com `affects_winner=true`; Atlas vence
@@ -372,14 +386,16 @@ Entregue 2026-05-15. Detalhe canon em
 ## Proximas Acoes
 
 1. `quick`: 3 casos, prova de harness, provider real e replay.
-2. `release`: 12 casos, oito categorias, report agregado, v2 adjudicator
+2. `release`: 40 casos, oito categorias x cinco niveis, report agregado, v2 adjudicator
    habilitado ⇒ `trusted_battery` confidence.
-3. `provider-arena`: Claude, Codex, Opus, Gemini e runners futuros.
-4. `frontend/backend/architecture`: packs especializados.
-5. `deep`: 25+ casos, confidence interval e ranking por categoria,
+3. `human-normal`: bateria paralela ao spec-perfect com prompt publico humano comum via `--prompt-mode=human-normal`.
+4. `messy-real`: bateria com ruido/ambiguidade + hidden oracle + triage.
+5. `provider-arena`: Claude, Codex, Opus, Gemini e runners futuros.
+6. `frontend/backend/architecture`: packs especializados.
+7. `deep`: 25+ casos por dominio, confidence interval e ranking por categoria,
    `provider_ranking` confidence quando o corpus crescer.
-6. `atlas-power`: medir delta Atlas Forge full_power vs provider puro.
-7. Atlas Decide consome decide-signal do ledger.
+8. `atlas-power`: medir delta Atlas Forge full_power vs provider puro.
+9. Atlas Decide consome decide-signal do ledger.
 
 ## Exemplos
 

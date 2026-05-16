@@ -9,8 +9,10 @@ use Symfony\Component\Process\Process;
 /**
  * Atlas Forge Rivals · Reset.
  *
- * Removes a SPECIFIC run directory under
+ * Removes a SPECIFIC run metadata directory under
  *   /Users/vitorepf/develop/Atlas-rivals/runs/<run_id>/
+ * and its isolated arm worktree directories under
+ *   /Users/vitorepf/develop/Atlas-rivals/arms/<run_id>-atlas|rival/
  * via `git worktree remove --force` (releases git's bookkeeping) followed by
  * a recursive rmdir of the run base. Never touches the source repo.
  *
@@ -56,15 +58,6 @@ final class AtlasForgeRivalsResetService
                 'next_command' => '',
             ];
         }
-        if (! is_dir($paths['base'])) {
-            return [
-                'status' => 'ok',
-                'run_id' => $paths['run_id'],
-                'reason' => $reason,
-                'removed_paths' => [],
-                'note' => 'No run dir present — nothing to remove.',
-            ];
-        }
 
         $repoRoot = (string) ($input['repo_root'] ?? $input['workspace'] ?? (function_exists('base_path') ? base_path() : getcwd()));
         $repoRoot = rtrim($repoRoot, '/');
@@ -80,9 +73,15 @@ final class AtlasForgeRivalsResetService
             }
         }
 
-        // rm -rf path-confined
-        $this->recursiveRemove($paths['base']);
-        $removed[] = $paths['base'].':removed';
+        // rm -rf path-confined metadata + arm bases. Worktree remove normally
+        // deletes the workspace itself, but keeping the arm base around would
+        // later expose stale sibling metadata to providers via parent listing.
+        foreach (['base', 'atlas_arm_base', 'rival_arm_base'] as $key) {
+            if (is_dir($paths[$key])) {
+                $this->recursiveRemove($paths[$key]);
+                $removed[] = $paths[$key].':removed';
+            }
+        }
 
         // Prune git worktree bookkeeping
         $prune = new Process(['git', '-C', $repoRoot, 'worktree', 'prune']);
@@ -95,6 +94,7 @@ final class AtlasForgeRivalsResetService
             'reviewer' => trim((string) ($input['reviewer'] ?? '')),
             'reason' => $reason,
             'removed_paths' => $removed,
+            'note' => $removed === [] ? 'No run metadata or arm dirs present — nothing to remove.' : null,
             'next_command' => 'php artisan atlas:forge:rivals doctor --json',
         ];
     }

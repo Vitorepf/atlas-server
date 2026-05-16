@@ -467,6 +467,16 @@ Route::middleware('atlas.token')->group(function () use ($registerAtlasVoiceRout
     Route::get('/ai/vault/conflicts/{item}', [AtlasVaultController::class, 'item']);
     Route::post('/ai/vault/conflicts/{item}/resolve', [AtlasVaultController::class, 'resolve']);
     Route::post('/ai/interactions', [AiInteractionController::class, 'store']);
+    Route::post('/ai/interactions/atlas-dev/plan', \App\Http\Controllers\AtlasDev\PlanController::class)
+        ->name('atlas-dev.plan');
+    Route::post('/ai/interactions/atlas-dev/run', \App\Http\Controllers\AtlasDev\RunController::class)
+        ->name('atlas-dev.run');
+    Route::get('/ai/interactions/atlas-dev/runs/{runId}/stream', \App\Http\Controllers\AtlasDev\StreamController::class)
+        ->where('runId', '[A-Za-z0-9._-]{1,128}')
+        ->name('atlas-dev.runs.stream');
+    Route::get('/ai/interactions/atlas-dev/runs/{runId}', \App\Http\Controllers\AtlasDev\ShowController::class)
+        ->where('runId', '[A-Za-z0-9._-]{1,128}')
+        ->name('atlas-dev.runs.show');
     Route::get('/ai/interactions/{trace}', [AiInteractionController::class, 'show']);
     Route::get('/ai/interactions/{trace}/attachments/{attachment}/content', [AiInteractionController::class, 'attachmentContent']);
     Route::get('/ai/interactions/{trace}/attachments/{attachment}/pages/{page}', [AiInteractionController::class, 'attachmentPage']);

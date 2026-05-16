@@ -1,0 +1,59 @@
+{
+    "allowed_files": [
+        "app/Services/Ai/Cli/AtlasCliDevWorkflowService.php"
+    ],
+    "allowed_tools": [
+        "read",
+        "write",
+        "grep",
+        "run_test"
+    ],
+    "blocked_actions": [
+        "production_write",
+        "migration_apply",
+        "secret_access",
+        "broad_refactor",
+        "council_invoke",
+        "forge_invoke_direct"
+    ],
+    "escalation_on": [
+        "same_signature_failure_twice",
+        "diff_grew_without_progress",
+        "new_scope_appeared"
+    ],
+    "evidence_required": [
+        "diff_hash",
+        "changed_files",
+        "test_output_hash",
+        "scope_guard_receipt",
+        "verification_receipt"
+    ],
+    "forbidden_files": [
+        "vendor/*",
+        "node_modules/*"
+    ],
+    "max_files_changed": 1,
+    "no_test_reason": null,
+    "owner": "atlas_dev_sonnet",
+    "provider_lock": {
+        "fallback_allowed": false,
+        "model_family": "sonnet",
+        "provider": "claude_cli"
+    },
+    "provider_safe": true,
+    "repair_policy": {
+        "abort_on_same_signature_twice": true,
+        "max_attempts": 1,
+        "requires_failed_gate_output": true,
+        "same_provider": true
+    },
+    "run_id": "0192b5d2-2fe0-7c4f-9d2a-1f3b8e9a4c2d",
+    "schema_version": "atlas.dev.light_task_contract.v1",
+    "spec_hash": "babecafe00112233445566778899aabbccddeeff",
+    "task_contract_hash": "PLACEHOLDER_recomputed_by_test",
+    "task_id": "0192b5d2-3001-7c4f-9d2a-1a2b3c4d5e6f",
+    "validation_commands": [
+        "composer test -- --filter=AtlasCliDevWorkflowServiceTest::test_workspace_resolution"
+    ],
+    "watched_files": []
+}

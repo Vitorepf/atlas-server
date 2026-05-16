@@ -54,11 +54,12 @@ class AtlasForgeRivalsCommand extends Command
         {--mode= : fair|full_power|power|diagnostic|replay_only|local_fake (power is alias for full_power)}
         {--atlas-model= : sonnet|opus|claude_sonnet|claude_opus|codex|auto}
         {--rival= : claude_sonnet|claude_opus|codex|auto}
-        {--arm-a= : Provider Arena arm A id (atlas_forge|claude_code|codex_cli|gemini_cli|scripted_runner|manual_runner|future_runner)}
+        {--arm-a= : Provider Arena arm A id (atlas_forge|atlas_dev_light|claude_code|codex_cli|gemini_cli|scripted_runner|manual_runner|future_runner)}
         {--arm-b= : Provider Arena arm B id (same set as --arm-a)}
         {--arm-a-model= : Arena arm A model shorthand (e.g. sonnet, opus, codex)}
         {--arm-b-model= : Arena arm B model shorthand (e.g. sonnet, opus, codex)}
         {--task-category= : Arena task category (frontend|backend|bugfix|tests|refactor|architecture|docs|performance|security)}
+        {--prompt-mode= : spec-perfect|human-normal|messy-real|enterprise-change}
         {--category= : report-only filter by task_category}
         {--difficulty= : report-only filter by difficulty band L1|L2|L3|L4|L5}
         {--mode-filter= : report-only filter by run mode (fair|full_power|local_fake)}
@@ -176,6 +177,7 @@ class AtlasForgeRivalsCommand extends Command
             'arm_a_model' => $this->stringOption('arm-a-model'),
             'arm_b_model' => $this->stringOption('arm-b-model'),
             'task_category' => $this->stringOption('task-category'),
+            'prompt_mode' => $this->stringOption('prompt-mode'),
             'category' => $this->stringOption('category'),
             'difficulty' => $this->stringOption('difficulty'),
             'mode_filter' => $this->stringOption('mode-filter'),

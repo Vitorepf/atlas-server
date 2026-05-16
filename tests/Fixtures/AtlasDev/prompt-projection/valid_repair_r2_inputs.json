@@ -1,0 +1,8 @@
+{
+  "envelope_fixture": "envelopes/valid_desktop_dev_r2.json",
+  "compact_sdd_fixture": "compact_sdd/valid_repair_r2.json",
+  "mini_spec_fixture": "mini_spec/valid_repair_r2.json",
+  "task_contract_fixture": "task_contract/valid_repair_r2.json",
+  "code_discovery_fixture": "context/valid_code_discovery_strong_inference.json",
+  "open_brain_projection_fixture": "context/valid_open_brain_projection_truncated.json"
+}

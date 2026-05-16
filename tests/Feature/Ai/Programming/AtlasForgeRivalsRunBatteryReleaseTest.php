@@ -157,6 +157,27 @@ final class AtlasForgeRivalsRunBatteryReleaseTest extends TestCase
         $this->assertNull($response['scorecard']);
     }
 
+    public function test_run_battery_rejects_unknown_prompt_mode_before_provider_call(): void
+    {
+        $response = $this->dispatchRunBattery([
+            'mode' => 'fair',
+            'atlas_model' => 'sonnet',
+            'rival' => 'claude_sonnet',
+            'preset' => 'release',
+            'prompt_mode' => 'marketing-demo',
+            'confirmations' => [
+                'runbook_reviewed' => true,
+                'provider_cost' => true,
+                'real_provider_call' => true,
+            ],
+        ]);
+
+        $this->assertSame('blocked', $response['status']);
+        $this->assertContains('prompt_mode_not_admissible_for_run_battery:marketing-demo', $response['blockers']);
+        $this->assertFalse($response['external_provider_call']);
+        $this->assertFalse($response['provider_tokens_spent']);
+    }
+
     public function test_case_set_release_resolves_to_full_provider_arena_corpus(): void
     {
         $corpus = app(AtlasForgeRivalsProviderArenaCorpusService::class);
@@ -256,6 +277,122 @@ final class AtlasForgeRivalsRunBatteryReleaseTest extends TestCase
             ['docs/planning/inbox/feature.acceptance.md'],
             $context['cases'][0]['expected_changed_files'],
         );
+    }
+
+    public function test_human_normal_prompt_mode_is_a_real_runner_prompt_style(): void
+    {
+        $runReal = app(AtlasForgeRivalsRunRealService::class);
+        $resolve = new \ReflectionMethod($runReal, 'resolveCaseContext');
+        $resolve->setAccessible(true);
+        $command = new \ReflectionMethod($runReal, 'resolveProviderCommand');
+        $command->setAccessible(true);
+
+        $context = $resolve->invoke(
+            $runReal,
+            ['case' => 'planning-l1-acceptance-checklist'],
+            AtlasForgeRivalsCasesRegistry::PRESET_RELEASE,
+        );
+        $case = array_replace($context['cases'][0], ['prompt_mode' => 'human-normal']);
+
+        $argv = $command->invoke(
+            $runReal,
+            'atlas',
+            AtlasForgeRivalsModelMatrix::MODEL_CLAUDE_SONNET,
+            $case,
+            base_path(),
+        );
+        $prompt = implode("\n", array_map(static fn (mixed $part): string => (string) $part, $argv));
+
+        $this->assertStringContainsString('Pedido do operador:', $prompt);
+        $this->assertStringContainsString('Regras do benchmark:', $prompt);
+        $this->assertStringContainsString("php artisan test --filter='AcceptanceChecklistTest'", $prompt);
+        $this->assertStringNotContainsString("Objetivo:\n", $prompt);
+    }
+
+    public function test_resume_cleanup_restores_dirty_isolated_arms_before_preflight(): void
+    {
+        $service = app(\App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsRunBatteryService::class);
+        $root = sys_get_temp_dir().'/atlas-rivals-resume-cleanup-'.bin2hex(random_bytes(6));
+
+        try {
+            foreach (['atlas', 'rival'] as $arm) {
+                $worktree = $root.'/'.$arm.'/workspace';
+                @mkdir($worktree.'/vendor', 0o755, true);
+                file_put_contents($worktree.'/tracked.txt', "baseline\n");
+                file_put_contents($worktree.'/.gitignore', "vendor/\n.env\n.env.testing\n");
+                file_put_contents($worktree.'/vendor/autoload.php', "<?php\n// runtime\n");
+                file_put_contents($worktree.'/.env', "APP_ENV=testing\n");
+                file_put_contents($worktree.'/.env.testing', "APP_ENV=testing\n");
+
+                (new Process(['git', '-C', $worktree, 'init']))->mustRun();
+                (new Process(['git', '-C', $worktree, 'config', 'user.email', 'atlas-rivals@example.test']))->mustRun();
+                (new Process(['git', '-C', $worktree, 'config', 'user.name', 'Atlas Rivals']))->mustRun();
+                (new Process(['git', '-C', $worktree, 'add', 'tracked.txt', '.gitignore']))->mustRun();
+                (new Process(['git', '-C', $worktree, 'commit', '-m', 'seed']))->mustRun();
+
+                file_put_contents($worktree.'/tracked.txt', "partial provider output\n");
+                file_put_contents($worktree.'/provider-output.tmp', "remove me\n");
+            }
+
+            $cleanup = new \ReflectionMethod($service, 'prepareResumeWorktrees');
+            $cleanup->setAccessible(true);
+            $result = $cleanup->invoke($service, [
+                'arms_root' => $root,
+                'atlas' => $root.'/atlas/workspace',
+                'rival' => $root.'/rival/workspace',
+            ]);
+
+            $this->assertSame('ok', $result['status'], json_encode($result, JSON_PRETTY_PRINT));
+            foreach (['atlas', 'rival'] as $arm) {
+                $worktree = $root.'/'.$arm.'/workspace';
+                $this->assertSame("baseline\n", file_get_contents($worktree.'/tracked.txt'));
+                $this->assertFileDoesNotExist($worktree.'/provider-output.tmp');
+                $this->assertFileExists($worktree.'/vendor/autoload.php');
+                $this->assertFileExists($worktree.'/.env');
+                $this->assertFileExists($worktree.'/.env.testing');
+                $status = new Process(['git', '-C', $worktree, 'status', '--porcelain']);
+                $status->mustRun();
+                $this->assertSame('', trim($status->getOutput()));
+            }
+        } finally {
+            $this->removeDirectory($root);
+        }
+    }
+
+    public function test_resume_refuses_to_run_while_same_battery_has_fresh_events(): void
+    {
+        $service = app(\App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsRunBatteryService::class);
+        $root = sys_get_temp_dir().'/atlas-rivals-active-resume-'.bin2hex(random_bytes(6));
+        @mkdir($root, 0o755, true);
+        file_put_contents($root.'/battery.json', json_encode([
+            'cases' => [
+                ['case_id' => 'case-a', 'state' => 'completed'],
+                ['case_id' => 'case-b', 'state' => 'running'],
+            ],
+        ], JSON_THROW_ON_ERROR));
+        file_put_contents($root.'/events.jsonl', json_encode(['kind' => 'heartbeat'])."\n");
+        @touch($root.'/events.jsonl', time());
+
+        try {
+            $active = new \ReflectionMethod($service, 'resumeActiveRunnerBlockers');
+            $active->setAccessible(true);
+
+            $blockers = $active->invoke($service, [
+                'base' => $root,
+                'events_jsonl' => $root.'/events.jsonl',
+            ]);
+
+            $this->assertNotEmpty($blockers);
+            $this->assertStringStartsWith('resume_refused_active_runner_heartbeat:', $blockers[0]);
+
+            @touch($root.'/events.jsonl', time() - 120);
+            $this->assertSame([], $active->invoke($service, [
+                'base' => $root,
+                'events_jsonl' => $root.'/events.jsonl',
+            ]));
+        } finally {
+            $this->removeDirectory($root);
+        }
     }
 
     public function test_run_battery_codex_rival_blocks_when_binary_missing_before_provider_call(): void
@@ -395,8 +532,9 @@ final class AtlasForgeRivalsRunBatteryReleaseTest extends TestCase
         );
 
         $this->assertTrue($aggregated['workspace_has_blocking_changes']);
-        $this->assertContains('out_of_scope_change:bad/foo.php', $aggregated['workspace_blockers']);
+        $this->assertContains('out_of_scope_change:bad/foo.php', $aggregated['arm_contract_blockers']);
         $this->assertContains('bytecode_artifact_after_run:runtimes/python/__pycache__/x.pyc', $aggregated['workspace_blockers']);
+        $this->assertTrue($aggregated['arm_contract_has_failures']);
     }
 
     public function test_safe_case_dir_normalises_unusual_case_ids_without_path_traversal(): void

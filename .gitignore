@@ -25,6 +25,7 @@ runtimes/python/**/*.py[cod]
 /public/storage
 /storage/*.key
 /storage/atlas
+/storage/atlas-dev
 /storage/pail
 /vendor
 /runtimes/python/voice_realtime/.venv

@@ -260,7 +260,7 @@ final class AtlasForgeRivalsAdjudicatorService
         $hardFailureCodes = array_values(array_map(static fn (array $g): string => (string) $g['code'], $hardFailures));
 
         if ($hardFailures !== []) {
-            $gateOutcome = $this->oneSidedTestFailureOutcome($hardFailureCodes, $hardGates);
+            $gateOutcome = $this->oneSidedDeterministicGateOutcome($hardFailureCodes, $hardGates);
             // Suppress gate_winner whenever the losing arm did not actually
             // fail by model output — provider kill/timeout/empty-stdout
             // counts as a harness failure, not as a free win for the other
@@ -283,17 +283,17 @@ final class AtlasForgeRivalsAdjudicatorService
                     'gate_winner' => $gateOutcome['winner'],
                     'gate_loser' => $gateOutcome['loser'],
                     'gate_result' => [
-                        'kind' => 'one_sided_test_failure',
+                        'kind' => $gateOutcome['kind'],
                         'winner' => $gateOutcome['winner'],
                         'loser' => $gateOutcome['loser'],
                         'quality_score_available' => false,
-                        'quality_score_reason' => 'one_side_failed_tests_before_comparable_quality_scoring',
+                        'quality_score_reason' => $gateOutcome['quality_score_reason'],
                     ],
                     'winner_reason' => [
                         'verdict:'.($manifest['verdict'] ?? 'unknown'),
                         'hard_failures:'.implode(',', $hardFailureCodes),
-                        $gateOutcome['loser'].'_failed_tests',
-                        $gateOutcome['winner'].'_passed_tests',
+                        $gateOutcome['loser_reason'],
+                        $gateOutcome['winner_reason'],
                         'gate_winner:'.$gateOutcome['winner'],
                         'score_source:gate_outcome',
                         'quality_score:null',
@@ -304,8 +304,8 @@ final class AtlasForgeRivalsAdjudicatorService
                     'score_difference' => null,
                     'score_source' => 'gate_outcome',
                     'quality_score_available' => false,
-                    'quality_score_reason' => 'one_side_failed_tests_before_comparable_quality_scoring',
-                    'score_explanation' => 'One arm failed deterministic test gates while replay, evidence, scope, bytecode, provider exit, dirty-after-run and patch-presence gates remained intact. This is a gate outcome only: no comparable quality score is emitted.',
+                    'quality_score_reason' => $gateOutcome['quality_score_reason'],
+                    'score_explanation' => 'One arm failed deterministic contract gates while replay, evidence, bytecode, provider exit, dirty-after-run and patch-presence gates remained intact. This is a gate outcome only: no comparable quality score is emitted.',
                     'tie_threshold' => self::DEFAULT_TIE_THRESHOLD,
                     'hard_gates' => $hardGates,
                     'hard_failures' => $hardFailureCodes,
@@ -314,7 +314,7 @@ final class AtlasForgeRivalsAdjudicatorService
                     'claim_ready' => false,
                     'human_review_required' => false,
                     'separated_from_external_rivals_certification' => true,
-                    'note' => 'Gate winner by deterministic test outcome. Quality score is null because both arms did not pass gates. External rivals certification remains blocked; claim_ready=false.',
+                    'note' => 'Gate winner by deterministic contract/test outcome. Quality score is null because both arms did not pass gates. External rivals certification remains blocked; claim_ready=false.',
                 ];
                 $scorecard['fairness'] = $this->buildFairnessGates(
                     manifest: $manifest,
@@ -528,19 +528,25 @@ final class AtlasForgeRivalsAdjudicatorService
     }
 
     /**
-     * A real battery is still useful when one side fails deterministic tests
-     * and the other side passes. That is not a "quality dimensions" score and
-     * it never becomes an external claim, but it is a valid provider arena
-     * outcome. Keep every other hard failure fail-closed.
+     * A real battery is still useful when one side fails deterministic
+     * contract/test gates and the other side passes. That is not a "quality
+     * dimensions" score and it never becomes an external claim, but it is a
+     * valid provider arena outcome. Harness contamination remains fail-closed.
      *
      * @param  list<string>  $hardFailureCodes
      * @param  list<array{code:string,ok:bool,detail:string}>  $hardGates
-     * @return array{winner:string,loser:string}|null
+     * @return array{winner:string,loser:string,kind:string,quality_score_reason:string,loser_reason:string,winner_reason:string}|null
      */
-    private function oneSidedTestFailureOutcome(array $hardFailureCodes, array $hardGates): ?array
+    private function oneSidedDeterministicGateOutcome(array $hardFailureCodes, array $hardGates): ?array
     {
         $failures = array_values(array_unique($hardFailureCodes));
-        $allowed = ['verdict_comparable', 'tests_passed_atlas', 'tests_passed_rival'];
+        $allowed = [
+            'verdict_comparable',
+            'tests_passed_atlas',
+            'tests_passed_rival',
+            'no_out_of_scope_files_atlas',
+            'no_out_of_scope_files_rival',
+        ];
         foreach ($failures as $failure) {
             if (! in_array($failure, $allowed, true)) {
                 return null;
@@ -549,7 +555,11 @@ final class AtlasForgeRivalsAdjudicatorService
 
         $atlasFailedTests = in_array('tests_passed_atlas', $failures, true);
         $rivalFailedTests = in_array('tests_passed_rival', $failures, true);
-        if ($atlasFailedTests === $rivalFailedTests) {
+        $atlasFailedScope = in_array('no_out_of_scope_files_atlas', $failures, true);
+        $rivalFailedScope = in_array('no_out_of_scope_files_rival', $failures, true);
+        $atlasFailed = $atlasFailedTests || $atlasFailedScope;
+        $rivalFailed = $rivalFailedTests || $rivalFailedScope;
+        if ($atlasFailed === $rivalFailed) {
             return null;
         }
 
@@ -558,17 +568,37 @@ final class AtlasForgeRivalsAdjudicatorService
             $gateOk[(string) $gate['code']] = (bool) $gate['ok'];
         }
 
-        if ($atlasFailedTests && ($gateOk['tests_passed_rival'] ?? false)) {
+        if (
+            $atlasFailed
+            && ($gateOk['tests_passed_rival'] ?? false)
+            && ($gateOk['no_out_of_scope_files_rival'] ?? false)
+        ) {
+            $kind = $atlasFailedScope ? 'one_sided_scope_failure' : 'one_sided_test_failure';
+
             return [
                 'winner' => self::WINNER_RIVAL,
                 'loser' => self::WINNER_ATLAS,
+                'kind' => $kind,
+                'quality_score_reason' => 'one_side_failed_contract_or_tests_before_comparable_quality_scoring',
+                'loser_reason' => $atlasFailedScope ? 'atlas_failed_scope' : 'atlas_failed_tests',
+                'winner_reason' => 'rival_passed_scope_and_tests',
             ];
         }
 
-        if ($rivalFailedTests && ($gateOk['tests_passed_atlas'] ?? false)) {
+        if (
+            $rivalFailed
+            && ($gateOk['tests_passed_atlas'] ?? false)
+            && ($gateOk['no_out_of_scope_files_atlas'] ?? false)
+        ) {
+            $kind = $rivalFailedScope ? 'one_sided_scope_failure' : 'one_sided_test_failure';
+
             return [
                 'winner' => self::WINNER_ATLAS,
                 'loser' => self::WINNER_RIVAL,
+                'kind' => $kind,
+                'quality_score_reason' => 'one_side_failed_contract_or_tests_before_comparable_quality_scoring',
+                'loser_reason' => $rivalFailedScope ? 'rival_failed_scope' : 'rival_failed_tests',
+                'winner_reason' => 'atlas_passed_scope_and_tests',
             ];
         }
 
@@ -1321,8 +1351,23 @@ final class AtlasForgeRivalsAdjudicatorService
         }
 
         $declaredCase = (string) ($manifest['case_id'] ?? '');
+        $declaredCases = $this->stringList($manifest['case_ids'] ?? []);
         $atlasCase = (string) ($atlasReceipt['case_id'] ?? '');
         $rivalCase = (string) ($rivalReceipt['case_id'] ?? '');
+
+        if ($declaredCase === 'multi_case_aggregate' || $declaredCases !== []) {
+            $atlasCases = $this->receiptCaseIds($atlasReceipt);
+            $rivalCases = $this->receiptCaseIds($rivalReceipt);
+            if ($declaredCases !== [] && $atlasCases !== [] && $this->sortedUnique($declaredCases) !== $this->sortedUnique($atlasCases)) {
+                return 'atlas_receipt_case_ids_mismatch';
+            }
+            if ($declaredCases !== [] && $rivalCases !== [] && $this->sortedUnique($declaredCases) !== $this->sortedUnique($rivalCases)) {
+                return 'rival_receipt_case_ids_mismatch';
+            }
+
+            return null;
+        }
+
         if ($declaredCase !== '' && $atlasCase !== '' && $declaredCase !== $atlasCase) {
             return 'atlas_receipt_case_id_mismatch';
         }
@@ -1331,6 +1376,36 @@ final class AtlasForgeRivalsAdjudicatorService
         }
 
         return null;
+    }
+
+    /**
+     * @param  array<string,mixed>  $receipt
+     * @return list<string>
+     */
+    private function receiptCaseIds(array $receipt): array
+    {
+        $caseIds = $this->stringList($receipt['case_ids'] ?? []);
+        $caseId = trim((string) ($receipt['case_id'] ?? ''));
+        if ($caseIds === [] && $caseId !== '' && $caseId !== 'multi_case_aggregate') {
+            $caseIds[] = $caseId;
+        }
+
+        return $caseIds;
+    }
+
+    /**
+     * @param  list<string>  $values
+     * @return list<string>
+     */
+    private function sortedUnique(array $values): array
+    {
+        $unique = array_values(array_unique(array_filter(array_map(
+            static fn (string $v): string => trim($v),
+            $values
+        ), static fn (string $v): bool => $v !== '')));
+        sort($unique, SORT_STRING);
+
+        return $unique;
     }
 
     /**

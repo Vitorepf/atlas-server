@@ -109,12 +109,29 @@ final class AgentControlPlaneOneShotWorkerPacketService
         }
         $taskPacket = is_array($record['task_packet'] ?? null) ? $record['task_packet'] : [];
 
-        $allowedFiles = $this->stringList((array) ($taskPacket['allowed_files'] ?? []));
+        $normalizedScope = is_array($taskPacket['normalized_scope'] ?? null) ? $taskPacket['normalized_scope'] : [];
+        $allowedFiles = $this->firstNonEmptyStringList(
+            (array) ($taskPacket['allowed_files'] ?? []),
+            (array) ($normalizedScope['allowed_files'] ?? []),
+        );
         $forbiddenFiles = $this->stringList(array_merge(
             (array) ($taskPacket['forbidden_files'] ?? []),
+            (array) ($normalizedScope['forbidden_files'] ?? []),
             $this->defaultForbiddenAxes(),
         ));
         $forbiddenFiles = array_values(array_unique($forbiddenFiles));
+        $scopeBlockers = $this->scopeBlockers($allowedFiles, $normalizedScope);
+        if ($scopeBlockers !== []) {
+            return $this->blockedWith(
+                'unsafe_worker_scope',
+                'task packet cannot be handed to a worker until scope is non-empty and free of forbidden overlaps',
+                [
+                    'scope_blockers' => $scopeBlockers,
+                    'allowed_files' => $allowedFiles,
+                    'forbidden_files' => $forbiddenFiles,
+                ],
+            );
+        }
         $requiredDocs = $this->stringList((array) ($taskPacket['required_docs']
             ?? $taskPacket['context_docs']
             ?? $this->defaultRequiredDocs()));
@@ -132,7 +149,7 @@ final class AgentControlPlaneOneShotWorkerPacketService
         $packetHash = (string) ($taskPacket['task_packet_hash'] ?? $taskPacket['packet_hash'] ?? '');
 
         $completionCommand = sprintf(
-            'php artisan atlas:ai:self-construction --agent-control-plane-task-queue-complete-dry-run-status --packet=%s --lease-id=%s --actor=%s --json',
+            'php artisan atlas:ai:self-construction --agent-control-plane-task-queue-complete-dry-run-status --packet=%s --lease-id=%s --actor=%s --evidence-hash=<sha256-of-final-evidence> --completion-evidence-json=@/path/to/completion-evidence.json --json',
             $taskPacketId,
             $leaseId,
             $actor !== '' ? $actor : (string) ($lease['agent_id'] ?? 'unknown_actor'),
@@ -152,6 +169,10 @@ final class AgentControlPlaneOneShotWorkerPacketService
         $evidenceContract = [
             'packet_id' => $taskPacketId,
             'lease_id' => $leaseId,
+            'completion_evidence_schema_version' => 'atlas.self_construction.agent_control_plane_task_queue_completion_evidence.v1',
+            'completion_evidence_template_path' => '/path/to/completion-evidence.json',
+            'evidence_hash_algorithm' => 'sha256(canonical_json(completion_evidence_without_evidence_hash_fields))',
+            'evidence_hash_rule' => 'Build completion-evidence.json, remove evidence_hash/operator_supplied_evidence_hash fields at every level, sort object keys, JSON encode without escaped slashes/unicode, then sha256 the result.',
             'must_report' => [
                 'packet_id',
                 'lease_id',
@@ -165,11 +186,19 @@ final class AgentControlPlaneOneShotWorkerPacketService
             ],
             'must_run_before_complete' => $requiredTests,
             'must_attach_after_complete' => [
+                'completion-evidence.json containing files_changed, commands_run, tests_or_gates_result, git_status_short and git_diff_check_result',
                 'git status --short output',
                 'git diff --check output',
                 'php artisan atlas:engineering:knowledge docs-health --json',
             ],
         ];
+        $completionEvidenceTemplate = $this->completionEvidenceTemplate(
+            taskPacketId: $taskPacketId,
+            leaseId: $leaseId,
+            actor: $actor !== '' ? $actor : (string) ($lease['agent_id'] ?? 'unknown_actor'),
+            allowedFiles: $allowedFiles,
+            requiredTests: $requiredTests,
+        );
 
         $continuationTemplate = $this->continuationSummaryTemplate($taskPacketId, $leaseId, $objective);
         $failureTemplate = $this->failureReportTemplate($taskPacketId, $leaseId);
@@ -214,6 +243,8 @@ final class AgentControlPlaneOneShotWorkerPacketService
             'required_tests' => $requiredTests,
             'required_guardrails' => $requiredGuardrails,
             'evidence_contract' => $evidenceContract,
+            'completion_evidence_template' => $completionEvidenceTemplate,
+            'completion_evidence_template_json' => json_encode($completionEvidenceTemplate, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
             'resumption_contract' => $resumptionContract,
             'completion_command' => $completionCommand,
             'lease_renew_command' => $leaseRenewCommand,
@@ -235,7 +266,16 @@ final class AgentControlPlaneOneShotWorkerPacketService
      */
     private function blocked(string $reason, string $detail): array
     {
-        return [
+        return $this->blockedWith($reason, $detail);
+    }
+
+    /**
+     * @param  array<string,mixed>  $extra
+     * @return array<string,mixed>
+     */
+    private function blockedWith(string $reason, string $detail, array $extra = []): array
+    {
+        return array_merge([
             'status' => 'blocked',
             'schema_version' => self::SCHEMA_VERSION,
             'blockers' => [$reason],
@@ -244,7 +284,7 @@ final class AgentControlPlaneOneShotWorkerPacketService
             'runtime_safety' => $this->runtimeSafetyAllFalse(),
             'one_shot_packet_hash' => '',
             'separated_from_external_rivals_certification' => true,
-        ];
+        ], $extra);
     }
 
     /**
@@ -416,6 +456,34 @@ TEMPLATE;
 - evidence_paths: <list>
 - recommended_next_step: <single-sentence>
 TEMPLATE;
+    }
+
+    /**
+     * @param  list<string>  $allowedFiles
+     * @param  list<string>  $requiredTests
+     * @return array<string,mixed>
+     */
+    private function completionEvidenceTemplate(string $taskPacketId, string $leaseId, string $actor, array $allowedFiles, array $requiredTests): array
+    {
+        return [
+            'schema_version' => 'atlas.self_construction.agent_control_plane_task_queue_completion_evidence.v1',
+            'packet_id' => $taskPacketId,
+            'lease_id' => $leaseId,
+            'actor' => $actor,
+            'files_changed' => $allowedFiles === [] ? ['<path>'] : $allowedFiles,
+            'commands_run' => $requiredTests === [] ? ['<command + result>'] : array_map(
+                static fn (string $command): string => $command.' => <passed|failed>',
+                $requiredTests,
+            ),
+            'tests_or_gates_result' => 'passed',
+            'git_status_short' => '<paste git status --short output>',
+            'git_diff_check_result' => 'clean',
+            'evidence_hash' => '<sha256-of-final-evidence>',
+            'evidence_hash_algorithm' => 'sha256(canonical_json(completion_evidence_without_evidence_hash_fields))',
+            'scope_deviations' => [],
+            'residual_risks' => [],
+            'next_recommended_packet' => 'none',
+        ];
     }
 
     /**
@@ -601,6 +669,24 @@ cd {$repoPath}
 {$completionCommand}
 ```
 
+O arquivo `completion-evidence.json` precisa conter, no mínimo:
+
+```json
+{
+  "files_changed": ["<path>"],
+  "commands_run": ["<command + result>"],
+  "tests_or_gates_result": "passed",
+  "git_status_short": "<output>",
+  "git_diff_check_result": "clean",
+  "evidence_hash_algorithm": "sha256(canonical_json(completion_evidence_without_evidence_hash_fields))",
+  "evidence_hash": "<sha256-of-final-evidence>"
+}
+```
+
+Calcule `evidence_hash` sobre o próprio `completion-evidence.json` depois de remover qualquer campo
+`evidence_hash`/`operator_supplied_evidence_hash` em todos os níveis e ordenar as chaves de objetos.
+O Atlas rejeita completion se o hash só tiver formato válido mas não bater com o payload.
+
 Se a lease estiver próxima de expirar, renove com:
 
 ```
@@ -686,6 +772,43 @@ PROMPT;
         }
 
         return array_values(array_unique($out));
+    }
+
+    /**
+     * @param  array<int,mixed>  ...$candidates
+     * @return list<string>
+     */
+    private function firstNonEmptyStringList(array ...$candidates): array
+    {
+        foreach ($candidates as $candidate) {
+            $list = $this->stringList($candidate);
+            if ($list !== []) {
+                return $list;
+            }
+        }
+
+        return [];
+    }
+
+    /**
+     * @param  list<string>  $allowedFiles
+     * @param  array<string,mixed>  $normalizedScope
+     * @return list<string>
+     */
+    private function scopeBlockers(array $allowedFiles, array $normalizedScope): array
+    {
+        $blockers = [];
+        if ($allowedFiles === []) {
+            $blockers[] = 'allowed_files_empty';
+        }
+        if ($this->stringList((array) ($normalizedScope['forbidden_in_allowed'] ?? [])) !== []) {
+            $blockers[] = 'forbidden_files_overlap_allowed_files';
+        }
+        if ($this->stringList((array) ($normalizedScope['forbidden_axis_hits'] ?? [])) !== []) {
+            $blockers[] = 'forbidden_axis_hits_allowed_files';
+        }
+
+        return array_values(array_unique($blockers));
     }
 
     /**

@@ -1,0 +1,39 @@
+{
+  "schema_version": "atlas.open_brain.programming_projection.v1",
+  "run_id": "0192b5d2-4444-7000-8000-000000000004",
+  "mode": "programming",
+  "objective_hash": "feedface00000000feedface00000000feedface00000000feedface00000001",
+  "memory_refs": [
+    {
+      "kind": "decision",
+      "ref": "atlas-memory://decision/atlas-code-canon-2026-05-14",
+      "reason": "regra de safety strip"
+    }
+  ],
+  "knowledge_refs": [
+    {
+      "kind": "doc",
+      "ref": "doc://engineering-knowledge-base/atlas-dev-efficient-programming-flow-v1.md#section-5",
+      "reason": "camada contexto"
+    }
+  ],
+  "code_refs": [
+    {
+      "kind": "symbol",
+      "ref": "code_intelligence://symbol/AtlasCliDevWorkflowService",
+      "reason": "ponto de entrada"
+    }
+  ],
+  "missing_sources": [
+    "doc://memory/contracts.md#section-12"
+  ],
+  "truncation": {
+    "truncated": true,
+    "reasons": [
+      "optional knowledge_refs dropped to fit budget",
+      "low-confidence memory entries excluded"
+    ]
+  },
+  "provider_safe": true,
+  "projection_hash": "placeholder_projection_hash_recomputed_in_test"
+}

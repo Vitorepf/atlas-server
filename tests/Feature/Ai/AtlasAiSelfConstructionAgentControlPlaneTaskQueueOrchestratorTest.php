@@ -115,11 +115,163 @@ final class AtlasAiSelfConstructionAgentControlPlaneTaskQueueOrchestratorTest ex
         $svc = $this->orchestrator();
         $svc->prepareAndEnqueue(['task_packet' => $this->input('dry-1')]);
         $claim = $svc->claimNext('agent-1');
-        $complete = $svc->completeDryRun('dry-1', $claim['lease_id'], ['evidence_count' => 0]);
+        $evidence = $this->completionEvidenceFor('dry-1', $claim['lease_id'], 'agent-1', [
+            'files_changed' => ['app/Services/Ai/SelfConstruction/dry-1.php'],
+            'commands_run' => ['php artisan test --filter=DryRun: passed'],
+            'git_status_short' => ' M app/Services/Ai/SelfConstruction/dry-1.php',
+        ]);
+        $complete = $svc->completeDryRun('dry-1', $claim['lease_id'], $evidence);
         $this->assertSame('completed_dry_run', $complete['event']);
         $this->assertFalse($complete['completion_real_allowed']);
+        $this->assertSame('valid', data_get($complete, 'evidence_validation.status'));
+        $this->assertTrue(data_get($complete, 'evidence_validation.structured_completion_evidence_required'));
+        $this->assertTrue(data_get($complete, 'evidence_validation.structured_completion_evidence_valid'));
+        $this->assertSame([], data_get($complete, 'evidence_validation.missing_fields'));
+        $this->assertSame(0, data_get($complete, 'evidence_validation.blocker_count'));
+        $this->assertTrue(data_get($complete, 'evidence_validation.packet_id_matches'));
+        $this->assertTrue(data_get($complete, 'evidence_validation.lease_id_matches'));
+        $this->assertTrue(data_get($complete, 'evidence_validation.actor_matches'));
+        $this->assertTrue(data_get($complete, 'evidence_validation.evidence_hash_matches_payload'));
+        $this->assertTrue(data_get($complete, 'evidence_validation.files_changed_within_allowed_scope'));
+        $this->assertSame([], data_get($complete, 'evidence_validation.files_changed_outside_allowed_scope'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($complete, 'evidence_validation.evidence_validation_hash'));
+        $this->assertSame($evidence['evidence_hash'], data_get($complete, 'evidence_validation.evidence_hash'));
+        $this->assertSame($evidence['evidence_hash'], data_get($complete, 'evidence_validation.computed_evidence_hash'));
         $queue = (new AgentControlPlaneTaskPacketQueueRepository)->get('dry-1');
         $this->assertSame('completed_dry_run', $queue['status']);
+        $receipt = collect((array) data_get($queue, 'receipts'))->firstWhere('receipt_kind', 'dry_run_completion_recorded');
+        $this->assertSame('valid', data_get($receipt, 'evidence_validation_status'));
+        $this->assertTrue(data_get($receipt, 'structured_completion_evidence_required'));
+        $this->assertTrue(data_get($receipt, 'structured_completion_evidence_valid'));
+        $this->assertTrue(data_get($receipt, 'files_changed_within_allowed_scope'));
+    }
+
+    public function test_complete_dry_run_blocks_when_evidence_hash_does_not_match_payload(): void
+    {
+        $svc = $this->orchestrator();
+        $svc->prepareAndEnqueue(['task_packet' => $this->input('dry-hash-mismatch')]);
+        $claim = $svc->claimNext('agent-hash-mismatch');
+        $evidence = $this->completionEvidenceFor('dry-hash-mismatch', $claim['lease_id'], 'agent-hash-mismatch');
+        $evidence['evidence_hash'] = str_repeat('d', 64);
+
+        $blocked = $svc->completeDryRun('dry-hash-mismatch', $claim['lease_id'], $evidence);
+
+        $this->assertSame('complete_dry_run_blocked', $blocked['event']);
+        $this->assertSame('evidence_hash_mismatch', $blocked['reason']);
+        $this->assertFalse(data_get($blocked, 'evidence_validation.structured_completion_evidence_valid'));
+        $this->assertFalse(data_get($blocked, 'evidence_validation.evidence_hash_matches_payload'));
+        $this->assertContains('evidence_hash_mismatch', data_get($blocked, 'evidence_validation.blockers'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($blocked, 'evidence_validation.computed_evidence_hash'));
+        $this->assertSame('claimed', (new AgentControlPlaneTaskPacketQueueRepository)->get('dry-hash-mismatch')['status']);
+    }
+
+    public function test_complete_dry_run_accepts_canonical_nested_completion_evidence_hash(): void
+    {
+        $svc = $this->orchestrator();
+        $svc->prepareAndEnqueue(['task_packet' => $this->input('dry-nested-hash')]);
+        $claim = $svc->claimNext('agent-nested-hash');
+        $nested = $this->completionEvidenceFor('dry-nested-hash', $claim['lease_id'], 'agent-nested-hash');
+        $outer = [
+            'operator_supplied_evidence_hash' => $nested['evidence_hash'],
+            'completion_evidence' => $nested,
+        ];
+
+        $complete = $svc->completeDryRun('dry-nested-hash', $claim['lease_id'], $outer);
+
+        $this->assertSame('completed_dry_run', $complete['event']);
+        $this->assertSame('valid', data_get($complete, 'evidence_validation.status'));
+        $this->assertTrue(data_get($complete, 'evidence_validation.evidence_hash_matches_payload'));
+    }
+
+    public function test_complete_dry_run_blocks_when_structured_evidence_binding_does_not_match_packet_or_lease(): void
+    {
+        $svc = $this->orchestrator();
+        $svc->prepareAndEnqueue(['task_packet' => $this->input('dry-binding')]);
+        $claim = $svc->claimNext('agent-binding');
+
+        $blocked = $svc->completeDryRun('dry-binding', $claim['lease_id'], $this->completionEvidenceFor(
+            'other-packet',
+            $claim['lease_id'],
+            'agent-binding',
+            [
+                'files_changed' => ['app/Services/Ai/SelfConstruction/dry-binding.php'],
+                'commands_run' => ['php artisan test --filter=DryBinding: passed'],
+                'git_status_short' => ' M app/Services/Ai/SelfConstruction/dry-binding.php',
+            ],
+        ));
+
+        $this->assertSame('complete_dry_run_blocked', $blocked['event']);
+        $this->assertSame('packet_id_mismatch', $blocked['reason']);
+        $this->assertFalse(data_get($blocked, 'evidence_validation.structured_completion_evidence_valid'));
+        $this->assertFalse(data_get($blocked, 'evidence_validation.packet_id_matches'));
+        $this->assertTrue(data_get($blocked, 'evidence_validation.evidence_hash_matches_payload'));
+        $this->assertContains('packet_id_mismatch', data_get($blocked, 'evidence_validation.blockers'));
+        $this->assertSame('claimed', (new AgentControlPlaneTaskPacketQueueRepository)->get('dry-binding')['status']);
+    }
+
+    public function test_complete_dry_run_blocks_when_files_changed_escape_allowed_scope(): void
+    {
+        $svc = $this->orchestrator();
+        $svc->prepareAndEnqueue(['task_packet' => $this->input('dry-scope-escape')]);
+        $claim = $svc->claimNext('agent-scope-escape');
+        $evidence = $this->completionEvidenceFor('dry-scope-escape', $claim['lease_id'], 'agent-scope-escape', [
+            'files_changed' => [
+                'app/Services/Ai/SelfConstruction/dry-scope-escape.php',
+                'routes/api.php',
+            ],
+            'git_status_short' => " M app/Services/Ai/SelfConstruction/dry-scope-escape.php\n M routes/api.php",
+        ]);
+
+        $blocked = $svc->completeDryRun('dry-scope-escape', $claim['lease_id'], $evidence);
+
+        $this->assertSame('complete_dry_run_blocked', $blocked['event']);
+        $this->assertSame('files_changed_outside_allowed_scope', $blocked['reason']);
+        $this->assertFalse(data_get($blocked, 'evidence_validation.structured_completion_evidence_valid'));
+        $this->assertFalse(data_get($blocked, 'evidence_validation.files_changed_within_allowed_scope'));
+        $this->assertSame(['routes/api.php'], data_get($blocked, 'evidence_validation.files_changed_outside_allowed_scope'));
+        $this->assertContains('files_changed_outside_allowed_scope', data_get($blocked, 'evidence_validation.blockers'));
+        $this->assertTrue(data_get($blocked, 'evidence_validation.evidence_hash_matches_payload'));
+        $this->assertSame('claimed', (new AgentControlPlaneTaskPacketQueueRepository)->get('dry-scope-escape')['status']);
+    }
+
+    public function test_complete_dry_run_blocks_without_valid_evidence_hash(): void
+    {
+        $svc = $this->orchestrator();
+        $svc->prepareAndEnqueue(['task_packet' => $this->input('dry-missing-evidence')]);
+        $claim = $svc->claimNext('agent-1');
+
+        $missing = $svc->completeDryRun('dry-missing-evidence', $claim['lease_id'], []);
+
+        $this->assertSame('complete_dry_run_blocked', $missing['event']);
+        $this->assertSame('evidence_hash_missing', $missing['reason']);
+        $this->assertSame('blocked', data_get($missing, 'evidence_validation.status'));
+        $this->assertSame('claimed', (new AgentControlPlaneTaskPacketQueueRepository)->get('dry-missing-evidence')['status']);
+    }
+
+    public function test_complete_dry_run_blocks_when_structured_evidence_is_incomplete(): void
+    {
+        $svc = $this->orchestrator();
+        $svc->prepareAndEnqueue(['task_packet' => $this->input('dry-incomplete-evidence')]);
+        $claim = $svc->claimNext('agent-1');
+        $evidence = [
+            'packet_id' => 'dry-incomplete-evidence',
+            'lease_id' => $claim['lease_id'],
+            'actor' => 'agent-1',
+            'tests_or_gates_result' => 'passed',
+        ];
+        $evidence['evidence_hash'] = AgentControlPlaneTaskQueueOrchestrator::canonicalCompletionEvidenceHash($evidence);
+        $blocked = $svc->completeDryRun('dry-incomplete-evidence', $claim['lease_id'], $evidence);
+
+        $this->assertSame('complete_dry_run_blocked', $blocked['event']);
+        $this->assertSame('files_changed_missing', $blocked['reason']);
+        $this->assertFalse(data_get($blocked, 'evidence_validation.structured_completion_evidence_valid'));
+        $this->assertContains('files_changed', data_get($blocked, 'evidence_validation.missing_fields'));
+        $this->assertContains('commands_run', data_get($blocked, 'evidence_validation.missing_fields'));
+        $this->assertContains('git_status_short', data_get($blocked, 'evidence_validation.missing_fields'));
+        $this->assertContains('git_diff_check_result', data_get($blocked, 'evidence_validation.missing_fields'));
+        $this->assertContains('commands_run_missing', data_get($blocked, 'evidence_validation.blockers'));
+        $this->assertContains('git_status_short_missing', data_get($blocked, 'evidence_validation.blockers'));
+        $this->assertContains('git_diff_check_result_missing', data_get($blocked, 'evidence_validation.blockers'));
     }
 
     public function test_complete_dry_run_blocks_when_lease_not_active(): void
@@ -245,13 +397,21 @@ final class AtlasAiSelfConstructionAgentControlPlaneTaskQueueOrchestratorTest ex
         $claim = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
         $packetId = (string) data_get($claim, 'agent_control_plane_task_queue_claim_next.task_packet_id');
         $leaseId = (string) data_get($claim, 'agent_control_plane_task_queue_claim_next.lease_id');
+        $queueRecord = (new AgentControlPlaneTaskPacketQueueRepository)->get($packetId);
+        $allowedFile = (string) data_get($queueRecord, 'task_packet.normalized_scope.allowed_files.0', '');
+        $this->assertNotSame('', $allowedFile);
+        $evidence = $this->completionEvidenceFor($packetId, $leaseId, 'agent-cli-complete', [
+            'files_changed' => [$allowedFile],
+            'git_status_short' => ' M '.$allowedFile,
+        ]);
 
         Artisan::call('atlas:ai:self-construction', [
             '--agent-control-plane-task-queue-complete-dry-run-status' => true,
             '--packet' => $packetId,
             '--lease-id' => $leaseId,
             '--actor' => 'agent-cli-complete',
-            '--evidence-hash' => str_repeat('a', 64),
+            '--evidence-hash' => $evidence['evidence_hash'],
+            '--completion-evidence-json' => json_encode($evidence, JSON_THROW_ON_ERROR),
             '--json' => true,
         ]);
         $completion = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
@@ -263,6 +423,11 @@ final class AtlasAiSelfConstructionAgentControlPlaneTaskQueueOrchestratorTest ex
         $this->assertFalse((bool) data_get($completion, 'agent_control_plane_task_queue_complete_dry_run.completion_real_allowed'));
         $this->assertFalse((bool) data_get($completion, 'agent_control_plane_task_queue_complete_dry_run.legacy_reservation_completion_used'));
         $this->assertTrue((bool) data_get($completion, 'agent_control_plane_task_queue_complete_dry_run.safe_for_parallel_terminal_loop'));
+        $this->assertTrue((bool) data_get($completion, 'agent_control_plane_task_queue_complete_dry_run.structured_completion_evidence_valid'));
+        $this->assertTrue((bool) data_get($completion, 'agent_control_plane_task_queue_complete_dry_run.files_changed_within_allowed_scope'));
+        $this->assertSame('valid', data_get($completion, 'agent_control_plane_task_queue_complete_dry_run.completion_evidence_validation_status'));
+        $this->assertSame(0, data_get($completion, 'agent_control_plane_task_queue_complete_dry_run.completion_evidence_blocker_count'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($completion, 'agent_control_plane_task_queue_complete_dry_run.completion_evidence_validation_hash'));
         $this->assertSame('completed_dry_run', (new AgentControlPlaneTaskPacketQueueRepository)->get($packetId)['status']);
     }
 
@@ -289,7 +454,24 @@ final class AtlasAiSelfConstructionAgentControlPlaneTaskQueueOrchestratorTest ex
             '--agent-control-plane-task-queue-complete-dry-run-status' => true,
             '--packet' => (string) data_get($claim, 'agent_control_plane_task_queue_claim_next.task_packet_id'),
             '--lease-id' => (string) data_get($claim, 'agent_control_plane_task_queue_claim_next.lease_id'),
+            '--json' => true,
+        ]);
+        $missingEvidence = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame('blocked', data_get($missingEvidence, 'agent_control_plane_task_queue_complete_dry_run.status'));
+        $this->assertSame('evidence_hash_missing', data_get($missingEvidence, 'agent_control_plane_task_queue_complete_dry_run.reason'));
+
+        Artisan::call('atlas:ai:self-construction', [
+            '--agent-control-plane-task-queue-complete-dry-run-status' => true,
+            '--packet' => (string) data_get($claim, 'agent_control_plane_task_queue_claim_next.task_packet_id'),
+            '--lease-id' => (string) data_get($claim, 'agent_control_plane_task_queue_claim_next.lease_id'),
             '--evidence-hash' => 'not-a-sha',
+            '--completion-evidence-json' => json_encode($this->completionEvidence(
+                'not-a-sha',
+                (string) data_get($claim, 'agent_control_plane_task_queue_claim_next.task_packet_id'),
+                (string) data_get($claim, 'agent_control_plane_task_queue_claim_next.lease_id'),
+                'agent-cli-invalid-evidence',
+            ), JSON_THROW_ON_ERROR),
             '--json' => true,
         ]);
         $invalidEvidence = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
@@ -385,5 +567,44 @@ final class AtlasAiSelfConstructionAgentControlPlaneTaskQueueOrchestratorTest ex
             'acceptance_criteria' => ['ok'],
             'required_evidence' => ['task_packet_created'],
         ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function completionEvidence(string $hash, string $packetId = 'packet-test', string $leaseId = 'lease-test', string $actor = 'agent-test'): array
+    {
+        return [
+            'packet_id' => $packetId,
+            'lease_id' => $leaseId,
+            'actor' => $actor,
+            'evidence_hash' => $hash,
+            'files_changed' => ['app/Services/Ai/SelfConstruction/'.$packetId.'.php'],
+            'commands_run' => ['php artisan test --filter=ScopedSuite: passed'],
+            'tests_or_gates_result' => 'passed',
+            'git_status_short' => ' M app/Services/Ai/SelfConstruction/'.$packetId.'.php',
+            'git_diff_check_result' => 'clean',
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $overrides
+     * @return array<string,mixed>
+     */
+    private function completionEvidenceFor(string $packetId, string $leaseId, string $actor, array $overrides = []): array
+    {
+        $evidence = array_merge([
+            'packet_id' => $packetId,
+            'lease_id' => $leaseId,
+            'actor' => $actor,
+            'files_changed' => ['app/Services/Ai/SelfConstruction/'.$packetId.'.php'],
+            'commands_run' => ['php artisan test --filter=ScopedSuite: passed'],
+            'tests_or_gates_result' => 'passed',
+            'git_status_short' => ' M app/Services/Ai/SelfConstruction/'.$packetId.'.php',
+            'git_diff_check_result' => 'clean',
+        ], $overrides);
+        $evidence['evidence_hash'] = AgentControlPlaneTaskQueueOrchestrator::canonicalCompletionEvidenceHash($evidence);
+
+        return $evidence;
     }
 }

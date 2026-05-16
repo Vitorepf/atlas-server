@@ -105,14 +105,14 @@ final class AtlasForgeRivalsReportV3Test extends TestCase
         $this->assertSame('release', $report['preset']);
         $this->assertGreaterThanOrEqual(8, count($report['category_results']));
         $cats = array_column($report['category_results'], 'category');
-        $this->assertContains('backend', $cats);
-        $this->assertContains('frontend', $cats);
+        $this->assertContains('backend_logic', $cats);
+        $this->assertContains('frontend_ui', $cats);
         $byCat = [];
         foreach ($report['category_results'] as $entry) {
             $byCat[$entry['category']] = $entry['winner'];
         }
-        $this->assertSame('atlas', $byCat['backend']);
-        $this->assertSame('rival', $byCat['frontend']);
+        $this->assertSame('atlas', $byCat['backend_logic']);
+        $this->assertSame('rival', $byCat['frontend_ui']);
     }
 
     public function test_5_statistical_tie_surfaces_as_human_review(): void
@@ -223,6 +223,12 @@ final class AtlasForgeRivalsReportV3Test extends TestCase
 
         $this->assertTrue($report['atlas_decide_recommendations']['advisory_only']);
         $this->assertFalse($report['atlas_decide_recommendations']['should_update_provider_topology']);
+        $this->assertTrue($report['atlas_decide_recommendations']['never_changes_atlas_decide_topology']);
+        $this->assertSame('atlas_decide', $report['atlas_decide_recommendations']['owner_of_model_routing']);
+        $this->assertSame([], $report['atlas_decide_recommendations']['primary_builder_by_category']);
+        $this->assertSame([], $report['atlas_decide_recommendations']['reviewer_by_category']);
+        $this->assertNotEmpty($report['atlas_decide_recommendations']['measured_signal_by_category']);
+        $this->assertSame('none', $report['atlas_decide_recommendations']['measured_signal_by_category'][0]['routing_effect']);
     }
 
     public function test_14_markdown_report_is_generated_in_portuguese(): void

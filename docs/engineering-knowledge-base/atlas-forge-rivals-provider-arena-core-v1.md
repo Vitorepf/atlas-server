@@ -104,7 +104,7 @@ Read first: `atlas-forge-rivals-perfect-battery-and-adjudicator-v1.md`.
 
 ## 1. The arms
 
-Seven canonical arms live in `AtlasForgeRivalsArmRegistryService`. Every
+Eight canonical arms live in `AtlasForgeRivalsArmRegistryService`. Every
 arm declares: `arm_id`, `runner_type`, `provider`, `model_options`,
 `execution_mode`, `requires_external_provider_call`,
 `requires_cost_confirmation`, `supports_streaming`, `supports_replay`,
@@ -114,6 +114,7 @@ arm declares: `arm_id`, `runner_type`, `provider`, `model_options`,
 | arm_id | runner_type | provider | status |
 | --- | --- | --- | --- |
 | `atlas_forge` | forge | claude | available |
+| `atlas_dev_light` | atlas_dev | claude | not_yet_executable |
 | `claude_code` | cli_provider | claude | available |
 | `codex_cli` | cli_provider | codex | available |
 | `gemini_cli` | cli_provider | gemini | not_yet_executable |
@@ -125,6 +126,12 @@ arm declares: `arm_id`, `runner_type`, `provider`, `model_options`,
 `arm_runner_not_yet_executable:<arm_id>`. **Placeholder arms** always block
 with `future_runner_is_placeholder_only`. UIs and audits can still render
 them because they exist in the registry snapshot.
+
+`atlas_dev_light` is the planned daily-use middle layer between raw provider
+and Forge: Sonnet-only, low call budget, scoped context, short plan, patch,
+focused tests, simple verification, and escalation to Forge on high risk or
+failure. It is declared now so Rivals can plan and dry-run the comparison;
+real provider execution stays blocked until the dedicated driver exists.
 
 `safety_contract` for every arm carries: `never_promotes_completion_claim`,
 `never_unlocks_external_rivals_certification`,
@@ -182,7 +189,7 @@ php artisan atlas:forge:rivals arms --json
 ```
 
 Returns the registry snapshot (schema `atlas.forge.rivals.runner_registry.v1`):
-all seven arms, their flags, the canonical task category list, generation
+all eight arms, their flags, the canonical task category list, generation
 timestamp, separation note. Read-only. No provider call.
 
 ## 5. Three operator confirmations (real provider)
@@ -232,7 +239,7 @@ Worst status across the three is propagated to the action envelope.
 3. `arena_run_service_available`
 4. `run_arena_action_wired`
 5. `arms_action_exposes_registry`
-6. `all_seven_arms_declared`
+6. `all_canonical_arms_declared`
 7. `task_category_gate_enforced`
 8. `not_yet_executable_blockers_honest`
 9. `scripted_or_manual_cannot_forge_score`

@@ -146,7 +146,7 @@ final class AgentControlPlaneCertificationBaselineService
         $invariantsAllTrue = ! in_array(false, $invariants, true);
 
         $baselineId = (string) Str::uuid();
-        $generatedAt = CarbonImmutable::now()->toIso8601String();
+        $generatedAt = CarbonImmutable::now()->format('Y-m-d\TH:i:s.uP');
 
         $status = match (true) {
             data_get($chainIntegrity, 'status') !== 'available' => 'degraded',

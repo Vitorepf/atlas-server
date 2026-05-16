@@ -1,0 +1,111 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Http\Controllers\AtlasDev;
+
+use App\Http\Controllers\Controller;
+use App\Services\Ai\Programming\AtlasDev\Persistence\ArtifactNames;
+use App\Services\Ai\Programming\AtlasDev\Persistence\ReceiptStorage;
+use App\Services\Ai\Programming\AtlasDev\Surface\HttpResponseRedactor;
+use Illuminate\Http\JsonResponse;
+
+/**
+ * GET /ai/interactions/atlas-dev/runs/{run_id}
+ *
+ * REST fallback used by surfaces that cannot keep an SSE connection alive.
+ * Reads the persisted run directory and returns:
+ *   - which canonical artifacts exist
+ *   - completion_state of the verification_receipt if persisted
+ *   - the full persisted verification receipt when available
+ *   - hashes that downstream surfaces use as cache keys
+ */
+final class ShowController extends Controller
+{
+    private const PERSISTED_LOOKUP = [
+        'operation_envelope' => ArtifactNames::OPERATION_ENVELOPE,
+        'compact_sdd' => ArtifactNames::COMPACT_SDD,
+        'context_retrieval_plan' => ArtifactNames::CONTEXT_RETRIEVAL_PLAN,
+        'code_discovery_manifest' => ArtifactNames::CODE_DISCOVERY_MANIFEST,
+        'open_brain_projection' => ArtifactNames::OPEN_BRAIN_PROJECTION,
+        'mini_programming_spec' => ArtifactNames::MINI_PROGRAMMING_SPEC,
+        'task_contract' => ArtifactNames::TASK_CONTRACT,
+        'prompt_projection' => ArtifactNames::PROMPT_PROJECTION,
+        'routing_decision' => ArtifactNames::ROUTING_DECISION,
+        'provider_call_result' => ArtifactNames::PROVIDER_CALL_RESULT,
+        'diff_parse_result' => ArtifactNames::DIFF_PARSE_RESULT,
+        'patch_apply_result' => ArtifactNames::PATCH_APPLY_RESULT,
+        'scope_guard_receipt' => ArtifactNames::SCOPE_GUARD_RECEIPT,
+        'verification_receipt' => ArtifactNames::VERIFICATION_RECEIPT,
+        'fast_path_telemetry' => ArtifactNames::FAST_PATH_TELEMETRY,
+    ];
+
+    public function __construct(
+        private readonly ReceiptStorage $storage,
+        private readonly HttpResponseRedactor $redactor = new HttpResponseRedactor,
+    ) {}
+
+    public function __invoke(string $runId): JsonResponse
+    {
+        $artifactRefs = [];
+        foreach (self::PERSISTED_LOOKUP as $key => $filename) {
+            if ($this->storage->exists($runId, $filename)) {
+                $artifactRefs[$key] = $this->redactor->artifactRef($runId, $filename);
+            }
+        }
+
+        if ($artifactRefs === []) {
+            return response()->json([
+                'error' => [
+                    'code' => 'RUN_NOT_FOUND',
+                    'message' => "No persisted artifacts for run_id '{$runId}'.",
+                ],
+            ], 404);
+        }
+
+        $envelope = $this->storage->read($runId, ArtifactNames::OPERATION_ENVELOPE);
+        $taskContract = $this->storage->read($runId, ArtifactNames::TASK_CONTRACT);
+        $routing = $this->storage->read($runId, ArtifactNames::ROUTING_DECISION);
+        $receipt = $this->storage->read($runId, ArtifactNames::VERIFICATION_RECEIPT);
+        $scope = $this->storage->read($runId, ArtifactNames::SCOPE_GUARD_RECEIPT);
+
+        $completion = is_array($receipt) ? ($receipt['completion'] ?? null) : null;
+        $completionState = is_array($completion) ? ($completion['status'] ?? null) : null;
+
+        $workspaceLabel = null;
+        $workspaceHash = null;
+        if (is_array($envelope)) {
+            $workspaceRaw = $envelope['workspace'] ?? null;
+            if (is_string($workspaceRaw)) {
+                $workspaceLabel = $this->redactor->workspaceLabel($workspaceRaw);
+            }
+            $hashCandidate = $envelope['workspace_hash'] ?? null;
+            $workspaceHash = is_string($hashCandidate) ? $hashCandidate : null;
+        }
+
+        return response()->json([
+            'data' => [
+                'run_id' => $runId,
+                'completion_state' => $completionState,
+                'has_receipt' => $receipt !== null,
+                'has_scope_guard_receipt' => $scope !== null,
+                'has_plan' => $taskContract !== null,
+                'routing' => is_array($routing) ? [
+                    'kind' => $routing['kind'] ?? null,
+                    'reasons' => $routing['reasons'] ?? [],
+                    'blockers' => $routing['blockers'] ?? [],
+                ] : null,
+                // F-04: absolute workspace is never exposed; surfaces use the
+                // basename label + the provider-safe workspace_hash instead.
+                'workspace_label' => $workspaceLabel,
+                'workspace_hash' => $workspaceHash,
+                'task_contract_hash' => is_array($taskContract) ? ($taskContract['task_contract_hash'] ?? null) : null,
+                'envelope_hash' => is_array($envelope) ? ($envelope['envelope_hash'] ?? null) : null,
+                'verification_receipt_hash' => is_array($receipt) ? ($receipt['receipt_hash'] ?? null) : null,
+                'scope_guard_receipt_hash' => is_array($scope) ? ($scope['receipt_hash'] ?? null) : null,
+                'persisted_artifact_refs' => $artifactRefs,
+                'receipt' => is_array($receipt) ? $receipt : null,
+            ],
+        ], 200);
+    }
+}

@@ -354,6 +354,104 @@ final class AgentControlPlaneClaimLeaseRepository
         ];
     }
 
+    /**
+     * Prune non-active leases by task/agent/lease prefixes.
+     *
+     * Certification probes create many short-lived leases. This keeps their
+     * evidence visible in the certification payload while preventing run-scoped
+     * lease registry noise from accumulating across repeated dry-run batteries.
+     *
+     * @param  array<string, mixed>  $filters
+     * @return array<string, mixed>
+     */
+    public function prune(array $filters = []): array
+    {
+        return $this->withLock(function () use ($filters): array {
+            $taskPrefixes = $this->stringList((array) ($filters['task_packet_id_prefixes'] ?? []));
+            $agentPrefixes = $this->stringList((array) ($filters['agent_id_prefixes'] ?? []));
+            $leasePrefixes = $this->stringList((array) ($filters['lease_id_prefixes'] ?? []));
+            $deleteLeaseFiles = (bool) ($filters['delete_lease_files'] ?? false);
+            $preserveStatuses = $this->stringList((array) ($filters['preserve_statuses'] ?? [self::LEASE_STATUS_ACTIVE]));
+
+            if ($taskPrefixes === [] && $agentPrefixes === [] && $leasePrefixes === []) {
+                return [
+                    'schema_version' => self::SCHEMA_VERSION,
+                    'status' => 'blocked',
+                    'event' => 'prune_blocked',
+                    'reason' => 'prune_requires_task_agent_or_lease_prefix',
+                    'pruned_count' => 0,
+                    'deleted_lease_file_count' => 0,
+                    'preserved_count' => 0,
+                    'runtime_execution_allowed' => false,
+                    'dispatch_allowed' => false,
+                    'ledger_write_allowed' => false,
+                ];
+            }
+
+            $registry = $this->loadRegistry();
+            $entries = array_values((array) ($registry['entries'] ?? []));
+            $kept = [];
+            $pruned = [];
+            $deletedLeaseFileCount = 0;
+            $preservedCount = 0;
+
+            foreach ($entries as $entry) {
+                $leaseStatus = (string) ($entry['lease_status'] ?? '');
+                $leaseId = (string) ($entry['lease_id'] ?? '');
+                $matches = $this->leaseEntryMatchesPruneFilters($entry, $taskPrefixes, $agentPrefixes, $leasePrefixes);
+                if (! $matches) {
+                    $kept[] = $entry;
+                    continue;
+                }
+                if (in_array($leaseStatus, $preserveStatuses, true)) {
+                    $kept[] = $entry;
+                    $preservedCount++;
+                    continue;
+                }
+
+                $pruned[] = $entry;
+                if ($deleteLeaseFiles && $leaseId !== '') {
+                    $path = self::STORAGE_PREFIX.'/'.$leaseId.'.json';
+                    if ($this->disk()->exists($path)) {
+                        $this->disk()->delete($path);
+                        $deletedLeaseFileCount++;
+                    }
+                }
+            }
+
+            $registry['entries'] = $kept;
+            $registry['last_pruned_at'] = CarbonImmutable::now()->toIso8601String();
+            $registry['last_prune'] = [
+                'matched_task_packet_id_prefixes' => $taskPrefixes,
+                'matched_agent_id_prefixes' => $agentPrefixes,
+                'matched_lease_id_prefixes' => $leasePrefixes,
+                'delete_lease_files' => $deleteLeaseFiles,
+                'preserve_statuses' => $preserveStatuses,
+                'pruned_count' => count($pruned),
+                'deleted_lease_file_count' => $deletedLeaseFileCount,
+                'preserved_count' => $preservedCount,
+            ];
+            $this->saveRegistry($registry);
+
+            return [
+                'schema_version' => self::SCHEMA_VERSION,
+                'status' => 'ok',
+                'event' => 'pruned',
+                'pruned_count' => count($pruned),
+                'deleted_lease_file_count' => $deletedLeaseFileCount,
+                'preserved_count' => $preservedCount,
+                'matched_task_packet_id_prefixes' => $taskPrefixes,
+                'matched_agent_id_prefixes' => $agentPrefixes,
+                'matched_lease_id_prefixes' => $leasePrefixes,
+                'delete_lease_files' => $deleteLeaseFiles,
+                'preserve_statuses' => $preserveStatuses,
+                'runtime_execution_allowed' => false,
+                'dispatch_allowed' => false,
+                'ledger_write_allowed' => false,
+            ];
+        });
+    }
+
     public function isAvailable(): bool
     {
         try {
@@ -777,5 +875,44 @@ final class AgentControlPlaneClaimLeaseRepository
     private function disk(): Filesystem
     {
         return Storage::disk($this->disk ?? self::DEFAULT_DISK);
+    }
+
+    /**
+     * @param  array<string, mixed>  $entry
+     * @param  list<string>  $taskPrefixes
+     * @param  list<string>  $agentPrefixes
+     * @param  list<string>  $leasePrefixes
+     */
+    private function leaseEntryMatchesPruneFilters(array $entry, array $taskPrefixes, array $agentPrefixes, array $leasePrefixes): bool
+    {
+        foreach ($taskPrefixes as $prefix) {
+            if ($prefix !== '' && str_starts_with((string) ($entry['task_packet_id'] ?? ''), $prefix)) {
+                return true;
+            }
+        }
+        foreach ($agentPrefixes as $prefix) {
+            if ($prefix !== '' && str_starts_with((string) ($entry['agent_id'] ?? ''), $prefix)) {
+                return true;
+            }
+        }
+        foreach ($leasePrefixes as $prefix) {
+            if ($prefix !== '' && str_starts_with((string) ($entry['lease_id'] ?? ''), $prefix)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param  array<int, mixed>  $values
+     * @return list<string>
+     */
+    private function stringList(array $values): array
+    {
+        return array_values(array_filter(array_map(
+            static fn (mixed $value): string => trim((string) $value),
+            $values,
+        ), static fn (string $value): bool => $value !== ''));
     }
 }

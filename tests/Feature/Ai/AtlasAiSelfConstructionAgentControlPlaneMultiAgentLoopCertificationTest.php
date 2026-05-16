@@ -114,6 +114,36 @@ final class AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopCertificationT
         $this->assertSame(0, (int) $cert['violation_count']);
     }
 
+    public function test_certification_prunes_run_scoped_queue_and_lease_artifacts(): void
+    {
+        [$service, , $queue, $leases] = $this->newStack();
+
+        $cert = $service->certify(['agent_count' => 6, 'cycles' => 2]);
+
+        $this->assertSame('available', (string) $cert['status']);
+        $this->assertTrue((bool) data_get($cert, 'certification_artifact_cleanup.cleanup_performed'));
+        $this->assertSame('ok', data_get($cert, 'certification_artifact_cleanup.queue_prune.status'));
+        $this->assertSame('ok', data_get($cert, 'certification_artifact_cleanup.lease_prune.status'));
+        $this->assertGreaterThan(0, (int) data_get($cert, 'certification_artifact_cleanup.queue_prune.pruned_count'));
+        $this->assertGreaterThan(0, (int) data_get($cert, 'certification_artifact_cleanup.lease_prune.pruned_count'));
+        $this->assertSame(0, (int) data_get($cert, 'certification_artifact_cleanup.queue_prune.preserved_count'));
+        $this->assertSame(0, count($leases->activeLeases()));
+        $this->assertSame('available', data_get($cert, 'post_cleanup_health_digest_probe.status'));
+        $this->assertTrue((bool) data_get($cert, 'post_cleanup_health_digest_probe.cleanup_left_no_recoverable_artifacts'));
+        $this->assertSame(0, (int) data_get($cert, 'post_cleanup_health_digest_probe.claimed_task_count'));
+        $this->assertSame(0, (int) data_get($cert, 'post_cleanup_health_digest_probe.active_lease_count'));
+        $this->assertSame(0, (int) data_get($cert, 'post_cleanup_health_digest_probe.recoverable_lease_count'));
+        $this->assertTrue((bool) $cert['invariants']['certification_cleanup_leaves_no_recoverable_terminal_loop_artifacts']);
+
+        foreach ((array) $queue->registry()['entries'] as $entry) {
+            $tags = (array) ($entry['tags'] ?? []);
+            $this->assertNotContains('multi_agent_loop_certification', $tags);
+            $this->assertNotContains('terminal_worker_bootstrap_probe', $tags);
+            $this->assertNotContains('terminal_fleet_resume_rollup_probe', $tags);
+            $this->assertNotContains('terminal_fleet_metadata_orphan_probe', $tags);
+        }
+    }
+
     public function test_certification_exercises_terminal_worker_bootstrap_path(): void
     {
         $cert = $this->certify(['agent_count' => 3, 'cycles' => 1]);
@@ -125,14 +155,38 @@ final class AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopCertificationT
         $this->assertSame(2, (int) $probe['completed_dry_run_count']);
         $this->assertTrue((bool) $probe['one_shot_packets_ready']);
         $this->assertTrue((bool) $probe['completion_command_uses_dry_run']);
+        $this->assertTrue((bool) $probe['completion_evidence_template_present']);
+        $this->assertTrue((bool) $probe['terminal_loop_operator_commands_present']);
+        $this->assertTrue((bool) $probe['structured_completion_evidence_all_valid']);
+        $this->assertSame(2, (int) $probe['structured_completion_evidence_valid_count']);
+        $this->assertSame(2, (int) $probe['completion_evidence_validation_hash_count']);
         $this->assertTrue((bool) $probe['resumption_contracts_present']);
+        $this->assertTrue((bool) $probe['resumption_checkpoints_present']);
+        $this->assertTrue((bool) $probe['shell_recipes_present']);
         $this->assertTrue((bool) $probe['parallel_lanes_distinct']);
         $this->assertTrue((bool) $probe['leases_closed_by_dry_run']);
+        $this->assertTrue((bool) $probe['invalid_scope_rejected']);
+        $this->assertSame('blocked', data_get($probe, 'invalid_scope_probe.status'));
+        $this->assertSame('unsafe_worker_scope', data_get($probe, 'invalid_scope_probe.worker_packet_blocked_reason'));
+        $this->assertSame('released', data_get($probe, 'invalid_scope_probe.queue_status_after_rejection'));
         $this->assertTrue((bool) $probe['runtime_safety_all_false']);
         $this->assertMatchesRegularExpression('/^terminal_worker_bootstrap_probe_/', (string) $probe['queue_tag']);
         $this->assertTrue((bool) $cert['invariants']['terminal_worker_bootstrap_ready']);
         $this->assertTrue((bool) $cert['invariants']['terminal_worker_bootstrap_completion_command_uses_dry_run']);
+        $this->assertTrue((bool) $cert['invariants']['terminal_worker_bootstrap_completion_evidence_template_present']);
+        $this->assertTrue((bool) $cert['invariants']['terminal_worker_bootstrap_operator_commands_present']);
+        $this->assertTrue((bool) $cert['invariants']['terminal_worker_bootstrap_structured_completion_evidence_valid']);
         $this->assertTrue((bool) $cert['invariants']['terminal_worker_bootstrap_resumption_contract_present']);
+        $this->assertTrue((bool) $cert['invariants']['terminal_worker_bootstrap_resumption_checkpoint_present']);
+        $this->assertTrue((bool) $cert['invariants']['terminal_worker_bootstrap_iteration_runbook_present']);
+        $this->assertTrue((bool) $cert['invariants']['terminal_worker_bootstrap_shell_recipe_present']);
+        $this->assertTrue((bool) $cert['invariants']['terminal_worker_bootstrap_rejects_invalid_worker_scope']);
+        $this->assertTrue((bool) $cert['invariants']['terminal_worker_bootstrap_preview_read_only']);
+        $this->assertTrue((bool) data_get($probe, 'preview_probe.read_only_verified'));
+        $this->assertSame('preview_only_no_claim_attempted', data_get($probe, 'preview_probe.claim_event'));
+        $this->assertSame(data_get($probe, 'preview_probe.queue_total_before'), data_get($probe, 'preview_probe.queue_total_after'));
+        $this->assertSame(data_get($probe, 'preview_probe.active_leases_before'), data_get($probe, 'preview_probe.active_leases_after'));
+        $this->assertStringNotContainsString('--terminal-worker-bootstrap-preview', (string) data_get($probe, 'preview_probe.preview_execute_bootstrap_command'));
     }
 
     public function test_terminal_worker_bootstrap_probe_returns_copy_paste_completion_commands(): void
@@ -149,10 +203,49 @@ final class AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopCertificationT
                 (string) $result['completion_command'],
             );
             $this->assertStringContainsString(
+                '--evidence-hash=<sha256-of-final-evidence>',
+                (string) $result['completion_command'],
+            );
+            $this->assertStringContainsString(
+                '--completion-evidence-json=@/path/to/completion-evidence.json',
+                (string) $result['completion_command'],
+            );
+            $this->assertSame(
+                'atlas.self_construction.agent_control_plane_task_queue_completion_evidence.v1',
+                (string) $result['completion_evidence_template_schema'],
+            );
+            $this->assertTrue((bool) $result['completion_evidence_template_json_present']);
+            $this->assertSame(
+                'atlas.self_construction.agent_control_plane_terminal_loop_operator_commands.v1',
+                (string) $result['terminal_loop_operator_commands_schema'],
+            );
+            $this->assertSame(
+                'atlas.self_construction.agent_control_plane_terminal_long_running_loop_contract.v1',
+                (string) $result['terminal_long_running_loop_contract_schema'],
+            );
+            $this->assertStringContainsString(
+                '--agent-control-plane-terminal-worker-bootstrap-status',
+                (string) $result['terminal_long_running_loop_next_iteration_command'],
+            );
+            $this->assertContains(
+                'completion_evidence_validation_not_valid',
+                (array) $result['terminal_long_running_loop_stop_conditions'],
+            );
+            $this->assertTrue((bool) data_get($cert, 'terminal_worker_bootstrap_probe.terminal_loop_operator_commands_present'));
+            $this->assertStringContainsString(
                 '--agent-control-plane-task-lease-recovery-status',
                 (string) $result['resume_after_interruption_command'],
             );
             $this->assertTrue((bool) $result['resumption_contract_present']);
+            $this->assertSame(
+                'atlas.self_construction.agent_control_plane_terminal_loop_shell_recipe.v1',
+                (string) $result['terminal_loop_shell_recipe_schema'],
+            );
+            $this->assertSame('shell_recipe_ready', (string) $result['terminal_loop_shell_recipe_status']);
+            $this->assertNotEmpty((string) $result['terminal_loop_shell_recipe_hash']);
+            $this->assertTrue((bool) $result['terminal_loop_shell_recipe_safe_to_copy_after_operator_review']);
+            $this->assertFalse((bool) $result['terminal_loop_shell_recipe_can_execute_from_bootstrap']);
+            $this->assertTrue((bool) $result['terminal_loop_shell_recipe_requires_operator_to_run_worker_prompt']);
             $this->assertNotEmpty((string) $result['one_shot_packet_hash']);
             $this->assertNotEmpty((array) $result['write_set']);
         }
@@ -267,7 +360,7 @@ final class AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopCertificationT
     }
 
     /**
-     * @return array{0: AgentControlPlaneMultiAgentLoopCertificationService, 1: AgentControlPlaneTaskQueueOrchestrator}
+     * @return array{0: AgentControlPlaneMultiAgentLoopCertificationService, 1: AgentControlPlaneTaskQueueOrchestrator, 2: AgentControlPlaneTaskPacketQueueRepository, 3: AgentControlPlaneClaimLeaseRepository}
      */
     private function newStack(): array
     {
@@ -282,6 +375,6 @@ final class AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopCertificationT
             new AgentControlPlaneContinuationSummaryBuilder,
         );
 
-        return [new AgentControlPlaneMultiAgentLoopCertificationService($orchestrator, $queue, $leases), $orchestrator];
+        return [new AgentControlPlaneMultiAgentLoopCertificationService($orchestrator, $queue, $leases), $orchestrator, $queue, $leases];
     }
 }

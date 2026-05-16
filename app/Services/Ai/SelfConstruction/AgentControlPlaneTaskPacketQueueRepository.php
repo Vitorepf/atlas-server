@@ -343,6 +343,101 @@ final class AgentControlPlaneTaskPacketQueueRepository
         ];
     }
 
+    /**
+     * Prune queue records that match explicit tags or id prefixes.
+     *
+     * This is intentionally narrow and defaults to preserving claimed packets
+     * so certification probes can clean their own run-scoped artifacts without
+     * endangering live worker leases or real operator tasks.
+     *
+     * @param  array<string, mixed>  $filters
+     * @return array<string, mixed>
+     */
+    public function prune(array $filters = []): array
+    {
+        return $this->withLock(function () use ($filters): array {
+            $tags = $this->stringList((array) ($filters['tags'] ?? []));
+            $prefixes = $this->stringList((array) ($filters['task_packet_id_prefixes'] ?? []));
+            $deleteTaskFiles = (bool) ($filters['delete_task_files'] ?? false);
+            $preserveStatuses = $this->stringList((array) ($filters['preserve_statuses'] ?? ['claimed']));
+
+            if ($tags === [] && $prefixes === []) {
+                return [
+                    'schema_version' => self::SCHEMA_VERSION,
+                    'status' => 'blocked',
+                    'event' => 'prune_blocked',
+                    'reason' => 'prune_requires_tag_or_task_packet_id_prefix',
+                    'pruned_count' => 0,
+                    'deleted_task_file_count' => 0,
+                    'preserved_count' => 0,
+                    'runtime_execution_allowed' => false,
+                    'dispatch_allowed' => false,
+                    'ledger_write_allowed' => false,
+                ];
+            }
+
+            $registry = $this->loadRegistry();
+            $entries = array_values((array) ($registry['entries'] ?? []));
+            $kept = [];
+            $pruned = [];
+            $deletedTaskFileCount = 0;
+            $preservedCount = 0;
+
+            foreach ($entries as $entry) {
+                $taskPacketId = (string) ($entry['task_packet_id'] ?? '');
+                $status = (string) ($entry['status'] ?? '');
+                $matches = $this->entryMatchesPruneFilters($entry, $tags, $prefixes);
+                if (! $matches) {
+                    $kept[] = $entry;
+                    continue;
+                }
+                if (in_array($status, $preserveStatuses, true)) {
+                    $kept[] = $entry;
+                    $preservedCount++;
+                    continue;
+                }
+
+                $pruned[] = $entry;
+                if ($deleteTaskFiles && $taskPacketId !== '') {
+                    $path = $this->taskPath($taskPacketId);
+                    if ($this->disk()->exists($path)) {
+                        $this->disk()->delete($path);
+                        $deletedTaskFileCount++;
+                    }
+                }
+            }
+
+            $registry['entries'] = $kept;
+            $registry['last_pruned_at'] = CarbonImmutable::now()->toIso8601String();
+            $registry['last_prune'] = [
+                'matched_tags' => $tags,
+                'matched_task_packet_id_prefixes' => $prefixes,
+                'delete_task_files' => $deleteTaskFiles,
+                'preserve_statuses' => $preserveStatuses,
+                'pruned_count' => count($pruned),
+                'deleted_task_file_count' => $deletedTaskFileCount,
+                'preserved_count' => $preservedCount,
+            ];
+            $this->saveRegistry($registry);
+
+            return [
+                'schema_version' => self::SCHEMA_VERSION,
+                'status' => 'ok',
+                'event' => 'pruned',
+                'pruned_count' => count($pruned),
+                'deleted_task_file_count' => $deletedTaskFileCount,
+                'preserved_count' => $preservedCount,
+                'matched_tags' => $tags,
+                'matched_task_packet_id_prefixes' => $prefixes,
+                'delete_task_files' => $deleteTaskFiles,
+                'preserve_statuses' => $preserveStatuses,
+                'runtime_execution_allowed' => false,
+                'dispatch_allowed' => false,
+                'ledger_write_allowed' => false,
+            ];
+        });
+    }
+
     public function isAvailable(): bool
     {
         try {
@@ -550,6 +645,28 @@ final class AgentControlPlaneTaskPacketQueueRepository
         return $registry;
     }
 
+    /**
+     * @param  array<string, mixed>  $entry
+     * @param  list<string>  $tags
+     * @param  list<string>  $prefixes
+     */
+    private function entryMatchesPruneFilters(array $entry, array $tags, array $prefixes): bool
+    {
+        $entryTags = array_values(array_map('strval', (array) ($entry['tags'] ?? [])));
+        if ($tags !== [] && array_intersect($tags, $entryTags) !== []) {
+            return true;
+        }
+
+        $taskPacketId = (string) ($entry['task_packet_id'] ?? '');
+        foreach ($prefixes as $prefix) {
+            if ($prefix !== '' && str_starts_with($taskPacketId, $prefix)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private function taskPath(string $taskPacketId): string
     {
         $safe = preg_replace('/[^A-Za-z0-9_\-]/', '_', $taskPacketId) ?? $taskPacketId;
@@ -657,5 +774,17 @@ final class AgentControlPlaneTaskPacketQueueRepository
     private function disk(): Filesystem
     {
         return Storage::disk($this->disk ?? self::DEFAULT_DISK);
+    }
+
+    /**
+     * @param  array<int, mixed>  $values
+     * @return list<string>
+     */
+    private function stringList(array $values): array
+    {
+        return array_values(array_filter(array_map(
+            static fn (mixed $value): string => trim((string) $value),
+            $values,
+        ), static fn (string $value): bool => $value !== ''));
     }
 }

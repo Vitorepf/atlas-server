@@ -29,12 +29,14 @@ decisions:
   - Code Intelligence e parte obrigatoria do fluxo; ele informa onde mexer, o que existe, quais simbolos/docs/testes se relacionam e onde ha risco.
   - Evidence obrigatorio separa implementacao real de opiniao do agente.
   - Cartografia da programacao deve mostrar onde cada engrenagem de software fica, o que faz, quais docs a governam e qual evidence prova seu estado.
+  - Atlas Dev e a fast lane governada deste sistema; seus gates sao projecoes compactas dos gates universais, nao um sistema paralelo.
 maintenance:
   - Atualize este indice quando os gates de programacao, SDD, Engineering Blueprint, Code Intelligence, Forge Workspace, Self-Construction OS ou cartografia de codigo mudarem.
   - Mantenha este arquivo como indice curto; detalhes vivem nos child docs de contratos e runbook.
 related_paths:
   - docs/engineering-knowledge-base/atlas-programming-governance-system-contracts.md
   - docs/engineering-knowledge-base/atlas-programming-governance-system-runbook.md
+  - docs/engineering-knowledge-base/atlas-dev-efficient-programming-flow-v1.md
   - docs/engineering-knowledge-base/domains/programming.md
   - docs/engineering-knowledge-base/atlas-programming-forge-flow.md
   - docs/engineering-knowledge-base/atlas-ai-spec-operating-system.md
@@ -231,6 +233,25 @@ Invariantes:
 - Code Intelligence orienta contexto real;
 - evidence separa implementacao real de narrativa;
 - learning volta para docs, specs, prompts, gates ou cartografia.
+
+### Atlas Dev Fast Lane
+
+Atlas Dev aplica uma versao compacta e proporcional destes invariantes para trabalho diario. Ele nao substitui Programming Governance e nao possui gates concorrentes. Alguns gates sao projecoes diretas; outros sao Dev-only para operacionalizar o fast path, mas nao podem contradizer Governance.
+
+Mapeamento canonico:
+
+| Programming Governance | Atlas Dev Efficient Flow |
+| --- | --- |
+| placement | `intake_risk_gate` |
+| code intelligence | `context_budget_gate` + `CodeDiscoveryManifest` |
+| spec-before-code | `mini_spec_before_code_gate` |
+| scope guard | `scope_guard_light` |
+| evidence | `receipt_gate` |
+| completion | `completion_state_gate` |
+
+Gates Dev-only justificados: `light_task_contract_gate`, `verification_gate`, `forge_escalation_gate`. Eles adicionam contrato operacional, verificacao focada e parada segura para Forge preview.
+
+O fast path pode reduzir payload e custo por R-level, mas nao pode relaxar uma lei de governanca: write sem spec, sem contrato, sem escopo, sem verification/evidence ou sem completion state continua invalido.
 
 ## Fluxo
 

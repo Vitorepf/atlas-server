@@ -1,0 +1,22 @@
+{
+  "schema_version": "atlas.dev.code_discovery_manifest.v1",
+  "run_id": "0192b5d2-3333-7000-8000-000000000003",
+  "confidence": "blocking_ambiguity",
+  "likely_files": [],
+  "related_symbols": [],
+  "related_tests": [],
+  "related_commands": [],
+  "missing_refs": [
+    {
+      "what": "controller alvo do bug",
+      "why_missing": "intent menciona 'pedido' mas ha dois controllers candidatos sem desempate"
+    },
+    {
+      "what": "teste reproducible",
+      "why_missing": "operador nao apontou caso de falha"
+    }
+  ],
+  "forbidden_files": [],
+  "provider_safe": true,
+  "manifest_hash": "placeholder_manifest_hash_recomputed_in_test"
+}

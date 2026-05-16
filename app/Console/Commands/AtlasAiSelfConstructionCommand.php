@@ -282,6 +282,10 @@ class AtlasAiSelfConstructionCommand extends Command
         {--atlas-self-construction-human-completion-receipt-dossier-preflight : Generate the read-only Atlas Self-Construction Human Completion Receipt Dossier preflight}
         {--atlas-self-construction-human-completion-receipt-dossier-implementation-packet : Generate the read-only Atlas Self-Construction Human Completion Receipt Dossier implementation packet}
         {--atlas-self-construction-human-completion-receipt-dossier-status : Run the read-only Atlas Self-Construction Human Completion Receipt Dossier}
+        {--atlas-self-construction-human-completion-receipt-closure-execution-pack-contract : Generate the read-only Atlas Self-Construction Human Completion Receipt Closure Execution Pack contract}
+        {--atlas-self-construction-human-completion-receipt-closure-execution-pack-preflight : Generate the read-only Atlas Self-Construction Human Completion Receipt Closure Execution Pack preflight}
+        {--atlas-self-construction-human-completion-receipt-closure-execution-pack-implementation-packet : Generate the read-only Atlas Self-Construction Human Completion Receipt Closure Execution Pack implementation packet}
+        {--atlas-self-construction-human-completion-receipt-closure-execution-pack-status : Run the read-only Atlas Self-Construction Human Completion Receipt Closure Execution Pack}
         {--atlas-self-construction-real-provider-smoke-evidence-dossier-contract : Generate the read-only Atlas Self-Construction Real Provider Smoke Evidence Dossier contract}
         {--atlas-self-construction-real-provider-smoke-evidence-dossier-preflight : Generate the read-only Atlas Self-Construction Real Provider Smoke Evidence Dossier preflight}
         {--atlas-self-construction-real-provider-smoke-evidence-dossier-implementation-packet : Generate the read-only Atlas Self-Construction Real Provider Smoke Evidence Dossier implementation packet}
@@ -392,6 +396,7 @@ class AtlasAiSelfConstructionCommand extends Command
         {--agent-control-plane-terminal-worker-bootstrap-preflight : Generate the Terminal Worker Bootstrap preflight}
         {--agent-control-plane-terminal-worker-bootstrap-implementation-packet : Generate the Terminal Worker Bootstrap implementation packet}
         {--agent-control-plane-terminal-worker-bootstrap-status : Auto-replenish, claim one packet and build a one-shot worker prompt for this terminal}
+        {--terminal-worker-bootstrap-preview : Preview terminal worker bootstrap without auto-replenishing, claiming a lease or mutating the queue}
         {--agent-control-plane-scope-lock-runtime-validator-contract : Generate the Scope Lock Runtime Validator contract}
         {--agent-control-plane-scope-lock-runtime-validator-preflight : Generate the Scope Lock Runtime Validator preflight}
         {--agent-control-plane-scope-lock-runtime-validator-implementation-packet : Generate the Scope Lock Runtime Validator implementation packet}
@@ -406,10 +411,19 @@ class AtlasAiSelfConstructionCommand extends Command
         {--agent-control-plane-task-auto-replenishment-preflight : Generate the Task Auto-Replenishment preflight}
         {--agent-control-plane-task-auto-replenishment-implementation-packet : Generate the Task Auto-Replenishment implementation packet}
         {--agent-control-plane-task-auto-replenishment-status : Replenish the persistent task queue from governed Agent Control Plane sources}
+        {--agent-control-plane-terminal-loop-health-digest-contract : Generate the read-only Terminal Loop Health Digest contract}
+        {--agent-control-plane-terminal-loop-health-digest-preflight : Generate the read-only Terminal Loop Health Digest preflight}
+        {--agent-control-plane-terminal-loop-health-digest-implementation-packet : Generate the read-only Terminal Loop Health Digest implementation packet}
+        {--agent-control-plane-terminal-loop-health-digest-status : Inspect terminal-loop supply, leases and next operator action without mutating the queue}
+        {--agent-control-plane-terminal-loop-operational-proof-contract : Generate the Terminal Loop Operational Proof contract}
+        {--agent-control-plane-terminal-loop-operational-proof-preflight : Generate the Terminal Loop Operational Proof preflight}
+        {--agent-control-plane-terminal-loop-operational-proof-implementation-packet : Generate the Terminal Loop Operational Proof implementation packet}
+        {--agent-control-plane-terminal-loop-operational-proof-status : Execute one bounded local claim/lease/evidence/complete_dry_run proof without provider execution}
         {--atlas-self-construction-os-runtime-gap-matrix-audit-contract : Generate the Runtime Gap Matrix Audit contract}
         {--atlas-self-construction-os-runtime-gap-matrix-audit-preflight : Generate the Runtime Gap Matrix Audit preflight}
         {--atlas-self-construction-os-runtime-gap-matrix-audit-implementation-packet : Generate the Runtime Gap Matrix Audit implementation packet}
         {--atlas-self-construction-os-runtime-gap-matrix-audit-status : Audit every runtime gap, classify each gap into a closure class and emit honest implementation packets per gap (no provider call)}
+        {--atlas-self-construction-runtime-gap-matrix : Alias for the read-only Runtime Gap Matrix Audit status}
         {--agent-control-plane-task-queue-lease-certification-contract : Generate the Task Queue + Lease certification contract}
         {--agent-control-plane-task-queue-lease-certification-preflight : Generate the Task Queue + Lease certification preflight}
         {--agent-control-plane-task-queue-lease-certification-implementation-packet : Generate the Task Queue + Lease certification implementation packet}
@@ -420,7 +434,9 @@ class AtlasAiSelfConstructionCommand extends Command
         {--agent-control-plane-multi-agent-loop-certification-status : Run the Multi-Agent Loop certification (N agents × K cycles dry-run)}
         {--agent-count= : Optional integer override for multi-agent loop certification agent_count}
         {--cycles= : Optional integer override for multi-agent loop certification cycles}
-        {--target-min-claimable-tasks= : Optional integer override for multi-agent loop certification target_min_claimable_tasks}
+        {--target-min-claimable-tasks= : Optional integer override for terminal-loop auto-replenishment and multi-agent loop certification target_min_claimable_tasks}
+        {--max-new-tasks= : Optional integer override for terminal-loop auto-replenishment max_new_tasks}
+        {--queue-tag=* : Optional queue tag/lane for terminal-loop auto-replenishment and worker bootstrap isolation}
         {--simulate-overlap : Force write_set collision in multi-agent loop certification (used to validate the blocked path)}
         {--agent-control-plane-agent-runtime-registry-contract : Generate the Agent Runtime Registry repository contract}
         {--agent-control-plane-agent-runtime-registry-preflight : Generate the Agent Runtime Registry repository preflight}
@@ -1173,6 +1189,7 @@ class AtlasAiSelfConstructionCommand extends Command
         {--lease-minutes=120 : Reservation lease duration in minutes}
         {--reason= : Release reason}
         {--evidence-hash= : Optional evidence hash for packet completion}
+        {--completion-evidence-json= : Structured completion evidence JSON payload or @path for task queue dry-run completion}
         {--model= : Provider model name for Agent Control Plane cost events}
         {--input-tokens=0 : Input tokens for Agent Control Plane cost events}
         {--output-tokens=0 : Output tokens for Agent Control Plane cost events}
@@ -1287,6 +1304,11 @@ class AtlasAiSelfConstructionCommand extends Command
             'lease_minutes' => $this->option('lease-minutes'),
             'reason' => $this->option('reason'),
             'evidence_hash' => $this->option('evidence-hash'),
+            'completion_evidence_json' => $this->option('completion-evidence-json'),
+            'queue_tags' => (array) $this->option('queue-tag'),
+            'target_min_claimable_tasks' => $this->option('target-min-claimable-tasks') !== null ? (int) $this->option('target-min-claimable-tasks') : null,
+            'max_new_tasks' => $this->option('max-new-tasks') !== null ? (int) $this->option('max-new-tasks') : null,
+            'terminal_worker_bootstrap_preview' => (bool) $this->option('terminal-worker-bootstrap-preview'),
             'model' => $this->option('model'),
             'input_tokens' => $this->option('input-tokens'),
             'output_tokens' => $this->option('output-tokens'),
@@ -2025,10 +2047,19 @@ class AtlasAiSelfConstructionCommand extends Command
             (bool) $this->option('agent-control-plane-task-auto-replenishment-implementation-packet') => $readiness->agentControlPlaneTaskAutoReplenishmentImplementationPacket($options),
             (bool) $this->option('agent-control-plane-task-auto-replenishment-preflight') => $readiness->agentControlPlaneTaskAutoReplenishmentPreflight($options),
             (bool) $this->option('agent-control-plane-task-auto-replenishment-contract') => $readiness->agentControlPlaneTaskAutoReplenishmentContract($options),
+            (bool) $this->option('agent-control-plane-terminal-loop-health-digest-status') => $readiness->agentControlPlaneTerminalLoopHealthDigestStatus($options),
+            (bool) $this->option('agent-control-plane-terminal-loop-health-digest-implementation-packet') => $readiness->agentControlPlaneTerminalLoopHealthDigestImplementationPacket($options),
+            (bool) $this->option('agent-control-plane-terminal-loop-health-digest-preflight') => $readiness->agentControlPlaneTerminalLoopHealthDigestPreflight($options),
+            (bool) $this->option('agent-control-plane-terminal-loop-health-digest-contract') => $readiness->agentControlPlaneTerminalLoopHealthDigestContract($options),
+            (bool) $this->option('agent-control-plane-terminal-loop-operational-proof-status') => $readiness->agentControlPlaneTerminalLoopOperationalProofStatus($options),
+            (bool) $this->option('agent-control-plane-terminal-loop-operational-proof-implementation-packet') => $readiness->agentControlPlaneTerminalLoopOperationalProofImplementationPacket($options),
+            (bool) $this->option('agent-control-plane-terminal-loop-operational-proof-preflight') => $readiness->agentControlPlaneTerminalLoopOperationalProofPreflight($options),
+            (bool) $this->option('agent-control-plane-terminal-loop-operational-proof-contract') => $readiness->agentControlPlaneTerminalLoopOperationalProofContract($options),
             (bool) $this->option('agent-control-plane-terminal-worker-bootstrap-status') => $readiness->agentControlPlaneTerminalWorkerBootstrapStatus($options),
             (bool) $this->option('agent-control-plane-terminal-worker-bootstrap-implementation-packet') => $readiness->agentControlPlaneTerminalWorkerBootstrapImplementationPacket($options),
             (bool) $this->option('agent-control-plane-terminal-worker-bootstrap-preflight') => $readiness->agentControlPlaneTerminalWorkerBootstrapPreflight($options),
             (bool) $this->option('agent-control-plane-terminal-worker-bootstrap-contract') => $readiness->agentControlPlaneTerminalWorkerBootstrapContract($options),
+            (bool) $this->option('atlas-self-construction-runtime-gap-matrix') => $readiness->atlasSelfConstructionOsRuntimeGapMatrixAuditStatus($options),
             (bool) $this->option('atlas-self-construction-os-runtime-gap-matrix-audit-status') => $readiness->atlasSelfConstructionOsRuntimeGapMatrixAuditStatus($options),
             (bool) $this->option('atlas-self-construction-os-runtime-gap-matrix-audit-implementation-packet') => $readiness->atlasSelfConstructionOsRuntimeGapMatrixAuditImplementationPacket($options),
             (bool) $this->option('atlas-self-construction-os-runtime-gap-matrix-audit-preflight') => $readiness->atlasSelfConstructionOsRuntimeGapMatrixAuditPreflight($options),
@@ -2242,6 +2273,10 @@ class AtlasAiSelfConstructionCommand extends Command
             (bool) $this->option('atlas-self-construction-human-completion-receipt-dossier-implementation-packet') => $readiness->atlasSelfConstructionHumanCompletionReceiptDossierImplementationPacket($options),
             (bool) $this->option('atlas-self-construction-human-completion-receipt-dossier-preflight') => $readiness->atlasSelfConstructionHumanCompletionReceiptDossierPreflight($options),
             (bool) $this->option('atlas-self-construction-human-completion-receipt-dossier-contract') => $readiness->atlasSelfConstructionHumanCompletionReceiptDossierContract($options),
+            (bool) $this->option('atlas-self-construction-human-completion-receipt-closure-execution-pack-status') => $readiness->atlasSelfConstructionHumanCompletionReceiptClosureExecutionPackStatus($options),
+            (bool) $this->option('atlas-self-construction-human-completion-receipt-closure-execution-pack-implementation-packet') => $readiness->atlasSelfConstructionHumanCompletionReceiptClosureExecutionPackImplementationPacket($options),
+            (bool) $this->option('atlas-self-construction-human-completion-receipt-closure-execution-pack-preflight') => $readiness->atlasSelfConstructionHumanCompletionReceiptClosureExecutionPackPreflight($options),
+            (bool) $this->option('atlas-self-construction-human-completion-receipt-closure-execution-pack-contract') => $readiness->atlasSelfConstructionHumanCompletionReceiptClosureExecutionPackContract($options),
             (bool) $this->option('atlas-self-construction-real-provider-smoke-evidence-dossier-status') => $readiness->atlasSelfConstructionRealProviderSmokeEvidenceDossierStatus($options),
             (bool) $this->option('atlas-self-construction-real-provider-smoke-evidence-dossier-implementation-packet') => $readiness->atlasSelfConstructionRealProviderSmokeEvidenceDossierImplementationPacket($options),
             (bool) $this->option('atlas-self-construction-real-provider-smoke-evidence-dossier-preflight') => $readiness->atlasSelfConstructionRealProviderSmokeEvidenceDossierPreflight($options),
@@ -2539,6 +2574,46 @@ class AtlasAiSelfConstructionCommand extends Command
         }
 
         $this->components->twoColumnDetail('<fg=bright-blue;options=bold>Atlas Self-Construction OS</>', (string) $payload['status']);
+
+        if ((bool) $this->option('atlas-self-construction-final-operator-evidence-closure-corridor-status')) {
+            $status = (array) data_get($payload, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status', []);
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Next required submission', (string) data_get($status, 'next_required_submission'));
+            $this->components->twoColumnDetail('Next action step', (string) data_get($status, 'operator_next_action_step_id'));
+            $this->components->twoColumnDetail('Next action phase', (string) data_get($status, 'operator_next_action_phase'));
+            $this->components->twoColumnDetail('Exact command', (string) data_get($status, 'operator_next_action_exact_command'));
+            $this->components->twoColumnDetail('Exact persist command', (string) data_get($status, 'operator_next_action_exact_persist_command'));
+            $this->components->twoColumnDetail('Can run automatically', data_get($status, 'operator_next_action_can_run_automatically') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Why not automatic', (string) data_get($status, 'operator_next_action_why_not_automatic'));
+            $this->components->twoColumnDetail('Action hash', (string) data_get($status, 'operator_next_action_hash'));
+            $this->components->twoColumnDetail('Handoff status', (string) data_get($status, 'operator_closure_handoff_status'));
+            $this->components->twoColumnDetail('Handoff immediate command', (string) data_get($status, 'operator_closure_handoff_immediate_command'));
+            $this->components->twoColumnDetail('Handoff success predicate', (string) data_get($status, 'operator_closure_handoff_success_predicate'));
+            $this->components->twoColumnDetail('Handoff hash', (string) data_get($status, 'operator_closure_handoff_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('atlas-self-construction-operator-evidence-submission-readiness-status')) {
+            $status = (array) data_get($payload, 'agent_control_plane_atlas_self_construction_operator_evidence_submission_readiness_status', []);
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Next required', (string) data_get($status, 'next_required'));
+            $this->components->twoColumnDetail('Next action source', (string) data_get($status, 'operator_next_action_action_source'));
+            $this->components->twoColumnDetail('Next action artifact', (string) data_get($status, 'operator_next_action_action_artifact'));
+            $this->components->twoColumnDetail('Next action step', (string) data_get($status, 'operator_next_action_action_step_id'));
+            $this->components->twoColumnDetail('Exact command', (string) data_get($status, 'operator_next_action_exact_command'));
+            $this->components->twoColumnDetail('Exact persist command', (string) data_get($status, 'operator_next_action_exact_persist_command'));
+            $this->components->twoColumnDetail('Ready for persistence', data_get($status, 'operator_next_action_ready_for_explicit_operator_persistence') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Can persist from readiness', data_get($status, 'operator_next_action_can_persist_from_readiness') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Why not automatic', (string) data_get($status, 'operator_next_action_why_not_automatic'));
+            $this->components->twoColumnDetail('Action hash', (string) data_get($status, 'operator_next_action_hash'));
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
 
         if ((bool) $this->option('reservation-status')) {
             $this->components->twoColumnDetail('Mode', (string) $payload['mode']);

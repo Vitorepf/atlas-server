@@ -31,6 +31,36 @@ final class AtlasSelfConstructionCompletionEvidenceSubmissionPreflightTest exten
         $this->assertContains('operator_signed_runtime_promotion_receipt_json', data_get($payload, 'operator_handoff_packet.required_operator_inputs'));
         $this->assertContains('stop_if_any_required_input_is_placeholder', data_get($payload, 'operator_handoff_packet.handoff_stop_conditions'));
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) data_get($payload, 'operator_handoff_packet.handoff_packet_hash'));
+        $this->assertSame('atlas.self_construction.operator_final_evidence_resumption_checkpoint.v1', data_get($payload, 'operator_resumption_checkpoint.schema_version'));
+        $this->assertSame('runtime_promotion_receipt', data_get($payload, 'operator_resumption_checkpoint.current_step'));
+        $this->assertTrue(data_get($payload, 'operator_resumption_checkpoint.can_resume_without_chat_history'));
+        $this->assertTrue(data_get($payload, 'operator_resumption_checkpoint.requires_fresh_preflight_before_persist'));
+        $this->assertFalse(data_get($payload, 'operator_resumption_checkpoint.parallel_submission_allowed'));
+        $this->assertSame('completion_audit.status=complete AND completion_allowed=true AND failed_count=0', data_get($payload, 'operator_resumption_checkpoint.final_success_predicate'));
+        $this->assertContains('refresh_completion_audit', array_keys(data_get($payload, 'operator_resumption_checkpoint.resume_commands')));
+        $this->assertContains('stop_if_current_step_changed_after_resume', data_get($payload, 'operator_resumption_checkpoint.stop_conditions'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) data_get($payload, 'operator_resumption_checkpoint.resumption_checkpoint_hash'));
+        $this->assertSame(
+            data_get($payload, 'operator_resumption_checkpoint.resumption_checkpoint_hash'),
+            data_get($payload, 'operator_handoff_packet.resumption_checkpoint_hash'),
+        );
+        $this->assertSame('atlas.self_construction.operator_closure_command_replay.v1', data_get($payload, 'operator_closure_command_replay.schema_version'));
+        $this->assertSame('runtime_promotion_receipt', data_get($payload, 'operator_closure_command_replay.current_step'));
+        $this->assertSame(5, data_get($payload, 'operator_closure_command_replay.replay_step_count'));
+        $this->assertFalse(data_get($payload, 'operator_closure_command_replay.parallel_submission_allowed'));
+        $this->assertTrue(data_get($payload, 'operator_closure_command_replay.requires_fresh_preflight_before_every_persist'));
+        $this->assertTrue(data_get($payload, 'operator_closure_command_replay.requires_fresh_completion_audit_after_every_persist'));
+        $this->assertContains('stop_if_any_guard_hash_changes_before_persist', data_get($payload, 'operator_closure_command_replay.stop_conditions'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) data_get($payload, 'operator_closure_command_replay.command_replay_hash'));
+        $this->assertSame(
+            data_get($payload, 'operator_closure_command_replay.command_replay_hash'),
+            data_get($payload, 'operator_handoff_packet.operator_closure_command_replay_hash'),
+        );
+        $this->assertStringContainsString(
+            '--atlas-self-construction-completion-evidence-submission-preflight-status',
+            data_get($payload, 'operator_closure_command_replay.proof_commands_after_each_persist.submission_preflight'),
+        );
+        $this->assertTrue(data_get($payload, 'operator_handoff_packet.can_resume_without_chat_history'));
         $this->assertFalse($payload['completion_claim_allowed']);
         $this->assertContains('completion_evidence_submission_preflight_does_not_persist_receipts', $payload['non_execution_guarantees']);
     }
@@ -92,6 +122,13 @@ final class AtlasSelfConstructionCompletionEvidenceSubmissionPreflightTest exten
         $this->assertSame('atlas.self_construction_agent_control_plane_atlas_self_construction_completion_evidence_submission_preflight_status.v1', $status['schema_version']);
         $this->assertSame('blocked', $status['status']);
         $this->assertSame('runtime_promotion_receipt', data_get($status, 'agent_control_plane_atlas_self_construction_completion_evidence_submission_preflight_status.next_required_submission'));
+        $this->assertSame('runtime_promotion_receipt', data_get($status, 'agent_control_plane_atlas_self_construction_completion_evidence_submission_preflight_status.resumption_checkpoint_current_step'));
+        $this->assertTrue(data_get($status, 'agent_control_plane_atlas_self_construction_completion_evidence_submission_preflight_status.resumption_checkpoint_can_resume_without_chat_history'));
+        $this->assertTrue(data_get($status, 'agent_control_plane_atlas_self_construction_completion_evidence_submission_preflight_status.resumption_checkpoint_requires_fresh_preflight_before_persist'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) data_get($status, 'agent_control_plane_atlas_self_construction_completion_evidence_submission_preflight_status.resumption_checkpoint_hash'));
+        $this->assertSame('runtime_promotion_receipt', data_get($status, 'agent_control_plane_atlas_self_construction_completion_evidence_submission_preflight_status.operator_closure_command_replay_current_step'));
+        $this->assertSame(5, data_get($status, 'agent_control_plane_atlas_self_construction_completion_evidence_submission_preflight_status.operator_closure_command_replay_step_count'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) data_get($status, 'agent_control_plane_atlas_self_construction_completion_evidence_submission_preflight_status.operator_closure_command_replay_hash'));
         $this->assertFalse($status['execution_allowed']);
 
         $exit = Artisan::call('atlas:ai:self-construction', [

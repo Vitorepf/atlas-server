@@ -13,14 +13,13 @@ use DateTimeZone;
  *
  * Read-model projection that turns the Provider Performance Ledger into an
  * advisory signal Atlas Decide can consume. The projection NEVER decides as
- * authority — it ONLY recommends:
+ * authority — it ONLY emits measured evidence:
  *
- *   - which provider + model are statistically best for the given
- *     (task_category, role) pair, restricted to valid (hard-gate-clean)
- *     entries;
+ *   - which provider + model measured ahead for the given (task_category,
+ *     role) pair, restricted to valid (hard-gate-clean) entries;
  *   - whether the operator should consider exploring an alternative
  *     (close runner-up, stale evidence, low sample);
- *   - whether `full_power` is worth its cost over `fair` for this category;
+ *   - whether `full_power` measured enough delta over `fair` for this category;
  *   - whether the situation requires human review (tie, hard failures).
  *
  * Schema: atlas.forge.rivals.decide_signal.v1
@@ -65,14 +64,19 @@ final class AtlasForgeRivalsDecideSignalProjectionService
                 'task_category' => $taskCategory === '' ? null : $taskCategory,
                 'role' => $role === '' ? null : $role,
                 'evidence_count' => 0,
-                'recommended_provider' => null,
-                'recommended_model' => null,
+                'top_measured_provider' => null,
+                'top_measured_model' => null,
                 'confidence' => $this->ledger->confidenceFor(0),
                 'latest_run_ids' => [],
                 'should_explore_alternative' => false,
                 'should_use_full_power' => false,
                 'should_require_human_review' => false,
                 'advisory_only' => true,
+                'should_update_provider_topology' => false,
+                'never_changes_atlas_decide_topology' => true,
+                'owner_of_model_routing' => 'atlas_decide',
+                'routing_effect' => 'none',
+                'note' => 'Rivals emits measured evidence; Atlas Decide decides model routing.',
             ]);
         }
 
@@ -93,10 +97,10 @@ final class AtlasForgeRivalsDecideSignalProjectionService
                 'role' => $role,
                 'framework' => $framework === '' ? null : $framework,
                 'evidence_count' => 0,
-                'recommended_provider' => null,
-                'recommended_model' => null,
+                'top_measured_provider' => null,
+                'top_measured_model' => null,
                 'confidence' => $confidence,
-                'alternative_recommendation' => null,
+                'alternative_measured_candidate' => null,
                 'latest_run_ids' => $this->latestRunIds($relevant, 5),
                 'should_explore_alternative' => false,
                 'should_use_full_power' => false,
@@ -104,6 +108,11 @@ final class AtlasForgeRivalsDecideSignalProjectionService
                 'invalid_entries_seen' => count($hardFailEntries),
                 'tie_entries_seen' => count($tieEntries),
                 'advisory_only' => true,
+                'should_update_provider_topology' => false,
+                'never_changes_atlas_decide_topology' => true,
+                'owner_of_model_routing' => 'atlas_decide',
+                'routing_effect' => 'none',
+                'note' => 'Rivals emits measured evidence; Atlas Decide decides model routing.',
             ]);
         }
 
@@ -173,12 +182,12 @@ final class AtlasForgeRivalsDecideSignalProjectionService
             'task_category' => $taskCategory,
             'role' => $role,
             'framework' => $framework === '' ? null : $framework,
-            'recommended_provider' => $top['provider'],
-            'recommended_model' => $top['model'],
-            'recommended_average_score' => $top['average_score_valid'],
+            'top_measured_provider' => $top['provider'],
+            'top_measured_model' => $top['model'],
+            'top_measured_average_score' => $top['average_score_valid'],
             'evidence_count' => $top['valid_count'],
             'confidence' => $confidence,
-            'alternative_recommendation' => $alternative,
+            'alternative_measured_candidate' => $alternative,
             'latest_run_ids' => array_slice((array) ($top['latest_run_ids'] ?? []), 0, 5),
             'latest_recorded_at' => $latestIso,
             'latest_age_days' => $ageDays,
@@ -189,6 +198,11 @@ final class AtlasForgeRivalsDecideSignalProjectionService
             'should_use_full_power' => $shouldUseFullPower,
             'should_require_human_review' => $shouldHumanReview,
             'advisory_only' => true,
+            'should_update_provider_topology' => false,
+            'never_changes_atlas_decide_topology' => true,
+            'owner_of_model_routing' => 'atlas_decide',
+            'routing_effect' => 'none',
+            'note' => 'Rivals emits measured evidence; Atlas Decide decides model routing.',
         ]);
     }
 

@@ -1,0 +1,39 @@
+{
+    "command_intent": null,
+    "dirty_worktree_policy": "preserve_user_changes",
+    "envelope_hash": "PLACEHOLDER_recomputed_by_test",
+    "flow_id": "atlas_dev",
+    "flow_origin": "atlas_ai_router",
+    "git_state": {
+        "dirty": false,
+        "head_sha": "5566778899aabbccddeeff00112233445566778899",
+        "pending_changes_count": 0,
+        "untracked_count": 0
+    },
+    "intent_clarity_level": "high",
+    "normalized_intent": "consultar status do run via api de interacao",
+    "preflight": {
+        "operator_explicit": true,
+        "permission_mode": "read",
+        "workspace_resolved": true,
+        "write_allowed": false
+    },
+    "provider_safe": true,
+    "raw_intent": "consulta status do run via API de interacao",
+    "run_id": "0192b5d2-6001-7c4f-9d2a-5f3b8e9a4c2d",
+    "schema_version": "atlas.dev.operation_envelope.v1",
+    "surface_context": {
+        "composer_mode": "operational",
+        "composer_task": "direct",
+        "conversation_id": null,
+        "product_surface": "api_interaction",
+        "provider_choice": null,
+        "thread_id": null
+    },
+    "surface_id": "atlas_api_interaction",
+    "user_constraints": [
+        "somente leitura"
+    ],
+    "workspace": "/Users/op/code/atlas-server",
+    "workspace_hash": "e5f6071829304152637485961728394051526374"
+}

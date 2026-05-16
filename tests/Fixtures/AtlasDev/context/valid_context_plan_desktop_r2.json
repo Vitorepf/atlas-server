@@ -1,0 +1,21 @@
+{
+  "schema_version": "atlas.dev.context_retrieval_plan.v1",
+  "run_id": "0192b5d2-1111-7000-8000-000000000001",
+  "selected_tiers": ["core", "code_intelligence", "sdd"],
+  "budget_chars": 12000,
+  "required_sources": [
+    "atlas-dev-efficient-programming-flow-v1.md#section-9",
+    "code_intelligence://symbol/AtlasCliDevWorkflowService"
+  ],
+  "optional_sources": [
+    "atlas-programming-governance-system.md"
+  ],
+  "missing_sources": [],
+  "truncation_policy": {
+    "policy": "drop_optional",
+    "on_overflow": "truncate_optional",
+    "reasons": []
+  },
+  "provider_safe": true,
+  "plan_hash": "placeholder_plan_hash_recomputed_in_test"
+}

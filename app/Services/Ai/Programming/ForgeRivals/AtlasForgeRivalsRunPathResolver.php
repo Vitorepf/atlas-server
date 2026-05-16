@@ -13,10 +13,15 @@ use RuntimeException;
  * Resolves the canonical filesystem layout for an isolated rivals run:
  *
  *   /Users/vitorepf/develop/Atlas-rivals/runs/<run_id>/
- *     ├── atlas/          (worktree for the Atlas Forge arm)
- *     ├── rival/          (worktree for the rival baseline arm)
  *     ├── evidence/       (manifest.json, receipts, scorecard, report.md)
  *     └── events.jsonl    (append-only streaming log)
+ *
+ *   /Users/vitorepf/develop/Atlas-rivals/arms/<run_id>-atlas/workspace/
+ *   /Users/vitorepf/develop/Atlas-rivals/arms/<run_id>-rival/workspace/
+ *
+ * Keeping worktrees outside the metadata run root is non-negotiable for fair
+ * real batteries: a provider may list parent directories, but it must never
+ * be able to see sibling-arm files, scorecards, evidence, or run manifests.
  *
  * Path traversal is impossible: run_id must match `[A-Za-z0-9_\-.]{1,128}`,
  * never contains `..`, and the final base path is verified to start with the
@@ -49,6 +54,9 @@ final class AtlasForgeRivalsRunPathResolver
      *   run_id:string,
      *   root:string,
      *   base:string,
+     *   arms_root:string,
+     *   atlas_arm_base:string,
+     *   rival_arm_base:string,
      *   atlas:string,
      *   rival:string,
      *   evidence:string,
@@ -67,14 +75,26 @@ final class AtlasForgeRivalsRunPathResolver
         if (! str_starts_with($base, $root.'/')) {
             throw new RuntimeException("Resolved path escaped root: {$base}");
         }
+        $rivalsRoot = dirname($root);
+        $armsRoot = $rivalsRoot.'/arms';
+        $atlasArmBase = $armsRoot.'/'.$id.'-atlas';
+        $rivalArmBase = $armsRoot.'/'.$id.'-rival';
+        foreach ([$armsRoot, $atlasArmBase, $rivalArmBase] as $path) {
+            if (! str_starts_with($path, $rivalsRoot.'/')) {
+                throw new RuntimeException("Resolved arm path escaped rivals root: {$path}");
+            }
+        }
         $evidence = $base.'/evidence';
 
         return [
             'run_id' => $id,
             'root' => $root,
             'base' => $base,
-            'atlas' => $base.'/atlas',
-            'rival' => $base.'/rival',
+            'arms_root' => $armsRoot,
+            'atlas_arm_base' => $atlasArmBase,
+            'rival_arm_base' => $rivalArmBase,
+            'atlas' => $atlasArmBase.'/workspace',
+            'rival' => $rivalArmBase.'/workspace',
             'evidence' => $evidence,
             'events_jsonl' => $base.'/events.jsonl',
             'manifest_json' => $evidence.'/manifest.json',

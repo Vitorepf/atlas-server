@@ -28,7 +28,7 @@ use DateTimeZone;
  *   3.  arena_run_service_available
  *   4.  run_arena_action_wired
  *   5.  arms_action_exposes_registry
- *   6.  all_seven_arms_declared
+ *   6.  all_canonical_arms_declared
  *   7.  task_category_gate_enforced
  *   8.  not_yet_executable_blockers_honest
  *   9.  scripted_or_manual_cannot_forge_score
@@ -58,7 +58,7 @@ class AtlasForgeRivalsProviderArenaCoreCertification
         'arena_run_service_available',
         'run_arena_action_wired',
         'arms_action_exposes_registry',
-        'all_seven_arms_declared',
+        'all_canonical_arms_declared',
         'task_category_gate_enforced',
         'not_yet_executable_blockers_honest',
         'scripted_or_manual_cannot_forge_score',
@@ -180,10 +180,10 @@ class AtlasForgeRivalsProviderArenaCoreCertification
             case 'arm_registry_available':
                 return [
                     'ok' => class_exists(AtlasForgeRivalsArmRegistryService::class)
-                        && count(AtlasForgeRivalsArmRegistryService::ARMS) === 7,
+                        && count(AtlasForgeRivalsArmRegistryService::ARMS) === 8,
                     'status' => 'slice_8',
-                    'description' => 'Arm registry exists and declares the seven canonical runners.',
-                    'check' => 'class exists + ARMS count is 7',
+                    'description' => 'Arm registry exists and declares the canonical runners.',
+                    'check' => 'class exists + ARMS count is 8',
                     'evidence' => ['app/Services/Ai/Programming/ForgeRivals/Arms/AtlasForgeRivalsArmRegistryService.php'],
                 ];
 
@@ -245,9 +245,10 @@ class AtlasForgeRivalsProviderArenaCoreCertification
                     ],
                 ];
 
-            case 'all_seven_arms_declared':
+            case 'all_canonical_arms_declared':
                 $allArms = [
                     AtlasForgeRivalsArmRegistryService::ARM_ATLAS_FORGE,
+                    AtlasForgeRivalsArmRegistryService::ARM_ATLAS_DEV_LIGHT,
                     AtlasForgeRivalsArmRegistryService::ARM_CLAUDE_CODE,
                     AtlasForgeRivalsArmRegistryService::ARM_CODEX_CLI,
                     AtlasForgeRivalsArmRegistryService::ARM_GEMINI_CLI,
@@ -259,7 +260,7 @@ class AtlasForgeRivalsProviderArenaCoreCertification
                 return [
                     'ok' => count(array_diff($allArms, AtlasForgeRivalsArmRegistryService::ARMS)) === 0,
                     'status' => 'slice_8',
-                    'description' => 'All seven canonical arms are present in ARMS.',
+                    'description' => 'All canonical arms are present in ARMS.',
                     'check' => 'array_diff(expected, ARMS) === []',
                     'evidence' => ['app/Services/Ai/Programming/ForgeRivals/Arms/AtlasForgeRivalsArmRegistryService.php'],
                 ];

@@ -19,6 +19,7 @@ final class AtlasSelfConstructionCompletionEvidenceSubmissionPreflightService
         $humanReceiptReady = (string) data_get($completionEvidence, 'human_signed_completion_receipt.status') === 'passed';
         $completionAuditReady = (string) data_get($completionAudit, 'status') === 'complete'
             && (bool) data_get($completionAudit, 'completion_allowed', false);
+        $completionAuditBlockerSummary = $this->completionAuditBlockerSummary($completionAudit, $blockerExplainer);
 
         $orderedSteps = [
             $this->step(
@@ -79,6 +80,11 @@ final class AtlasSelfConstructionCompletionEvidenceSubmissionPreflightService
         $readySteps = count(array_filter($orderedSteps, static fn (array $step): bool => (bool) $step['ready']));
         $status = $firstBlocked === null ? 'ready_for_final_completion_audit' : 'blocked';
 
+        $operatorExecutionPlan = $this->operatorExecutionPlan($orderedSteps, $firstBlocked, $blockerExplainer, $completionAuditBlockerSummary);
+        $resumptionCheckpoint = $this->operatorResumptionCheckpoint($orderedSteps, $firstBlocked, $completionAudit, $completionEvidence, $blockerExplainer, $completionAuditBlockerSummary);
+        $operatorClosureCommandReplay = $this->operatorClosureCommandReplay($orderedSteps, $firstBlocked, $completionAudit, $completionEvidence, $blockerExplainer, $resumptionCheckpoint);
+        $operatorHandoffPacket = $this->operatorHandoffPacket($orderedSteps, $firstBlocked, $blockerExplainer, $completionAuditBlockerSummary, $resumptionCheckpoint, $operatorClosureCommandReplay);
+
         $payload = [
             'schema_version' => self::SCHEMA_VERSION,
             'mode' => self::MODE,
@@ -87,8 +93,11 @@ final class AtlasSelfConstructionCompletionEvidenceSubmissionPreflightService
             'completion_allowed' => false,
             'completion_claim_allowed' => false,
             'ordered_steps' => $orderedSteps,
-            'operator_execution_plan' => $this->operatorExecutionPlan($orderedSteps, $firstBlocked, $blockerExplainer),
-            'operator_handoff_packet' => $this->operatorHandoffPacket($orderedSteps, $firstBlocked, $blockerExplainer),
+            'completion_audit_blocker_summary' => $completionAuditBlockerSummary,
+            'operator_execution_plan' => $operatorExecutionPlan,
+            'operator_resumption_checkpoint' => $resumptionCheckpoint,
+            'operator_closure_command_replay' => $operatorClosureCommandReplay,
+            'operator_handoff_packet' => $operatorHandoffPacket,
             'step_count' => count($orderedSteps),
             'ready_step_count' => $readySteps,
             'blocked_step_count' => count($orderedSteps) - $readySteps,
@@ -135,12 +144,93 @@ final class AtlasSelfConstructionCompletionEvidenceSubmissionPreflightService
     }
 
     /**
+     * @param  array<string, mixed>  $completionAudit
+     * @param  array<string, mixed>  $blockerExplainer
+     * @return array<string, mixed>
+     */
+    private function completionAuditBlockerSummary(array $completionAudit, array $blockerExplainer): array
+    {
+        $explainerBlockersById = collect((array) data_get($blockerExplainer, 'blockers', []))
+            ->keyBy(static fn (array $blocker): string => (string) ($blocker['blocker_id'] ?? ''));
+
+        $blockers = array_values(array_map(
+            function (array $criterion) use ($explainerBlockersById): array {
+                $criterionId = (string) ($criterion['id'] ?? '');
+                $explainer = (array) ($explainerBlockersById[$criterionId] ?? []);
+
+                return [
+                    'id' => $criterionId,
+                    'requirement' => (string) ($criterion['requirement'] ?? ''),
+                    'blocker_type' => (string) ($criterion['blocker_type'] ?? 'technical'),
+                    'owner' => (string) ($explainer['owner'] ?? ''),
+                    'severity' => (string) ($explainer['severity'] ?? ''),
+                    'why_blocking' => (string) ($criterion['why_blocking'] ?? ''),
+                    'why_not_automatic' => (string) ($explainer['why_it_cannot_be_auto_closed'] ?? ''),
+                    'doc_anchor' => (string) ($criterion['doc_anchor'] ?? ''),
+                    'remediation_command' => (string) ($criterion['remediation_command'] ?? ''),
+                    'expected_receipt_schema' => (string) ($criterion['expected_receipt_schema'] ?? ''),
+                    'exact_closure_condition' => (string) ($explainer['exact_closure_condition'] ?? ''),
+                    'required_evidence' => (array) ($explainer['required_evidence'] ?? []),
+                    'current_evidence_context' => (array) ($explainer['current_evidence_context'] ?? []),
+                ];
+            },
+            (array) data_get($completionAudit, 'failed_criteria_detailed', []),
+        ));
+
+        $blockersById = collect($blockers)->keyBy('id')->all();
+
+        return [
+            'schema_version' => 'atlas.self_construction.completion_audit_blocker_summary.v1',
+            'completion_audit_hash' => (string) data_get($completionAudit, 'completion_audit_hash', ''),
+            'completion_audit_status' => (string) data_get($completionAudit, 'status', 'unknown'),
+            'completion_allowed' => (bool) data_get($completionAudit, 'completion_allowed', false),
+            'failed_count' => (int) data_get($completionAudit, 'failed_count', count($blockers)),
+            'human_blocker_count' => (int) data_get($completionAudit, 'blocker_classification.human_blocker_count', 0),
+            'real_provider_blocker_count' => (int) data_get($completionAudit, 'blocker_classification.real_provider_blocker_count', 0),
+            'technical_blocker_count' => (int) data_get($completionAudit, 'blocker_classification.technical_blocker_count', 0),
+            'human_blockers' => (array) data_get($completionAudit, 'blocker_classification.human_blockers', []),
+            'real_provider_blockers' => (array) data_get($completionAudit, 'blocker_classification.real_provider_blockers', []),
+            'technical_blockers' => (array) data_get($completionAudit, 'blocker_classification.technical_blockers', []),
+            'blockers' => $blockers,
+            'blockers_by_id' => $blockersById,
+            'next_action' => (string) data_get($completionAudit, 'next_action', 'continue_implementation_until_failed_completion_criteria_have_real_evidence'),
+        ];
+    }
+
+    /** @return list<string> */
+    private function completionCriteriaForStep(string $stepId): array
+    {
+        return match ($stepId) {
+            'runtime_promotion_receipt' => ['runtime_gap_matrix_all_runtime_y'],
+            'real_provider_smoke' => ['end_to_end_real_provider_smoke_green'],
+            'completion_evidence_hash_composition' => ['runtime_gap_matrix_all_runtime_y', 'end_to_end_real_provider_smoke_green', 'human_signed_os_complete_receipt_present'],
+            'human_completion_receipt' => ['human_signed_os_complete_receipt_present'],
+            'final_completion_audit' => ['runtime_gap_matrix_all_runtime_y', 'end_to_end_real_provider_smoke_green', 'human_signed_os_complete_receipt_present'],
+            default => [],
+        };
+    }
+
+    /**
+     * @param  array<string, mixed>  $completionAuditBlockerSummary
+     * @return list<array<string, mixed>>
+     */
+    private function classifiedBlockersForStep(string $stepId, array $completionAuditBlockerSummary): array
+    {
+        $blockersById = (array) ($completionAuditBlockerSummary['blockers_by_id'] ?? []);
+
+        return array_values(array_filter(array_map(
+            static fn (string $criterionId): array => (array) ($blockersById[$criterionId] ?? []),
+            $this->completionCriteriaForStep($stepId),
+        )));
+    }
+
+    /**
      * @param  list<array<string, mixed>>  $orderedSteps
      * @param  array<string, mixed>|null  $firstBlocked
      * @param  array<string, mixed>  $blockerExplainer
      * @return array<string, mixed>
      */
-    private function operatorExecutionPlan(array $orderedSteps, ?array $firstBlocked, array $blockerExplainer): array
+    private function operatorExecutionPlan(array $orderedSteps, ?array $firstBlocked, array $blockerExplainer, array $completionAuditBlockerSummary): array
     {
         $stepsById = collect($orderedSteps)->keyBy('id');
         $currentStep = (string) ($firstBlocked['id'] ?? 'final_completion_audit');
@@ -152,15 +242,21 @@ final class AtlasSelfConstructionCompletionEvidenceSubmissionPreflightService
             'operator_must_follow_order' => true,
             'parallel_submission_allowed' => false,
             'why_not_parallel' => 'Runtime promotion, real provider smoke and final human completion receipt are hash-bound in sequence; submitting them out of order risks stale signatures or same-command completion promotion.',
-            'ordered_command_queue' => array_map(static function (array $step): array {
+            'completion_audit_blocker_summary' => $completionAuditBlockerSummary,
+            'current_step_completion_blockers_classified' => $this->classifiedBlockersForStep($currentStep, $completionAuditBlockerSummary),
+            'ordered_command_queue' => array_map(function (array $step) use ($completionAuditBlockerSummary): array {
+                $stepId = (string) $step['id'];
+
                 return [
-                    'id' => (string) $step['id'],
+                    'id' => $stepId,
                     'ready' => (bool) $step['ready'],
                     'status' => (string) $step['status'],
                     'draft_or_check_command' => (string) $step['command'],
                     'persist_command' => (string) $step['persist_command'],
                     'required_before' => (array) $step['required_before'],
                     'evidence_hash' => (string) $step['evidence_hash'],
+                    'blocks_completion_criteria' => $this->completionCriteriaForStep($stepId),
+                    'classified_completion_blockers' => $this->classifiedBlockersForStep($stepId, $completionAuditBlockerSummary),
                 ];
             }, $orderedSteps),
             'stop_conditions' => [
@@ -187,10 +283,182 @@ final class AtlasSelfConstructionCompletionEvidenceSubmissionPreflightService
     /**
      * @param  list<array<string, mixed>>  $orderedSteps
      * @param  array<string, mixed>|null  $firstBlocked
+     * @param  array<string, mixed>  $completionAudit
+     * @param  array<string, mixed>  $completionEvidence
+     * @param  array<string, mixed>  $blockerExplainer
+     * @param  array<string, mixed>  $completionAuditBlockerSummary
+     * @return array<string, mixed>
+     */
+    private function operatorResumptionCheckpoint(
+        array $orderedSteps,
+        ?array $firstBlocked,
+        array $completionAudit,
+        array $completionEvidence,
+        array $blockerExplainer,
+        array $completionAuditBlockerSummary,
+    ): array {
+        $currentStep = (string) ($firstBlocked['id'] ?? 'final_completion_audit');
+        $current = $firstBlocked ?? collect($orderedSteps)->firstWhere('id', 'final_completion_audit') ?? [];
+        $checkpoint = [
+            'schema_version' => 'atlas.self_construction.operator_final_evidence_resumption_checkpoint.v1',
+            'mode' => 'read_only_operator_resumption_checkpoint',
+            'current_step' => $currentStep,
+            'current_status' => (string) ($current['status'] ?? 'unknown'),
+            'next_required_submission' => $currentStep,
+            'exact_next_command' => (string) ($current['command'] ?? data_get($blockerExplainer, 'command_plan.completion_audit', '')),
+            'exact_next_persist_command' => (string) ($current['persist_command'] ?? ''),
+            'can_resume_without_chat_history' => true,
+            'requires_fresh_preflight_before_persist' => true,
+            'requires_fresh_completion_audit_before_final_receipt' => true,
+            'parallel_submission_allowed' => false,
+            'completion_audit_hash' => (string) data_get($completionAudit, 'completion_audit_hash', ''),
+            'completion_evidence_status_hash' => (string) data_get($completionEvidence, 'completion_evidence_status_hash', ''),
+            'blocker_explainer_hash' => (string) data_get($blockerExplainer, 'explainer_hash', ''),
+            'current_step_evidence_hash' => (string) ($current['evidence_hash'] ?? ''),
+            'current_blocks_completion_criteria' => $this->completionCriteriaForStep($currentStep),
+            'current_completion_blockers_classified' => $this->classifiedBlockersForStep($currentStep, $completionAuditBlockerSummary),
+            'ordered_step_statuses' => array_values(array_map(
+                static fn (array $step): array => [
+                    'id' => (string) ($step['id'] ?? ''),
+                    'status' => (string) ($step['status'] ?? ''),
+                    'ready' => (bool) ($step['ready'] ?? false),
+                    'required_before' => (array) ($step['required_before'] ?? []),
+                    'evidence_hash_present' => (string) ($step['evidence_hash'] ?? '') !== '',
+                ],
+                $orderedSteps,
+            )),
+            'resume_commands' => [
+                'refresh_submission_preflight' => 'php artisan atlas:ai:self-construction --atlas-self-construction-completion-evidence-submission-preflight-status --json',
+                'refresh_operator_submission_readiness' => 'php artisan atlas:ai:self-construction --atlas-self-construction-operator-evidence-submission-readiness-status --json',
+                'refresh_final_operator_closure_corridor' => 'php artisan atlas:ai:self-construction --atlas-self-construction-final-operator-evidence-closure-corridor-status --json',
+                'refresh_completion_audit' => (string) data_get($blockerExplainer, 'command_plan.completion_audit', 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --json'),
+            ],
+            'stop_conditions' => [
+                'stop_if_current_step_changed_after_resume',
+                'stop_if_completion_audit_hash_changed_before_persist',
+                'stop_if_required_artifact_hash_is_missing_or_not_64_hex',
+                'stop_if_command_contains_placeholder_at_persist_time',
+                'stop_if_real_provider_smoke_aborted_or_not_operator_observed',
+                'stop_if_any_runtime_or_dispatch_flag_is_true',
+            ],
+            'final_success_predicate' => 'completion_audit.status=complete AND completion_allowed=true AND failed_count=0',
+            'non_execution_guarantees' => [
+                'resumption_checkpoint_does_not_persist_receipts',
+                'resumption_checkpoint_does_not_sign_for_operator',
+                'resumption_checkpoint_does_not_call_provider',
+                'resumption_checkpoint_does_not_spend_tokens',
+                'resumption_checkpoint_does_not_dispatch_work',
+                'resumption_checkpoint_does_not_promote_completion',
+            ],
+        ];
+        $checkpoint['resumption_checkpoint_hash'] = $this->stableHash($checkpoint);
+
+        return $checkpoint;
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $orderedSteps
+     * @param  array<string, mixed>|null  $firstBlocked
+     * @param  array<string, mixed>  $completionAudit
+     * @param  array<string, mixed>  $completionEvidence
+     * @param  array<string, mixed>  $blockerExplainer
+     * @param  array<string, mixed>  $resumptionCheckpoint
+     * @return array<string, mixed>
+     */
+    private function operatorClosureCommandReplay(
+        array $orderedSteps,
+        ?array $firstBlocked,
+        array $completionAudit,
+        array $completionEvidence,
+        array $blockerExplainer,
+        array $resumptionCheckpoint,
+    ): array {
+        $currentStep = (string) ($firstBlocked['id'] ?? 'final_completion_audit');
+        $completionAuditHash = (string) data_get($completionAudit, 'completion_audit_hash', '');
+        $completionEvidenceStatusHash = (string) data_get($completionEvidence, 'completion_evidence_status_hash', '');
+        $refreshSubmissionPreflight = 'php artisan atlas:ai:self-construction --atlas-self-construction-completion-evidence-submission-preflight-status --json';
+        $refreshCompletionAudit = (string) data_get($blockerExplainer, 'command_plan.completion_audit', 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --json');
+
+        $replaySteps = array_values(array_map(function (array $step) use ($refreshSubmissionPreflight, $refreshCompletionAudit): array {
+            $stepId = (string) ($step['id'] ?? '');
+            $persistCommand = (string) ($step['persist_command'] ?? '');
+
+            return [
+                'id' => $stepId,
+                'status' => (string) ($step['status'] ?? ''),
+                'ready' => (bool) ($step['ready'] ?? false),
+                'draft_or_check_command' => (string) ($step['command'] ?? ''),
+                'persist_command' => $persistCommand,
+                'persist_required' => $persistCommand !== '',
+                'required_before' => (array) ($step['required_before'] ?? []),
+                'evidence_hash' => (string) ($step['evidence_hash'] ?? ''),
+                'must_rerun_after_persist' => $persistCommand === '' ? [] : [
+                    $refreshSubmissionPreflight,
+                    $refreshCompletionAudit,
+                ],
+                'blocks_completion_criteria' => $this->completionCriteriaForStep($stepId),
+            ];
+        }, $orderedSteps));
+
+        $current = collect($replaySteps)->firstWhere('id', $currentStep) ?? [];
+        $replay = [
+            'schema_version' => 'atlas.self_construction.operator_closure_command_replay.v1',
+            'mode' => 'read_only_operator_closure_command_replay',
+            'status' => $currentStep === 'final_completion_audit' ? 'ready_to_rerun_completion_audit_when_all_proofs_persisted' : 'blocked_waiting_for_operator_artifact',
+            'current_step' => $currentStep,
+            'current_step_index' => max(0, array_search($currentStep, array_column($replaySteps, 'id'), true)),
+            'next_command' => (string) data_get($current, 'draft_or_check_command', ''),
+            'next_persist_command' => (string) data_get($current, 'persist_command', ''),
+            'ordered_command_replay' => $replaySteps,
+            'replay_step_count' => count($replaySteps),
+            'operator_must_follow_order' => true,
+            'parallel_submission_allowed' => false,
+            'requires_fresh_preflight_before_every_persist' => true,
+            'requires_fresh_completion_audit_after_every_persist' => true,
+            'can_resume_without_chat_history' => (bool) data_get($resumptionCheckpoint, 'can_resume_without_chat_history', false),
+            'resumption_checkpoint_hash' => (string) data_get($resumptionCheckpoint, 'resumption_checkpoint_hash', ''),
+            'hash_guards' => [
+                'completion_audit_hash_at_replay_build' => $completionAuditHash,
+                'completion_evidence_status_hash_at_replay_build' => $completionEvidenceStatusHash,
+                'blocker_explainer_hash_at_replay_build' => (string) data_get($blockerExplainer, 'explainer_hash', ''),
+                'stop_if_any_guard_hash_changes_before_persist' => true,
+            ],
+            'proof_commands_after_each_persist' => [
+                'submission_preflight' => $refreshSubmissionPreflight,
+                'operator_submission_readiness' => 'php artisan atlas:ai:self-construction --atlas-self-construction-operator-evidence-submission-readiness-status --json',
+                'completion_evidence_status' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --json',
+                'completion_audit' => $refreshCompletionAudit,
+            ],
+            'final_success_predicate' => 'completion_audit.status=complete AND completion_allowed=true AND failed_count=0',
+            'stop_conditions' => [
+                'stop_if_current_step_changed_after_replay_refresh',
+                'stop_if_any_guard_hash_changes_before_persist',
+                'stop_if_persist_command_is_empty_for_required_artifact',
+                'stop_if_any_required_artifact_hash_is_missing_or_not_64_hex',
+                'stop_if_real_provider_smoke_aborts_or_exceeds_operator_kill_switch',
+                'stop_if_runtime_or_dispatch_flags_flip_before_human_completion_receipt',
+            ],
+            'non_execution_guarantees' => [
+                'operator_closure_command_replay_does_not_persist_receipts',
+                'operator_closure_command_replay_does_not_sign_for_operator',
+                'operator_closure_command_replay_does_not_call_provider',
+                'operator_closure_command_replay_does_not_spend_tokens',
+                'operator_closure_command_replay_does_not_dispatch_work',
+                'operator_closure_command_replay_does_not_promote_completion',
+            ],
+        ];
+        $replay['command_replay_hash'] = $this->stableHash($replay);
+
+        return $replay;
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $orderedSteps
+     * @param  array<string, mixed>|null  $firstBlocked
      * @param  array<string, mixed>  $blockerExplainer
      * @return array<string, mixed>
      */
-    private function operatorHandoffPacket(array $orderedSteps, ?array $firstBlocked, array $blockerExplainer): array
+    private function operatorHandoffPacket(array $orderedSteps, ?array $firstBlocked, array $blockerExplainer, array $completionAuditBlockerSummary, array $resumptionCheckpoint, array $operatorClosureCommandReplay): array
     {
         $currentStep = (string) ($firstBlocked['id'] ?? 'final_completion_audit');
         $current = $firstBlocked ?? collect($orderedSteps)->firstWhere('id', 'final_completion_audit') ?? [];
@@ -244,6 +512,15 @@ final class AtlasSelfConstructionCompletionEvidenceSubmissionPreflightService
             'required_operator_inputs' => $requiredInputsByStep[$currentStep] ?? [],
             'current_blocker_count' => (int) ($current['blocker_count'] ?? 0),
             'current_blockers' => (array) ($current['blockers'] ?? []),
+            'completion_audit_blocker_summary' => $completionAuditBlockerSummary,
+            'resumption_checkpoint_hash' => (string) data_get($resumptionCheckpoint, 'resumption_checkpoint_hash', ''),
+            'resumption_checkpoint_current_step' => (string) data_get($resumptionCheckpoint, 'current_step', ''),
+            'operator_closure_command_replay_hash' => (string) data_get($operatorClosureCommandReplay, 'command_replay_hash', ''),
+            'operator_closure_command_replay_current_step' => (string) data_get($operatorClosureCommandReplay, 'current_step', ''),
+            'can_resume_without_chat_history' => (bool) data_get($resumptionCheckpoint, 'can_resume_without_chat_history', false),
+            'requires_fresh_preflight_before_persist' => (bool) data_get($resumptionCheckpoint, 'requires_fresh_preflight_before_persist', false),
+            'current_blocks_completion_criteria' => $this->completionCriteriaForStep($currentStep),
+            'current_completion_blockers_classified' => $this->classifiedBlockersForStep($currentStep, $completionAuditBlockerSummary),
             'ordered_step_ids' => array_map(static fn (array $step): string => (string) $step['id'], $orderedSteps),
             'proof_commands_after_each_persist' => [
                 'php artisan atlas:ai:self-construction --atlas-self-construction-completion-evidence-submission-preflight-status --json',

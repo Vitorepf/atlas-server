@@ -24,6 +24,7 @@ maintenance:
   - Atualizar quando `AtlasForgeRivalsRunBatteryService`, `AtlasForgeRivalsAdjudicatorService` ou cert v1 mudarem de invariantes.
   - Não introduzir alias novo sem aliasing list no command.
 related_paths:
+  - docs/engineering-knowledge-base/atlas-forge-rivals-battery-modes-and-human-prompts-v1.md
   - docs/engineering-knowledge-base/atlas-forge-rivals-benchmark-strategy-v1.md
   - app/Console/Commands/AtlasForgeRivalsCommand.php
   - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsRunBatteryService.php
@@ -112,7 +113,7 @@ it builds on top of `atlas-forge-rivals-operator-battery-v2.md` and
 ```bash
 php artisan atlas:forge:rivals run-battery \
   --mode=fair --atlas-model=sonnet --rival=claude_sonnet \
-  --preset=release \
+  --preset=release --prompt-mode=spec-perfect \
   --confirm-runbook-reviewed \
   --confirm-provider-cost \
   --confirm-real-provider-call \
@@ -137,6 +138,12 @@ preserved at `runs/<run_id>/` regardless.
 ---
 
 ## 2. Modes, models, presets
+
+Prompt realism and battery taxonomy are governed by
+`atlas-forge-rivals-battery-modes-and-human-prompts-v1.md`: `spec-perfect`,
+`human-normal`, `messy-real`, `enterprise-change`, `provider-arena`,
+`atlas-power`, `fair-mode`, `power-mode`, `category-battery` and
+`difficulty-ladder`.
 
 ### Modes (canonical + alias)
 
@@ -356,7 +363,8 @@ completion claim, NEVER unlocks `external_rivals_certification`.
   "confidence": "directional_signal",
   "reasons": ["atlas_leads_category_by_8.70"],
   "suspicious_results": [],
-  "recommended_provider_signal": "atlas_forge"
+  "measured_provider_signal": "atlas_forge",
+  "routing_effect": "none"
 }
 ```
 
@@ -725,7 +733,7 @@ Operador interpretar `winner` como completion claim. Alias novo escapar do contr
 
 ## Exemplos
 
-`php artisan atlas:forge:rivals run-battery --mode=fair --atlas-model=sonnet --rival=claude_sonnet --preset=release --confirm-runbook-reviewed --confirm-provider-cost --confirm-real-provider-call --json --strict`.
+`php artisan atlas:forge:rivals run-battery --mode=fair --atlas-model=sonnet --rival=claude_sonnet --preset=release --prompt-mode=human-normal --confirm-runbook-reviewed --confirm-provider-cost --confirm-real-provider-call --json --strict`.
 
 ## Proximas Acoes
 

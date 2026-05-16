@@ -72,6 +72,14 @@ final class AtlasSelfConstructionOsCompletionAuditService
             'cli_option' => 'agent-control-plane-terminal-worker-bootstrap-status',
         ],
         [
+            'id' => 'terminal_loop_health_digest_status',
+            'label' => 'Terminal Loop Health Digest Status',
+            'readiness_method' => 'agentControlPlaneTerminalLoopHealthDigestStatus',
+            'service_class' => AgentControlPlaneTerminalLoopHealthDigestService::class,
+            'doc_anchor' => 'agent_control_plane_terminal_loop_health_digest',
+            'cli_option' => 'agent-control-plane-terminal-loop-health-digest-status',
+        ],
+        [
             'id' => 'task_lease_recovery_status',
             'label' => 'Task Lease Recovery Status',
             'readiness_method' => 'agentControlPlaneTaskLeaseRecoveryStatus',
@@ -666,10 +674,23 @@ final class AtlasSelfConstructionOsCompletionAuditService
 
     private function criterion(string $id, bool $passed, string $requirement, array $evidence): array
     {
+        $meta = $this->criterionMetadata()[$id] ?? [
+            'blocker_type' => 'technical',
+            'doc_anchor' => '',
+            'remediation_command' => '',
+            'expected_receipt_schema' => '',
+            'why_blocking' => '',
+        ];
+
         return [
             'id' => $id,
             'requirement' => $requirement,
             'passed' => $passed,
+            'blocker_type' => $passed ? 'none' : $meta['blocker_type'],
+            'why_blocking' => $passed ? '' : $meta['why_blocking'],
+            'doc_anchor' => $meta['doc_anchor'],
+            'remediation_command' => $passed ? '' : $meta['remediation_command'],
+            'expected_receipt_schema' => $meta['expected_receipt_schema'],
             'evidence' => $evidence,
         ];
     }
@@ -690,7 +711,7 @@ final class AtlasSelfConstructionOsCompletionAuditService
             ['requirement' => 'human signed completion receipt', 'artifact' => AtlasSelfConstructionHumanSignedCompletionReceiptService::SCHEMA_VERSION, 'evidence_status' => ($criterionStatus['human_signed_os_complete_receipt_present'] ?? false) ? 'passed' : 'blocked_until_operator_receipt'],
             ['requirement' => 'real provider end-to-end smoke', 'artifact' => AtlasSelfConstructionRealProviderSmokeCertificationService::SCHEMA_VERSION, 'evidence_status' => ($criterionStatus['end_to_end_real_provider_smoke_green'] ?? false) ? 'passed' : 'blocked_until_real_smoke'],
             ['requirement' => 'Forge/Self-Improvement integration smoke', 'artifact' => AtlasSelfConstructionForgeSelfImprovementIntegrationSmokeService::SCHEMA_VERSION, 'evidence_status' => ($criterionStatus['forge_self_improvement_integration_smoke_green'] ?? false) ? 'passed' : 'blocked'],
-            ['requirement' => 'multi-agent terminal loop wired (claim/complete/replenish/bootstrap/recover/one-shot/multi-agent-cert)', 'artifact' => self::TERMINAL_LOOP_CERTIFICATION_SCHEMA_VERSION, 'evidence_status' => (bool) ($terminalLoopCertification['passed'] ?? false) ? 'passed' : 'blocked_until_terminal_loop_modules_wired'],
+            ['requirement' => 'multi-agent terminal loop wired (claim/complete/replenish/bootstrap/health-digest/recover/one-shot/multi-agent-cert)', 'artifact' => self::TERMINAL_LOOP_CERTIFICATION_SCHEMA_VERSION, 'evidence_status' => (bool) ($terminalLoopCertification['passed'] ?? false) ? 'passed' : 'blocked_until_terminal_loop_modules_wired'],
         ];
     }
 
@@ -872,8 +893,47 @@ final class AtlasSelfConstructionOsCompletionAuditService
             'auto_replenishment_target_met' => class_exists(AgentControlPlaneTaskAutoReplenishmentService::class),
             'continuation_summary_present' => class_exists(AgentControlPlaneContinuationSummaryBuilder::class),
             'evidence_hash_present' => $completionRequiresActiveLease,
+            'structured_completion_evidence_valid' => $completionRequiresActiveLease,
+            'completion_evidence_files_within_scope' => $completionRequiresActiveLease,
+            'worker_completion_evidence_template_present' => class_exists(AgentControlPlaneOneShotWorkerPacketService::class),
+            'worker_operator_loop_commands_present' => class_exists(AgentControlPlaneTerminalWorkerBootstrapService::class),
             'worker_resumption_contract_present' => class_exists(AgentControlPlaneOneShotWorkerPacketService::class)
                 && class_exists(AgentControlPlaneTaskLeaseRecoveryService::class),
+            'worker_resumption_checkpoint_present' => class_exists(AgentControlPlaneTerminalWorkerBootstrapService::class),
+            'worker_iteration_runbook_present' => class_exists(AgentControlPlaneTerminalWorkerBootstrapService::class),
+            'worker_shell_recipe_present' => class_exists(AgentControlPlaneTerminalWorkerBootstrapService::class),
+            'terminal_loop_health_digest_present' => class_exists(AgentControlPlaneTerminalLoopHealthDigestService::class),
+            'terminal_loop_fleet_launch_plan_present' => class_exists(AgentControlPlaneTerminalLoopHealthDigestService::class),
+            'terminal_loop_fleet_launch_plan_ready_path_verified' => class_exists(AgentControlPlaneTerminalLoopHealthDigestService::class)
+                && class_exists(AgentControlPlaneTaskQueueOrchestrator::class),
+            'terminal_loop_fleet_replenishment_plan_present' => class_exists(AgentControlPlaneTerminalLoopHealthDigestService::class),
+            'terminal_loop_fleet_resume_rollup_present' => class_exists(AgentControlPlaneTerminalLoopHealthDigestService::class),
+            'terminal_loop_fleet_resume_recovery_path_verified' => class_exists(AgentControlPlaneTerminalLoopHealthDigestService::class)
+                && class_exists(AgentControlPlaneTaskQueueOrchestrator::class)
+                && class_exists(AgentControlPlaneTaskLeaseRecoveryService::class),
+            'terminal_loop_fleet_metadata_orphan_recovery_verified' => class_exists(AgentControlPlaneTerminalLoopHealthDigestService::class)
+                && class_exists(AgentControlPlaneTaskLeaseRecoveryService::class)
+                && method_exists(AgentControlPlaneTaskLeaseRecoveryService::class, 'recoverOrphanedClaims'),
+            'terminal_loop_fleet_released_task_requeue_verified' => class_exists(AgentControlPlaneTerminalLoopHealthDigestService::class)
+                && class_exists(AgentControlPlaneTaskLeaseRecoveryService::class)
+                && method_exists(AgentControlPlaneTaskLeaseRecoveryService::class, 'recoverReleasedTasks'),
+            'terminal_loop_fleet_evidence_rollup_present' => class_exists(AgentControlPlaneTerminalLoopHealthDigestService::class),
+            'terminal_loop_fleet_evidence_rollup_green_path_verified' => class_exists(AgentControlPlaneTerminalLoopHealthDigestService::class)
+                && class_exists(AgentControlPlaneTaskQueueOrchestrator::class),
+            'terminal_loop_fleet_operator_handoff_present' => class_exists(AgentControlPlaneTerminalLoopHealthDigestService::class),
+            'terminal_loop_fleet_operator_handoff_recovery_priority_verified' => class_exists(AgentControlPlaneTerminalLoopHealthDigestService::class)
+                && class_exists(AgentControlPlaneTaskQueueOrchestrator::class)
+                && class_exists(AgentControlPlaneTaskLeaseRecoveryService::class),
+            'terminal_loop_fleet_lane_isolation_present' => class_exists(AgentControlPlaneTerminalLoopHealthDigestService::class),
+            'terminal_loop_fleet_lane_bound_commands_verified' => class_exists(AgentControlPlaneTerminalLoopHealthDigestService::class)
+                && class_exists(AgentControlPlaneTaskQueueOrchestrator::class),
+            'terminal_loop_fleet_lane_no_cross_lane_launch_verified' => class_exists(AgentControlPlaneTerminalLoopHealthDigestService::class)
+                && class_exists(AgentControlPlaneTaskQueueOrchestrator::class),
+            'certification_cleanup_leaves_no_recoverable_terminal_loop_artifacts' => class_exists(AgentControlPlaneTerminalLoopHealthDigestService::class)
+                && class_exists(AgentControlPlaneTaskLeaseRecoveryService::class),
+            'worker_invalid_scope_rejected' => class_exists(AgentControlPlaneOneShotWorkerPacketService::class)
+                && class_exists(AgentControlPlaneTerminalWorkerBootstrapService::class),
+            'worker_bootstrap_preview_read_only' => class_exists(AgentControlPlaneTerminalWorkerBootstrapService::class),
             'safe_for_parallel_terminal_loop' => $claimRequiresLeaseAndAgent
                 && $completionRequiresActiveLease
                 && $recoveryHandlesOrphanedLeases

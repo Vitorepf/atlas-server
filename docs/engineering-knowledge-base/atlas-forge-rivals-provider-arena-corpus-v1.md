@@ -35,6 +35,7 @@ maintenance:
   - Seeds novos precisam de README.md + pelo menos um arquivo de código + um teste falhando ou faltando.
   - Manter cobertura igualmente distribuída entre as 8 categorias canon; cobertura por primary category é cert invariant 12.
 related_paths:
+  - docs/engineering-knowledge-base/atlas-forge-rivals-battery-modes-and-human-prompts-v1.md
   - docs/engineering-knowledge-base/atlas-forge-rivals-benchmark-strategy-v1.md
   - docs/engineering-knowledge-base/atlas-forge-rivals-perfect-battery-and-adjudicator-v1.md
   - docs/engineering-knowledge-base/atlas-forge-rivals-provider-arena-core-v1.md
@@ -98,7 +99,7 @@ visual_tags:
   - rivals
   - release-v1
 ai_entrypoints:
-  - Leia Por que este corpus existe, Os 12 casos Release v1, Schema do case manifest e Safety contract antes de adicionar caso novo ou rodar arena com corpus.
+  - Leia Por que este corpus existe, Release Matrix v1, Schema do case manifest e Safety contract antes de adicionar caso novo ou rodar arena com corpus.
 ai_usage_notes:
   - Use --case-set para baterias completas; --case para depurar um caso isolado.
   - Em local_fake o resultado é o plano multi-case replayable; o quick_test_command NÃO é executado pelo runner — quem executa é o arm.
@@ -143,7 +144,7 @@ Release v1 é esse instrumento. Resultado sintético nunca vira claim. Evidence/
 
 ## 2. Escopo
 
-- **12 casos canon** Release v1.
+- **40 casos canon** Release Matrix v1.
 - **8 categorias canon** como primary category (todas cobertas).
 - **6 case sets** com regras de filtro determinísticas (`quick`, `release`, `frontend`, `backend`, `bugfix`, `architecture`).
 - **22 campos** declarativos por caso, validados por schema.
@@ -258,7 +259,7 @@ Esses aliases preservam `AtlasForgeRivalsRunRealService::adaptCorpusCase`, o pip
 | Case set       | Resolução                                                                                                  | Tamanho |
 | -------------- | ---------------------------------------------------------------------------------------------------------- | ------- |
 | `quick`        | `[backend-pagination-off-by-one, frontend-form-validation-accessibility, performance-n-plus-one-query]`.   | 3       |
-| `release`      | Todos os 12 casos.                                                                                         | 12      |
+| `release`      | Todos os 40 casos da matriz 8 categorias x 5 niveis.                                                       | 40      |
 | `frontend`     | `case_id` começa com `frontend-` (category=frontend_ui).                                                   | 3       |
 | `backend`      | `case_id` começa com `backend-` (backend/infra).                                                           | 4       |
 | `bugfix`       | `category == realistic_bugfix` OU `secondary` inclui `realistic_bugfix`.                                   | 2       |
@@ -291,7 +292,7 @@ Reusa `WorkspaceHygieneService` (canônico) para detectar `.pyc` / `__pycache__`
 # Default = case_set=quick
 php artisan atlas:forge:rivals cases --json --strict
 
-# Release completo (12 casos)
+# Release completo (40 casos)
 php artisan atlas:forge:rivals cases --case-set=release --json --strict
 
 # Manifest de um caso específico
@@ -424,6 +425,7 @@ php artisan atlas:forge:rivals run-arena \
 - `docs/engineering-knowledge-base/atlas-forge-rivals-perfect-battery-and-adjudicator-v1.md` — orquestrador `run-battery` + adjudicator determinístico que o corpus alimenta.
 - `docs/engineering-knowledge-base/atlas-forge-rivals-provider-arena-core-v1.md` — `run-arena` e o arm registry.
 - `docs/engineering-knowledge-base/atlas-forge-rivals-benchmark-strategy-v1.md` — estratégia que orienta o desenho do corpus.
+- `docs/engineering-knowledge-base/atlas-forge-rivals-battery-modes-and-human-prompts-v1.md` — canon de `spec-perfect`, `human-normal`, `messy-real`, `enterprise-change`, `fair-mode`, `power-mode`, `provider-arena`, `atlas-power`, `category-battery` e `difficulty-ladder`.
 - `docs/engineering-knowledge-base/atlas-forge-rivals-provider-performance-ledger-v1.md` — ledger de performance que consome os resultados do corpus.
 
 ## 15. Schema source of truth · Atlas Forge Rivals Schema Contract
@@ -481,7 +483,7 @@ Os campos legados `atlas_score` e `rival_score` continuam presentes (back-compat
 
 ## Resumo
 
-Corpus declarativo de 12 casos Release v1 cobrindo as 8 categorias canon, 6 case sets, schema de 22 campos por caso, seeds reais com código quebrado + teste, replay manifest determinístico e cert de 20 invariants — tudo escopado para construir o instrumento de medição da Provider Arena sem invocar provider.
+Corpus declarativo de 40 casos Release Matrix v1 cobrindo 8 categorias x 5 niveis L1..L5, 6 case sets, schema canonico expandido por caso, seeds reais com codigo quebrado + teste, replay manifest deterministico e cert de 22 invariants — tudo escopado para construir o instrumento de medicao da Provider Arena sem invocar provider.
 
 ## Papel no Atlas
 
@@ -505,7 +507,7 @@ Adicionar caso novo só com `allowed_files_scope` distantes de Voice/Cartografia
 
 ## Escopo de Implementacao
 
-12 casos + 6 case sets + 22 campos por caso + fixture runner + planner + cases action + cert (20 invariants) + 49+ tests + doc canônica. Loop real multi-case fora de escopo (slice futura).
+40 casos + 6 case sets + difficulty ladder L1..L5 + fixture runner + planner + cases action + cert (22 invariants) + tests + doc canônica. Loop real multi-case fica governado pelo run-battery e pelo report/replay multi-case.
 
 ## Dependencias
 

@@ -720,4 +720,8 @@ return [
             dirname(base_path()).'/docs/atlas-cli-release-checklist.md',
         ],
     ],
+
+    // NOTE: Atlas Dev Efficient knobs live in config/atlas_dev.php (canonical
+    // source). Reading from `config('atlas.dev.*')` is unsupported and was
+    // removed in F-08 cleanup; use `config('atlas_dev.*')` instead.
 ];

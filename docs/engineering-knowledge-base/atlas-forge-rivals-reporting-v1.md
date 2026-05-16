@@ -90,7 +90,7 @@ next_actions:
 
 ## Resumo
 
-Report v3 é a cabine humana que transforma `manifest.json` + `scorecard.json` + replay em um veredito legível por pessoas: vencedor por categoria, vencedor por caso, confiança, suspeitas, hard failures, recomendações para Atlas Decide e próximas ações concretas. JSON estável + Markdown premium em pt-BR. Nunca destrava `external_rivals_certification`.
+Report v3 é a cabine humana que transforma `manifest.json` + `scorecard.json` + replay em um veredito legível por pessoas: vencedor por categoria, vencedor por caso, confiança, suspeitas, hard failures, sinal medido advisory para Atlas Decide e próximas ações concretas. JSON estável + Markdown premium em pt-BR. Nunca destrava `external_rivals_certification`.
 
 ## Papel no Atlas
 
@@ -113,7 +113,7 @@ Acima de `atlas-forge-rivals-perfect-battery-and-adjudicator-v1.md`. Consome sco
 | `headline` | string (pt-BR) | frase humana sobre o resultado |
 | `executive_summary` | string (pt-BR) | resumo com cases, categorias, confiança, motivo de não-100 |
 | `overall_result` | object | winner, scores, margem, totais por categoria |
-| `category_results[]` | list | por categoria: cases, winner, margem, why, caveats, recomendação |
+| `category_results[]` | list | por categoria: cases, winner, margem, why, caveats, measured_ahead, routing_effect=none |
 | `difficulty_results[]` | list | por banda L1..L5 (`unknown` reservado): cases, winner, margem, validade |
 | `planning_vs_execution_results[]` | list | split por `work_kind` (planning vs execution) |
 | `provider_results[]` | list | por par `atlas_model_vs_rival_model` |
@@ -128,7 +128,7 @@ Acima de `atlas-forge-rivals-perfect-battery-and-adjudicator-v1.md`. Consome sco
 | `replay` | object | passes/mismatches/event_count |
 | `cost_time` | object | tempo, stdout, tokens |
 | `provider_performance_signal` | object | linhas advisory para o Ledger |
-| `atlas_decide_recommendations` | object | `{advisory_only:true, should_update_provider_topology:false, primary_builder_by_category, reviewer_by_category}` |
+| `atlas_decide_recommendations` | object | `{advisory_only:true, should_update_provider_topology:false, never_changes_atlas_decide_topology:true, owner_of_model_routing:"atlas_decide", measured_signal_by_category[]}` |
 | `human_review` | object | required + checklist |
 | `next_actions[]` | list | `[{kind, reason, command}]` |
 | `artifacts[]` | list | paths presentes |
@@ -174,7 +174,8 @@ Os campos v2 (`winner`, `claim_ready`, `declared_why`, `verdict`, `hard_gates`, 
 - `why` (frase humana)
 - `best_case` / `worst_case`
 - `caveats[]` (`amostra_pequena`, `hard_failures_em_X`, `replay_failed_em_X`)
-- `recommended_provider_for_this_category` (`atlas` / `rival` / `tie` / `null`)
+- `measured_ahead_for_this_category` (`atlas` / `rival` / `tie` / `null`)
+- `routing_effect` sempre `none`
 
 ### Canon de Dificuldade L1–L5
 
@@ -192,12 +193,13 @@ O report preserva o canon de dificuldade do corpus em todo case, score, evidence
 
 ### Provider Performance Signal v1
 
-Schema dedicado: `atlas.forge.rivals.provider_performance_signal.v1`. Sempre `advisory_only=true` e `never_changes_atlas_decide_topology=true` — o Atlas Decide consome como leitura, nunca como autoridade de roteamento.
+Schema dedicado: `atlas.forge.rivals.provider_performance_signal.v1`. Sempre `advisory_only=true`, `should_update_provider_topology=false`, `never_changes_atlas_decide_topology=true` e `owner_of_model_routing=atlas_decide`. Rivals emits measured evidence; Atlas Decide decides model routing.
 
 | Campo | Descrição |
 | --- | --- |
-| `provider_recommendation[]` | por arm (`atlas`, `rival`): `{model, wins, losses, ties, cases, recommendation: primary/co_pilot/fallback/do_not_use/directional_only, win_rate}` |
-| `category_fit[]` | por categoria: `{recommended, winner, validity, validity_reason, cases, margin}` |
+| `provider_measurement[]` | por arm (`atlas`, `rival`): `{model, wins, losses, ties, cases, measured_tier: measured_ahead_strong/measured_competitive/measured_behind/measured_weak_in_this_battery/directional_only, routing_effect:none, win_rate}` |
+| `provider_recommendation[]` | alias de compatibilidade para `provider_measurement[]`; o campo `recommendation` contém tier medido, não ordem de routing |
+| `category_fit[]` | por categoria: `{measured_ahead, winner, validity, validity_reason, cases, margin, routing_effect:none}` |
 | `difficulty_fit[]` | mesmo shape para L1..L5 |
 | `mode_fit[]` | mesmo shape para `fair` vs `full_power` |
 | `provider_pair_fit[]` | mesmo shape para `atlas_model_vs_rival_model` |
@@ -205,6 +207,12 @@ Schema dedicado: `atlas.forge.rivals.provider_performance_signal.v1`. Sempre `ad
 | `fallback_hint` | string canônica (`rivals_signal_unusable_until_replay_passes`, `rivals_signal_safe_to_consume_as_advisory_input_for_atlas_decide`, etc.) |
 | `confidence` | `{level, reason, is_trusted}` (espelha o confidence ladder) |
 | `rows[]` | linha por caso com `case_id`, `task_category`, `difficulty_band`, `work_kind`, `mode`, `atlas_model`, `rival_model`, scores, winner, suspicious, replay_passes |
+
+### Limite de Autoridade com Atlas Decide
+
+Rivals não escolhe o modelo certo para cada tarefa. Isso é trabalho exclusivo do Atlas Decide.
+
+O report pode dizer: "nesta bateria, neste corpus, Atlas/Rival ficou medido à frente em determinada categoria". O report não pode dizer: "roteie esta categoria para este provider", "use este modelo como primary_builder" ou "substitua topology". Qualquer consumo pelo Atlas Decide é `advisory_only`; a decisão de roteamento continua fora do Rivals.
 
 ### Filtros CLI
 

@@ -92,7 +92,7 @@ final class AtlasForgeRivalsBatteryStateService
         return match (strtolower(trim($verdict))) {
             'comparable' => self::CASE_STATE_COMPLETED,
             'invalid_workspace_after_run', 'invalid_fixture_blocked' => self::CASE_STATE_INVALID,
-            'invalid_tests_failed', 'invalid_no_patch_diff', 'invalid_provider_timeout', 'inconclusive' => self::CASE_STATE_FAILED,
+            'invalid_scope_violation', 'invalid_tests_failed', 'invalid_no_patch_diff', 'invalid_provider_timeout', 'inconclusive' => self::CASE_STATE_FAILED,
             'skipped' => self::CASE_STATE_SKIPPED,
             default => self::CASE_STATE_FAILED,
         };

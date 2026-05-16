@@ -382,6 +382,35 @@ final class AtlasAiSelfConstructionAgentControlPlaneClaimLeaseRepositoryTest ext
         $this->assertTrue($disk->exists(AgentControlPlaneClaimLeaseRepository::STORAGE_PREFIX.'/'.$claimed['lease_id'].'.json'));
     }
 
+    public function test_prune_removes_only_matching_non_active_leases(): void
+    {
+        $repo = new AgentControlPlaneClaimLeaseRepository;
+        $disk = Storage::disk('local');
+
+        $active = $repo->claim('cert-task-active', 'cert-agent-active', $this->scope(['app/CertActive.php']));
+        $released = $repo->claim('cert-task-released', 'cert-agent-released', $this->scope(['app/CertReleased.php']));
+        $real = $repo->claim('real-task', 'real-agent', $this->scope(['app/Real.php']));
+        $repo->release($released['lease_id'], 'cert-agent-released');
+        $repo->release($real['lease_id'], 'real-agent');
+
+        $result = $repo->prune([
+            'agent_id_prefixes' => ['cert-agent-'],
+            'delete_lease_files' => true,
+        ]);
+
+        $this->assertSame('ok', $result['status']);
+        $this->assertSame('pruned', $result['event']);
+        $this->assertSame(1, $result['pruned_count']);
+        $this->assertSame(1, $result['deleted_lease_file_count']);
+        $this->assertSame(1, $result['preserved_count']);
+        $this->assertNotNull($repo->get($active['lease_id']));
+        $this->assertNull($repo->get($released['lease_id']));
+        $this->assertNotNull($repo->get($real['lease_id']));
+        $this->assertTrue($disk->exists(AgentControlPlaneClaimLeaseRepository::STORAGE_PREFIX.'/'.$active['lease_id'].'.json'));
+        $this->assertFalse($disk->exists(AgentControlPlaneClaimLeaseRepository::STORAGE_PREFIX.'/'.$released['lease_id'].'.json'));
+        $this->assertTrue($disk->exists(AgentControlPlaneClaimLeaseRepository::STORAGE_PREFIX.'/'.$real['lease_id'].'.json'));
+    }
+
     public function test_constants_receipt_kinds_canonical(): void
     {
         $this->assertSame('claim_acquired', AgentControlPlaneClaimLeaseRepository::RECEIPT_CLAIM_ACQUIRED);

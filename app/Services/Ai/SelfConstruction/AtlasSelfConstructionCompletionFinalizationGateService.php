@@ -91,6 +91,11 @@ final class AtlasSelfConstructionCompletionFinalizationGateService
                 'completion_audit.criteria.replay_diff_against_completion_snapshot_green_must_be_passed',
                 [],
             ),
+            'promotion_gate_green' => $this->check(
+                $this->criterionGreen($completionAudit, 'promotion_gate_green'),
+                'completion_audit.criteria.promotion_gate_green_must_be_passed',
+                [],
+            ),
             'dossier_green' => $this->check(
                 $this->criterionGreen($completionAudit, 'release_dossier_green'),
                 'completion_audit.criteria.release_dossier_green_must_be_passed',
@@ -104,6 +109,16 @@ final class AtlasSelfConstructionCompletionFinalizationGateService
             'mutation_guard_green' => $this->check(
                 $this->criterionGreen($completionAudit, 'mutation_guard_green'),
                 'completion_audit.criteria.mutation_guard_green_must_be_passed',
+                [],
+            ),
+            'forge_self_improvement_integration_smoke_green' => $this->check(
+                $this->criterionGreen($completionAudit, 'forge_self_improvement_integration_smoke_green'),
+                'completion_audit.criteria.forge_self_improvement_integration_smoke_green_must_be_passed',
+                [],
+            ),
+            'terminal_loop_green' => $this->check(
+                $this->criterionGreen($completionAudit, 'agent_control_plane_terminal_loop_certification_green'),
+                'completion_audit.criteria.agent_control_plane_terminal_loop_certification_green_must_be_passed',
                 [],
             ),
             'evidence_hashes_match_completion_audit' => $this->check(
@@ -126,6 +141,14 @@ final class AtlasSelfConstructionCompletionFinalizationGateService
         ));
 
         $status = $completionClaimAllowed ? 'passed' : 'blocked';
+        $operatorHandoff = $this->completionFinalizationOperatorHandoff(
+            completionAudit: $completionAudit,
+            completionEvidence: $completionEvidence,
+            checks: $checks,
+            failed: $failed,
+            nextStageBlockers: $nextStageBlockers,
+            completionClaimAllowed: $completionClaimAllowed,
+        );
 
         $payload = [
             'schema_version' => self::SCHEMA_VERSION,
@@ -137,9 +160,12 @@ final class AtlasSelfConstructionCompletionFinalizationGateService
             'smoke_green' => $checks['smoke_green']['passed'],
             'human_receipt_green' => $checks['human_receipt_green']['passed'],
             'replay_green' => $checks['replay_green']['passed'],
+            'promotion_gate_green' => $checks['promotion_gate_green']['passed'],
             'dossier_green' => $checks['dossier_green']['passed'],
             'batch_green' => $checks['batch_green']['passed'],
             'mutation_guard_green' => $checks['mutation_guard_green']['passed'],
+            'forge_self_improvement_integration_smoke_green' => $checks['forge_self_improvement_integration_smoke_green']['passed'],
+            'terminal_loop_green' => $checks['terminal_loop_green']['passed'],
             'evidence_hashes_match_completion_audit' => $checks['evidence_hashes_match_completion_audit']['passed'],
             'completion_claim_allowed' => $completionClaimAllowed,
             'next_stage_allowed' => $nextStageAllowed,
@@ -151,6 +177,8 @@ final class AtlasSelfConstructionCompletionFinalizationGateService
             'completion_evidence_status_hash' => (string) data_get($completionEvidence, 'completion_evidence_status_hash', ''),
             'completion_audit_status' => (string) data_get($completionAudit, 'status'),
             'completion_audit_failed_criteria' => (array) data_get($completionAudit, 'failed_criteria', []),
+            'completion_finalization_operator_handoff' => $operatorHandoff,
+            'completion_finalization_operator_handoff_hash' => $operatorHandoff['completion_finalization_operator_handoff_hash'],
             'execution_allowed' => false,
             'dispatch_allowed' => false,
             'provider_call_allowed' => false,
@@ -170,6 +198,111 @@ final class AtlasSelfConstructionCompletionFinalizationGateService
         $payload['completion_finalization_gate_hash'] = $this->stableHash($payload);
 
         return $payload;
+    }
+
+    /**
+     * @param  array<string, mixed>  $completionAudit
+     * @param  array<string, mixed>  $completionEvidence
+     * @param  array<string, array<string, mixed>>  $checks
+     * @param  list<string>  $failed
+     * @param  list<string>  $nextStageBlockers
+     * @return array<string, mixed>
+     */
+    private function completionFinalizationOperatorHandoff(
+        array $completionAudit,
+        array $completionEvidence,
+        array $checks,
+        array $failed,
+        array $nextStageBlockers,
+        bool $completionClaimAllowed,
+    ): array {
+        $failedCriteria = (array) data_get($completionAudit, 'failed_criteria', []);
+        $blockerClassification = (array) data_get($completionAudit, 'blocker_classification', []);
+        $currentRequiredArtifact = $this->currentRequiredOperatorArtifact($failedCriteria, $failed, $blockerClassification);
+
+        $handoff = [
+            'schema_version' => 'atlas.self_construction.completion_finalization_operator_handoff.v1',
+            'mode' => 'read_only_completion_finalization_operator_handoff',
+            'status' => $completionClaimAllowed ? 'ready_for_final_operator_review' : 'blocked_operator_or_provider_evidence_required',
+            'completion_claim_allowed_after_handoff' => $completionClaimAllowed,
+            'next_stage_allowed_after_handoff' => $completionClaimAllowed,
+            'current_required_operator_artifact' => $currentRequiredArtifact,
+            'failed_check_ids' => $failed,
+            'failed_check_count' => count($failed),
+            'next_stage_blockers' => $nextStageBlockers,
+            'next_stage_blocker_count' => count($nextStageBlockers),
+            'completion_audit_status' => (string) data_get($completionAudit, 'status'),
+            'completion_audit_failed_criteria' => $failedCriteria,
+            'completion_audit_failed_count' => (int) data_get($completionAudit, 'failed_count', count($failedCriteria)),
+            'blocker_classification' => $blockerClassification,
+            'completion_evidence_status_hash' => (string) data_get($completionEvidence, 'completion_evidence_status_hash', ''),
+            'runtime_gap_matrix_status' => (string) data_get($completionEvidence, 'runtime_gap_matrix.status', ''),
+            'real_provider_smoke_status' => (string) data_get($completionEvidence, 'real_provider_smoke.status', ''),
+            'human_signed_completion_receipt_status' => (string) data_get($completionEvidence, 'human_signed_completion_receipt.status', ''),
+            'operator_evidence_readiness_command' => 'php artisan atlas:ai:self-construction --atlas-self-construction-operator-evidence-submission-readiness-status --json',
+            'completion_audit_command' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --json',
+            'finalization_gate_command' => 'php artisan atlas:ai:self-construction --atlas-self-construction-completion-finalization-gate-status --json',
+            'ordered_next_commands' => [
+                'php artisan atlas:ai:self-construction --atlas-self-construction-operator-evidence-submission-readiness-status --json',
+                'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --json',
+                'php artisan atlas:ai:self-construction --atlas-self-construction-completion-finalization-gate-status --json',
+            ],
+            'required_success_predicate' => [
+                'completion_audit_status_must_be_complete' => (string) data_get($completionAudit, 'status') === 'complete',
+                'completion_audit_failed_criteria_must_be_empty' => $failedCriteria === [],
+                'completion_evidence_hashes_must_match_audit' => (bool) data_get($checks, 'evidence_hashes_match_completion_audit.passed', false),
+                'finalization_gate_failed_checks_must_be_empty' => $failed === [],
+                'completion_claim_allowed_must_be_true' => $completionClaimAllowed,
+            ],
+            'can_execute_from_handoff' => false,
+            'can_persist_from_handoff' => false,
+            'can_sign_from_handoff' => false,
+            'can_call_provider_from_handoff' => false,
+            'can_dispatch_from_handoff' => false,
+            'can_promote_completion_from_handoff' => false,
+            'non_execution_guarantees' => [
+                'handoff_is_read_only',
+                'handoff_does_not_persist_operator_evidence',
+                'handoff_does_not_sign_receipts',
+                'handoff_does_not_call_provider',
+                'handoff_does_not_spend_tokens',
+                'handoff_does_not_dispatch_work',
+                'handoff_does_not_promote_os_completion',
+            ],
+        ];
+        $handoff['completion_finalization_operator_handoff_hash'] = $this->stableHash($handoff);
+
+        return $handoff;
+    }
+
+    /**
+     * @param  list<string>  $failedCriteria
+     * @param  list<string>  $failedChecks
+     * @param  array<string, mixed>  $blockerClassification
+     */
+    private function currentRequiredOperatorArtifact(array $failedCriteria, array $failedChecks, array $blockerClassification): string
+    {
+        if (in_array('runtime_gap_matrix_all_runtime_y', $failedCriteria, true)) {
+            return 'runtime_promotion_receipt';
+        }
+
+        if (in_array('end_to_end_real_provider_smoke_green', $failedCriteria, true)) {
+            return 'real_provider_smoke_certification';
+        }
+
+        if (in_array('human_signed_os_complete_receipt_present', $failedCriteria, true)) {
+            return 'human_signed_completion_receipt';
+        }
+
+        if ((int) ($blockerClassification['technical_blocker_count'] ?? 0) > 0) {
+            return 'technical_completion_audit_repair';
+        }
+
+        if ($failedChecks !== []) {
+            return 'completion_finalization_gate_repair';
+        }
+
+        return 'final_operator_review';
     }
 
     /**

@@ -1,0 +1,29 @@
+{
+    "compact_sdd_hash": "PLACEHOLDER_recomputed_by_test",
+    "context_budget": {
+        "max_candidate_files": 0,
+        "max_chars": 4000,
+        "max_docs": 2,
+        "max_plan_steps": 0,
+        "max_provider_calls": 1,
+        "max_repair_attempts": 0
+    },
+    "context_digest": null,
+    "doc_tiers_required": [
+        "code_intelligence"
+    ],
+    "envelope_hash": "cafebabe00112233445566778899aabbccddeeff",
+    "escalation_triggers": [],
+    "intent_normalized": "explicar o fluxo de DocContextTierSelector",
+    "intent_raw": "explicar o fluxo do DocContextTierSelector",
+    "mini_spec_hash": null,
+    "mode": "read_only",
+    "provider_safe": true,
+    "risk_level": "R0",
+    "run_id": "0192b5d2-3001-7c4f-9d2a-2f3b8e9a4c2d",
+    "schema_version": "atlas.dev.compact_sdd.v1",
+    "scope_mode": "compact",
+    "task_contract_hash": null,
+    "task_kind": "question",
+    "verification_profile": "generic_no_test"
+}

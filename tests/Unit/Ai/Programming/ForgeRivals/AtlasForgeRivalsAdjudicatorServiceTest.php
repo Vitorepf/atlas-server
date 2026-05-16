@@ -104,7 +104,28 @@ final class AtlasForgeRivalsAdjudicatorServiceTest extends TestCase
         $scorecard = $result['scorecard'];
 
         $this->assertNull($scorecard['winner']);
+        $this->assertSame('rival', $scorecard['gate_winner']);
+        $this->assertSame('atlas', $scorecard['gate_loser']);
+        $this->assertSame('one_sided_scope_failure', $scorecard['gate_result']['kind']);
         $this->assertContains('no_out_of_scope_files_atlas', $scorecard['hard_failures']);
+    }
+
+    public function test_no_gate_winner_when_both_arms_fail_scope(): void
+    {
+        $runId = $this->newRunId('hard-fail-both-oos');
+        $paths = $this->paths->paths($runId);
+        $this->seedComparableRun(
+            $paths,
+            atlasOverrides: ['out_of_scope_files' => ['src/sneaky-atlas.php']],
+            rivalOverrides: ['out_of_scope_files' => ['src/sneaky-rival.php']],
+        );
+
+        $scorecard = $this->adjudicator->adjudicate(['run_id' => $runId])['scorecard'];
+
+        $this->assertNull($scorecard['winner']);
+        $this->assertArrayNotHasKey('gate_winner', $scorecard);
+        $this->assertContains('no_out_of_scope_files_atlas', $scorecard['hard_failures']);
+        $this->assertContains('no_out_of_scope_files_rival', $scorecard['hard_failures']);
     }
 
     public function test_hard_fail_when_bytecode_artifacts_present(): void

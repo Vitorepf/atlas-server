@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming\ForgeRivals\Corpus;
 
+use App\Services\Ai\Programming\ForgeRivals\Schema\AtlasForgeRivalsSchemaContractService;
 use InvalidArgumentException;
 
 /**
@@ -449,7 +450,7 @@ final class AtlasForgeRivalsProviderArenaCorpusService
      * Validate one case manifest against the twenty-two field schema.
      *
      * @param  array<string,mixed>  $case
-     * @return list<string>  empty list ⇒ valid
+     * @return list<string> empty list ⇒ valid
      */
     public function validateManifest(array $case): array
     {
@@ -469,7 +470,7 @@ final class AtlasForgeRivalsProviderArenaCorpusService
         }
 
         // Difficulty canon L1..L5 — fail-closed via shared contract.
-        $contract = new \App\Services\Ai\Programming\ForgeRivals\Schema\AtlasForgeRivalsSchemaContractService;
+        $contract = new AtlasForgeRivalsSchemaContractService;
         foreach ($contract->validateDifficultyBlock($case, 'corpus_case', flat: true) as $diffViolation) {
             // Strip the prefix so validateManifest violations remain in legacy shape.
             $invalid[] = str_replace('corpus_case.', '', $diffViolation);
@@ -716,13 +717,13 @@ final class AtlasForgeRivalsProviderArenaCorpusService
             'base_files' => $baseFiles,
         ];
         $adapted['quality_gates'] = $weights;
-        // Canonical `test_command` alias = full_test_command (fallback to quick).
-        // Garante o campo exigido pelo SchemaContract sem forçar duplicação no
-        // manifest declarado.
+        // Canonical `test_command` alias = the hermetic case validation command.
+        // A release battery must score the current challenge, not a broad
+        // category suite that can import unrelated repository debt.
         $adapted['test_command'] = (string) (
             $case['test_command']
-            ?? $case['full_test_command']
             ?? $case['quick_test_command']
+            ?? $case['full_test_command']
             ?? ''
         );
         $adapted['expected_evidence'] = array_values(array_map(static fn ($v): string => (string) $v, $evidence));
@@ -1394,6 +1395,7 @@ final class AtlasForgeRivalsProviderArenaCorpusService
             'expected_changed_files' => [
                 'app/Http/Controllers/ReportController.php',
                 'app/Services/Report/ReportService.php',
+                'tests/Unit/Report/ReportServiceTest.php',
             ],
             'quality_weights' => [
                 'dimensions' => ['cohesion', 'behavior_preservation', 'maintainability'],
@@ -2120,7 +2122,10 @@ final class AtlasForgeRivalsProviderArenaCorpusService
             'quick_test_command' => 'vitest run components/forge/__tests__/VirtualizedGrid.test.tsx --reporter=basic',
             'full_test_command' => 'vitest run components/forge/__tests__ --reporter=basic',
             'test_command' => 'vitest run components/forge/__tests__/VirtualizedGrid.test.tsx --reporter=basic',
-            'expected_changed_files' => ['atlas-desktop/src/components/forge/VirtualizedGrid.tsx'],
+            'expected_changed_files' => [
+                'atlas-desktop/src/components/forge/VirtualizedGrid.tsx',
+                'atlas-desktop/src/components/forge/useGridKeyboard.ts',
+            ],
             'quality_weights' => [
                 'dimensions' => ['performance', 'accessibility', 'ui_correctness', 'maintainability'],
                 'weights' => ['performance' => 0.35, 'accessibility' => 0.30, 'ui_correctness' => 0.20, 'maintainability' => 0.15],
@@ -2169,7 +2174,10 @@ final class AtlasForgeRivalsProviderArenaCorpusService
             'quick_test_command' => "php artisan test --filter='StringNormalizerTest'",
             'full_test_command' => "php artisan test --filter='Support'",
             'test_command' => "php artisan test --filter='StringNormalizerTest'",
-            'expected_changed_files' => ['app/Support/StringNormalizer.php'],
+            'expected_changed_files' => [
+                'app/Support/StringNormalizer.php',
+                'tests/Unit/Support/StringNormalizerTest.php',
+            ],
             'quality_weights' => [
                 'dimensions' => ['correctness', 'idempotence', 'maintainability'],
                 'weights' => ['correctness' => 0.55, 'idempotence' => 0.25, 'maintainability' => 0.20],
@@ -2345,13 +2353,18 @@ final class AtlasForgeRivalsProviderArenaCorpusService
             'allowed_files_scope' => [
                 'app/Domain/Quota/Counter.php',
                 'app/Domain/Quota/LockInterface.php',
+                'app/Domain/Quota/FakeLock.php',
                 'tests/Unit/Quota/CounterTest.php',
             ],
             'fixture_seed_path' => 'storage/forge-rivals-corpus/bugfix-l3-counter-race-condition/seed',
             'quick_test_command' => "php artisan test --filter='CounterTest'",
             'full_test_command' => "php artisan test --filter='Quota'",
             'test_command' => "php artisan test --filter='CounterTest'",
-            'expected_changed_files' => ['app/Domain/Quota/Counter.php'],
+            'expected_changed_files' => [
+                'app/Domain/Quota/Counter.php',
+                'app/Domain/Quota/LockInterface.php',
+                'tests/Unit/Quota/CounterTest.php',
+            ],
             'quality_weights' => [
                 'dimensions' => ['regression_prevention', 'integration_safety', 'maintainability'],
                 'weights' => ['regression_prevention' => 0.45, 'integration_safety' => 0.35, 'maintainability' => 0.20],
@@ -2379,12 +2392,12 @@ final class AtlasForgeRivalsProviderArenaCorpusService
             'execution_weight' => 0.50,
             'ambiguity_level' => 'medium',
             'risk_level' => 'high',
-            'objective' => 'Diagnosticar flakiness em ExpirationServiceTest, introduzir ClockInterface canônico, e provar 50 reruns sem flake via test runner --repeat.',
+            'objective' => 'Diagnosticar flakiness em ExpirationServiceTest, introduzir ClockInterface canônico, e provar determinismo com 50 iterações internas sem depender de sleep ou repeat do runner.',
             'business_rule' => 'CI vermelho 5% das vezes por flaky test; PRs ficam bloqueados aguardando re-run manual.',
             'acceptance_criteria' => [
                 'ClockInterface canônico em app/Support/Clock/ com SystemClock (produção) + FrozenClock (teste).',
                 'ExpirationService recebe ClockInterface; production code não usa microtime() direto.',
-                'ExpirationServiceTest passa 50 reruns consecutivos sem nenhum flake (test runner --repeat=50).',
+                'ExpirationServiceTest passa com 50 iterações internas consecutivas sem nenhum flake.',
                 'Nenhum sleep em test.',
             ],
             'allowed_files_scope' => [
@@ -2395,10 +2408,16 @@ final class AtlasForgeRivalsProviderArenaCorpusService
                 'tests/Unit/Expiration/ExpirationServiceTest.php',
             ],
             'fixture_seed_path' => 'storage/forge-rivals-corpus/bugfix-l4-flaky-time-dependent-test/seed',
-            'quick_test_command' => "php artisan test --filter='ExpirationServiceTest' --repeat=50",
+            'quick_test_command' => "php artisan test --filter='ExpirationServiceTest'",
             'full_test_command' => "php artisan test --filter='Expiration|Clock'",
-            'test_command' => "php artisan test --filter='ExpirationServiceTest' --repeat=50",
-            'expected_changed_files' => ['app/Domain/Expiration/ExpirationService.php'],
+            'test_command' => "php artisan test --filter='ExpirationServiceTest'",
+            'expected_changed_files' => [
+                'app/Domain/Expiration/ExpirationService.php',
+                'app/Support/Clock/ClockInterface.php',
+                'app/Support/Clock/SystemClock.php',
+                'app/Support/Clock/FrozenClock.php',
+                'tests/Unit/Expiration/ExpirationServiceTest.php',
+            ],
             'quality_weights' => [
                 'dimensions' => ['determinism', 'contract_design', 'maintainability'],
                 'weights' => ['determinism' => 0.50, 'contract_design' => 0.30, 'maintainability' => 0.20],
@@ -2572,14 +2591,19 @@ final class AtlasForgeRivalsProviderArenaCorpusService
                 'app/Domain/Captures/Format/CaptureFormatter.php',
                 'app/Domain/Captures/Format/FormatterStrategy.php',
                 'app/Domain/Captures/Format/StrategyRegistry.php',
-                'app/Domain/Captures/Format/Strategies/',
+                'app/Domain/Captures/Format/Strategies/**',
                 'tests/Unit/Captures/CaptureFormatterTest.php',
             ],
             'fixture_seed_path' => 'storage/forge-rivals-corpus/refactor-l4-replace-switch-with-strategy/seed',
             'quick_test_command' => "php artisan test --filter='CaptureFormatterTest'",
             'full_test_command' => "php artisan test --filter='Captures'",
             'test_command' => "php artisan test --filter='CaptureFormatterTest'",
-            'expected_changed_files' => ['app/Domain/Captures/Format/CaptureFormatter.php'],
+            'expected_changed_files' => [
+                'app/Domain/Captures/Format/CaptureFormatter.php',
+                'app/Domain/Captures/Format/FormatterStrategy.php',
+                'app/Domain/Captures/Format/StrategyRegistry.php',
+                'app/Domain/Captures/Format/Strategies/**',
+            ],
             'quality_weights' => [
                 'dimensions' => ['behavior_preservation', 'cohesion', 'open_closed_compliance', 'maintainability'],
                 'weights' => ['behavior_preservation' => 0.35, 'cohesion' => 0.25, 'open_closed_compliance' => 0.25, 'maintainability' => 0.15],

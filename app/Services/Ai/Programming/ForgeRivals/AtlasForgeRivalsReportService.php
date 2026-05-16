@@ -154,13 +154,19 @@ final class AtlasForgeRivalsReportService
         $isMultiCase = $subRuns !== [];
 
         if ($isMultiCase) {
-            $caseEntries = $this->collectMultiCaseEntries($subRuns);
+            $parentCaseResultsById = $this->parentCaseResultsById($manifest);
+            $caseEntries = $this->collectMultiCaseEntries($subRuns, $parentCaseResultsById);
             $primary = $caseEntries[0] ?? [];
             // Top-level scorecard, when present, is the aggregate roll-up.
             $primaryScorecard = $this->readJson($paths['scorecard_json']);
             if ($primaryScorecard === [] && is_array($primary['scorecard'] ?? null)) {
                 $primaryScorecard = (array) $primary['scorecard'];
             }
+            $primaryScorecard = $this->buildMultiCaseAggregateScorecard(
+                manifest: $manifest,
+                caseEntries: $caseEntries,
+                existingScorecard: $primaryScorecard,
+            );
             $primaryReplay = $this->aggregateReplay($caseEntries);
         } else {
             $caseEntries = [$this->collectSingleCaseEntry($paths, $manifest)];
@@ -178,19 +184,39 @@ final class AtlasForgeRivalsReportService
         $qualityDimensions = $primaryScorecard['quality_dimensions'] ?? null;
         $hardGates = (array) ($primaryScorecard['hard_gates'] ?? []);
         $scoreSource = (string) ($primaryScorecard['score_source'] ?? '');
-        $verdict = (string) ($manifest['verdict'] ?? 'unknown');
+        $verdict = (string) ($primaryScorecard['verdict'] ?? $manifest['verdict'] ?? 'unknown');
         $replayOk = (bool) ($primaryReplay['replay_passes'] ?? false);
         $adjudicationMissing = $primaryScorecard === [];
         $gateOutcomeAvailable = $scoreSource === 'gate_outcome'
             && $replayOk
             && in_array($gateWinner, [AtlasForgeRivalsAdjudicatorService::WINNER_ATLAS, AtlasForgeRivalsAdjudicatorService::WINNER_RIVAL], true);
+        $multiCaseGateOutcomeAvailable = $scoreSource === 'multi_case_deterministic_gate_rollup'
+            && $replayOk
+            && $hardFailures === []
+            && is_numeric($atlasScore)
+            && is_numeric($rivalScore)
+            && in_array($scoreCardWinner, [
+                AtlasForgeRivalsAdjudicatorService::WINNER_ATLAS,
+                AtlasForgeRivalsAdjudicatorService::WINNER_RIVAL,
+                AtlasForgeRivalsAdjudicatorService::WINNER_TIE,
+            ], true);
 
         $winner = null;
         $declaredWhy = null;
         $humanReviewRequired = false;
         $claimReady = false;
 
-        if ($gateOutcomeAvailable) {
+        if ($multiCaseGateOutcomeAvailable) {
+            $winner = $scoreCardWinner;
+            $humanReviewRequired = $scoreCardWinner === AtlasForgeRivalsAdjudicatorService::WINNER_TIE
+                || (int) ($primaryScorecard['case_rollup']['both_failed_cases'] ?? 0) > 0
+                || (int) ($primaryScorecard['case_rollup']['atlas_only_failures'] ?? 0) > 0
+                || (int) ($primaryScorecard['case_rollup']['rival_only_failures'] ?? 0) > 0;
+            $declaredWhy = $scoreCardWinner === AtlasForgeRivalsAdjudicatorService::WINNER_TIE
+                ? 'multi_case_gate_tie_no_quality_score'
+                : 'multi_case_gate_winner:'.$scoreCardWinner.'_no_quality_score';
+            $claimReady = false;
+        } elseif ($gateOutcomeAvailable) {
             $declaredWhy = 'gate_winner:'.$gateWinner.'_no_quality_score';
             $claimReady = false;
         } elseif (str_starts_with($verdict, 'invalid')) {
@@ -350,6 +376,7 @@ final class AtlasForgeRivalsReportService
             'run_id' => $paths['run_id'],
             'preset' => (string) ($manifest['preset'] ?? 'unknown'),
             'mode' => (string) ($manifest['mode'] ?? 'unknown'),
+            'prompt_mode' => (string) ($manifest['prompt_mode'] ?? 'spec-perfect'),
             'arms' => $arms,
             'headline' => $headline,
             'executive_summary' => $executiveSummary,
@@ -475,32 +502,137 @@ final class AtlasForgeRivalsReportService
     }
 
     /**
+     * @param  array<string,mixed>  $manifest
+     * @return array<string,array<string,mixed>>
+     */
+    private function parentCaseResultsById(array $manifest): array
+    {
+        $rows = is_array($manifest['case_results'] ?? null) ? (array) $manifest['case_results'] : [];
+        $out = [];
+        foreach ($rows as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+            $caseId = (string) ($row['case_id'] ?? '');
+            if ($caseId === '') {
+                continue;
+            }
+            $out[$caseId] = $row;
+        }
+
+        return $out;
+    }
+
+    /**
      * @param  list<array<string,string>>  $subRuns
+     * @param  array<string,array<string,mixed>>  $parentCaseResultsById
      * @return list<array<string,mixed>>
      */
-    private function collectMultiCaseEntries(array $subRuns): array
+    private function collectMultiCaseEntries(array $subRuns, array $parentCaseResultsById = []): array
     {
         $out = [];
         foreach ($subRuns as $sub) {
             $manifest = $this->readJson($sub['manifest']);
+            $caseId = (string) ($manifest['case_id'] ?? $sub['case_id']);
+            $parent = $parentCaseResultsById[$caseId] ?? [];
             $scorecard = $this->readJson($sub['scorecard']);
-            $atlasReceipt = $this->readJson($sub['evidence'].'/atlas_receipt.json');
-            $rivalReceipt = $this->readJson($sub['evidence'].'/rival_receipt.json');
+            $artifactEvidence = $this->artifactEvidenceDir($sub);
+            $atlasReceipt = $this->readJson($artifactEvidence.'/atlas_receipt.json');
+            $rivalReceipt = $this->readJson($artifactEvidence.'/rival_receipt.json');
             $replayReport = $this->safeReplay($sub);
 
             $out[] = [
-                'case_id' => (string) ($manifest['case_id'] ?? $sub['case_id']),
-                'task_category' => (string) ($manifest['task_category'] ?? $this->inferCategoryFromCaseId((string) ($manifest['case_id'] ?? $sub['case_id']))),
+                'case_id' => $caseId,
+                'task_category' => $this->resolveCanonicalCategory($manifest, $parent, $caseId),
                 'manifest' => $manifest,
                 'scorecard' => $scorecard,
                 'replay' => $replayReport,
                 'atlas_receipt' => $atlasReceipt,
                 'rival_receipt' => $rivalReceipt,
+                'parent_case_result' => $parent,
                 'sub_run' => $sub,
+                'artifact_evidence' => $artifactEvidence,
             ];
         }
 
         return $out;
+    }
+
+    /**
+     * @param  array<string,string>  $sub
+     */
+    private function artifactEvidenceDir(array $sub): string
+    {
+        $caseBase = (string) ($sub['base'] ?? '');
+        $runBase = dirname(dirname($caseBase));
+        $caseId = (string) ($sub['case_id'] ?? basename($caseBase));
+        $topLevel = $runBase.'/evidence/cases/'.$caseId;
+
+        if (is_dir($topLevel)) {
+            return $topLevel;
+        }
+
+        $legacy = (string) ($sub['evidence'] ?? '');
+        if ($legacy !== '') {
+            return $legacy;
+        }
+
+        return $topLevel;
+    }
+
+    /**
+     * @param  array<string,mixed>  $manifest
+     * @param  array<string,mixed>  $parent
+     */
+    private function resolveCanonicalCategory(array $manifest, array $parent, string $caseId): string
+    {
+        foreach ([$manifest['category'] ?? null, $parent['category'] ?? null] as $explicit) {
+            if (is_string($explicit) && trim($explicit) !== '') {
+                return strtolower(trim($explicit));
+            }
+        }
+
+        $id = strtolower($caseId);
+        if (str_starts_with($id, 'planning-')) {
+            return 'planning';
+        }
+        if (str_starts_with($id, 'frontend-')) {
+            return 'frontend_ui';
+        }
+        if (str_starts_with($id, 'bugfix-') || $id === 'backend-pagination-off-by-one') {
+            return 'realistic_bugfix';
+        }
+        if (str_starts_with($id, 'refactor-')) {
+            return 'refactor';
+        }
+        if (str_starts_with($id, 'testdesign-') || str_starts_with($id, 'test-regression-')) {
+            return 'test_design';
+        }
+        if (str_starts_with($id, 'architecture-')) {
+            return 'architecture';
+        }
+        if (str_starts_with($id, 'intperf-')
+            || str_starts_with($id, 'performance-')
+            || str_starts_with($id, 'integration-')
+            || $id === 'backend-idempotent-webhook'
+        ) {
+            return 'integration_performance';
+        }
+        if (str_starts_with($id, 'backend-')) {
+            return 'backend_logic';
+        }
+
+        $legacy = strtolower((string) ($manifest['task_category'] ?? $parent['task_category'] ?? ''));
+
+        return match ($legacy) {
+            'docs' => 'planning',
+            'frontend' => 'frontend_ui',
+            'backend' => 'backend_logic',
+            'bugfix' => 'realistic_bugfix',
+            'tests' => 'test_design',
+            'performance', 'integration' => 'integration_performance',
+            default => $this->inferCategoryFromCaseId($caseId),
+        };
     }
 
     /**
@@ -533,12 +665,220 @@ final class AtlasForgeRivalsReportService
     }
 
     /**
+     * Multi-case real batteries intentionally contain cases where one or both
+     * arms fail. Those are valid measurement outcomes, not harness hard
+     * failures. This roll-up scores only deterministic gates from the parent
+     * battery manifest: pass/fail per arm, weighted by difficulty.
+     *
+     * @param  array<string,mixed>  $manifest
+     * @param  list<array<string,mixed>>  $caseEntries
+     * @param  array<string,mixed>  $existingScorecard
+     * @return array<string,mixed>
+     */
+    private function buildMultiCaseAggregateScorecard(array $manifest, array $caseEntries, array $existingScorecard): array
+    {
+        $parents = array_values(array_filter(array_map(
+            static fn (array $entry): array => (array) ($entry['parent_case_result'] ?? []),
+            $caseEntries,
+        ), static fn (array $parent): bool => $parent !== []));
+
+        if ($parents === []) {
+            return $existingScorecard;
+        }
+
+        $workspaceBlockers = array_values(array_filter(array_merge(
+            (array) ($manifest['workspace_blockers'] ?? []),
+            (array) ($manifest['aggregate_workspace_blockers'] ?? []),
+            (array) ($manifest['blocking_reasons'] ?? []),
+        )));
+        if ($workspaceBlockers !== []) {
+            return array_merge($existingScorecard, [
+                'winner' => null,
+                'atlas_score' => null,
+                'rival_score' => null,
+                'score_source' => 'multi_case_deterministic_gate_rollup',
+                'quality_score_available' => false,
+                'quality_score_reason' => 'harness_workspace_blockers_present',
+                'hard_failures' => ['harness_workspace_blockers_present'],
+                'verdict' => 'invalid_harness_workspace_blockers',
+                'winner_reason' => $workspaceBlockers,
+                'hard_gates' => [
+                    ['code' => 'no_harness_workspace_blockers', 'ok' => false, 'detail' => implode(', ', array_map(static fn (mixed $v): string => (string) $v, $workspaceBlockers))],
+                ],
+                'quality_dimensions' => null,
+            ]);
+        }
+
+        $totalWeight = 0.0;
+        $atlasPoints = 0.0;
+        $rivalPoints = 0.0;
+        $bothPassed = 0;
+        $bothFailed = 0;
+        $atlasOnlyPassed = 0;
+        $rivalOnlyPassed = 0;
+        $rows = [];
+
+        foreach ($caseEntries as $entry) {
+            $parent = (array) ($entry['parent_case_result'] ?? []);
+            if ($parent === []) {
+                continue;
+            }
+            $caseManifest = (array) ($entry['manifest'] ?? []);
+            $weight = $this->caseWeight($parent, $caseManifest);
+            $totalWeight += $weight;
+            $atlasPassed = $this->armPassed((array) ($parent['atlas_arm'] ?? []));
+            $rivalPassed = $this->armPassed((array) ($parent['rival_arm'] ?? []));
+
+            if ($atlasPassed) {
+                $atlasPoints += $weight;
+            }
+            if ($rivalPassed) {
+                $rivalPoints += $weight;
+            }
+            if ($atlasPassed && $rivalPassed) {
+                $bothPassed++;
+            } elseif ($atlasPassed && ! $rivalPassed) {
+                $atlasOnlyPassed++;
+            } elseif (! $atlasPassed && $rivalPassed) {
+                $rivalOnlyPassed++;
+            } else {
+                $bothFailed++;
+            }
+
+            $rows[] = [
+                'case_id' => (string) ($parent['case_id'] ?? $entry['case_id'] ?? 'unknown-case'),
+                'category' => $this->resolveCanonicalCategory($caseManifest, $parent, (string) ($parent['case_id'] ?? $entry['case_id'] ?? '')),
+                'difficulty_band' => $this->canonicalDifficulty(array_merge($caseManifest, $parent)),
+                'difficulty_weight' => $weight,
+                'atlas_passed' => $atlasPassed,
+                'rival_passed' => $rivalPassed,
+                'verdict' => (string) ($parent['verdict'] ?? $caseManifest['verdict'] ?? 'unknown'),
+            ];
+        }
+
+        if ($totalWeight <= 0.0 || $rows === []) {
+            return array_merge($existingScorecard, [
+                'winner' => null,
+                'atlas_score' => null,
+                'rival_score' => null,
+                'score_source' => 'multi_case_deterministic_gate_rollup',
+                'quality_score_available' => false,
+                'quality_score_reason' => 'multi_case_rollup_without_weighted_cases',
+                'hard_failures' => ['multi_case_rollup_without_weighted_cases'],
+                'verdict' => 'invalid_multi_case_rollup_without_weighted_cases',
+            ]);
+        }
+
+        $atlasScore = round(($atlasPoints / $totalWeight) * 100, 2);
+        $rivalScore = round(($rivalPoints / $totalWeight) * 100, 2);
+        $threshold = (float) ($existingScorecard['tie_threshold'] ?? AtlasForgeRivalsAdjudicatorService::DEFAULT_TIE_THRESHOLD);
+        $margin = round($atlasScore - $rivalScore, 2);
+        $winner = match (true) {
+            abs($margin) < $threshold => AtlasForgeRivalsAdjudicatorService::WINNER_TIE,
+            $margin > 0 => AtlasForgeRivalsAdjudicatorService::WINNER_ATLAS,
+            default => AtlasForgeRivalsAdjudicatorService::WINNER_RIVAL,
+        };
+        $caseFailures = $atlasOnlyPassed + $rivalOnlyPassed + $bothFailed;
+        $verdict = $caseFailures > 0 ? 'multi_case_valid_with_case_failures' : 'multi_case_comparable';
+
+        return array_merge($existingScorecard, [
+            'winner' => $winner,
+            'atlas_score' => $atlasScore,
+            'rival_score' => $rivalScore,
+            'score_source' => 'multi_case_deterministic_gate_rollup',
+            'quality_score_available' => false,
+            'quality_score_reason' => 'deterministic_gate_score_only_no_llm_quality_judge',
+            'hard_failures' => [],
+            'tie_threshold' => $threshold,
+            'verdict' => $verdict,
+            'winner_reason' => [
+                'weighted_gate_rollup_over_'.count($rows).'_case(s)',
+                'atlas_points='.round($atlasPoints, 3).' rival_points='.round($rivalPoints, 3).' total_weight='.round($totalWeight, 3),
+                'atlas_score='.$atlasScore.' rival_score='.$rivalScore.' margin='.$margin,
+                $winner === AtlasForgeRivalsAdjudicatorService::WINNER_TIE
+                    ? 'margin_below_tie_threshold_human_review_required'
+                    : 'winner_by_weighted_gate_margin',
+                $caseFailures > 0
+                    ? $caseFailures.'_case(s)_failed_one_or_both_arms_but_harness_evidence_is_valid'
+                    : 'all_cases_passed_both_arms',
+            ],
+            'hard_gates' => [
+                ['code' => 'multi_case_parent_manifest_present', 'ok' => true, 'detail' => count($rows).' case result(s) observed'],
+                ['code' => 'multi_case_evidence_manifest_present', 'ok' => true, 'detail' => 'top-level evidence manifest loaded'],
+                ['code' => 'no_harness_workspace_blockers', 'ok' => true, 'detail' => 'no top-level workspace blockers'],
+                ['code' => 'deterministic_case_rollup_available', 'ok' => true, 'detail' => 'pass/fail gates available per arm'],
+                ['code' => 'case_failures_do_not_invalidate_harness', 'ok' => true, 'detail' => $caseFailures.' case failure outcome(s) retained as measurement data'],
+            ],
+            'quality_dimensions' => null,
+            'case_rollup' => [
+                'total_cases' => count($rows),
+                'comparable_cases' => $bothPassed,
+                'failed_cases' => $caseFailures,
+                'both_passed_cases' => $bothPassed,
+                'both_failed_cases' => $bothFailed,
+                'atlas_only_passed_cases' => $atlasOnlyPassed,
+                'rival_only_passed_cases' => $rivalOnlyPassed,
+                'atlas_only_failures' => $rivalOnlyPassed,
+                'rival_only_failures' => $atlasOnlyPassed,
+                'atlas_points' => round($atlasPoints, 3),
+                'rival_points' => round($rivalPoints, 3),
+                'total_weight' => round($totalWeight, 3),
+                'atlas_pass_rate_weighted' => $atlasScore,
+                'rival_pass_rate_weighted' => $rivalScore,
+                'rows' => $rows,
+            ],
+        ]);
+    }
+
+    /**
+     * @param  array<string,mixed>  $arm
+     */
+    private function armPassed(array $arm): bool
+    {
+        if ($arm === []) {
+            return false;
+        }
+
+        return (int) ($arm['exit_code'] ?? 1) === 0
+            && (int) ($arm['test_exit_code'] ?? 1) === 0
+            && (bool) ($arm['killed'] ?? false) === false
+            && ((string) ($arm['timeout_reason'] ?? '') === '')
+            && (array) ($arm['out_of_scope_files'] ?? []) === []
+            && (array) ($arm['bytecode_artifacts'] ?? []) === [];
+    }
+
+    /**
+     * @param  array<string,mixed>  $parent
+     * @param  array<string,mixed>  $manifest
+     */
+    private function caseWeight(array $parent, array $manifest): float
+    {
+        $explicit = $parent['difficulty_weight'] ?? $manifest['difficulty_weight'] ?? null;
+        if (is_int($explicit) || is_float($explicit)) {
+            return max(0.1, (float) $explicit);
+        }
+
+        return $this->difficultyWeightFromBand($this->canonicalDifficulty(array_merge($manifest, $parent)));
+    }
+
+    private function difficultyWeightFromBand(string $band): float
+    {
+        return match ($band) {
+            'L1' => 1.0,
+            'L2' => 1.5,
+            'L3' => 2.0,
+            'L4' => 2.5,
+            'L5' => 3.0,
+            default => 2.0,
+        };
+    }
+
+    /**
      * Sub-case "replay" — sub-cases under runs/<id>/cases/<case_id>/ are not
      * top-level runs from the resolver's perspective, so the ReplayService
-     * cannot hash them directly. We trust the per-case scorecard: when it
-     * exists with no hard failures, the sub-run is considered replay-clean
-     * (the upstream pipeline is responsible for validating evidence before
-     * persisting the scorecard).
+     * cannot hash them directly. A sub-case can fail its own gates and still
+     * be replayable evidence; only missing manifest/scorecard makes the
+     * harness evidence unusable.
      *
      * @param  array<string,string>  $sub
      * @return array<string,mixed>
@@ -546,16 +886,15 @@ final class AtlasForgeRivalsReportService
     private function safeReplay(array $sub): array
     {
         $scorecardPath = $sub['scorecard'] ?? '';
+        $manifestPath = $sub['manifest'] ?? '';
+        if (! is_file($manifestPath)) {
+            return ['replay_passes' => false, 'mismatches' => ['manifest_missing'], 'event_count' => null];
+        }
         if (! is_file($scorecardPath)) {
             return ['replay_passes' => false, 'mismatches' => ['scorecard_missing'], 'event_count' => null];
         }
-        $scorecard = $this->readJson($scorecardPath);
-        $hardFailures = (array) ($scorecard['hard_failures'] ?? []);
-        if ($hardFailures !== []) {
-            return ['replay_passes' => false, 'mismatches' => $hardFailures, 'event_count' => null];
-        }
 
-        return ['replay_passes' => true, 'mismatches' => [], 'event_count' => null, 'derived_from' => 'scorecard_clean'];
+        return ['replay_passes' => true, 'mismatches' => [], 'event_count' => null, 'derived_from' => 'case_manifest_and_scorecard_present'];
     }
 
     /**
@@ -586,35 +925,55 @@ final class AtlasForgeRivalsReportService
             $replay = (array) $entry['replay'];
             $atlasReceipt = (array) $entry['atlas_receipt'];
             $rivalReceipt = (array) $entry['rival_receipt'];
+            $parent = (array) ($entry['parent_case_result'] ?? []);
+            $parentAtlas = (array) ($parent['atlas_arm'] ?? []);
+            $parentRival = (array) ($parent['rival_arm'] ?? []);
+            $hasParent = $parent !== [];
+            $atlasGatePassed = $hasParent ? $this->armPassed($parentAtlas) : null;
+            $rivalGatePassed = $hasParent ? $this->armPassed($parentRival) : null;
 
             $hardFailures = (array) ($scorecard['hard_failures'] ?? []);
             $winner = $scorecard['winner'] ?? null;
-            $verdict = (string) ($manifest['verdict'] ?? 'unknown');
+            $scoreSource = (string) ($scorecard['score_source'] ?? '');
+            $verdict = (string) ($parent['verdict'] ?? $manifest['verdict'] ?? 'unknown');
             $isInvalid = str_starts_with($verdict, 'invalid');
             $replayOk = (bool) ($replay['replay_passes'] ?? false);
             $atlasScore = $scorecard['atlas_score'] ?? null;
             $rivalScore = $scorecard['rival_score'] ?? null;
+            if ($hasParent && (! is_numeric($atlasScore) || ! is_numeric($rivalScore))) {
+                $atlasScore = $atlasGatePassed === true ? 100.0 : 0.0;
+                $rivalScore = $rivalGatePassed === true ? 100.0 : 0.0;
+                $winner = match (true) {
+                    $atlasGatePassed === true && $rivalGatePassed === false => AtlasForgeRivalsAdjudicatorService::WINNER_ATLAS,
+                    $atlasGatePassed === false && $rivalGatePassed === true => AtlasForgeRivalsAdjudicatorService::WINNER_RIVAL,
+                    $atlasGatePassed === true && $rivalGatePassed === true => AtlasForgeRivalsAdjudicatorService::WINNER_TIE,
+                    default => null,
+                };
+                $scoreSource = 'multi_case_deterministic_gate_rollup';
+            }
 
             $evidenceStatus = match (true) {
-                $isInvalid => 'invalid:'.$verdict,
                 ! $replayOk => 'replay_failed',
                 $scorecard === [] => 'adjudication_missing',
-                $hardFailures !== [] => 'hard_failures',
+                $hasParent && $isInvalid => 'case_failed:'.$verdict,
+                ! $hasParent && $isInvalid => 'invalid:'.$verdict,
+                ! $hasParent && $hardFailures !== [] => 'hard_failures',
                 default => 'evidence_ok',
             };
 
             $replayStatus = match (true) {
-                $isInvalid => 'invalid',
                 $replayOk => 'passes',
                 $replay === [] => 'absent',
                 default => 'failed',
             };
 
-            $shortReason = $this->shortReason($scorecard, $verdict, $hardFailures, $replayOk);
+            $shortReason = $hasParent
+                ? $this->deterministicCaseReason($atlasGatePassed === true, $rivalGatePassed === true, $verdict)
+                : $this->shortReason($scorecard, $verdict, $hardFailures, $replayOk);
 
             $caseId = (string) ($entry['case_id'] ?? 'unknown-case');
             $title = (string) ($manifest['title'] ?? $caseId);
-            $difficultyBand = $this->canonicalDifficulty($manifest);
+            $difficultyBand = $this->canonicalDifficulty(array_merge($manifest, $parent));
             $difficultyScore = $this->resolveDifficultyScore($manifest, $difficultyBand);
             $difficultyMultiplier = $this->schemaContract->difficultyMultiplier($difficultyScore);
             $weightedAtlas = is_numeric($atlasScore)
@@ -632,11 +991,13 @@ final class AtlasForgeRivalsReportService
                 'role_focus' => $this->canonicalRoleFocus($manifest, (string) $entry['task_category']),
                 'work_kind' => $this->canonicalWorkKind($manifest, (string) $entry['task_category']),
                 'mode' => (string) ($manifest['mode'] ?? 'unknown'),
+                'prompt_mode' => (string) ($manifest['prompt_mode'] ?? 'spec-perfect'),
                 'atlas_model' => (string) ($manifest['atlas_model'] ?? 'unknown'),
                 'rival_model' => (string) ($manifest['rival_model'] ?? 'unknown'),
                 'winner' => $winner,
                 'atlas_score' => $atlasScore,
                 'rival_score' => $rivalScore,
+                'score_source' => $scoreSource,
                 'raw_score' => [
                     'atlas' => is_numeric($atlasScore) ? (float) $atlasScore : null,
                     'rival' => is_numeric($rivalScore) ? (float) $rivalScore : null,
@@ -657,10 +1018,12 @@ final class AtlasForgeRivalsReportService
                 'replay_passes' => $replayOk,
                 'artifact_paths' => $this->caseArtifactPaths($entry),
                 'short_reason' => $shortReason,
-                'atlas_test_exit_code' => (int) ($atlasReceipt['test_exit_code'] ?? -1),
-                'rival_test_exit_code' => (int) ($rivalReceipt['test_exit_code'] ?? -1),
-                'atlas_patch_bytes' => (int) ($atlasReceipt['patch_diff_bytes'] ?? 0),
-                'rival_patch_bytes' => (int) ($rivalReceipt['patch_diff_bytes'] ?? 0),
+                'atlas_gate_passed' => $atlasGatePassed,
+                'rival_gate_passed' => $rivalGatePassed,
+                'atlas_test_exit_code' => (int) ($parentAtlas['test_exit_code'] ?? $atlasReceipt['test_exit_code'] ?? -1),
+                'rival_test_exit_code' => (int) ($parentRival['test_exit_code'] ?? $rivalReceipt['test_exit_code'] ?? -1),
+                'atlas_patch_bytes' => (int) ($parentAtlas['patch_diff_bytes'] ?? $atlasReceipt['patch_diff_bytes'] ?? 0),
+                'rival_patch_bytes' => (int) ($parentRival['patch_diff_bytes'] ?? $rivalReceipt['patch_diff_bytes'] ?? 0),
                 'tokens_used_atlas' => $atlasReceipt['tokens_used'] ?? null,
                 'tokens_used_rival' => $rivalReceipt['tokens_used'] ?? null,
             ];
@@ -702,7 +1065,7 @@ final class AtlasForgeRivalsReportService
      */
     private function canonicalDifficulty(array $manifest): string
     {
-        $raw = $manifest['difficulty_band'] ?? $manifest['difficulty'] ?? null;
+        $raw = $manifest['difficulty_band'] ?? $manifest['difficulty_level'] ?? $manifest['difficulty'] ?? null;
         if (! is_string($raw)) {
             return self::DIFFICULTY_UNKNOWN;
         }
@@ -752,6 +1115,21 @@ final class AtlasForgeRivalsReportService
         }
 
         return 'unknown';
+    }
+
+    private function deterministicCaseReason(bool $atlasPassed, bool $rivalPassed, string $verdict): string
+    {
+        if ($atlasPassed && $rivalPassed) {
+            return 'Ambos passaram os gates determinísticos do caso.';
+        }
+        if ($atlasPassed && ! $rivalPassed) {
+            return 'Atlas passou os gates; rival falhou neste caso ('.$verdict.').';
+        }
+        if (! $atlasPassed && $rivalPassed) {
+            return 'Rival passou os gates; Atlas falhou neste caso ('.$verdict.').';
+        }
+
+        return 'Ambos falharam os gates deste caso ('.$verdict.').';
     }
 
     /**
@@ -856,7 +1234,7 @@ final class AtlasForgeRivalsReportService
             };
 
             $why = $this->categoryWhy($winner, $margin, $cases);
-            $recommended = match ($winner) {
+            $measuredAhead = match ($winner) {
                 AtlasForgeRivalsAdjudicatorService::WINNER_ATLAS => 'atlas',
                 AtlasForgeRivalsAdjudicatorService::WINNER_RIVAL => 'rival',
                 AtlasForgeRivalsAdjudicatorService::WINNER_TIE => 'tie',
@@ -875,7 +1253,8 @@ final class AtlasForgeRivalsReportService
                 'best_case' => $best,
                 'worst_case' => $worst,
                 'caveats' => $this->categoryCaveats($cases),
-                'recommended_provider_for_this_category' => $recommended,
+                'measured_ahead_for_this_category' => $measuredAhead,
+                'routing_effect' => 'none',
                 'case_ids' => array_values(array_map(static fn (array $c): string => (string) $c['case_id'], $cases)),
             ];
         }
@@ -997,7 +1376,8 @@ final class AtlasForgeRivalsReportService
                 'suspicious_count' => count($suspicious),
                 'validity' => $validity['status'],
                 'validity_reason' => $validity['reason'],
-                'recommended' => $this->bucketRecommendation($winner, $validity['status']),
+                'measured_ahead' => $this->bucketMeasuredAhead($winner, $validity['status']),
+                'routing_effect' => 'none',
                 'case_ids' => array_values(array_map(static fn (array $c): string => (string) $c['case_id'], $cases)),
             ];
         }
@@ -1021,10 +1401,12 @@ final class AtlasForgeRivalsReportService
             return ['status' => self::VALIDITY_SUSPECT, 'reason' => 'suspicious_cases_in_bucket'];
         }
         foreach ($cases as $c) {
-            if (! empty($c['hard_failures'])) {
+            $evidenceStatus = (string) ($c['evidence_status'] ?? '');
+            $deterministicCase = ($c['score_source'] ?? '') === 'multi_case_deterministic_gate_rollup';
+            if (! $deterministicCase && ! empty($c['hard_failures'])) {
                 return ['status' => self::VALIDITY_SUSPECT, 'reason' => 'hard_failures_in_bucket'];
             }
-            if (($c['evidence_status'] ?? '') !== 'evidence_ok') {
+            if ($evidenceStatus !== 'evidence_ok' && ! str_starts_with($evidenceStatus, 'case_failed:')) {
                 return ['status' => self::VALIDITY_INSUFFICIENT, 'reason' => 'evidence_incomplete_in_bucket'];
             }
         }
@@ -1035,7 +1417,7 @@ final class AtlasForgeRivalsReportService
         return ['status' => self::VALIDITY_VALID, 'reason' => 'sample_size_and_evidence_ok'];
     }
 
-    private function bucketRecommendation(?string $winner, string $validity): ?string
+    private function bucketMeasuredAhead(?string $winner, string $validity): ?string
     {
         if ($validity !== self::VALIDITY_VALID) {
             return null;
@@ -1242,16 +1624,19 @@ final class AtlasForgeRivalsReportService
             $reasons = [];
             $rival = $case['rival_score'];
             $atlas = $case['atlas_score'];
-            if ($strongRival && is_numeric($rival) && (float) $rival < self::SUSPICIOUS_PROVIDER_SCORE_THRESHOLD) {
+            $deterministicCase = ($case['score_source'] ?? '') === 'multi_case_deterministic_gate_rollup';
+            if (! $deterministicCase && $strongRival && is_numeric($rival) && (float) $rival < self::SUSPICIOUS_PROVIDER_SCORE_THRESHOLD) {
                 $reasons[] = sprintf('rival_score_below_%d_for_strong_provider', (int) self::SUSPICIOUS_PROVIDER_SCORE_THRESHOLD);
             }
-            if (is_numeric($atlas) && is_numeric($rival) && abs((float) $atlas - (float) $rival) >= self::SUSPICIOUS_LARGE_MARGIN) {
+            if (! $deterministicCase && is_numeric($atlas) && is_numeric($rival) && abs((float) $atlas - (float) $rival) >= self::SUSPICIOUS_LARGE_MARGIN) {
                 $reasons[] = 'large_margin_in_single_case';
             }
-            if (($case['atlas_patch_bytes'] ?? 0) <= self::SUSPICIOUS_TINY_PATCH_BYTES) {
+            $atlasPatchTiny = ($case['atlas_patch_bytes'] ?? 0) <= self::SUSPICIOUS_TINY_PATCH_BYTES;
+            $rivalPatchTiny = ($case['rival_patch_bytes'] ?? 0) <= self::SUSPICIOUS_TINY_PATCH_BYTES;
+            if ($deterministicCase ? (($case['atlas_gate_passed'] ?? false) === true && $atlasPatchTiny) : $atlasPatchTiny) {
                 $reasons[] = 'atlas_patch_almost_empty';
             }
-            if (($case['rival_patch_bytes'] ?? 0) <= self::SUSPICIOUS_TINY_PATCH_BYTES) {
+            if ($deterministicCase ? (($case['rival_gate_passed'] ?? false) === true && $rivalPatchTiny) : $rivalPatchTiny) {
                 $reasons[] = 'rival_patch_almost_empty';
             }
             if ($reasons !== []) {
@@ -1355,39 +1740,43 @@ final class AtlasForgeRivalsReportService
      */
     private function buildAtlasDecideRecommendations(array $categoryResults, array $confidence): array
     {
-        $primary = [];
-        $reviewer = [];
+        $signals = [];
         $trusted = (bool) ($confidence['is_trusted'] ?? false);
         foreach ($categoryResults as $cat) {
-            $rec = $cat['recommended_provider_for_this_category'] ?? null;
-            if ($rec === null) {
-                $primary[$cat['category']] = ['choice' => null, 'reason' => 'inconclusive'];
-                $reviewer[$cat['category']] = ['choice' => null, 'reason' => 'inconclusive'];
-
-                continue;
-            }
-            if ($rec === 'tie') {
-                $primary[$cat['category']] = ['choice' => null, 'reason' => 'tie_human_review_required'];
-                $reviewer[$cat['category']] = ['choice' => null, 'reason' => 'tie_human_review_required'];
-
-                continue;
-            }
-            $primary[$cat['category']] = ['choice' => $rec, 'reason' => 'category_winner_'.$rec];
-            // Reviewer recommendation: the losing arm acts as reviewer for cross-check.
-            $reviewer[$cat['category']] = [
-                'choice' => $rec === 'atlas' ? 'rival' : 'atlas',
-                'reason' => 'opposite_of_winner_for_review',
+            $measuredAhead = $cat['measured_ahead_for_this_category']
+                ?? null;
+            $signals[] = [
+                'category' => (string) ($cat['category'] ?? 'unknown'),
+                'measured_ahead' => $measuredAhead,
+                'winner' => $cat['winner'] ?? null,
+                'margin' => $cat['margin'] ?? null,
+                'cases' => (int) ($cat['cases'] ?? 0),
+                'confidence' => (string) ($cat['confidence'] ?? 'unknown'),
+                'routing_effect' => 'none',
+                'reason' => match ($measuredAhead) {
+                    'atlas' => 'atlas_forge_measured_ahead_in_this_battery',
+                    'rival' => 'rival_measured_ahead_in_this_battery',
+                    'tie' => 'tie_human_review_required',
+                    default => 'inconclusive',
+                },
             ];
         }
 
         return [
             'advisory_only' => true,
             'should_update_provider_topology' => false,
+            'never_changes_atlas_decide_topology' => true,
+            'owner_of_model_routing' => 'atlas_decide',
             'reason_topology_not_updated' => $trusted
                 ? 'rivals_signal_is_consultative_atlas_decide_owns_topology'
                 : 'confidence_below_trusted_battery',
-            'primary_builder_by_category' => $primary,
-            'reviewer_by_category' => $reviewer,
+            'note' => 'Rivals emits measured evidence; Atlas Decide decides model routing.',
+            'measured_signal_by_category' => $signals,
+            // Deprecated compatibility fields intentionally stay empty. Rivals
+            // does not choose builder/reviewer topology; Atlas Decide owns it.
+            'primary_builder_by_category' => [],
+            'reviewer_by_category' => [],
+            'deprecated_fields_empty_because_routing_is_atlas_decide' => true,
             'confidence' => $confidence['level'],
             'is_trusted_signal' => $trusted,
         ];
@@ -1546,13 +1935,13 @@ final class AtlasForgeRivalsReportService
     }
 
     /**
-     * Builds the structured Provider Performance Signal block consumed by
+     * Builds the structured Provider Performance Signal block emitted for
      * Atlas Decide as a *consultative* read-model. Schema:
      * `atlas.forge.rivals.provider_performance_signal.v1`.
      *
      * The signal is the canonical output that turns a Rivals battery into
-     * "who should program this kind of task now?" — per provider, per
-     * category, per difficulty band — without changing any real routing.
+     * measured evidence per arm, category and difficulty band. It never
+     * decides model routing; Atlas Decide remains the owner of topology.
      *
      * @param  list<array<string,mixed>>  $caseResults
      * @param  list<array<string,mixed>>  $arms
@@ -1586,6 +1975,7 @@ final class AtlasForgeRivalsReportService
                 'difficulty_band' => $case['difficulty_band'] ?? self::DIFFICULTY_UNKNOWN,
                 'work_kind' => $case['work_kind'] ?? 'unknown',
                 'mode' => $case['mode'] ?? 'unknown',
+                'prompt_mode' => $case['prompt_mode'] ?? 'spec-perfect',
                 'atlas_model' => (string) ($case['atlas_model'] ?? $atlasModel),
                 'rival_model' => (string) ($case['rival_model'] ?? $rivalModel),
                 'atlas_score' => $case['atlas_score'],
@@ -1608,12 +1998,17 @@ final class AtlasForgeRivalsReportService
             'schema_version' => self::SIGNAL_SCHEMA_VERSION,
             'advisory_only' => true,
             'never_changes_atlas_decide_topology' => true,
+            'should_update_provider_topology' => false,
+            'owner_of_model_routing' => 'atlas_decide',
+            'routing_effect' => 'none',
+            'note' => 'Rivals emits measured evidence; Atlas Decide decides model routing.',
             'can_feed_ledger' => $canFeedLedger,
             'confidence' => [
                 'level' => (string) ($confidence['level'] ?? 'unknown'),
                 'reason' => (string) ($confidence['reason'] ?? ''),
                 'is_trusted' => (bool) ($confidence['is_trusted'] ?? false),
             ],
+            'provider_measurement' => $providerRecs,
             'provider_recommendation' => $providerRecs,
             'category_fit' => $categoryFit,
             'difficulty_fit' => $difficultyFit,
@@ -1626,9 +2021,8 @@ final class AtlasForgeRivalsReportService
     }
 
     /**
-     * Build a per-provider recommendation array. We iterate the two declared
-     * arms and decide a recommendation strength based on how often that arm
-     * won validated buckets across categories.
+     * Build a per-arm measurement array. The legacy `recommendation` field is
+     * retained as a neutral measured tier, not a routing instruction.
      *
      * @param  list<array<string,mixed>>  $caseResults
      * @param  array<string,mixed>  $confidence
@@ -1660,12 +2054,12 @@ final class AtlasForgeRivalsReportService
         foreach ($rivalsByArm as $arm => $stats) {
             $cases = max(1, $stats['cases']);
             $winRate = $stats['wins'] / $cases;
-            $recommendation = match (true) {
+            $measuredTier = match (true) {
                 ! $trusted => 'directional_only',
-                $winRate >= 0.66 => 'primary',
-                $winRate >= 0.45 => 'co_pilot',
-                $winRate >= 0.20 => 'fallback',
-                default => 'do_not_use',
+                $winRate >= 0.66 => 'measured_ahead_strong',
+                $winRate >= 0.45 => 'measured_competitive',
+                $winRate >= 0.20 => 'measured_behind',
+                default => 'measured_weak_in_this_battery',
             };
             $out[] = [
                 'arm' => $arm,
@@ -1674,7 +2068,9 @@ final class AtlasForgeRivalsReportService
                 'losses' => $stats['losses'],
                 'ties' => $stats['ties'],
                 'cases' => $stats['cases'],
-                'recommendation' => $recommendation,
+                'measured_tier' => $measuredTier,
+                'recommendation' => $measuredTier,
+                'routing_effect' => 'none',
                 'win_rate' => round($winRate, 2),
             ];
         }
@@ -1693,7 +2089,8 @@ final class AtlasForgeRivalsReportService
             $out[] = [
                 'axis' => $axis,
                 'key' => (string) ($b['key'] ?? 'unknown'),
-                'recommended' => $b['recommended'] ?? null,
+                'measured_ahead' => $b['measured_ahead'] ?? null,
+                'routing_effect' => 'none',
                 'winner' => $b['winner'] ?? null,
                 'validity' => (string) ($b['validity'] ?? self::VALIDITY_INSUFFICIENT),
                 'validity_reason' => (string) ($b['validity_reason'] ?? ''),
@@ -1720,7 +2117,11 @@ final class AtlasForgeRivalsReportService
                 'detail' => count($suspicious).' case(s) flagged — triage required before trusting',
             ];
         }
-        $invalidCases = array_filter($caseResults, static fn (array $c): bool => ($c['evidence_status'] ?? '') !== 'evidence_ok');
+        $invalidCases = array_filter($caseResults, static function (array $c): bool {
+            $status = (string) ($c['evidence_status'] ?? '');
+
+            return $status !== 'evidence_ok' && ! str_starts_with($status, 'case_failed:');
+        });
         if ($invalidCases !== []) {
             $reasons[] = [
                 'condition' => 'evidence_or_replay_incomplete',
@@ -1728,6 +2129,9 @@ final class AtlasForgeRivalsReportService
             ];
         }
         $rivalLowScores = array_filter($caseResults, static function (array $c): bool {
+            if (($c['score_source'] ?? '') === 'multi_case_deterministic_gate_rollup') {
+                return false;
+            }
             $rival = $c['rival_score'];
             if (! is_numeric($rival)) {
                 return false;
@@ -1760,7 +2164,7 @@ final class AtlasForgeRivalsReportService
             return 'rivals_signal_unusable_until_adjudication_runs';
         }
         if ($suspicious !== []) {
-            return 'use_provider_topology_default_until_suspicious_triage_complete';
+            return 'do_not_feed_decide_until_suspicious_triage_complete';
         }
         $level = (string) ($confidence['level'] ?? 'unknown');
         if ($level === self::CONFIDENCE_TRUSTED) {
@@ -1788,16 +2192,23 @@ final class AtlasForgeRivalsReportService
     ): array {
         $matrixOk = (bool) ($matrixLock['matrix_ok'] ?? true);
         $matrixBlocksClaim = (bool) ($matrixLock['blocks_claim_final'] ?? false);
-        $batteryValid = ($evidenceState['state'] ?? 'incomplete') === 'ok'
+        $batteryEvidenceValid = ($evidenceState['state'] ?? 'incomplete') === 'ok'
+            && $matrixOk;
+        $batteryInterpretable = $batteryEvidenceValid
+            && ($winner !== null || $humanReviewRequired);
+        $batteryValid = $batteryEvidenceValid
             && ($winner !== null)
             && ! $humanReviewRequired
-            && $matrixOk;
+            && ! $matrixBlocksClaim;
 
         $canFeedLedger = $batteryValid && $suspicious === [] && ! $matrixBlocksClaim;
         $canFeedDecideSignal = $canFeedLedger && (bool) ($confidence['is_trusted'] ?? false);
 
         return [
+            'battery_evidence_valid' => $batteryEvidenceValid,
+            'battery_result_interpretable' => $batteryInterpretable,
             'battery_result_valid' => $batteryValid,
+            'battery_claim_eligible' => $batteryValid,
             'claim_ready' => $claimReady && $batteryValid && $suspicious === [] && ! $matrixBlocksClaim && (bool) ($confidence['is_trusted'] ?? false),
             'external_rivals_certification_status' => self::EXTERNAL_RIVALS_STATUS,
             'human_review_required' => $humanReviewRequired || $suspicious !== [] || $matrixBlocksClaim,
@@ -1858,7 +2269,7 @@ final class AtlasForgeRivalsReportService
             $rivalPatchPath = (string) ($artifactPaths['rival_patch'] ?? '');
             $atlasTestLogPath = (string) ($artifactPaths['atlas_test_log'] ?? '');
             $rivalTestLogPath = (string) ($artifactPaths['rival_test_log'] ?? '');
-            $workspaceHashesPath = dirname($manifestPath).'/workspace_hashes.json';
+            $workspaceHashesPath = (string) ($artifactPaths['workspace_hashes'] ?? '');
 
             $required = [
                 'manifest' => $manifestPath !== '' && is_file($manifestPath),
@@ -1878,9 +2289,6 @@ final class AtlasForgeRivalsReportService
             foreach ($missing as $key) {
                 $reasons[] = 'missing_'.$key;
             }
-            if (! empty($case['hard_failures'])) {
-                $reasons[] = 'hard_failures_present';
-            }
             $replayPasses = (bool) ($case['replay_passes'] ?? false);
             if (! $replayPasses) {
                 $reasons[] = 'replay_did_not_pass';
@@ -1897,7 +2305,7 @@ final class AtlasForgeRivalsReportService
                 $missingDifficultyCases[] = (string) $case['case_id'];
             }
 
-            $isValid = $missing === [] && empty($case['hard_failures']) && $replayPasses;
+            $isValid = $missing === [] && $replayPasses;
             $perCase[] = [
                 'case_id' => $case['case_id'],
                 'task_category' => $case['task_category'],
@@ -1957,7 +2365,7 @@ final class AtlasForgeRivalsReportService
             'matrix_ok' => $matrixOk,
             'blocks_claim_final' => $blocksClaimFinal,
             'rule_summary' => $isMultiCase
-                ? '40-case battery: cada case precisa de manifest, scorecard, dois receipts, dois patches, dois test logs, workspace hashes e difficulty_band em L1-L5. Replay precisa passar. Qualquer falha → claim final bloqueado.'
+                ? '40-case battery: cada case precisa de manifest, scorecard, dois receipts, dois patches, dois test logs, workspace hashes e difficulty_band em L1-L5. Falha de competidor é dado medido; só evidência ausente/replay drift bloqueia claim.'
                 : 'single-case run: matrix lock advisory; claim flows through legacy single-case validity.',
         ];
     }
@@ -2226,15 +2634,18 @@ final class AtlasForgeRivalsReportService
     {
         $sub = $entry['sub_run'] ?? null;
         if (is_array($sub)) {
+            $artifactEvidence = (string) ($entry['artifact_evidence'] ?? $sub['evidence']);
+
             return [
                 'manifest' => $sub['manifest'],
                 'scorecard' => $sub['scorecard'],
-                'atlas_receipt' => $sub['evidence'].'/atlas_receipt.json',
-                'rival_receipt' => $sub['evidence'].'/rival_receipt.json',
-                'atlas_patch' => $sub['evidence'].'/atlas_patch.diff',
-                'rival_patch' => $sub['evidence'].'/rival_patch.diff',
-                'atlas_test_log' => $sub['evidence'].'/atlas_test.log',
-                'rival_test_log' => $sub['evidence'].'/rival_test.log',
+                'atlas_receipt' => $artifactEvidence.'/atlas_receipt.json',
+                'rival_receipt' => $artifactEvidence.'/rival_receipt.json',
+                'atlas_patch' => $artifactEvidence.'/atlas_patch.diff',
+                'rival_patch' => $artifactEvidence.'/rival_patch.diff',
+                'atlas_test_log' => $artifactEvidence.'/atlas_test.log',
+                'rival_test_log' => $artifactEvidence.'/rival_test.log',
+                'workspace_hashes' => $artifactEvidence.'/workspace_hashes.json',
             ];
         }
         $paths = (array) ($entry['paths'] ?? []);
@@ -2248,6 +2659,7 @@ final class AtlasForgeRivalsReportService
             'rival_patch' => (string) ($paths['evidence'] ?? '').'/rival_patch.diff',
             'atlas_test_log' => (string) ($paths['evidence'] ?? '').'/atlas_test.log',
             'rival_test_log' => (string) ($paths['evidence'] ?? '').'/rival_test.log',
+            'workspace_hashes' => (string) ($paths['evidence'] ?? '').'/workspace_hashes.json',
         ];
     }
 
@@ -2458,7 +2870,7 @@ final class AtlasForgeRivalsReportService
 
 {$modeTable}
 
-## Recomendação por Arm (signal v1)
+## Medição por Arm (signal v1)
 
 {$signalTable}
 
@@ -2500,7 +2912,7 @@ final class AtlasForgeRivalsReportService
 
 {$costCompareTable}
 
-## Recomendações para Atlas Decide (advisory_only=true)
+## Sinal medido para Atlas Decide (advisory_only=true)
 
 {$atlasDecideBlock}
 
@@ -2620,17 +3032,20 @@ MD;
      */
     private function renderProviderRecommendationTable(array $signal): string
     {
-        $recs = (array) ($signal['provider_recommendation'] ?? []);
+        $recs = (array) ($signal['provider_measurement'] ?? $signal['provider_recommendation'] ?? []);
         if ($recs === []) {
-            return '_(sem recomendações de provider — confiança insuficiente)_';
+            return '_(sem medição por arm — confiança insuficiente)_';
         }
         $rows = [
             '- schema: `'.(string) ($signal['schema_version'] ?? '').'`',
             '- advisory_only = **'.((bool) ($signal['advisory_only'] ?? true) ? 'true' : 'false').'**',
             '- never_changes_atlas_decide_topology = **'.((bool) ($signal['never_changes_atlas_decide_topology'] ?? true) ? 'true' : 'false').'**',
+            '- should_update_provider_topology = **'.((bool) ($signal['should_update_provider_topology'] ?? false) ? 'true' : 'false').'**',
+            '- owner_of_model_routing = `'.(string) ($signal['owner_of_model_routing'] ?? 'atlas_decide').'`',
             '- fallback_hint: '.(string) ($signal['fallback_hint'] ?? ''),
+            '- nota: '.(string) ($signal['note'] ?? 'Rivals emits measured evidence; Atlas Decide decides model routing.'),
             '',
-            '| Arm | Modelo | Recomendação | Wins | Losses | Ties | Win rate |',
+            '| Arm | Modelo | Sinal medido | Wins | Losses | Ties | Win rate |',
             '| --- | --- | --- | ---: | ---: | ---: | ---: |',
         ];
         foreach ($recs as $r) {
@@ -2638,7 +3053,7 @@ MD;
                 '| %s | %s | %s | %d | %d | %d | %s |',
                 (string) ($r['arm'] ?? ''),
                 (string) ($r['model'] ?? ''),
-                (string) ($r['recommendation'] ?? 'unknown'),
+                (string) ($r['measured_tier'] ?? $r['recommendation'] ?? 'unknown'),
                 (int) ($r['wins'] ?? 0),
                 (int) ($r['losses'] ?? 0),
                 (int) ($r['ties'] ?? 0),
@@ -2718,24 +3133,30 @@ MD;
      */
     private function renderAtlasDecideBlock(array $decide): string
     {
-        $primary = (array) ($decide['primary_builder_by_category'] ?? []);
-        $reviewer = (array) ($decide['reviewer_by_category'] ?? []);
-        if ($primary === []) {
-            return '_(sem recomendações — sem categorias avaliadas)_';
+        $signals = (array) ($decide['measured_signal_by_category'] ?? []);
+        if ($signals === []) {
+            return '_(sem sinal medido — sem categorias avaliadas)_';
         }
-        $rows = ['- advisory_only = **'.($decide['advisory_only'] ? 'true' : 'false').'**', '- should_update_provider_topology = **'.($decide['should_update_provider_topology'] ? 'true' : 'false').'** ('.(string) ($decide['reason_topology_not_updated'] ?? '').')'];
+        $rows = [
+            '- advisory_only = **'.($decide['advisory_only'] ? 'true' : 'false').'**',
+            '- should_update_provider_topology = **'.($decide['should_update_provider_topology'] ? 'true' : 'false').'** ('.(string) ($decide['reason_topology_not_updated'] ?? '').')',
+            '- never_changes_atlas_decide_topology = **'.((bool) ($decide['never_changes_atlas_decide_topology'] ?? true) ? 'true' : 'false').'**',
+            '- owner_of_model_routing = `'.(string) ($decide['owner_of_model_routing'] ?? 'atlas_decide').'`',
+            '- nota: '.(string) ($decide['note'] ?? 'Rivals emits measured evidence; Atlas Decide decides model routing.'),
+        ];
         $rows[] = '';
-        $rows[] = '| Categoria | Primary builder | Razão | Reviewer | Razão |';
-        $rows[] = '| --- | --- | --- | --- | --- |';
-        foreach ($primary as $cat => $pb) {
-            $rv = $reviewer[$cat] ?? ['choice' => null, 'reason' => 'inconclusive'];
+        $rows[] = '| Categoria | Medição | Vencedor | Margem | Casos | Efeito | Razão |';
+        $rows[] = '| --- | --- | --- | ---: | ---: | --- | --- |';
+        foreach ($signals as $signal) {
             $rows[] = sprintf(
-                '| %s | %s | %s | %s | %s |',
-                (string) $cat,
-                (string) ($pb['choice'] ?? 'null'),
-                (string) ($pb['reason'] ?? ''),
-                (string) ($rv['choice'] ?? 'null'),
-                (string) ($rv['reason'] ?? ''),
+                '| %s | %s | %s | %s | %d | %s | %s |',
+                (string) ($signal['category'] ?? 'unknown'),
+                (string) ($signal['measured_ahead'] ?? 'inconclusive'),
+                (string) ($signal['winner'] ?? 'sem vencedor'),
+                $this->formatScore($signal['margin'] ?? null),
+                (int) ($signal['cases'] ?? 0),
+                (string) ($signal['routing_effect'] ?? 'none'),
+                (string) ($signal['reason'] ?? ''),
             );
         }
 

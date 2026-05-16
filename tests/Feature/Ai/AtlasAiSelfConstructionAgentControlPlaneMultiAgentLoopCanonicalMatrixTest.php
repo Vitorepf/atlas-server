@@ -36,9 +36,34 @@ final class AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopCanonicalMatri
         'auto_replenishment_target_met',
         'continuation_summary_present',
         'evidence_hash_present',
+        'structured_completion_evidence_valid',
+        'completion_evidence_files_within_scope',
+        'worker_completion_evidence_template_present',
+        'worker_operator_loop_commands_present',
         'runtime_safety_all_false',
         'queue_transition_policy_enforced',
         'worker_resumption_contract_present',
+        'worker_resumption_checkpoint_present',
+        'worker_iteration_runbook_present',
+        'worker_shell_recipe_present',
+        'terminal_loop_health_digest_present',
+        'terminal_loop_fleet_launch_plan_present',
+        'terminal_loop_fleet_launch_plan_ready_path_verified',
+        'terminal_loop_fleet_replenishment_plan_present',
+        'terminal_loop_fleet_resume_rollup_present',
+        'terminal_loop_fleet_resume_recovery_path_verified',
+        'terminal_loop_fleet_metadata_orphan_recovery_verified',
+        'terminal_loop_fleet_released_task_requeue_verified',
+        'terminal_loop_fleet_evidence_rollup_present',
+        'terminal_loop_fleet_evidence_rollup_green_path_verified',
+        'terminal_loop_fleet_operator_handoff_present',
+        'terminal_loop_fleet_operator_handoff_recovery_priority_verified',
+        'terminal_loop_fleet_lane_isolation_present',
+        'terminal_loop_fleet_lane_bound_commands_verified',
+        'terminal_loop_fleet_lane_no_cross_lane_launch_verified',
+        'certification_cleanup_leaves_no_recoverable_terminal_loop_artifacts',
+        'worker_invalid_scope_rejected',
+        'worker_bootstrap_preview_read_only',
         'safe_for_parallel_terminal_loop',
     ];
 
@@ -133,6 +158,26 @@ final class AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopCanonicalMatri
         $this->assertTrue($result['canonical_invariant_matrix']['invariants']['evidence_hash_present']['value']);
     }
 
+    public function test_structured_completion_evidence_valid_each_completed_packet_has_validation_hash(): void
+    {
+        $result = $this->certify();
+        foreach ($result['cycle_evidence'] as $cycle) {
+            $this->assertSame($cycle['completed_count'], $cycle['structured_completion_evidence_valid_count']);
+            $this->assertSame($cycle['completed_count'], $cycle['completion_evidence_files_within_scope_count']);
+            $this->assertSame(0, $cycle['completion_evidence_scope_escape_count']);
+            $this->assertSame($cycle['completed_count'], $cycle['completion_evidence_validation_hash_count']);
+            foreach (array_filter($cycle['agents'], static fn (array $agent): bool => (bool) ($agent['completed'] ?? false)) as $agent) {
+                $this->assertSame('valid', $agent['completion_evidence_validation_status']);
+                $this->assertTrue($agent['structured_completion_evidence_valid']);
+                $this->assertTrue($agent['completion_evidence_files_within_scope']);
+                $this->assertSame([], $agent['files_changed_outside_allowed_scope']);
+                $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $agent['completion_evidence_validation_hash']);
+            }
+        }
+        $this->assertTrue($result['canonical_invariant_matrix']['invariants']['structured_completion_evidence_valid']['value']);
+        $this->assertTrue($result['canonical_invariant_matrix']['invariants']['completion_evidence_files_within_scope']['value']);
+    }
+
     public function test_runtime_safety_flags_remain_false(): void
     {
         $result = $this->certify();
@@ -164,6 +209,72 @@ final class AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopCanonicalMatri
 
         $this->assertTrue($result['canonical_invariant_matrix']['invariants']['worker_resumption_contract_present']['value']);
         $this->assertTrue((bool) data_get($result, 'terminal_worker_bootstrap_probe.resumption_contracts_present'));
+        $this->assertTrue($result['canonical_invariant_matrix']['invariants']['worker_resumption_checkpoint_present']['value']);
+        $this->assertTrue((bool) data_get($result, 'terminal_worker_bootstrap_probe.resumption_checkpoints_present'));
+        $this->assertTrue($result['canonical_invariant_matrix']['invariants']['worker_iteration_runbook_present']['value']);
+        $this->assertTrue((bool) data_get($result, 'terminal_worker_bootstrap_probe.iteration_runbooks_present'));
+        $this->assertTrue($result['canonical_invariant_matrix']['invariants']['worker_shell_recipe_present']['value']);
+        $this->assertTrue((bool) data_get($result, 'terminal_worker_bootstrap_probe.shell_recipes_present'));
+        $this->assertTrue($result['canonical_invariant_matrix']['invariants']['terminal_loop_health_digest_present']['value']);
+        $this->assertTrue($result['canonical_invariant_matrix']['invariants']['terminal_loop_fleet_launch_plan_present']['value']);
+        $this->assertTrue($result['canonical_invariant_matrix']['invariants']['terminal_loop_fleet_launch_plan_ready_path_verified']['value']);
+        $this->assertTrue($result['canonical_invariant_matrix']['invariants']['terminal_loop_fleet_replenishment_plan_present']['value']);
+        $this->assertTrue($result['canonical_invariant_matrix']['invariants']['terminal_loop_fleet_resume_rollup_present']['value']);
+        $this->assertTrue($result['canonical_invariant_matrix']['invariants']['terminal_loop_fleet_resume_recovery_path_verified']['value']);
+        $this->assertTrue($result['canonical_invariant_matrix']['invariants']['terminal_loop_fleet_released_task_requeue_verified']['value']);
+        $this->assertTrue($result['canonical_invariant_matrix']['invariants']['terminal_loop_fleet_evidence_rollup_present']['value']);
+        $this->assertTrue($result['canonical_invariant_matrix']['invariants']['terminal_loop_fleet_evidence_rollup_green_path_verified']['value']);
+        $this->assertTrue($result['canonical_invariant_matrix']['invariants']['terminal_loop_fleet_operator_handoff_present']['value']);
+        $this->assertTrue($result['canonical_invariant_matrix']['invariants']['terminal_loop_fleet_operator_handoff_recovery_priority_verified']['value']);
+        $this->assertTrue($result['canonical_invariant_matrix']['invariants']['terminal_loop_fleet_lane_isolation_present']['value']);
+        $this->assertTrue($result['canonical_invariant_matrix']['invariants']['terminal_loop_fleet_lane_bound_commands_verified']['value']);
+        $this->assertTrue($result['canonical_invariant_matrix']['invariants']['terminal_loop_fleet_lane_no_cross_lane_launch_verified']['value']);
+        $this->assertTrue($result['canonical_invariant_matrix']['invariants']['certification_cleanup_leaves_no_recoverable_terminal_loop_artifacts']['value']);
+        $this->assertSame('available', data_get($result, 'terminal_loop_fleet_launch_plan_probe.status'));
+        $this->assertTrue((bool) data_get($result, 'terminal_loop_fleet_launch_plan_probe.ready_path_verified'));
+        $this->assertTrue((bool) data_get($result, 'terminal_loop_fleet_launch_plan_probe.terminal_actors_distinct'));
+        $this->assertTrue((bool) data_get($result, 'terminal_loop_fleet_launch_plan_probe.terminal_commands_lane_bound'));
+        $this->assertSame('fleet_lane_isolation_tagged_lane_verified', data_get($result, 'terminal_loop_fleet_launch_plan_probe.lane_isolation_status'));
+        $this->assertTrue((bool) data_get($result, 'terminal_loop_fleet_launch_plan_probe.lane_bound_commands_verified'));
+        $this->assertSame('available', data_get($result, 'terminal_loop_fleet_lane_isolation_negative_probe.status'));
+        $this->assertTrue((bool) data_get($result, 'terminal_loop_fleet_lane_isolation_negative_probe.no_cross_lane_launch_verified'));
+        $this->assertSame(0, data_get($result, 'terminal_loop_fleet_lane_isolation_negative_probe.target_claimable_task_count'));
+        $this->assertGreaterThanOrEqual(1, data_get($result, 'terminal_loop_fleet_lane_isolation_negative_probe.hidden_claimable_outside_requested_tags'));
+        $this->assertTrue((bool) data_get($result, 'terminal_loop_fleet_lane_isolation_negative_probe.tag_filtered_supply_gap'));
+        $this->assertTrue((bool) data_get($result, 'terminal_loop_fleet_lane_isolation_negative_probe.launch_blocked'));
+        $this->assertSame(0, data_get($result, 'terminal_loop_fleet_lane_isolation_negative_probe.recommended_terminal_count'));
+        $this->assertSame(0, data_get($result, 'terminal_loop_fleet_lane_isolation_negative_probe.copy_paste_terminal_command_count'));
+        $this->assertSame('fleet_operator_handoff_replenish_before_launch', data_get($result, 'terminal_loop_fleet_lane_isolation_negative_probe.handoff_status'));
+        $this->assertSame(0, data_get($result, 'terminal_loop_fleet_lane_isolation_negative_probe.commands_using_other_lane_tag_count'));
+        $this->assertSame('available', data_get($result, 'terminal_loop_fleet_resume_rollup_probe.status'));
+        $this->assertTrue((bool) data_get($result, 'terminal_loop_fleet_resume_rollup_probe.recovery_path_verified'));
+        $this->assertSame('fleet_resume_rollup_recovery_required', data_get($result, 'terminal_loop_fleet_resume_rollup_probe.rollup_status'));
+        $this->assertTrue((bool) data_get($result, 'terminal_loop_fleet_resume_rollup_probe.resume_attention_required'));
+        $this->assertSame('fleet_operator_handoff_recover_before_loop', data_get($result, 'terminal_loop_fleet_resume_rollup_probe.operator_handoff_status'));
+        $this->assertTrue((bool) data_get($result, 'terminal_loop_fleet_resume_rollup_probe.operator_handoff_recovery_priority_verified'));
+        $this->assertSame('available', data_get($result, 'terminal_loop_fleet_metadata_orphan_recovery_probe.status'));
+        $this->assertSame('recoverable_orphaned_claim', data_get($result, 'terminal_loop_fleet_metadata_orphan_recovery_probe.classification'));
+        $this->assertTrue((bool) data_get($result, 'terminal_loop_fleet_metadata_orphan_recovery_probe.metadata_orphan_recovery_verified'));
+        $this->assertSame('claimable', data_get($result, 'terminal_loop_fleet_metadata_orphan_recovery_probe.final_queue_status'));
+        $this->assertSame('available', data_get($result, 'terminal_loop_fleet_released_resume_probe.status'));
+        $this->assertTrue((bool) data_get($result, 'terminal_loop_fleet_released_resume_probe.digest_recovery_path_verified'));
+        $this->assertTrue((bool) data_get($result, 'terminal_loop_fleet_released_resume_probe.released_task_requeue_verified'));
+        $this->assertSame('claimable', data_get($result, 'terminal_loop_fleet_released_resume_probe.final_queue_status'));
+        $this->assertSame('recoverable_released_task', data_get($result, 'terminal_loop_fleet_released_resume_probe.summary_classification'));
+        $this->assertSame('available', data_get($result, 'terminal_loop_fleet_evidence_rollup_probe.status'));
+        $this->assertTrue((bool) data_get($result, 'terminal_loop_fleet_evidence_rollup_probe.green_path_verified'));
+        $this->assertSame('fleet_evidence_rollup_green', data_get($result, 'terminal_loop_fleet_evidence_rollup_probe.rollup_status'));
+        $this->assertTrue((bool) data_get($result, 'terminal_loop_fleet_evidence_rollup_probe.ready_for_operator_review'));
+        $this->assertSame('available', data_get($result, 'post_cleanup_health_digest_probe.status'));
+        $this->assertTrue((bool) data_get($result, 'post_cleanup_health_digest_probe.cleanup_left_no_recoverable_artifacts'));
+        $this->assertSame(0, data_get($result, 'post_cleanup_health_digest_probe.claimed_task_count'));
+        $this->assertSame(0, data_get($result, 'post_cleanup_health_digest_probe.active_lease_count'));
+        $this->assertSame(0, data_get($result, 'post_cleanup_health_digest_probe.recoverable_lease_count'));
+        $this->assertFalse((bool) data_get($result, 'post_cleanup_health_digest_probe.runtime_execution_allowed'));
+        $this->assertFalse((bool) data_get($result, 'post_cleanup_health_digest_probe.dispatch_allowed'));
+        $this->assertFalse((bool) data_get($result, 'post_cleanup_health_digest_probe.provider_call_allowed'));
+        $this->assertFalse((bool) data_get($result, 'post_cleanup_health_digest_probe.token_spend_allowed'));
+        $this->assertFalse((bool) data_get($result, 'post_cleanup_health_digest_probe.self_programming_allowed'));
     }
 
     public function test_safe_for_parallel_terminal_loop_when_all_other_invariants_hold(): void

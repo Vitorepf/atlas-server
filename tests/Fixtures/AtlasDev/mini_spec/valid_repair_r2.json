@@ -1,0 +1,66 @@
+{
+    "acceptance_criteria": [
+        {
+            "description": "teste passa",
+            "id": "ac_1",
+            "verification": "test",
+            "verification_ref": "tests/Unit/AtlasCliDevWorkflowServiceTest.php::test_workspace_resolution"
+        }
+    ],
+    "allowed_files": [
+        "app/Services/Ai/Cli/AtlasCliDevWorkflowService.php"
+    ],
+    "assumptions": [
+        {
+            "confidence": "inference",
+            "text": "git root nullable e caso valido e nao bug downstream"
+        }
+    ],
+    "canonical_context": [
+        {
+            "kind": "file",
+            "reason": "alvo do bug",
+            "ref": "app/Services/Ai/Cli/AtlasCliDevWorkflowService.php"
+        },
+        {
+            "kind": "test",
+            "reason": "teste falhando",
+            "ref": "tests/Unit/AtlasCliDevWorkflowServiceTest.php"
+        }
+    ],
+    "compact_sdd_hash": "feedcafe00112233445566778899aabbccddeeff",
+    "completion_criteria": [
+        "teste passa",
+        "nenhum outro teste regrediu (composer test)"
+    ],
+    "expected_behavior": [
+        {
+            "description": "test_workspace_resolution passa com git root null sem disparar exception",
+            "observable_by": "test"
+        }
+    ],
+    "expected_files": [
+        "app/Services/Ai/Cli/AtlasCliDevWorkflowService.php"
+    ],
+    "forbidden_files": [
+        "vendor/*",
+        "node_modules/*"
+    ],
+    "goal": "Corrigir AtlasCliDevWorkflowServiceTest::test_workspace_resolution para passar com git root null",
+    "mini_spec_hash": "PLACEHOLDER_recomputed_by_test",
+    "non_goals": [
+        "nao mudar API publica do WorkflowService",
+        "nao mexer em outros testes"
+    ],
+    "provider_safe": true,
+    "rollback_or_containment": "git checkout app/Services/Ai/Cli/AtlasCliDevWorkflowService.php",
+    "run_id": "0192b5d2-2fe0-7c4f-9d2a-1f3b8e9a4c2d",
+    "schema_version": "atlas.dev.mini_programming_spec.v1",
+    "verification_plan": {
+        "commands": [
+            "composer test -- --filter=AtlasCliDevWorkflowServiceTest::test_workspace_resolution"
+        ],
+        "no_test_reason": null,
+        "profile": "php_laravel"
+    }
+}

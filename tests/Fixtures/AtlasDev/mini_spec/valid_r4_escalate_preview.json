@@ -1,0 +1,63 @@
+{
+    "acceptance_criteria": [
+        {
+            "description": "plano de refactor reduz responsabilidades sem regressao funcional",
+            "id": "ac_1",
+            "verification": "manual_review",
+            "verification_ref": null
+        }
+    ],
+    "allowed_files": [
+        "app/Services/Ai/Programming/AtlasForgeRuntimeDispatchService.php",
+        "app/Services/Ai/Programming/AtlasForgeProviderCoordinator.php"
+    ],
+    "assumptions": [
+        {
+            "confidence": "hypothesis",
+            "text": "responsabilidade de seleção de provider pode ser extraída sem quebrar pipeline"
+        }
+    ],
+    "canonical_context": [
+        {
+            "kind": "file",
+            "reason": "service a refatorar",
+            "ref": "app/Services/Ai/Programming/AtlasForgeRuntimeDispatchService.php"
+        }
+    ],
+    "compact_sdd_hash": "feedface00112233445566778899aabbccddeeff",
+    "completion_criteria": [
+        "plano aprovado",
+        "patch escalado para revisao humana"
+    ],
+    "expected_behavior": [
+        {
+            "description": "interface publica do dispatch service preservada",
+            "observable_by": "test"
+        }
+    ],
+    "expected_files": [
+        "app/Services/Ai/Programming/AtlasForgeRuntimeDispatchService.php"
+    ],
+    "forbidden_files": [
+        "vendor/*",
+        "node_modules/*",
+        ".env"
+    ],
+    "goal": "Esboçar refactor que extrai coordenador de provider do AtlasForgeRuntimeDispatchService",
+    "mini_spec_hash": "PLACEHOLDER_recomputed_by_test",
+    "non_goals": [
+        "nao mexer no Rivals pipeline",
+        "nao tocar storage/atlas-dev"
+    ],
+    "provider_safe": true,
+    "rollback_or_containment": "branch isolada, descartar via git checkout",
+    "run_id": "0192b5d2-4001-7c4f-9d2a-3f3b8e9a4c2d",
+    "schema_version": "atlas.dev.mini_programming_spec.v1",
+    "verification_plan": {
+        "commands": [
+            "composer test"
+        ],
+        "no_test_reason": null,
+        "profile": "php_laravel"
+    }
+}

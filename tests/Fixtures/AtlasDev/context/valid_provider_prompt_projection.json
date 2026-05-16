@@ -1,0 +1,65 @@
+{
+  "schema_version": "atlas.dev.provider_prompt_projection.v1",
+  "run_id": "0192b5d2-5555-7000-8000-000000000005",
+  "upstream_hashes": {
+    "task_contract_hash": "task-contract-hash-1111111111111111",
+    "context_retrieval_plan_hash": "plan-hash-2222222222222222",
+    "code_discovery_manifest_hash": "manifest-hash-3333333333333333",
+    "open_brain_projection_hash": "projection-hash-4444444444444444"
+  },
+  "sections": {
+    "objective": "Aplicar patch minimo em AtlasCliDevWorkflowService::resolveWorkspace para corrigir caminho relativo.",
+    "operating_rules": [
+      "Diff unificado obrigatorio.",
+      "Nao tocar em arquivos fora de allowed_files.",
+      "Nao mencionar Rivals, council ou Forge."
+    ],
+    "mini_spec_ref": "atlas-dev://mini-spec/mini-spec-hash-aaaa",
+    "task_contract_ref": "atlas-dev://task-contract/task-contract-hash-1111111111111111",
+    "context_refs": [
+      "atlas-dev://open-brain/projection-hash-4444444444444444",
+      "atlas-dev://code-discovery/manifest-hash-3333333333333333"
+    ],
+    "code_discovery_ref": "atlas-dev://code-discovery/manifest-hash-3333333333333333",
+    "allowed_files": [
+      "atlas-server/app/Services/Ai/Cli/AtlasCliDevWorkflowService.php"
+    ],
+    "forbidden_files": [
+      "vendor/*",
+      "node_modules/*"
+    ],
+    "expected_tests": [
+      "atlas-server/tests/Unit/AtlasCliDevWorkflowServiceTest.php"
+    ],
+    "acceptance_criteria": [
+      "Teste AtlasCliDevWorkflowServiceTest passa.",
+      "Nenhum arquivo fora de allowed_files muda."
+    ],
+    "stop_conditions": [
+      "patch_applied",
+      "tests_green",
+      "no_patch_needed_explained"
+    ],
+    "escalation_conditions": [
+      "blocking_ambiguity detected",
+      "scope_guard_violation"
+    ],
+    "output_contract": [
+      "diff em formato unified",
+      "lista de changed_files",
+      "razao se no_patch_needed"
+    ]
+  },
+  "quality_checks": {
+    "no_missing_required_sections": true,
+    "no_unbounded_scope": true,
+    "no_hidden_benchmark_instruction": true,
+    "no_conflicting_file_rules": true,
+    "no_forge_or_council_leakage": true,
+    "provider_safe": true
+  },
+  "rendered_prompt_text": "# Atlas Dev Provider Prompt (Repair R2)\n\nObjetivo: aplicar patch minimo em AtlasCliDevWorkflowService::resolveWorkspace para corrigir caminho relativo.\n\nAcceptance Criteria:\n- Teste AtlasCliDevWorkflowServiceTest passa.\n- Nenhum arquivo fora de allowed_files muda.\n",
+  "rendered_prompt_hash": "rendered-prompt-hash-5555555555555555",
+  "provider_safe": true,
+  "prompt_projection_hash": "placeholder_prompt_projection_hash_recomputed_in_test"
+}

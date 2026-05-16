@@ -178,6 +178,44 @@ final class AtlasForgeRivalsAdjudicatorScoringSanityV1Test extends TestCase
         $this->assertFalse($fairness['sanity_gates']['fixture_clean']);
     }
 
+    public function test_multi_case_aggregate_uses_case_ids_instead_of_single_case_id_for_fixture_check(): void
+    {
+        $runId = $this->newRunId('multi-case-aggregate');
+        $caseIds = ['case-a', 'case-b'];
+        $this->seedRun(
+            $runId,
+            mode: 'fair',
+            atlas: [
+                'case_id' => 'multi_case_aggregate',
+                'case_ids' => $caseIds,
+                'patch_diff_bytes' => 2000,
+            ],
+            rival: [
+                'case_id' => 'multi_case_aggregate',
+                'case_ids' => array_reverse($caseIds),
+                'patch_diff_bytes' => 2000,
+            ],
+            manifestOverrides: [
+                'case_id' => 'multi_case_aggregate',
+                'case_ids' => $caseIds,
+                'case_count' => 2,
+            ],
+        );
+
+        $scorecard = $this->adjudicator->adjudicate(['run_id' => $runId])['scorecard'];
+        $fairness = $scorecard['fairness'];
+
+        $this->assertNotContains(
+            'fixture_corruption:atlas_receipt_case_id_mismatch',
+            $fairness['fairness_notes'],
+        );
+        $this->assertNotContains(
+            'fixture_corruption:rival_receipt_case_id_mismatch',
+            $fairness['fairness_notes'],
+        );
+        $this->assertTrue($fairness['sanity_gates']['fixture_clean']);
+    }
+
     public function test_replay_missing_invalidates_claim_and_drops_confidence_level_to_invalid(): void
     {
         $runId = $this->newRunId('replay-missing');

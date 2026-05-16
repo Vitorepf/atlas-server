@@ -1,0 +1,31 @@
+{
+    "compact_sdd_hash": "PLACEHOLDER_recomputed_by_test",
+    "context_budget": {
+        "max_candidate_files": 6,
+        "max_chars": 12000,
+        "max_docs": 4,
+        "max_plan_steps": 4,
+        "max_provider_calls": 1,
+        "max_repair_attempts": 1
+    },
+    "context_digest": null,
+    "doc_tiers_required": [
+        "core",
+        "code_intelligence",
+        "sdd"
+    ],
+    "envelope_hash": "deadbeef00112233445566778899aabbccddeeff",
+    "escalation_triggers": [],
+    "intent_normalized": "corrigir teste falhando em AtlasCliDevWorkflowServiceTest",
+    "intent_raw": "corrija o teste falhando em AtlasCliDevWorkflowServiceTest",
+    "mini_spec_hash": null,
+    "mode": "repair",
+    "provider_safe": true,
+    "risk_level": "R2",
+    "run_id": "0192b5d2-2fe0-7c4f-9d2a-1f3b8e9a4c2d",
+    "schema_version": "atlas.dev.compact_sdd.v1",
+    "scope_mode": "compact",
+    "task_contract_hash": null,
+    "task_kind": "repair",
+    "verification_profile": "php_laravel"
+}

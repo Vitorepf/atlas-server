@@ -21,7 +21,7 @@ use Tests\TestCase;
  *   - planning_vs_execution_results split by manifest.work_kind / category.
  *   - provider_results[] grouped by atlas_model::rival_model pair.
  *   - mode_results[] split fair vs full_power vs local_fake.
- *   - provider_performance_signal.v1 with provider_recommendation, fits, do_not_use_when, fallback_hint.
+ *   - provider_performance_signal.v1 with provider_measurement, fits, do_not_use_when, fallback_hint.
  *   - filters: --category, --difficulty, --provider, --mode collapse case_results before aggregation.
  *   - validity status valid/suspect/insufficient surfaced on every bucket.
  *   - rankings stay advisory_only — never_changes_atlas_decide_topology=true.
@@ -132,18 +132,21 @@ final class AtlasForgeRivalsReportV3RankingTest extends TestCase
         );
         $this->assertTrue($signal['advisory_only']);
         $this->assertTrue($signal['never_changes_atlas_decide_topology']);
-        foreach (['provider_recommendation', 'category_fit', 'difficulty_fit', 'mode_fit', 'provider_pair_fit', 'do_not_use_when', 'fallback_hint', 'confidence', 'rows'] as $key) {
+        foreach (['provider_measurement', 'provider_recommendation', 'category_fit', 'difficulty_fit', 'mode_fit', 'provider_pair_fit', 'do_not_use_when', 'fallback_hint', 'confidence', 'rows'] as $key) {
             $this->assertArrayHasKey($key, $signal, "signal missing key {$key}");
         }
+        $this->assertFalse($signal['should_update_provider_topology']);
+        $this->assertSame('atlas_decide', $signal['owner_of_model_routing']);
+        $this->assertSame('none', $signal['routing_effect']);
     }
 
-    public function test_signal_provider_recommendation_has_both_arms(): void
+    public function test_signal_provider_measurement_has_both_arms(): void
     {
         $runId = $this->newRunId('signal-arms');
         $this->seedMultiCaseBattery($runId);
 
         $signal = $this->report->render(['run_id' => $runId])['provider_performance_signal'];
-        $arms = array_column($signal['provider_recommendation'], 'arm');
+        $arms = array_column($signal['provider_measurement'], 'arm');
         $this->assertContains('atlas', $arms);
         $this->assertContains('rival', $arms);
     }
@@ -245,7 +248,7 @@ final class AtlasForgeRivalsReportV3RankingTest extends TestCase
         $this->assertStringContainsString('Planejamento vs Execução', $body);
         $this->assertStringContainsString('Provider / Modelo', $body);
         $this->assertStringContainsString('Atlas Forge fair vs full_power', $body);
-        $this->assertStringContainsString('Recomendação por Arm', $body);
+        $this->assertStringContainsString('Medição por Arm', $body);
     }
 
     public function test_signal_confidence_block_present(): void
@@ -365,10 +368,8 @@ final class AtlasForgeRivalsReportV3RankingTest extends TestCase
         file_put_contents($paths['events_jsonl'], json_encode(['kind' => 'battery_started']).PHP_EOL);
         file_put_contents($paths['base'].'/intent.json', json_encode(['kind' => 'battery']));
         $sub = $this->writeSubCase($paths['base'].'/cases/case-1', cat: 'backend', data: ['atlas' => 88.0, 'rival' => 75.0, 'winner' => 'atlas'], difficulty: 'L3');
-        // Inject a sub-case scorecard with hard_failures so aggregate replay fails.
-        $bad = json_decode((string) file_get_contents($sub.'/evidence/scorecard.json'), true);
-        $bad['hard_failures'] = ['fake_replay_drift'];
-        file_put_contents($sub.'/evidence/scorecard.json', json_encode($bad));
+        // Remove a required sub-case replay artifact so aggregate replay fails.
+        @unlink($sub.'/evidence/scorecard.json');
         $this->writeReceipts($paths['evidence']);
         $this->runCollectFinal($runId);
     }

@@ -5,7 +5,7 @@ title: Atlas Forge Rivals · Matrix Report v1
 status: active
 category: programming-forge
 priority: 90
-summary: Relatório humano final da bateria multi-case do Forge Rivals. Lê battery_evidence_pack + scorecards per-case e emite winner geral, rankings por categoria e por L1-L5, heatmap categoria×L5, planning_score vs execution_score, invalid/suspicious separados, recomendação Atlas Decide e Markdown+JSON. Honesto com insufficient_evidence; nunca destrava external_rivals.
+summary: Relatório humano final da bateria multi-case do Forge Rivals. Lê battery_evidence_pack + scorecards per-case e emite winner geral, rankings por categoria e por L1-L5, heatmap categoria×L5, planning_score vs execution_score, invalid/suspicious separados, sinal medido advisory para Atlas Decide e Markdown+JSON. Honesto com insufficient_evidence; nunca destrava external_rivals.
 tags:
   - atlas
   - forge
@@ -22,7 +22,7 @@ decisions:
   - Lê per-case scorecard primeiro (canon multi-case), depois `cases_breakdown`, depois run-level (fallback single-case).
   - Difficulty ladder canônica L1-L5 propagada do corpus; cases sem difficulty caem no balde `insufficient_sample`.
   - planning_score = média de {objective_alignment, scope_discipline, evidence_quality}; execution_score = média das 6 dimensões restantes.
-  - Sem case comparable+scored => `insufficient_evidence`; nenhum winner ou recomendação é emitido.
+  - Sem case comparable+scored => `insufficient_evidence`; nenhum winner ou sinal medido é emitido.
   - external_rivals_certification permanece BLOCKED.
 maintenance:
   - Atualizar quando `AtlasForgeRivalsMatrixReportService` mudar de schema, quando dimensões do adjudicator mudarem (afeta planning/execution split) ou quando ladder L1-L5 mudar no corpus.
@@ -50,7 +50,7 @@ repo_paths:
   - docs/engineering-knowledge-base/atlas-forge-rivals-matrix-report-v1.md
 allowed_changes:
   - Adicionar seções additive ao Markdown/JSON do matrix report.
-  - Endurecer regra de `insufficient_evidence` ou de recomendação Atlas Decide.
+  - Endurecer regra de `insufficient_evidence` ou do sinal medido advisory para Atlas Decide.
   - Adicionar aliases CLI sem renomear actions.
 forbidden_changes:
   - Promover `claim_ready=true` a partir do matrix report.
@@ -191,21 +191,30 @@ sample_size=0` em vez de zero falso.
 Invalid e suspicious são MUTUALMENTE EXCLUSIVOS no relatório (invalid tem
 precedência) — sem dupla contagem.
 
-### 3.7 Recomendação Atlas Decide
+### 3.7 Sinal medido para Atlas Decide
 
 Por categoria com `total ≥ 2`:
 
-- `atlas_wins > rival_wins` → `route_to_atlas_forge`
-- `rival_wins > atlas_wins` → `route_to_raw_provider`
+- `atlas_wins > rival_wins` → `atlas_forge_measured_ahead`
+- `rival_wins > atlas_wins` → `rival_measured_ahead`
 - empate → `human_review_inconclusive`
 - amostragem `< 2` cases → `insufficient_sample`
 
 `global_recommendation`:
-- `default_to_atlas_forge_with_per_category_overrides` quando Atlas ganha mais categorias
-- `default_to_raw_provider_with_per_category_overrides` quando Rival ganha mais
-- `split_routing_per_category` quando empate em número de categorias decididas
+- `atlas_forge_measured_ahead_over_more_categories` quando Atlas mede vantagem em mais categorias
+- `rival_measured_ahead_over_more_categories` quando Rival mede vantagem em mais categorias
+- `split_measured_evidence_by_category` quando empate em número de categorias medidas
 - `human_review_required` quando todas as categorias caem em `human_review_inconclusive`
 - `insufficient_evidence` quando não há case comparable+scored
+
+Flags obrigatórias:
+
+- `advisory_only=true`
+- `should_update_provider_topology=false`
+- `never_changes_atlas_decide_topology=true`
+- `owner_of_model_routing=atlas_decide`
+
+Rivals emits measured evidence; Atlas Decide decides model routing.
 
 ---
 
@@ -356,21 +365,22 @@ _Legenda: `A` Atlas, `R` Rival, `T` Tie. `Ax/Rx/Tx` = wins por arm._
 | `fr2-release-a` | `backend-pagination-off-by-one` | backend_logic | L3 | comparable | hard_failures:patch_diff_present_atlas |
 | `fr2-release-c` | `performance-n-plus-one-query` | performance_edge_case | L3 | comparable | gate_outcome_only_no_quality_score |
 
-## Recomendação para Atlas Decide
+## Sinal medido para Atlas Decide
 
-- **Global:** `default_to_atlas_forge_with_per_category_overrides`
+- **Global:** `atlas_forge_measured_ahead_over_more_categories`
 - **Status:** `advisory`
+- **Advisory only:** `true` · **Topology update:** `false`
 
-| Categoria              | Recomendação           | Atlas win-rate | Rival win-rate | Amostra |
+| Categoria              | Sinal                  | Atlas win-rate | Rival win-rate | Amostra |
 |---|---|---:|---:|---:|
-| `backend_logic`        | `route_to_atlas_forge` | 0.750           | 0.250           |   8    |
-| `frontend_ui`          | `route_to_raw_provider`| 0.400           | 0.600           |   5    |
-| `realistic_bugfix`     | `route_to_atlas_forge` | 0.833           | 0.167           |   6    |
-| `architecture`         | `route_to_raw_provider`| 0.250           | 0.750           |   4    |
+| `backend_logic`        | `atlas_forge_measured_ahead` | 0.750   | 0.250           |   8    |
+| `frontend_ui`          | `rival_measured_ahead`       | 0.400   | 0.600           |   5    |
+| `realistic_bugfix`     | `atlas_forge_measured_ahead` | 0.833   | 0.167           |   6    |
+| `architecture`         | `rival_measured_ahead`       | 0.250   | 0.750           |   4    |
 | `integration`          | `human_review_inconclusive` | 0.333      | 0.333           |   3    |
 | `performance_edge_case`| `human_review_inconclusive` | 0.500      | 0.500           |   2    |
-| `refactor`             | `route_to_atlas_forge` | 0.500           | 0.250           |   4    |
-| `test_design`          | `route_to_atlas_forge` | 0.750           | 0.000           |   4    |
+| `refactor`             | `atlas_forge_measured_ahead` | 0.500   | 0.250           |   4    |
+| `test_design`          | `atlas_forge_measured_ahead` | 0.750   | 0.000           |   4    |
 
 > **claim_ready:** `false` · **external_rivals_certification:** `blocked` · **provider_call:** `false`
 > Schema: `atlas.forge.rivals.matrix_report.v1`. Esta superfície descreve a evidência; não promove claim externo.
@@ -394,10 +404,10 @@ _Legenda: `A` Atlas, `R` Rival, `T` Tie. `Ax/Rx/Tx` = wins por arm._
    confiar no winner. Se 8 dos 40 cases são invalid/suspicious, o winner
    está apoiado em 32 cases — o relatório diz isso explícito em
    `comparable_scored_count`.
-6. **Recomendação Atlas Decide** é o output operacional: routing por
-   categoria. `route_to_atlas_forge` ⇒ Atlas Decide deve preferir Atlas
-   Forge naquela categoria; `human_review_inconclusive` ⇒ não confiar no
-   sinal automatizado.
+6. **Sinal medido para Atlas Decide** é evidencia operacional, não routing.
+   `atlas_forge_measured_ahead` significa apenas que a bateria mediu vantagem
+   do Atlas naquela categoria; o Atlas Decide continua sendo a única camada
+   autorizada a escolher provider/modelo/topologia.
 7. **Limitação:** o relatório nunca promove `claim_ready`. Mesmo com
    Atlas vencendo 21x12, o claim externo continua bloqueado por
    `external_rivals_certification`. Esse gate só se abre com aprovação
@@ -466,11 +476,11 @@ locks down 14 contract cases:
 
 ## Resumo
 
-Matrix Report v1 emite winner geral, rankings por categoria e por L1-L5, heatmap, planning_score vs execution_score, invalid/suspicious separados, "onde Atlas/Rival é melhor", recomendação Atlas Decide e Markdown+JSON. Honesto com `insufficient_evidence`. `claim_ready=false` sempre; `external_rivals_certification='blocked'` sempre.
+Matrix Report v1 emite winner geral, rankings por categoria e por L1-L5, heatmap, planning_score vs execution_score, invalid/suspicious separados, "onde Atlas/Rival mediu melhor", sinal advisory para Atlas Decide e Markdown+JSON. Honesto com `insufficient_evidence`. `claim_ready=false` sempre; `external_rivals_certification='blocked'` sempre.
 
 ## Papel no Atlas
 
-Superfície humana final do Forge Rivals: relatório que o operador lê depois da bateria multi-case para decidir routing por categoria, detectar regressões e ler sinal consultivo para Atlas Decide.
+Superfície humana final do Forge Rivals: relatório que o operador lê depois da bateria multi-case para entender desempenho por categoria, detectar regressões e ler sinal consultivo para Atlas Decide. O routing/model topology continua sendo responsabilidade exclusiva do Atlas Decide.
 
 ## Onde Se Encaixa
 

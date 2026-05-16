@@ -1,0 +1,38 @@
+{
+  "schema_version": "atlas.dev.code_discovery_manifest.v1",
+  "run_id": "0192b5d2-2222-7000-8000-000000000002",
+  "confidence": "strong_inference",
+  "likely_files": [
+    {
+      "path": "/abs/atlas-server/app/Services/Ai/Cli/AtlasCliDevWorkflowService.php",
+      "reason": "nome direto no test name",
+      "confidence": 0.95,
+      "symbols": ["AtlasCliDevWorkflowService", "resolveWorkspace"]
+    }
+  ],
+  "related_symbols": [
+    {
+      "kind": "symbol",
+      "ref": "code_intelligence://symbol/AtlasCliDevWorkflowService",
+      "reason": "classe alvo da feature"
+    }
+  ],
+  "related_tests": [
+    {
+      "kind": "test",
+      "ref": "file:///abs/atlas-server/tests/Unit/AtlasCliDevWorkflowServiceTest.php",
+      "reason": "teste falhando explicito no intent"
+    }
+  ],
+  "related_commands": [
+    {
+      "kind": "command",
+      "ref": "atlas:dev:workflow",
+      "reason": "comando que aciona o servico"
+    }
+  ],
+  "missing_refs": [],
+  "forbidden_files": ["vendor/*", "node_modules/*"],
+  "provider_safe": true,
+  "manifest_hash": "placeholder_manifest_hash_recomputed_in_test"
+}

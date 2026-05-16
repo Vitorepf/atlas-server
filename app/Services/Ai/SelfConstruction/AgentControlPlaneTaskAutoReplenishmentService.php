@@ -44,9 +44,12 @@ final class AgentControlPlaneTaskAutoReplenishmentService
             ? (int) data_get($registryBefore, 'status_counts.claimable', 0)
             : $this->countClaimableWithTags($queueTags);
         $totalBefore = (int) data_get($registryBefore, 'total_count', 0);
+        $existingSeedIndex = $this->existingAutoReplenishmentSeedIndex($queueTags);
 
         $sources = $this->sources($context);
-        $plan = $this->plan($sources, $targetMinClaimable, $maxNewTasks, $claimableBefore, $totalBefore);
+        $rawPlan = $this->plan($sources, $targetMinClaimable, $maxNewTasks, $claimableBefore, $totalBefore);
+        $planEvaluation = $this->evaluatePlan($rawPlan, $existingSeedIndex);
+        $plan = (array) $planEvaluation['accepted_seeds'];
         $generated = [];
         $skipped = [];
 
@@ -79,7 +82,7 @@ final class AgentControlPlaneTaskAutoReplenishmentService
                 'reference' => (string) ($seed['reference'] ?? ''),
             ];
 
-            if ((string) ($result['event'] ?? '') === 'prepared_and_enqueued' && $queueEvent !== 'idempotent_enqueue') {
+            if ((string) ($result['event'] ?? '') === 'prepared_and_enqueued' && $queueEvent === 'enqueued') {
                 $generated[] = $entry;
             } else {
                 $skipped[] = $entry;
@@ -105,10 +108,22 @@ final class AgentControlPlaneTaskAutoReplenishmentService
             'claimable_task_count_after' => $claimableAfter,
             'generated_task_count' => count($generated),
             'skipped_existing_task_count' => count($skipped),
+            'skipped_duplicate_seed_count' => (int) $planEvaluation['skipped_duplicate_seed_count'],
+            'active_seed_count' => count((array) $existingSeedIndex['active_seed_keys']),
             'sources' => $sources,
+            'source_catalog' => $this->sourceCatalog(),
+            'replenishment_loop_contract' => $this->replenishmentLoopContract($targetMinClaimable, $maxNewTasks),
+            'plan_evaluation' => $planEvaluation,
             'generated_tasks' => $generated,
             'skipped_tasks' => $skipped,
-            'blockers' => $this->blockers($claimableAfter, $targetMinClaimable, $maxNewTasks),
+            'blockers' => $this->blockers(
+                $claimableAfter,
+                $targetMinClaimable,
+                $maxNewTasks,
+                (int) $planEvaluation['skipped_duplicate_seed_count'],
+                $rawPlan !== [],
+                $plan === [],
+            ),
             'runtime_execution_allowed' => false,
             'dispatch_allowed' => false,
             'provider_call_allowed' => false,
@@ -133,12 +148,158 @@ final class AgentControlPlaneTaskAutoReplenishmentService
         $payload['replenishment_plan_hash'] = $this->stableHash([
             'sources' => $sources,
             'plan' => $plan,
+            'plan_evaluation' => $planEvaluation,
             'target_min_claimable_tasks' => $targetMinClaimable,
             'max_new_tasks' => $maxNewTasks,
         ]);
         $payload['auto_replenishment_hash'] = $this->stableHash($this->normalizeForHash($payload));
 
         return $payload;
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function sourceCatalog(): array
+    {
+        return [
+            [
+                'source' => 'terminal_bootstrap_probe',
+                'priority' => 1,
+                'purpose' => 'keep terminal worker bootstrap probes lane-isolated and claimable for multi-agent loop certification',
+                'stop_when' => 'probe target is satisfied or every probe seed is already active in the selected queue lane',
+            ],
+            [
+                'source' => 'current_pointer',
+                'priority' => 1,
+                'purpose' => 'turn persistent_runtime.next_required_slice into the next governed implementation packet',
+                'stop_when' => 'the pointer seed is already active or the pointer is missing',
+            ],
+            [
+                'source' => 'completion_audit',
+                'priority' => 2,
+                'purpose' => 'turn explicit completion audit blockers into scoped closure packets',
+                'stop_when' => 'blocker seeds are already active, closed by evidence, or absent from the supplied audit context',
+            ],
+            [
+                'source' => 'not_yet_runtime_capable',
+                'priority' => 3,
+                'purpose' => 'turn control-plane runtime capability gaps into bounded graduation or closure packets',
+                'stop_when' => 'runtime gap seeds are already active or no runtime gaps are exposed by the control plane',
+            ],
+            [
+                'source' => 'chain_integrity',
+                'priority' => 2,
+                'purpose' => 'turn structural chain violations into repair packets',
+                'stop_when' => 'chain integrity is clean or the first violation seed is already active',
+            ],
+            [
+                'source' => 'canonical_contract',
+                'priority' => 4,
+                'purpose' => 'ensure contract/docs guardrails are available when implementation changes behavior or CLI surface',
+                'stop_when' => 'docs guardrail seed is already active',
+            ],
+            [
+                'source' => 'test_guardrail',
+                'priority' => 4,
+                'purpose' => 'ensure focused regression tests remain represented in the queue',
+                'stop_when' => 'test guardrail seed is already active',
+            ],
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function replenishmentLoopContract(int $targetMinClaimable, int $maxNewTasks): array
+    {
+        return [
+            'schema_version' => 'atlas.self_construction.agent_control_plane_task_auto_replenishment_loop_contract.v1',
+            'target_min_claimable_tasks' => $targetMinClaimable,
+            'max_new_tasks_per_replenishment' => $maxNewTasks,
+            'dedupe_key' => 'task_packet.continuation_context.auto_replenishment_seed_key scoped by queue_tags/lane',
+            'active_statuses_blocking_duplicate_seed' => $this->activeSeedStatuses(),
+            'terminal_statuses_not_blocking_future_replenishment' => ['completed_dry_run', 'released', 'cancelled'],
+            'claim_before_work_required' => true,
+            'completion_evidence_required' => true,
+            'lease_renewal_required_for_long_running_work' => true,
+            'operator_next_actions' => [
+                'if_claimable_below_target_and_generated_task_count_positive' => 'run terminal worker bootstrap or claim-next for each worker lane',
+                'if_claimable_below_target_and_all_candidate_seeds_active' => 'continue active leases or recover stale leases before replenishing again',
+                'if_blocker_claimable_queue_below_target_after_replenishment' => 'inspect plan_evaluation and queue registry before adding new canonical sources',
+                'if_completion_evidence_validation_fails' => 'do not complete the packet; repair evidence JSON and rerun complete-dry-run',
+            ],
+            'stop_conditions' => [
+                'target_min_claimable_tasks_met',
+                'max_new_tasks_zero',
+                'all_candidate_replenishment_seeds_already_active',
+                'no_governed_source_available',
+                'scope_validation_blocks_candidate_packet',
+                'operator_requests_stop',
+            ],
+            'non_execution_guarantee' => 'auto-replenishment only creates local task packets; it never claims, dispatches, starts providers, spends tokens or marks real OS completion',
+        ];
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $plan
+     * @param  array<string, mixed>  $existingSeedIndex
+     * @return array<string, mixed>
+     */
+    private function evaluatePlan(array $plan, array $existingSeedIndex): array
+    {
+        $activeSeedKeys = (array) ($existingSeedIndex['active_seed_keys'] ?? []);
+        $accepted = [];
+        $skipped = [];
+        $seen = [];
+
+        foreach ($plan as $seed) {
+            $seedKey = (string) ($seed['seed_key'] ?? '');
+            if ($seedKey === '') {
+                $accepted[] = $seed;
+
+                continue;
+            }
+
+            if (isset($seen[$seedKey])) {
+                $skipped[] = [
+                    'seed_key' => $seedKey,
+                    'reason' => 'duplicate_seed_inside_plan',
+                    'existing_task_packet_id' => '',
+                    'existing_status' => '',
+                ];
+
+                continue;
+            }
+            $seen[$seedKey] = true;
+
+            if (isset($activeSeedKeys[$seedKey])) {
+                $skipped[] = [
+                    'seed_key' => $seedKey,
+                    'reason' => 'auto_replenishment_seed_already_active',
+                    'existing_task_packet_id' => (string) data_get($activeSeedKeys, $seedKey.'.task_packet_id', ''),
+                    'existing_status' => (string) data_get($activeSeedKeys, $seedKey.'.status', ''),
+                ];
+
+                continue;
+            }
+
+            $accepted[] = $seed;
+        }
+
+        return [
+            'status' => $accepted !== [] || $plan === [] ? 'evaluated' : 'all_candidate_seeds_already_active',
+            'candidate_seed_count' => count($plan),
+            'accepted_seed_count' => count($accepted),
+            'skipped_duplicate_seed_count' => count($skipped),
+            'accepted_seed_keys' => array_values(array_map(
+                static fn (array $seed): string => (string) ($seed['seed_key'] ?? ''),
+                $accepted,
+            )),
+            'skipped_duplicate_seeds' => $skipped,
+            'active_seed_index_hash' => $this->stableHash($existingSeedIndex),
+            'accepted_seeds' => $accepted,
+        ];
     }
 
     /**
@@ -223,8 +384,7 @@ final class AgentControlPlaneTaskAutoReplenishmentService
             }
 
             return array_slice(array_map(function (array $seed, int $index) use ($totalBefore): array {
-                $sequence = str_pad((string) ($totalBefore + $index + 1), 4, '0', STR_PAD_LEFT);
-                $seed['task_packet_id'] = 'acp-auto-'.$sequence.'-'.$this->slug((string) $seed['seed_key']);
+                $seed['task_packet_id'] = $this->nextAvailableTaskPacketId($seed, $totalBefore, $index);
 
                 return $seed;
             }, $seeds, array_keys($seeds)), 0, $needed);
@@ -246,6 +406,19 @@ final class AgentControlPlaneTaskAutoReplenishmentService
                 'reference' => (string) $criterion,
                 'priority' => 2,
                 'tags' => ['completion_audit'],
+            ]);
+        }
+
+        foreach (array_slice((array) data_get($sourceMap, 'not_yet_runtime_capable.value', []), 0, 3) as $runtimeGap) {
+            $runtimeGap = (string) $runtimeGap;
+            if ($runtimeGap === '') {
+                continue;
+            }
+            $seeds[] = $this->seed('not_yet_runtime_capable_'.$this->slug($runtimeGap), 'Fechar runtime gap do Agent Control Plane: '.$runtimeGap, [
+                'source' => 'not_yet_runtime_capable',
+                'reference' => $runtimeGap,
+                'priority' => 3,
+                'tags' => ['runtime_gap', 'not_yet_runtime_capable'],
             ]);
         }
 
@@ -272,11 +445,43 @@ final class AgentControlPlaneTaskAutoReplenishmentService
         ]);
 
         return array_slice(array_map(function (array $seed, int $index) use ($totalBefore): array {
-            $sequence = str_pad((string) ($totalBefore + $index + 1), 4, '0', STR_PAD_LEFT);
-            $seed['task_packet_id'] = 'acp-auto-'.$sequence.'-'.$this->slug((string) $seed['seed_key']);
+            $seed['task_packet_id'] = $this->nextAvailableTaskPacketId($seed, $totalBefore, $index);
 
             return $seed;
         }, $seeds, array_keys($seeds)), 0, $needed);
+    }
+
+    /**
+     * The registry is capped, but a long-running loop can still have old task
+     * packet files beyond that cap. Never reuse an occupied id; otherwise a
+     * new seed may become a hash-conflict instead of a claimable packet.
+     *
+     * @param  array<string, mixed>  $seed
+     */
+    private function nextAvailableTaskPacketId(array $seed, int $totalBefore, int $index): string
+    {
+        $sequence = str_pad((string) ($totalBefore + $index + 1), 4, '0', STR_PAD_LEFT);
+        $base = 'acp-auto-'.$sequence.'-'.$this->slug((string) $seed['seed_key']);
+
+        if ($this->queue->get($base) === null) {
+            return $base;
+        }
+
+        $fingerprint = substr($this->stableHash([
+            'seed_key' => (string) ($seed['seed_key'] ?? ''),
+            'source' => (string) ($seed['source'] ?? ''),
+            'reference' => (string) ($seed['reference'] ?? ''),
+            'tags' => (array) ($seed['tags'] ?? []),
+        ]), 0, 10);
+
+        for ($attempt = 1; $attempt <= 50; $attempt++) {
+            $candidate = $base.'-'.$fingerprint.'-r'.str_pad((string) $attempt, 2, '0', STR_PAD_LEFT);
+            if ($this->queue->get($candidate) === null) {
+                return $candidate;
+            }
+        }
+
+        return $base.'-'.$fingerprint.'-overflow';
     }
 
     /**
@@ -403,6 +608,27 @@ final class AgentControlPlaneTaskAutoReplenishmentService
             ];
         }
 
+        if ($source === 'not_yet_runtime_capable') {
+            $lane = match ($reference) {
+                'adapter_execution_runtime' => 'AtlasSelfConstructionAdapterExecutionRuntimeGraduation',
+                'automatic_cost_import_runtime' => 'AtlasSelfConstructionAutomaticCostImportRuntimeGraduation',
+                'automatic_work_product_collection_runtime' => 'AtlasSelfConstructionAutomaticWorkProductCollectionRuntimeGraduation',
+                default => 'AtlasSelfConstructionRuntimeGapMatrix',
+            };
+
+            return [
+                'allowed_files' => [
+                    'app/Services/Ai/SelfConstruction/'.$lane,
+                    'tests/Feature/Ai/SelfConstruction/'.$lane,
+                ],
+                'scope_in' => [
+                    'app/Services/Ai/SelfConstruction/',
+                    'tests/Feature/Ai/SelfConstruction/',
+                    'docs/engineering-knowledge-base/self-construction/agent-control-plane-contract.md',
+                ],
+            ];
+        }
+
         if ($source === 'chain_integrity') {
             return [
                 'allowed_files' => [
@@ -468,16 +694,98 @@ final class AgentControlPlaneTaskAutoReplenishmentService
     /**
      * @return list<string>
      */
-    private function blockers(int $claimableAfter, int $targetMinClaimable, int $maxNewTasks): array
-    {
+    private function blockers(
+        int $claimableAfter,
+        int $targetMinClaimable,
+        int $maxNewTasks,
+        int $skippedDuplicateSeedCount,
+        bool $hadCandidateSeeds,
+        bool $allCandidateSeedsFiltered,
+    ): array {
         if ($claimableAfter >= $targetMinClaimable) {
             return [];
         }
         if ($maxNewTasks === 0) {
             return ['max_new_tasks_zero'];
         }
+        if ($hadCandidateSeeds && $allCandidateSeedsFiltered && $skippedDuplicateSeedCount > 0) {
+            return ['all_candidate_replenishment_seeds_already_active'];
+        }
 
         return ['claimable_queue_below_target_after_replenishment'];
+    }
+
+    /**
+     * @param  list<string>  $tags
+     * @return array<string, mixed>
+     */
+    private function existingAutoReplenishmentSeedIndex(array $tags): array
+    {
+        $records = (array) $this->queue->list();
+        $activeSeedKeys = [];
+        $terminalSeedKeys = [];
+
+        foreach ($records as $record) {
+            if (! $this->recordHasTags($record, $tags)) {
+                continue;
+            }
+
+            $seedKey = (string) data_get($record, 'task_packet.continuation_context.auto_replenishment_seed_key', '');
+            if ($seedKey === '') {
+                continue;
+            }
+
+            $entry = [
+                'task_packet_id' => (string) ($record['task_packet_id'] ?? ''),
+                'status' => (string) ($record['status'] ?? ''),
+                'updated_at' => (string) ($record['updated_at'] ?? ''),
+            ];
+
+            if (in_array((string) ($record['status'] ?? ''), $this->activeSeedStatuses(), true)) {
+                $activeSeedKeys[$seedKey] = $entry;
+            } else {
+                $terminalSeedKeys[$seedKey] = $entry;
+            }
+        }
+
+        ksort($activeSeedKeys);
+        ksort($terminalSeedKeys);
+
+        return [
+            'schema_version' => 'atlas.self_construction.agent_control_plane_task_auto_replenishment_seed_index.v1',
+            'queue_tags' => $tags,
+            'active_seed_statuses' => $this->activeSeedStatuses(),
+            'active_seed_keys' => $activeSeedKeys,
+            'terminal_seed_keys' => $terminalSeedKeys,
+        ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function activeSeedStatuses(): array
+    {
+        return ['queued', 'claimable', 'claimed', 'lease_expired', 'blocked'];
+    }
+
+    /**
+     * @param  array<string, mixed>  $record
+     * @param  list<string>  $tags
+     */
+    private function recordHasTags(array $record, array $tags): bool
+    {
+        if ($tags === []) {
+            return true;
+        }
+
+        $recordTags = array_map('strval', (array) ($record['tags'] ?? []));
+        foreach ($tags as $tag) {
+            if (! in_array($tag, $recordTags, true)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private function slug(string $value): string

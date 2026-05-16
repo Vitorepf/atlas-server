@@ -57,6 +57,7 @@ use App\Console\Commands\AtlasCliTraceCommand;
 use App\Console\Commands\AtlasCliTuiCommand;
 use App\Console\Commands\AtlasCliUpdateCommand;
 use App\Console\Commands\AtlasCliVersionCommand;
+use App\Console\Commands\AtlasDevSmokeCommand;
 use App\Console\Commands\AtlasEngineeringApiContractCommand;
 use App\Console\Commands\AtlasEngineeringBenchmarkCalibrateCommand;
 use App\Console\Commands\AtlasEngineeringBenchmarkCommand;
@@ -213,6 +214,7 @@ return Application::configure(basePath: dirname(__DIR__))
         AtlasCliTuiCommand::class,
         AtlasCliUpdateCommand::class,
         AtlasCliVersionCommand::class,
+        AtlasDevSmokeCommand::class,
         AtlasEngineeringBenchmarkCalibrateCommand::class,
         AtlasEngineeringBenchmarkCommand::class,
         AtlasEngineeringBenchmarkFairCommand::class,

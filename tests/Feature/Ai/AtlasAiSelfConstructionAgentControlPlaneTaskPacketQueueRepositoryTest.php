@@ -321,6 +321,34 @@ final class AtlasAiSelfConstructionAgentControlPlaneTaskPacketQueueRepositoryTes
         $this->assertSame(2, count(array_keys($events, 'status_changed')));
     }
 
+    public function test_prune_removes_only_matching_non_claimed_artifacts(): void
+    {
+        $repo = new AgentControlPlaneTaskPacketQueueRepository;
+        $disk = Storage::disk('local');
+
+        $repo->enqueue($this->packet('real-task'), ['tags' => ['real_lane']]);
+        $repo->enqueue($this->packet('synthetic-done'), ['tags' => ['cert_run']]);
+        $repo->enqueue($this->packet('synthetic-claimed'), ['tags' => ['cert_run']]);
+        $repo->updateStatus('synthetic-claimed', 'claimed', ['lease_id' => 'lease-synthetic', 'agent_id' => 'agent-synthetic']);
+
+        $result = $repo->prune([
+            'tags' => ['cert_run'],
+            'delete_task_files' => true,
+        ]);
+
+        $this->assertSame('ok', $result['status']);
+        $this->assertSame('pruned', $result['event']);
+        $this->assertSame(1, $result['pruned_count']);
+        $this->assertSame(1, $result['deleted_task_file_count']);
+        $this->assertSame(1, $result['preserved_count']);
+        $this->assertNotNull($repo->get('real-task'));
+        $this->assertSame('claimed', $repo->get('synthetic-claimed')['status']);
+        $this->assertNull($repo->get('synthetic-done'));
+        $this->assertTrue($disk->exists(AgentControlPlaneTaskPacketQueueRepository::STORAGE_PREFIX.'/task_real-task.json'));
+        $this->assertTrue($disk->exists(AgentControlPlaneTaskPacketQueueRepository::STORAGE_PREFIX.'/task_synthetic-claimed.json'));
+        $this->assertFalse($disk->exists(AgentControlPlaneTaskPacketQueueRepository::STORAGE_PREFIX.'/task_synthetic-done.json'));
+    }
+
     /**
      * @return array<string, mixed>
      */

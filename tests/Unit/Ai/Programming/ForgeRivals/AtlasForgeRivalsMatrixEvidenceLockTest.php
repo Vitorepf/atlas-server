@@ -271,12 +271,13 @@ final class AtlasForgeRivalsMatrixEvidenceLockTest extends TestCase
     public function test_replay_drift_case_marked_invalid(): void
     {
         $runId = $this->newRunId('replay-drift');
-        $blueprint = $this->fortyCaseBlueprint(invalidateBy: ['hard_failures' => [13]]);
+        $blueprint = $this->fortyCaseBlueprint(invalidateBy: ['scorecard' => [13]]);
         $this->seedBattery($runId, $blueprint);
 
         $report = $this->report->render(['run_id' => $runId]);
         $lock = $report['matrix_evidence_lock'];
 
+        $this->assertContains('missing_scorecard', $lock['invalid_cases'][0]['reasons']);
         $this->assertContains('replay_did_not_pass', $lock['invalid_cases'][0]['reasons']);
         $this->assertNotEmpty($lock['replay_drift_cases']);
     }

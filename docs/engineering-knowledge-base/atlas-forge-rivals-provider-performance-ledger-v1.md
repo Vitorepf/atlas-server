@@ -5,7 +5,7 @@ title: Atlas Forge Rivals · Provider Performance Ledger v1
 status: active
 category: architecture
 priority: 80
-summary: Append-only local ledger + decide-signal projection that turns Rivals scorecards into Atlas-Decide-grade intelligence by provider, model, role and task category.
+summary: Append-only local ledger + decide-signal projection that turns Rivals scorecards into Atlas-Decide-grade measured evidence by provider, model, role and task category.
 tags:
   - atlas-forge
   - rivals
@@ -296,7 +296,8 @@ flag in the projection.
 ## Decide signal (`atlas.forge.rivals.decide_signal.v1`)
 
 `atlas:forge:rivals decide-signal --task-category=X --role=Y [--framework=Z]`
-returns an **advisory** recommendation:
+returns an **advisory measured signal**. It never chooses a route or updates
+provider topology; Atlas Decide remains the owner of model routing.
 
 ```jsonc
 {
@@ -305,12 +306,12 @@ returns an **advisory** recommendation:
   "task_category": "frontend",
   "role": "builder",
   "framework": null,
-  "recommended_provider": "anthropic_claude",
-  "recommended_model": "claude_sonnet",
-  "recommended_average_score": 78.4,
+  "top_measured_provider": "anthropic_claude",
+  "top_measured_model": "claude_sonnet",
+  "top_measured_average_score": 78.4,
   "evidence_count": 12,
   "confidence": "high",
-  "alternative_recommendation": {
+  "alternative_measured_candidate": {
     "provider": "openai_codex",
     "model": "codex",
     "average_score": 75.9,
@@ -327,6 +328,11 @@ returns an **advisory** recommendation:
   "should_use_full_power": true,
   "should_require_human_review": false,
   "advisory_only": true,
+  "should_update_provider_topology": false,
+  "never_changes_atlas_decide_topology": true,
+  "owner_of_model_routing": "atlas_decide",
+  "routing_effect": "none",
+  "note": "Rivals emits measured evidence; Atlas Decide decides model routing.",
   "separated_from_external_rivals_certification": true
 }
 ```
@@ -334,7 +340,7 @@ returns an **advisory** recommendation:
 Decision rules:
 
 - `signal=insufficient_evidence` when no valid entry matches
-  (task_category, role) — `recommended_*` are `null`.
+  (task_category, role) — `top_measured_*` are `null`.
 - `signal=human_review_required` when invalid or tie entries exist AND
   evidence_count is below `CONFIDENCE_MEDIUM_THRESHOLD`.
 - `should_explore_alternative=true` when the runner-up gap is below
@@ -345,8 +351,8 @@ Decision rules:
   `FULL_POWER_WORTH_IT_DELTA` (3.0).
 
 The Decide signal is **never** authoritative — Atlas Decide may choose to
-overrule it, ignore it, or escalate to a human. The projection only
-proposes.
+consume it, ignore it, or escalate to a human. The projection only emits
+measured evidence and always reports `routing_effect=none`.
 
 ## Recording an entry
 

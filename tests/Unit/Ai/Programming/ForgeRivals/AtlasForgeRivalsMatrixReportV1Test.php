@@ -24,7 +24,7 @@ use Tests\TestCase;
  *     dimensions,
  *   - invalid/suspicious cases surfaced separately,
  *   - "onde Atlas é melhor / onde Rival é melhor",
- *   - Atlas Decide recommendation per category + global,
+ *   - Atlas Decide advisory signal per category + global,
  *   - markdown + JSON written to disk,
  *   - `insufficient_evidence` when zero comparable+scored cases exist,
  *   - `claim_ready=false` always; `external_rivals_certification='blocked'` always.
@@ -197,7 +197,7 @@ final class AtlasForgeRivalsMatrixReportV1Test extends TestCase
         $this->assertContains('frontend_ui', $rivalBetter);
     }
 
-    public function test_matrix_report_emits_atlas_decide_recommendation(): void
+    public function test_matrix_report_emits_atlas_decide_advisory_signal(): void
     {
         $runId = $this->seedBattery([
             $this->case('c1', 'backend_logic', 'medium', 'comparable', atlas: 90, rival: 50),
@@ -213,9 +213,13 @@ final class AtlasForgeRivalsMatrixReportV1Test extends TestCase
             $entries[$entry['category']] = $entry;
         }
         $this->assertSame('advisory', $advice['status']);
-        $this->assertSame('route_to_atlas_forge', $entries['backend_logic']['recommendation']);
-        $this->assertSame('route_to_raw_provider', $entries['frontend_ui']['recommendation']);
-        $this->assertSame('split_routing_per_category', $advice['global_recommendation']);
+        $this->assertTrue($advice['advisory_only']);
+        $this->assertFalse($advice['should_update_provider_topology']);
+        $this->assertTrue($advice['never_changes_atlas_decide_topology']);
+        $this->assertSame('atlas_decide', $advice['owner_of_model_routing']);
+        $this->assertSame('atlas_forge_measured_ahead', $entries['backend_logic']['signal']);
+        $this->assertSame('rival_measured_ahead', $entries['frontend_ui']['signal']);
+        $this->assertSame('split_measured_evidence_by_category', $advice['global_recommendation']);
     }
 
     public function test_matrix_report_writes_markdown_and_json_on_disk(): void
@@ -235,7 +239,7 @@ final class AtlasForgeRivalsMatrixReportV1Test extends TestCase
         $this->assertStringContainsString('## Ranking por categoria', $md);
         $this->assertStringContainsString('## Heatmap', $md);
         $this->assertStringContainsString('planning_score vs execution_score', $md);
-        $this->assertStringContainsString('Recomendação para Atlas Decide', $md);
+        $this->assertStringContainsString('Sinal medido para Atlas Decide', $md);
         $this->assertStringContainsString('claim_ready', $md);
     }
 

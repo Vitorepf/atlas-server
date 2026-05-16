@@ -281,6 +281,7 @@ final class AtlasSelfConstructionOperatorEvidenceArtifactTemplatePackService
             'operator_required_next_steps' => [
                 'replace_all_placeholders_with_real_operator_values',
                 'follow_operator_execution_plan_order_without_parallel_submission',
+                'review_operator_next_action_before_editing_or_persisting',
                 'compute_canonical_hashes_after_editing',
                 'run_operator_evidence_draft_hash_finalizer_against_the_draft_workspace_path',
                 'publish_finalized_operator_drafts_to_recommended_submission_paths',
@@ -291,6 +292,7 @@ final class AtlasSelfConstructionOperatorEvidenceArtifactTemplatePackService
             ],
             'operator_execution_plan' => (array) data_get($bundle, 'operator_execution_plan', []),
             'operator_handoff_packet' => (array) data_get($bundle, 'operator_handoff_packet', []),
+            'operator_next_action' => (array) data_get($bundle, 'operator_next_action', []),
             'submission_preflight_hash' => (string) data_get($bundle, 'submission_preflight_hash', ''),
             'next_required_submission' => (string) data_get($bundle, 'next_required_submission', ''),
             'command_to_publish_finalized_workspace' => 'php artisan atlas:ai:self-construction --atlas-self-construction-operator-evidence-draft-workspace-publisher-status --operator-draft-workspace-path=storage/app/'.$workspaceDirectory.' --publish-operator-draft-workspace --json',
@@ -336,6 +338,7 @@ final class AtlasSelfConstructionOperatorEvidenceArtifactTemplatePackService
      */
     private function operatorSubmissionBundle(array $templates, array $completionEvidenceSubmissionPreflight): array
     {
+        $operatorNextAction = $this->operatorNextActionFromPreflight($completionEvidenceSubmissionPreflight);
         $artifacts = [
             $this->bundleArtifact(
                 artifact: 'runtime_promotion_receipt',
@@ -386,8 +389,10 @@ final class AtlasSelfConstructionOperatorEvidenceArtifactTemplatePackService
             'next_required_command' => (string) data_get($completionEvidenceSubmissionPreflight, 'next_required_command', ''),
             'next_required_persist_command' => (string) data_get($completionEvidenceSubmissionPreflight, 'next_required_persist_command', ''),
             'ordered_steps' => (array) data_get($completionEvidenceSubmissionPreflight, 'ordered_steps', []),
+            'completion_audit_blocker_summary' => (array) data_get($completionEvidenceSubmissionPreflight, 'completion_audit_blocker_summary', []),
             'operator_execution_plan' => (array) data_get($completionEvidenceSubmissionPreflight, 'operator_execution_plan', []),
             'operator_handoff_packet' => (array) data_get($completionEvidenceSubmissionPreflight, 'operator_handoff_packet', []),
+            'operator_next_action' => $operatorNextAction,
             'bundle_usage_order' => [
                 'fill_runtime_promotion_receipt_from_current_template',
                 'compute_runtime_promotion_receipt_hash_and_verify',
@@ -426,6 +431,57 @@ final class AtlasSelfConstructionOperatorEvidenceArtifactTemplatePackService
         $bundle['operator_submission_bundle_hash'] = $this->stableHash($bundle);
 
         return $bundle;
+    }
+
+    /** @param array<string, mixed> $completionEvidenceSubmissionPreflight */
+    private function operatorNextActionFromPreflight(array $completionEvidenceSubmissionPreflight): array
+    {
+        $handoff = (array) data_get($completionEvidenceSubmissionPreflight, 'operator_handoff_packet', []);
+        $command = (string) data_get($handoff, 'next_draft_or_check_command', '');
+        $persistCommand = (string) data_get($handoff, 'next_persist_command', '');
+        $currentStep = (string) data_get($handoff, 'current_step', '');
+        $placeholders = $this->placeholderFieldsFromCommand($command.' '.$persistCommand);
+
+        $nextAction = [
+            'schema_version' => 'atlas.self_construction.operator_evidence_template_pack_next_action.v1',
+            'status' => (string) data_get($completionEvidenceSubmissionPreflight, 'status', 'unknown'),
+            'current_step' => $currentStep,
+            'current_status' => (string) data_get($handoff, 'current_status', ''),
+            'next_required_submission' => (string) data_get($completionEvidenceSubmissionPreflight, 'next_required_submission', ''),
+            'exact_command' => $command,
+            'exact_persist_command' => $persistCommand,
+            'command_contains_placeholders' => $placeholders !== [],
+            'placeholder_fields_to_replace' => $placeholders,
+            'required_operator_inputs' => (array) data_get($handoff, 'required_operator_inputs', []),
+            'current_blocker_count' => (int) data_get($handoff, 'current_blocker_count', 0),
+            'current_blockers' => (array) data_get($handoff, 'current_blockers', []),
+            'current_blocks_completion_criteria' => (array) data_get($handoff, 'current_blocks_completion_criteria', []),
+            'current_completion_blockers_classified' => (array) data_get($handoff, 'current_completion_blockers_classified', []),
+            'completion_audit_blocker_summary' => (array) data_get($handoff, 'completion_audit_blocker_summary', []),
+            'operator_must_follow_order' => (bool) data_get($handoff, 'operator_must_follow_order', true),
+            'parallel_submission_allowed' => (bool) data_get($handoff, 'parallel_submission_allowed', false),
+            'proof_commands_after_action' => (array) data_get($handoff, 'proof_commands_after_each_persist', []),
+            'handoff_stop_conditions' => (array) data_get($handoff, 'handoff_stop_conditions', []),
+            'final_success_command' => (string) data_get($handoff, 'final_success_command', ''),
+            'final_success_predicate' => (string) data_get($handoff, 'final_success_predicate', ''),
+            'can_run_automatically' => false,
+            'why_not_automatic' => match ($currentStep) {
+                'runtime_promotion_receipt' => 'requires_operator_signature_and_runtime_promotion_judgment',
+                'real_provider_smoke' => 'requires_operator_observed_real_provider_evidence',
+                'human_completion_receipt' => 'requires_human_completion_judgment_and_signed_receipt',
+                default => 'requires_operator_review_or_completion_audit_confirmation',
+            },
+            'non_execution_guarantees' => [
+                'template_pack_next_action_does_not_execute_command',
+                'template_pack_next_action_does_not_persist_receipts',
+                'template_pack_next_action_does_not_call_provider',
+                'template_pack_next_action_does_not_spend_tokens',
+                'template_pack_next_action_does_not_promote_completion',
+            ],
+        ];
+        $nextAction['operator_next_action_hash'] = $this->stableHash($nextAction);
+
+        return $nextAction;
     }
 
     /**
@@ -485,6 +541,14 @@ final class AtlasSelfConstructionOperatorEvidenceArtifactTemplatePackService
     private function commandWithoutPersistFlag(string $command): string
     {
         return trim(str_replace([' --persist-runtime-promotion-receipt', ' --persist-completion-evidence'], '', $command));
+    }
+
+    /** @return list<string> */
+    private function placeholderFieldsFromCommand(string $command): array
+    {
+        preg_match_all('/<[^>]+>|@\/path\/to\/[^\s]+/', $command, $matches);
+
+        return array_values(array_unique(array_map(static fn (string $value): string => trim($value), $matches[0] ?? [])));
     }
 
     /** @param array<string, mixed> $bundle */
@@ -554,6 +618,53 @@ final class AtlasSelfConstructionOperatorEvidenceArtifactTemplatePackService
         $lines[] = '- **parallel_submission_allowed**: `'.(((bool) data_get($bundle, 'parallel_submission_allowed', false)) ? 'true' : 'false').'`';
         $lines[] = '- **final_success_predicate**: `'.((string) data_get($bundle, 'final_success_predicate', '')).'`';
         $lines[] = '';
+        $lines[] = '## Completion Audit Blocker Summary';
+        $lines[] = '';
+        $lines[] = '- **completion_audit_hash**: `'.((string) data_get($bundle, 'completion_audit_blocker_summary.completion_audit_hash', '')).'`';
+        $lines[] = '- **failed_count**: `'.((string) data_get($bundle, 'completion_audit_blocker_summary.failed_count', 0)).'`';
+        $lines[] = '- **human_blocker_count**: `'.((string) data_get($bundle, 'completion_audit_blocker_summary.human_blocker_count', 0)).'`';
+        $lines[] = '- **real_provider_blocker_count**: `'.((string) data_get($bundle, 'completion_audit_blocker_summary.real_provider_blocker_count', 0)).'`';
+        $lines[] = '- **technical_blocker_count**: `'.((string) data_get($bundle, 'completion_audit_blocker_summary.technical_blocker_count', 0)).'`';
+        $lines[] = '';
+        foreach ((array) data_get($bundle, 'completion_audit_blocker_summary.blockers', []) as $blocker) {
+            $lines[] = '### `'.((string) data_get($blocker, 'id', '')).'`';
+            $lines[] = '- **blocker_type**: `'.((string) data_get($blocker, 'blocker_type', '')).'`';
+            $lines[] = '- **owner**: `'.((string) data_get($blocker, 'owner', '')).'`';
+            $lines[] = '- **expected_receipt_schema**: `'.((string) data_get($blocker, 'expected_receipt_schema', '')).'`';
+            $lines[] = '- **doc_anchor**: `'.((string) data_get($blocker, 'doc_anchor', '')).'`';
+            $lines[] = '- **remediation_command**: `'.((string) data_get($blocker, 'remediation_command', '')).'`';
+            $lines[] = '- **why_not_automatic**: `'.$this->markdownScalar((string) data_get($blocker, 'why_not_automatic', '')).'`';
+            $lines[] = '';
+        }
+        $lines[] = '';
+        $lines[] = '## Operator Next Action';
+        $lines[] = '';
+        $lines[] = '- **schema_version**: `'.((string) data_get($bundle, 'operator_next_action.schema_version', '')).'`';
+        $lines[] = '- **current_step**: `'.((string) data_get($bundle, 'operator_next_action.current_step', '')).'`';
+        $lines[] = '- **next_required_submission**: `'.((string) data_get($bundle, 'operator_next_action.next_required_submission', '')).'`';
+        $lines[] = '- **can_run_automatically**: `'.(((bool) data_get($bundle, 'operator_next_action.can_run_automatically', false)) ? 'true' : 'false').'`';
+        $lines[] = '- **why_not_automatic**: `'.((string) data_get($bundle, 'operator_next_action.why_not_automatic', '')).'`';
+        $lines[] = '- **operator_next_action_hash**: `'.((string) data_get($bundle, 'operator_next_action.operator_next_action_hash', '')).'`';
+        $lines[] = '';
+        $lines[] = '**Placeholders to replace before running**';
+        $nextActionPlaceholders = (array) data_get($bundle, 'operator_next_action.placeholder_fields_to_replace', []);
+        if ($nextActionPlaceholders === []) {
+            $lines[] = '- none';
+        } else {
+            foreach ($nextActionPlaceholders as $placeholder) {
+                $lines[] = '- `'.$placeholder.'`';
+            }
+        }
+        $lines[] = '';
+        $lines[] = '**Exact next command**';
+        $lines[] = '';
+        $lines[] = '```bash';
+        $lines[] = (string) data_get($bundle, 'operator_next_action.exact_command', '');
+        if ((string) data_get($bundle, 'operator_next_action.exact_persist_command', '') !== '') {
+            $lines[] = (string) data_get($bundle, 'operator_next_action.exact_persist_command', '');
+        }
+        $lines[] = '```';
+        $lines[] = '';
         $lines[] = '## Operator Current-Step Handoff';
         $lines[] = '';
         $lines[] = '- **schema_version**: `'.((string) data_get($bundle, 'operator_handoff_packet.schema_version', '')).'`';
@@ -561,6 +672,9 @@ final class AtlasSelfConstructionOperatorEvidenceArtifactTemplatePackService
         $lines[] = '- **current_status**: `'.((string) data_get($bundle, 'operator_handoff_packet.current_status', '')).'`';
         $lines[] = '- **current_blocker_count**: `'.((string) data_get($bundle, 'operator_handoff_packet.current_blocker_count', 0)).'`';
         $lines[] = '- **handoff_packet_hash**: `'.((string) data_get($bundle, 'operator_handoff_packet.handoff_packet_hash', '')).'`';
+        $lines[] = '- **resumption_checkpoint_hash**: `'.((string) data_get($bundle, 'operator_handoff_packet.resumption_checkpoint_hash', '')).'`';
+        $lines[] = '- **can_resume_without_chat_history**: `'.((bool) data_get($bundle, 'operator_handoff_packet.can_resume_without_chat_history', false) ? 'true' : 'false').'`';
+        $lines[] = '- **requires_fresh_preflight_before_persist**: `'.((bool) data_get($bundle, 'operator_handoff_packet.requires_fresh_preflight_before_persist', false) ? 'true' : 'false').'`';
         $lines[] = '';
         $lines[] = '**Required operator inputs for current step**';
         foreach ((array) data_get($bundle, 'operator_handoff_packet.required_operator_inputs', []) as $input) {
@@ -574,6 +688,18 @@ final class AtlasSelfConstructionOperatorEvidenceArtifactTemplatePackService
         } else {
             foreach ($currentBlockers as $blocker) {
                 $lines[] = '- `'.$this->markdownScalar($blocker).'`';
+            }
+        }
+        $lines[] = '';
+        $lines[] = '**Current completion blockers classified**';
+        $classifiedBlockers = (array) data_get($bundle, 'operator_handoff_packet.current_completion_blockers_classified', []);
+        if ($classifiedBlockers === []) {
+            $lines[] = '- none';
+        } else {
+            foreach ($classifiedBlockers as $blocker) {
+                $lines[] = '- `'.((string) data_get($blocker, 'id', '')).'`'
+                    .' type=`'.((string) data_get($blocker, 'blocker_type', '')).'`'
+                    .' schema=`'.((string) data_get($blocker, 'expected_receipt_schema', '')).'`';
             }
         }
         $lines[] = '';
@@ -594,6 +720,7 @@ final class AtlasSelfConstructionOperatorEvidenceArtifactTemplatePackService
             $lines[] = '- **ready**: `'.(((bool) data_get($step, 'ready', false)) ? 'true' : 'false').'`';
             $lines[] = '- **required_before**: `'.implode('`, `', (array) data_get($step, 'required_before', [])).'`';
             $lines[] = '- **evidence_hash**: `'.((string) data_get($step, 'evidence_hash', '')).'`';
+            $lines[] = '- **blocks_completion_criteria**: `'.implode('`, `', (array) data_get($step, 'blocks_completion_criteria', [])).'`';
             $lines[] = '';
             $lines[] = '```bash';
             $lines[] = (string) data_get($step, 'draft_or_check_command', '');

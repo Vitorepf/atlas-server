@@ -72,6 +72,10 @@ class AtlasCliDevCommand extends Command
         {--clipboard-image : Attach the current macOS clipboard image to the next prompt}
         {--no-auto-image : Do not auto-attach clipboard images when the prompt mentions screenshots/images}
         {--timeout=900 : Provider timeout}
+        {--efficient : Use the Atlas Dev Efficient pipeline (workspace-bound flow: plan -> token -> run); skips legacy preflight}
+        {--yes : Confirm execution non-interactively for --efficient runs; without it CLI prints the plan and stops}
+        {--flow-origin= : Atlas AI Router origin tag (atlas_ai_router|direct) for --efficient runs}
+        {--command-intent= : Atlas AI Router-resolved intent for --efficient runs (fix|explain|...)}
         {--json : Print machine-readable JSON}';
 
     protected $description = 'Run the native Atlas CLI dev workflow with preflight, provider strategy and completion gate.';
@@ -89,6 +93,11 @@ class AtlasCliDevCommand extends Command
         $workspace = $this->workspace();
         $json = (bool) $this->option('json');
         $task = trim(implode(' ', (array) $this->argument('task')));
+
+        if ((bool) $this->option('efficient')) {
+            return $this->runEfficient($workspace, $task, $json);
+        }
+
         $programmingProfile = (bool) $this->option('forge') ? 'forge' : 'dev';
         $taskId = $this->taskId();
         $atlasTask = null;
@@ -798,6 +807,123 @@ class AtlasCliDevCommand extends Command
         $taskId = $this->option('task-id');
 
         return is_string($taskId) && trim($taskId) !== '' ? trim($taskId) : null;
+    }
+
+    /**
+     * Atlas Dev Efficient short-circuit: bypass the legacy preflight / workflow
+     * stack and drive the canonical orchestrator + DB-backed token + RunExecutor
+     * via {@see \App\Services\Ai\Cli\AtlasCliDevEfficientHandler}.
+     */
+    private function runEfficient(string $workspace, string $task, bool $json): int
+    {
+        $handler = app(\App\Services\Ai\Cli\AtlasCliDevEfficientHandler::class);
+
+        if ($task === '') {
+            $payload = [
+                'error' => [
+                    'code' => 'ATLAS_DEV_PLAN_FAILED',
+                    'message' => '--efficient requires a task description (e.g. atlas:cli:dev "fix failing test" --efficient).',
+                ],
+            ];
+            $this->renderEfficient($payload, $json);
+
+            return 64;
+        }
+
+        $input = [
+            'workspace' => $workspace,
+            'raw_intent' => $task,
+            'user_constraints' => [],
+            'operator_confirmed' => (bool) $this->option('yes'),
+            'flow_origin' => $this->efficientStringOption('flow-origin'),
+            'command_intent' => $this->efficientStringOption('command-intent'),
+        ];
+
+        $outcome = $handler->run(array_filter($input, fn ($v) => $v !== null && $v !== ''));
+
+        $this->renderEfficient($outcome['payload'], $json);
+
+        return (int) $outcome['exit_code'];
+    }
+
+    private function efficientStringOption(string $key): ?string
+    {
+        $value = $this->option($key);
+        if (! is_string($value)) {
+            return null;
+        }
+        $trimmed = trim($value);
+
+        return $trimmed === '' ? null : $trimmed;
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private function renderEfficient(array $payload, bool $json): void
+    {
+        if ($json) {
+            $encoded = json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+            $this->line($encoded !== false ? $encoded : '{}');
+
+            return;
+        }
+
+        if (isset($payload['error']) && is_array($payload['error'])) {
+            $code = (string) ($payload['error']['code'] ?? 'ATLAS_DEV_ERROR');
+            $message = (string) ($payload['error']['message'] ?? '');
+            $this->error("[{$code}] {$message}");
+
+            return;
+        }
+
+        $this->line('Atlas Dev Efficient — plan summary');
+        $this->line('  run_id           : '.(string) ($payload['run_id'] ?? '-'));
+        $this->line('  surface_id       : '.(string) ($payload['surface_id'] ?? '-'));
+        $this->line('  workspace_label  : '.(string) ($payload['workspace_label'] ?? '-'));
+        $this->line('  routing.kind     : '.(string) ($payload['routing']['kind'] ?? '-'));
+        $reasons = $payload['routing']['reasons'] ?? [];
+        if (is_array($reasons) && $reasons !== []) {
+            $this->line('  routing.reasons  : '.implode(', ', array_map('strval', $reasons)));
+        }
+        $blockers = $payload['routing']['blockers'] ?? [];
+        if (is_array($blockers) && $blockers !== []) {
+            $this->line('  routing.blockers : '.implode(', ', array_map('strval', $blockers)));
+        }
+        $suggested = $payload['routing']['suggested_flow'] ?? null;
+        if (is_string($suggested) && $suggested !== '') {
+            $this->line('  suggested_flow   : '.$suggested);
+        }
+        $this->line('  task_kind        : '.(string) ($payload['task_kind'] ?? '-'));
+        $this->line('  risk_level       : '.(string) ($payload['risk_level'] ?? '-'));
+        $this->line('  mode             : '.(string) ($payload['mode'] ?? '-'));
+        $this->line('  operator_confirmed: '.((bool) ($payload['operator_confirmed'] ?? false) ? 'yes' : 'no'));
+
+        if (! empty($payload['confirmation_required'])) {
+            $this->warn(($payload['confirmation_hint'] ?? 'Re-run with --yes to execute.'));
+        }
+
+        $refs = $payload['persisted_artifact_refs'] ?? [];
+        if (is_array($refs) && $refs !== []) {
+            $this->line('  receipts:');
+            foreach ($refs as $name => $ref) {
+                $this->line("    - {$name}: {$ref}");
+            }
+        }
+
+        if (isset($payload['run']) && is_array($payload['run'])) {
+            $run = $payload['run'];
+            $this->line('Run result:');
+            $this->line('  completion_state : '.(string) ($run['completion_state'] ?? '-'));
+            $this->line('  scope_guard      : '.(string) ($run['scope_guard_status'] ?? '-'));
+            $this->line('  verification     : '.(string) ($run['verification_status'] ?? '-'));
+            $runRefs = $run['persisted_receipt_refs'] ?? [];
+            if (is_array($runRefs) && $runRefs !== []) {
+                foreach ($runRefs as $name => $ref) {
+                    $this->line("    - {$name}: {$ref}");
+                }
+            }
+        }
     }
 
     private function modelOption(): ?string
