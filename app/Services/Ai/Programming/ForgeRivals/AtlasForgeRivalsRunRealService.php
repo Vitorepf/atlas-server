@@ -323,6 +323,11 @@ final class AtlasForgeRivalsRunRealService
                 return $this->blocked($seedBlockers, 'fix Provider Arena fixture before running real battery');
             }
 
+            $atlasCase = $case;
+            $rivalCase = $case;
+            $atlasCase['_fixture_baseline_hashes'] = is_array($seedAtlas['file_hashes'] ?? null) ? $seedAtlas['file_hashes'] : [];
+            $rivalCase['_fixture_baseline_hashes'] = is_array($seedRival['file_hashes'] ?? null) ? $seedRival['file_hashes'] : [];
+
             $beforeAtlas = $this->workspaceHash($paths['atlas']);
             $beforeRival = $this->workspaceHash($paths['rival']);
             $this->events->event($runId, 'step_started', [
@@ -330,8 +335,8 @@ final class AtlasForgeRivalsRunRealService
                 'case_id' => (string) $case['id'],
             ]);
 
-            $atlasReceipt = $this->runArm($runId, 'atlas', $paths['atlas'], $mode, $atlasModel, $case, $caseSubdir);
-            $rivalReceipt = $this->runArm($runId, 'rival', $paths['rival'], $mode, $rivalModel, $case, $caseSubdir);
+            $atlasReceipt = $this->runArm($runId, 'atlas', $paths['atlas'], $mode, $atlasModel, $atlasCase, $caseSubdir);
+            $rivalReceipt = $this->runArm($runId, 'rival', $paths['rival'], $mode, $rivalModel, $rivalCase, $caseSubdir);
 
             $afterAtlas = $this->workspaceHash($paths['atlas']);
             $afterRival = $this->workspaceHash($paths['rival']);
@@ -1052,9 +1057,14 @@ final class AtlasForgeRivalsRunRealService
         $fixture = is_array($corpusCase['setup_fixture'] ?? null) ? $corpusCase['setup_fixture'] : [];
         $quickCommand = trim((string) ($corpusCase['quick_test_command'] ?? ''));
         $fullCommand = trim((string) ($corpusCase['full_test_command'] ?? ''));
-        $testCommand = strtolower($preset) === AtlasForgeRivalsCasesRegistry::PRESET_QUICK && $quickCommand !== ''
-            ? $quickCommand
-            : ($fullCommand !== '' ? $fullCommand : $quickCommand);
+        $declaredCommand = trim((string) ($corpusCase['test_command'] ?? ''));
+        $testCommand = $declaredCommand !== ''
+            ? $declaredCommand
+            : (
+                strtolower($preset) === AtlasForgeRivalsCasesRegistry::PRESET_QUICK && $quickCommand !== ''
+                    ? $quickCommand
+                    : ($fullCommand !== '' ? $fullCommand : $quickCommand)
+            );
 
         $difficulty = (string) ($corpusCase['difficulty'] ?? '');
         $difficultyLevel = (string) ($corpusCase['difficulty_level'] ?? '');
@@ -1100,6 +1110,7 @@ final class AtlasForgeRivalsRunRealService
             'business_rule' => (string) ($corpusCase['business_rule'] ?? ''),
             'allowed_files' => $this->normalizeWorkspacePaths($this->stringList($corpusCase['allowed_files_scope'] ?? [])),
             'forbidden_files' => $this->normalizeWorkspacePaths($this->stringList($corpusCase['forbidden_files_scope'] ?? [])),
+            'expected_changed_files' => $this->normalizeWorkspacePaths($this->stringList($corpusCase['expected_changed_files'] ?? [])),
             'acceptance_criteria' => $this->stringList($corpusCase['acceptance_criteria'] ?? []),
             'quick_test_command' => $quickCommand,
             'full_test_command' => $fullCommand,
@@ -1123,15 +1134,21 @@ final class AtlasForgeRivalsRunRealService
     private function normalizeWorkspacePaths(array $paths): array
     {
         return array_values(array_map(function (string $path): string {
-            $path = trim($path);
-            foreach (['atlas-server/', './atlas-server/'] as $prefix) {
-                if (str_starts_with($path, $prefix)) {
-                    return substr($path, strlen($prefix));
-                }
-            }
-
-            return $path;
+            return $this->normalizeWorkspacePath($path);
         }, $paths));
+    }
+
+    private function normalizeWorkspacePath(string $path): string
+    {
+        $path = str_replace('\\', '/', trim($path));
+        $path = ltrim($path, '/');
+        foreach (['atlas-server/', './atlas-server/', './'] as $prefix) {
+            if (str_starts_with($path, $prefix)) {
+                return substr($path, strlen($prefix));
+            }
+        }
+
+        return $path;
     }
 
     /**
@@ -1141,7 +1158,7 @@ final class AtlasForgeRivalsRunRealService
      * and the harness correctly invalidates the run as out-of-scope.
      *
      * @param  array<string,mixed>  $case
-     * @return array{status:string,staged_files:list<string>,ignored_files:list<string>,blockers:list<string>}
+     * @return array{status:string,seed_source?:string,staged_files:list<string>,ignored_files:list<string>,blockers:list<string>,file_hashes?:array<string,string>}
      */
     private function stageCaseFixture(string $runId, string $arm, string $worktree, array $case): array
     {
@@ -1151,6 +1168,7 @@ final class AtlasForgeRivalsRunRealService
                 'staged_files' => [],
                 'ignored_files' => [],
                 'blockers' => [],
+                'file_hashes' => [],
             ];
         }
 
@@ -1162,42 +1180,92 @@ final class AtlasForgeRivalsRunRealService
                 'staged_files' => [],
                 'ignored_files' => [],
                 'blockers' => ['fixture_seed_dir_missing:'.$case['id']],
+                'file_hashes' => [],
             ];
         }
 
+        $seedSource = 'worktree';
         $seedRoot = $worktree.'/'.$seedDir;
+        $sourceSeedRoot = $this->sourceFixtureSeedRoot($seedDir);
+        if ($sourceSeedRoot !== null) {
+            $seedRoot = $sourceSeedRoot;
+            $seedSource = 'source_repo';
+        }
         if (! is_dir($seedRoot)) {
             return [
                 'status' => 'blocked',
                 'staged_files' => [],
                 'ignored_files' => [],
                 'blockers' => ['fixture_seed_dir_not_found:'.$seedDir],
+                'file_hashes' => [],
             ];
         }
 
         $allowed = $this->stringList($case['allowed_files'] ?? []);
+        $expectedChanged = $this->stringList($case['expected_changed_files'] ?? []);
         $targetsByBasename = [];
-        foreach ($allowed as $target) {
+        foreach (array_values(array_unique(array_merge($allowed, $expectedChanged))) as $target) {
             $targetsByBasename[basename($target)] = $target;
         }
 
         $staged = [];
         $ignored = [];
         $blockers = [];
-        $files = glob($seedRoot.'/*') ?: [];
-        sort($files);
+        $fileHashes = [];
+        $files = array_values(array_filter(
+            $this->fixtureSeedFiles($seedRoot),
+            fn (string $path): bool => ! $this->isFixtureReadme($seedRoot, $path),
+        ));
+        $seedRootPrefix = rtrim($seedRoot, '/').'/';
+
+        if ($files === []) {
+            $blockers[] = 'fixture_seed_empty:'.$case['id'];
+            $this->events->event($runId, 'fixture_staged', [
+                'arm' => $arm,
+                'case_id' => $case['id'],
+                'seed_dir' => $seedDir,
+                'seed_source' => $seedSource,
+                'staged_files' => [],
+                'fixture_hash_count' => 0,
+                'ignored_files' => [],
+                'blockers' => $blockers,
+            ]);
+
+            return [
+                'status' => 'blocked',
+                'seed_source' => $seedSource,
+                'staged_files' => [],
+                'ignored_files' => [],
+                'blockers' => array_values(array_unique($blockers)),
+                'file_hashes' => [],
+            ];
+        }
 
         foreach ($files as $sourcePath) {
             if (! is_file($sourcePath)) {
                 continue;
             }
             $basename = basename($sourcePath);
-            $target = $targetsByBasename[$basename] ?? null;
+            $relativeSeedPath = str_starts_with($sourcePath, $seedRootPrefix)
+                ? substr($sourcePath, strlen($seedRootPrefix))
+                : $basename;
+            $relativeSeedPath = $this->normalizeWorkspacePath($relativeSeedPath);
+            $target = str_contains($relativeSeedPath, '/') && $this->isSafeFixtureTarget($relativeSeedPath)
+                ? $relativeSeedPath
+                : ($targetsByBasename[$basename] ?? null);
             if ($target === null) {
                 $ignored[] = $basename;
                 continue;
             }
-            if (! $this->matchesAnyAllowedScope($target, $allowed)) {
+            if (! $this->isSafeFixtureTarget($target)) {
+                $blockers[] = 'fixture_target_unsafe:'.$target;
+                continue;
+            }
+            if (
+                ! $this->matchesAnyAllowedScope($target, $allowed)
+                && ! $this->matchesAnyAllowedScope($target, $expectedChanged)
+                && ! $this->isReadOnlyFixtureTarget($target)
+            ) {
                 $blockers[] = 'fixture_target_out_of_scope:'.$target;
                 continue;
             }
@@ -1212,23 +1280,129 @@ final class AtlasForgeRivalsRunRealService
                 continue;
             }
             $staged[] = $target;
+            $fileHashes[$target] = hash_file('sha256', $targetPath) ?: '';
+        }
+
+        if ($staged === [] && $blockers === []) {
+            $blockers[] = 'fixture_seed_no_stageable_files:'.$case['id'];
         }
 
         $this->events->event($runId, 'fixture_staged', [
             'arm' => $arm,
             'case_id' => $case['id'],
             'seed_dir' => $seedDir,
+            'seed_source' => $seedSource,
             'staged_files' => $staged,
+            'fixture_hash_count' => count(array_filter($fileHashes)),
             'ignored_files' => $ignored,
             'blockers' => $blockers,
         ]);
 
         return [
             'status' => $blockers === [] ? 'ok' : 'blocked',
+            'seed_source' => $seedSource,
             'staged_files' => array_values(array_unique($staged)),
             'ignored_files' => array_values(array_unique($ignored)),
             'blockers' => array_values(array_unique($blockers)),
+            'file_hashes' => array_filter($fileHashes, static fn (string $hash): bool => $hash !== ''),
         ];
+    }
+
+    private function sourceFixtureSeedRoot(string $seedDir): ?string
+    {
+        $seedDir = trim($seedDir);
+        if ($seedDir === '' || str_contains($seedDir, '..') || str_contains($seedDir, "\0")) {
+            return null;
+        }
+        if (! str_starts_with($seedDir, 'storage/forge-rivals-corpus/')) {
+            return null;
+        }
+
+        $sourceRoot = base_path($seedDir);
+
+        return is_dir($sourceRoot) ? $sourceRoot : null;
+    }
+
+    private function isSafeFixtureTarget(string $target): bool
+    {
+        $target = $this->normalizeWorkspacePath($target);
+        if ($target === '' || str_contains($target, '..') || str_contains($target, "\0")) {
+            return false;
+        }
+
+        foreach ([
+            'app/',
+            'bootstrap/',
+            'config/',
+            'database/',
+            'docs/',
+            'resources/',
+            'routes/',
+            'src/',
+            'storage/forge-rivals-work/',
+            'tests/',
+            'atlas-desktop/',
+        ] as $prefix) {
+            if (str_starts_with($target, $prefix)) {
+                return true;
+            }
+        }
+
+        return in_array($target, [
+            'composer.json',
+            'composer.lock',
+            'package.json',
+            'phpunit.xml',
+            'vite.config.ts',
+            'vitest.config.ts',
+        ], true);
+    }
+
+    private function isReadOnlyFixtureTarget(string $target): bool
+    {
+        $target = $this->normalizeWorkspacePath($target);
+
+        return str_starts_with($target, 'tests/')
+            || str_contains($target, '/__tests__/')
+            || str_ends_with($target, '.test.ts')
+            || str_ends_with($target, '.test.tsx')
+            || str_ends_with($target, 'Test.php')
+            || str_contains($target, '/fixtures/')
+            || str_contains($target, '/input/')
+            || str_contains($target, '/inbox/');
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function fixtureSeedFiles(string $seedRoot): array
+    {
+        $files = [];
+
+        try {
+            $iterator = new \RecursiveIteratorIterator(
+                new \RecursiveDirectoryIterator($seedRoot, \FilesystemIterator::SKIP_DOTS),
+            );
+
+            foreach ($iterator as $file) {
+                if ($file instanceof \SplFileInfo && $file->isFile()) {
+                    $files[] = $file->getPathname();
+                }
+            }
+        } catch (\Throwable) {
+            return [];
+        }
+
+        sort($files);
+
+        return array_values($files);
+    }
+
+    private function isFixtureReadme(string $seedRoot, string $path): bool
+    {
+        $relative = ltrim(str_replace('\\', '/', substr($path, strlen(rtrim($seedRoot, '/')))), '/');
+
+        return strtolower($relative) === 'readme.md';
     }
 
     /**
@@ -1373,7 +1547,7 @@ final class AtlasForgeRivalsRunRealService
         ]);
 
         $logPaths = $this->writeProviderLogs($runId, $arm, $stdoutBuf, $stderrBuf, $caseSubdir);
-        $patch = $this->capturePatch($runId, $arm, $worktree, $caseSubdir);
+        $patch = $this->capturePatch($runId, $arm, $worktree, $case, $caseSubdir);
         $scope = $this->scopeCheck($worktree, $case);
         $test = $killed
             ? $this->skippedValidationCommand($runId, $arm, $case, (string) $timeoutReason, $caseSubdir)
@@ -1631,12 +1805,13 @@ DIFF;
     private function casePrompt(array $case, string $role): string
     {
         $allowed = implode("\n- ", $this->stringList($case['allowed_files'] ?? []));
+        $expectedChanged = implode("\n- ", $this->expectedChangedScope($case));
         $acceptance = implode("\n- ", $this->stringList($case['acceptance_criteria'] ?? []));
         $testCommand = $this->testCommand($case);
         $businessRule = trim((string) ($case['business_rule'] ?? ''));
         $expectedSignal = trim((string) ($case['expected_signal'] ?? ''));
         $fixtureNote = ($case['case_source'] ?? '') === 'provider_arena_corpus'
-            ? "\nEstado inicial:\n- Os arquivos de seed ja foram posicionados dentro do escopo permitido deste workspace. Trate esses arquivos como o codigo inicial a corrigir.\n"
+            ? "\nEstado inicial:\n- Os arquivos de seed ja foram posicionados no workspace. Trate inputs e testes existentes como fixtures somente-leitura; leia-os, mas nao modifique.\n"
             : '';
 
         return <<<PROMPT
@@ -1651,6 +1826,9 @@ Regra de negocio:
 Escopo permitido:
 - {$allowed}
 
+Arquivos esperados para alteracao:
+- {$expectedChanged}
+
 Critérios de aceitação:
 - {$acceptance}
 
@@ -1663,6 +1841,7 @@ Comando obrigatório de validação:
 
 Regras:
 - Altere somente arquivos dentro do escopo permitido.
+- Modifique somente os arquivos esperados para alteracao. Tests/inputs de fixture sao somente-leitura.
 - Não crie bytecode, caches, arquivos temporários ou artefatos fora do escopo.
 - Execute o comando obrigatório de validação antes de terminar.
 - Deixe as alterações no workspace para o harness capturar diff e evidência.
@@ -1731,7 +1910,7 @@ PROMPT;
     /**
      * @return array{path:string,sha256:string,bytes:int}
      */
-    private function capturePatch(string $runId, string $arm, string $worktree, string $caseSubdir = ''): array
+    private function capturePatch(string $runId, string $arm, string $worktree, array $case = [], string $caseSubdir = ''): array
     {
         $paths = $this->paths->paths($runId);
         $dir = $this->artifactDir($paths['evidence'], $caseSubdir);
@@ -1745,9 +1924,14 @@ PROMPT;
 
         $status = $this->workspaceStatusLines($worktree);
         $untracked = [];
+        $fixtureHashes = $this->fixtureBaselineHashes($case);
         foreach ($status as $line) {
             if (str_starts_with($line, '?? ')) {
-                $untracked[] = $this->statusPath($line);
+                $file = $this->statusPath($line);
+                if ($this->isUnchangedFixtureFile($worktree, $file, $fixtureHashes)) {
+                    continue;
+                }
+                $untracked[] = $file;
             }
         }
         foreach ($untracked as $file) {
@@ -1791,6 +1975,8 @@ PROMPT;
     private function scopeCheck(string $worktree, array $case): array
     {
         $allowed = $this->stringList($case['allowed_files'] ?? []);
+        $expectedChanged = $this->expectedChangedScope($case);
+        $fixtureHashes = $this->fixtureBaselineHashes($case);
         $changed = [];
         $outOfScope = [];
         $bytecode = [];
@@ -1801,6 +1987,9 @@ PROMPT;
             if ($file === '') {
                 continue;
             }
+            if ($this->isUnchangedFixtureFile($worktree, $file, $fixtureHashes)) {
+                continue;
+            }
             $changed[] = $file;
             if ($this->isPythonBytecode($file)) {
                 $bytecode[] = $file;
@@ -1808,9 +1997,17 @@ PROMPT;
 
                 continue;
             }
-            if (! $this->matchesAnyAllowedScope($file, $allowed)) {
+            if (array_key_exists($file, $fixtureHashes)) {
                 $outOfScope[] = $file;
-                $blockers[] = 'out_of_scope_change:'.$file;
+                $blockers[] = 'fixture_file_modified:'.$file;
+
+                continue;
+            }
+            if (! $this->matchesAnyAllowedScope($file, $expectedChanged)) {
+                $outOfScope[] = $file;
+                $blockers[] = $allowed !== [] && $this->matchesAnyAllowedScope($file, $allowed)
+                    ? 'unexpected_changed_file:'.$file
+                    : 'out_of_scope_change:'.$file;
             }
         }
 
@@ -1820,6 +2017,60 @@ PROMPT;
             'bytecode_artifacts' => array_values(array_unique($bytecode)),
             'blockers' => array_values(array_unique($blockers)),
         ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $case
+     * @return list<string>
+     */
+    private function expectedChangedScope(array $case): array
+    {
+        $expected = $this->stringList($case['expected_changed_files'] ?? []);
+        if (($case['case_source'] ?? '') === 'provider_arena_corpus' && $expected !== []) {
+            return $expected;
+        }
+
+        return $this->stringList($case['allowed_files'] ?? []);
+    }
+
+    /**
+     * @param  array<string,mixed>  $case
+     * @return array<string,string>
+     */
+    private function fixtureBaselineHashes(array $case): array
+    {
+        $hashes = is_array($case['_fixture_baseline_hashes'] ?? null)
+            ? $case['_fixture_baseline_hashes']
+            : [];
+
+        $normalized = [];
+        foreach ($hashes as $path => $hash) {
+            $path = $this->normalizeWorkspacePath((string) $path);
+            $hash = trim((string) $hash);
+            if ($path !== '' && $hash !== '') {
+                $normalized[$path] = $hash;
+            }
+        }
+
+        return $normalized;
+    }
+
+    /**
+     * @param  array<string,string>  $fixtureHashes
+     */
+    private function isUnchangedFixtureFile(string $worktree, string $file, array $fixtureHashes): bool
+    {
+        $file = $this->normalizeWorkspacePath($file);
+        if (! array_key_exists($file, $fixtureHashes)) {
+            return false;
+        }
+
+        $path = $worktree.'/'.$file;
+        if (! is_file($path)) {
+            return false;
+        }
+
+        return hash_file('sha256', $path) === $fixtureHashes[$file];
     }
 
     /**

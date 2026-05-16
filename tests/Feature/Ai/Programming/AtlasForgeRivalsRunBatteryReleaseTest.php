@@ -212,6 +212,51 @@ final class AtlasForgeRivalsRunBatteryReleaseTest extends TestCase
         $this->assertGreaterThanOrEqual(10, count($context['cases']));
     }
 
+    public function test_run_real_release_preserves_case_specific_validation_command(): void
+    {
+        // Release batteries must validate the current challenge, not a broad
+        // category-wide suite. The planning L1 case declares a narrow command;
+        // if the adapter replaces it with full_test_command, real batteries
+        // measure unrelated repo failures instead of the competitor output.
+        $runReal = app(AtlasForgeRivalsRunRealService::class);
+        $reflection = new \ReflectionMethod($runReal, 'resolveCaseContext');
+        $reflection->setAccessible(true);
+
+        $context = $reflection->invoke(
+            $runReal,
+            ['case' => 'planning-l1-acceptance-checklist'],
+            AtlasForgeRivalsCasesRegistry::PRESET_RELEASE,
+        );
+
+        $this->assertSame('provider_arena_corpus', $context['source']);
+        $this->assertSame(
+            "php artisan test --filter='AcceptanceChecklistTest'",
+            $context['cases'][0]['test_command'],
+        );
+        $this->assertNotSame(
+            $context['cases'][0]['full_test_command'],
+            $context['cases'][0]['test_command'],
+        );
+    }
+
+    public function test_run_real_release_adapts_expected_changed_files_for_scope_guard(): void
+    {
+        $runReal = app(AtlasForgeRivalsRunRealService::class);
+        $reflection = new \ReflectionMethod($runReal, 'resolveCaseContext');
+        $reflection->setAccessible(true);
+
+        $context = $reflection->invoke(
+            $runReal,
+            ['case' => 'planning-l1-acceptance-checklist'],
+            AtlasForgeRivalsCasesRegistry::PRESET_RELEASE,
+        );
+
+        $this->assertSame(
+            ['docs/planning/inbox/feature.acceptance.md'],
+            $context['cases'][0]['expected_changed_files'],
+        );
+    }
+
     public function test_run_battery_codex_rival_blocks_when_binary_missing_before_provider_call(): void
     {
         if ($this->whichBinary('codex') !== '') {
@@ -402,6 +447,127 @@ final class AtlasForgeRivalsRunBatteryReleaseTest extends TestCase
         $this->assertSame('legacy_preset', $context['source']);
     }
 
+    public function test_provider_arena_fixture_staging_falls_back_to_source_corpus_and_reads_nested_files(): void
+    {
+        $runReal = app(AtlasForgeRivalsRunRealService::class);
+
+        $resolve = new \ReflectionMethod($runReal, 'resolveCaseContext');
+        $resolve->setAccessible(true);
+        $context = $resolve->invoke(
+            $runReal,
+            ['case' => 'frontend-form-validation-accessibility'],
+            AtlasForgeRivalsCasesRegistry::PRESET_QUICK,
+        );
+
+        $worktree = sys_get_temp_dir().'/atlas-rivals-fixture-stage-'.bin2hex(random_bytes(6));
+        @mkdir($worktree, 0o755, true);
+
+        try {
+            $stage = new \ReflectionMethod($runReal, 'stageCaseFixture');
+            $stage->setAccessible(true);
+
+            $result = $stage->invoke(
+                $runReal,
+                'fixture-stage-source-corpus-test',
+                'atlas',
+                $worktree,
+                $context['cases'][0],
+            );
+
+            $this->assertSame('ok', $result['status'], json_encode($result, JSON_PRETTY_PRINT));
+            $this->assertSame('source_repo', $result['seed_source']);
+            $this->assertContains('atlas-desktop/src/components/forge/SignupForm.tsx', $result['staged_files']);
+            $this->assertContains('atlas-desktop/src/components/forge/__tests__/SignupForm.test.tsx', $result['staged_files']);
+            $this->assertArrayHasKey('atlas-desktop/src/components/forge/SignupForm.tsx', $result['file_hashes']);
+            $this->assertArrayHasKey('atlas-desktop/src/components/forge/__tests__/SignupForm.test.tsx', $result['file_hashes']);
+            $this->assertFileExists($worktree.'/atlas-desktop/src/components/forge/SignupForm.tsx');
+            $this->assertFileExists($worktree.'/atlas-desktop/src/components/forge/__tests__/SignupForm.test.tsx');
+            $this->assertNotContains('fixture_seed_dir_not_found:storage/forge-rivals-corpus/frontend-form-validation-accessibility/seed', $result['blockers']);
+        } finally {
+            $this->removeDirectory($worktree);
+        }
+    }
+
+    public function test_provider_arena_fixture_staging_blocks_empty_seed_before_provider_call(): void
+    {
+        $runReal = app(AtlasForgeRivalsRunRealService::class);
+
+        $resolve = new \ReflectionMethod($runReal, 'resolveCaseContext');
+        $resolve->setAccessible(true);
+        $context = $resolve->invoke(
+            $runReal,
+            ['case' => 'planning-l2-incremental-slices'],
+            AtlasForgeRivalsCasesRegistry::PRESET_RELEASE,
+        );
+
+        $worktree = sys_get_temp_dir().'/atlas-rivals-empty-fixture-'.bin2hex(random_bytes(6));
+        @mkdir($worktree, 0o755, true);
+
+        try {
+            $stage = new \ReflectionMethod($runReal, 'stageCaseFixture');
+            $stage->setAccessible(true);
+
+            $result = $stage->invoke(
+                $runReal,
+                'fixture-empty-source-corpus-test',
+                'atlas',
+                $worktree,
+                $context['cases'][0],
+            );
+
+            $this->assertSame('blocked', $result['status'], json_encode($result, JSON_PRETTY_PRINT));
+            $this->assertSame('source_repo', $result['seed_source']);
+            $this->assertSame([], $result['staged_files']);
+            $this->assertContains('fixture_seed_empty:planning-l2-incremental-slices', $result['blockers']);
+        } finally {
+            $this->removeDirectory($worktree);
+        }
+    }
+
+    public function test_provider_arena_scope_ignores_unchanged_fixture_files_and_blocks_fixture_mutation(): void
+    {
+        $runReal = app(AtlasForgeRivalsRunRealService::class);
+        $worktree = sys_get_temp_dir().'/atlas-rivals-scope-fixture-'.bin2hex(random_bytes(6));
+        @mkdir($worktree.'/docs/planning/inbox', 0o755, true);
+        @mkdir($worktree.'/tests/Unit/Planning', 0o755, true);
+
+        file_put_contents($worktree.'/docs/planning/inbox/feature.md', "Feature input\n");
+        file_put_contents($worktree.'/tests/Unit/Planning/AcceptanceChecklistTest.php', "<?php\n// locked test\n");
+        file_put_contents($worktree.'/docs/planning/inbox/feature.acceptance.md', "- Entregar criterio verificavel\n");
+
+        (new Process(['git', '-C', $worktree, 'init']))->mustRun();
+
+        $case = [
+            'id' => 'planning-l1-acceptance-checklist',
+            'case_source' => 'provider_arena_corpus',
+            'allowed_files' => [
+                'docs/planning/inbox/feature.acceptance.md',
+                'tests/Unit/Planning/AcceptanceChecklistTest.php',
+            ],
+            'expected_changed_files' => ['docs/planning/inbox/feature.acceptance.md'],
+            '_fixture_baseline_hashes' => [
+                'docs/planning/inbox/feature.md' => hash_file('sha256', $worktree.'/docs/planning/inbox/feature.md'),
+                'tests/Unit/Planning/AcceptanceChecklistTest.php' => hash_file('sha256', $worktree.'/tests/Unit/Planning/AcceptanceChecklistTest.php'),
+            ],
+        ];
+
+        try {
+            $scope = new \ReflectionMethod($runReal, 'scopeCheck');
+            $scope->setAccessible(true);
+
+            $cleanFixtureResult = $scope->invoke($runReal, $worktree, $case);
+            $this->assertSame(['docs/planning/inbox/feature.acceptance.md'], $cleanFixtureResult['changed_files']);
+            $this->assertSame([], $cleanFixtureResult['blockers']);
+
+            file_put_contents($worktree.'/tests/Unit/Planning/AcceptanceChecklistTest.php', "<?php\n// tampered\n");
+            $tamperedFixtureResult = $scope->invoke($runReal, $worktree, $case);
+            $this->assertContains('tests/Unit/Planning/AcceptanceChecklistTest.php', $tamperedFixtureResult['out_of_scope_files']);
+            $this->assertContains('fixture_file_modified:tests/Unit/Planning/AcceptanceChecklistTest.php', $tamperedFixtureResult['blockers']);
+        } finally {
+            $this->removeDirectory($worktree);
+        }
+    }
+
     /**
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>
@@ -423,5 +589,27 @@ final class AtlasForgeRivalsRunBatteryReleaseTest extends TestCase
         }
 
         return trim((string) $proc->getOutput());
+    }
+
+    private function removeDirectory(string $path): void
+    {
+        if (! is_dir($path)) {
+            return;
+        }
+
+        $items = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($path, \FilesystemIterator::SKIP_DOTS),
+            \RecursiveIteratorIterator::CHILD_FIRST,
+        );
+
+        foreach ($items as $item) {
+            if ($item instanceof \SplFileInfo && $item->isDir()) {
+                @rmdir($item->getPathname());
+            } elseif ($item instanceof \SplFileInfo) {
+                @unlink($item->getPathname());
+            }
+        }
+
+        @rmdir($path);
     }
 }

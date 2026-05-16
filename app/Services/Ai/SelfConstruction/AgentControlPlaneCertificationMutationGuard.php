@@ -36,6 +36,16 @@ final class AgentControlPlaneCertificationMutationGuard
         'atlas/self-construction/operator-submissions',
     ];
 
+    /**
+     * Upper bound for the recursive monitored-prefix scan. Beyond this point
+     * the guard returns the cap as a saturated count instead of materialising
+     * every path: the only consumer is a before/after delta, so the exact
+     * count beyond the cap is irrelevant for invariant detection. This keeps
+     * the completion audit under PHP's default 128M memory_limit even when
+     * the operator-submission workspace grows large.
+     */
+    private const STORAGE_SCAN_HARD_CAP = 50000;
+
     public function __construct(
         private readonly AtlasSelfConstructionReadinessService $readiness,
         private readonly AgentControlPlaneDeterministicChainReplayService $replay,
@@ -219,15 +229,23 @@ final class AgentControlPlaneCertificationMutationGuard
     {
         try {
             $disk = Storage::disk(AgentControlPlaneReplaySnapshotStore::DEFAULT_DISK);
-            $all = $disk->allFiles();
-            $outside = array_filter(
-                $all,
-                static fn (string $path) => self::isMonitoredStoragePath($path)
-                    && ! str_starts_with($path, self::ALLOWED_SNAPSHOT_PREFIX.'/')
-                    && $path !== self::ALLOWED_SNAPSHOT_PREFIX,
-            );
+            $count = 0;
+            foreach (self::MONITORED_STORAGE_PREFIXES as $prefix) {
+                foreach ($disk->allFiles($prefix) as $path) {
+                    if (! self::isMonitoredStoragePath($path)
+                        || str_starts_with($path, self::ALLOWED_SNAPSHOT_PREFIX.'/')
+                        || $path === self::ALLOWED_SNAPSHOT_PREFIX) {
+                        continue;
+                    }
 
-            return count($outside);
+                    $count++;
+                    if ($count >= self::STORAGE_SCAN_HARD_CAP) {
+                        return $count;
+                    }
+                }
+            }
+
+            return $count;
         } catch (\Throwable) {
             return 0;
         }

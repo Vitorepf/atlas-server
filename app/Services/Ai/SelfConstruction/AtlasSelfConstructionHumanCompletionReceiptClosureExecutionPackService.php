@@ -218,6 +218,7 @@ final class AtlasSelfConstructionHumanCompletionReceiptClosureExecutionPackServi
                 'human_completion_receipt_requires_human_signature' => true,
                 'human_completion_receipt_requires_runtime_promotion_green' => true,
                 'human_completion_receipt_requires_real_provider_smoke_green' => true,
+                'human_completion_receipt_requires_prior_persisted_real_provider_smoke_command' => true,
                 'completion_claim_allowed' => false,
             ],
             'completion_claim_allowed' => false,
@@ -256,6 +257,11 @@ final class AtlasSelfConstructionHumanCompletionReceiptClosureExecutionPackServi
         $runtimePromotionPresent = (string) data_get($completionEvidence, 'runtime_gap_matrix.runtime_promotion_receipt.status', '') === 'passed';
         $smokeGreen = $criterionGreen('end_to_end_real_provider_smoke_green')
             && (string) data_get($completionEvidence, 'real_provider_smoke.status', '') === 'passed';
+        $smokePersistedBeforeHumanReceiptCommand = (bool) data_get(
+            $completionEvidence,
+            'checks.real_provider_smoke_persisted_before_human_receipt_command',
+            false,
+        );
         $dossierGreen = $criterionGreen('release_dossier_green');
         $replayGreen = $criterionGreen('replay_diff_against_completion_snapshot_green');
         $batchGreen = $criterionGreen('certification_status_batch_green');
@@ -264,6 +270,7 @@ final class AtlasSelfConstructionHumanCompletionReceiptClosureExecutionPackServi
             'runtime_gap_matrix_all_runtime_y' => $this->prereq($runtimeMatrixGreen, 'runtime_gap_matrix.runtime_gap_matrix_all_runtime_y_must_be_true'),
             'runtime_promotion_receipt_present' => $this->prereq($runtimePromotionPresent, 'runtime_gap_matrix.runtime_promotion_receipt.status_must_be_passed'),
             'end_to_end_real_provider_smoke_green' => $this->prereq($smokeGreen, 'real_provider_smoke.status_must_be_passed'),
+            'real_provider_smoke_persisted_before_human_receipt_command' => $this->prereq($smokePersistedBeforeHumanReceiptCommand, 'completion_evidence_status.checks.real_provider_smoke_persisted_before_human_receipt_command_must_be_true'),
             'release_dossier_green' => $this->prereq($dossierGreen, 'completion_audit.criteria.release_dossier_green_must_be_passed'),
             'replay_diff_green' => $this->prereq($replayGreen, 'completion_audit.criteria.replay_diff_against_completion_snapshot_green_must_be_passed'),
             'certification_status_batch_green' => $this->prereq($batchGreen, 'completion_audit.criteria.certification_status_batch_green_must_be_passed'),
@@ -427,6 +434,7 @@ final class AtlasSelfConstructionHumanCompletionReceiptClosureExecutionPackServi
                 'runtime_gap_matrix_all_runtime_y_is_green',
                 'runtime_promotion_receipt_hash_matches_current_context',
                 'real_provider_smoke_hash_matches_current_context',
+                'real_provider_smoke_was_persisted_in_a_prior_completion_evidence_command',
                 'completion_audit_hash_release_dossier_hash_replay_diff_hash_and_certification_batch_hash_match_current_context',
                 'receipt_hash_matches_canonical_payload_hash',
                 'signed_by_is_real_operator_not_placeholder_or_agent',
@@ -620,6 +628,7 @@ final class AtlasSelfConstructionHumanCompletionReceiptClosureExecutionPackServi
             ],
             'persistence_invariants' => [
                 'cannot_persist_until_prerequisites_green',
+                'cannot_persist_in_same_command_that_first_persists_real_provider_smoke',
                 'cannot_persist_until_verifier_status_passed',
                 'cannot_persist_through_closure_pack_directly',
             ],
@@ -650,7 +659,8 @@ final class AtlasSelfConstructionHumanCompletionReceiptClosureExecutionPackServi
     {
         $runtimeOrSmokeMissing = ! (bool) data_get($prereqs, 'runtime_gap_matrix_all_runtime_y.green', false)
             || ! (bool) data_get($prereqs, 'runtime_promotion_receipt_present.green', false)
-            || ! (bool) data_get($prereqs, 'end_to_end_real_provider_smoke_green.green', false);
+            || ! (bool) data_get($prereqs, 'end_to_end_real_provider_smoke_green.green', false)
+            || ! (bool) data_get($prereqs, 'real_provider_smoke_persisted_before_human_receipt_command.green', false);
 
         if ($runtimeOrSmokeMissing) {
             return 'blocked_runtime_and_smoke_required';

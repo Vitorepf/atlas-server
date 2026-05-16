@@ -184,6 +184,84 @@ final class AtlasAiSelfConstructionAgentControlPlaneReleaseDossierTest extends T
         $this->assertArrayHasKey('mutation_guard_tests', $dossier['test_evidence']);
     }
 
+    public function test_dossier_exposes_release_dossier_closure_runbook(): void
+    {
+        $dossier = $this->dossier();
+
+        $this->assertArrayHasKey('release_dossier_closure_runbook', $dossier);
+        $runbook = (array) $dossier['release_dossier_closure_runbook'];
+        $this->assertSame(
+            'atlas.self_construction.agent_control_plane_release_dossier_closure_runbook.v1',
+            (string) $runbook['schema_version'],
+        );
+        $this->assertSame('read_only_agent_control_plane_release_dossier_closure_runbook', (string) $runbook['mode']);
+        $this->assertContains((string) $runbook['closure_status'], [
+            'release_dossier_green',
+            'release_dossier_blocked_resolve_blockers_before_capture',
+            'snapshot_capture_required_before_release_dossier_green',
+            'snapshot_capture_required_but_capture_not_yet_safe',
+            'release_dossier_warning_inspect_blockers_and_warnings',
+        ]);
+        $this->assertSame(
+            'php artisan atlas:ai:self-construction --agent-control-plane-replay-snapshot-store-capture --json',
+            (string) $runbook['capture_command'],
+        );
+        $this->assertSame(
+            'php -d memory_limit=512M artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --json',
+            (string) $runbook['post_capture_audit_command'],
+        );
+        $this->assertSame(
+            'php artisan atlas:ai:self-construction --agent-control-plane-release-dossier-status --json',
+            (string) $runbook['post_capture_dossier_command'],
+        );
+        $this->assertSame(
+            'php artisan atlas:ai:self-construction --agent-control-plane-replay-diff-status --json',
+            (string) $runbook['post_capture_replay_diff_command'],
+        );
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $runbook['runbook_hash']);
+        $this->assertTrue((bool) $runbook['read_only']);
+        $this->assertFalse((bool) $runbook['execution_allowed']);
+        $this->assertFalse((bool) $runbook['dispatch_allowed']);
+        $this->assertFalse((bool) $runbook['provider_call_allowed']);
+        $this->assertFalse((bool) $runbook['completion_claim_allowed']);
+        $this->assertContains('closure_runbook_does_not_capture_snapshot_itself', (array) $runbook['non_execution_guarantees']);
+        $this->assertGreaterThanOrEqual(5, (int) $runbook['step_count']);
+    }
+
+    public function test_closure_runbook_resolves_exact_next_command_from_dossier_state(): void
+    {
+        $dossier = $this->dossier();
+        $runbook = (array) $dossier['release_dossier_closure_runbook'];
+
+        $status = (string) $dossier['status'];
+        $closureStatus = (string) $runbook['closure_status'];
+
+        // Cross-check the closure_status branch is consistent with dossier
+        // status and snapshot readiness, and that exact_next_command picks
+        // the right command for that branch. The test deliberately accepts
+        // all four valid branches because the faked storage disk can land
+        // the dossier in any of warning/blocked/green depending on
+        // production replay/snapshot state.
+        if ($status === 'available') {
+            $this->assertSame('release_dossier_green', $closureStatus);
+            $this->assertSame((string) $runbook['post_capture_audit_command'], (string) $runbook['exact_next_command']);
+        } elseif ($status === 'blocked') {
+            $this->assertSame('release_dossier_blocked_resolve_blockers_before_capture', $closureStatus);
+            $this->assertSame((string) $runbook['post_capture_dossier_command'], (string) $runbook['exact_next_command']);
+        } else {
+            $this->assertSame('warning', $status);
+            if ((bool) $runbook['baseline_snapshot_capture_required'] && (bool) $runbook['baseline_snapshot_can_capture']) {
+                $this->assertSame('snapshot_capture_required_before_release_dossier_green', $closureStatus);
+                $this->assertSame((string) $runbook['capture_command'], (string) $runbook['exact_next_command']);
+            } else {
+                $this->assertContains($closureStatus, [
+                    'snapshot_capture_required_but_capture_not_yet_safe',
+                    'release_dossier_warning_inspect_blockers_and_warnings',
+                ]);
+            }
+        }
+    }
+
     public function test_completion_claim_allowed_false(): void
     {
         $dossier = $this->dossier();

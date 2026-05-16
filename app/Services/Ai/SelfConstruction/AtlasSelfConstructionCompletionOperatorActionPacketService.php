@@ -107,14 +107,42 @@ final class AtlasSelfConstructionCompletionOperatorActionPacketService
         ];
 
         $missing = [];
+        $blockers = [];
         if ((string) data_get($runtimeGapMatrix, 'runtime_promotion_receipt.status') !== 'passed') {
             $missing[] = 'runtime_promotion_receipt';
+            $blockers[] = [
+                'id' => 'runtime_promotion_receipt',
+                'blocker_type' => 'human',
+                'requirement' => 'Operator must persist a signed runtime promotion receipt that matches the current graduation hashes.',
+                'why_not_automatic' => 'Atlas cannot decide that the runtime gap matrix has graduated; an operator must explicitly approve the graduation hashes.',
+                'expected_receipt_schema' => AtlasSelfConstructionRuntimePromotionReceiptService::SCHEMA_VERSION,
+                'expected_receipt_command' => 'php artisan atlas:ai:self-construction --atlas-self-construction-runtime-promotion-receipt-draft-status --signed-by="<operator>" --reason="<operator reason with at least 32 chars>" --json',
+                'persist_command' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --runtime-promotion-receipt-json=@/path/to/runtime-promotion.json --persist-runtime-promotion-receipt --json',
+            ];
         }
         if ((string) data_get($humanReceipt, 'status') !== 'passed') {
             $missing[] = 'human_signed_os_complete_receipt';
+            $blockers[] = [
+                'id' => 'human_signed_os_complete_receipt',
+                'blocker_type' => 'human',
+                'requirement' => 'Operator must persist a human-signed OS-complete receipt referencing the final completion audit, runtime promotion and real provider smoke hashes.',
+                'why_not_automatic' => 'Atlas refuses to self-promote completion. The OS-complete signature is the operator promise that the OS is truly done.',
+                'expected_receipt_schema' => AtlasSelfConstructionHumanSignedCompletionReceiptService::SCHEMA_VERSION,
+                'expected_receipt_command' => 'php artisan atlas:ai:self-construction --atlas-self-construction-human-completion-receipt-draft-status --runtime-promotion-receipt-json=@/path/to/runtime-promotion.json --real-provider-smoke-json=@/path/to/real-provider-smoke.json --signed-by="<operator>" --reason="<operator reason with at least 32 chars>" --json',
+                'persist_command' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --completion-receipt-json=@/path/to/completion-receipt.json --persist-completion-evidence --json',
+            ];
         }
         if ((string) data_get($realProviderSmoke, 'status') !== 'passed') {
             $missing[] = 'real_provider_claim_to_completion_smoke';
+            $blockers[] = [
+                'id' => 'real_provider_claim_to_completion_smoke',
+                'blocker_type' => 'real_provider',
+                'requirement' => 'Operator must run a real provider claim-to-completion smoke with collected work product, cost event, continuation summary and evidence ledger hash.',
+                'why_not_automatic' => 'Atlas never starts a provider process and never spends tokens. The smoke requires a real, operator-observed provider call outside Atlas.',
+                'expected_receipt_schema' => AtlasSelfConstructionRealProviderSmokeCertificationService::SCHEMA_VERSION,
+                'expected_receipt_command' => 'php artisan atlas:ai:self-construction --atlas-self-construction-real-provider-smoke-draft-status --real-provider-smoke-json=@/path/to/real-provider-smoke-preimage.json --json',
+                'persist_command' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --real-provider-smoke-json=@/path/to/real-provider-smoke.json --persist-completion-evidence --json',
+            ];
         }
 
         $payload = [
@@ -123,6 +151,28 @@ final class AtlasSelfConstructionCompletionOperatorActionPacketService
             'status' => $missing === [] ? 'ready_for_operator_final_review' : 'operator_action_required',
             'generated_at' => CarbonImmutable::now()->toIso8601String(),
             'missing_operator_artifacts' => $missing,
+            'blockers' => $blockers,
+            'blocker_count' => count($blockers),
+            'blocker_classification' => [
+                'human_blockers' => array_values(array_filter($blockers, static fn (array $b): bool => ($b['blocker_type'] ?? '') === 'human')),
+                'real_provider_blockers' => array_values(array_filter($blockers, static fn (array $b): bool => ($b['blocker_type'] ?? '') === 'real_provider')),
+                'technical_blockers' => array_values(array_filter($blockers, static fn (array $b): bool => ($b['blocker_type'] ?? '') === 'technical')),
+            ],
+            'expected_receipt_schemas' => [
+                'runtime_promotion_receipt' => AtlasSelfConstructionRuntimePromotionReceiptService::SCHEMA_VERSION,
+                'human_signed_os_complete_receipt' => AtlasSelfConstructionHumanSignedCompletionReceiptService::SCHEMA_VERSION,
+                'real_provider_smoke' => AtlasSelfConstructionRealProviderSmokeCertificationService::SCHEMA_VERSION,
+                'real_provider_smoke_runbook' => AtlasSelfConstructionRealProviderSmokeRunbookService::SCHEMA_VERSION,
+                'completion_audit' => AtlasSelfConstructionOsCompletionAuditService::SCHEMA_VERSION,
+                'release_dossier' => AgentControlPlaneReleaseDossierService::SCHEMA_VERSION,
+            ],
+            'human_judgment_required_reasons' => [
+                'atlas_never_self_promotes_os_complete',
+                'real_provider_call_is_outside_atlas_token_budget_and_kill_switch_belongs_to_operator',
+                'runtime_graduation_must_be_signed_explicitly_with_current_hashes',
+                'completion_audit_treats_unsigned_state_as_incomplete_by_contract',
+                'release_dossier_green_alone_does_not_authorise_completion',
+            ],
             'runtime_promotion_receipt_template' => $runtimePromotionTemplate,
             'human_completion_receipt_template' => $humanCompletionTemplate,
             'real_provider_smoke_template' => $realProviderSmokeTemplate,

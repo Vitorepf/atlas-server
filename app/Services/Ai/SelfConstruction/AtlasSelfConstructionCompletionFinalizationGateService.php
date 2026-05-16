@@ -34,7 +34,15 @@ final class AtlasSelfConstructionCompletionFinalizationGateService
                 'real_provider_smoke' => (array) ($options['real_provider_smoke'] ?? []),
                 'forge_self_improvement_smoke' => (array) ($options['forge_self_improvement_smoke'] ?? []),
             ]));
-        $completionEvidence = (array) ($options['completion_evidence'] ?? []);
+        $completionEvidence = (array) ($options['completion_evidence']
+            ?? $this->readiness->atlasSelfConstructionOsCompletionEvidenceStatus([
+                'runtime_promotion_receipt' => (array) ($options['runtime_promotion_receipt'] ?? []),
+                'real_provider_smoke' => (array) ($options['real_provider_smoke'] ?? []),
+                'completion_receipt' => (array) ($options['completion_receipt'] ?? []),
+                'forge_self_improvement_smoke' => (array) ($options['forge_self_improvement_smoke'] ?? []),
+                'persist_completion_evidence' => false,
+                'persist_runtime_promotion_receipt' => false,
+            ]));
 
         $checks = [
             'completion_audit_complete' => $this->check(
@@ -140,6 +148,7 @@ final class AtlasSelfConstructionCompletionFinalizationGateService
             'checks' => $checks,
             'failed_check_ids' => $failed,
             'completion_audit_hash' => (string) data_get($completionAudit, 'completion_audit_hash', ''),
+            'completion_evidence_status_hash' => (string) data_get($completionEvidence, 'completion_evidence_status_hash', ''),
             'completion_audit_status' => (string) data_get($completionAudit, 'status'),
             'completion_audit_failed_criteria' => (array) data_get($completionAudit, 'failed_criteria', []),
             'execution_allowed' => false,

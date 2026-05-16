@@ -48,6 +48,17 @@ final class AgentControlPlaneTaskPacketQueueRepository
         'cancelled',
     ];
 
+    public const ALLOWED_STATUS_TRANSITIONS = [
+        'queued' => ['claimable', 'blocked', 'cancelled'],
+        'claimable' => ['claimed', 'blocked', 'cancelled'],
+        'claimed' => ['lease_expired', 'released', 'completed_dry_run', 'blocked'],
+        'lease_expired' => ['claimable', 'released', 'cancelled'],
+        'released' => ['claimable', 'cancelled'],
+        'blocked' => ['claimable', 'cancelled'],
+        'completed_dry_run' => [],
+        'cancelled' => [],
+    ];
+
     public function __construct(
         private readonly ?string $disk = null,
     ) {}
@@ -200,8 +211,26 @@ final class AgentControlPlaneTaskPacketQueueRepository
                 return $this->envelopeError('task_packet_not_found', $taskPacketId);
             }
 
-            $now = CarbonImmutable::now()->toIso8601String();
             $previous = (string) ($record['status'] ?? '');
+            if (! $this->statusTransitionAllowed($previous, $status)) {
+                return $this->envelopeError('invalid_status_transition', $taskPacketId, [
+                    'from' => $previous,
+                    'to' => $status,
+                    'allowed_next_statuses' => self::ALLOWED_STATUS_TRANSITIONS[$previous] ?? [],
+                    'transition_policy_hash' => $this->transitionPolicyHash(),
+                ]);
+            }
+
+            $transitionValidation = $this->validateTransitionMetadata($status, $metadata);
+            if ($transitionValidation !== []) {
+                return $this->envelopeError('transition_metadata_missing', $taskPacketId, array_merge([
+                    'from' => $previous,
+                    'to' => $status,
+                    'transition_policy_hash' => $this->transitionPolicyHash(),
+                ], $transitionValidation));
+            }
+
+            $now = CarbonImmutable::now()->toIso8601String();
             $record['status'] = $status;
             $record['updated_at'] = $now;
             $record['history'][] = [
@@ -210,6 +239,7 @@ final class AgentControlPlaneTaskPacketQueueRepository
                 'from' => $previous,
                 'to' => $status,
                 'metadata' => $metadata,
+                'transition_policy_hash' => $this->transitionPolicyHash(),
             ];
             if ($metadata !== []) {
                 $record['metadata'] = array_merge((array) ($record['metadata'] ?? []), $metadata);
@@ -300,6 +330,10 @@ final class AgentControlPlaneTaskPacketQueueRepository
             'status_counts' => $statusCounts,
             'allowed_statuses' => self::STATUSES,
             'entries' => $entries,
+            'status_transition_policy' => self::ALLOWED_STATUS_TRANSITIONS,
+            'status_transition_policy_hash' => $this->transitionPolicyHash(),
+            'claim_transition_requires_lease_id' => true,
+            'claim_transition_requires_agent_id' => true,
             'runtime_execution_allowed' => false,
             'dispatch_allowed' => false,
             'ledger_write_allowed' => false,
@@ -521,6 +555,46 @@ final class AgentControlPlaneTaskPacketQueueRepository
         $safe = preg_replace('/[^A-Za-z0-9_\-]/', '_', $taskPacketId) ?? $taskPacketId;
 
         return self::STORAGE_PREFIX.'/task_'.$safe.'.json';
+    }
+
+    private function statusTransitionAllowed(string $previous, string $next): bool
+    {
+        if ($previous === $next) {
+            return true;
+        }
+
+        return in_array($next, self::ALLOWED_STATUS_TRANSITIONS[$previous] ?? [], true);
+    }
+
+    /**
+     * @param  array<string, mixed>  $metadata
+     * @return array<string, mixed>
+     */
+    private function validateTransitionMetadata(string $next, array $metadata): array
+    {
+        if ($next !== 'claimed') {
+            return [];
+        }
+
+        $missing = [];
+        foreach (['lease_id', 'agent_id'] as $field) {
+            if ((string) ($metadata[$field] ?? '') === '') {
+                $missing[] = $field;
+            }
+        }
+
+        return $missing === []
+            ? []
+            : [
+                'missing_metadata' => $missing,
+                'claim_transition_requires_lease_id' => true,
+                'claim_transition_requires_agent_id' => true,
+            ];
+    }
+
+    private function transitionPolicyHash(): string
+    {
+        return $this->stableHash(self::ALLOWED_STATUS_TRANSITIONS);
     }
 
     /**

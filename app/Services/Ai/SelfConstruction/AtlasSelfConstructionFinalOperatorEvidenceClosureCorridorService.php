@@ -52,6 +52,11 @@ final class AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorService
         $runtimeReceiptReady = (string) data_get($completionEvidence, 'runtime_gap_matrix.runtime_promotion_receipt.status') === 'passed'
             && (bool) data_get($completionEvidence, 'runtime_gap_matrix.all_runtime_y', false);
         $realProviderSmokeReady = (string) data_get($completionEvidence, 'real_provider_smoke.status') === 'passed';
+        $realProviderSmokePersistedBeforeHumanReceiptCommand = (bool) data_get(
+            $completionEvidence,
+            'checks.real_provider_smoke_persisted_before_human_receipt_command',
+            false,
+        );
         $humanReceiptReady = (string) data_get($completionEvidence, 'human_signed_completion_receipt.status') === 'passed';
         $completionAuditComplete = (string) data_get($completionAudit, 'status') === 'complete'
             && (bool) data_get($completionAudit, 'completion_allowed', false);
@@ -73,6 +78,7 @@ final class AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorService
             completionReceipt: $completionReceiptInput,
             runtimeReceiptReady: $runtimeReceiptReady,
             realProviderSmokeReady: $realProviderSmokeReady,
+            realProviderSmokePersistedBeforeHumanReceiptCommand: $realProviderSmokePersistedBeforeHumanReceiptCommand,
             humanReceiptReady: $humanReceiptReady,
         );
 
@@ -80,6 +86,7 @@ final class AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorService
             blockerExplainer: $blockerExplainer,
             runtimeReceiptReady: $runtimeReceiptReady,
             realProviderSmokeReady: $realProviderSmokeReady,
+            realProviderSmokePersistedBeforeHumanReceiptCommand: $realProviderSmokePersistedBeforeHumanReceiptCommand,
             humanReceiptReady: $humanReceiptReady,
             completionAuditComplete: $completionAuditComplete,
             runtimeReceiptHash: $runtimeReceiptHash,
@@ -208,6 +215,7 @@ final class AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorService
                 'completion_evidence_status_hash' => (string) data_get($completionEvidence, 'completion_evidence_status_hash', ''),
                 'runtime_promotion_receipt_status' => (string) data_get($completionEvidence, 'runtime_gap_matrix.runtime_promotion_receipt.status', 'blocked'),
                 'real_provider_smoke_status' => (string) data_get($completionEvidence, 'real_provider_smoke.status', 'blocked'),
+                'real_provider_smoke_persisted_before_human_receipt_command' => $realProviderSmokePersistedBeforeHumanReceiptCommand,
                 'human_signed_completion_receipt_status' => (string) data_get($completionEvidence, 'human_signed_completion_receipt.status', 'blocked'),
                 'all_runtime_y' => (bool) data_get($completionEvidence, 'runtime_gap_matrix.all_runtime_y', false),
                 'runtime_gap_matrix_hash' => $runtimeGapMatrixHash,
@@ -252,6 +260,10 @@ final class AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorService
                 'draft_workspace_can_persist_from_publisher' => (bool) data_get($draftWorkspacePublisher, 'can_persist_from_publisher', false),
                 'submission_readiness_status' => (string) data_get($submissionReadiness, 'status', 'unknown'),
                 'submission_readiness_next_required' => (string) data_get($submissionReadiness, 'next_required', ''),
+                'canonical_submission_persistence_plan_status' => (string) data_get($submissionReadiness, 'canonical_submission_persistence_plan.status', 'unknown'),
+                'canonical_submission_persistence_plan_next_step_id' => (string) data_get($submissionReadiness, 'canonical_submission_persistence_plan.next_step_id', ''),
+                'canonical_submission_persisted_evidence_state' => (array) data_get($submissionReadiness, 'canonical_submission_persistence_plan.persisted_evidence_state', []),
+                'human_receipt_persistence_requires_prior_persisted_smoke_command' => (bool) data_get($submissionReadiness, 'canonical_submission_persistence_plan.human_receipt_persistence_requires_prior_persisted_smoke_command', false),
                 'can_write_from_corridor' => false,
                 'can_persist_from_corridor' => false,
             ],
@@ -353,6 +365,7 @@ final class AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorService
         array $completionReceipt,
         bool $runtimeReceiptReady,
         bool $realProviderSmokeReady,
+        bool $realProviderSmokePersistedBeforeHumanReceiptCommand,
         bool $humanReceiptReady,
     ): array {
         $runtimeEnvelope = $this->operatorEnvelopeSummary(
@@ -373,11 +386,11 @@ final class AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorService
             persistCommand: 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --real-provider-smoke-json=@/path/to/real-provider-smoke.json --persist-completion-evidence --json',
             detailedEndgameCommand: 'php artisan atlas:ai:self-construction --atlas-self-construction-real-provider-smoke-endgame-status --real-provider-smoke-json=@/path/to/real-provider-smoke.json --json',
         );
-        $humanBlockedByPrereqs = ! $runtimeReceiptReady || ! $realProviderSmokeReady;
+        $humanBlockedByPrereqs = ! $runtimeReceiptReady || ! $realProviderSmokeReady || ! $realProviderSmokePersistedBeforeHumanReceiptCommand;
         $humanEnvelope = $this->operatorEnvelopeSummary(
             schemaVersion: 'atlas.self_construction.human_completion_receipt_operator_submission_envelope.v1',
             artifact: 'human_completion_receipt',
-            status: $humanReceiptReady ? 'persisted_human_completion_receipt' : ($humanBlockedByPrereqs ? 'blocked_until_runtime_smoke_and_evidence_context_are_green' : ($completionReceipt === [] ? 'blocked_until_human_completion_receipt_payload_exists' : 'operator_payload_supplied_verify_with_human_completion_receipt_closure_pack')),
+            status: $humanReceiptReady ? 'persisted_human_completion_receipt' : ($humanBlockedByPrereqs ? 'blocked_until_runtime_smoke_prior_persistence_and_evidence_context_are_green' : ($completionReceipt === [] ? 'blocked_until_human_completion_receipt_payload_exists' : 'operator_payload_supplied_verify_with_human_completion_receipt_closure_pack')),
             payload: $completionReceipt,
             hashField: 'receipt_hash',
             persistCommand: 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --completion-receipt-json=@/path/to/completion-receipt.json --persist-completion-evidence --json',
@@ -387,6 +400,7 @@ final class AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorService
                 'runtime_gap_matrix_hash' => (string) data_get($completionEvidence, 'runtime_gap_matrix.runtime_gap_matrix_hash', ''),
                 'runtime_promotion_receipt_hash' => (string) data_get($completionEvidence, 'runtime_gap_matrix.runtime_promotion_receipt.receipt_hash', ''),
                 'real_provider_smoke_hash' => (string) data_get($completionEvidence, 'real_provider_smoke.smoke_hash', ''),
+                'real_provider_smoke_persisted_before_human_receipt_command' => $realProviderSmokePersistedBeforeHumanReceiptCommand,
             ],
         );
         $statuses = [
@@ -501,6 +515,7 @@ final class AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorService
         array $blockerExplainer,
         bool $runtimeReceiptReady,
         bool $realProviderSmokeReady,
+        bool $realProviderSmokePersistedBeforeHumanReceiptCommand,
         bool $humanReceiptReady,
         bool $completionAuditComplete,
         string $runtimeReceiptHash,
@@ -672,14 +687,14 @@ final class AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorService
             $this->pathStep(
                 id: 'draft_human_completion_receipt',
                 phase: 'human_completion_receipt',
-                status: $humanReceiptReady ? 'completed' : ($runtimeReceiptReady && $realProviderSmokeReady ? 'ready_for_operator_input' : 'waiting_for_runtime_promotion_and_real_provider_smoke'),
+                status: $humanReceiptReady ? 'completed' : ($runtimeReceiptReady && $realProviderSmokeReady && $realProviderSmokePersistedBeforeHumanReceiptCommand ? 'ready_for_operator_input' : 'waiting_for_runtime_promotion_and_prior_persisted_real_provider_smoke'),
                 requiredInputs: ['signed_by', 'reason', 'runtime_promotion_receipt_payload', 'real_provider_smoke_payload'],
                 producedArtifacts: ['human_completion_receipt_draft', 'human_completion_receipt_hash_preimage'],
                 verifierService: AtlasSelfConstructionHumanCompletionReceiptVerifierService::class,
                 command: $draftHumanReceipt,
                 persistCommand: '',
-                stopCondition: 'stop_if_human_receipt_drafted_before_runtime_and_smoke_green',
-                forbiddenShortcuts: ['drafting_human_receipt_before_runtime_and_smoke_green', 'placeholder_completion_audit_hash'],
+                stopCondition: 'stop_if_human_receipt_drafted_before_runtime_and_prior_persisted_smoke_green',
+                forbiddenShortcuts: ['drafting_human_receipt_before_runtime_and_prior_persisted_smoke_green', 'same_command_smoke_and_human_receipt_persistence', 'placeholder_completion_audit_hash'],
                 evidenceHashesCurrentlyAvailable: $hashAvailableHuman ? ['human_completion_receipt_hash'] : [],
                 missingInputs: $humanReceiptReady ? [] : ['operator_signed_human_completion_receipt'],
                 canRunAutomatically: false,
@@ -770,14 +785,14 @@ final class AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorService
             $this->pathStep(
                 id: 'persist_human_completion_receipt_after_prerequisites_green',
                 phase: 'human_completion_receipt',
-                status: $humanReceiptReady ? 'completed' : 'waiting_for_runtime_and_smoke_and_human_draft',
-                requiredInputs: ['human_completion_receipt_payload', 'runtime_promotion_receipt_passed', 'real_provider_smoke_passed'],
+                status: $humanReceiptReady ? 'completed' : 'waiting_for_runtime_and_prior_persisted_smoke_and_human_draft',
+                requiredInputs: ['human_completion_receipt_payload', 'runtime_promotion_receipt_passed', 'real_provider_smoke_passed', 'real_provider_smoke_persisted_before_human_receipt_command'],
                 producedArtifacts: ['human_completion_receipt_persisted_under_verifier'],
                 verifierService: AtlasSelfConstructionHumanCompletionReceiptVerifierService::class,
                 command: '',
                 persistCommand: $persistHumanReceipt,
-                stopCondition: 'stop_if_verifier_returns_status_other_than_passed',
-                forbiddenShortcuts: ['persisting_before_runtime_and_smoke_green', 'persisting_before_verifier_passes'],
+                stopCondition: 'stop_if_verifier_returns_status_other_than_passed_or_smoke_was_not_persisted_in_prior_command',
+                forbiddenShortcuts: ['persisting_before_runtime_and_prior_persisted_smoke_green', 'persisting_same_command_as_real_provider_smoke', 'persisting_before_verifier_passes'],
                 evidenceHashesCurrentlyAvailable: $hashAvailableHuman ? ['human_completion_receipt_hash'] : [],
                 missingInputs: $humanReceiptReady ? [] : ['verified_human_completion_receipt'],
                 canRunAutomatically: false,

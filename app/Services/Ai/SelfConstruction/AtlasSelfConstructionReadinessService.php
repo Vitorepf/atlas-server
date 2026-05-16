@@ -43573,6 +43573,13 @@ final class AtlasSelfConstructionReadinessService
             'agent_control_plane_task_queue_orchestrator_implementation_packet',
             'agent_control_plane_task_queue_orchestrator_service',
             'agent_control_plane_task_queue_orchestrator_status_projection',
+            'agent_control_plane_task_queue_claim_next_status_projection',
+            'agent_control_plane_task_queue_complete_dry_run_status_projection',
+            'agent_control_plane_task_auto_replenishment_contract',
+            'agent_control_plane_task_auto_replenishment_preflight',
+            'agent_control_plane_task_auto_replenishment_implementation_packet',
+            'agent_control_plane_task_auto_replenishment_service',
+            'agent_control_plane_task_auto_replenishment_status_projection',
             'agent_control_plane_task_queue_lease_certification_contract',
             'agent_control_plane_task_queue_lease_certification_preflight',
             'agent_control_plane_task_queue_lease_certification_implementation_packet',
@@ -76324,6 +76331,10 @@ final class AtlasSelfConstructionReadinessService
                 'canonical_submission_persistence_plan_next_step_id' => (string) data_get($result, 'canonical_submission_persistence_plan.next_step_id', ''),
                 'canonical_submission_persistence_plan_step_count' => count((array) data_get($result, 'canonical_submission_persistence_plan.steps', [])),
                 'canonical_submission_persistence_plan_sequence_ordered' => (bool) data_get($result, 'canonical_submission_persistence_plan.sequence_ordered', false),
+                'canonical_submission_runtime_promotion_receipt_persisted_green' => (bool) data_get($result, 'canonical_submission_persistence_plan.persisted_evidence_state.runtime_promotion_receipt.persisted_green', false),
+                'canonical_submission_real_provider_smoke_persisted_green' => (bool) data_get($result, 'canonical_submission_persistence_plan.persisted_evidence_state.real_provider_smoke.persisted_green', false),
+                'canonical_submission_human_completion_receipt_persisted_green' => (bool) data_get($result, 'canonical_submission_persistence_plan.persisted_evidence_state.human_completion_receipt.persisted_green', false),
+                'canonical_submission_human_receipt_requires_prior_persisted_smoke_command' => (bool) data_get($result, 'canonical_submission_persistence_plan.human_receipt_persistence_requires_prior_persisted_smoke_command', false),
                 'canonical_submission_can_persist_from_readiness' => (bool) data_get($result, 'canonical_submission_persistence_plan.can_persist_from_readiness', false),
                 'completion_allowed' => false,
                 'completion_claim_allowed' => false,
@@ -78720,6 +78731,9 @@ final class AtlasSelfConstructionReadinessService
                 'total_count' => (int) $registry['total_count'],
                 'status_counts' => (array) $registry['status_counts'],
                 'corrupt' => (bool) $registry['corrupt'],
+                'status_transition_policy_hash' => (string) $registry['status_transition_policy_hash'],
+                'claim_transition_requires_lease_id' => (bool) $registry['claim_transition_requires_lease_id'],
+                'claim_transition_requires_agent_id' => (bool) $registry['claim_transition_requires_agent_id'],
                 'queue_available' => $repo->isAvailable(),
             ],
         );
@@ -78750,6 +78764,95 @@ final class AtlasSelfConstructionReadinessService
     public function agentControlPlaneClaimLeaseRuntimeImplementationPacket(array $options = []): array
     {
         return $this->buildCertificationWorkbenchQuartet('claim_lease_runtime', 'Claim/Lease Runtime', AgentControlPlaneClaimLeaseRepository::SCHEMA_VERSION, AgentControlPlaneClaimLeaseRepository::class, 'implementation_packet');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneTaskLeaseRecoveryContract(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('task_lease_recovery', 'Task Lease Recovery', AgentControlPlaneTaskLeaseRecoveryService::SCHEMA_VERSION, AgentControlPlaneTaskLeaseRecoveryService::class, 'contract');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneTaskLeaseRecoveryPreflight(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('task_lease_recovery', 'Task Lease Recovery', AgentControlPlaneTaskLeaseRecoveryService::SCHEMA_VERSION, AgentControlPlaneTaskLeaseRecoveryService::class, 'preflight');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneTaskLeaseRecoveryImplementationPacket(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('task_lease_recovery', 'Task Lease Recovery', AgentControlPlaneTaskLeaseRecoveryService::SCHEMA_VERSION, AgentControlPlaneTaskLeaseRecoveryService::class, 'implementation_packet');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneTaskLeaseRecoveryStatus(array $options = []): array
+    {
+        $service = new AgentControlPlaneTaskLeaseRecoveryService;
+        $actor = $this->reservationActor($options);
+        $reason = trim((string) ($options['reason'] ?? ''));
+        $packet = trim((string) ($options['packet'] ?? ''));
+
+        $serviceOptions = array_filter([
+            'actor' => $actor,
+            'reason' => $reason,
+        ], static fn (string $v): bool => $v !== '');
+
+        $expiredResult = $service->recoverExpiredLeases($serviceOptions);
+        $orphanResult = $service->recoverOrphanedClaims($serviceOptions);
+        $inspectResult = $service->inspectRecoverability(
+            $packet !== '' ? array_merge($serviceOptions, ['packet' => $packet]) : $serviceOptions,
+        );
+        $resumePacket = $packet !== '' ? $service->buildResumePacket($packet) : null;
+
+        $available = $service->isAvailable();
+        $status = $available ? 'available' : 'blocked';
+
+        $payload = [
+            'schema_version' => AgentControlPlaneTaskLeaseRecoveryService::SCHEMA_VERSION,
+            'status' => $status,
+            'mode' => AgentControlPlaneTaskLeaseRecoveryService::MODE,
+            'actor' => $actor,
+            'reason' => $reason,
+            'task_packet_filter' => $packet,
+            'service_available' => $available,
+            'expired_lease_recovery' => $expiredResult,
+            'orphaned_claim_recovery' => $orphanResult,
+            'recoverability_inspection' => $inspectResult,
+            'resume_packet' => $resumePacket,
+            'runtime_safety' => $service->runtimeFlags(),
+        ];
+
+        return $this->wrapCertificationWorkbenchStatus(
+            keyPrefix: 'task_lease_recovery',
+            label: 'Task Lease Recovery',
+            payload: $payload,
+            statusKey: 'status',
+            extraStatusFields: [
+                'service_available' => $available,
+                'actor' => $actor,
+                'reason' => $reason,
+                'task_packet_filter' => $packet,
+                'expired_recovered_count' => (int) data_get($expiredResult, 'recovered_count', 0),
+                'expired_skipped_count' => (int) data_get($expiredResult, 'skipped_count', 0),
+                'orphaned_recovered_count' => (int) data_get($orphanResult, 'recovered_count', 0),
+                'orphaned_skipped_count' => (int) data_get($orphanResult, 'skipped_count', 0),
+                'recoverable_count' => (int) data_get($inspectResult, 'recoverable_count', 0),
+                'inspected_count' => (int) data_get($inspectResult, 'inspected_count', 0),
+                'resume_packet_event' => $resumePacket !== null ? (string) data_get($resumePacket, 'event') : '',
+            ],
+        );
     }
 
     /**
@@ -78908,6 +79011,307 @@ final class AtlasSelfConstructionReadinessService
      * @param  array<string, mixed>  $options
      * @return array<string, mixed>
      */
+    public function agentControlPlaneTaskQueueClaimNextStatus(array $options = []): array
+    {
+        $orchestrator = $this->buildTaskQueueOrchestrator();
+        $actor = $this->reservationActor($options);
+        $leaseMinutes = max(1, min(240, (int) ($options['lease_minutes'] ?? 30)));
+        $claim = $orchestrator->claimNext($actor, [
+            'ttl_seconds' => $leaseMinutes * 60,
+        ]);
+
+        if ((string) ($claim['event'] ?? '') === 'no_claimable_task') {
+            $orchestrator->prepareAndEnqueue(['task_packet' => $this->defaultRuntimePilotInput()]);
+            $claim = $orchestrator->claimNext($actor, [
+                'ttl_seconds' => $leaseMinutes * 60,
+            ]);
+        }
+
+        $event = (string) ($claim['event'] ?? 'unknown');
+        $status = $event === 'claimed' ? 'claimed' : 'blocked';
+        $payload = array_merge($claim, [
+            'status' => $status,
+            'agent_id' => $actor,
+            'lease_minutes' => $leaseMinutes,
+            'runtime_claim_persisted' => $event === 'claimed',
+            'legacy_reservation_claim_used' => false,
+            'safe_for_parallel_terminal_loop' => $event === 'claimed',
+            'next_agent_command' => 'php artisan atlas:ai:self-construction --agent-control-plane-task-queue-claim-next-status --actor=<agent-id> --json',
+            'non_execution_summary' => [
+                'dispatch_allowed' => false,
+                'provider_call_allowed' => false,
+                'token_spend_allowed' => false,
+                'self_programming_allowed' => false,
+                'completion_real_allowed' => false,
+            ],
+        ]);
+
+        return $this->wrapCertificationWorkbenchStatus(
+            keyPrefix: 'task_queue_claim_next',
+            label: 'Task Queue Claim Next',
+            payload: $payload,
+            statusKey: 'status',
+            extraStatusFields: [
+                'event' => $event,
+                'agent_id' => $actor,
+                'task_packet_id' => (string) data_get($claim, 'task_packet_id'),
+                'lease_id' => (string) data_get($claim, 'lease_id'),
+                'runtime_claim_persisted' => $event === 'claimed',
+                'legacy_reservation_claim_used' => false,
+                'safe_for_parallel_terminal_loop' => $event === 'claimed',
+            ],
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneTaskQueueCompleteDryRunStatus(array $options = []): array
+    {
+        $taskPacketId = (string) ($options['packet'] ?? '');
+        $leaseId = (string) ($options['lease_id'] ?? '');
+        if ($taskPacketId === '' || $leaseId === '') {
+            $payload = [
+                'schema_version' => AgentControlPlaneTaskQueueOrchestrator::SCHEMA_VERSION,
+                'status' => 'blocked',
+                'event' => 'complete_dry_run_blocked',
+                'reason' => $taskPacketId === '' ? 'task_packet_id_missing' : 'lease_id_missing',
+                'task_packet_id' => $taskPacketId,
+                'lease_id' => $leaseId,
+                'runtime_completion_persisted' => false,
+                'completion_real_allowed' => false,
+                'dispatch_allowed' => false,
+                'provider_call_allowed' => false,
+                'token_spend_allowed' => false,
+                'self_programming_allowed' => false,
+                'ledger_write_allowed' => false,
+            ];
+
+            return $this->wrapCertificationWorkbenchStatus(
+                keyPrefix: 'task_queue_complete_dry_run',
+                label: 'Task Queue Complete Dry-Run',
+                payload: $payload,
+                statusKey: 'status',
+                extraStatusFields: [
+                    'event' => 'complete_dry_run_blocked',
+                    'task_packet_id' => $taskPacketId,
+                    'lease_id' => $leaseId,
+                    'runtime_completion_persisted' => false,
+                    'completion_real_allowed' => false,
+                ],
+            );
+        }
+
+        $orchestrator = $this->buildTaskQueueOrchestrator();
+        $evidenceHash = (string) ($options['evidence_hash'] ?? '');
+        if ($evidenceHash !== '' && preg_match('/^[a-f0-9]{64}$/', $evidenceHash) !== 1) {
+            $payload = [
+                'schema_version' => AgentControlPlaneTaskQueueOrchestrator::SCHEMA_VERSION,
+                'status' => 'blocked',
+                'event' => 'complete_dry_run_blocked',
+                'reason' => 'evidence_hash_invalid',
+                'task_packet_id' => $taskPacketId,
+                'lease_id' => $leaseId,
+                'runtime_completion_persisted' => false,
+                'completion_real_allowed' => false,
+                'legacy_reservation_completion_used' => false,
+                'safe_for_parallel_terminal_loop' => false,
+            ];
+
+            return $this->wrapCertificationWorkbenchStatus(
+                keyPrefix: 'task_queue_complete_dry_run',
+                label: 'Task Queue Complete Dry-Run',
+                payload: $payload,
+                statusKey: 'status',
+                extraStatusFields: [
+                    'event' => 'complete_dry_run_blocked',
+                    'task_packet_id' => $taskPacketId,
+                    'lease_id' => $leaseId,
+                    'runtime_completion_persisted' => false,
+                    'legacy_reservation_completion_used' => false,
+                    'completion_real_allowed' => false,
+                    'safe_for_parallel_terminal_loop' => false,
+                ],
+            );
+        }
+
+        $evidence = [
+            'actor' => $this->reservationActor($options),
+            'session' => $this->reservationSession($options),
+            'reason' => (string) ($options['reason'] ?? 'packet_scope_finished'),
+            'operator_supplied_evidence_hash' => $evidenceHash,
+            'operator_supplied_evidence_hash_valid' => true,
+        ];
+        $result = $orchestrator->completeDryRun($taskPacketId, $leaseId, $evidence);
+        $event = (string) ($result['event'] ?? 'unknown');
+        $status = $event === 'completed_dry_run' ? 'completed_dry_run' : 'blocked';
+        $payload = array_merge($result, [
+            'status' => $status,
+            'runtime_completion_persisted' => $event === 'completed_dry_run',
+            'completion_real_allowed' => false,
+            'legacy_reservation_completion_used' => false,
+            'safe_for_parallel_terminal_loop' => $event === 'completed_dry_run',
+            'next_agent_command' => 'php artisan atlas:ai:self-construction --agent-control-plane-task-queue-claim-next-status --actor=<agent-id> --json',
+            'operator_evidence_hash_valid' => (bool) $evidence['operator_supplied_evidence_hash_valid'],
+        ]);
+
+        return $this->wrapCertificationWorkbenchStatus(
+            keyPrefix: 'task_queue_complete_dry_run',
+            label: 'Task Queue Complete Dry-Run',
+            payload: $payload,
+            statusKey: 'status',
+            extraStatusFields: [
+                'event' => $event,
+                'task_packet_id' => $taskPacketId,
+                'lease_id' => $leaseId,
+                'runtime_completion_persisted' => $event === 'completed_dry_run',
+                'legacy_reservation_completion_used' => false,
+                'completion_real_allowed' => false,
+                'safe_for_parallel_terminal_loop' => $event === 'completed_dry_run',
+            ],
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneTaskAutoReplenishmentContract(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('task_auto_replenishment', 'Task Auto-Replenishment', AgentControlPlaneTaskAutoReplenishmentService::SCHEMA_VERSION, AgentControlPlaneTaskAutoReplenishmentService::class, 'contract');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneTaskAutoReplenishmentPreflight(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('task_auto_replenishment', 'Task Auto-Replenishment', AgentControlPlaneTaskAutoReplenishmentService::SCHEMA_VERSION, AgentControlPlaneTaskAutoReplenishmentService::class, 'preflight');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneTaskAutoReplenishmentImplementationPacket(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('task_auto_replenishment', 'Task Auto-Replenishment', AgentControlPlaneTaskAutoReplenishmentService::SCHEMA_VERSION, AgentControlPlaneTaskAutoReplenishmentService::class, 'implementation_packet');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneTaskAutoReplenishmentStatus(array $options = []): array
+    {
+        $targetMin = max(1, min(25, (int) ($options['target_min_claimable_tasks'] ?? 3)));
+        $maxNew = max(0, min(25, (int) ($options['max_new_tasks'] ?? $targetMin)));
+        $service = $this->buildTaskAutoReplenishmentService();
+        $result = $service->replenish([
+            'control_plane' => $this->agentControlPlane(),
+        ], [
+            'target_min_claimable_tasks' => $targetMin,
+            'max_new_tasks' => $maxNew,
+            'actor' => $this->reservationActor($options),
+            'reason' => (string) ($options['reason'] ?? 'claimable_queue_below_target'),
+        ]);
+
+        return $this->wrapCertificationWorkbenchStatus(
+            keyPrefix: 'task_auto_replenishment',
+            label: 'Task Auto-Replenishment',
+            payload: $result,
+            statusKey: 'status',
+            extraStatusFields: [
+                'event' => (string) data_get($result, 'event'),
+                'generated_task_count' => (int) data_get($result, 'generated_task_count'),
+                'skipped_existing_task_count' => (int) data_get($result, 'skipped_existing_task_count'),
+                'claimable_task_count_before' => (int) data_get($result, 'claimable_task_count_before'),
+                'claimable_task_count_after' => (int) data_get($result, 'claimable_task_count_after'),
+                'target_min_claimable_tasks' => (int) data_get($result, 'target_min_claimable_tasks'),
+                'replenishment_plan_hash' => (string) data_get($result, 'replenishment_plan_hash'),
+            ],
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function atlasSelfConstructionOsRuntimeGapMatrixAuditContract(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet(
+            'runtime_gap_matrix_audit',
+            'Runtime Gap Matrix Audit',
+            AtlasSelfConstructionRuntimeGapMatrixAuditService::SCHEMA_VERSION,
+            AtlasSelfConstructionRuntimeGapMatrixAuditService::class,
+            'contract',
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function atlasSelfConstructionOsRuntimeGapMatrixAuditPreflight(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet(
+            'runtime_gap_matrix_audit',
+            'Runtime Gap Matrix Audit',
+            AtlasSelfConstructionRuntimeGapMatrixAuditService::SCHEMA_VERSION,
+            AtlasSelfConstructionRuntimeGapMatrixAuditService::class,
+            'preflight',
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function atlasSelfConstructionOsRuntimeGapMatrixAuditImplementationPacket(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet(
+            'runtime_gap_matrix_audit',
+            'Runtime Gap Matrix Audit',
+            AtlasSelfConstructionRuntimeGapMatrixAuditService::SCHEMA_VERSION,
+            AtlasSelfConstructionRuntimeGapMatrixAuditService::class,
+            'implementation_packet',
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function atlasSelfConstructionOsRuntimeGapMatrixAuditStatus(array $options = []): array
+    {
+        $service = new AtlasSelfConstructionRuntimeGapMatrixAuditService($this);
+        $result = $service->audit($options);
+
+        return $this->wrapCertificationWorkbenchStatus(
+            keyPrefix: 'runtime_gap_matrix_audit',
+            label: 'Runtime Gap Matrix Audit',
+            payload: $result,
+            statusKey: 'status',
+            extraStatusFields: [
+                'gap_count' => (int) data_get($result, 'gap_count'),
+                'still_open_count' => (int) data_get($result, 'still_open_count'),
+                'auto_closeable_locally_count' => (int) data_get($result, 'auto_closeable_locally_count'),
+                'all_runtime_y' => (bool) data_get($result, 'all_runtime_y', false),
+                'human_signed_os_complete_receipt_present' => (bool) data_get($result, 'human_signed_os_complete_receipt_present', false),
+                'real_provider_smoke_green' => (bool) data_get($result, 'real_provider_smoke_green', false),
+                'os_complete_promotion_allowed' => (bool) data_get($result, 'os_complete_promotion_allowed', false),
+                'runtime_gap_matrix_audit_hash' => (string) data_get($result, 'runtime_gap_matrix_audit_hash'),
+                'runtime_gap_matrix_hash' => (string) data_get($result, 'runtime_gap_matrix_hash'),
+            ],
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
     public function agentControlPlaneTaskQueueLeaseCertificationContract(array $options = []): array
     {
         return $this->buildCertificationWorkbenchQuartet('task_queue_lease_certification', 'Task Queue + Lease Certification', AgentControlPlaneTaskQueueLeaseCertificationService::SCHEMA_VERSION, AgentControlPlaneTaskQueueLeaseCertificationService::class, 'contract');
@@ -78961,6 +79365,102 @@ final class AtlasSelfConstructionReadinessService
         );
     }
 
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneMultiAgentLoopCertificationContract(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet(
+            keyPrefix: 'multi_agent_loop_certification',
+            label: 'Multi-Agent Loop Certification',
+            schemaVersion: AgentControlPlaneMultiAgentLoopCertificationService::SCHEMA_VERSION,
+            serviceClass: AgentControlPlaneMultiAgentLoopCertificationService::class,
+            stage: 'contract',
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneMultiAgentLoopCertificationPreflight(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet(
+            keyPrefix: 'multi_agent_loop_certification',
+            label: 'Multi-Agent Loop Certification',
+            schemaVersion: AgentControlPlaneMultiAgentLoopCertificationService::SCHEMA_VERSION,
+            serviceClass: AgentControlPlaneMultiAgentLoopCertificationService::class,
+            stage: 'preflight',
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneMultiAgentLoopCertificationImplementationPacket(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet(
+            keyPrefix: 'multi_agent_loop_certification',
+            label: 'Multi-Agent Loop Certification',
+            schemaVersion: AgentControlPlaneMultiAgentLoopCertificationService::SCHEMA_VERSION,
+            serviceClass: AgentControlPlaneMultiAgentLoopCertificationService::class,
+            stage: 'implementation_packet',
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneMultiAgentLoopCertificationStatus(array $options = []): array
+    {
+        $orchestrator = $this->buildTaskQueueOrchestrator();
+        $queue = new AgentControlPlaneTaskPacketQueueRepository;
+        $leases = new AgentControlPlaneClaimLeaseRepository;
+        $svc = new AgentControlPlaneMultiAgentLoopCertificationService($orchestrator, $queue, $leases);
+        $agentCount = isset($options['agent_count']) && $options['agent_count'] !== null
+            ? (int) $options['agent_count']
+            : AgentControlPlaneMultiAgentLoopCertificationService::DEFAULT_AGENT_COUNT;
+        $cycles = isset($options['cycles']) && $options['cycles'] !== null
+            ? (int) $options['cycles']
+            : AgentControlPlaneMultiAgentLoopCertificationService::DEFAULT_CYCLES;
+        $targetMin = isset($options['target_min_claimable_tasks']) && $options['target_min_claimable_tasks'] !== null
+            ? (int) $options['target_min_claimable_tasks']
+            : $agentCount;
+        $normalizedOptions = [
+            'agent_count' => $agentCount,
+            'cycles' => $cycles,
+            'target_min_claimable_tasks' => $targetMin,
+            'dry_run_only' => (bool) ($options['dry_run_only'] ?? true),
+            'simulate_overlap' => (bool) ($options['simulate_overlap'] ?? false),
+        ];
+        $result = $svc->certify($normalizedOptions);
+
+        return $this->wrapCertificationWorkbenchStatus(
+            keyPrefix: 'multi_agent_loop_certification',
+            label: 'Multi-Agent Loop Certification',
+            payload: $result,
+            statusKey: 'status',
+            extraStatusFields: [
+                'certification_id' => (string) data_get($result, 'certification_id'),
+                'certification_hash' => (string) data_get($result, 'certification_hash'),
+                'invariants_all_true' => (bool) data_get($result, 'invariants_all_true'),
+                'violation_count' => (int) data_get($result, 'violation_count'),
+                'warning_count' => (int) data_get($result, 'warning_count'),
+                'agent_count' => (int) data_get($result, 'agent_count'),
+                'cycles' => (int) data_get($result, 'cycles'),
+                'distinct_task_total' => (int) data_get($result, 'distinct_task_total'),
+                'distinct_lease_total' => (int) data_get($result, 'distinct_lease_total'),
+                'completed_total' => (int) data_get($result, 'completed_total'),
+                'evidence_receipt_count' => (int) data_get($result, 'evidence_receipt_count'),
+                'continuation_summary_count' => (int) data_get($result, 'continuation_summary_count'),
+                'legacy_reservation_used' => (bool) data_get($result, 'legacy_reservation_used', false),
+            ],
+        );
+    }
+
     private function buildTaskQueueOrchestrator(): AgentControlPlaneTaskQueueOrchestrator
     {
         return new AgentControlPlaneTaskQueueOrchestrator(
@@ -78970,6 +79470,23 @@ final class AtlasSelfConstructionReadinessService
             new AgentControlPlaneClaimLeaseRepository,
             new AgentControlPlaneEvidenceLedgerDryRun,
             new AgentControlPlaneContinuationSummaryBuilder,
+        );
+    }
+
+    private function buildTaskAutoReplenishmentService(): AgentControlPlaneTaskAutoReplenishmentService
+    {
+        $queue = new AgentControlPlaneTaskPacketQueueRepository;
+
+        return new AgentControlPlaneTaskAutoReplenishmentService(
+            new AgentControlPlaneTaskQueueOrchestrator(
+                new AgentControlPlaneTaskPacketBuilder,
+                new AgentControlPlaneScopeLockRuntimeValidator,
+                $queue,
+                new AgentControlPlaneClaimLeaseRepository,
+                new AgentControlPlaneEvidenceLedgerDryRun,
+                new AgentControlPlaneContinuationSummaryBuilder,
+            ),
+            $queue,
         );
     }
 
@@ -100567,5 +101084,86 @@ final class AtlasSelfConstructionReadinessService
         ksort($payload);
 
         return hash('sha256', (string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneOneShotWorkerPacketContract(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet(
+            keyPrefix: 'one_shot_worker_packet',
+            label: 'One-Shot Worker Packet',
+            schemaVersion: AgentControlPlaneOneShotWorkerPacketService::SCHEMA_VERSION,
+            serviceClass: AgentControlPlaneOneShotWorkerPacketService::class,
+            stage: 'contract',
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneOneShotWorkerPacketPreflight(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet(
+            keyPrefix: 'one_shot_worker_packet',
+            label: 'One-Shot Worker Packet',
+            schemaVersion: AgentControlPlaneOneShotWorkerPacketService::SCHEMA_VERSION,
+            serviceClass: AgentControlPlaneOneShotWorkerPacketService::class,
+            stage: 'preflight',
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneOneShotWorkerPacketImplementationPacket(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet(
+            keyPrefix: 'one_shot_worker_packet',
+            label: 'One-Shot Worker Packet',
+            schemaVersion: AgentControlPlaneOneShotWorkerPacketService::SCHEMA_VERSION,
+            serviceClass: AgentControlPlaneOneShotWorkerPacketService::class,
+            stage: 'implementation_packet',
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneOneShotWorkerPacketStatus(array $options = []): array
+    {
+        $service = new AgentControlPlaneOneShotWorkerPacketService(
+            new AgentControlPlaneClaimLeaseRepository,
+            new AgentControlPlaneTaskPacketQueueRepository,
+        );
+        $payload = $service->generate([
+            'task_packet_id' => (string) ($options['packet'] ?? $options['task_packet_id'] ?? ''),
+            'lease_id' => (string) ($options['lease_id'] ?? ''),
+            'actor' => (string) ($options['actor'] ?? ''),
+            'mode' => (string) ($options['mode'] ?? AgentControlPlaneOneShotWorkerPacketService::MODE_CLAIMED_TASK),
+        ]);
+
+        return $this->wrapCertificationWorkbenchStatus(
+            keyPrefix: 'one_shot_worker_packet',
+            label: 'One-Shot Worker Packet',
+            payload: $payload,
+            statusKey: 'status',
+            extraStatusFields: [
+                'mode' => (string) data_get($payload, 'mode', AgentControlPlaneOneShotWorkerPacketService::MODE_CLAIMED_TASK),
+                'task_packet_id' => (string) data_get($payload, 'task_packet_id', ''),
+                'lease_id' => (string) data_get($payload, 'lease_id', ''),
+                'actor' => (string) data_get($payload, 'actor', ''),
+                'one_shot_packet_hash' => (string) data_get($payload, 'one_shot_packet_hash', ''),
+                'allowed_files_count' => count((array) data_get($payload, 'allowed_files', [])),
+                'forbidden_files_count' => count((array) data_get($payload, 'forbidden_files', [])),
+                'acceptance_criteria_count' => count((array) data_get($payload, 'acceptance_criteria', [])),
+                'required_tests_count' => count((array) data_get($payload, 'required_tests', [])),
+            ],
+        );
     }
 }

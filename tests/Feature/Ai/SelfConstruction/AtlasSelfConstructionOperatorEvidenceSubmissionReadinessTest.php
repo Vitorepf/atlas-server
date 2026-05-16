@@ -279,7 +279,11 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessTest extends
         $this->assertTrue(data_get($payload, 'canonical_submission_persistence_plan.canonical_source_authoritative'));
         $this->assertTrue(data_get($payload, 'canonical_submission_persistence_plan.sequence_ordered'));
         $this->assertTrue(data_get($payload, 'canonical_submission_persistence_plan.requires_explicit_operator_persistence_commands'));
+        $this->assertTrue(data_get($payload, 'canonical_submission_persistence_plan.human_receipt_persistence_requires_prior_persisted_smoke_command'));
         $this->assertFalse(data_get($payload, 'canonical_submission_persistence_plan.can_persist_from_readiness'));
+        $this->assertFalse(data_get($payload, 'canonical_submission_persistence_plan.persisted_evidence_state.runtime_promotion_receipt.persisted_green'));
+        $this->assertFalse(data_get($payload, 'canonical_submission_persistence_plan.persisted_evidence_state.real_provider_smoke.persisted_green'));
+        $this->assertFalse(data_get($payload, 'canonical_submission_persistence_plan.persisted_evidence_state.human_completion_receipt.persisted_green'));
         $this->assertSame(
             [
                 'persist_runtime_promotion_receipt',
@@ -305,6 +309,17 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessTest extends
             'canonical_submission_verifier_not_ready',
             data_get($payload, 'canonical_submission_persistence_plan.steps.0.blocker'),
         );
+        $this->assertSame(
+            'runtime_promotion_receipt_must_be_persisted_first',
+            data_get($payload, 'canonical_submission_persistence_plan.steps.1.blocker'),
+        );
+        $this->assertSame(
+            'runtime_promotion_and_real_provider_smoke_must_be_persisted_first',
+            data_get($payload, 'canonical_submission_persistence_plan.steps.2.blocker'),
+        );
+        $this->assertFalse(data_get($payload, 'canonical_submission_persistence_plan.steps.0.persisted_evidence_already_green'));
+        $this->assertFalse(data_get($payload, 'canonical_submission_persistence_plan.steps.1.persisted_evidence_already_green'));
+        $this->assertFalse(data_get($payload, 'canonical_submission_persistence_plan.steps.2.persisted_evidence_already_green'));
         $this->assertFalse($payload['completion_allowed']);
         $this->assertFalse($payload['dispatch_allowed']);
         $this->assertFalse($payload['provider_call_allowed']);
@@ -333,6 +348,10 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessTest extends
             data_get($status, 'agent_control_plane_atlas_self_construction_operator_evidence_submission_readiness_status.canonical_submission_persistence_plan_step_count'),
         );
         $this->assertTrue(data_get($status, 'agent_control_plane_atlas_self_construction_operator_evidence_submission_readiness_status.canonical_submission_persistence_plan_sequence_ordered'));
+        $this->assertFalse(data_get($status, 'agent_control_plane_atlas_self_construction_operator_evidence_submission_readiness_status.canonical_submission_runtime_promotion_receipt_persisted_green'));
+        $this->assertFalse(data_get($status, 'agent_control_plane_atlas_self_construction_operator_evidence_submission_readiness_status.canonical_submission_real_provider_smoke_persisted_green'));
+        $this->assertFalse(data_get($status, 'agent_control_plane_atlas_self_construction_operator_evidence_submission_readiness_status.canonical_submission_human_completion_receipt_persisted_green'));
+        $this->assertTrue(data_get($status, 'agent_control_plane_atlas_self_construction_operator_evidence_submission_readiness_status.canonical_submission_human_receipt_requires_prior_persisted_smoke_command'));
         $this->assertFalse(data_get($status, 'agent_control_plane_atlas_self_construction_operator_evidence_submission_readiness_status.canonical_submission_can_persist_from_readiness'));
     }
 

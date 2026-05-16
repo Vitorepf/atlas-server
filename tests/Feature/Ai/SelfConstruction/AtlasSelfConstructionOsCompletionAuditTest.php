@@ -74,6 +74,154 @@ final class AtlasSelfConstructionOsCompletionAuditTest extends TestCase
         $this->assertSame($audit['checklist_count'], count($audit['prompt_to_artifact_checklist']));
     }
 
+    public function test_completion_audit_exposes_detailed_blockers_and_audit_blocks(): void
+    {
+        $audit = (new AtlasSelfConstructionOsCompletionAuditService(app(AtlasSelfConstructionReadinessService::class)))->audit();
+
+        $this->assertSame($audit['failed_count'], count($audit['failed_criteria_detailed']));
+        $runtime = collect($audit['failed_criteria_detailed'])->firstWhere('id', 'runtime_gap_matrix_all_runtime_y');
+        $human = collect($audit['failed_criteria_detailed'])->firstWhere('id', 'human_signed_os_complete_receipt_present');
+        $smoke = collect($audit['failed_criteria_detailed'])->firstWhere('id', 'end_to_end_real_provider_smoke_green');
+
+        if ($runtime !== null) {
+            $this->assertSame('human', data_get($runtime, 'blocker_type'));
+            $this->assertNotSame('', (string) data_get($runtime, 'remediation_command'));
+            $this->assertNotSame('', (string) data_get($runtime, 'expected_receipt_schema'));
+        }
+        $this->assertSame('human', data_get($human, 'blocker_type'));
+        $this->assertStringContainsString('human-completion-receipt-draft-status', (string) data_get($human, 'remediation_command'));
+        $this->assertSame('atlas.self_construction.human_signed_completion_receipt.v1', (string) data_get($human, 'expected_receipt_schema'));
+        $this->assertSame('real_provider', data_get($smoke, 'blocker_type'));
+        $this->assertStringContainsString('real-provider-smoke-draft-status', (string) data_get($smoke, 'remediation_command'));
+        $this->assertSame('atlas.self_construction.real_provider_smoke_certification.v1', (string) data_get($smoke, 'expected_receipt_schema'));
+
+        $this->assertContains('human_signed_os_complete_receipt_present', data_get($audit, 'blocker_classification.human_blockers'));
+        $this->assertContains('end_to_end_real_provider_smoke_green', data_get($audit, 'blocker_classification.real_provider_blockers'));
+        $this->assertFalse((bool) data_get($audit, 'blocker_classification.completion_allowed'));
+        $this->assertGreaterThanOrEqual(1, (int) data_get($audit, 'blocker_classification.human_blocker_count'));
+        $this->assertSame(1, (int) data_get($audit, 'blocker_classification.real_provider_blocker_count'));
+
+        foreach ([
+            'release_dossier_block',
+            'replay_diff_block',
+            'promotion_gate_block',
+            'mutation_guard_block',
+            'chain_integrity_block',
+            'runtime_gap_block',
+            'certification_status_batch_block',
+            'terminal_loop_block',
+            'human_signed_receipt_block',
+            'real_provider_smoke_block',
+            'forge_self_improvement_integration_smoke_block',
+        ] as $block) {
+            $this->assertArrayHasKey($block, $audit['audit_blocks'], "missing audit_blocks.{$block}");
+            $blockPayload = (array) $audit['audit_blocks'][$block];
+            foreach (['status', 'blocker_type', 'remediation_command', 'doc_anchor', 'expected_receipt_schema'] as $required) {
+                $this->assertArrayHasKey($required, $blockPayload, "block {$block} missing {$required}");
+            }
+        }
+
+        $this->assertSame(
+            data_get($audit, 'agent_control_plane_terminal_loop_certification.certification_hash'),
+            data_get($audit, 'audit_blocks.terminal_loop_block.observed_hash'),
+        );
+        $this->assertSame('blocked', data_get($audit, 'audit_blocks.human_signed_receipt_block.status'));
+        $this->assertSame('human', data_get($audit, 'audit_blocks.human_signed_receipt_block.blocker_type'));
+        $this->assertSame('blocked', data_get($audit, 'audit_blocks.real_provider_smoke_block.status'));
+        $this->assertSame('real_provider', data_get($audit, 'audit_blocks.real_provider_smoke_block.blocker_type'));
+        // Release dossier + chain integrity status depend on the snapshot store presence; honour whatever the
+        // backing services compute — the test only proves the audit_blocks shape is honest.
+        foreach (['release_dossier_block', 'chain_integrity_block'] as $derivedBlock) {
+            $this->assertContains(
+                (string) data_get($audit, "audit_blocks.{$derivedBlock}.status"),
+                ['green', 'blocked', 'unknown'],
+                "audit_blocks.{$derivedBlock}.status must be one of green|blocked|unknown",
+            );
+        }
+    }
+
+    public function test_completion_audit_passed_criteria_detailed_carries_evidence_hash(): void
+    {
+        $audit = (new AtlasSelfConstructionOsCompletionAuditService(app(AtlasSelfConstructionReadinessService::class)))->audit();
+
+        $this->assertSame($audit['passed_count'], count($audit['passed_criteria_detailed']));
+        // Pick any passed criterion present in this environment and check the shape.
+        // Storage::fake('local') in setUp can make some technical criteria blocked,
+        // so we don't assume which specific criterion will be passed — only that the
+        // shape carries id, requirement, evidence_hash, doc_anchor, expected_receipt_schema.
+        $this->assertGreaterThan(0, count($audit['passed_criteria_detailed']));
+        foreach ((array) $audit['passed_criteria_detailed'] as $entry) {
+            $this->assertArrayHasKey('id', $entry);
+            $this->assertArrayHasKey('requirement', $entry);
+            $this->assertArrayHasKey('evidence_hash', $entry);
+            $this->assertArrayHasKey('doc_anchor', $entry);
+            $this->assertArrayHasKey('expected_receipt_schema', $entry);
+        }
+    }
+
+    public function test_operator_action_packet_exposes_blockers_receipts_and_human_reasons(): void
+    {
+        $audit = (new AtlasSelfConstructionOsCompletionAuditService(app(AtlasSelfConstructionReadinessService::class)))->audit();
+        $packet = (array) ($audit['operator_action_packet'] ?? []);
+
+        $this->assertGreaterThanOrEqual(2, (int) ($packet['blocker_count'] ?? 0));
+        $blockerIds = array_column((array) ($packet['blockers'] ?? []), 'id');
+        $this->assertContains('human_signed_os_complete_receipt', $blockerIds);
+        $this->assertContains('real_provider_claim_to_completion_smoke', $blockerIds);
+
+        $humanBlocker = collect((array) $packet['blockers'])->firstWhere('id', 'human_signed_os_complete_receipt');
+        $this->assertSame('human', $humanBlocker['blocker_type']);
+        $this->assertNotSame('', (string) $humanBlocker['why_not_automatic']);
+        $this->assertNotSame('', (string) $humanBlocker['expected_receipt_command']);
+        $this->assertNotSame('', (string) $humanBlocker['persist_command']);
+        $this->assertSame('atlas.self_construction.human_signed_completion_receipt.v1', (string) $humanBlocker['expected_receipt_schema']);
+
+        $providerBlocker = collect((array) $packet['blockers'])->firstWhere('id', 'real_provider_claim_to_completion_smoke');
+        $this->assertSame('real_provider', $providerBlocker['blocker_type']);
+        $this->assertStringContainsString('Atlas never starts a provider process', (string) $providerBlocker['why_not_automatic']);
+
+        $schemas = (array) ($packet['expected_receipt_schemas'] ?? []);
+        $this->assertArrayHasKey('runtime_promotion_receipt', $schemas);
+        $this->assertArrayHasKey('human_signed_os_complete_receipt', $schemas);
+        $this->assertArrayHasKey('real_provider_smoke', $schemas);
+        $this->assertArrayHasKey('real_provider_smoke_runbook', $schemas);
+        $this->assertArrayHasKey('completion_audit', $schemas);
+        $this->assertArrayHasKey('release_dossier', $schemas);
+
+        $this->assertContains('atlas_never_self_promotes_os_complete', (array) ($packet['human_judgment_required_reasons'] ?? []));
+        $this->assertContains('real_provider_call_is_outside_atlas_token_budget_and_kill_switch_belongs_to_operator', (array) ($packet['human_judgment_required_reasons'] ?? []));
+
+        $smokeRunbook = (array) ($packet['real_provider_smoke_runbook'] ?? []);
+        $this->assertArrayHasKey('preflight', $smokeRunbook);
+        $this->assertArrayHasKey('kill_switch', $smokeRunbook);
+        $this->assertArrayHasKey('rollback_expectations', $smokeRunbook);
+        $this->assertArrayHasKey('token_cost_capture_requirements', $smokeRunbook);
+        $this->assertArrayHasKey('work_product_collection_requirements', $smokeRunbook);
+        $this->assertContains('persist_passed_real_provider_smoke', (array) data_get($smokeRunbook, 'kill_switch.forbidden_after_abort', []));
+        $this->assertTrue((bool) data_get($smokeRunbook, 'rollback_expectations.no_atlas_owned_state_mutated'));
+    }
+
+    public function test_audit_doc_anchors_point_at_real_contract_doc(): void
+    {
+        $contractPath = base_path('docs/engineering-knowledge-base/self-construction/agent-control-plane-contract.md');
+        $this->assertFileExists($contractPath);
+
+        $audit = (new AtlasSelfConstructionOsCompletionAuditService(app(AtlasSelfConstructionReadinessService::class)))->audit();
+
+        foreach ((array) $audit['failed_criteria_detailed'] as $entry) {
+            $anchor = (string) ($entry['doc_anchor'] ?? '');
+            $this->assertNotSame('', $anchor, 'failed criterion '.($entry['id'] ?? '').' missing doc_anchor');
+            $this->assertStringContainsString('agent-control-plane-contract.md', $anchor);
+        }
+        foreach ((array) $audit['passed_criteria_detailed'] as $entry) {
+            $anchor = (string) ($entry['doc_anchor'] ?? '');
+            $this->assertNotSame('', $anchor, 'passed criterion '.($entry['id'] ?? '').' missing doc_anchor');
+        }
+        foreach ((array) $audit['audit_blocks'] as $key => $block) {
+            $this->assertNotSame('', (string) ($block['doc_anchor'] ?? ''), "block {$key} missing doc_anchor");
+        }
+    }
+
     public function test_command_exposes_completion_audit_quartet(): void
     {
         foreach ([
@@ -112,5 +260,156 @@ final class AtlasSelfConstructionOsCompletionAuditTest extends TestCase
         ] as $capability) {
             $this->assertContains($capability, $capabilities);
         }
+    }
+
+    public function test_audit_includes_agent_control_plane_terminal_loop_certification_block(): void
+    {
+        $audit = (new AtlasSelfConstructionOsCompletionAuditService(app(AtlasSelfConstructionReadinessService::class)))->audit();
+
+        $block = $audit['agent_control_plane_terminal_loop_certification'] ?? null;
+        $this->assertIsArray($block);
+        $this->assertSame(
+            AtlasSelfConstructionOsCompletionAuditService::TERMINAL_LOOP_CERTIFICATION_SCHEMA_VERSION,
+            $block['schema_version'] ?? null,
+        );
+        $this->assertSame(6, $block['module_count']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $block['certification_hash']);
+
+        $moduleIds = array_column($block['modules'], 'id');
+        foreach ([
+            'task_auto_replenishment_status',
+            'task_queue_claim_next_status',
+            'task_queue_complete_dry_run_status',
+            'one_shot_worker_packet_status',
+            'task_lease_recovery_status',
+            'multi_agent_loop_certification_status',
+        ] as $expected) {
+            $this->assertContains($expected, $moduleIds);
+        }
+
+        foreach ([
+            'runtime_safety_all_false',
+            'queue_transition_policy_enforced',
+            'no_legacy_reservation_claim',
+            'no_legacy_reservation_completion',
+            'claim_requires_lease_id_and_agent_id',
+            'completion_requires_active_lease',
+            'recovery_handles_orphaned_leases',
+            'completion_does_not_mark_real_os_completion',
+        ] as $invariant) {
+            $this->assertArrayHasKey($invariant, $block['invariants']);
+        }
+
+        $criterion = collect($audit['criteria'])->firstWhere('id', 'agent_control_plane_terminal_loop_certification_green');
+        $this->assertNotNull($criterion);
+        $this->assertSame((bool) $block['passed'], (bool) $criterion['passed']);
+    }
+
+    public function test_terminal_loop_block_passes_when_all_modules_and_invariants_green(): void
+    {
+        $audit = (new AtlasSelfConstructionOsCompletionAuditService(app(AtlasSelfConstructionReadinessService::class)))->audit();
+        $block = $audit['agent_control_plane_terminal_loop_certification'];
+
+        $this->assertTrue($block['passed']);
+        $this->assertSame('available', $block['status']);
+        $this->assertSame(6, $block['modules_passed']);
+        $this->assertSame(0, $block['modules_blocked']);
+        $this->assertSame([], $block['invariant_violations']);
+        foreach ($block['modules'] as $module) {
+            $this->assertTrue($module['passed'], "module {$module['id']} expected passed");
+            $this->assertSame([], $module['missing_artifacts']);
+            $this->assertTrue($module['readiness_method_available']);
+            $this->assertTrue($module['service_class_exists']);
+            $this->assertTrue($module['doc_bullet_exists']);
+            $this->assertTrue($module['cli_surface_exists']);
+        }
+    }
+
+    public function test_terminal_loop_block_fails_when_module_artifact_synthetically_missing(): void
+    {
+        $audit = (new AtlasSelfConstructionOsCompletionAuditService(app(AtlasSelfConstructionReadinessService::class)))->audit([
+            'agent_control_plane_terminal_loop_certification' => [
+                'module_overrides' => [
+                    'task_auto_replenishment_status' => [
+                        'service_class_exists' => false,
+                    ],
+                ],
+            ],
+        ]);
+
+        $block = $audit['agent_control_plane_terminal_loop_certification'];
+        $this->assertFalse($block['passed']);
+        $this->assertSame('blocked', $block['status']);
+        $this->assertGreaterThanOrEqual(1, $block['modules_blocked']);
+
+        $module = collect($block['modules'])->firstWhere('id', 'task_auto_replenishment_status');
+        $this->assertFalse($module['passed']);
+        $this->assertContains('service_class', $module['missing_artifacts']);
+
+        $criterion = collect($audit['criteria'])->firstWhere('id', 'agent_control_plane_terminal_loop_certification_green');
+        $this->assertFalse((bool) $criterion['passed']);
+        $this->assertContains('agent_control_plane_terminal_loop_certification_green', $audit['failed_criteria']);
+    }
+
+    public function test_terminal_loop_block_fails_when_invariant_violated(): void
+    {
+        $audit = (new AtlasSelfConstructionOsCompletionAuditService(app(AtlasSelfConstructionReadinessService::class)))->audit([
+            'agent_control_plane_terminal_loop_certification' => [
+                'invariant_overrides' => [
+                    'no_legacy_reservation_claim' => false,
+                ],
+            ],
+        ]);
+
+        $block = $audit['agent_control_plane_terminal_loop_certification'];
+        $this->assertFalse($block['passed']);
+        $this->assertContains('no_legacy_reservation_claim', $block['invariant_violations']);
+        $this->assertContains('agent_control_plane_terminal_loop_certification_green', $audit['failed_criteria']);
+    }
+
+    public function test_audit_runtime_flags_all_false(): void
+    {
+        $audit = (new AtlasSelfConstructionOsCompletionAuditService(app(AtlasSelfConstructionReadinessService::class)))->audit();
+
+        $this->assertTrue($audit['runtime_safety']['runtime_safety_all_false']);
+        $this->assertFalse($audit['runtime_safety']['execution_allowed']);
+        $this->assertFalse($audit['runtime_safety']['dispatch_allowed']);
+        $this->assertFalse($audit['runtime_safety']['provider_call_allowed']);
+        $this->assertFalse($audit['runtime_safety']['token_spend_allowed']);
+        $this->assertFalse($audit['runtime_safety']['adapter_execution_allowed']);
+        $this->assertFalse($audit['runtime_safety']['self_programming_allowed']);
+
+        $loop = $audit['agent_control_plane_terminal_loop_certification']['runtime_safety'];
+        $this->assertTrue($loop['runtime_safety_all_false']);
+        $this->assertFalse($loop['execution_allowed']);
+        $this->assertFalse($loop['dispatch_allowed']);
+        $this->assertFalse($loop['provider_call_allowed']);
+        $this->assertFalse($loop['token_spend_allowed']);
+        $this->assertFalse($loop['self_programming_allowed']);
+    }
+
+    public function test_completion_remains_incomplete_when_terminal_loop_green_but_human_blockers_remain(): void
+    {
+        $audit = (new AtlasSelfConstructionOsCompletionAuditService(app(AtlasSelfConstructionReadinessService::class)))->audit();
+
+        $loopCriterion = collect($audit['criteria'])->firstWhere('id', 'agent_control_plane_terminal_loop_certification_green');
+        $this->assertTrue((bool) $loopCriterion['passed']);
+
+        $this->assertSame('incomplete', $audit['status']);
+        $this->assertFalse($audit['completion_allowed']);
+        $this->assertFalse($audit['completion_claim_allowed']);
+        $this->assertContains('human_signed_os_complete_receipt_present', $audit['failed_criteria']);
+        $this->assertContains('end_to_end_real_provider_smoke_green', $audit['failed_criteria']);
+    }
+
+    public function test_checklist_includes_terminal_loop_row(): void
+    {
+        $audit = (new AtlasSelfConstructionOsCompletionAuditService(app(AtlasSelfConstructionReadinessService::class)))->audit();
+
+        $artifacts = array_column($audit['prompt_to_artifact_checklist'], 'artifact');
+        $this->assertContains(
+            AtlasSelfConstructionOsCompletionAuditService::TERMINAL_LOOP_CERTIFICATION_SCHEMA_VERSION,
+            $artifacts,
+        );
     }
 }

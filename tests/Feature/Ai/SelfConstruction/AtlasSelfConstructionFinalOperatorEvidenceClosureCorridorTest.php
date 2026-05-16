@@ -36,6 +36,12 @@ final class AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorTest extend
         $this->assertArrayHasKey('runtime_promotion_receipt', (array) data_get($payload, 'operator_submission_envelopes', []));
         $this->assertArrayHasKey('real_provider_smoke', (array) data_get($payload, 'operator_submission_envelopes', []));
         $this->assertArrayHasKey('human_completion_receipt', (array) data_get($payload, 'operator_submission_envelopes', []));
+        $this->assertSame(
+            'blocked_until_runtime_smoke_prior_persistence_and_evidence_context_are_green',
+            (string) data_get($payload, 'operator_submission_envelopes.human_completion_receipt.status'),
+        );
+        $this->assertFalse((bool) data_get($payload, 'current_completion_evidence_status.real_provider_smoke_persisted_before_human_receipt_command'));
+        $this->assertFalse((bool) data_get($payload, 'operator_submission_envelopes.human_completion_receipt.current_evidence_context.real_provider_smoke_persisted_before_human_receipt_command'));
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) data_get($payload, 'operator_submission_envelopes.operator_submission_envelopes_hash'));
     }
 
@@ -178,6 +184,12 @@ final class AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorTest extend
         $this->assertTrue((bool) data_get($payload, 'operator_workspace_diagnostics.draft_workspace_post_publish_persistence_sequence_ordered'));
         $this->assertTrue((bool) data_get($payload, 'operator_workspace_diagnostics.draft_workspace_requires_explicit_operator_persistence_commands'));
         $this->assertFalse((bool) data_get($payload, 'operator_workspace_diagnostics.draft_workspace_can_persist_from_publisher'));
+        $this->assertSame('no_canonical_submission_files_loaded', data_get($payload, 'operator_workspace_diagnostics.canonical_submission_persistence_plan_status'));
+        $this->assertSame('persist_runtime_promotion_receipt', data_get($payload, 'operator_workspace_diagnostics.canonical_submission_persistence_plan_next_step_id'));
+        $this->assertFalse((bool) data_get($payload, 'operator_workspace_diagnostics.canonical_submission_persisted_evidence_state.runtime_promotion_receipt.persisted_green'));
+        $this->assertFalse((bool) data_get($payload, 'operator_workspace_diagnostics.canonical_submission_persisted_evidence_state.real_provider_smoke.persisted_green'));
+        $this->assertFalse((bool) data_get($payload, 'operator_workspace_diagnostics.canonical_submission_persisted_evidence_state.human_completion_receipt.persisted_green'));
+        $this->assertTrue((bool) data_get($payload, 'operator_workspace_diagnostics.human_receipt_persistence_requires_prior_persisted_smoke_command'));
         $this->assertSame(
             [
                 'persist_runtime_promotion_receipt',

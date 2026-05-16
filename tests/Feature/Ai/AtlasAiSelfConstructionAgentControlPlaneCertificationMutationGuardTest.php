@@ -154,6 +154,42 @@ final class AtlasAiSelfConstructionAgentControlPlaneCertificationMutationGuardTe
         );
     }
 
+    public function test_guard_counts_only_monitored_storage_prefixes_without_root_scan(): void
+    {
+        Storage::disk('local')->put('unrelated-heavy-area/file-a.json', '{}');
+        Storage::disk('local')->put('atlas/self-construction/replay-snapshots/allowed.json', '{}');
+        Storage::disk('local')->put('atlas/self-construction/operator-submissions/runtime-promotion.json', '{}');
+
+        $guard = $this->newGuard()->guard();
+
+        $this->assertSame(1, (int) data_get($guard, 'before.storage_outside_prefix_count'));
+        $this->assertContains('atlas/self-construction/operator-submissions', data_get($guard, 'before.monitored_storage_prefixes'));
+        $this->assertFalse((bool) $guard['storage_mutated']);
+        $this->assertSame('passed', $guard['status']);
+    }
+
+    public function test_storage_scan_uses_counter_instead_of_path_hashmap(): void
+    {
+        // Synthesises a moderately large monitored workspace and confirms the
+        // mutation guard returns the expected count without OOM under a
+        // bounded memory budget. We use a modest fixture count to keep the
+        // suite fast; the production hard cap of 50_000 protects the audit
+        // under PHP's default 128M memory_limit.
+        for ($i = 0; $i < 1000; $i++) {
+            Storage::disk('local')->put(
+                "atlas/self-construction/operator-submissions/saturated/draft-{$i}.json",
+                '{}',
+            );
+        }
+
+        $guard = $this->newGuard()->guard();
+
+        $this->assertSame(1000, (int) data_get($guard, 'before.storage_outside_prefix_count'));
+        $this->assertSame(1000, (int) data_get($guard, 'after.storage_outside_prefix_count'));
+        $this->assertFalse((bool) $guard['storage_mutated']);
+        $this->assertSame('passed', $guard['status']);
+    }
+
     public function test_guard_allows_snapshot_prefix_mutation_only_when_configured(): void
     {
         $guard = $this->newGuard()->guard(null, [

@@ -189,6 +189,116 @@ final class AtlasAiSelfConstructionAgentControlPlaneTaskQueueOrchestratorTest ex
         $this->assertSame('prepared_and_enqueued', data_get($payload, 'agent_control_plane_task_queue_orchestrator_status.event'));
     }
 
+    public function test_cli_claim_next_uses_persistent_task_queue_and_lease_runtime(): void
+    {
+        Artisan::call('atlas:ai:self-construction', [
+            '--agent-control-plane-task-queue-claim-next-status' => true,
+            '--actor' => 'agent-cli-1',
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame('atlas.self_construction_agent_control_plane_task_queue_claim_next_status.v1', $payload['schema_version']);
+        $this->assertSame('claimed', data_get($payload, 'agent_control_plane_task_queue_claim_next.status'));
+        $this->assertSame('claimed', data_get($payload, 'agent_control_plane_task_queue_claim_next.event'));
+        $this->assertSame('agent-cli-1', data_get($payload, 'agent_control_plane_task_queue_claim_next.agent_id'));
+        $this->assertTrue((bool) data_get($payload, 'agent_control_plane_task_queue_claim_next.runtime_claim_persisted'));
+        $this->assertFalse((bool) data_get($payload, 'agent_control_plane_task_queue_claim_next.legacy_reservation_claim_used'));
+        $this->assertTrue((bool) data_get($payload, 'agent_control_plane_task_queue_claim_next.safe_for_parallel_terminal_loop'));
+        $this->assertNotEmpty(data_get($payload, 'agent_control_plane_task_queue_claim_next.task_packet_id'));
+        $this->assertNotEmpty(data_get($payload, 'agent_control_plane_task_queue_claim_next.lease_id'));
+        $this->assertFalse((bool) data_get($payload, 'agent_control_plane_task_queue_claim_next.non_execution_summary.dispatch_allowed'));
+        $this->assertFalse((bool) data_get($payload, 'agent_control_plane_task_queue_claim_next.non_execution_summary.provider_call_allowed'));
+    }
+
+    public function test_cli_claim_next_does_not_duplicate_active_claim_for_second_agent(): void
+    {
+        Artisan::call('atlas:ai:self-construction', [
+            '--agent-control-plane-task-queue-claim-next-status' => true,
+            '--actor' => 'agent-cli-a',
+            '--json' => true,
+        ]);
+        $first = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        Artisan::call('atlas:ai:self-construction', [
+            '--agent-control-plane-task-queue-claim-next-status' => true,
+            '--actor' => 'agent-cli-b',
+            '--json' => true,
+        ]);
+        $second = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame('claimed', data_get($first, 'agent_control_plane_task_queue_claim_next.status'));
+        $this->assertSame('blocked', data_get($second, 'agent_control_plane_task_queue_claim_next.status'));
+        $this->assertSame('no_claimable_task', data_get($second, 'agent_control_plane_task_queue_claim_next.event'));
+        $this->assertFalse((bool) data_get($second, 'agent_control_plane_task_queue_claim_next.runtime_claim_persisted'));
+        $this->assertFalse((bool) data_get($second, 'agent_control_plane_task_queue_claim_next.legacy_reservation_claim_used'));
+    }
+
+    public function test_cli_complete_dry_run_closes_claimed_runtime_task_without_real_completion(): void
+    {
+        Artisan::call('atlas:ai:self-construction', [
+            '--agent-control-plane-task-queue-claim-next-status' => true,
+            '--actor' => 'agent-cli-complete',
+            '--json' => true,
+        ]);
+        $claim = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+        $packetId = (string) data_get($claim, 'agent_control_plane_task_queue_claim_next.task_packet_id');
+        $leaseId = (string) data_get($claim, 'agent_control_plane_task_queue_claim_next.lease_id');
+
+        Artisan::call('atlas:ai:self-construction', [
+            '--agent-control-plane-task-queue-complete-dry-run-status' => true,
+            '--packet' => $packetId,
+            '--lease-id' => $leaseId,
+            '--actor' => 'agent-cli-complete',
+            '--evidence-hash' => str_repeat('a', 64),
+            '--json' => true,
+        ]);
+        $completion = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame('atlas.self_construction_agent_control_plane_task_queue_complete_dry_run_status.v1', $completion['schema_version']);
+        $this->assertSame('completed_dry_run', data_get($completion, 'agent_control_plane_task_queue_complete_dry_run.status'));
+        $this->assertSame('completed_dry_run', data_get($completion, 'agent_control_plane_task_queue_complete_dry_run.event'));
+        $this->assertTrue((bool) data_get($completion, 'agent_control_plane_task_queue_complete_dry_run.runtime_completion_persisted'));
+        $this->assertFalse((bool) data_get($completion, 'agent_control_plane_task_queue_complete_dry_run.completion_real_allowed'));
+        $this->assertFalse((bool) data_get($completion, 'agent_control_plane_task_queue_complete_dry_run.legacy_reservation_completion_used'));
+        $this->assertTrue((bool) data_get($completion, 'agent_control_plane_task_queue_complete_dry_run.safe_for_parallel_terminal_loop'));
+        $this->assertSame('completed_dry_run', (new AgentControlPlaneTaskPacketQueueRepository)->get($packetId)['status']);
+    }
+
+    public function test_cli_complete_dry_run_blocks_missing_or_invalid_inputs(): void
+    {
+        Artisan::call('atlas:ai:self-construction', [
+            '--agent-control-plane-task-queue-complete-dry-run-status' => true,
+            '--lease-id' => 'lease_missing_packet',
+            '--json' => true,
+        ]);
+        $missingPacket = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame('blocked', data_get($missingPacket, 'agent_control_plane_task_queue_complete_dry_run.status'));
+        $this->assertSame('task_packet_id_missing', data_get($missingPacket, 'agent_control_plane_task_queue_complete_dry_run.reason'));
+
+        Artisan::call('atlas:ai:self-construction', [
+            '--agent-control-plane-task-queue-claim-next-status' => true,
+            '--actor' => 'agent-cli-invalid-evidence',
+            '--json' => true,
+        ]);
+        $claim = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        Artisan::call('atlas:ai:self-construction', [
+            '--agent-control-plane-task-queue-complete-dry-run-status' => true,
+            '--packet' => (string) data_get($claim, 'agent_control_plane_task_queue_claim_next.task_packet_id'),
+            '--lease-id' => (string) data_get($claim, 'agent_control_plane_task_queue_claim_next.lease_id'),
+            '--evidence-hash' => 'not-a-sha',
+            '--json' => true,
+        ]);
+        $invalidEvidence = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame('blocked', data_get($invalidEvidence, 'agent_control_plane_task_queue_complete_dry_run.status'));
+        $this->assertSame('evidence_hash_invalid', data_get($invalidEvidence, 'agent_control_plane_task_queue_complete_dry_run.reason'));
+        $this->assertFalse((bool) data_get($invalidEvidence, 'agent_control_plane_task_queue_complete_dry_run.runtime_completion_persisted'));
+    }
+
     public function test_cli_quartet_works(): void
     {
         foreach (['contract', 'preflight', 'implementation-packet'] as $stage) {

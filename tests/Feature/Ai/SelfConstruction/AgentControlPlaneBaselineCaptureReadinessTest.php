@@ -100,6 +100,38 @@ final class AgentControlPlaneBaselineCaptureReadinessTest extends TestCase
         $this->assertContains('certification_baseline_status_is_blocked', $result['blockers']);
     }
 
+    public function test_capture_plan_surfaces_canonical_closure_commands(): void
+    {
+        $result = $this->newService()->assess(
+            $this->baseline(),
+            $this->replay('cmd'),
+            $this->diff('no_baseline'),
+            $this->gate('no_baseline'),
+        );
+
+        $capturePlan = (array) $result['capture_plan'];
+        $this->assertSame(
+            'php artisan atlas:ai:self-construction --agent-control-plane-replay-snapshot-store-capture --json',
+            (string) $capturePlan['capture_command'],
+        );
+        $this->assertSame(
+            'php -d memory_limit=512M artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --json',
+            (string) $capturePlan['post_capture_audit_command'],
+        );
+        $this->assertSame(
+            'php artisan atlas:ai:self-construction --agent-control-plane-release-dossier-status --json',
+            (string) $capturePlan['post_capture_dossier_command'],
+        );
+        $this->assertSame(
+            'php artisan atlas:ai:self-construction --agent-control-plane-replay-diff-status --json',
+            (string) $capturePlan['post_capture_replay_diff_command'],
+        );
+        $this->assertSame(
+            'php artisan atlas:ai:self-construction --agent-control-plane-replay-snapshot-store-status --json',
+            (string) $capturePlan['snapshot_store_status_command'],
+        );
+    }
+
     public function test_readiness_never_enables_runtime_flags(): void
     {
         $result = $this->newService()->assess(

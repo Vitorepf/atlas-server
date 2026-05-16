@@ -210,6 +210,7 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService
                     || (array) ($options['real_provider_smoke'] ?? []) !== []
                     || (array) ($options['completion_receipt'] ?? []) !== [],
                 workspacePayloadSupplied: (string) data_get($workspaceInput, 'status', '') === 'loaded_for_read_only_submission_readiness',
+                persistedEvidenceState: $this->persistedEvidenceState($runtimeGapMatrix),
             ),
             'runtime_promotion_receipt_passed' => $runtimePassed,
             'real_provider_smoke_passed' => $smokePassed,
@@ -628,21 +629,21 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService
      * @param  array<string, array<string, mixed>>  $diagnostics
      * @return array<string, mixed>
      */
-    private function canonicalSubmissionPersistencePlan(array $canonicalSubmissionInput, array $diagnostics, bool $explicitPayloadSupplied, bool $workspacePayloadSupplied): array
+    private function canonicalSubmissionPersistencePlan(array $canonicalSubmissionInput, array $diagnostics, bool $explicitPayloadSupplied, bool $workspacePayloadSupplied, array $persistedEvidenceState): array
     {
         $loadedArtifacts = (array) data_get($canonicalSubmissionInput, 'loaded_artifacts', []);
         $canonicalSourceAuthoritative = ! $explicitPayloadSupplied && ! $workspacePayloadSupplied;
 
-        $runtimeReady = $canonicalSourceAuthoritative
+        $runtimePersisted = (bool) data_get($persistedEvidenceState, 'runtime_promotion_receipt.persisted_green', false);
+        $smokePersisted = (bool) data_get($persistedEvidenceState, 'real_provider_smoke.persisted_green', false);
+        $humanPersisted = (bool) data_get($persistedEvidenceState, 'human_completion_receipt.persisted_green', false);
+        $runtimeFileReady = $canonicalSourceAuthoritative
             && in_array('runtime_promotion_receipt', $loadedArtifacts, true)
             && (bool) data_get($diagnostics, 'runtime_promotion_receipt.ready', false);
-        $smokeReady = $canonicalSourceAuthoritative
-            && $runtimeReady
+        $smokeFileReady = $canonicalSourceAuthoritative
             && in_array('real_provider_smoke', $loadedArtifacts, true)
             && (bool) data_get($diagnostics, 'real_provider_smoke.ready', false);
-        $humanReady = $canonicalSourceAuthoritative
-            && $runtimeReady
-            && $smokeReady
+        $humanFileReady = $canonicalSourceAuthoritative
             && in_array('human_completion_receipt', $loadedArtifacts, true)
             && (bool) data_get($diagnostics, 'human_completion_receipt.ready', false);
 
@@ -656,6 +657,7 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService
                 prerequisiteReady: $canonicalSourceAuthoritative,
                 command: 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --runtime-promotion-receipt-json=@storage/app/atlas/self-construction/operator-submissions/runtime-promotion.json --persist-runtime-promotion-receipt --json',
                 prerequisiteBlocker: $canonicalSourceAuthoritative ? '' : 'canonical_submission_files_not_authoritative_for_current_readiness_input',
+                persistedEvidenceAlreadyGreen: $runtimePersisted,
             ),
             $this->canonicalSubmissionPersistenceStep(
                 order: 2,
@@ -663,9 +665,10 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService
                 artifact: 'real_provider_smoke',
                 loadedArtifacts: $loadedArtifacts,
                 diagnostic: (array) $diagnostics['real_provider_smoke'],
-                prerequisiteReady: $runtimeReady,
+                prerequisiteReady: $runtimePersisted,
                 command: 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --real-provider-smoke-json=@storage/app/atlas/self-construction/operator-submissions/real-provider-smoke.json --persist-completion-evidence --json',
-                prerequisiteBlocker: $runtimeReady ? '' : 'runtime_promotion_receipt_must_be_ready_first',
+                prerequisiteBlocker: $runtimePersisted ? '' : 'runtime_promotion_receipt_must_be_persisted_first',
+                persistedEvidenceAlreadyGreen: $smokePersisted,
             ),
             $this->canonicalSubmissionPersistenceStep(
                 order: 3,
@@ -673,47 +676,56 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService
                 artifact: 'human_completion_receipt',
                 loadedArtifacts: $loadedArtifacts,
                 diagnostic: (array) $diagnostics['human_completion_receipt'],
-                prerequisiteReady: $runtimeReady && $smokeReady,
+                prerequisiteReady: $runtimePersisted && $smokePersisted,
                 command: 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --completion-receipt-json=@storage/app/atlas/self-construction/operator-submissions/completion-receipt.json --persist-completion-evidence --json',
-                prerequisiteBlocker: ($runtimeReady && $smokeReady) ? '' : 'runtime_promotion_and_real_provider_smoke_must_be_ready_first',
+                prerequisiteBlocker: ($runtimePersisted && $smokePersisted) ? '' : 'runtime_promotion_and_real_provider_smoke_must_be_persisted_first',
+                persistedEvidenceAlreadyGreen: $humanPersisted,
             ),
             [
                 'order' => 4,
                 'id' => 'rerun_completion_audit',
                 'artifact' => 'atlas_self_construction_os_completion_audit',
                 'canonical_submission_path' => '',
-                'status' => $runtimeReady && $smokeReady && $humanReady
-                    ? 'ready_after_explicit_operator_persistence_steps'
+                'status' => $runtimePersisted && $smokePersisted && $humanPersisted
+                    ? 'ready_after_persisted_evidence_steps'
                     : 'blocked_until_all_canonical_submission_persistence_steps_are_ready',
                 'command' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --json',
                 'requires_explicit_persistence_flag' => false,
                 'can_run_from_readiness' => false,
-                'blocker' => $runtimeReady && $smokeReady && $humanReady ? '' : 'canonical_submission_persistence_not_ready',
+                'persisted_evidence_already_green' => false,
+                'blocker' => $runtimePersisted && $smokePersisted && $humanPersisted ? '' : 'canonical_submission_persistence_not_ready',
             ],
         ];
 
         $nextStep = '';
         foreach ($steps as $step) {
-            if (! str_starts_with((string) $step['status'], 'ready')) {
+            if (! str_starts_with((string) $step['status'], 'ready') && ! (bool) ($step['persisted_evidence_already_green'] ?? false)) {
                 $nextStep = (string) $step['id'];
                 break;
             }
         }
 
+        $allPersisted = $runtimePersisted && $smokePersisted && $humanPersisted;
+        $anyFileReady = $runtimeFileReady || $smokeFileReady || $humanFileReady;
+
         $payload = [
             'schema_version' => 'atlas.self_construction.canonical_submission_persistence_plan.v1',
             'mode' => 'read_only_canonical_submission_persistence_plan',
-            'status' => $humanReady ? 'ready_for_explicit_operator_persistence_sequence' : ($loadedArtifacts === [] ? 'no_canonical_submission_files_loaded' : 'blocked_until_canonical_submission_files_are_ready'),
+            'status' => $allPersisted
+                ? 'all_evidence_already_persisted_rerun_completion_audit'
+                : ($anyFileReady ? 'ready_for_next_explicit_operator_persistence_step' : ($loadedArtifacts === [] ? 'no_canonical_submission_files_loaded' : 'blocked_until_canonical_submission_files_are_ready')),
             'canonical_submission_directory' => 'storage/app/atlas/self-construction/operator-submissions',
             'canonical_source_authoritative' => $canonicalSourceAuthoritative,
             'explicit_payload_supplied' => $explicitPayloadSupplied,
             'workspace_payload_supplied' => $workspacePayloadSupplied,
+            'persisted_evidence_state' => $persistedEvidenceState,
             'loaded_artifacts' => $loadedArtifacts,
             'loaded_artifact_count' => count($loadedArtifacts),
             'required_artifact_count' => 3,
             'sequence_ordered' => true,
             'requires_explicit_operator_persistence_commands' => true,
             'human_receipt_persistence_requires_runtime_and_smoke_green' => true,
+            'human_receipt_persistence_requires_prior_persisted_smoke_command' => true,
             'next_step_id' => $nextStep,
             'steps' => $steps,
             'can_persist_from_readiness' => false,
@@ -734,12 +746,39 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService
         return $payload;
     }
 
+    /** @param array<string, mixed> $runtimeGapMatrix */
+    private function persistedEvidenceState(array $runtimeGapMatrix): array
+    {
+        $runtimeReceipt = (array) data_get($runtimeGapMatrix, 'runtime_promotion_receipt', []);
+        $realProviderSmoke = (new AtlasSelfConstructionRealProviderSmokeCertificationService)->certify();
+        $humanCompletionReceipt = (new AtlasSelfConstructionHumanSignedCompletionReceiptService)->verify();
+
+        return [
+            'runtime_promotion_receipt' => [
+                'status' => (string) data_get($runtimeReceipt, 'status', ''),
+                'receipt_hash' => (string) data_get($runtimeReceipt, 'receipt_hash', ''),
+                'persisted_green' => (string) data_get($runtimeReceipt, 'status') === 'passed'
+                    && (bool) data_get($runtimeGapMatrix, 'all_runtime_y', false),
+            ],
+            'real_provider_smoke' => [
+                'status' => (string) data_get($realProviderSmoke, 'status', ''),
+                'smoke_hash' => (string) data_get($realProviderSmoke, 'smoke_hash', ''),
+                'persisted_green' => (string) data_get($realProviderSmoke, 'status') === 'passed',
+            ],
+            'human_completion_receipt' => [
+                'status' => (string) data_get($humanCompletionReceipt, 'status', ''),
+                'receipt_hash' => (string) data_get($humanCompletionReceipt, 'receipt_hash', ''),
+                'persisted_green' => (string) data_get($humanCompletionReceipt, 'status') === 'passed',
+            ],
+        ];
+    }
+
     /**
      * @param  list<string>  $loadedArtifacts
      * @param  array<string, mixed>  $diagnostic
      * @return array<string, mixed>
      */
-    private function canonicalSubmissionPersistenceStep(int $order, string $id, string $artifact, array $loadedArtifacts, array $diagnostic, bool $prerequisiteReady, string $command, string $prerequisiteBlocker): array
+    private function canonicalSubmissionPersistenceStep(int $order, string $id, string $artifact, array $loadedArtifacts, array $diagnostic, bool $prerequisiteReady, string $command, string $prerequisiteBlocker, bool $persistedEvidenceAlreadyGreen): array
     {
         $loaded = in_array($artifact, $loadedArtifacts, true);
         $ready = $loaded && $prerequisiteReady && (bool) data_get($diagnostic, 'ready', false);
@@ -761,9 +800,10 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService
             'id' => $id,
             'artifact' => $artifact,
             'canonical_submission_path' => $path,
-            'status' => $ready ? 'ready_for_explicit_operator_persistence' : 'blocked_until_canonical_submission_verifier_passes',
+            'status' => $persistedEvidenceAlreadyGreen ? 'already_persisted_evidence_green' : ($ready ? 'ready_for_explicit_operator_persistence' : 'blocked_until_canonical_submission_verifier_passes'),
             'verifier_status' => (string) data_get($diagnostic, 'status', 'not_supplied'),
             'ready_for_explicit_operator_persistence' => $ready,
+            'persisted_evidence_already_green' => $persistedEvidenceAlreadyGreen,
             'command' => $command,
             'requires_explicit_persistence_flag' => true,
             'can_run_from_readiness' => false,

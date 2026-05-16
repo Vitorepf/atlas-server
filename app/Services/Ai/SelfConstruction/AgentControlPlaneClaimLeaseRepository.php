@@ -401,12 +401,22 @@ final class AgentControlPlaneClaimLeaseRepository
                 continue;
             }
             $expiresAt = (int) ($entry['expires_at_unix'] ?? 0);
+            $leaseId = (string) ($entry['lease_id'] ?? '');
+            $lease = $this->readLeaseFile($leaseId);
+            if ($lease === null) {
+                $entries[$i]['lease_status'] = self::LEASE_STATUS_EXPIRED;
+                $entries[$i]['orphaned_at'] = CarbonImmutable::now()->toIso8601String();
+                $entries[$i]['orphaned_reason'] = 'lease_file_missing';
+                $expiredIds[] = $leaseId;
+
+                continue;
+            }
+            if ((string) ($lease['lease_status'] ?? '') !== self::LEASE_STATUS_ACTIVE) {
+                $entries[$i]['lease_status'] = (string) ($lease['lease_status'] ?? self::LEASE_STATUS_EXPIRED);
+
+                continue;
+            }
             if ($expiresAt > 0 && $expiresAt <= $now) {
-                $leaseId = (string) ($entry['lease_id'] ?? '');
-                $lease = $this->readLeaseFile($leaseId);
-                if ($lease === null) {
-                    continue;
-                }
                 $expiredAt = CarbonImmutable::now()->toIso8601String();
                 $lease['lease_status'] = self::LEASE_STATUS_EXPIRED;
                 $receipt = $this->buildReceipt(self::RECEIPT_LEASE_EXPIRED, [
@@ -446,7 +456,9 @@ final class AgentControlPlaneClaimLeaseRepository
         foreach ((array) ($registry['entries'] ?? []) as $entry) {
             if ((string) ($entry['task_packet_id'] ?? '') === $taskPacketId
                 && (string) ($entry['lease_status'] ?? '') === self::LEASE_STATUS_ACTIVE) {
-                return true;
+                $lease = $this->readLeaseFile((string) ($entry['lease_id'] ?? ''));
+
+                return $lease !== null && (string) ($lease['lease_status'] ?? '') === self::LEASE_STATUS_ACTIVE;
             }
         }
 
@@ -472,7 +484,11 @@ final class AgentControlPlaneClaimLeaseRepository
             if ($excludeTaskPacketId !== '' && $existingTask === $excludeTaskPacketId) {
                 continue;
             }
-            $existingWriteSet = (array) ($entry['write_set'] ?? []);
+            $lease = $this->readLeaseFile((string) ($entry['lease_id'] ?? ''));
+            if ($lease === null || (string) ($lease['lease_status'] ?? '') !== self::LEASE_STATUS_ACTIVE) {
+                continue;
+            }
+            $existingWriteSet = (array) ($lease['write_set'] ?? $entry['write_set'] ?? []);
             $overlap = array_values(array_intersect($writeSet, $existingWriteSet));
             if ($overlap !== []) {
                 $conflicts[] = [

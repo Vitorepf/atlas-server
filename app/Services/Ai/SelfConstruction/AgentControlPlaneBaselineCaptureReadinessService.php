@@ -90,6 +90,11 @@ final class AgentControlPlaneBaselineCaptureReadinessService
             'requires_explicit_operator_action' => true,
             'automatic_capture_allowed' => false,
             'runtime_write_allowed' => false,
+            'capture_command' => 'php artisan atlas:ai:self-construction --agent-control-plane-replay-snapshot-store-capture --json',
+            'post_capture_audit_command' => 'php -d memory_limit=512M artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --json',
+            'post_capture_dossier_command' => 'php artisan atlas:ai:self-construction --agent-control-plane-release-dossier-status --json',
+            'post_capture_replay_diff_command' => 'php artisan atlas:ai:self-construction --agent-control-plane-replay-diff-status --json',
+            'snapshot_store_status_command' => 'php artisan atlas:ai:self-construction --agent-control-plane-replay-snapshot-store-status --json',
         ];
 
         $payload = [

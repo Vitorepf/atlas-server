@@ -164,6 +164,34 @@ final class AtlasAiSelfConstructionAgentControlPlaneClaimLeaseRepositoryTest ext
         }
     }
 
+    public function test_orphaned_active_registry_entry_does_not_block_future_claims(): void
+    {
+        $disk = Storage::disk('local');
+        $disk->put(AgentControlPlaneClaimLeaseRepository::REGISTRY_PATH, json_encode([
+            'entries' => [
+                [
+                    'lease_id' => 'lease_missing_file',
+                    'task_packet_id' => 'orphaned-task',
+                    'agent_id' => 'agent-gone',
+                    'lease_status' => AgentControlPlaneClaimLeaseRepository::LEASE_STATUS_ACTIVE,
+                    'expires_at_unix' => time() + 3600,
+                    'write_set' => ['app/SharedOrphan.php'],
+                    'read_set' => [],
+                ],
+            ],
+        ], JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT));
+
+        $repo = new AgentControlPlaneClaimLeaseRepository;
+        $claim = $repo->claim('new-task-after-orphan', 'agent-new', $this->scope(['app/SharedOrphan.php']));
+
+        $registry = json_decode((string) $disk->get(AgentControlPlaneClaimLeaseRepository::REGISTRY_PATH), true, flags: JSON_THROW_ON_ERROR);
+        $this->assertSame('ok', $claim['status']);
+        $this->assertSame('claim_acquired', $claim['event']);
+        $orphan = collect($registry['entries'])->firstWhere('lease_id', 'lease_missing_file');
+        $this->assertSame(AgentControlPlaneClaimLeaseRepository::LEASE_STATUS_EXPIRED, $orphan['lease_status']);
+        $this->assertSame('lease_file_missing', $orphan['orphaned_reason']);
+    }
+
     public function test_conflict_check_clear_when_no_overlap(): void
     {
         $repo = new AgentControlPlaneClaimLeaseRepository;

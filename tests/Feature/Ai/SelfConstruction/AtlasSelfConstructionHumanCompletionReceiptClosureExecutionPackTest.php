@@ -31,7 +31,7 @@ final class AtlasSelfConstructionHumanCompletionReceiptClosureExecutionPackTest 
 
     public function test_closure_pack_requires_human_signature_when_only_human_receipt_missing(): void
     {
-        $pack = $this->buildPack(audit: $this->auditWith(runtime: true, smoke: true, humanReceipt: false), evidence: $this->evidence(allRuntimeY: true, smokeStatus: 'passed'));
+        $pack = $this->buildPack(audit: $this->auditWith(runtime: true, smoke: true, humanReceipt: false), evidence: $this->evidence(allRuntimeY: true, smokeStatus: 'passed', persistedSmokeBeforeHumanReceipt: true));
 
         $this->assertSame('blocked_human_signature_required', $pack['status']);
         $this->assertTrue((bool) data_get($pack, 'current_prerequisites.runtime_gap_matrix_all_runtime_y.green'));
@@ -44,12 +44,36 @@ final class AtlasSelfConstructionHumanCompletionReceiptClosureExecutionPackTest 
         );
     }
 
+    public function test_closure_pack_blocks_human_receipt_until_real_provider_smoke_was_persisted_in_prior_command(): void
+    {
+        $pack = $this->buildPack(
+            audit: $this->auditWith(runtime: true, smoke: true, humanReceipt: false),
+            evidence: $this->evidence(allRuntimeY: true, smokeStatus: 'passed', persistedSmokeBeforeHumanReceipt: false),
+            receipt: $this->fakeReceipt(),
+        );
+
+        $this->assertSame('blocked_runtime_and_smoke_required', $pack['status']);
+        $this->assertTrue((bool) data_get($pack, 'current_prerequisites.end_to_end_real_provider_smoke_green.green'));
+        $this->assertFalse((bool) data_get($pack, 'current_prerequisites.real_provider_smoke_persisted_before_human_receipt_command.green'));
+        $this->assertFalse((bool) data_get($pack, 'persistence_preflight.can_persist'));
+        $this->assertContains('prerequisites_not_green', (array) data_get($pack, 'persistence_preflight.blockers'));
+        $this->assertSame(
+            'blocked_until_runtime_smoke_and_evidence_context_are_green',
+            (string) data_get($pack, 'operator_submission_envelope.status'),
+        );
+        $this->assertContains(
+            'real_provider_smoke_was_persisted_in_a_prior_completion_evidence_command',
+            (array) data_get($pack, 'operator_submission_envelope.pre_persist_operator_checks'),
+        );
+        $this->assertTrue((bool) data_get($pack, 'safety_invariants.human_completion_receipt_requires_prior_persisted_real_provider_smoke_command'));
+    }
+
     public function test_closure_pack_operator_submission_envelope_is_ready_for_valid_human_receipt(): void
     {
         $receipt = $this->fakeReceipt();
         $pack = $this->buildPack(
             audit: $this->auditWith(runtime: true, smoke: true, humanReceipt: false),
-            evidence: $this->evidence(allRuntimeY: true, smokeStatus: 'passed'),
+            evidence: $this->evidence(allRuntimeY: true, smokeStatus: 'passed', persistedSmokeBeforeHumanReceipt: true),
             receipt: $receipt,
         );
         $envelope = (array) data_get($pack, 'operator_submission_envelope', []);
@@ -78,7 +102,7 @@ final class AtlasSelfConstructionHumanCompletionReceiptClosureExecutionPackTest 
 
         $pack = $this->buildPack(
             audit: $this->auditWith(runtime: true, smoke: true, humanReceipt: false),
-            evidence: $this->evidence(allRuntimeY: true, smokeStatus: 'passed'),
+            evidence: $this->evidence(allRuntimeY: true, smokeStatus: 'passed', persistedSmokeBeforeHumanReceipt: true),
         );
         $envelope = (array) data_get($pack, 'operator_submission_envelope', []);
 
@@ -101,7 +125,7 @@ final class AtlasSelfConstructionHumanCompletionReceiptClosureExecutionPackTest 
         $receipt = $this->fakeReceipt(['real_provider_smoke_hash' => str_repeat('b', 64)]);
         $pack = $this->buildPack(
             audit: $this->auditWith(runtime: true, smoke: true, humanReceipt: false),
-            evidence: $this->evidence(allRuntimeY: true, smokeStatus: 'passed'),
+            evidence: $this->evidence(allRuntimeY: true, smokeStatus: 'passed', persistedSmokeBeforeHumanReceipt: true),
             receipt: $receipt,
         );
 
@@ -115,7 +139,7 @@ final class AtlasSelfConstructionHumanCompletionReceiptClosureExecutionPackTest 
 
     public function test_closure_pack_exposes_receipt_template_with_evidence_context_hashes(): void
     {
-        $pack = $this->buildPack(audit: $this->auditWith(runtime: true, smoke: true, humanReceipt: false), evidence: $this->evidence(allRuntimeY: true, smokeStatus: 'passed'));
+        $pack = $this->buildPack(audit: $this->auditWith(runtime: true, smoke: true, humanReceipt: false), evidence: $this->evidence(allRuntimeY: true, smokeStatus: 'passed', persistedSmokeBeforeHumanReceipt: true));
 
         $template = (array) data_get($pack, 'receipt_template', []);
         $this->assertSame('<operator_name>', $template['signed_by']);
@@ -153,7 +177,7 @@ final class AtlasSelfConstructionHumanCompletionReceiptClosureExecutionPackTest 
 
     public function test_closure_pack_does_not_promote_completion_even_with_full_test_evidence_until_verifier_passes(): void
     {
-        $pack = $this->buildPack(audit: $this->auditWith(runtime: true, smoke: true, humanReceipt: false), evidence: $this->evidence(allRuntimeY: true, smokeStatus: 'passed'), receipt: $this->fakeReceipt());
+        $pack = $this->buildPack(audit: $this->auditWith(runtime: true, smoke: true, humanReceipt: false), evidence: $this->evidence(allRuntimeY: true, smokeStatus: 'passed', persistedSmokeBeforeHumanReceipt: true), receipt: $this->fakeReceipt());
 
         $this->assertFalse($pack['completion_claim_allowed']);
         $this->assertFalse($pack['execution_allowed']);
@@ -238,12 +262,17 @@ final class AtlasSelfConstructionHumanCompletionReceiptClosureExecutionPackTest 
     }
 
     /** @return array<string, mixed> */
-    private function evidence(bool $allRuntimeY, string $smokeStatus): array
+    private function evidence(bool $allRuntimeY, string $smokeStatus, bool $persistedSmokeBeforeHumanReceipt = false): array
     {
         $hash = str_repeat('a', 64);
 
         return [
             'status' => $allRuntimeY && $smokeStatus === 'passed' ? 'ready' : 'blocked',
+            'checks' => [
+                'runtime_gap_matrix_all_runtime_y' => $allRuntimeY,
+                'end_to_end_real_provider_smoke_green' => $smokeStatus === 'passed',
+                'real_provider_smoke_persisted_before_human_receipt_command' => $persistedSmokeBeforeHumanReceipt,
+            ],
             'runtime_gap_matrix' => [
                 'status' => $allRuntimeY ? 'passed' : 'blocked',
                 'all_runtime_y' => $allRuntimeY,

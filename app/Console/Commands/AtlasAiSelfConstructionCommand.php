@@ -376,10 +376,18 @@ class AtlasAiSelfConstructionCommand extends Command
         {--agent-control-plane-task-packet-queue-preflight : Generate the persistent Task Packet Queue repository preflight}
         {--agent-control-plane-task-packet-queue-implementation-packet : Generate the persistent Task Packet Queue repository implementation packet}
         {--agent-control-plane-task-packet-queue-status : Inspect the persistent Task Packet Queue registry without dispatching providers}
+        {--agent-control-plane-task-lease-recovery-contract : Generate the Task Lease Recovery + Resume Runtime contract}
+        {--agent-control-plane-task-lease-recovery-preflight : Generate the Task Lease Recovery + Resume Runtime preflight}
+        {--agent-control-plane-task-lease-recovery-implementation-packet : Generate the Task Lease Recovery + Resume Runtime implementation packet}
+        {--agent-control-plane-task-lease-recovery-status : Recover expired/orphaned task leases and build resume packets without dispatching providers}
         {--agent-control-plane-claim-lease-runtime-contract : Generate the persistent Claim/Lease runtime repository contract}
         {--agent-control-plane-claim-lease-runtime-preflight : Generate the persistent Claim/Lease runtime repository preflight}
         {--agent-control-plane-claim-lease-runtime-implementation-packet : Generate the persistent Claim/Lease runtime repository implementation packet}
         {--agent-control-plane-claim-lease-runtime-status : Inspect the persistent Claim/Lease registry without starting providers}
+        {--agent-control-plane-one-shot-worker-packet-contract : Generate the read-only One-Shot Worker Packet contract}
+        {--agent-control-plane-one-shot-worker-packet-preflight : Generate the read-only One-Shot Worker Packet preflight}
+        {--agent-control-plane-one-shot-worker-packet-implementation-packet : Generate the read-only One-Shot Worker Packet implementation packet}
+        {--agent-control-plane-one-shot-worker-packet-status : Build the copy-pasteable one-shot worker packet for a claimed task (requires --packet and --lease-id)}
         {--agent-control-plane-scope-lock-runtime-validator-contract : Generate the Scope Lock Runtime Validator contract}
         {--agent-control-plane-scope-lock-runtime-validator-preflight : Generate the Scope Lock Runtime Validator preflight}
         {--agent-control-plane-scope-lock-runtime-validator-implementation-packet : Generate the Scope Lock Runtime Validator implementation packet}
@@ -388,10 +396,28 @@ class AtlasAiSelfConstructionCommand extends Command
         {--agent-control-plane-task-queue-orchestrator-preflight : Generate the persistent Task Queue Orchestrator preflight}
         {--agent-control-plane-task-queue-orchestrator-implementation-packet : Generate the persistent Task Queue Orchestrator implementation packet}
         {--agent-control-plane-task-queue-orchestrator-status : Run the persistent Task Queue Orchestrator end-to-end dry run}
+        {--agent-control-plane-task-queue-claim-next-status : Claim the next persistent task packet through the Task Queue Orchestrator without dispatching providers}
+        {--agent-control-plane-task-queue-complete-dry-run-status : Complete one persistent task packet dry-run through the Task Queue Orchestrator without real completion}
+        {--agent-control-plane-task-auto-replenishment-contract : Generate the Task Auto-Replenishment contract}
+        {--agent-control-plane-task-auto-replenishment-preflight : Generate the Task Auto-Replenishment preflight}
+        {--agent-control-plane-task-auto-replenishment-implementation-packet : Generate the Task Auto-Replenishment implementation packet}
+        {--agent-control-plane-task-auto-replenishment-status : Replenish the persistent task queue from governed Agent Control Plane sources}
+        {--atlas-self-construction-os-runtime-gap-matrix-audit-contract : Generate the Runtime Gap Matrix Audit contract}
+        {--atlas-self-construction-os-runtime-gap-matrix-audit-preflight : Generate the Runtime Gap Matrix Audit preflight}
+        {--atlas-self-construction-os-runtime-gap-matrix-audit-implementation-packet : Generate the Runtime Gap Matrix Audit implementation packet}
+        {--atlas-self-construction-os-runtime-gap-matrix-audit-status : Audit every runtime gap, classify each gap into a closure class and emit honest implementation packets per gap (no provider call)}
         {--agent-control-plane-task-queue-lease-certification-contract : Generate the Task Queue + Lease certification contract}
         {--agent-control-plane-task-queue-lease-certification-preflight : Generate the Task Queue + Lease certification preflight}
         {--agent-control-plane-task-queue-lease-certification-implementation-packet : Generate the Task Queue + Lease certification implementation packet}
         {--agent-control-plane-task-queue-lease-certification-status : Run the Task Queue + Lease certification probe battery}
+        {--agent-control-plane-multi-agent-loop-certification-contract : Generate the Multi-Agent Loop certification contract}
+        {--agent-control-plane-multi-agent-loop-certification-preflight : Generate the Multi-Agent Loop certification preflight}
+        {--agent-control-plane-multi-agent-loop-certification-implementation-packet : Generate the Multi-Agent Loop certification implementation packet}
+        {--agent-control-plane-multi-agent-loop-certification-status : Run the Multi-Agent Loop certification (N agents × K cycles dry-run)}
+        {--agent-count= : Optional integer override for multi-agent loop certification agent_count}
+        {--cycles= : Optional integer override for multi-agent loop certification cycles}
+        {--target-min-claimable-tasks= : Optional integer override for multi-agent loop certification target_min_claimable_tasks}
+        {--simulate-overlap : Force write_set collision in multi-agent loop certification (used to validate the blocked path)}
         {--agent-control-plane-agent-runtime-registry-contract : Generate the Agent Runtime Registry repository contract}
         {--agent-control-plane-agent-runtime-registry-preflight : Generate the Agent Runtime Registry repository preflight}
         {--agent-control-plane-agent-runtime-registry-implementation-packet : Generate the Agent Runtime Registry repository implementation packet}
@@ -1139,6 +1165,7 @@ class AtlasAiSelfConstructionCommand extends Command
         {--packet= : Packet id for packet-scoped bootstrap, runbook and validation}
         {--actor= : Reservation actor for packet claim/release}
         {--session= : Reservation session id for packet claim/release}
+        {--lease-id= : Persistent Task Queue lease id for runtime dry-run completion}
         {--lease-minutes=120 : Reservation lease duration in minutes}
         {--reason= : Release reason}
         {--evidence-hash= : Optional evidence hash for packet completion}
@@ -1252,6 +1279,7 @@ class AtlasAiSelfConstructionCommand extends Command
             'packet' => $this->option('packet'),
             'actor' => $this->option('actor'),
             'session' => $this->option('session'),
+            'lease_id' => $this->option('lease-id'),
             'lease_minutes' => $this->option('lease-minutes'),
             'reason' => $this->option('reason'),
             'evidence_hash' => $this->option('evidence-hash'),
@@ -1942,6 +1970,15 @@ class AtlasAiSelfConstructionCommand extends Command
             (bool) $this->option('agent-control-plane-task-queue-lease-certification-implementation-packet') => $readiness->agentControlPlaneTaskQueueLeaseCertificationImplementationPacket($options),
             (bool) $this->option('agent-control-plane-task-queue-lease-certification-preflight') => $readiness->agentControlPlaneTaskQueueLeaseCertificationPreflight($options),
             (bool) $this->option('agent-control-plane-task-queue-lease-certification-contract') => $readiness->agentControlPlaneTaskQueueLeaseCertificationContract($options),
+            (bool) $this->option('agent-control-plane-multi-agent-loop-certification-status') => $readiness->agentControlPlaneMultiAgentLoopCertificationStatus(array_merge($options, [
+                'agent_count' => $this->option('agent-count') !== null ? (int) $this->option('agent-count') : null,
+                'cycles' => $this->option('cycles') !== null ? (int) $this->option('cycles') : null,
+                'target_min_claimable_tasks' => $this->option('target-min-claimable-tasks') !== null ? (int) $this->option('target-min-claimable-tasks') : null,
+                'simulate_overlap' => (bool) $this->option('simulate-overlap'),
+            ])),
+            (bool) $this->option('agent-control-plane-multi-agent-loop-certification-implementation-packet') => $readiness->agentControlPlaneMultiAgentLoopCertificationImplementationPacket($options),
+            (bool) $this->option('agent-control-plane-multi-agent-loop-certification-preflight') => $readiness->agentControlPlaneMultiAgentLoopCertificationPreflight($options),
+            (bool) $this->option('agent-control-plane-multi-agent-loop-certification-contract') => $readiness->agentControlPlaneMultiAgentLoopCertificationContract($options),
             (bool) $this->option('agent-control-plane-runtime-evidence-journal-status') => $readiness->agentControlPlaneRuntimeEvidenceJournalStatus($options),
             (bool) $this->option('agent-control-plane-runtime-evidence-journal-implementation-packet') => $readiness->agentControlPlaneRuntimeEvidenceJournalImplementationPacket($options),
             (bool) $this->option('agent-control-plane-runtime-evidence-journal-preflight') => $readiness->agentControlPlaneRuntimeEvidenceJournalPreflight($options),
@@ -1978,6 +2015,16 @@ class AtlasAiSelfConstructionCommand extends Command
             (bool) $this->option('agent-control-plane-merge-review-runtime-implementation-packet') => $readiness->agentControlPlaneMergeReviewRuntimeImplementationPacket($options),
             (bool) $this->option('agent-control-plane-merge-review-runtime-preflight') => $readiness->agentControlPlaneMergeReviewRuntimePreflight($options),
             (bool) $this->option('agent-control-plane-merge-review-runtime-contract') => $readiness->agentControlPlaneMergeReviewRuntimeContract($options),
+            (bool) $this->option('agent-control-plane-task-queue-complete-dry-run-status') => $readiness->agentControlPlaneTaskQueueCompleteDryRunStatus($options),
+            (bool) $this->option('agent-control-plane-task-queue-claim-next-status') => $readiness->agentControlPlaneTaskQueueClaimNextStatus($options),
+            (bool) $this->option('agent-control-plane-task-auto-replenishment-status') => $readiness->agentControlPlaneTaskAutoReplenishmentStatus($options),
+            (bool) $this->option('agent-control-plane-task-auto-replenishment-implementation-packet') => $readiness->agentControlPlaneTaskAutoReplenishmentImplementationPacket($options),
+            (bool) $this->option('agent-control-plane-task-auto-replenishment-preflight') => $readiness->agentControlPlaneTaskAutoReplenishmentPreflight($options),
+            (bool) $this->option('agent-control-plane-task-auto-replenishment-contract') => $readiness->agentControlPlaneTaskAutoReplenishmentContract($options),
+            (bool) $this->option('atlas-self-construction-os-runtime-gap-matrix-audit-status') => $readiness->atlasSelfConstructionOsRuntimeGapMatrixAuditStatus($options),
+            (bool) $this->option('atlas-self-construction-os-runtime-gap-matrix-audit-implementation-packet') => $readiness->atlasSelfConstructionOsRuntimeGapMatrixAuditImplementationPacket($options),
+            (bool) $this->option('atlas-self-construction-os-runtime-gap-matrix-audit-preflight') => $readiness->atlasSelfConstructionOsRuntimeGapMatrixAuditPreflight($options),
+            (bool) $this->option('atlas-self-construction-os-runtime-gap-matrix-audit-contract') => $readiness->atlasSelfConstructionOsRuntimeGapMatrixAuditContract($options),
             (bool) $this->option('agent-control-plane-task-queue-orchestrator-status') => $readiness->agentControlPlaneTaskQueueOrchestratorStatus($options),
             (bool) $this->option('agent-control-plane-task-queue-orchestrator-implementation-packet') => $readiness->agentControlPlaneTaskQueueOrchestratorImplementationPacket($options),
             (bool) $this->option('agent-control-plane-task-queue-orchestrator-preflight') => $readiness->agentControlPlaneTaskQueueOrchestratorPreflight($options),
@@ -1986,10 +2033,18 @@ class AtlasAiSelfConstructionCommand extends Command
             (bool) $this->option('agent-control-plane-scope-lock-runtime-validator-implementation-packet') => $readiness->agentControlPlaneScopeLockRuntimeValidatorImplementationPacket($options),
             (bool) $this->option('agent-control-plane-scope-lock-runtime-validator-preflight') => $readiness->agentControlPlaneScopeLockRuntimeValidatorPreflight($options),
             (bool) $this->option('agent-control-plane-scope-lock-runtime-validator-contract') => $readiness->agentControlPlaneScopeLockRuntimeValidatorContract($options),
+            (bool) $this->option('agent-control-plane-task-lease-recovery-status') => $readiness->agentControlPlaneTaskLeaseRecoveryStatus($options),
+            (bool) $this->option('agent-control-plane-task-lease-recovery-implementation-packet') => $readiness->agentControlPlaneTaskLeaseRecoveryImplementationPacket($options),
+            (bool) $this->option('agent-control-plane-task-lease-recovery-preflight') => $readiness->agentControlPlaneTaskLeaseRecoveryPreflight($options),
+            (bool) $this->option('agent-control-plane-task-lease-recovery-contract') => $readiness->agentControlPlaneTaskLeaseRecoveryContract($options),
             (bool) $this->option('agent-control-plane-claim-lease-runtime-status') => $readiness->agentControlPlaneClaimLeaseRuntimeStatus($options),
             (bool) $this->option('agent-control-plane-claim-lease-runtime-implementation-packet') => $readiness->agentControlPlaneClaimLeaseRuntimeImplementationPacket($options),
             (bool) $this->option('agent-control-plane-claim-lease-runtime-preflight') => $readiness->agentControlPlaneClaimLeaseRuntimePreflight($options),
             (bool) $this->option('agent-control-plane-claim-lease-runtime-contract') => $readiness->agentControlPlaneClaimLeaseRuntimeContract($options),
+            (bool) $this->option('agent-control-plane-one-shot-worker-packet-status') => $readiness->agentControlPlaneOneShotWorkerPacketStatus($options),
+            (bool) $this->option('agent-control-plane-one-shot-worker-packet-implementation-packet') => $readiness->agentControlPlaneOneShotWorkerPacketImplementationPacket($options),
+            (bool) $this->option('agent-control-plane-one-shot-worker-packet-preflight') => $readiness->agentControlPlaneOneShotWorkerPacketPreflight($options),
+            (bool) $this->option('agent-control-plane-one-shot-worker-packet-contract') => $readiness->agentControlPlaneOneShotWorkerPacketContract($options),
             (bool) $this->option('agent-control-plane-task-packet-queue-status') => $readiness->agentControlPlaneTaskPacketQueueStatus($options),
             (bool) $this->option('agent-control-plane-task-packet-queue-implementation-packet') => $readiness->agentControlPlaneTaskPacketQueueImplementationPacket($options),
             (bool) $this->option('agent-control-plane-task-packet-queue-preflight') => $readiness->agentControlPlaneTaskPacketQueuePreflight($options),

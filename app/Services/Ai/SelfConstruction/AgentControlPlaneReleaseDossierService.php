@@ -112,6 +112,7 @@ final class AgentControlPlaneReleaseDossierService
 
         $operatorSummary = $this->buildOperatorSummary($status, $riskClassification, $baseline, $replay, $gate, $simulator, $baselineCaptureReadiness, $blockers, $warnings);
         $machineSummary = $this->buildMachineSummary($baseline, $replay, $diff, $gate, $simulator, $chainIntegrity, $mutationGuard, $baselineCaptureReadiness);
+        $closureRunbook = $this->buildClosureRunbook($status, $blockers, $warnings, $replay, $baselineCaptureReadiness, $latestSnapshot);
 
         $evidenceIndex = [
             'control_plane_baseline' => 'php artisan atlas:ai:self-construction --agent-control-plane-certification-baseline-status --json',
@@ -192,6 +193,7 @@ final class AgentControlPlaneReleaseDossierService
             'operator_summary' => $operatorSummary,
             'machine_summary' => $machineSummary,
             'baseline_capture_readiness' => $baselineCaptureReadiness,
+            'release_dossier_closure_runbook' => $closureRunbook,
             'integrated_runtime_surface' => $this->buildIntegratedRuntimeSurface(),
             'evidence_index' => $evidenceIndex,
             'command_evidence' => $commandEvidence,
@@ -308,6 +310,156 @@ final class AgentControlPlaneReleaseDossierService
             'replayed_edge_count' => (int) data_get($replay, 'replayed_edge_count'),
             'scenario_count' => (int) data_get($simulator, 'scenario_count'),
         ];
+    }
+
+    /**
+     * Builds a read-only closure runbook so an operator can flip
+     * release_dossier_green from warning to available without having to
+     * trace which command writes which artifact. Surfaces the canonical
+     * capture command, the audit command to rerun afterwards, and the
+     * exact non-execution guarantees of the closure path.
+     *
+     * @param  list<string>  $blockers
+     * @param  list<string>  $warnings
+     * @param  array<string, mixed>  $replay
+     * @param  array<string, mixed>  $baselineCaptureReadiness
+     * @param  array<string, mixed>|null  $latestSnapshot
+     * @return array<string, mixed>
+     */
+    private function buildClosureRunbook(
+        string $status,
+        array $blockers,
+        array $warnings,
+        array $replay,
+        array $baselineCaptureReadiness,
+        ?array $latestSnapshot,
+    ): array {
+        $captureRequired = (bool) data_get($baselineCaptureReadiness, 'snapshot_capture_required', false);
+        $canCapture = (bool) data_get($baselineCaptureReadiness, 'can_capture_snapshot', false);
+        $readinessStatus = (string) data_get($baselineCaptureReadiness, 'status', '');
+        $snapshotState = (string) data_get($baselineCaptureReadiness, 'snapshot_state', '');
+        $captureCommand = (string) data_get($baselineCaptureReadiness, 'capture_plan.capture_command', '');
+        $postCaptureAuditCommand = (string) data_get($baselineCaptureReadiness, 'capture_plan.post_capture_audit_command', '');
+        $postCaptureDossierCommand = (string) data_get($baselineCaptureReadiness, 'capture_plan.post_capture_dossier_command', '');
+        $postCaptureReplayDiffCommand = (string) data_get($baselineCaptureReadiness, 'capture_plan.post_capture_replay_diff_command', '');
+        $snapshotStoreStatusCommand = (string) data_get($baselineCaptureReadiness, 'capture_plan.snapshot_store_status_command', '');
+
+        $closureStatus = match (true) {
+            $status === 'available' => 'release_dossier_green',
+            $status === 'blocked' => 'release_dossier_blocked_resolve_blockers_before_capture',
+            $captureRequired && $canCapture => 'snapshot_capture_required_before_release_dossier_green',
+            $captureRequired => 'snapshot_capture_required_but_capture_not_yet_safe',
+            default => 'release_dossier_warning_inspect_blockers_and_warnings',
+        };
+
+        $nextAction = match ($closureStatus) {
+            'release_dossier_green' => 'release_dossier_is_green_no_capture_required',
+            'release_dossier_blocked_resolve_blockers_before_capture' => 'resolve_release_dossier_blockers_before_attempting_snapshot_capture',
+            'snapshot_capture_required_before_release_dossier_green' => 'capture_baseline_snapshot_then_rerun_completion_audit',
+            'snapshot_capture_required_but_capture_not_yet_safe' => 'resolve_capture_readiness_blockers_before_attempting_snapshot_capture',
+            default => 'inspect_release_dossier_warnings_before_promotion',
+        };
+
+        $exactNextCommand = match ($closureStatus) {
+            'snapshot_capture_required_before_release_dossier_green' => $captureCommand,
+            'release_dossier_green' => $postCaptureAuditCommand,
+            default => $postCaptureDossierCommand,
+        };
+
+        $runbookSteps = [
+            [
+                'id' => 'inspect_release_dossier',
+                'summary' => 'Inspect the current release dossier to confirm capture is the only remaining step.',
+                'command' => $postCaptureDossierCommand,
+            ],
+            [
+                'id' => 'inspect_snapshot_store',
+                'summary' => 'Inspect the snapshot registry to confirm the latest snapshot id and deterministic replay hash.',
+                'command' => $snapshotStoreStatusCommand,
+            ],
+            [
+                'id' => 'capture_replay_snapshot',
+                'summary' => 'Explicitly capture the current deterministic replay snapshot. Only runs when readiness allows it and capture is required.',
+                'command' => $captureCommand,
+                'requires_capture' => $captureRequired,
+                'capture_safe' => $canCapture,
+            ],
+            [
+                'id' => 'rerun_replay_diff',
+                'summary' => 'Re-run the replay diff so the dossier compares against the freshly captured snapshot.',
+                'command' => $postCaptureReplayDiffCommand,
+            ],
+            [
+                'id' => 'rerun_completion_audit',
+                'summary' => 'Re-run the OS completion audit to confirm release_dossier_green flips to passed.',
+                'command' => $postCaptureAuditCommand,
+            ],
+        ];
+
+        $runbook = [
+            'schema_version' => 'atlas.self_construction.agent_control_plane_release_dossier_closure_runbook.v1',
+            'mode' => 'read_only_agent_control_plane_release_dossier_closure_runbook',
+            'release_dossier_status' => $status,
+            'release_dossier_green_passed' => $status === 'available',
+            'closure_status' => $closureStatus,
+            'next_action' => $nextAction,
+            'exact_next_command' => $exactNextCommand,
+            'baseline_capture_readiness_status' => $readinessStatus,
+            'baseline_snapshot_state' => $snapshotState,
+            'baseline_snapshot_capture_required' => $captureRequired,
+            'baseline_snapshot_can_capture' => $canCapture,
+            'current_pointer' => (string) data_get($replay, 'current_pointer', ''),
+            'current_deterministic_replay_hash' => (string) data_get($replay, 'deterministic_replay_hash', ''),
+            'latest_snapshot_id' => (string) data_get($latestSnapshot, 'snapshot_id', ''),
+            'latest_snapshot_deterministic_replay_hash' => (string) data_get($latestSnapshot, 'deterministic_replay_hash', ''),
+            'latest_snapshot_label' => (string) data_get($latestSnapshot, 'label', ''),
+            'latest_snapshot_created_at' => (string) data_get($latestSnapshot, 'created_at', ''),
+            'capture_command' => $captureCommand,
+            'post_capture_replay_diff_command' => $postCaptureReplayDiffCommand,
+            'post_capture_dossier_command' => $postCaptureDossierCommand,
+            'post_capture_audit_command' => $postCaptureAuditCommand,
+            'snapshot_store_status_command' => $snapshotStoreStatusCommand,
+            'steps' => $runbookSteps,
+            'step_count' => count($runbookSteps),
+            'blockers' => $blockers,
+            'warnings' => $warnings,
+            'blocker_count' => count($blockers),
+            'warning_count' => count($warnings),
+            'read_only' => true,
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'runtime_write_allowed' => false,
+            'completion_claim_allowed' => false,
+            'provider_call_allowed' => false,
+            'adapter_execution_allowed' => false,
+            'self_programming_allowed' => false,
+            'non_execution_guarantees' => [
+                'closure_runbook_does_not_start_codex',
+                'closure_runbook_does_not_call_codex_cli_or_app',
+                'closure_runbook_does_not_spawn_subprocess',
+                'closure_runbook_does_not_invoke_adapter',
+                'closure_runbook_does_not_execute_adapter',
+                'closure_runbook_does_not_call_provider',
+                'closure_runbook_does_not_dispatch_work',
+                'closure_runbook_does_not_spend_tokens',
+                'closure_runbook_does_not_enable_self_programming',
+                'closure_runbook_does_not_write_ledger',
+                'closure_runbook_does_not_mutate_pointer',
+                'closure_runbook_does_not_promote_completion_claim',
+                'closure_runbook_does_not_capture_snapshot_itself',
+            ],
+            'human_summary' => match ($closureStatus) {
+                'release_dossier_green' => 'Release dossier is green; no snapshot capture required. Re-run the completion audit to confirm release_dossier_green is passed.',
+                'snapshot_capture_required_before_release_dossier_green' => 'Capture the baseline replay snapshot explicitly, then rerun the completion audit to flip release_dossier_green to passed.',
+                'snapshot_capture_required_but_capture_not_yet_safe' => 'Resolve the capture readiness blockers before attempting to capture the baseline replay snapshot.',
+                'release_dossier_blocked_resolve_blockers_before_capture' => 'Release dossier is blocked; resolve blockers before attempting to capture the baseline replay snapshot.',
+                default => 'Release dossier has warnings; inspect blockers and warnings before promotion.',
+            },
+        ];
+        $runbook['runbook_hash'] = $this->stableHash($this->recursivelyKsort($runbook));
+
+        return $runbook;
     }
 
     /**

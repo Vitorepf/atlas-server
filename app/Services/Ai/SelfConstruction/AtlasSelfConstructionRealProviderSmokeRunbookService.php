@@ -69,6 +69,66 @@ final class AtlasSelfConstructionRealProviderSmokeRunbookService
                 'evidence_required' => ['all_required_fields_present', 'all_required_observations_true', 'operator_acknowledgements_true', 'forbidden_flags_false'],
             ],
         ];
+        $preflight = [
+            'operator_must_explicitly_approve_before_any_provider_call' => true,
+            'operator_approval_receipt_required' => true,
+            'kill_switch_must_be_understood_before_run' => true,
+            'token_budget_must_be_declared_before_run' => true,
+            'workspace_must_be_isolated_before_run' => true,
+            'required_preflight_evidence_fields' => [
+                'operator_approval_receipt_hash',
+                'task_packet_id',
+                'provider_run_id',
+            ],
+            'commands' => [
+                'inspect_completion_audit_before_running' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --json',
+                'inspect_release_dossier_before_running' => 'php artisan atlas:ai:self-construction --agent-control-plane-release-dossier-status --json',
+                'inspect_offline_harness_before_running' => 'php artisan atlas:ai:self-construction --atlas-self-construction-real-provider-smoke-offline-harness-status --json',
+            ],
+        ];
+        $killSwitch = [
+            'abort_command' => 'operator may abort the real provider run at any time; Atlas does not own provider processes',
+            'atlas_side_cancel_command' => 'php artisan atlas:ai:self-construction --atlas-self-construction-real-provider-smoke-draft-status --real-provider-smoke-json=@/path/to/aborted-smoke-preimage.json --json',
+            'cancel_must_record_aborted_status' => true,
+            'token_ceiling_hard_stop' => 'if provider exceeds the declared token ceiling, abort; do not persist a passed smoke',
+            'wallclock_ceiling_seconds_recommended' => 1800,
+            'forbidden_after_abort' => [
+                'persist_passed_real_provider_smoke',
+                'persist_human_completion_receipt',
+                'promote_completion_claim',
+                'auto_retry_without_operator_approval',
+            ],
+        ];
+        $rollbackExpectations = [
+            'no_atlas_owned_state_mutated' => true,
+            'aborted_smoke_must_be_persisted_as_aborted_not_passed' => true,
+            'partial_evidence_treated_as_aborted' => true,
+            'required_post_abort_evidence' => [
+                'operator_approval_receipt_hash',
+                'aborted_status',
+                'aborted_reason',
+                'partial_provider_run_id_if_any',
+            ],
+            'next_actions_after_abort' => [
+                'inspect_provider_billing_separately',
+                'inspect_workspace_for_partial_writes',
+                'reset_workspace_before_retry',
+                'rerun_completion_audit_to_confirm_no_false_pass',
+            ],
+            'rerun_completion_audit_command' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --json',
+        ];
+        $tokenCostCaptureRequirements = [
+            'required_cost_event_fields' => ['provider_run_id', 'model', 'input_tokens', 'output_tokens', 'cost_usd'],
+            'cost_event_hash_required' => true,
+            'cost_event_must_be_stored_before_smoke_passes' => true,
+            'cost_event_command' => 'php artisan atlas:ai:self-construction --agent-cost-event --actor=<operator> --session=<session> --model=<model> --input-tokens=<n> --output-tokens=<n> --cost-usd=<n> --json',
+        ];
+        $workProductCollectionRequirements = [
+            'required_work_product_fields' => ['artifact_type', 'artifact_path', 'artifact_hash'],
+            'work_product_manifest_hash_required' => true,
+            'work_product_must_be_collected_before_smoke_passes' => true,
+            'work_product_command' => 'php artisan atlas:ai:self-construction --agent-work-product --actor=<operator> --session=<session> --artifact-type=<type> --artifact-path=<path> --artifact-hash=<sha256> --summary="<short>" --json',
+        ];
         $payload = [
             'schema_version' => self::SCHEMA_VERSION,
             'mode' => self::MODE,
@@ -77,6 +137,11 @@ final class AtlasSelfConstructionRealProviderSmokeRunbookService
             'required_evidence_fields' => $requiredEvidenceFields,
             'required_observation_flags' => $requiredObservationFlags,
             'forbidden_flags' => $forbiddenFlags,
+            'preflight' => $preflight,
+            'kill_switch' => $killSwitch,
+            'rollback_expectations' => $rollbackExpectations,
+            'token_cost_capture_requirements' => $tokenCostCaptureRequirements,
+            'work_product_collection_requirements' => $workProductCollectionRequirements,
             'template_field_count' => count($realProviderSmokeTemplate),
             'template_hash' => $this->stableHash($realProviderSmokeTemplate),
             'steps' => $steps,

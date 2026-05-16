@@ -19,6 +19,12 @@ final class AtlasSelfConstructionCompletionFinalizationGateTest extends TestCase
         $this->assertFalse((bool) $gate['next_stage_allowed']);
         $this->assertNotEmpty((array) $gate['next_stage_blockers']);
         $this->assertGreaterThan(0, count((array) $gate['failed_check_ids']));
+        $this->assertNotEmpty((string) $gate['completion_evidence_status_hash']);
+        $this->assertMatchesRegularExpression(
+            '/^[a-f0-9]{64}$/',
+            (string) data_get($gate, 'checks.evidence_hashes_match_completion_audit.evidence.actual_runtime_gap_matrix_hash'),
+        );
+        $this->assertNotSame('', (string) data_get($gate, 'checks.runtime_all_y.evidence.runtime_gap_matrix_status'));
     }
 
     public function test_finalization_gate_returns_completion_claim_allowed_false_with_incomplete_audit(): void

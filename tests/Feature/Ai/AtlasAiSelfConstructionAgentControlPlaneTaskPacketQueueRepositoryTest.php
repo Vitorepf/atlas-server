@@ -97,12 +97,47 @@ final class AtlasAiSelfConstructionAgentControlPlaneTaskPacketQueueRepositoryTes
     {
         $repo = new AgentControlPlaneTaskPacketQueueRepository;
         $repo->enqueue($this->packet('update-1'));
-        $result = $repo->updateStatus('update-1', 'claimed', ['lease_id' => 'l1']);
+        $result = $repo->updateStatus('update-1', 'claimed', ['lease_id' => 'l1', 'agent_id' => 'agent-1']);
         $this->assertSame('ok', $result['status']);
         $this->assertSame('claimed', $result['record']['status']);
         $events = array_column($result['record']['history'], 'event');
         $this->assertContains('status_changed', $events);
         $this->assertSame('l1', data_get($result, 'record.metadata.lease_id'));
+        $this->assertSame('agent-1', data_get($result, 'record.metadata.agent_id'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($result, 'record.history.1.transition_policy_hash'));
+    }
+
+    public function test_claim_status_requires_lease_and_agent_metadata(): void
+    {
+        $repo = new AgentControlPlaneTaskPacketQueueRepository;
+        $repo->enqueue($this->packet('claim-metadata-required'));
+
+        $result = $repo->updateStatus('claim-metadata-required', 'claimed', ['lease_id' => 'lease-only']);
+
+        $this->assertSame('blocked', $result['status']);
+        $this->assertSame('transition_metadata_missing', $result['reason']);
+        $this->assertSame(['agent_id'], $result['missing_metadata']);
+        $this->assertTrue($result['claim_transition_requires_lease_id']);
+        $this->assertTrue($result['claim_transition_requires_agent_id']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $result['transition_policy_hash']);
+        $this->assertSame('claimable', $repo->get('claim-metadata-required')['status']);
+    }
+
+    public function test_terminal_status_cannot_be_reclaimed(): void
+    {
+        $repo = new AgentControlPlaneTaskPacketQueueRepository;
+        $repo->enqueue($this->packet('terminal-no-reclaim'));
+        $repo->updateStatus('terminal-no-reclaim', 'claimed', ['lease_id' => 'lease-terminal', 'agent_id' => 'agent-terminal']);
+        $repo->updateStatus('terminal-no-reclaim', 'completed_dry_run', ['lease_id' => 'lease-terminal', 'agent_id' => 'agent-terminal']);
+
+        $result = $repo->updateStatus('terminal-no-reclaim', 'claimed', ['lease_id' => 'lease-new', 'agent_id' => 'agent-new']);
+
+        $this->assertSame('blocked', $result['status']);
+        $this->assertSame('invalid_status_transition', $result['reason']);
+        $this->assertSame('completed_dry_run', $result['from']);
+        $this->assertSame('claimed', $result['to']);
+        $this->assertSame([], $result['allowed_next_statuses']);
+        $this->assertSame('completed_dry_run', $repo->get('terminal-no-reclaim')['status']);
     }
 
     public function test_update_invalid_status_blocks(): void
@@ -239,9 +274,15 @@ final class AtlasAiSelfConstructionAgentControlPlaneTaskPacketQueueRepositoryTes
             'total_count', 'capped_to', 'corrupt', 'status_counts', 'allowed_statuses',
             'entries', 'runtime_execution_allowed', 'dispatch_allowed', 'ledger_write_allowed',
             'token_spend_allowed', 'provider_call_allowed', 'self_programming_allowed',
+            'status_transition_policy', 'status_transition_policy_hash',
+            'claim_transition_requires_lease_id', 'claim_transition_requires_agent_id',
         ] as $key) {
             $this->assertArrayHasKey($key, $registry, "Missing registry $key");
         }
+        $this->assertSame(['claimed', 'blocked', 'cancelled'], $registry['status_transition_policy']['claimable']);
+        $this->assertTrue($registry['claim_transition_requires_lease_id']);
+        $this->assertTrue($registry['claim_transition_requires_agent_id']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $registry['status_transition_policy_hash']);
     }
 
     public function test_full_status_list_includes_canonical_fields(): void
@@ -249,7 +290,7 @@ final class AtlasAiSelfConstructionAgentControlPlaneTaskPacketQueueRepositoryTes
         $repo = new AgentControlPlaneTaskPacketQueueRepository;
         $repo->enqueue($this->packet('list-canon-1'));
         $repo->enqueue($this->packet('list-canon-2'));
-        $repo->updateStatus('list-canon-2', 'claimed');
+        $repo->updateStatus('list-canon-2', 'claimed', ['lease_id' => 'lease-list-canon', 'agent_id' => 'agent-list-canon']);
         $repo->appendReceipt('list-canon-1', ['receipt_kind' => 'extra']);
         foreach ($repo->list() as $record) {
             $this->assertArrayHasKey('task_packet_id', $record);
@@ -269,7 +310,7 @@ final class AtlasAiSelfConstructionAgentControlPlaneTaskPacketQueueRepositoryTes
     {
         $repo = new AgentControlPlaneTaskPacketQueueRepository;
         $repo->enqueue($this->packet('history-1'));
-        $repo->updateStatus('history-1', 'claimed');
+        $repo->updateStatus('history-1', 'claimed', ['lease_id' => 'lease-history', 'agent_id' => 'agent-history']);
         $repo->appendReceipt('history-1', ['receipt_kind' => 'h_test']);
         $repo->updateStatus('history-1', 'released');
         $record = $repo->get('history-1');
