@@ -132,7 +132,7 @@ final class AgentControlPlaneOneShotWorkerPacketService
         $packetHash = (string) ($taskPacket['task_packet_hash'] ?? $taskPacket['packet_hash'] ?? '');
 
         $completionCommand = sprintf(
-            'php artisan atlas:ai:self-construction --agent-control-plane-completion-finalization-gate-status --packet=%s --lease-id=%s --actor=%s --json',
+            'php artisan atlas:ai:self-construction --agent-control-plane-task-queue-complete-dry-run-status --packet=%s --lease-id=%s --actor=%s --json',
             $taskPacketId,
             $leaseId,
             $actor !== '' ? $actor : (string) ($lease['agent_id'] ?? 'unknown_actor'),
@@ -142,6 +142,11 @@ final class AgentControlPlaneOneShotWorkerPacketService
             $taskPacketId,
             $leaseId,
             $actor !== '' ? $actor : (string) ($lease['agent_id'] ?? 'unknown_actor'),
+        );
+        $resumptionContract = $this->resumptionContract(
+            taskPacketId: $taskPacketId,
+            leaseId: $leaseId,
+            actor: $actor !== '' ? $actor : (string) ($lease['agent_id'] ?? 'unknown_actor'),
         );
 
         $evidenceContract = [
@@ -184,6 +189,7 @@ final class AgentControlPlaneOneShotWorkerPacketService
             forbiddenActions: $forbiddenActions,
             completionCommand: $completionCommand,
             leaseRenewCommand: $leaseRenewCommand,
+            resumptionContract: $resumptionContract,
             packetHash: $packetHash,
             lease: $lease,
         );
@@ -208,6 +214,7 @@ final class AgentControlPlaneOneShotWorkerPacketService
             'required_tests' => $requiredTests,
             'required_guardrails' => $requiredGuardrails,
             'evidence_contract' => $evidenceContract,
+            'resumption_contract' => $resumptionContract,
             'completion_command' => $completionCommand,
             'lease_renew_command' => $leaseRenewCommand,
             'continuation_summary_template' => $continuationTemplate,
@@ -412,6 +419,79 @@ TEMPLATE;
     }
 
     /**
+     * @return array<string,mixed>
+     */
+    private function resumptionContract(string $taskPacketId, string $leaseId, string $actor): array
+    {
+        $recoveryCommand = sprintf(
+            'php artisan atlas:ai:self-construction --agent-control-plane-task-lease-recovery-status --packet=%s --actor=%s --reason=worker_resume_after_interruption --json',
+            $taskPacketId,
+            $actor,
+        );
+        $bootstrapCommand = sprintf(
+            'php artisan atlas:ai:self-construction --agent-control-plane-terminal-worker-bootstrap-status --actor=%s --json',
+            $actor,
+        );
+        $packetCommand = sprintf(
+            'php artisan atlas:ai:self-construction --agent-control-plane-one-shot-worker-packet-status --packet=%s --lease-id=%s --actor=%s --json',
+            $taskPacketId,
+            $leaseId,
+            $actor,
+        );
+
+        return [
+            'schema_version' => 'atlas.self_construction.agent_control_plane_worker_resumption_contract.v1',
+            'task_packet_id' => $taskPacketId,
+            'lease_id' => $leaseId,
+            'actor' => $actor,
+            'lease_bound' => true,
+            'can_resume_without_new_lease' => false,
+            'resume_requires_active_lease' => true,
+            'if_worker_is_interrupted' => [
+                'do_not_continue_blindly_after_returning',
+                'inspect_current_git_status_and_preserve_unrelated_changes',
+                'run_recovery_command_to_classify_or_expire_the_old_lease',
+                'if_task_returns_claimable_run_terminal_worker_bootstrap_for_a_fresh_lease',
+                'regenerate_one_shot_packet_after_any_new_claim',
+                'carry_forward_continuation_summary_and_failure_report',
+            ],
+            'if_lease_expired' => [
+                'stop_writing_immediately',
+                'do_not_run_completion_command_with_expired_lease',
+                'run_recovery_command',
+                'claim_fresh_packet_or_wait_for_operator',
+            ],
+            'resume_commands' => [
+                'inspect_or_recover_current_packet' => $recoveryCommand,
+                'claim_next_after_recovery' => $bootstrapCommand,
+                'regenerate_current_one_shot_packet_if_lease_still_active' => $packetCommand,
+            ],
+            'required_resume_evidence' => [
+                'last_git_status_short',
+                'failure_report_template_completed_when_interrupted',
+                'continuation_summary_template_completed_when_partial_progress_exists',
+                'recovery_command_output',
+                'new_lease_id_when_reclaimed',
+            ],
+            'forbidden_resume_shortcuts' => [
+                'do_not_reuse_expired_lease',
+                'do_not_complete_with_a_different_agents_lease',
+                'do_not_reopen_completed_dry_run_packet',
+                'do_not_bypass_task_lease_recovery_surface',
+                'do_not_claim_same_packet_by_manual_file_edit',
+            ],
+            'non_execution_guarantees' => [
+                'resumption_contract_does_not_start_codex',
+                'resumption_contract_does_not_call_provider',
+                'resumption_contract_does_not_spend_tokens',
+                'resumption_contract_does_not_dispatch_work',
+                'resumption_contract_does_not_enable_runtime',
+                'resumption_contract_does_not_promote_completion',
+            ],
+        ];
+    }
+
+    /**
      * @param  list<string>  $allowedFiles
      * @param  list<string>  $forbiddenFiles
      * @param  list<string>  $requiredDocs
@@ -437,6 +517,7 @@ TEMPLATE;
         array $forbiddenActions,
         string $completionCommand,
         string $leaseRenewCommand,
+        array $resumptionContract,
         string $packetHash,
         array $lease,
     ): string {
@@ -448,6 +529,8 @@ TEMPLATE;
         $testsBlock = $this->bulletList($requiredTests, '_(sem testes obrigatórios — bloquear até spec corrigida)_');
         $guardrailsBlock = $this->bulletList($requiredGuardrails, '_(sem guardrails extra — canon padrão se aplica)_');
         $forbiddenActionsBlock = $this->bulletList($forbiddenActions, '_(sem ações proibidas adicionais)_');
+        $resumeStepsBlock = $this->bulletList((array) data_get($resumptionContract, 'if_worker_is_interrupted', []), '_(sem plano de retomada — bloquear)_');
+        $resumeCommands = (array) data_get($resumptionContract, 'resume_commands', []);
         $rationaleLine = $rationale === '' ? '' : "\n**Por que esta é a próxima peça correta:** {$rationale}\n";
         $packetHashLine = $packetHash === '' ? '' : "\n**packet_hash:** `{$packetHash}`";
         $expiresAt = (string) ($lease['expires_at'] ?? 'unknown');
@@ -522,6 +605,20 @@ Se a lease estiver próxima de expirar, renove com:
 
 ```
 {$leaseRenewCommand}
+```
+
+## Se você for interrompido ou a lease expirar
+
+Siga esta ordem antes de continuar qualquer edição:
+
+{$resumeStepsBlock}
+
+Comandos de retomada:
+
+```bash
+{$resumeCommands['inspect_or_recover_current_packet']}
+{$resumeCommands['claim_next_after_recovery']}
+{$resumeCommands['regenerate_current_one_shot_packet_if_lease_still_active']}
 ```
 
 ## Formato obrigatório do relatório final

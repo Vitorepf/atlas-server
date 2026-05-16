@@ -1,0 +1,15 @@
+deptrac:
+  paths:
+    - app
+  layers:
+    - name: Inbox
+      collectors:
+        - type: classLike
+          regex: ^App\\Domain\\Inbox\\.*$
+    - name: Captures
+      collectors:
+        - type: classLike
+          regex: ^App\\Domain\\Captures\\.*$
+  ruleset:
+    Inbox:
+      - +Captures  # FILL IN: forbid (-) or allow (+) the dependency

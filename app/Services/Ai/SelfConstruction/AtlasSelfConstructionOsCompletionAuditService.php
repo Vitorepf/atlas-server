@@ -64,6 +64,14 @@ final class AtlasSelfConstructionOsCompletionAuditService
             'cli_option' => 'agent-control-plane-one-shot-worker-packet-status',
         ],
         [
+            'id' => 'terminal_worker_bootstrap_status',
+            'label' => 'Terminal Worker Bootstrap Status',
+            'readiness_method' => 'agentControlPlaneTerminalWorkerBootstrapStatus',
+            'service_class' => AgentControlPlaneTerminalWorkerBootstrapService::class,
+            'doc_anchor' => 'agent_control_plane_terminal_worker_bootstrap',
+            'cli_option' => 'agent-control-plane-terminal-worker-bootstrap-status',
+        ],
+        [
             'id' => 'task_lease_recovery_status',
             'label' => 'Task Lease Recovery Status',
             'readiness_method' => 'agentControlPlaneTaskLeaseRecoveryStatus',
@@ -682,7 +690,7 @@ final class AtlasSelfConstructionOsCompletionAuditService
             ['requirement' => 'human signed completion receipt', 'artifact' => AtlasSelfConstructionHumanSignedCompletionReceiptService::SCHEMA_VERSION, 'evidence_status' => ($criterionStatus['human_signed_os_complete_receipt_present'] ?? false) ? 'passed' : 'blocked_until_operator_receipt'],
             ['requirement' => 'real provider end-to-end smoke', 'artifact' => AtlasSelfConstructionRealProviderSmokeCertificationService::SCHEMA_VERSION, 'evidence_status' => ($criterionStatus['end_to_end_real_provider_smoke_green'] ?? false) ? 'passed' : 'blocked_until_real_smoke'],
             ['requirement' => 'Forge/Self-Improvement integration smoke', 'artifact' => AtlasSelfConstructionForgeSelfImprovementIntegrationSmokeService::SCHEMA_VERSION, 'evidence_status' => ($criterionStatus['forge_self_improvement_integration_smoke_green'] ?? false) ? 'passed' : 'blocked'],
-            ['requirement' => 'multi-agent terminal loop wired (claim/complete/replenish/recover/one-shot/multi-agent-cert)', 'artifact' => self::TERMINAL_LOOP_CERTIFICATION_SCHEMA_VERSION, 'evidence_status' => (bool) ($terminalLoopCertification['passed'] ?? false) ? 'passed' : 'blocked_until_terminal_loop_modules_wired'],
+            ['requirement' => 'multi-agent terminal loop wired (claim/complete/replenish/bootstrap/recover/one-shot/multi-agent-cert)', 'artifact' => self::TERMINAL_LOOP_CERTIFICATION_SCHEMA_VERSION, 'evidence_status' => (bool) ($terminalLoopCertification['passed'] ?? false) ? 'passed' : 'blocked_until_terminal_loop_modules_wired'],
         ];
     }
 
@@ -853,7 +861,7 @@ final class AtlasSelfConstructionOsCompletionAuditService
             'completion_requires_active_lease' => $completionRequiresActiveLease,
             'recovery_handles_orphaned_leases' => $recoveryHandlesOrphanedLeases,
             'completion_does_not_mark_real_os_completion' => true,
-            // Canonical 10-name matrix mirrored from the multi-agent loop
+            // Canonical matrix mirrored from the multi-agent loop
             // cert. Structural defaults reflect class wiring; when the cert
             // is threaded through `multi_agent_loop_certification`, those
             // booleans rewrite the matrix from the live simulation.
@@ -864,6 +872,8 @@ final class AtlasSelfConstructionOsCompletionAuditService
             'auto_replenishment_target_met' => class_exists(AgentControlPlaneTaskAutoReplenishmentService::class),
             'continuation_summary_present' => class_exists(AgentControlPlaneContinuationSummaryBuilder::class),
             'evidence_hash_present' => $completionRequiresActiveLease,
+            'worker_resumption_contract_present' => class_exists(AgentControlPlaneOneShotWorkerPacketService::class)
+                && class_exists(AgentControlPlaneTaskLeaseRecoveryService::class),
             'safe_for_parallel_terminal_loop' => $claimRequiresLeaseAndAgent
                 && $completionRequiresActiveLease
                 && $recoveryHandlesOrphanedLeases

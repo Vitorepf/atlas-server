@@ -6,6 +6,7 @@ namespace Tests\Feature\Ai\Programming;
 
 use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsActionDispatcher;
 use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsCasesRegistry;
+use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsCorpusPreValidationService;
 use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsModelMatrix;
 use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsRunRealService;
 use App\Services\Ai\Programming\ForgeRivals\Corpus\AtlasForgeRivalsProviderArenaCorpusService;
@@ -490,13 +491,20 @@ final class AtlasForgeRivalsRunBatteryReleaseTest extends TestCase
 
     public function test_provider_arena_fixture_staging_blocks_empty_seed_before_provider_call(): void
     {
+        // Pick a case whose seed is still README-only in the corpus. The
+        // contract under test is the per-arm stage gate, not the case picked.
+        $emptyCaseId = $this->firstEmptySeedCaseId();
+        if ($emptyCaseId === null) {
+            $this->markTestSkipped('No README-only seeds left in the corpus; gate is exercised by other tests.');
+        }
+
         $runReal = app(AtlasForgeRivalsRunRealService::class);
 
         $resolve = new \ReflectionMethod($runReal, 'resolveCaseContext');
         $resolve->setAccessible(true);
         $context = $resolve->invoke(
             $runReal,
-            ['case' => 'planning-l2-incremental-slices'],
+            ['case' => $emptyCaseId],
             AtlasForgeRivalsCasesRegistry::PRESET_RELEASE,
         );
 
@@ -518,10 +526,71 @@ final class AtlasForgeRivalsRunBatteryReleaseTest extends TestCase
             $this->assertSame('blocked', $result['status'], json_encode($result, JSON_PRETTY_PRINT));
             $this->assertSame('source_repo', $result['seed_source']);
             $this->assertSame([], $result['staged_files']);
-            $this->assertContains('fixture_seed_empty:planning-l2-incremental-slices', $result['blockers']);
+            $this->assertContains('fixture_seed_empty:'.$emptyCaseId, $result['blockers']);
         } finally {
             $this->removeDirectory($worktree);
         }
+    }
+
+    public function test_provider_arena_fixture_readiness_blocks_empty_seed_before_battery_can_score(): void
+    {
+        $runReal = app(AtlasForgeRivalsRunRealService::class);
+        $seedRoot = base_path('storage/forge-rivals-corpus/__test_empty_readiness_seed/seed');
+        @mkdir($seedRoot, 0o755, true);
+        file_put_contents($seedRoot.'/README.md', "fixture intentionally empty\n");
+
+        try {
+            $readiness = new \ReflectionMethod($runReal, 'fixtureReadinessBlockers');
+            $readiness->setAccessible(true);
+
+            $blockers = $readiness->invoke($runReal, [[
+                'id' => 'readiness-empty-seed',
+                'case_source' => 'provider_arena_corpus',
+                'allowed_files' => ['app/Services/Ai/Programming/ReadinessProbe.php'],
+                'expected_changed_files' => ['app/Services/Ai/Programming/ReadinessProbe.php'],
+                'setup_fixture' => [
+                    'seed_dir' => 'storage/forge-rivals-corpus/__test_empty_readiness_seed/seed',
+                ],
+            ]]);
+
+            $this->assertContains('fixture_seed_empty:readiness-empty-seed', $blockers);
+        } finally {
+            $this->removeDirectory(base_path('storage/forge-rivals-corpus/__test_empty_readiness_seed'));
+        }
+    }
+
+    private function firstEmptySeedCaseId(): ?string
+    {
+        $root = base_path('storage/forge-rivals-corpus');
+        if (! is_dir($root)) {
+            return null;
+        }
+        $dirs = scandir($root) ?: [];
+        sort($dirs);
+        foreach ($dirs as $name) {
+            if ($name === '.' || $name === '..' || ! is_dir($root.'/'.$name)) {
+                continue;
+            }
+            $seed = $root.'/'.$name.'/seed';
+            if (! is_dir($seed)) {
+                continue;
+            }
+            $hasNonReadme = false;
+            $iterator = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($seed, \FilesystemIterator::SKIP_DOTS));
+            foreach ($iterator as $file) {
+                if ($file instanceof \SplFileInfo && $file->isFile()
+                    && strtolower($file->getFilename()) !== 'readme.md'
+                ) {
+                    $hasNonReadme = true;
+                    break;
+                }
+            }
+            if (! $hasNonReadme) {
+                return $name;
+            }
+        }
+
+        return null;
     }
 
     public function test_provider_arena_scope_ignores_unchanged_fixture_files_and_blocks_fixture_mutation(): void
@@ -566,6 +635,168 @@ final class AtlasForgeRivalsRunBatteryReleaseTest extends TestCase
         } finally {
             $this->removeDirectory($worktree);
         }
+    }
+
+    public function test_corpus_pre_validation_blocks_release_when_any_seed_is_empty(): void
+    {
+        $emptyCaseId = $this->firstEmptySeedCaseId();
+        if ($emptyCaseId === null) {
+            $this->markTestSkipped('Corpus has no README-only seeds; pre-validation gate is exercised by other tests.');
+        }
+
+        $service = app(AtlasForgeRivalsCorpusPreValidationService::class);
+        $result = $service->validate([
+            'preset' => AtlasForgeRivalsCasesRegistry::PRESET_RELEASE,
+            'case_set' => AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_RELEASE,
+        ]);
+
+        $this->assertSame('blocked', $result['status']);
+        $this->assertFalse($result['provider_tokens_spent']);
+        $this->assertFalse($result['external_provider_call']);
+        $this->assertContains('fixture_seed_empty:'.$emptyCaseId, $result['blockers']);
+        $this->assertContains($emptyCaseId, $result['blocked_case_ids']);
+        $this->assertGreaterThan(0, $result['blocked_count']);
+    }
+
+    public function test_corpus_pre_validation_blocks_unknown_case_set_honestly(): void
+    {
+        $service = app(AtlasForgeRivalsCorpusPreValidationService::class);
+        $result = $service->validate([
+            'preset' => AtlasForgeRivalsCasesRegistry::PRESET_RELEASE,
+            'case_set' => 'no-such-case-set',
+        ]);
+
+        $this->assertSame('blocked', $result['status']);
+        $this->assertFalse($result['provider_tokens_spent']);
+        $joined = implode('|', $result['blockers']);
+        $this->assertTrue(
+            str_contains($joined, 'unknown_case_set:no-such-case-set')
+            || str_contains($joined, 'empty_case_set:no-such-case-set'),
+            'expected an honest unknown-case-set blocker, got: '.$joined,
+        );
+    }
+
+    public function test_run_battery_release_local_fake_blocks_on_corpus_contamination_before_any_provider_call(): void
+    {
+        $emptyCaseId = $this->firstEmptySeedCaseId();
+        if ($emptyCaseId === null) {
+            $this->markTestSkipped('Corpus has no README-only seeds; gate is exercised by other tests.');
+        }
+
+        $response = $this->dispatchRunBattery([
+            'mode' => 'local_fake',
+            'atlas_model' => 'claude_sonnet',
+            'rival' => 'claude_sonnet',
+            'preset' => 'release',
+            'confirmations' => [
+                'runbook_reviewed' => false,
+                'provider_cost' => false,
+                'real_provider_call' => false,
+            ],
+        ]);
+
+        $this->assertSame('blocked', $response['status']);
+        $this->assertFalse($response['external_provider_call']);
+        $this->assertFalse($response['provider_tokens_spent']);
+        $this->assertNull($response['winner']);
+        $this->assertNull($response['scorecard']);
+        $this->assertSame('invalid_corpus_contaminated', $response['verdict']);
+        $this->assertTrue($response['human_review_required'] ?? false);
+        $phases = array_column($response['phases'] ?? [], 'phase');
+        $this->assertContains('corpus-pre-validation', $phases, 'corpus pre-validation phase must be reachable');
+
+        $joined = implode('|', $response['blockers'] ?? []);
+        $this->assertStringContainsString('fixture_seed_empty:', $joined, 'aggregated blockers must surface fixture_seed_empty');
+    }
+
+    public function test_run_battery_terminal_response_never_emits_score_when_blocked(): void
+    {
+        $response = $this->dispatchRunBattery([
+            'mode' => 'fair',
+            'atlas_model' => 'sonnet',
+            'rival' => 'claude_sonnet',
+            'preset' => 'release',
+            'confirmations' => [
+                'runbook_reviewed' => false,
+                'provider_cost' => false,
+                'real_provider_call' => false,
+            ],
+        ]);
+
+        $this->assertSame('blocked', $response['status']);
+        $this->assertArrayHasKey('score', $response);
+        $this->assertNull($response['score'], 'score must be null on any blocked battery');
+        $this->assertNull($response['winner']);
+        $this->assertNull($response['scorecard']);
+        $this->assertSame('invalid_operator_confirmations_missing', $response['verdict']);
+        $this->assertTrue($response['human_review_required'] ?? false);
+    }
+
+    public function test_corpus_pre_validation_passes_only_when_every_case_has_real_seeds(): void
+    {
+        // The release case-set may contain still-empty seeds in the current
+        // corpus, so we exercise the green path by feeding a curated list of
+        // case_ids that we can verify are populated.
+        $service = app(AtlasForgeRivalsCorpusPreValidationService::class);
+        $populatedIds = $this->populatedCaseIds(limit: 5);
+        if ($populatedIds === []) {
+            $this->markTestSkipped('Corpus has no populated seeds yet.');
+        }
+
+        $result = $service->validate([
+            'preset' => AtlasForgeRivalsCasesRegistry::PRESET_RELEASE,
+            'cases' => $populatedIds,
+        ]);
+
+        $this->assertSame('ok', $result['status'], json_encode($result, JSON_PRETTY_PRINT));
+        $this->assertSame(0, $result['blocked_count']);
+        $this->assertSame(count($populatedIds), $result['valid_count']);
+        foreach ($result['per_case'] as $case) {
+            $this->assertTrue($case['valid']);
+            $this->assertGreaterThan(0, $case['stageable_file_count']);
+            $this->assertNotEmpty($case['expected_changed_files']);
+        }
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function populatedCaseIds(int $limit): array
+    {
+        $root = base_path('storage/forge-rivals-corpus');
+        if (! is_dir($root)) {
+            return [];
+        }
+        $dirs = scandir($root) ?: [];
+        sort($dirs);
+        $populated = [];
+        foreach ($dirs as $name) {
+            if ($name === '.' || $name === '..' || ! is_dir($root.'/'.$name)) {
+                continue;
+            }
+            $seed = $root.'/'.$name.'/seed';
+            if (! is_dir($seed)) {
+                continue;
+            }
+            $hasNonReadme = false;
+            $iterator = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($seed, \FilesystemIterator::SKIP_DOTS));
+            foreach ($iterator as $file) {
+                if ($file instanceof \SplFileInfo && $file->isFile()
+                    && strtolower($file->getFilename()) !== 'readme.md'
+                ) {
+                    $hasNonReadme = true;
+                    break;
+                }
+            }
+            if ($hasNonReadme) {
+                $populated[] = $name;
+            }
+            if (count($populated) >= $limit) {
+                break;
+            }
+        }
+
+        return $populated;
     }
 
     /**

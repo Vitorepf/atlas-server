@@ -22,7 +22,7 @@ use Tests\TestCase;
  * Atlas Self-Construction OS · Agent Control Plane · Multi-Agent Loop
  * Canonical Invariant Matrix — terminal loop endurance contract.
  *
- * Locks down the 10-name canonical matrix and its propagation into the
+ * Locks down the canonical matrix and its propagation into the
  * Completion Audit's `terminal_loop_invariant_violations`. Never invokes
  * a provider, never starts a process, never spends tokens.
  */
@@ -38,6 +38,7 @@ final class AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopCanonicalMatri
         'evidence_hash_present',
         'runtime_safety_all_false',
         'queue_transition_policy_enforced',
+        'worker_resumption_contract_present',
         'safe_for_parallel_terminal_loop',
     ];
 
@@ -47,7 +48,7 @@ final class AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopCanonicalMatri
         Storage::fake('local');
     }
 
-    public function test_canonical_invariant_matrix_lists_ten_canonical_names(): void
+    public function test_canonical_invariant_matrix_lists_canonical_names(): void
     {
         $result = $this->certify();
         $matrix = $result['canonical_invariant_matrix'] ?? null;
@@ -155,6 +156,14 @@ final class AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopCanonicalMatri
         $this->assertNotEmpty(AgentControlPlaneTaskPacketQueueRepository::ALLOWED_STATUS_TRANSITIONS);
         $result = $this->certify();
         $this->assertTrue($result['canonical_invariant_matrix']['invariants']['queue_transition_policy_enforced']['value']);
+    }
+
+    public function test_worker_resumption_contract_is_declared_canonically(): void
+    {
+        $result = $this->certify();
+
+        $this->assertTrue($result['canonical_invariant_matrix']['invariants']['worker_resumption_contract_present']['value']);
+        $this->assertTrue((bool) data_get($result, 'terminal_worker_bootstrap_probe.resumption_contracts_present'));
     }
 
     public function test_safe_for_parallel_terminal_loop_when_all_other_invariants_hold(): void

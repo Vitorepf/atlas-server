@@ -189,6 +189,10 @@ final class AtlasForgeRivalsBatteryEvidenceService
         $blockers = array_values(array_unique(array_merge($missingArtifacts, $invalidReasons, $replayStatus['blockers'])));
         $status = $blockers === [] ? 'passed' : 'invalid_missing_evidence';
 
+        $categoryResults = $this->buildCategoryResults($cases, $categoryCounts);
+        $difficultyResults = $this->buildDifficultyResults($cases, $difficultyCounts, $totalWeight);
+        $caseResults = $this->buildCaseResults($cases);
+
         $pack = [
             'schema_version' => self::SCHEMA_VERSION,
             'battery_id' => $batteryId,
@@ -198,6 +202,14 @@ final class AtlasForgeRivalsBatteryEvidenceService
             'runs' => $batteryRuns,
             'cases' => $cases,
             'case_count' => count($cases),
+            'total_cases' => count($cases),
+            // v3-compatible operator surface — case_results/category_results/
+            // difficulty_results are the canonical multi-case names the report
+            // and replay verifier consume. cases[]/category_summary/
+            // difficulty_summary remain for backwards compatibility.
+            'case_results' => $caseResults,
+            'category_results' => $categoryResults,
+            'difficulty_results' => $difficultyResults,
             'category_summary' => [
                 'counts' => $categoryCounts,
                 'present_categories' => array_keys($categoryCounts),
@@ -249,6 +261,162 @@ final class AtlasForgeRivalsBatteryEvidenceService
             'external_provider_call' => false,
             'separated_from_external_rivals_certification' => true,
         ];
+    }
+
+    /**
+     * Compact per-case projection used by the v3 multi-case operator surface.
+     * Each entry names the case, run, category, difficulty band, replay
+     * readiness flag and any missing-evidence reasons surfaced by the
+     * collector so the operator can scan 40 cases without grepping the full
+     * `cases[]` payload.
+     *
+     * @param  list<array<string,mixed>>  $cases
+     * @return list<array<string,mixed>>
+     */
+    private function buildCaseResults(array $cases): array
+    {
+        $out = [];
+        foreach ($cases as $case) {
+            if (! is_array($case)) {
+                continue;
+            }
+            $atlasArm = is_array($case['arms']['atlas'] ?? null) ? $case['arms']['atlas'] : [];
+            $rivalArm = is_array($case['arms']['rival'] ?? null) ? $case['arms']['rival'] : [];
+            $missingArtifacts = [];
+            if (! (bool) ($atlasArm['present'] ?? false)) {
+                $missingArtifacts[] = 'provider_receipt:atlas';
+            }
+            if (! (bool) ($rivalArm['present'] ?? false)) {
+                $missingArtifacts[] = 'provider_receipt:rival';
+            }
+            if (($atlasArm['patch_diff_path'] ?? null) === null) {
+                $missingArtifacts[] = 'patch_diff:atlas';
+            }
+            if (($rivalArm['patch_diff_path'] ?? null) === null) {
+                $missingArtifacts[] = 'patch_diff:rival';
+            }
+            if (($atlasArm['test_log_path'] ?? null) === null) {
+                $missingArtifacts[] = 'test_log:atlas';
+            }
+            if (($rivalArm['test_log_path'] ?? null) === null) {
+                $missingArtifacts[] = 'test_log:rival';
+            }
+            $level = (string) ($case['difficulty_level'] ?? '');
+            if ($level === '' || ! in_array($level, AtlasForgeRivalsProviderArenaCorpusService::DIFFICULTY_LEVELS, true)) {
+                $missingArtifacts[] = 'difficulty_level';
+            }
+            $out[] = [
+                'run_id' => $case['run_id'] ?? null,
+                'case_id' => $case['case_id'] ?? null,
+                'task_category' => $case['task_category'] ?? null,
+                'difficulty_level' => $case['difficulty_level'] ?? null,
+                'difficulty_weight' => $case['difficulty_weight'] ?? null,
+                'verdict' => $case['verdict'] ?? null,
+                'replay_ready' => (bool) ($case['replay_ready'] ?? false),
+                'missing_artifacts' => $missingArtifacts,
+                'workspace_blockers' => $case['workspace_blockers'] ?? [],
+            ];
+        }
+
+        return $out;
+    }
+
+    /**
+     * Build the canonical category_results[] projection from the case digest.
+     * Surfaces case_count, replay_ready_count and replay_blocked_count per
+     * task_category, plus the list of cases blocking the category — the
+     * report consumes this to render "Resultado por Categoria" without
+     * re-walking cases[].
+     *
+     * @param  list<array<string,mixed>>  $cases
+     * @param  array<string,int>  $categoryCounts
+     * @return list<array<string,mixed>>
+     */
+    private function buildCategoryResults(array $cases, array $categoryCounts): array
+    {
+        $bucket = [];
+        foreach ($cases as $case) {
+            if (! is_array($case)) {
+                continue;
+            }
+            $cat = (string) ($case['task_category'] ?? '');
+            if ($cat === '') {
+                $cat = 'unspecified';
+            }
+            $bucket[$cat] ??= [
+                'task_category' => $cat,
+                'case_count' => 0,
+                'replay_ready_count' => 0,
+                'replay_blocked_count' => 0,
+                'blocked_cases' => [],
+            ];
+            $bucket[$cat]['case_count']++;
+            if ((bool) ($case['replay_ready'] ?? false)) {
+                $bucket[$cat]['replay_ready_count']++;
+            } else {
+                $bucket[$cat]['replay_blocked_count']++;
+                $bucket[$cat]['blocked_cases'][] = (string) ($case['run_id'] ?? '').'/'.(string) ($case['case_id'] ?? '');
+            }
+        }
+        foreach ($categoryCounts as $cat => $count) {
+            if (! isset($bucket[$cat])) {
+                $bucket[$cat] = [
+                    'task_category' => $cat,
+                    'case_count' => $count,
+                    'replay_ready_count' => 0,
+                    'replay_blocked_count' => $count,
+                    'blocked_cases' => [],
+                ];
+            }
+        }
+        ksort($bucket);
+
+        return array_values($bucket);
+    }
+
+    /**
+     * Build the canonical difficulty_results[] projection on the L1-L5
+     * ladder. Each row carries case_count, replay_ready_count,
+     * replay_blocked_count and weighted contribution. Levels with zero cases
+     * still appear so the operator sees the full ladder.
+     *
+     * @param  list<array<string,mixed>>  $cases
+     * @param  array<string,int>  $difficultyCounts
+     * @return list<array<string,mixed>>
+     */
+    private function buildDifficultyResults(array $cases, array $difficultyCounts, float $totalWeight): array
+    {
+        $weights = AtlasForgeRivalsProviderArenaCorpusService::DIFFICULTY_LEVEL_SCORE_WEIGHTS;
+        $rows = [];
+        foreach (AtlasForgeRivalsProviderArenaCorpusService::DIFFICULTY_LEVELS as $level) {
+            $rows[$level] = [
+                'difficulty_level' => $level,
+                'case_count' => (int) ($difficultyCounts[$level] ?? 0),
+                'replay_ready_count' => 0,
+                'replay_blocked_count' => 0,
+                'weight_per_case' => (float) ($weights[$level] ?? 0.0),
+                'weighted_contribution' => 0.0,
+                'blocked_cases' => [],
+            ];
+        }
+        foreach ($cases as $case) {
+            if (! is_array($case)) {
+                continue;
+            }
+            $level = (string) ($case['difficulty_level'] ?? '');
+            if ($level === '' || ! isset($rows[$level])) {
+                continue;
+            }
+            if ((bool) ($case['replay_ready'] ?? false)) {
+                $rows[$level]['replay_ready_count']++;
+            } else {
+                $rows[$level]['replay_blocked_count']++;
+                $rows[$level]['blocked_cases'][] = (string) ($case['run_id'] ?? '').'/'.(string) ($case['case_id'] ?? '');
+            }
+            $rows[$level]['weighted_contribution'] += (float) ($weights[$level] ?? 0.0);
+        }
+
+        return array_values($rows);
     }
 
     /**

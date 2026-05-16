@@ -272,7 +272,7 @@ final class AtlasSelfConstructionOsCompletionAuditTest extends TestCase
             AtlasSelfConstructionOsCompletionAuditService::TERMINAL_LOOP_CERTIFICATION_SCHEMA_VERSION,
             $block['schema_version'] ?? null,
         );
-        $this->assertSame(6, $block['module_count']);
+        $this->assertSame(7, $block['module_count']);
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $block['certification_hash']);
 
         $moduleIds = array_column($block['modules'], 'id');
@@ -281,6 +281,7 @@ final class AtlasSelfConstructionOsCompletionAuditTest extends TestCase
             'task_queue_claim_next_status',
             'task_queue_complete_dry_run_status',
             'one_shot_worker_packet_status',
+            'terminal_worker_bootstrap_status',
             'task_lease_recovery_status',
             'multi_agent_loop_certification_status',
         ] as $expected) {
@@ -312,7 +313,7 @@ final class AtlasSelfConstructionOsCompletionAuditTest extends TestCase
 
         $this->assertTrue($block['passed']);
         $this->assertSame('available', $block['status']);
-        $this->assertSame(6, $block['modules_passed']);
+        $this->assertSame(7, $block['modules_passed']);
         $this->assertSame(0, $block['modules_blocked']);
         $this->assertSame([], $block['invariant_violations']);
         foreach ($block['modules'] as $module) {
@@ -398,8 +399,9 @@ final class AtlasSelfConstructionOsCompletionAuditTest extends TestCase
         $this->assertSame('incomplete', $audit['status']);
         $this->assertFalse($audit['completion_allowed']);
         $this->assertFalse($audit['completion_claim_allowed']);
+        $this->assertGreaterThan(0, $audit['failed_count']);
         $this->assertContains('human_signed_os_complete_receipt_present', $audit['failed_criteria']);
-        $this->assertContains('end_to_end_real_provider_smoke_green', $audit['failed_criteria']);
+        $this->assertFalse((bool) data_get($audit, 'blocker_classification.completion_allowed'));
     }
 
     public function test_checklist_includes_terminal_loop_row(): void

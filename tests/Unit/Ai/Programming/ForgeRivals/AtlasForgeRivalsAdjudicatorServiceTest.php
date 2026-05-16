@@ -195,7 +195,15 @@ final class AtlasForgeRivalsAdjudicatorServiceTest extends TestCase
         $this->assertSame(AtlasForgeRivalsAdjudicatorService::WINNER_ATLAS, $scorecard['winner']);
         $this->assertGreaterThan($scorecard['rival_score'], $scorecard['atlas_score']);
         $this->assertNotEmpty($scorecard['winner_reason']);
-        $this->assertTrue($scorecard['claim_ready']);
+        // local_fake mode never produces a real claim, even on a clear win.
+        // The fairness gate flips claim_ready to false with an explicit
+        // validity_class so the operator sees the harness signal vs a real
+        // superiority claim.
+        $this->assertFalse($scorecard['claim_ready']);
+        $this->assertSame(
+            AtlasForgeRivalsAdjudicatorService::VALIDITY_INVALID_LOCAL_FAKE,
+            $scorecard['fairness']['validity_class'],
+        );
         $this->assertFalse($scorecard['human_review_required']);
     }
 
@@ -220,7 +228,12 @@ final class AtlasForgeRivalsAdjudicatorServiceTest extends TestCase
         $scorecard = $this->adjudicator->adjudicate(['run_id' => $runId])['scorecard'];
         $this->assertSame(AtlasForgeRivalsAdjudicatorService::WINNER_RIVAL, $scorecard['winner']);
         $this->assertGreaterThan($scorecard['atlas_score'], $scorecard['rival_score']);
-        $this->assertTrue($scorecard['claim_ready']);
+        // local_fake never claims real superiority — see fairness canon.
+        $this->assertFalse($scorecard['claim_ready']);
+        $this->assertSame(
+            AtlasForgeRivalsAdjudicatorService::VALIDITY_INVALID_LOCAL_FAKE,
+            $scorecard['fairness']['validity_class'],
+        );
     }
 
     public function test_statistical_tie_when_arms_equivalent(): void

@@ -52,6 +52,7 @@ final class AtlasForgeRivalsRunBatteryService
         private readonly AtlasForgeRivalsReportService $report,
         private readonly AtlasForgeRivalsRunPathResolver $paths,
         private readonly AtlasForgeRivalsModeRegistry $modes,
+        private readonly AtlasForgeRivalsCorpusPreValidationService $corpusPreValidation,
     ) {}
 
     /**
@@ -228,6 +229,37 @@ final class AtlasForgeRivalsRunBatteryService
         $phases[] = $this->phase('dry-run', $dryRun);
         if (($dryRun['status'] ?? '') !== 'ok') {
             return $this->terminal($runId, $mode, $phases, (array) ($dryRun['blockers'] ?? []), 'fix dry-run blockers');
+        }
+
+        // Phase 4.5 — corpus pre-validation. Walks every case the operator's
+        // flags will resolve to and refuses to enter plan-real/run-real if any
+        // case is contaminated (empty seed, only README.md, missing
+        // expected_changed_files, unknown case_set, etc.). This is the
+        // canonical fail-closed gate that keeps a contaminated corpus from
+        // turning into a false Atlas 100 × 0 score.
+        //
+        // Skip the gate for legacy hand-crafted presets (smoke/quick) that
+        // resolve to a single non-corpus case via the cases registry; those
+        // cases never enter the provider arena corpus and have no seed_dir.
+        if ($this->corpusPreValidationApplies($preset, $caseSet, $case, $cases)) {
+            $corpusValidation = $this->corpusPreValidation->validate([
+                'preset' => $preset,
+                'case_set' => $caseSet,
+                'case' => $case,
+                'cases' => $cases,
+                'require_expected_changed_files' => $this->shouldRequireExpectedChangedFiles($preset, $caseSet, $case, $cases),
+            ]);
+            $phases[] = $this->phase('corpus-pre-validation', $corpusValidation);
+            if (($corpusValidation['status'] ?? '') !== 'ok') {
+                return $this->terminal(
+                    $runId,
+                    $mode,
+                    $phases,
+                    (array) ($corpusValidation['blockers'] ?? []),
+                    'fix corpus contamination (empty seeds, missing expected_changed_files) before any provider call',
+                    corpusValidation: $corpusValidation,
+                );
+            }
         }
 
         // Phase 5 — plan-real
@@ -435,9 +467,118 @@ final class AtlasForgeRivalsRunBatteryService
     }
 
     /**
+     * Classify the verdict for a blocked battery so the operator can read it
+     * at a glance instead of grepping blockers. Honest verdicts only —
+     * "invalid_harness_blocked" is the catch-all; specific signals override.
+     *
+     * @param  list<string>  $blockers
+     * @param  array<string,mixed>|null  $runReal
+     * @param  array<string,mixed>|null  $corpusValidation
+     */
+    private function classifyBlockedVerdict(array $blockers, ?array $runReal, ?array $corpusValidation): string
+    {
+        $joined = implode('|', array_map(static fn ($b): string => (string) $b, $blockers));
+
+        if ($runReal !== null) {
+            if ((bool) data_get($runReal, 'atlas_arm_receipt.workspace_has_blocking_changes', false)
+                || (bool) data_get($runReal, 'rival_arm_receipt.workspace_has_blocking_changes', false)
+                || (bool) data_get($runReal, 'workspace_has_blocking_changes', false)
+            ) {
+                return 'invalid_dirty_after_run';
+            }
+        }
+
+        if ($corpusValidation !== null && ($corpusValidation['blocked_count'] ?? 0) > 0) {
+            return 'invalid_corpus_contaminated';
+        }
+
+        if (str_contains($joined, 'missing_confirmation:')) {
+            return 'invalid_operator_confirmations_missing';
+        }
+        if (str_contains($joined, 'fixture_seed_empty:')
+            || str_contains($joined, 'fixture_seed_no_stageable_files:')
+            || str_contains($joined, 'fixture_seed_dir_missing:')
+            || str_contains($joined, 'fixture_seed_dir_not_found:')
+            || str_contains($joined, 'expected_changed_files_missing:')
+        ) {
+            return 'invalid_corpus_contaminated';
+        }
+        if (str_contains($joined, 'fingerprint_mismatch')
+            || str_contains($joined, 'fingerprint_drift')
+        ) {
+            return 'invalid_fingerprint_divergence';
+        }
+        if (str_contains($joined, 'replay')
+            || str_contains($joined, 'evidence')
+        ) {
+            return 'invalid_evidence_or_replay_failed';
+        }
+
+        return 'invalid_harness_blocked';
+    }
+
+    /**
+     * Decide whether the corpus pre-validation gate applies to the operator's
+     * flags. The gate is skipped for legacy hand-crafted single-case presets
+     * (smoke/quick) where cases never enter the provider arena corpus and
+     * therefore have no seed_dir to validate.
+     *
+     * @param  list<string>  $cases
+     */
+    private function corpusPreValidationApplies(string $preset, string $caseSet, string $case, array $cases): bool
+    {
+        if (trim($caseSet) !== '') {
+            return true;
+        }
+        if ($cases !== []) {
+            return true;
+        }
+        $presetKey = strtolower(trim($preset));
+        if ($presetKey === AtlasForgeRivalsCasesRegistry::PRESET_RELEASE
+            || $presetKey === AtlasForgeRivalsCasesRegistry::PRESET_FULL
+        ) {
+            return true;
+        }
+
+        // Explicit single case: apply only when it looks like a corpus case.
+        // Corpus cases live under storage/forge-rivals-corpus/<case_id>/.
+        if (trim($case) !== '' && is_dir(base_path('storage/forge-rivals-corpus/'.trim($case)))) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Decide whether the corpus pre-validation should require
+     * expected_changed_files for the resolved case-set. Strict for release
+     * multi-case batteries and provider arena corpus runs; lenient for legacy
+     * smoke/quick presets that intentionally resolve to a single legacy case.
+     *
+     * @param  list<string>  $cases
+     */
+    private function shouldRequireExpectedChangedFiles(string $preset, string $caseSet, string $case, array $cases): bool
+    {
+        $preset = strtolower(trim($preset));
+        $caseSet = strtolower(trim($caseSet));
+
+        if ($caseSet !== '') {
+            return true;
+        }
+        if ($preset === AtlasForgeRivalsCasesRegistry::PRESET_RELEASE
+            || $preset === AtlasForgeRivalsCasesRegistry::PRESET_FULL
+        ) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
      * @param  list<array<string,mixed>>  $phases
      * @param  list<string>  $blockers
      * @param  array<string,mixed>|null  $runReal
+     * @param  array<string,mixed>|null  $corpusValidation
      * @return array<string,mixed>
      */
     private function terminal(
@@ -447,6 +588,7 @@ final class AtlasForgeRivalsRunBatteryService
         array $blockers,
         string $hint,
         ?array $runReal = null,
+        ?array $corpusValidation = null,
     ): array {
         $runPaths = null;
         try {
@@ -454,6 +596,8 @@ final class AtlasForgeRivalsRunBatteryService
         } catch (\Throwable) {
             $runPaths = null;
         }
+
+        $verdict = $this->classifyBlockedVerdict($blockers, $runReal, $corpusValidation);
 
         return [
             'status' => 'blocked',
@@ -465,7 +609,11 @@ final class AtlasForgeRivalsRunBatteryService
             'phases_failed' => count(array_filter($phases, static fn (array $p): bool => ! $p['ok'])),
             'blockers' => array_values(array_unique(array_map(static fn ($b): string => (string) $b, $blockers))),
             'winner' => null,
+            'score' => null,
             'scorecard' => null,
+            'verdict' => $verdict,
+            'claim_ready' => false,
+            'human_review_required' => true,
             'external_provider_call' => false,
             'provider_tokens_spent' => false,
             'evidence_paths' => $runPaths !== null
@@ -477,6 +625,7 @@ final class AtlasForgeRivalsRunBatteryService
                 ], static fn (string $p): bool => is_file($p)))
                 : [],
             'failed_run_real' => $runReal,
+            'corpus_pre_validation' => $corpusValidation,
             'separated_from_external_rivals_certification' => true,
             'note' => 'Battery aborted before declaring a winner. Partial evidence preserved at runs/<run_id>/.',
             'next_command' => $hint,

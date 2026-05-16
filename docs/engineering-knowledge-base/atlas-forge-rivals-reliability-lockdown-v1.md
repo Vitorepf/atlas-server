@@ -37,7 +37,10 @@ related_paths:
   - app/Services/Ai/Programming/RivalsForgeRunLogStreamService.php
   - app/Services/Ai/Programming/AtlasRivalsRunOrchestrator.php
   - app/Services/Ai/Programming/AtlasRivalsInvalidBatteryTriageRegistry.php
+  - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsRunBatteryService.php
+  - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsCorpusPreValidationService.php
   - tests/Feature/Ai/Programming/AtlasForgeRivalsReliabilityLockdownIntegrationTest.php
+  - tests/Feature/Ai/Programming/AtlasForgeRivalsRunBatteryReleaseTest.php
 repo_paths:
   - docs/engineering-knowledge-base/atlas-forge-rivals-reliability-lockdown-v1.md
   - app/Services/Ai/Programming/WorkspaceHygieneService.php
@@ -119,6 +122,40 @@ O fluxo fica abaixo de `atlas-forge-native-rivals-protocol-v1` e acima dos coman
 4. O runner emite JSONL incremental em `storage/app/rivals-forge-runs/<runId>/events.jsonl`.
 5. O evidence pack verifica after-clean, replay e campos obrigatorios.
 6. Resultado invalido gera `score=null` e blocker claro.
+
+## Gate fail-closed adicional: Corpus Pre-Validation v1
+
+Antes de qualquer chamada a provider (mesmo em `local_fake`), `run-battery`
+roda `AtlasForgeRivalsCorpusPreValidationService` para todo case do case-set
+resolvido (release/full ou `--case-set` explicito ou `--case=<corpus-id>`).
+O gate bloqueia a bateria inteira (`status=blocked`, `score=null`,
+`scorecard=null`, `provider_tokens_spent=false`, `external_provider_call=false`)
+quando qualquer caso aparece com:
+
+- `fixture_seed_dir_missing:<case_id>` — case_id sem `setup_fixture.seed_dir`.
+- `fixture_seed_dir_not_found:<case_id>` — seed_dir nao existe no repo.
+- `fixture_seed_empty:<case_id>` — seed contem apenas `README.md`.
+- `fixture_seed_no_stageable_files:<case_id>` — arquivos existem mas nenhum
+  cai em `allowed_files`/`expected_changed_files` seguros.
+- `expected_changed_files_missing:<case_id>` — release case sem expected list.
+- `unknown_case_set:<name>` / `empty_case_set:<name>` — case-set invalido.
+
+Verdicts agregados no top-level (todos com `score=null` e
+`human_review_required=true`):
+
+- `invalid_corpus_contaminated` — pre-validation reprovou.
+- `invalid_operator_confirmations_missing` — uma das tres confirmacoes faltou.
+- `invalid_dirty_after_run` — workspace ficou dirty depois do run-real.
+- `invalid_fingerprint_divergence` — fingerprint preflight/dry-run/run-real
+  divergiu.
+- `invalid_evidence_or_replay_failed` — evidence pack incompleto ou replay
+  reprovado.
+- `invalid_harness_blocked` — generico (cobertura final).
+
+Score so existe quando todas as gates ficam verdes: corpus pre-validation
+limpa, confirmacoes presentes, fingerprint consistente, evidence completo,
+replay verificado e workspace limpo. Qualquer um falhando =>
+`status=blocked`, `winner=null`, `scorecard=null`, `score=null`.
 
 ## Regras para IA
 

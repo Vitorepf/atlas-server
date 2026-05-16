@@ -114,6 +114,79 @@ final class AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopCertificationT
         $this->assertSame(0, (int) $cert['violation_count']);
     }
 
+    public function test_certification_exercises_terminal_worker_bootstrap_path(): void
+    {
+        $cert = $this->certify(['agent_count' => 3, 'cycles' => 1]);
+        $probe = (array) $cert['terminal_worker_bootstrap_probe'];
+
+        $this->assertSame('available', (string) $probe['status']);
+        $this->assertSame(2, (int) $probe['probe_agent_count']);
+        $this->assertSame(2, (int) $probe['ready_count']);
+        $this->assertSame(2, (int) $probe['completed_dry_run_count']);
+        $this->assertTrue((bool) $probe['one_shot_packets_ready']);
+        $this->assertTrue((bool) $probe['completion_command_uses_dry_run']);
+        $this->assertTrue((bool) $probe['resumption_contracts_present']);
+        $this->assertTrue((bool) $probe['parallel_lanes_distinct']);
+        $this->assertTrue((bool) $probe['leases_closed_by_dry_run']);
+        $this->assertTrue((bool) $probe['runtime_safety_all_false']);
+        $this->assertMatchesRegularExpression('/^terminal_worker_bootstrap_probe_/', (string) $probe['queue_tag']);
+        $this->assertTrue((bool) $cert['invariants']['terminal_worker_bootstrap_ready']);
+        $this->assertTrue((bool) $cert['invariants']['terminal_worker_bootstrap_completion_command_uses_dry_run']);
+        $this->assertTrue((bool) $cert['invariants']['terminal_worker_bootstrap_resumption_contract_present']);
+    }
+
+    public function test_terminal_worker_bootstrap_probe_returns_copy_paste_completion_commands(): void
+    {
+        $cert = $this->certify(['agent_count' => 2, 'cycles' => 1]);
+        $probeResults = (array) data_get($cert, 'terminal_worker_bootstrap_probe.results', []);
+
+        $this->assertCount(2, $probeResults);
+        foreach ($probeResults as $result) {
+            $this->assertSame('ready_for_worker', (string) $result['status']);
+            $this->assertTrue((bool) $result['one_shot_worker_packet_ready']);
+            $this->assertStringContainsString(
+                '--agent-control-plane-task-queue-complete-dry-run-status',
+                (string) $result['completion_command'],
+            );
+            $this->assertStringContainsString(
+                '--agent-control-plane-task-lease-recovery-status',
+                (string) $result['resume_after_interruption_command'],
+            );
+            $this->assertTrue((bool) $result['resumption_contract_present']);
+            $this->assertNotEmpty((string) $result['one_shot_packet_hash']);
+            $this->assertNotEmpty((array) $result['write_set']);
+        }
+    }
+
+    public function test_certification_claims_only_current_run_cycle_tasks(): void
+    {
+        [$service, $orchestrator] = $this->newStack();
+
+        $orchestrator->prepareAndEnqueue([
+            'task_packet' => [
+                'task_packet_id' => 'foreign_cycle_0_task',
+                'objective' => 'foreign stale cycle task',
+                'operator_id' => 'test',
+                'allowed_files' => ['app/Services/Ai/SelfConstruction/__multi_agent_loop_certification_synthetic__/foreign.php'],
+                'scope_in' => ['app/Services/Ai/SelfConstruction/__multi_agent_loop_certification_synthetic__/foreign.php'],
+                'acceptance_criteria' => ['foreign_task_must_not_be_claimed_by_certification'],
+                'required_evidence' => ['foreign_task_seeded'],
+                'risk_level' => 'low',
+                'rollback_strategy' => 'plan_only',
+            ],
+            'queue' => ['priority' => 10, 'tags' => ['multi_agent_loop_certification', 'cycle_0']],
+        ]);
+
+        $cert = $service->certify(['agent_count' => 2, 'cycles' => 1]);
+        $claimedTaskIds = array_map(
+            static fn (array $agent): string => (string) $agent['task_packet_id'],
+            (array) data_get($cert, 'cycle_evidence.0.agents', []),
+        );
+
+        $this->assertSame('available', (string) $cert['status']);
+        $this->assertNotContains('foreign_cycle_0_task', $claimedTaskIds);
+    }
+
     public function test_status_is_blocked_when_simulate_overlap_forces_collision(): void
     {
         $cert = $this->certify([
@@ -190,6 +263,14 @@ final class AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopCertificationT
 
     private function newService(): AgentControlPlaneMultiAgentLoopCertificationService
     {
+        return $this->newStack()[0];
+    }
+
+    /**
+     * @return array{0: AgentControlPlaneMultiAgentLoopCertificationService, 1: AgentControlPlaneTaskQueueOrchestrator}
+     */
+    private function newStack(): array
+    {
         $queue = new AgentControlPlaneTaskPacketQueueRepository;
         $leases = new AgentControlPlaneClaimLeaseRepository;
         $orchestrator = new AgentControlPlaneTaskQueueOrchestrator(
@@ -201,6 +282,6 @@ final class AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopCertificationT
             new AgentControlPlaneContinuationSummaryBuilder,
         );
 
-        return new AgentControlPlaneMultiAgentLoopCertificationService($orchestrator, $queue, $leases);
+        return [new AgentControlPlaneMultiAgentLoopCertificationService($orchestrator, $queue, $leases), $orchestrator];
     }
 }

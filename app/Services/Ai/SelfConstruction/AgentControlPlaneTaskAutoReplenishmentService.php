@@ -37,9 +37,12 @@ final class AgentControlPlaneTaskAutoReplenishmentService
         $maxNewTasks = max(0, min(25, (int) ($options['max_new_tasks'] ?? $targetMinClaimable)));
         $actor = trim((string) ($options['actor'] ?? 'agent-control-plane-auto-replenishment'));
         $reason = trim((string) ($options['reason'] ?? 'claimable_queue_below_target'));
+        $queueTags = $this->stringList((array) ($options['queue_tags'] ?? []));
 
         $registryBefore = $this->queue->registry();
-        $claimableBefore = (int) data_get($registryBefore, 'status_counts.claimable', 0);
+        $claimableBefore = $queueTags === []
+            ? (int) data_get($registryBefore, 'status_counts.claimable', 0)
+            : $this->countClaimableWithTags($queueTags);
         $totalBefore = (int) data_get($registryBefore, 'total_count', 0);
 
         $sources = $this->sources($context);
@@ -57,7 +60,7 @@ final class AgentControlPlaneTaskAutoReplenishmentService
                         'atlas_self_construction_os',
                         'agent_control_plane',
                         'auto_replenished',
-                    ], (array) ($seed['tags'] ?? [])))),
+                    ], (array) ($seed['tags'] ?? []), $queueTags))),
                     'metadata' => [
                         'auto_replenishment_reason' => $reason,
                         'auto_replenishment_source' => (string) ($seed['source'] ?? 'unknown'),
@@ -84,7 +87,9 @@ final class AgentControlPlaneTaskAutoReplenishmentService
         }
 
         $registryAfter = $this->queue->registry();
-        $claimableAfter = (int) data_get($registryAfter, 'status_counts.claimable', 0);
+        $claimableAfter = $queueTags === []
+            ? (int) data_get($registryAfter, 'status_counts.claimable', 0)
+            : $this->countClaimableWithTags($queueTags);
         $payload = [
             'schema_version' => self::SCHEMA_VERSION,
             'mode' => self::MODE,
@@ -95,6 +100,7 @@ final class AgentControlPlaneTaskAutoReplenishmentService
             'reason' => $reason,
             'target_min_claimable_tasks' => $targetMinClaimable,
             'max_new_tasks' => $maxNewTasks,
+            'queue_tags' => $queueTags,
             'claimable_task_count_before' => $claimableBefore,
             'claimable_task_count_after' => $claimableAfter,
             'generated_task_count' => count($generated),
@@ -144,12 +150,22 @@ final class AgentControlPlaneTaskAutoReplenishmentService
         $controlPlane = (array) ($context['control_plane'] ?? []);
         $completionAudit = (array) ($context['completion_audit'] ?? []);
         $chainIntegrity = (array) ($context['chain_integrity'] ?? []);
+        $terminalBootstrapProbe = (array) ($context['terminal_bootstrap_probe'] ?? []);
         $nextRequiredSlice = (string) data_get($controlPlane, 'control_plane.persistent_runtime.next_required_slice', data_get($context, 'next_required_slice', ''));
         $notYetRuntimeCapable = (array) data_get($controlPlane, 'control_plane.not_yet_runtime_capable', []);
         $failedCriteria = array_values(array_filter(array_map('strval', (array) data_get($completionAudit, 'failed_criteria', []))));
         $chainViolations = array_values((array) data_get($chainIntegrity, 'violations', []));
+        $terminalBootstrapProbeEnabled = (bool) ($terminalBootstrapProbe['enabled'] ?? false);
 
         return [
+            [
+                'source' => 'terminal_bootstrap_probe',
+                'value' => [
+                    'namespace' => (string) ($terminalBootstrapProbe['namespace'] ?? 'terminal_worker_bootstrap_probe'),
+                    'target_task_count' => (int) ($terminalBootstrapProbe['target_task_count'] ?? 0),
+                ],
+                'available' => $terminalBootstrapProbeEnabled,
+            ],
             [
                 'source' => 'current_pointer',
                 'value' => $nextRequiredSlice,
@@ -195,6 +211,25 @@ final class AgentControlPlaneTaskAutoReplenishmentService
         }
 
         $seeds = [];
+        if ((bool) data_get($sourceMap, 'terminal_bootstrap_probe.available', false)) {
+            $namespace = $this->slug((string) data_get($sourceMap, 'terminal_bootstrap_probe.value.namespace', 'terminal_worker_bootstrap_probe'));
+            for ($i = 0; $i < $needed; $i++) {
+                $seeds[] = $this->seed('terminal_bootstrap_probe_'.$namespace.'_'.$i, 'Certificar bootstrap terminal worker isolado #'.($i + 1), [
+                    'source' => 'terminal_bootstrap_probe',
+                    'reference' => $namespace.'/worker_'.$i,
+                    'priority' => 1,
+                    'tags' => ['terminal_bootstrap_probe'],
+                ]);
+            }
+
+            return array_slice(array_map(function (array $seed, int $index) use ($totalBefore): array {
+                $sequence = str_pad((string) ($totalBefore + $index + 1), 4, '0', STR_PAD_LEFT);
+                $seed['task_packet_id'] = 'acp-auto-'.$sequence.'-'.$this->slug((string) $seed['seed_key']);
+
+                return $seed;
+            }, $seeds, array_keys($seeds)), 0, $needed);
+        }
+
         $next = (string) data_get($sourceMap, 'current_pointer.value', '');
         if ($next !== '') {
             $seeds[] = $this->seed('current_pointer_'.$this->slug($next), 'Implementar o próximo slice canônico do Agent Control Plane: '.$next, [
@@ -266,29 +301,22 @@ final class AgentControlPlaneTaskAutoReplenishmentService
      */
     private function taskPacketFromSeed(array $seed, string $actor): array
     {
+        $scope = $this->scopeForSeed($seed);
+
         return [
             'task_packet_id' => (string) $seed['task_packet_id'],
             'objective' => (string) $seed['objective'],
             'source' => 'agent_control_plane_auto_replenishment:'.(string) $seed['source'],
             'operator_id' => $actor,
             'parent_run_id' => 'AGENT-CONTROL-PLANE-AUTO-REPLENISHMENT-0001',
-            'allowed_files' => [
-                'app/Services/Ai/SelfConstruction/',
-                'app/Console/Commands/AtlasAiSelfConstructionCommand.php',
-                'tests/Feature/Ai/',
-                'docs/engineering-knowledge-base/self-construction/agent-control-plane-contract.md',
-            ],
+            'allowed_files' => $scope['allowed_files'],
             'forbidden_files' => [
                 'routes/api.php',
                 'app/Services/Ai/SelfImprovement/',
                 'app/Services/Ai/Programming/',
                 'atlas-desktop/',
             ],
-            'scope_in' => [
-                'app/Services/Ai/SelfConstruction/',
-                'tests/Feature/Ai/',
-                'docs/engineering-knowledge-base/self-construction/agent-control-plane-contract.md',
-            ],
+            'scope_in' => $scope['scope_in'],
             'scope_out' => [
                 'app/Services/Ai/SelfImprovement/',
                 'app/Services/Ai/Programming/',
@@ -328,6 +356,116 @@ final class AgentControlPlaneTaskAutoReplenishmentService
     }
 
     /**
+     * @param  array<string, mixed>  $seed
+     * @return array{allowed_files: list<string>, scope_in: list<string>}
+     */
+    private function scopeForSeed(array $seed): array
+    {
+        $source = (string) ($seed['source'] ?? '');
+        $reference = (string) ($seed['reference'] ?? '');
+        $seedKey = (string) ($seed['seed_key'] ?? '');
+
+        if ($source === 'current_pointer' && $reference !== '') {
+            $slice = str_replace('activate_signed_one_shot_scheduler_tick_', '', $reference);
+            $studly = str_replace(' ', '', ucwords(str_replace('_', ' ', $slice)));
+
+            return [
+                'allowed_files' => [
+                    'app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTick'.$studly.'Invoker.php',
+                    'tests/Feature/Ai/AtlasAiSelfConstructionAgentAutomaticDispatchSchedulerOneShotTick'.$studly.'InvokerTest.php',
+                ],
+                'scope_in' => [
+                    'app/Services/Ai/SelfConstruction/',
+                    'tests/Feature/Ai/',
+                    'docs/engineering-knowledge-base/self-construction/agent-control-plane-contract.md',
+                ],
+            ];
+        }
+
+        if ($source === 'completion_audit') {
+            $lane = match ($reference) {
+                'runtime_gap_matrix_all_runtime_y' => 'AtlasSelfConstructionRuntimePromotion',
+                'human_signed_os_complete_receipt_present' => 'AtlasSelfConstructionHumanCompletionReceipt',
+                'end_to_end_real_provider_smoke_green' => 'AtlasSelfConstructionRealProviderSmoke',
+                default => 'AtlasSelfConstructionCompletionEvidence',
+            };
+
+            return [
+                'allowed_files' => [
+                    'app/Services/Ai/SelfConstruction/'.$lane,
+                    'tests/Feature/Ai/SelfConstruction/'.$lane,
+                ],
+                'scope_in' => [
+                    'app/Services/Ai/SelfConstruction/',
+                    'tests/Feature/Ai/SelfConstruction/',
+                    'docs/engineering-knowledge-base/self-construction/agent-control-plane-contract.md',
+                ],
+            ];
+        }
+
+        if ($source === 'chain_integrity') {
+            return [
+                'allowed_files' => [
+                    'app/Services/Ai/SelfConstruction/AgentControlPlaneChainIntegrityAuditService.php',
+                    'tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneChainIntegrityAuditTest.php',
+                ],
+                'scope_in' => [
+                    'app/Services/Ai/SelfConstruction/AgentControlPlaneChainIntegrityAuditService.php',
+                    'tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneChainIntegrityAuditTest.php',
+                    'docs/engineering-knowledge-base/self-construction/agent-control-plane-contract.md',
+                ],
+            ];
+        }
+
+        if ($source === 'terminal_bootstrap_probe') {
+            $reference = $this->slug($reference === '' ? 'worker' : $reference);
+
+            return [
+                'allowed_files' => [
+                    'app/Services/Ai/SelfConstruction/__terminal_worker_bootstrap_probe__/'.$reference.'.php',
+                ],
+                'scope_in' => [
+                    'app/Services/Ai/SelfConstruction/AgentControlPlaneTerminalWorkerBootstrapService.php',
+                    'app/Services/Ai/SelfConstruction/AgentControlPlaneTaskAutoReplenishmentService.php',
+                    'app/Services/Ai/SelfConstruction/AgentControlPlaneMultiAgentLoopCertificationService.php',
+                    'tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopCertificationTest.php',
+                    'docs/engineering-knowledge-base/self-construction/agent-control-plane-contract.md',
+                ],
+            ];
+        }
+
+        if ($source === 'canonical_contract') {
+            return [
+                'allowed_files' => ['docs/engineering-knowledge-base/self-construction/agent-control-plane-contract.md'],
+                'scope_in' => ['docs/engineering-knowledge-base/self-construction/agent-control-plane-contract.md'],
+            ];
+        }
+
+        if ($source === 'test_guardrail' || str_contains($seedKey, 'focused_regression_tests')) {
+            return [
+                'allowed_files' => ['tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneTerminalWorkerBootstrapTest.php'],
+                'scope_in' => [
+                    'tests/Feature/Ai/',
+                    'app/Services/Ai/SelfConstruction/',
+                    'docs/engineering-knowledge-base/self-construction/agent-control-plane-contract.md',
+                ],
+            ];
+        }
+
+        return [
+            'allowed_files' => [
+                'app/Services/Ai/SelfConstruction/',
+                'tests/Feature/Ai/',
+            ],
+            'scope_in' => [
+                'app/Services/Ai/SelfConstruction/',
+                'tests/Feature/Ai/',
+                'docs/engineering-knowledge-base/self-construction/agent-control-plane-contract.md',
+            ],
+        ];
+    }
+
+    /**
      * @return list<string>
      */
     private function blockers(int $claimableAfter, int $targetMinClaimable, int $maxNewTasks): array
@@ -347,6 +485,41 @@ final class AgentControlPlaneTaskAutoReplenishmentService
         $slug = Str::slug($value, '_');
 
         return $slug === '' ? 'task' : substr($slug, 0, 80);
+    }
+
+    /**
+     * @param  list<string>  $tags
+     */
+    private function countClaimableWithTags(array $tags): int
+    {
+        if ($tags === []) {
+            return count((array) $this->queue->list(['status' => 'claimable']));
+        }
+
+        $records = (array) $this->queue->list(['status' => 'claimable']);
+
+        return count(array_filter($records, static function (array $record) use ($tags): bool {
+            $recordTags = array_map('strval', (array) ($record['tags'] ?? []));
+            foreach ($tags as $tag) {
+                if (! in_array($tag, $recordTags, true)) {
+                    return false;
+                }
+            }
+
+            return true;
+        }));
+    }
+
+    /**
+     * @param  array<int, mixed>  $values
+     * @return list<string>
+     */
+    private function stringList(array $values): array
+    {
+        return array_values(array_filter(array_map(
+            static fn (mixed $value): string => trim((string) $value),
+            $values,
+        ), static fn (string $value): bool => $value !== ''));
     }
 
     /**

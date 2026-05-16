@@ -87,6 +87,8 @@ final class AtlasSelfConstructionCompletionEvidenceSubmissionPreflightService
             'completion_allowed' => false,
             'completion_claim_allowed' => false,
             'ordered_steps' => $orderedSteps,
+            'operator_execution_plan' => $this->operatorExecutionPlan($orderedSteps, $firstBlocked, $blockerExplainer),
+            'operator_handoff_packet' => $this->operatorHandoffPacket($orderedSteps, $firstBlocked, $blockerExplainer),
             'step_count' => count($orderedSteps),
             'ready_step_count' => $readySteps,
             'blocked_step_count' => count($orderedSteps) - $readySteps,
@@ -130,6 +132,148 @@ final class AtlasSelfConstructionCompletionEvidenceSubmissionPreflightService
             'blocker_count' => count($blockers),
             'blockers' => $blockers,
         ];
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $orderedSteps
+     * @param  array<string, mixed>|null  $firstBlocked
+     * @param  array<string, mixed>  $blockerExplainer
+     * @return array<string, mixed>
+     */
+    private function operatorExecutionPlan(array $orderedSteps, ?array $firstBlocked, array $blockerExplainer): array
+    {
+        $stepsById = collect($orderedSteps)->keyBy('id');
+        $currentStep = (string) ($firstBlocked['id'] ?? 'final_completion_audit');
+
+        return [
+            'plan_version' => 'atlas.self_construction.operator_final_evidence_execution_plan.v1',
+            'current_step' => $currentStep,
+            'current_step_ready' => (bool) data_get($stepsById, $currentStep.'.ready', false),
+            'operator_must_follow_order' => true,
+            'parallel_submission_allowed' => false,
+            'why_not_parallel' => 'Runtime promotion, real provider smoke and final human completion receipt are hash-bound in sequence; submitting them out of order risks stale signatures or same-command completion promotion.',
+            'ordered_command_queue' => array_map(static function (array $step): array {
+                return [
+                    'id' => (string) $step['id'],
+                    'ready' => (bool) $step['ready'],
+                    'status' => (string) $step['status'],
+                    'draft_or_check_command' => (string) $step['command'],
+                    'persist_command' => (string) $step['persist_command'],
+                    'required_before' => (array) $step['required_before'],
+                    'evidence_hash' => (string) $step['evidence_hash'],
+                ];
+            }, $orderedSteps),
+            'stop_conditions' => [
+                'stop_if_any_command_returns_non_zero',
+                'stop_if_receipt_hash_does_not_match_payload',
+                'stop_if_current_completion_audit_hash_changes_before_persist',
+                'stop_if_real_provider_smoke_aborts_or_exceeds_operator_kill_switch',
+                'stop_if_any_runtime_enabling_flag_is_true_before_final_human_receipt',
+            ],
+            'required_reruns_after_each_persist' => [
+                'php artisan atlas:ai:self-construction --atlas-self-construction-completion-evidence-submission-preflight-status --json',
+                'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --json',
+            ],
+            'final_success_command' => (string) data_get($blockerExplainer, 'command_plan.completion_audit', 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --json'),
+            'final_success_predicate' => 'completion_audit.status=complete AND completion_allowed=true AND failed_count=0',
+            'never_automatic' => [
+                'operator_signature_not_generated_by_atlas',
+                'real_provider_smoke_not_run_by_atlas',
+                'human_completion_receipt_not_persisted_before_runtime_and_smoke_green',
+            ],
+        ];
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $orderedSteps
+     * @param  array<string, mixed>|null  $firstBlocked
+     * @param  array<string, mixed>  $blockerExplainer
+     * @return array<string, mixed>
+     */
+    private function operatorHandoffPacket(array $orderedSteps, ?array $firstBlocked, array $blockerExplainer): array
+    {
+        $currentStep = (string) ($firstBlocked['id'] ?? 'final_completion_audit');
+        $current = $firstBlocked ?? collect($orderedSteps)->firstWhere('id', 'final_completion_audit') ?? [];
+        $requiredInputsByStep = [
+            'runtime_promotion_receipt' => [
+                'operator_signed_runtime_promotion_receipt_json',
+                'runtime_gap_matrix_hash',
+                'runtime_promotion_basis_hash',
+                'runtime_promotion_closure_basis_hash',
+                'receipt_hash',
+            ],
+            'real_provider_smoke' => [
+                'operator_approved_real_provider_smoke_json',
+                'provider_run_id',
+                'task_packet_id',
+                'operator_approval_receipt_hash',
+                'evidence_ledger_hash',
+                'work_product_manifest_hash',
+                'cost_event_hash',
+                'continuation_summary_hash',
+                'provider_response_hash',
+                'smoke_hash',
+            ],
+            'completion_evidence_hash_composition' => [
+                'persisted_runtime_promotion_receipt_json',
+                'persisted_real_provider_smoke_json',
+                'draft_human_completion_receipt_json',
+            ],
+            'human_completion_receipt' => [
+                'operator_signed_human_completion_receipt_json',
+                'runtime_promotion_receipt_hash',
+                'real_provider_smoke_hash',
+                'completion_audit_hash',
+                'receipt_hash',
+            ],
+            'final_completion_audit' => [
+                'runtime_promotion_receipt_persisted',
+                'real_provider_smoke_persisted',
+                'human_completion_receipt_persisted',
+            ],
+        ];
+
+        $packet = [
+            'schema_version' => 'atlas.self_construction.operator_final_evidence_handoff_packet.v1',
+            'current_step' => $currentStep,
+            'current_status' => (string) ($current['status'] ?? 'unknown'),
+            'current_step_ready' => (bool) ($current['ready'] ?? false),
+            'next_draft_or_check_command' => (string) ($current['command'] ?? data_get($blockerExplainer, 'command_plan.completion_audit', '')),
+            'next_persist_command' => (string) ($current['persist_command'] ?? ''),
+            'required_before_current_step' => (array) ($current['required_before'] ?? []),
+            'required_operator_inputs' => $requiredInputsByStep[$currentStep] ?? [],
+            'current_blocker_count' => (int) ($current['blocker_count'] ?? 0),
+            'current_blockers' => (array) ($current['blockers'] ?? []),
+            'ordered_step_ids' => array_map(static fn (array $step): string => (string) $step['id'], $orderedSteps),
+            'proof_commands_after_each_persist' => [
+                'php artisan atlas:ai:self-construction --atlas-self-construction-completion-evidence-submission-preflight-status --json',
+                'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --json',
+            ],
+            'final_success_command' => (string) data_get($blockerExplainer, 'command_plan.completion_audit', 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --json'),
+            'final_success_predicate' => 'completion_audit.status=complete AND completion_allowed=true AND failed_count=0',
+            'operator_must_follow_order' => true,
+            'parallel_submission_allowed' => false,
+            'handoff_stop_conditions' => [
+                'stop_if_current_step_is_not_the_step_being_submitted',
+                'stop_if_any_required_input_is_placeholder',
+                'stop_if_any_required_hash_is_not_64_hex',
+                'stop_if_any_persist_command_returns_non_zero',
+                'stop_if_completion_audit_hash_changes_without_regenerating_downstream_receipts',
+                'stop_if_real_provider_smoke_aborts_or_hits_kill_switch',
+                'stop_if_runtime_or_dispatch_flags_flip_before_human_completion_receipt',
+            ],
+            'non_execution_guarantees' => [
+                'operator_handoff_packet_does_not_persist_receipts',
+                'operator_handoff_packet_does_not_sign_for_operator',
+                'operator_handoff_packet_does_not_call_provider',
+                'operator_handoff_packet_does_not_spend_tokens',
+                'operator_handoff_packet_does_not_dispatch_work',
+                'operator_handoff_packet_does_not_promote_completion',
+            ],
+        ];
+        $packet['handoff_packet_hash'] = $this->stableHash($packet);
+
+        return $packet;
     }
 
     /** @param array<string, mixed> $payload */

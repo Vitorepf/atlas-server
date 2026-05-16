@@ -26,6 +26,18 @@ final class AtlasSelfConstructionOperatorEvidenceArtifactTemplatePackTest extend
         $this->assertArrayHasKey('human_completion_receipt_template', $payload['templates']);
         $this->assertSame('atlas.self_construction.operator_evidence_submission_bundle.v1', data_get($payload, 'operator_submission_bundle.schema_version'));
         $this->assertSame(3, data_get($payload, 'operator_submission_bundle.artifact_count'));
+        $this->assertSame('runtime_promotion_receipt', data_get($payload, 'operator_execution_plan.current_step'));
+        $this->assertFalse((bool) data_get($payload, 'operator_execution_plan.parallel_submission_allowed'));
+        $this->assertSame(
+            'completion_audit.status=complete AND completion_allowed=true AND failed_count=0',
+            data_get($payload, 'operator_execution_plan.final_success_predicate'),
+        );
+        $this->assertSame('blocked', data_get($payload, 'completion_evidence_submission_preflight.status'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) data_get($payload, 'completion_evidence_submission_preflight.submission_preflight_hash'));
+        $this->assertSame('atlas.self_construction.operator_final_evidence_handoff_packet.v1', data_get($payload, 'operator_handoff_packet.schema_version'));
+        $this->assertSame('runtime_promotion_receipt', data_get($payload, 'operator_handoff_packet.current_step'));
+        $this->assertContains('operator_signed_runtime_promotion_receipt_json', data_get($payload, 'operator_handoff_packet.required_operator_inputs'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) data_get($payload, 'operator_handoff_packet.handoff_packet_hash'));
         $this->assertFalse(data_get($payload, 'operator_submission_bundle.can_write_files_from_template_pack'));
         $this->assertFalse(data_get($payload, 'operator_submission_bundle.can_persist_from_template_pack'));
         $this->assertFalse($payload['persist_export_requested']);
@@ -40,6 +52,15 @@ final class AtlasSelfConstructionOperatorEvidenceArtifactTemplatePackTest extend
         $this->assertStringContainsString('real_provider_smoke', $payload['operator_submission_bundle_markdown']);
         $this->assertStringContainsString('human_completion_receipt', $payload['operator_submission_bundle_markdown']);
         $this->assertStringContainsString('payload_template_json_sha256', $payload['operator_submission_bundle_markdown']);
+        $this->assertStringContainsString('## Operator Execution Plan', $payload['operator_submission_bundle_markdown']);
+        $this->assertStringContainsString('## Operator Current-Step Handoff', $payload['operator_submission_bundle_markdown']);
+        $this->assertStringContainsString('operator_signed_runtime_promotion_receipt_json', $payload['operator_submission_bundle_markdown']);
+        $this->assertStringContainsString('**Current blockers**', $payload['operator_submission_bundle_markdown']);
+        $this->assertStringContainsString('adapter_execution_runtime', $payload['operator_submission_bundle_markdown']);
+        $this->assertStringContainsString('**Handoff stop conditions**', $payload['operator_submission_bundle_markdown']);
+        $this->assertStringContainsString('stop_if_any_required_input_is_placeholder', $payload['operator_submission_bundle_markdown']);
+        $this->assertStringContainsString('parallel_submission_allowed**: `false`', $payload['operator_submission_bundle_markdown']);
+        $this->assertStringContainsString('--atlas-self-construction-completion-evidence-submission-preflight-status', $payload['operator_submission_bundle_markdown']);
         $this->assertStringContainsString('--atlas-self-construction-completion-evidence-hash-composer-status', $payload['operator_submission_bundle_markdown']);
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $payload['operator_submission_bundle_markdown_hash']);
         $this->assertNotEmpty($payload['template_pack_hash']);
@@ -83,6 +104,25 @@ final class AtlasSelfConstructionOperatorEvidenceArtifactTemplatePackTest extend
             'real_provider_smoke',
             'human_completion_receipt',
         ], $bundle['artifact_sequence']);
+        $this->assertSame('blocked', $bundle['submission_preflight_status']);
+        $this->assertSame('runtime_promotion_receipt', $bundle['next_required_submission']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $bundle['submission_preflight_hash']);
+        $this->assertSame('runtime_promotion_receipt', data_get($bundle, 'operator_handoff_packet.current_step'));
+        $this->assertSame('blocked_missing_runtime_promotion_receipt', data_get($bundle, 'operator_handoff_packet.current_status'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) data_get($bundle, 'operator_handoff_packet.handoff_packet_hash'));
+        $this->assertFalse($bundle['parallel_submission_allowed']);
+        $this->assertTrue($bundle['operator_must_follow_order']);
+        $this->assertSame(
+            'completion_audit.status=complete AND completion_allowed=true AND failed_count=0',
+            $bundle['final_success_predicate'],
+        );
+        $this->assertSame([
+            'runtime_promotion_receipt',
+            'real_provider_smoke',
+            'completion_evidence_hash_composition',
+            'human_completion_receipt',
+            'final_completion_audit',
+        ], array_column(data_get($bundle, 'operator_execution_plan.ordered_command_queue'), 'id'));
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $bundle['operator_submission_bundle_hash']);
 
         $runtime = $artifacts[0];
@@ -188,6 +228,12 @@ final class AtlasSelfConstructionOperatorEvidenceArtifactTemplatePackTest extend
         $this->assertContains('run_operator_evidence_draft_hash_finalizer_against_the_draft_workspace_path', data_get($workspace, 'manifest.operator_required_next_steps'));
         $this->assertContains('for_runtime_promotion_receipt_run_hash_finalizer_against_the_draft_workspace_path', data_get($workspace, 'manifest.operator_required_next_steps'));
         $this->assertContains('for_runtime_promotion_receipt_run_endgame_against_the_draft_workspace_path', data_get($workspace, 'manifest.operator_required_next_steps'));
+        $this->assertContains('follow_operator_execution_plan_order_without_parallel_submission', data_get($workspace, 'manifest.operator_required_next_steps'));
+        $this->assertSame('runtime_promotion_receipt', data_get($workspace, 'manifest.operator_execution_plan.current_step'));
+        $this->assertSame('runtime_promotion_receipt', data_get($workspace, 'manifest.operator_handoff_packet.current_step'));
+        $this->assertContains('operator_signed_runtime_promotion_receipt_json', data_get($workspace, 'manifest.operator_handoff_packet.required_operator_inputs'));
+        $this->assertSame('runtime_promotion_receipt', data_get($workspace, 'manifest.next_required_submission'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) data_get($workspace, 'manifest.submission_preflight_hash'));
 
         Storage::disk('local')->assertMissing('atlas/self-construction/os-completion/runtime-promotion-receipts/registry.json');
         Storage::disk('local')->assertMissing('atlas/self-construction/os-completion/completion-evidence/registry.json');

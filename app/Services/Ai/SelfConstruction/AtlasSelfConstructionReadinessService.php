@@ -43580,6 +43580,11 @@ final class AtlasSelfConstructionReadinessService
             'agent_control_plane_task_auto_replenishment_implementation_packet',
             'agent_control_plane_task_auto_replenishment_service',
             'agent_control_plane_task_auto_replenishment_status_projection',
+            'agent_control_plane_terminal_worker_bootstrap_contract',
+            'agent_control_plane_terminal_worker_bootstrap_preflight',
+            'agent_control_plane_terminal_worker_bootstrap_implementation_packet',
+            'agent_control_plane_terminal_worker_bootstrap_service',
+            'agent_control_plane_terminal_worker_bootstrap_status_projection',
             'agent_control_plane_task_queue_lease_certification_contract',
             'agent_control_plane_task_queue_lease_certification_preflight',
             'agent_control_plane_task_queue_lease_certification_implementation_packet',
@@ -79231,6 +79236,87 @@ final class AtlasSelfConstructionReadinessService
                 'claimable_task_count_after' => (int) data_get($result, 'claimable_task_count_after'),
                 'target_min_claimable_tasks' => (int) data_get($result, 'target_min_claimable_tasks'),
                 'replenishment_plan_hash' => (string) data_get($result, 'replenishment_plan_hash'),
+            ],
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneTerminalWorkerBootstrapContract(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('terminal_worker_bootstrap', 'Terminal Worker Bootstrap', AgentControlPlaneTerminalWorkerBootstrapService::SCHEMA_VERSION, AgentControlPlaneTerminalWorkerBootstrapService::class, 'contract');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneTerminalWorkerBootstrapPreflight(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('terminal_worker_bootstrap', 'Terminal Worker Bootstrap', AgentControlPlaneTerminalWorkerBootstrapService::SCHEMA_VERSION, AgentControlPlaneTerminalWorkerBootstrapService::class, 'preflight');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneTerminalWorkerBootstrapImplementationPacket(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('terminal_worker_bootstrap', 'Terminal Worker Bootstrap', AgentControlPlaneTerminalWorkerBootstrapService::SCHEMA_VERSION, AgentControlPlaneTerminalWorkerBootstrapService::class, 'implementation_packet');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneTerminalWorkerBootstrapStatus(array $options = []): array
+    {
+        $queue = new AgentControlPlaneTaskPacketQueueRepository;
+        $leases = new AgentControlPlaneClaimLeaseRepository;
+        $orchestrator = new AgentControlPlaneTaskQueueOrchestrator(
+            new AgentControlPlaneTaskPacketBuilder,
+            new AgentControlPlaneScopeLockRuntimeValidator,
+            $queue,
+            $leases,
+            new AgentControlPlaneEvidenceLedgerDryRun,
+            new AgentControlPlaneContinuationSummaryBuilder,
+        );
+        $service = new AgentControlPlaneTerminalWorkerBootstrapService(
+            new AgentControlPlaneTaskAutoReplenishmentService($orchestrator, $queue),
+            $orchestrator,
+            new AgentControlPlaneOneShotWorkerPacketService($leases, $queue),
+            $queue,
+            $leases,
+        );
+        $targetMin = max(1, min(25, (int) ($options['target_min_claimable_tasks'] ?? 6)));
+        $maxNew = max(0, min(25, (int) ($options['max_new_tasks'] ?? $targetMin)));
+        $result = $service->bootstrap([
+            'control_plane' => $this->agentControlPlane(),
+        ], [
+            'target_min_claimable_tasks' => $targetMin,
+            'max_new_tasks' => $maxNew,
+            'lease_minutes' => (int) ($options['lease_minutes'] ?? 30),
+            'actor' => $this->reservationActor($options),
+            'reason' => (string) ($options['reason'] ?? 'terminal_worker_bootstrap'),
+        ]);
+
+        return $this->wrapCertificationWorkbenchStatus(
+            keyPrefix: 'terminal_worker_bootstrap',
+            label: 'Terminal Worker Bootstrap',
+            payload: $result,
+            statusKey: 'status',
+            extraStatusFields: [
+                'actor' => (string) data_get($result, 'actor'),
+                'claim_event' => (string) data_get($result, 'claim_event'),
+                'task_packet_id' => (string) data_get($result, 'task_packet_id'),
+                'lease_id' => (string) data_get($result, 'lease_id'),
+                'runtime_claim_persisted' => (bool) data_get($result, 'runtime_claim_persisted'),
+                'one_shot_worker_packet_ready' => (bool) data_get($result, 'one_shot_worker_packet_ready'),
+                'one_shot_packet_hash' => (string) data_get($result, 'one_shot_packet_hash'),
+                'bootstrap_hash' => (string) data_get($result, 'bootstrap_hash'),
+                'completion_command' => (string) data_get($result, 'completion_command'),
             ],
         );
     }

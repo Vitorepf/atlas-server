@@ -388,6 +388,10 @@ class AtlasAiSelfConstructionCommand extends Command
         {--agent-control-plane-one-shot-worker-packet-preflight : Generate the read-only One-Shot Worker Packet preflight}
         {--agent-control-plane-one-shot-worker-packet-implementation-packet : Generate the read-only One-Shot Worker Packet implementation packet}
         {--agent-control-plane-one-shot-worker-packet-status : Build the copy-pasteable one-shot worker packet for a claimed task (requires --packet and --lease-id)}
+        {--agent-control-plane-terminal-worker-bootstrap-contract : Generate the Terminal Worker Bootstrap contract}
+        {--agent-control-plane-terminal-worker-bootstrap-preflight : Generate the Terminal Worker Bootstrap preflight}
+        {--agent-control-plane-terminal-worker-bootstrap-implementation-packet : Generate the Terminal Worker Bootstrap implementation packet}
+        {--agent-control-plane-terminal-worker-bootstrap-status : Auto-replenish, claim one packet and build a one-shot worker prompt for this terminal}
         {--agent-control-plane-scope-lock-runtime-validator-contract : Generate the Scope Lock Runtime Validator contract}
         {--agent-control-plane-scope-lock-runtime-validator-preflight : Generate the Scope Lock Runtime Validator preflight}
         {--agent-control-plane-scope-lock-runtime-validator-implementation-packet : Generate the Scope Lock Runtime Validator implementation packet}
@@ -2021,6 +2025,10 @@ class AtlasAiSelfConstructionCommand extends Command
             (bool) $this->option('agent-control-plane-task-auto-replenishment-implementation-packet') => $readiness->agentControlPlaneTaskAutoReplenishmentImplementationPacket($options),
             (bool) $this->option('agent-control-plane-task-auto-replenishment-preflight') => $readiness->agentControlPlaneTaskAutoReplenishmentPreflight($options),
             (bool) $this->option('agent-control-plane-task-auto-replenishment-contract') => $readiness->agentControlPlaneTaskAutoReplenishmentContract($options),
+            (bool) $this->option('agent-control-plane-terminal-worker-bootstrap-status') => $readiness->agentControlPlaneTerminalWorkerBootstrapStatus($options),
+            (bool) $this->option('agent-control-plane-terminal-worker-bootstrap-implementation-packet') => $readiness->agentControlPlaneTerminalWorkerBootstrapImplementationPacket($options),
+            (bool) $this->option('agent-control-plane-terminal-worker-bootstrap-preflight') => $readiness->agentControlPlaneTerminalWorkerBootstrapPreflight($options),
+            (bool) $this->option('agent-control-plane-terminal-worker-bootstrap-contract') => $readiness->agentControlPlaneTerminalWorkerBootstrapContract($options),
             (bool) $this->option('atlas-self-construction-os-runtime-gap-matrix-audit-status') => $readiness->atlasSelfConstructionOsRuntimeGapMatrixAuditStatus($options),
             (bool) $this->option('atlas-self-construction-os-runtime-gap-matrix-audit-implementation-packet') => $readiness->atlasSelfConstructionOsRuntimeGapMatrixAuditImplementationPacket($options),
             (bool) $this->option('atlas-self-construction-os-runtime-gap-matrix-audit-preflight') => $readiness->atlasSelfConstructionOsRuntimeGapMatrixAuditPreflight($options),

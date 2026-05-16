@@ -1,0 +1,10 @@
+{
+  "tool": "infection-php",
+  "module_under_test": "App\\Domain\\Captures\\CaptureMarkdownParser",
+  "generated_at": "2026-05-16T00:00:00Z",
+  "sample_size": 0,
+  "msi": 0.0,
+  "killed": 0,
+  "escaped": 0,
+  "survivors": []
+}

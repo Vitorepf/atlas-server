@@ -148,6 +148,16 @@ final class AtlasAiSelfConstructionAgentControlPlaneOneShotWorkerPacketTest exte
         $this->assertNotEmpty($result['acceptance_criteria']);
         $this->assertNotEmpty($result['required_tests']);
         $this->assertArrayHasKey('evidence_contract', $result);
+        $this->assertSame(
+            'atlas.self_construction.agent_control_plane_worker_resumption_contract.v1',
+            data_get($result, 'resumption_contract.schema_version'),
+        );
+        $this->assertFalse((bool) data_get($result, 'resumption_contract.can_resume_without_new_lease'));
+        $this->assertTrue((bool) data_get($result, 'resumption_contract.resume_requires_active_lease'));
+        $this->assertStringContainsString(
+            '--agent-control-plane-task-lease-recovery-status',
+            data_get($result, 'resumption_contract.resume_commands.inspect_or_recover_current_packet'),
+        );
     }
 
     public function test_prompt_includes_completion_command_with_packet_and_lease(): void
@@ -167,6 +177,9 @@ final class AtlasAiSelfConstructionAgentControlPlaneOneShotWorkerPacketTest exte
         $this->assertStringContainsString('--lease-id='.$lease['lease_id'], $result['completion_command']);
         $this->assertStringContainsString('agent-c', $result['completion_command']);
         $this->assertStringContainsString($result['completion_command'], $result['worker_prompt_full']);
+        $this->assertStringContainsString('Se você for interrompido ou a lease expirar', $result['worker_prompt_full']);
+        $this->assertStringContainsString('--agent-control-plane-task-lease-recovery-status', $result['worker_prompt_full']);
+        $this->assertStringContainsString('--agent-control-plane-terminal-worker-bootstrap-status', $result['worker_prompt_full']);
     }
 
     public function test_prompt_includes_preserve_worktree_and_forbidden_axes(): void
@@ -266,6 +279,10 @@ final class AtlasAiSelfConstructionAgentControlPlaneOneShotWorkerPacketTest exte
         $this->assertSame($lease['lease_id'], $inner['lease_id']);
         $this->assertNotEmpty($inner['worker_prompt_full']);
         $this->assertNotEmpty($inner['one_shot_packet_hash']);
+        $this->assertSame(
+            'atlas.self_construction.agent_control_plane_worker_resumption_contract.v1',
+            data_get($inner, 'resumption_contract.schema_version'),
+        );
     }
 
     // ---------- helpers ----------

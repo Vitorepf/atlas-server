@@ -74,6 +74,82 @@ final class AtlasForgeRivalsAdjudicatorService
 
     public const WINNER_NONE = null;
 
+    /**
+     * Fairness confidence labels emitted by the single-run scorecard. The
+     * goal is to distinguish a real performance signal from a harness/setup
+     * artefact: a `local_fake` mode or a missing piece of evidence can never
+     * be a `high` confidence claim, no matter how clean the diff looks.
+     */
+    public const CONFIDENCE_HIGH = 'high';
+
+    public const CONFIDENCE_MEDIUM = 'medium';
+
+    public const CONFIDENCE_LOW = 'low';
+
+    public const CONFIDENCE_INVALID = 'invalid';
+
+    /**
+     * Canonical 5-level confidence ladder for the v1 Scoring Sanity, Fairness
+     * & Confidence layer. Exposed in the scorecard as `confidence_level`. The
+     * legacy `confidence.level` field is preserved for backwards compatibility.
+     *
+     *   invalid          — score cannot be compared (provider failure, fixture
+     *                      error, missing evidence, replay drift, local_fake).
+     *   low              — score exists but is fragile (narrow margin, hard
+     *                      gate unclean, single sample, extreme without proof).
+     *   medium           — score is usable as a hint but not a claim.
+     *   high             — score is trustworthy as a single-case signal.
+     *   release_trusted  — battery-level only; NEVER assigned from a single run.
+     */
+    public const CONFIDENCE_LEVEL_INVALID = 'invalid';
+
+    public const CONFIDENCE_LEVEL_LOW = 'low';
+
+    public const CONFIDENCE_LEVEL_MEDIUM = 'medium';
+
+    public const CONFIDENCE_LEVEL_HIGH = 'high';
+
+    public const CONFIDENCE_LEVEL_RELEASE_TRUSTED = 'release_trusted';
+
+    public const CONFIDENCE_LEVELS = [
+        self::CONFIDENCE_LEVEL_INVALID,
+        self::CONFIDENCE_LEVEL_LOW,
+        self::CONFIDENCE_LEVEL_MEDIUM,
+        self::CONFIDENCE_LEVEL_HIGH,
+        self::CONFIDENCE_LEVEL_RELEASE_TRUSTED,
+    ];
+
+    /** Validity class — `valid` means the run can support a comparable
+     * quality score; everything else surfaces *why* the score is unsafe. */
+    public const VALIDITY_VALID = 'valid';
+
+    /**
+     * Canonical name for provider run failures (kill/timeout/empty output by
+     * driver error). The legacy `VALIDITY_INVALID_PROVIDER_FAILURE` constant
+     * keeps the same value to avoid breaking external readers — both names
+     * resolve to the same string.
+     */
+    public const VALIDITY_INVALID_PROVIDER_RUN = 'invalid_provider_run';
+
+    public const VALIDITY_INVALID_PROVIDER_FAILURE = self::VALIDITY_INVALID_PROVIDER_RUN;
+
+    public const VALIDITY_INVALID_FIXTURE = 'invalid_fixture';
+
+    public const VALIDITY_INVALID_TEST_FAILURE = 'invalid_test_failure';
+
+    public const VALIDITY_INVALID_MISSING_EVIDENCE = 'invalid_missing_evidence';
+
+    public const VALIDITY_INVALID_REPLAY_DRIFT = 'invalid_replay_drift';
+
+    public const VALIDITY_INVALID_HARNESS = 'invalid_harness_artifact';
+
+    public const VALIDITY_INVALID_LOCAL_FAKE = 'invalid_local_fake_no_real_claim';
+
+    public const VALIDITY_NEEDS_TRIAGE = 'needs_triage_extreme_score';
+
+    /** Score margin above which a result demands extra evidence (else triage). */
+    public const EXTREME_SCORE_MARGIN = 50.0;
+
     /** @var array<string,float> */
     public const WEIGHTS = [
         'objective_alignment' => 0.15,
@@ -185,6 +261,19 @@ final class AtlasForgeRivalsAdjudicatorService
 
         if ($hardFailures !== []) {
             $gateOutcome = $this->oneSidedTestFailureOutcome($hardFailureCodes, $hardGates);
+            // Suppress gate_winner whenever the losing arm did not actually
+            // fail by model output — provider kill/timeout/empty-stdout
+            // counts as a harness failure, not as a free win for the other
+            // arm. Same logic if the "winning" arm itself looks contaminated.
+            if ($gateOutcome !== null) {
+                $loserReceipt = $gateOutcome['loser'] === self::WINNER_ATLAS ? $atlasReceipt : $rivalReceipt;
+                $winnerReceipt = $gateOutcome['winner'] === self::WINNER_ATLAS ? $atlasReceipt : $rivalReceipt;
+                if ($this->detectProviderFailure($loserReceipt) !== null) {
+                    $gateOutcome = null;
+                } elseif ($this->detectProviderFailure($winnerReceipt) !== null) {
+                    $gateOutcome = null;
+                }
+            }
             if ($gateOutcome !== null) {
                 $scorecard = [
                     'schema_version' => self::SCHEMA_VERSION,
@@ -227,6 +316,18 @@ final class AtlasForgeRivalsAdjudicatorService
                     'separated_from_external_rivals_certification' => true,
                     'note' => 'Gate winner by deterministic test outcome. Quality score is null because both arms did not pass gates. External rivals certification remains blocked; claim_ready=false.',
                 ];
+                $scorecard['fairness'] = $this->buildFairnessGates(
+                    manifest: $manifest,
+                    atlasReceipt: $atlasReceipt,
+                    rivalReceipt: $rivalReceipt,
+                    evidencePack: $evidencePack,
+                    replayPasses: $replayPasses,
+                    hardGatesClean: false,
+                    hardFailureCodes: $hardFailureCodes,
+                    winner: null,
+                    atlasScore: null,
+                    rivalScore: null,
+                );
                 $this->persistScorecard($paths, $scorecard);
 
                 return $this->finalizeSingleRunEnvelope(
@@ -262,6 +363,18 @@ final class AtlasForgeRivalsAdjudicatorService
                 'separated_from_external_rivals_certification' => true,
                 'note' => 'Hard gate failed — no quality score, no winner. Fix gates and re-run.',
             ];
+            $scorecard['fairness'] = $this->buildFairnessGates(
+                manifest: $manifest,
+                atlasReceipt: $atlasReceipt,
+                rivalReceipt: $rivalReceipt,
+                evidencePack: $evidencePack,
+                replayPasses: $replayPasses,
+                hardGatesClean: false,
+                hardFailureCodes: $hardFailureCodes,
+                winner: null,
+                atlasScore: null,
+                rivalScore: null,
+            );
             $this->persistScorecard($paths, $scorecard);
 
             return $this->finalizeSingleRunEnvelope(
@@ -327,6 +440,32 @@ final class AtlasForgeRivalsAdjudicatorService
             'separated_from_external_rivals_certification' => true,
             'note' => 'Adjudicator is deterministic and local-only. No LLM judged this run.',
         ];
+        $fairness = $this->buildFairnessGates(
+            manifest: $manifest,
+            atlasReceipt: $atlasReceipt,
+            rivalReceipt: $rivalReceipt,
+            evidencePack: $evidencePack,
+            replayPasses: $replayPasses,
+            hardGatesClean: true,
+            hardFailureCodes: [],
+            winner: $winner,
+            atlasScore: $atlasScore,
+            rivalScore: $rivalScore,
+        );
+        $scorecard['fairness'] = $fairness;
+        // Fairness gates can downgrade a green run: local_fake / triage /
+        // invalid validity classes never claim. claim_ready stays true only
+        // when fairness agrees.
+        if (! $fairness['claim_ready_recommended']) {
+            $scorecard['claim_ready'] = false;
+            if ($fairness['needs_triage']) {
+                $scorecard['winner'] = self::WINNER_NONE;
+                $scorecard['winner_reason'][] = 'fairness:'.$fairness['validity_class'];
+                $scorecard['human_review_required'] = true;
+            } elseif ($fairness['validity_class'] !== self::VALIDITY_VALID) {
+                $scorecard['winner_reason'][] = 'fairness:'.$fairness['validity_class'];
+            }
+        }
         $this->persistScorecard($paths, $scorecard);
 
         return $this->finalizeSingleRunEnvelope(
@@ -947,6 +1086,450 @@ final class AtlasForgeRivalsAdjudicatorService
             $paths['scorecard_json'],
             (string) json_encode($scorecard, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)
         );
+    }
+
+    /**
+     * Fairness gates produced by the single-run adjudicator. Distinguishes
+     * real performance signal from harness/setup artefacts so a Claude rival
+     * scoring 0 because it was killed/timeouts/no-receipt is *invalid*, not a
+     * legitimate Atlas win. The block is additive — every legacy v2-era
+     * field stays in place.
+     *
+     * @param  array<string,mixed>  $manifest
+     * @param  array<string,mixed>  $atlasReceipt
+     * @param  array<string,mixed>  $rivalReceipt
+     * @param  array<string,mixed>  $evidencePack
+     * @param  list<string>  $hardFailureCodes
+     * @return array{
+     *     validity_class:string,
+     *     confidence:array{level:string,reason:string},
+     *     mode:string,
+     *     fairness_notes:list<string>,
+     *     claim_ready_recommended:bool,
+     *     needs_triage:bool,
+     *     extreme_score:bool
+     * }
+     */
+    private function buildFairnessGates(
+        array $manifest,
+        array $atlasReceipt,
+        array $rivalReceipt,
+        array $evidencePack,
+        bool $replayPasses,
+        bool $hardGatesClean,
+        array $hardFailureCodes,
+        ?string $winner,
+        ?float $atlasScore,
+        ?float $rivalScore,
+    ): array {
+        $mode = strtolower((string) ($manifest['mode'] ?? 'unknown'));
+        $notes = [];
+        $validity = self::VALIDITY_VALID;
+
+        // Fixture/manifest corruption is the cheapest gate to evaluate: if the
+        // run never produced a comparable test bed there is no score to defend.
+        $fixtureFailure = $this->detectFixtureCorruption($manifest, $atlasReceipt, $rivalReceipt);
+        if ($fixtureFailure !== null) {
+            $validity = self::VALIDITY_INVALID_FIXTURE;
+            $notes[] = 'fixture_corruption:'.$fixtureFailure;
+        }
+
+        $atlasFailure = $this->detectProviderFailure($atlasReceipt);
+        $rivalFailure = $this->detectProviderFailure($rivalReceipt);
+        if ($atlasFailure !== null) {
+            // Provider failure overrides anything but fixture corruption — a
+            // provider run that never produced output cannot be scored low,
+            // it must be marked invalid_provider_run so the operator triages
+            // the driver instead of the model.
+            if ($validity !== self::VALIDITY_INVALID_FIXTURE) {
+                $validity = self::VALIDITY_INVALID_PROVIDER_RUN;
+            }
+            $notes[] = 'atlas_provider_failure:'.$atlasFailure;
+        }
+        if ($rivalFailure !== null) {
+            if ($validity !== self::VALIDITY_INVALID_FIXTURE) {
+                $validity = self::VALIDITY_INVALID_PROVIDER_RUN;
+            }
+            $notes[] = 'rival_provider_failure:'.$rivalFailure;
+        }
+
+        // Replay drift invalidates the quality signal, but it must not hide a
+        // more specific root cause such as provider kill/timeout, fixture
+        // corruption or test failure. Otherwise a broken harness can look like
+        // a model score instead of an operator-triage event.
+        if (! $replayPasses) {
+            if ($validity === self::VALIDITY_VALID) {
+                $validity = self::VALIDITY_INVALID_REPLAY_DRIFT;
+            }
+            $notes[] = 'replay_drift_invalidates_quality_signal';
+        }
+
+        // One-sided test failure tagged as test_failure rather than provider —
+        // the rival ran cleanly, the *model* output failed tests.
+        if ($validity === self::VALIDITY_VALID && in_array('tests_passed_rival', $hardFailureCodes, true)) {
+            $validity = self::VALIDITY_INVALID_TEST_FAILURE;
+            $notes[] = 'rival_test_failure_distinct_from_provider_failure';
+        }
+        if ($validity === self::VALIDITY_VALID && in_array('tests_passed_atlas', $hardFailureCodes, true)) {
+            $validity = self::VALIDITY_INVALID_TEST_FAILURE;
+            $notes[] = 'atlas_test_failure_distinct_from_provider_failure';
+        }
+
+        $missingEvidence = $this->stringList($evidencePack['missing_evidence'] ?? []);
+        if ($validity === self::VALIDITY_VALID && $missingEvidence !== []) {
+            $validity = self::VALIDITY_INVALID_MISSING_EVIDENCE;
+            $notes[] = 'missing_evidence:'.implode(',', $missingEvidence);
+        }
+
+        // Harness artefacts (out-of-scope, bytecode, dirty) flag a contaminated
+        // setup that should never produce a comparable claim.
+        if ($validity === self::VALIDITY_VALID) {
+            $harnessCodes = ['no_out_of_scope_files_atlas', 'no_out_of_scope_files_rival', 'no_bytecode_artifacts_atlas', 'no_bytecode_artifacts_rival', 'dirty_after_run_false'];
+            $contaminated = array_intersect($harnessCodes, $hardFailureCodes);
+            if ($contaminated !== []) {
+                $validity = self::VALIDITY_INVALID_HARNESS;
+                $notes[] = 'harness_contamination:'.implode(',', $contaminated);
+            }
+        }
+
+        // local_fake mode never produces a real claim, even if every other
+        // gate is green. The signal value is "the harness ran end-to-end",
+        // not "Atlas is better than Claude".
+        $localFake = $mode === 'local_fake';
+        if ($localFake) {
+            $notes[] = 'mode_local_fake_suppresses_real_claim';
+            // Don't override harder validity classes (provider/test/etc.) —
+            // keep the most specific reason. local_fake is its own class
+            // only when nothing else flagged.
+            if ($validity === self::VALIDITY_VALID) {
+                $validity = self::VALIDITY_INVALID_LOCAL_FAKE;
+            }
+        }
+
+        // Extreme score sanity: |diff| >= 50 demands intact evidence + fair/
+        // full_power mode. Otherwise the result is triage-worthy regardless
+        // of how the score landed.
+        $extremeScore = false;
+        $extremeScoreSupported = true;
+        if ($atlasScore !== null && $rivalScore !== null) {
+            $margin = abs($atlasScore - $rivalScore);
+            if ($margin >= self::EXTREME_SCORE_MARGIN) {
+                $extremeScore = true;
+                $needsBetterEvidence = $missingEvidence !== []
+                    || ! $replayPasses
+                    || $localFake
+                    || $mode === 'unknown';
+                if ($needsBetterEvidence) {
+                    $extremeScoreSupported = false;
+                    $validity = self::VALIDITY_NEEDS_TRIAGE;
+                    $notes[] = sprintf('extreme_score_margin_%.1f_requires_intact_evidence', $margin);
+                }
+            }
+        }
+
+        $sanityGates = $this->buildSanityGates(
+            manifest: $manifest,
+            atlasReceipt: $atlasReceipt,
+            rivalReceipt: $rivalReceipt,
+            evidencePack: $evidencePack,
+            replayPasses: $replayPasses,
+            hardFailureCodes: $hardFailureCodes,
+            extremeScore: $extremeScore,
+            extremeScoreSupported: $extremeScoreSupported,
+            atlasProviderFailure: $atlasFailure,
+            rivalProviderFailure: $rivalFailure,
+            fixtureFailure: $fixtureFailure,
+        );
+
+        $confidence = $this->deriveSingleRunConfidence(
+            mode: $mode,
+            hardGatesClean: $hardGatesClean,
+            replayPasses: $replayPasses,
+            validity: $validity,
+            winner: $winner,
+            atlasScore: $atlasScore,
+            rivalScore: $rivalScore,
+        );
+        $confidenceLevel = $this->deriveConfidenceLevelV1(
+            validity: $validity,
+            hardGatesClean: $hardGatesClean,
+            replayPasses: $replayPasses,
+            sanityGates: $sanityGates,
+            mode: $mode,
+            winner: $winner,
+            atlasScore: $atlasScore,
+            rivalScore: $rivalScore,
+            extremeScore: $extremeScore,
+        );
+
+        $claimReadyRecommended = $validity === self::VALIDITY_VALID
+            && $confidence['level'] === self::CONFIDENCE_HIGH
+            && $confidenceLevel['level'] === self::CONFIDENCE_LEVEL_HIGH
+            && in_array($winner, [self::WINNER_ATLAS, self::WINNER_RIVAL], true);
+
+        return [
+            'validity_class' => $validity,
+            'confidence' => $confidence,
+            'confidence_level' => $confidenceLevel['level'],
+            'confidence_level_reason' => $confidenceLevel['reason'],
+            'confidence_ladder' => self::CONFIDENCE_LEVELS,
+            'sanity_gates' => $sanityGates,
+            'mode' => $mode,
+            'fairness_notes' => array_values(array_unique($notes)),
+            'claim_ready_recommended' => $claimReadyRecommended,
+            'needs_triage' => $validity === self::VALIDITY_NEEDS_TRIAGE,
+            'extreme_score' => $extremeScore,
+            'extreme_score_supported' => $extremeScoreSupported,
+        ];
+    }
+
+    /**
+     * Detect fixture/manifest corruption. Returns a short string code when
+     * the run's setup is broken (e.g. mismatched receipts, manifest verdict
+     * inconsistent with workspace state, fixture seed absent). Returns null
+     * when the fixture looks intact. Conservative by design: only signals
+     * corruption when the evidence is unambiguous so a real model failure is
+     * never mislabelled.
+     *
+     * @param  array<string,mixed>  $manifest
+     * @param  array<string,mixed>  $atlasReceipt
+     * @param  array<string,mixed>  $rivalReceipt
+     */
+    private function detectFixtureCorruption(array $manifest, array $atlasReceipt, array $rivalReceipt): ?string
+    {
+        $verdict = strtolower(trim((string) ($manifest['verdict'] ?? '')));
+        if ($verdict !== '' && (
+            str_starts_with($verdict, 'invalid_fixture')
+            || str_starts_with($verdict, 'invalid_workspace')
+            || $verdict === 'fixture_error'
+            || $verdict === 'corrupt_manifest'
+        )) {
+            return 'manifest_verdict:'.$verdict;
+        }
+
+        foreach ([['atlas', $atlasReceipt], ['rival', $rivalReceipt]] as [$arm, $receipt]) {
+            if (! is_array($receipt) || $receipt === []) {
+                continue;
+            }
+            if (($receipt['fixture_error'] ?? false) === true) {
+                return $arm.'_receipt_fixture_error';
+            }
+            $fixtureBlockers = $this->stringList($receipt['fixture_blockers'] ?? []);
+            if ($fixtureBlockers !== []) {
+                return $arm.'_fixture_blockers:'.implode(',', $fixtureBlockers);
+            }
+        }
+
+        $declaredCase = (string) ($manifest['case_id'] ?? '');
+        $atlasCase = (string) ($atlasReceipt['case_id'] ?? '');
+        $rivalCase = (string) ($rivalReceipt['case_id'] ?? '');
+        if ($declaredCase !== '' && $atlasCase !== '' && $declaredCase !== $atlasCase) {
+            return 'atlas_receipt_case_id_mismatch';
+        }
+        if ($declaredCase !== '' && $rivalCase !== '' && $declaredCase !== $rivalCase) {
+            return 'rival_receipt_case_id_mismatch';
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  array<string,mixed>  $receipt
+     */
+    private function detectProviderFailure(array $receipt): ?string
+    {
+        if (($receipt['killed'] ?? false) === true) {
+            return 'killed';
+        }
+        if (($receipt['timeout'] ?? false) === true) {
+            return 'timeout';
+        }
+        $reason = (string) ($receipt['timeout_reason'] ?? '');
+        if ($reason !== '' && in_array($reason, ['stalled_runner_no_heartbeat', 'process_timeout', 'driver_not_configured'], true)) {
+            return $reason;
+        }
+        // Drivers that fail silently (no stdout, no patch, no test log)
+        // produce zero-output runs that the adjudicator must NOT score as low
+        // quality — otherwise a driver bug becomes a model win. We treat the
+        // combination of no provider output + no patch + no test log as a
+        // provider run failure, independent of exit code.
+        $stdoutBytes = (int) ($receipt['stdout_bytes'] ?? 0);
+        $stderrBytes = (int) ($receipt['stderr_bytes'] ?? 0);
+        $patchBytes = (int) ($receipt['patch_diff_bytes'] ?? 0);
+        $testLogPath = trim((string) ($receipt['test_log_path'] ?? ''));
+        if ($stdoutBytes === 0 && $stderrBytes === 0 && $patchBytes === 0 && $testLogPath === '') {
+            return 'output_empty_driver_error';
+        }
+        // exit_code !=0 alone is ambiguous (model could legitimately exit
+        // non-zero on test failure). Only flag as provider failure when
+        // combined with killed/timeout OR when stdout/stderr is empty.
+        $exit = (int) ($receipt['exit_code'] ?? 0);
+        if ($exit !== 0 && $stdoutBytes === 0) {
+            return 'provider_returned_non_zero_with_empty_stdout';
+        }
+
+        return null;
+    }
+
+    /**
+     * Sanity gates v1 — booleans the operator can read in one glance. Each
+     * gate answers a yes/no question about whether the artefacts justify the
+     * score. The 5-level `confidence_level` only climbs above `low` when every
+     * relevant gate is green.
+     *
+     * @param  array<string,mixed>  $manifest
+     * @param  array<string,mixed>  $atlasReceipt
+     * @param  array<string,mixed>  $rivalReceipt
+     * @param  array<string,mixed>  $evidencePack
+     * @param  list<string>  $hardFailureCodes
+     * @return array<string,bool>
+     */
+    private function buildSanityGates(
+        array $manifest,
+        array $atlasReceipt,
+        array $rivalReceipt,
+        array $evidencePack,
+        bool $replayPasses,
+        array $hardFailureCodes,
+        bool $extremeScore,
+        bool $extremeScoreSupported,
+        ?string $atlasProviderFailure,
+        ?string $rivalProviderFailure,
+        ?string $fixtureFailure,
+    ): array {
+        $missingEvidence = $this->stringList($evidencePack['missing_evidence'] ?? []);
+
+        $bothSidesProduced = (int) ($atlasReceipt['patch_diff_bytes'] ?? 0) > 0
+            && (int) ($rivalReceipt['patch_diff_bytes'] ?? 0) > 0
+            && trim((string) ($atlasReceipt['test_log_path'] ?? '')) !== ''
+            && trim((string) ($rivalReceipt['test_log_path'] ?? '')) !== '';
+
+        // Human intervention indevida: workspace dirty before the run, dirty
+        // after the run, or an explicit operator override flag. Any of those
+        // means we are no longer comparing pure model output.
+        $dirtyBefore = (bool) ($manifest['workspace_dirty_before'] ?? false);
+        $dirtyAfter = (bool) ($manifest['dirty_after_run'] ?? false);
+        $humanAssisted = (bool) ($manifest['human_assisted'] ?? false);
+        $humanInterventionClean = ! $dirtyBefore && ! $dirtyAfter && ! $humanAssisted;
+
+        return [
+            'provider_run_clean' => $atlasProviderFailure === null && $rivalProviderFailure === null,
+            'fixture_clean' => $fixtureFailure === null,
+            'human_intervention_clean' => $humanInterventionClean,
+            'replay_verified' => $replayPasses,
+            'evidence_complete' => $missingEvidence === [] && ! in_array('evidence_complete', $hardFailureCodes, true),
+            'both_sides_produced_artifacts' => $bothSidesProduced,
+            'extreme_score_supported' => $extremeScore ? $extremeScoreSupported : true,
+        ];
+    }
+
+    /**
+     * Derive the canonical 5-level `confidence_level` for a single-run
+     * scorecard. `release_trusted` is intentionally unreachable here — that
+     * level is reserved for the multi-case battery confidence ladder.
+     *
+     * @param  array<string,bool>  $sanityGates
+     * @return array{level:string,reason:string}
+     */
+    private function deriveConfidenceLevelV1(
+        string $validity,
+        bool $hardGatesClean,
+        bool $replayPasses,
+        array $sanityGates,
+        string $mode,
+        ?string $winner,
+        ?float $atlasScore,
+        ?float $rivalScore,
+        bool $extremeScore,
+    ): array {
+        if ($validity !== self::VALIDITY_VALID) {
+            return ['level' => self::CONFIDENCE_LEVEL_INVALID, 'reason' => 'validity:'.$validity];
+        }
+        if (! $replayPasses) {
+            return ['level' => self::CONFIDENCE_LEVEL_INVALID, 'reason' => 'replay_drift'];
+        }
+        if (! $sanityGates['provider_run_clean']) {
+            return ['level' => self::CONFIDENCE_LEVEL_INVALID, 'reason' => 'provider_run_failure'];
+        }
+        if (! $sanityGates['fixture_clean']) {
+            return ['level' => self::CONFIDENCE_LEVEL_INVALID, 'reason' => 'fixture_corruption'];
+        }
+        if (! $sanityGates['evidence_complete']) {
+            return ['level' => self::CONFIDENCE_LEVEL_INVALID, 'reason' => 'evidence_incomplete'];
+        }
+        if (! $sanityGates['both_sides_produced_artifacts']) {
+            return ['level' => self::CONFIDENCE_LEVEL_INVALID, 'reason' => 'one_side_missing_artifacts'];
+        }
+        if ($mode === 'local_fake') {
+            return ['level' => self::CONFIDENCE_LEVEL_INVALID, 'reason' => 'mode_local_fake'];
+        }
+        if (! $hardGatesClean) {
+            return ['level' => self::CONFIDENCE_LEVEL_LOW, 'reason' => 'hard_gate_unclean'];
+        }
+        if (! $sanityGates['human_intervention_clean']) {
+            return ['level' => self::CONFIDENCE_LEVEL_LOW, 'reason' => 'human_intervention_detected'];
+        }
+        if ($winner === self::WINNER_TIE || $winner === self::WINNER_NONE) {
+            return ['level' => self::CONFIDENCE_LEVEL_LOW, 'reason' => 'tie_or_no_winner_single_case'];
+        }
+        if ($atlasScore === null || $rivalScore === null) {
+            return ['level' => self::CONFIDENCE_LEVEL_LOW, 'reason' => 'score_null'];
+        }
+        if ($extremeScore && ! $sanityGates['extreme_score_supported']) {
+            return ['level' => self::CONFIDENCE_LEVEL_LOW, 'reason' => 'extreme_score_without_supporting_evidence'];
+        }
+        $margin = abs($atlasScore - $rivalScore);
+        if ($margin < self::DEFAULT_TIE_THRESHOLD * 2) {
+            return ['level' => self::CONFIDENCE_LEVEL_MEDIUM, 'reason' => 'narrow_margin_single_case'];
+        }
+        if ($mode !== 'fair' && $mode !== 'full_power') {
+            return ['level' => self::CONFIDENCE_LEVEL_MEDIUM, 'reason' => 'mode_'.$mode.'_single_case'];
+        }
+
+        return ['level' => self::CONFIDENCE_LEVEL_HIGH, 'reason' => 'replay_ok_evidence_complete_real_provider_clear_margin'];
+    }
+
+    /**
+     * @return array{level:string,reason:string}
+     */
+    private function deriveSingleRunConfidence(
+        string $mode,
+        bool $hardGatesClean,
+        bool $replayPasses,
+        string $validity,
+        ?string $winner,
+        ?float $atlasScore,
+        ?float $rivalScore,
+    ): array {
+        if (! in_array($validity, [self::VALIDITY_VALID], true)) {
+            // Invalid classes still emit confidence=invalid so the operator
+            // sees the fairness verdict at a glance.
+            return ['level' => self::CONFIDENCE_INVALID, 'reason' => $validity];
+        }
+        if (! $replayPasses) {
+            return ['level' => self::CONFIDENCE_INVALID, 'reason' => 'replay_drift'];
+        }
+        if (! $hardGatesClean) {
+            return ['level' => self::CONFIDENCE_LOW, 'reason' => 'hard_gate_unclean'];
+        }
+        if ($mode === 'local_fake') {
+            return ['level' => self::CONFIDENCE_INVALID, 'reason' => 'mode_local_fake'];
+        }
+        if ($winner === self::WINNER_TIE) {
+            return ['level' => self::CONFIDENCE_MEDIUM, 'reason' => 'statistical_tie_requires_more_cases'];
+        }
+        if ($atlasScore === null || $rivalScore === null) {
+            return ['level' => self::CONFIDENCE_LOW, 'reason' => 'score_null'];
+        }
+        $margin = abs($atlasScore - $rivalScore);
+        if ($margin < self::DEFAULT_TIE_THRESHOLD * 2) {
+            return ['level' => self::CONFIDENCE_MEDIUM, 'reason' => 'narrow_margin_single_case'];
+        }
+        if ($mode === 'fair' || $mode === 'full_power') {
+            return ['level' => self::CONFIDENCE_HIGH, 'reason' => 'replay_ok_evidence_complete_real_provider'];
+        }
+
+        return ['level' => self::CONFIDENCE_MEDIUM, 'reason' => 'mode_'.$mode.'_single_case'];
     }
 
     /**

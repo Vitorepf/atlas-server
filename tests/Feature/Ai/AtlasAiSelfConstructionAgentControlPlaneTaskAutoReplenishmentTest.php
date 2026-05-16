@@ -63,6 +63,28 @@ final class AtlasAiSelfConstructionAgentControlPlaneTaskAutoReplenishmentTest ex
         $this->assertSame(1, $second['claimable_task_count_after']);
     }
 
+    public function test_queue_tags_isolate_replenishment_targets(): void
+    {
+        $svc = $this->service();
+        $first = $svc->replenish($this->context(), [
+            'target_min_claimable_tasks' => 1,
+            'max_new_tasks' => 1,
+            'queue_tags' => ['lane_a'],
+        ]);
+        $second = $svc->replenish($this->context(), [
+            'target_min_claimable_tasks' => 1,
+            'max_new_tasks' => 1,
+            'queue_tags' => ['lane_b'],
+        ]);
+
+        $this->assertSame(1, $first['generated_task_count']);
+        $this->assertSame(1, $second['generated_task_count']);
+        $this->assertSame(['lane_a'], $first['queue_tags']);
+        $this->assertSame(['lane_b'], $second['queue_tags']);
+        $this->assertCount(1, (new AgentControlPlaneTaskPacketQueueRepository)->list(['status' => 'claimable', 'tag' => 'lane_a']));
+        $this->assertCount(1, (new AgentControlPlaneTaskPacketQueueRepository)->list(['status' => 'claimable', 'tag' => 'lane_b']));
+    }
+
     public function test_respects_max_new_tasks(): void
     {
         $result = $this->service()->replenish($this->context(), [
@@ -107,7 +129,33 @@ final class AtlasAiSelfConstructionAgentControlPlaneTaskAutoReplenishmentTest ex
         $this->assertSame('claimable', $records[0]['status']);
         $this->assertFalse((bool) $records[0]['dispatch_allowed']);
         $this->assertFalse((bool) $records[0]['provider_call_allowed']);
-        $this->assertContains('docs/engineering-knowledge-base/self-construction/agent-control-plane-contract.md', data_get($records[0], 'task_packet.normalized_scope.allowed_files'));
+        $this->assertContains('docs/engineering-knowledge-base/self-construction/agent-control-plane-contract.md', data_get($records[0], 'task_packet.normalized_scope.scope_in'));
+    }
+
+    public function test_generated_parallel_lanes_have_disjoint_write_sets(): void
+    {
+        $this->service()->replenish($this->context([
+            'completion_audit' => [
+                'failed_criteria' => [
+                    'runtime_gap_matrix_all_runtime_y',
+                    'end_to_end_real_provider_smoke_green',
+                ],
+            ],
+        ]), [
+            'target_min_claimable_tasks' => 4,
+            'max_new_tasks' => 4,
+        ]);
+
+        $records = (new AgentControlPlaneTaskPacketQueueRepository)->list(['status' => 'claimable']);
+        $this->assertGreaterThanOrEqual(4, count($records));
+
+        $seen = [];
+        foreach ($records as $record) {
+            $writeSet = (array) data_get($record, 'task_packet.normalized_scope.allowed_files', []);
+            $this->assertNotEmpty($writeSet);
+            $this->assertSame([], array_values(array_intersect($seen, $writeSet)));
+            $seen = array_values(array_unique(array_merge($seen, $writeSet)));
+        }
     }
 
     public function test_runtime_flags_remain_false(): void

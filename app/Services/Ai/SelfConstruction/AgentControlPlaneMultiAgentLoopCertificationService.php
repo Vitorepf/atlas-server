@@ -62,6 +62,7 @@ final class AgentControlPlaneMultiAgentLoopCertificationService
         $cycleEvidence = [];
         $continuationHashes = [];
         $evidenceReceiptCount = 0;
+        $terminalBootstrapProbe = $this->runTerminalBootstrapProbe($runId, min(2, $agentCount));
 
         for ($cycleIndex = 0; $cycleIndex < $cycles; $cycleIndex++) {
             $cycle = $this->runCycle(
@@ -117,6 +118,12 @@ final class AgentControlPlaneMultiAgentLoopCertificationService
         $invariants['evidence_hash_present'] = $this->allCyclesTrue($cycleEvidence, 'evidence_hashes_present');
         $invariants['queue_transition_policy_enforced'] = defined(AgentControlPlaneTaskPacketQueueRepository::class.'::ALLOWED_STATUS_TRANSITIONS')
             && (array) constant(AgentControlPlaneTaskPacketQueueRepository::class.'::ALLOWED_STATUS_TRANSITIONS') !== [];
+        $invariants['terminal_worker_bootstrap_ready'] = (string) ($terminalBootstrapProbe['status'] ?? '') === 'available';
+        $invariants['terminal_worker_bootstrap_returns_one_shot_packets'] = (bool) ($terminalBootstrapProbe['one_shot_packets_ready'] ?? false);
+        $invariants['terminal_worker_bootstrap_completion_command_uses_dry_run'] = (bool) ($terminalBootstrapProbe['completion_command_uses_dry_run'] ?? false);
+        $invariants['terminal_worker_bootstrap_parallel_lanes_distinct'] = (bool) ($terminalBootstrapProbe['parallel_lanes_distinct'] ?? false);
+        $invariants['terminal_worker_bootstrap_leases_closed_by_dry_run'] = (bool) ($terminalBootstrapProbe['leases_closed_by_dry_run'] ?? false);
+        $invariants['terminal_worker_bootstrap_resumption_contract_present'] = (bool) ($terminalBootstrapProbe['resumption_contracts_present'] ?? false);
 
         // Materialise violation list.
         foreach ($invariants as $key => $value) {
@@ -164,6 +171,7 @@ final class AgentControlPlaneMultiAgentLoopCertificationService
             'continuation_summary_hashes' => array_values(array_unique($continuationHashes)),
             'evidence_receipt_count' => $evidenceReceiptCount,
             'canonical_invariant_matrix' => $this->canonicalInvariantMatrix($invariants, $cycleEvidence, $targetMin, $cycles),
+            'terminal_worker_bootstrap_probe' => $terminalBootstrapProbe,
             'queue_summary' => [
                 'entry_count' => (int) $queueRegistry['entry_count'],
                 'total_count' => (int) $queueRegistry['total_count'],
@@ -202,6 +210,7 @@ final class AgentControlPlaneMultiAgentLoopCertificationService
                 'multi_agent_loop_certification_does_not_mutate_pointer',
                 'multi_agent_loop_certification_does_not_mark_real_completion',
                 'multi_agent_loop_certification_does_not_use_legacy_reservation_ledger',
+                'multi_agent_loop_certification_terminal_bootstrap_probe_uses_dry_run_completion',
             ],
             'human_summary' => sprintf(
                 'Multi-agent loop certification %s (%d agents × %d cycles, %d invariants, %d violations).',
@@ -239,7 +248,7 @@ final class AgentControlPlaneMultiAgentLoopCertificationService
             }
         }
 
-        $cycleTag = 'cycle_'.$cycleIndex;
+        $cycleTag = $this->cycleTag($runId, $cycleIndex);
         $claimableBefore = $this->countClaimable($cycleTag);
 
         // Phase 1: every agent attempts to claim BEFORE any agent completes
@@ -304,8 +313,6 @@ final class AgentControlPlaneMultiAgentLoopCertificationService
                 'completion_event' => '',
             ];
         }
-
-        $activeLeasesBetweenPhases = count($this->leases->activeLeases());
 
         // Negative probe A — duplicate claim: pick the first successfully-claimed
         // packet and try to acquire a second lease with a different agent_id.
@@ -392,7 +399,7 @@ final class AgentControlPlaneMultiAgentLoopCertificationService
             $evidenceReceiptCount += 1; // dry_run_completion_recorded receipt
         }
 
-        $activeLeasesAfterComplete = count($this->leases->activeLeases());
+        $activeLeasesAfterComplete = $this->countActiveLeases($perAgent);
 
         // Confirm completed task cannot be reclaimed.
         $reclaimBlocked = true;
@@ -480,7 +487,7 @@ final class AgentControlPlaneMultiAgentLoopCertificationService
                 'risk_level' => 'low',
                 'rollback_strategy' => 'plan_only',
             ],
-            'queue' => ['priority' => 5, 'tags' => ['multi_agent_loop_certification', 'cycle_'.$cycleIndex]],
+            'queue' => ['priority' => 5, 'tags' => ['multi_agent_loop_certification', 'cycle_'.$cycleIndex, $this->cycleTag($runId, $cycleIndex)]],
         ]);
 
         $event = (string) ($orchestration['event'] ?? '');
@@ -513,6 +520,30 @@ final class AgentControlPlaneMultiAgentLoopCertificationService
         }
 
         return count((array) $this->queue->list($filters));
+    }
+
+    private function cycleTag(string $runId, int $cycleIndex): string
+    {
+        return 'multi_agent_loop_certification_'.$runId.'_cycle_'.$cycleIndex;
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $agents
+     */
+    private function countActiveLeases(array $agents): int
+    {
+        $active = 0;
+        foreach ($agents as $agent) {
+            $leaseId = (string) ($agent['lease_id'] ?? '');
+            if ($leaseId === '') {
+                continue;
+            }
+            if ((string) data_get($this->leases->get($leaseId), 'lease_status', '') === AgentControlPlaneClaimLeaseRepository::LEASE_STATUS_ACTIVE) {
+                $active++;
+            }
+        }
+
+        return $active;
     }
 
     private function extractContinuationHash(string $taskPacketId): string
@@ -626,6 +657,192 @@ final class AgentControlPlaneMultiAgentLoopCertificationService
             'expired_resolved' => $expiredResolved,
             'recovered_any' => (int) ($expirationResult['expired_count'] ?? 0) > 0 || $orphanResolved,
         ];
+    }
+
+    /**
+     * Exercises the real terminal-worker entrypoint inside the certification:
+     * bounded auto-replenishment, claim+lease, one-shot packet generation and
+     * dry-run completion. This is intentionally a probe, not execution.
+     *
+     * @return array<string, mixed>
+     */
+    private function runTerminalBootstrapProbe(string $runId, int $probeAgentCount): array
+    {
+        $probeAgentCount = max(1, $probeAgentCount);
+        $probeTag = 'terminal_worker_bootstrap_probe_'.$runId;
+        $bootstrap = new AgentControlPlaneTerminalWorkerBootstrapService(
+            new AgentControlPlaneTaskAutoReplenishmentService($this->orchestrator, $this->queue),
+            $this->orchestrator,
+            new AgentControlPlaneOneShotWorkerPacketService($this->leases, $this->queue),
+            $this->queue,
+            $this->leases,
+        );
+
+        $results = [];
+        $taskIds = [];
+        $leaseIds = [];
+        $writeSets = [];
+        $completionCommands = [];
+        $completionResults = [];
+
+        for ($i = 0; $i < $probeAgentCount; $i++) {
+            $actor = sprintf('terminal_bootstrap_probe_%s_a%d', $runId, $i);
+            $result = $bootstrap->bootstrap($this->terminalBootstrapContext($runId, $probeAgentCount), [
+                'actor' => $actor,
+                'target_min_claimable_tasks' => $probeAgentCount,
+                'max_new_tasks' => $probeAgentCount,
+                'queue_tags' => [$probeTag, 'terminal_worker_bootstrap_probe'],
+                'reason' => 'multi_agent_loop_certification_terminal_bootstrap_probe',
+            ]);
+
+            $results[] = [
+                'actor' => $actor,
+                'status' => (string) ($result['status'] ?? ''),
+                'task_packet_id' => (string) ($result['task_packet_id'] ?? ''),
+                'lease_id' => (string) ($result['lease_id'] ?? ''),
+                'one_shot_worker_packet_ready' => (bool) ($result['one_shot_worker_packet_ready'] ?? false),
+                'one_shot_packet_hash' => (string) ($result['one_shot_packet_hash'] ?? ''),
+                'completion_command' => (string) ($result['completion_command'] ?? ''),
+                'resume_after_interruption_command' => (string) ($result['resume_after_interruption_command'] ?? ''),
+                'resumption_contract_present' => (string) data_get($result, 'resumption_contract.schema_version', '') === 'atlas.self_construction.agent_control_plane_worker_resumption_contract.v1',
+                'resumption_requires_active_lease' => (bool) data_get($result, 'resumption_contract.resume_requires_active_lease', false),
+                'claim_tag' => (string) ($result['claim_tag'] ?? ''),
+                'write_set' => (array) data_get($result, 'one_shot_worker_packet.lease.write_set', []),
+                'runtime_execution_allowed' => (bool) ($result['runtime_execution_allowed'] ?? true),
+                'dispatch_allowed' => (bool) ($result['dispatch_allowed'] ?? true),
+                'provider_call_allowed' => (bool) ($result['provider_call_allowed'] ?? true),
+                'token_spend_allowed' => (bool) ($result['token_spend_allowed'] ?? true),
+                'self_programming_allowed' => (bool) ($result['self_programming_allowed'] ?? true),
+            ];
+
+            if ((string) ($result['status'] ?? '') === 'ready_for_worker') {
+                $taskIds[] = (string) ($result['task_packet_id'] ?? '');
+                $leaseIds[] = (string) ($result['lease_id'] ?? '');
+                $writeSets[] = (array) data_get($result, 'one_shot_worker_packet.lease.write_set', []);
+                $completionCommands[] = (string) ($result['completion_command'] ?? '');
+
+                $completionResults[] = $this->orchestrator->completeDryRun(
+                    (string) ($result['task_packet_id'] ?? ''),
+                    (string) ($result['lease_id'] ?? ''),
+                    [
+                        'agent_id' => $actor,
+                        'evidence_kind' => 'terminal_worker_bootstrap_probe',
+                    ],
+                );
+            }
+        }
+
+        $readyCount = count(array_filter(
+            $results,
+            static fn (array $result): bool => (string) ($result['status'] ?? '') === 'ready_for_worker'
+                && (bool) ($result['one_shot_worker_packet_ready'] ?? false),
+        ));
+        $completedCount = count(array_filter(
+            $completionResults,
+            static fn (array $result): bool => (string) ($result['event'] ?? '') === 'completed_dry_run',
+        ));
+        $writeSetCollisionCount = $this->writeSetCollisionCount($writeSets);
+        $runtimeSafety = $this->terminalBootstrapRuntimeSafety($results);
+        $completionCommandUsesDryRun = $completionCommands !== [] && count(array_filter(
+            $completionCommands,
+            static fn (string $command): bool => str_contains($command, '--agent-control-plane-task-queue-complete-dry-run-status'),
+        )) === count($completionCommands);
+        $resumptionContractsPresent = $results !== [] && count(array_filter(
+            $results,
+            static fn (array $result): bool => (bool) ($result['resumption_contract_present'] ?? false)
+                && (bool) ($result['resumption_requires_active_lease'] ?? false)
+                && str_contains((string) ($result['resume_after_interruption_command'] ?? ''), '--agent-control-plane-task-lease-recovery-status'),
+        )) === count($results);
+        $leasesClosed = $completedCount === $readyCount
+            && count(array_filter(
+                $leaseIds,
+                fn (string $leaseId): bool => $leaseId !== ''
+                    && (string) data_get($this->leases->get($leaseId), 'lease_status', '') === AgentControlPlaneClaimLeaseRepository::LEASE_STATUS_ACTIVE,
+            )) === 0;
+
+        $status = $readyCount === $probeAgentCount
+            && count(array_unique($taskIds)) === $probeAgentCount
+            && count(array_unique($leaseIds)) === $probeAgentCount
+            && $writeSetCollisionCount === 0
+            && $completionCommandUsesDryRun
+            && $completedCount === $probeAgentCount
+            && $leasesClosed
+            && $resumptionContractsPresent
+            && $runtimeSafety
+                ? 'available'
+                : 'blocked';
+
+        return [
+            'status' => $status,
+            'probe_agent_count' => $probeAgentCount,
+            'ready_count' => $readyCount,
+            'completed_dry_run_count' => $completedCount,
+            'distinct_task_count' => count(array_unique($taskIds)),
+            'distinct_lease_count' => count(array_unique($leaseIds)),
+            'write_set_collision_count' => $writeSetCollisionCount,
+            'one_shot_packets_ready' => $readyCount === $probeAgentCount,
+            'completion_command_uses_dry_run' => $completionCommandUsesDryRun,
+            'resumption_contracts_present' => $resumptionContractsPresent,
+            'parallel_lanes_distinct' => count(array_unique($taskIds)) === $probeAgentCount
+                && count(array_unique($leaseIds)) === $probeAgentCount
+                && $writeSetCollisionCount === 0,
+            'leases_closed_by_dry_run' => $leasesClosed,
+            'runtime_safety_all_false' => $runtimeSafety,
+            'queue_tag' => $probeTag,
+            'results' => $results,
+            'completion_events' => array_map(
+                static fn (array $result): string => (string) ($result['event'] ?? ''),
+                $completionResults,
+            ),
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function terminalBootstrapContext(string $runId, int $probeAgentCount): array
+    {
+        return [
+            'terminal_bootstrap_probe' => [
+                'enabled' => true,
+                'namespace' => 'terminal_bootstrap_probe_'.$runId,
+                'target_task_count' => $probeAgentCount,
+            ],
+        ];
+    }
+
+    /**
+     * @param  list<array<int, string>>  $writeSets
+     */
+    private function writeSetCollisionCount(array $writeSets): int
+    {
+        $collisions = 0;
+        $seen = [];
+        foreach ($writeSets as $writeSet) {
+            $normalized = array_values(array_filter(array_map('strval', $writeSet)));
+            if (array_intersect($seen, $normalized) !== []) {
+                $collisions++;
+            }
+            $seen = array_values(array_unique(array_merge($seen, $normalized)));
+        }
+
+        return $collisions;
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $results
+     */
+    private function terminalBootstrapRuntimeSafety(array $results): bool
+    {
+        foreach ($results as $result) {
+            foreach (['runtime_execution_allowed', 'dispatch_allowed', 'provider_call_allowed', 'token_spend_allowed', 'self_programming_allowed'] as $flag) {
+                if (($result[$flag] ?? true) !== false) {
+                    return false;
+                }
+            }
+        }
+
+        return true;
     }
 
     /**
@@ -823,7 +1040,7 @@ final class AgentControlPlaneMultiAgentLoopCertificationService
     }
 
     /**
-     * Canonical 10-invariant matrix proved by the multi-agent loop cert.
+     * Canonical invariant matrix proved by the multi-agent loop cert.
      * The names are the operational contract terminal_loop_invariant_violations
      * uses. Each entry: { value, evidence, why }.
      *
@@ -892,6 +1109,10 @@ final class AgentControlPlaneMultiAgentLoopCertificationService
                 'value' => (bool) ($invariants['queue_transition_policy_enforced'] ?? false),
                 'why' => 'AgentControlPlaneTaskPacketQueueRepository::ALLOWED_STATUS_TRANSITIONS exposes a non-empty deterministic policy map.',
             ],
+            'worker_resumption_contract_present' => [
+                'value' => (bool) ($invariants['terminal_worker_bootstrap_resumption_contract_present'] ?? false),
+                'why' => 'Terminal bootstrap one-shot packets include an explicit resumption contract with task-lease recovery command, fresh-bootstrap command and active-lease requirement.',
+            ],
             'safe_for_parallel_terminal_loop' => [
                 'value' => $this->safeForParallelTerminalLoop($invariants, $cycleEvidence),
                 'why' => 'All other canonical invariants hold, no write-set collision was observed, and no legacy reservation ledger was used.',
@@ -926,6 +1147,7 @@ final class AgentControlPlaneMultiAgentLoopCertificationService
             'no_legacy_reservation_used',
             'runtime_safety_all_false',
             'queue_transition_policy_enforced',
+            'terminal_worker_bootstrap_resumption_contract_present',
             'evidence_hash_present',
         ];
         foreach ($core as $key) {

@@ -2018,6 +2018,7 @@ final class AtlasForgeRivalsProviderArenaCorpusService
             ],
             'allowed_files_scope' => [
                 'docs/planning/migration/feature.migration.md',
+                'docs/planning/migration/risks.md',
                 'tests/Unit/Planning/MigrationPlanTest.php',
             ],
             'fixture_seed_path' => 'storage/forge-rivals-corpus/planning-l5-phased-migration-plan/seed',
@@ -2790,13 +2791,17 @@ final class AtlasForgeRivalsProviderArenaCorpusService
             'allowed_files_scope' => [
                 'tests/Mutation/baseline.json',
                 'docs/quality/mutation-survivors-decision.md',
+                'docs/quality/mutation-survivors-template.md',
                 'infection.json.dist',
             ],
             'fixture_seed_path' => 'storage/forge-rivals-corpus/testdesign-l5-mutation-baseline/seed',
             'quick_test_command' => "php artisan test --filter='Mutation'",
             'full_test_command' => "php artisan test --filter='Mutation'",
             'test_command' => "php artisan test --filter='Mutation'",
-            'expected_changed_files' => ['tests/Mutation/baseline.json'],
+            'expected_changed_files' => [
+                'tests/Mutation/baseline.json',
+                'docs/quality/mutation-survivors-decision.md',
+            ],
             'quality_weights' => [
                 'dimensions' => ['msi_quality', 'survivor_analysis_quality', 'documentation_quality'],
                 'weights' => ['msi_quality' => 0.40, 'survivor_analysis_quality' => 0.40, 'documentation_quality' => 0.20],

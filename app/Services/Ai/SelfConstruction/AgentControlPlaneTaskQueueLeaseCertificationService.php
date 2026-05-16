@@ -170,13 +170,14 @@ final class AgentControlPlaneTaskQueueLeaseCertificationService
         $probes = [];
         $probeId = 'probe_'.(string) Str::uuid();
         $secondaryId = $probeId.'_b';
+        $probeFile = 'app/Services/Ai/SelfConstruction/__task_queue_lease_certification__/'.$probeId.'.php';
 
         $taskPacket = $this->builder->build([
             'task_packet_id' => $probeId,
             'objective' => 'queue/lease certification probe',
             'operator_id' => 'certification-probe-operator',
-            'allowed_files' => ['app/Services/Ai/SelfConstruction/AgentControlPlaneTaskPacketQueueRepository.php'],
-            'scope_in' => ['app/Services/Ai/SelfConstruction/AgentControlPlaneTaskPacketQueueRepository.php'],
+            'allowed_files' => [$probeFile],
+            'scope_in' => [$probeFile],
             'acceptance_criteria' => ['probe_ok'],
             'required_evidence' => ['task_packet_created'],
             'risk_level' => 'low',
@@ -203,17 +204,26 @@ final class AgentControlPlaneTaskQueueLeaseCertificationService
         $probes['claim_double_blocked'] = (string) $claimDouble['status'] === 'blocked' && (string) $claimDouble['reason'] === 'task_already_claimed';
 
         // Renew owner-only.
-        $renewWrong = $this->leases->renew((string) $claimA['lease_id'], 'agent-z', 60);
+        $leaseId = (string) ($claimA['lease_id'] ?? '');
+        $renewWrong = $leaseId !== ''
+            ? $this->leases->renew($leaseId, 'agent-z', 60)
+            : ['status' => 'blocked', 'reason' => 'lease_missing_after_claim'];
         $probes['renew_owner_only'] = (string) $renewWrong['status'] === 'blocked' && (string) $renewWrong['reason'] === 'not_lease_owner';
 
-        $renewOk = $this->leases->renew((string) $claimA['lease_id'], 'agent-a', 120);
+        $renewOk = $leaseId !== ''
+            ? $this->leases->renew($leaseId, 'agent-a', 120)
+            : ['status' => 'blocked', 'reason' => 'lease_missing_after_claim'];
         $probes['renew_owner_succeeds'] = (string) $renewOk['status'] === 'ok';
 
         // Release owner-only.
-        $releaseWrong = $this->leases->release((string) $claimA['lease_id'], 'agent-z');
+        $releaseWrong = $leaseId !== ''
+            ? $this->leases->release($leaseId, 'agent-z')
+            : ['status' => 'blocked', 'reason' => 'lease_missing_after_claim'];
         $probes['release_owner_only'] = (string) $releaseWrong['status'] === 'blocked' && (string) $releaseWrong['reason'] === 'not_lease_owner';
 
-        $releaseOk = $this->leases->release((string) $claimA['lease_id'], 'agent-a');
+        $releaseOk = $leaseId !== ''
+            ? $this->leases->release($leaseId, 'agent-a')
+            : ['status' => 'blocked', 'reason' => 'lease_missing_after_claim'];
         $probes['release_owner_succeeds'] = (string) $releaseOk['status'] === 'ok';
 
         // Conflict detection.
@@ -221,8 +231,8 @@ final class AgentControlPlaneTaskQueueLeaseCertificationService
             'task_packet_id' => $secondaryId,
             'objective' => 'queue/lease conflict probe secondary',
             'operator_id' => 'certification-probe-operator-secondary',
-            'allowed_files' => ['app/Services/Ai/SelfConstruction/AgentControlPlaneTaskPacketQueueRepository.php'],
-            'scope_in' => ['app/Services/Ai/SelfConstruction/AgentControlPlaneTaskPacketQueueRepository.php'],
+            'allowed_files' => [$probeFile],
+            'scope_in' => [$probeFile],
             'acceptance_criteria' => ['probe_ok'],
             'required_evidence' => ['task_packet_created'],
         ]);
@@ -272,7 +282,7 @@ final class AgentControlPlaneTaskQueueLeaseCertificationService
             && (array) data_get($claimA, 'lease.receipts', []) !== [];
 
         $probes['conflict_check_clear_when_no_overlap'] = (string) $this->leases->conflictCheck([
-            'write_set' => ['app/Services/Ai/SelfConstruction/_does_not_exist.php'],
+            'write_set' => ['app/Services/Ai/SelfConstruction/__task_queue_lease_certification__/'.$probeId.'_clear.php'],
         ])['status'] === 'clear';
 
         return [
