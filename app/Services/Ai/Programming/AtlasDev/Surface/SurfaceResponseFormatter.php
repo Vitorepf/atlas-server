@@ -70,6 +70,12 @@ final class SurfaceResponseFormatter
                 $workspace,
             ),
         ];
+        if ($result->seniorLoopAudit !== null) {
+            $artifacts['senior_engineer_loop_audit'] = $this->redactor->redactWorkspaceIn(
+                $result->seniorLoopAudit->toProviderSafeArray(),
+                $workspace,
+            );
+        }
 
         return [
             'kind' => 'plan_only',
@@ -92,6 +98,7 @@ final class SurfaceResponseFormatter
             'persisted_artifact_refs' => $summary['persisted_artifact_refs'],
             'prompt_sendable' => $summary['prompt_sendable'],
             'read_only_answer' => $summary['read_only_answer'],
+            'senior_loop' => $summary['senior_loop'],
             'artifacts' => $artifacts,
         ];
     }

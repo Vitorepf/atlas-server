@@ -165,9 +165,23 @@ php artisan atlas:dev:senior-loop:audit --json --strict
 
 O comando persiste `senior_engineer_loop_audit.json` em
 `storage/atlas-dev/receipts/<run_id>/` com schema
-`atlas.dev.senior_engineer_loop_audit.v1`. Completion do patamar Senior Engineer
-Loop so pode ser alegado quando este audit passar junto dos testes AtlasDev e
-dos checks de documentacao.
+`atlas.dev.senior_engineer_loop_audit.v1`.
+
+Comando operacional end-to-end:
+
+```bash
+php artisan atlas:dev:senior-loop:run --json --strict
+```
+
+Esse comando executa Plan -> Run -> patch/diff -> scope guard -> verification
+-> learning handoff em workspace fixture isolado e persiste
+`senior_engineer_loop_execution.json` com schema
+`atlas.dev.senior_engineer_loop_execution.v1`. Em runs falhos, bloqueados ou
+que exigem revisao, o handoff grava `error_ledger.vN.json` real para curadoria
+humana e `failure_capsule.<attempt>.json` para registrar assinatura da falha,
+budget de reparo e stop signals; aprendizado nunca e auto-aplicado. Completion
+do patamar Senior Engineer Loop so pode ser alegado quando audit, execution,
+testes AtlasDev e checks de documentacao estiverem verdes.
 
 ## Proximas Acoes
 
@@ -2570,19 +2584,38 @@ Artefato canônico:
 ```text
 receipts/<run_id>/senior_engineer_loop_audit.json
 schema_version = atlas.dev.senior_engineer_loop_audit.v1
+
+receipts/<run_id>/senior_engineer_loop_execution.json
+schema_version = atlas.dev.senior_engineer_loop_execution.v1
+
+receipts/<run_id>/failure_capsule.<attempt>.json
+schema_version = atlas.dev.failure_capsule.v1
 ```
+
+O receipt de execucao e gravado depois do Run real e resume, com refs
+provider-safe, o plano carregado, execucao provider/deterministica, scope guard,
+verification, blockers, debug loop e learning handoff. Quando a completion
+falha, bloqueia ou pede revisao, o handoff grava `error_ledger.vN.json` para o
+Programming Curator e o debug loop grava `failure_capsule.<attempt>.json` com
+`failure_signature`, `attempts_allowed` e stop signals como
+`same_signature_twice`, `scope_violation`, `diff_growth`,
+`max_attempts_reached` e `risk_level_forbids_repair`. Esse ledger e evidencia
+de aprendizado, nao permissao para auto-aplicar mudancas. `ShowController` e
+`StreamController` expoem esse receipt para Desktop/CLI sem paths absolutos do
+servidor.
 
 Comando de auditoria inicial:
 
 ```bash
 php artisan atlas:dev:senior-loop:audit --json --strict
+php artisan atlas:dev:senior-loop:run --json --strict
 ```
 
-O comando deve falhar em `--strict` se qualquer capability estiver `false`.
-Historico invalido ou partial proof nao basta para completar a meta Senior
-Engineer Loop. A conclusao final desse patamar exige, alem desse audit inicial,
-integracao real com execução multi-step, UX Desktop, repair loop e curator flow
-end-to-end.
+Os comandos devem falhar em `--strict` se qualquer capability ou etapa
+operacional bloquear. Historico invalido ou partial proof nao basta para
+completar a meta Senior Engineer Loop. A conclusao final desse patamar exige
+o audit inicial e a execução operacional com receipt final, integrados ao Plan,
+Run, worker, Show, Stream, cockpit Desktop e learning handoff.
 
 ## 16. Sequencia De Trabalho Recomendada Por Agente IA
 

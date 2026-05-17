@@ -5,6 +5,7 @@ namespace Tests\Feature\Ai\SelfConstruction;
 use App\Services\Ai\SelfConstruction\AtlasSelfConstructionFinalCompletionReadinessGateService;
 use App\Services\Ai\SelfConstruction\AtlasSelfConstructionReadinessService;
 use App\Services\Ai\SelfConstruction\AtlasSelfConstructionReservationRepository;
+use Illuminate\Support\Facades\Artisan;
 use Tests\TestCase;
 
 final class AtlasSelfConstructionFinalCompletionReadinessGateTest extends TestCase
@@ -19,6 +20,10 @@ final class AtlasSelfConstructionFinalCompletionReadinessGateTest extends TestCa
         $this->assertFalse((bool) $gate['completion_claim_allowed']);
         $this->assertFalse((bool) $gate['next_stage_allowed']);
         $this->assertSame('', (string) $gate['next_stage_name']);
+        $this->assertSame('blocked', (string) $gate['self_programming_os_transition_status']);
+        $this->assertContains('self_construction_os_not_complete', (array) $gate['self_programming_os_transition_blockers']);
+        $this->assertFalse((bool) data_get($gate, 'self_programming_os_transition_readiness.runtime_activation_allowed'));
+        $this->assertFalse((bool) data_get($gate, 'self_programming_os_transition_readiness.self_programming_allowed'));
         $this->assertGreaterThan(0, (int) $gate['blocker_count']);
         $this->assertContains('final_completion_readiness_gate_does_not_promote_completion', (array) $gate['non_execution_guarantees']);
     }
@@ -59,6 +64,12 @@ final class AtlasSelfConstructionFinalCompletionReadinessGateTest extends TestCa
         $this->assertTrue((bool) $gate['material_completion_evidence_green']);
         $this->assertSame('Atlas Self-Programming OS', (string) $gate['next_stage_name']);
         $this->assertSame([], (array) $gate['next_stage_blocked_by']);
+        $this->assertSame('ready_for_safety_contract_design', (string) $gate['self_programming_os_transition_status']);
+        $this->assertSame([], (array) $gate['self_programming_os_transition_blockers']);
+        $this->assertTrue((bool) data_get($gate, 'self_programming_os_transition_readiness.contract_design_allowed'));
+        $this->assertFalse((bool) data_get($gate, 'self_programming_os_transition_readiness.runtime_activation_allowed'));
+        $this->assertFalse((bool) data_get($gate, 'self_programming_os_transition_readiness.self_programming_allowed'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $gate['self_programming_safety_contract_hash']);
     }
 
     public function test_gate_blocks_complete_claim_when_complete_audit_lacks_material_hashes(): void
@@ -97,6 +108,8 @@ final class AtlasSelfConstructionFinalCompletionReadinessGateTest extends TestCa
         $this->assertFalse((bool) $gate['adapter_execution_allowed']);
         $this->assertFalse((bool) $gate['self_programming_allowed']);
         $this->assertContains('final_completion_readiness_gate_does_not_persist_evidence', (array) $gate['non_execution_guarantees']);
+        $this->assertFalse((bool) data_get($gate, 'self_programming_os_transition_readiness.self_programming_allowed'));
+        $this->assertContains('self_programming_transition_readiness_does_not_enable_self_programming', (array) data_get($gate, 'self_programming_os_transition_readiness.non_execution_guarantees'));
     }
 
     public function test_gate_hash_is_deterministic_with_fabricated_audit(): void
@@ -129,6 +142,9 @@ final class AtlasSelfConstructionFinalCompletionReadinessGateTest extends TestCa
             $gate['terminal_loop_operational_proof_expected_binding_schema'],
         );
         $this->assertTrue((bool) data_get($gate, 'safety_invariants.completion_claim_requires_terminal_loop_operational_proof_binding'));
+        $this->assertTrue((bool) data_get($gate, 'safety_invariants.self_programming_transition_requires_self_construction_complete'));
+        $this->assertTrue((bool) data_get($gate, 'safety_invariants.self_programming_transition_requires_safety_contract'));
+        $this->assertTrue((bool) data_get($gate, 'safety_invariants.self_programming_transition_does_not_enable_runtime'));
     }
 
     public function test_status_projection_exposes_terminal_loop_operational_proof_commands(): void
@@ -145,6 +161,80 @@ final class AtlasSelfConstructionFinalCompletionReadinessGateTest extends TestCa
         );
         $this->assertStringContainsString('terminal-loop-operational-proof-status', (string) $summary['command_to_refresh_terminal_loop_operational_proof']);
         $this->assertStringContainsString('--agent-control-plane-terminal-loop-operational-proof-json=', (string) $summary['command_to_rerun_audit_with_terminal_loop_operational_proof']);
+        $this->assertSame('blocked', (string) $summary['self_programming_os_transition_status']);
+        $this->assertContains('self_construction_os_not_complete', (array) $summary['self_programming_os_transition_blockers']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $summary['self_programming_safety_contract_hash']);
+        $this->assertFalse((bool) $summary['self_programming_runtime_activation_allowed']);
+        $this->assertFalse((bool) $summary['self_programming_allowed']);
+    }
+
+    public function test_self_programming_os_transition_readiness_projection_is_blocked_until_self_construction_complete(): void
+    {
+        $status = (new AtlasSelfConstructionReadinessService(new AtlasSelfConstructionReservationRepository))
+            ->atlasSelfProgrammingOsTransitionReadinessStatus();
+
+        $summary = (array) data_get($status, 'agent_control_plane_atlas_self_programming_os_transition_readiness_status', []);
+
+        $this->assertSame('atlas.self_construction_agent_control_plane_atlas_self_programming_os_transition_readiness_status.v1', $status['schema_version']);
+        $this->assertSame('blocked', $status['status']);
+        $this->assertSame('blocked', $summary['status']);
+        $this->assertSame('Atlas Self-Programming OS', $summary['next_stage_name']);
+        $this->assertFalse((bool) $summary['self_construction_complete']);
+        $this->assertFalse((bool) $summary['contract_design_allowed']);
+        $this->assertFalse((bool) $summary['runtime_activation_allowed']);
+        $this->assertFalse((bool) $summary['self_programming_allowed']);
+        $this->assertFalse((bool) $summary['provider_call_allowed']);
+        $this->assertFalse((bool) $summary['token_spend_allowed']);
+        $this->assertContains('self_construction_os_not_complete', (array) $summary['blockers']);
+        $this->assertSame('docs/engineering-knowledge-base/self-construction/self-programming-safety-contract.md', $summary['safety_contract_path']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $summary['safety_contract_hash']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $summary['source_final_completion_readiness_gate_hash']);
+    }
+
+    public function test_cli_exposes_self_programming_os_transition_readiness_quartet(): void
+    {
+        foreach ([
+            '--atlas-self-programming-os-transition-readiness-contract',
+            '--atlas-self-programming-os-transition-readiness-preflight',
+            '--atlas-self-programming-os-transition-readiness-implementation-packet',
+        ] as $option) {
+            Artisan::call('atlas:ai:self-construction', [
+                $option => true,
+                '--json' => true,
+            ]);
+
+            $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+            $this->assertStringContainsString('atlas.self_programming.transition_readiness.v1', json_encode($payload, JSON_THROW_ON_ERROR));
+            $this->assertFalse((bool) $payload['execution_allowed']);
+            $this->assertFalse((bool) $payload['dispatch_allowed']);
+        }
+
+        Artisan::call('atlas:ai:self-construction', [
+            '--atlas-self-programming-os-transition-readiness-status' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+        $summary = (array) data_get($payload, 'agent_control_plane_atlas_self_programming_os_transition_readiness_status', []);
+
+        $this->assertSame('blocked', $payload['status']);
+        $this->assertSame('blocked', $summary['status']);
+        $this->assertFalse((bool) $summary['runtime_activation_allowed']);
+        $this->assertFalse((bool) $summary['self_programming_allowed']);
+        $this->assertContains('self_construction_os_not_complete', (array) $summary['blockers']);
+    }
+
+    public function test_agent_control_plane_lists_self_programming_transition_readiness_capabilities(): void
+    {
+        $payload = (new AtlasSelfConstructionReadinessService(new AtlasSelfConstructionReservationRepository))
+            ->agentControlPlane();
+        $capabilities = (array) data_get($payload, 'control_plane.current_capability', []);
+
+        $this->assertContains('atlas_self_programming_os_transition_readiness_contract', $capabilities);
+        $this->assertContains('atlas_self_programming_os_transition_readiness_preflight', $capabilities);
+        $this->assertContains('atlas_self_programming_os_transition_readiness_implementation_packet', $capabilities);
+        $this->assertContains('atlas_self_programming_os_transition_readiness_service', $capabilities);
+        $this->assertContains('atlas_self_programming_os_transition_readiness_status_projection', $capabilities);
     }
 
     private function gate(): AtlasSelfConstructionFinalCompletionReadinessGateService

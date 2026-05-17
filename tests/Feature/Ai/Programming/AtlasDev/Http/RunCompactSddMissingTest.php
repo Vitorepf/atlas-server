@@ -18,6 +18,7 @@ use App\Services\Ai\Programming\AtlasDev\Schemas\OperationEnvelope;
 use App\Services\Ai\Programming\AtlasDev\Schemas\ProviderPromptProjection;
 use App\Services\Ai\Programming\AtlasDev\Security\ConfirmationTokenResult;
 use App\Services\Ai\Programming\AtlasDev\Security\ConfirmationTokenService;
+use App\Services\Ai\Programming\AtlasDev\SeniorLoop\SeniorEngineerLoopExecutionReporter;
 use Illuminate\Config\Repository as ConfigRepository;
 use Symfony\Component\HttpFoundation\InputBag;
 use Tests\TestCase;
@@ -139,6 +140,7 @@ final class RunCompactSddMissingTest extends TestCase
             $config,
             $this->app->make(AtlasDevRunIndexRepository::class),
             new NullRunWorkerDispatcher,
+            $this->app->make(SeniorEngineerLoopExecutionReporter::class),
         );
     }
 

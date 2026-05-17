@@ -217,6 +217,10 @@ class AtlasAiSelfConstructionCommand extends Command
         {--atlas-self-construction-final-completion-readiness-gate-preflight : Generate the read-only Atlas Self-Construction Final Completion Readiness Gate preflight}
         {--atlas-self-construction-final-completion-readiness-gate-implementation-packet : Generate the read-only Atlas Self-Construction Final Completion Readiness Gate implementation packet}
         {--atlas-self-construction-final-completion-readiness-gate-status : Run the read-only Atlas Self-Construction Final Completion Readiness Gate}
+        {--atlas-self-programming-os-transition-readiness-contract : Generate the read-only Atlas Self-Programming OS Transition Readiness contract}
+        {--atlas-self-programming-os-transition-readiness-preflight : Generate the read-only Atlas Self-Programming OS Transition Readiness preflight}
+        {--atlas-self-programming-os-transition-readiness-implementation-packet : Generate the read-only Atlas Self-Programming OS Transition Readiness implementation packet}
+        {--atlas-self-programming-os-transition-readiness-status : Run the read-only Atlas Self-Programming OS Transition Readiness projection}
         {--atlas-self-construction-completion-finalization-gate-contract : Generate the read-only Atlas Self-Construction Completion Finalization Gate contract}
         {--atlas-self-construction-completion-finalization-gate-preflight : Generate the read-only Atlas Self-Construction Completion Finalization Gate preflight}
         {--atlas-self-construction-completion-finalization-gate-implementation-packet : Generate the read-only Atlas Self-Construction Completion Finalization Gate implementation packet}
@@ -1189,6 +1193,7 @@ class AtlasAiSelfConstructionCommand extends Command
         {--session= : Reservation session id for packet claim/release}
         {--lease-id= : Persistent Task Queue lease id for runtime dry-run completion}
         {--lease-minutes=120 : Reservation lease duration in minutes}
+        {--proof-id= : Optional deterministic proof id for terminal-loop operational proof lanes}
         {--reason= : Release reason}
         {--evidence-hash= : Optional evidence hash for packet completion}
         {--completion-evidence-json= : Structured completion evidence JSON payload or @path for task queue dry-run completion}
@@ -1304,6 +1309,7 @@ class AtlasAiSelfConstructionCommand extends Command
             'session' => $this->option('session'),
             'lease_id' => $this->option('lease-id'),
             'lease_minutes' => $this->option('lease-minutes'),
+            'proof_id' => $this->option('proof-id'),
             'reason' => $this->option('reason'),
             'evidence_hash' => $this->option('evidence-hash'),
             'completion_evidence_json' => $this->option('completion-evidence-json'),
@@ -2213,6 +2219,10 @@ class AtlasAiSelfConstructionCommand extends Command
             (bool) $this->option('atlas-self-construction-final-completion-readiness-gate-implementation-packet') => $readiness->atlasSelfConstructionFinalCompletionReadinessGateImplementationPacket($options),
             (bool) $this->option('atlas-self-construction-final-completion-readiness-gate-preflight') => $readiness->atlasSelfConstructionFinalCompletionReadinessGatePreflight($options),
             (bool) $this->option('atlas-self-construction-final-completion-readiness-gate-contract') => $readiness->atlasSelfConstructionFinalCompletionReadinessGateContract($options),
+            (bool) $this->option('atlas-self-programming-os-transition-readiness-status') => $readiness->atlasSelfProgrammingOsTransitionReadinessStatus($options),
+            (bool) $this->option('atlas-self-programming-os-transition-readiness-implementation-packet') => $readiness->atlasSelfProgrammingOsTransitionReadinessImplementationPacket($options),
+            (bool) $this->option('atlas-self-programming-os-transition-readiness-preflight') => $readiness->atlasSelfProgrammingOsTransitionReadinessPreflight($options),
+            (bool) $this->option('atlas-self-programming-os-transition-readiness-contract') => $readiness->atlasSelfProgrammingOsTransitionReadinessContract($options),
             (bool) $this->option('atlas-self-construction-completion-finalization-gate-status') => $readiness->atlasSelfConstructionCompletionFinalizationGateStatus($options),
             (bool) $this->option('atlas-self-construction-completion-finalization-gate-implementation-packet') => $readiness->atlasSelfConstructionCompletionFinalizationGateImplementationPacket($options),
             (bool) $this->option('atlas-self-construction-completion-finalization-gate-preflight') => $readiness->atlasSelfConstructionCompletionFinalizationGatePreflight($options),

@@ -36,6 +36,7 @@ final class PlanArtifactPersistenceTest extends AtlasDevHttpTestCase
             ArtifactNames::TASK_CONTRACT,
             ArtifactNames::PROMPT_PROJECTION,
             ArtifactNames::ROUTING_DECISION,
+            ArtifactNames::SENIOR_ENGINEER_LOOP_AUDIT,
         ];
 
         foreach ($required as $artifact) {

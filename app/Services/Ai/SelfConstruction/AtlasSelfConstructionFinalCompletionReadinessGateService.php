@@ -92,6 +92,7 @@ final class AtlasSelfConstructionFinalCompletionReadinessGateService
                 $auditComplete ? [] : ['completion_audit_not_status_complete'],
                 $materialEvidenceGreen ? [] : ['material_completion_evidence_hashes_missing_or_invalid'],
             )));
+        $selfProgrammingTransitionReadiness = $this->selfProgrammingTransitionReadiness($nextStageAllowed, $nextStageBlockers);
 
         $payload = [
             'schema_version' => self::SCHEMA_VERSION,
@@ -103,6 +104,10 @@ final class AtlasSelfConstructionFinalCompletionReadinessGateService
             'next_stage_allowed' => $nextStageAllowed,
             'next_stage_name' => $nextStageAllowed ? self::NEXT_STAGE_NAME : '',
             'next_stage_blocked_by' => $nextStageBlockers,
+            'self_programming_os_transition_readiness' => $selfProgrammingTransitionReadiness,
+            'self_programming_os_transition_status' => (string) $selfProgrammingTransitionReadiness['status'],
+            'self_programming_os_transition_blockers' => (array) $selfProgrammingTransitionReadiness['blockers'],
+            'self_programming_safety_contract_hash' => (string) $selfProgrammingTransitionReadiness['safety_contract_hash'],
             'blockers' => $blockers,
             'blocker_count' => count($blockers),
             'audit_complete' => $auditComplete,
@@ -144,6 +149,9 @@ final class AtlasSelfConstructionFinalCompletionReadinessGateService
                 'completion_claim_requires_material_evidence_hashes' => true,
                 'completion_claim_requires_terminal_loop_operational_proof_binding' => true,
                 'next_stage_requires_completion_claim_allowed' => true,
+                'self_programming_transition_requires_self_construction_complete' => true,
+                'self_programming_transition_requires_safety_contract' => true,
+                'self_programming_transition_does_not_enable_runtime' => true,
             ],
         ];
         $payload['gate_hash'] = $this->stableHash($payload);
@@ -189,6 +197,49 @@ final class AtlasSelfConstructionFinalCompletionReadinessGateService
             'all_required_hashes_present' => $invalid === [],
             'invalid_or_missing_hash_fields' => $invalid,
             'hashes' => $hashes,
+        ];
+    }
+
+    /**
+     * @param  list<string>  $nextStageBlockers
+     * @return array<string, mixed>
+     */
+    private function selfProgrammingTransitionReadiness(bool $selfConstructionComplete, array $nextStageBlockers): array
+    {
+        $safetyContractPath = 'docs/engineering-knowledge-base/self-construction/self-programming-safety-contract.md';
+        $absolutePath = base_path($safetyContractPath);
+        $safetyContractExists = is_file($absolutePath);
+        $safetyContractHash = $safetyContractExists ? hash_file('sha256', $absolutePath) : '';
+        $blockers = $nextStageBlockers;
+        if (! $selfConstructionComplete) {
+            $blockers[] = 'self_construction_os_not_complete';
+        }
+        if (! $safetyContractExists || preg_match('/^[a-f0-9]{64}$/', $safetyContractHash) !== 1) {
+            $blockers[] = 'self_programming_safety_contract_missing_or_unhashable';
+        }
+        $blockers = array_values(array_unique($blockers));
+
+        return [
+            'schema_version' => 'atlas.self_programming.transition_readiness.v1',
+            'status' => $blockers === [] ? 'ready_for_safety_contract_design' : 'blocked',
+            'next_stage_name' => self::NEXT_STAGE_NAME,
+            'self_construction_complete' => $selfConstructionComplete,
+            'safety_contract_path' => $safetyContractPath,
+            'safety_contract_exists' => $safetyContractExists,
+            'safety_contract_hash' => $safetyContractHash,
+            'blockers' => $blockers,
+            'contract_design_allowed' => $blockers === [],
+            'runtime_activation_allowed' => false,
+            'self_programming_allowed' => false,
+            'provider_call_allowed' => false,
+            'token_spend_allowed' => false,
+            'non_execution_guarantees' => [
+                'self_programming_transition_readiness_does_not_enable_self_programming',
+                'self_programming_transition_readiness_does_not_call_provider',
+                'self_programming_transition_readiness_does_not_spend_tokens',
+                'self_programming_transition_readiness_does_not_dispatch_work',
+                'self_programming_transition_readiness_does_not_persist_receipts',
+            ],
         ];
     }
 

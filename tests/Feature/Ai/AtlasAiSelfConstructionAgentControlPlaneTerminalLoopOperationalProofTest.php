@@ -24,6 +24,7 @@ final class AtlasAiSelfConstructionAgentControlPlaneTerminalLoopOperationalProof
 
         $this->assertSame(AgentControlPlaneTerminalLoopOperationalProofService::SCHEMA_VERSION, $proof['schema_version']);
         $this->assertSame('passed', $proof['status']);
+        $this->assertSame('proof-one', $proof['proof_id']);
         $this->assertTrue($proof['invariants_all_true']);
         $this->assertSame(0, $proof['violation_count']);
         $this->assertTrue(data_get($proof, 'operational_readiness_matrix.all_true'));
@@ -135,6 +136,7 @@ final class AtlasAiSelfConstructionAgentControlPlaneTerminalLoopOperationalProof
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($proof, 'completion_audit_binding_packet.proof_payload_hash'));
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $proof['completion_audit_binding_packet_hash']);
         $this->assertSame('atlas.self_construction.agent_control_plane_terminal_loop_operational_resume_packet.v1', data_get($proof, 'resume_packet.schema_version'));
+        $this->assertSame('proof-one', data_get($proof, 'resume_packet.proof_id'));
         $this->assertTrue(data_get($proof, 'resume_packet.can_resume_without_chat_history'));
         $this->assertFalse(data_get($proof, 'resume_packet.safe_to_start_new_worker'));
         $this->assertSame('replenish_task_supply', data_get($proof, 'resume_packet.recommended_action'));
@@ -155,6 +157,7 @@ final class AtlasAiSelfConstructionAgentControlPlaneTerminalLoopOperationalProof
         $this->assertStringContainsString('--terminal-worker-bootstrap-preview', data_get($proof, 'resume_packet.resume_commands.preview_next_worker_bootstrap'));
         $this->assertStringContainsString('--agent-control-plane-terminal-worker-bootstrap-status', data_get($proof, 'resume_packet.resume_commands.replenish_and_claim_next_worker'));
         $this->assertStringContainsString('--agent-control-plane-terminal-loop-operational-proof-status', data_get($proof, 'resume_packet.resume_commands.run_bounded_operational_proof'));
+        $this->assertStringContainsString('--proof-id=proof-one', data_get($proof, 'resume_packet.resume_commands.run_bounded_operational_proof'));
         $this->assertTrue(data_get($proof, 'invariants.before_digest_started_with_empty_lane'));
         $this->assertTrue(data_get($proof, 'invariants.auto_replenishment_generated_task'));
         $this->assertTrue(data_get($proof, 'invariants.bootstrap_ready_for_worker'));
@@ -185,6 +188,7 @@ final class AtlasAiSelfConstructionAgentControlPlaneTerminalLoopOperationalProof
         Artisan::call('atlas:ai:self-construction', [
             '--agent-control-plane-terminal-loop-operational-proof-status' => true,
             '--actor' => 'cli-proof-agent',
+            '--proof-id' => 'cli-proof-one',
             '--json' => true,
         ]);
 
@@ -193,6 +197,7 @@ final class AtlasAiSelfConstructionAgentControlPlaneTerminalLoopOperationalProof
         $this->assertSame('atlas.self_construction_agent_control_plane_terminal_loop_operational_proof_status.v1', $payload['schema_version']);
         $this->assertSame('passed', $payload['status']);
         $this->assertSame('passed', data_get($payload, 'agent_control_plane_terminal_loop_operational_proof_status.status'));
+        $this->assertSame('cli-proof-one', data_get($payload, 'agent_control_plane_terminal_loop_operational_proof_status.proof_id'));
         $this->assertTrue(data_get($payload, 'agent_control_plane_terminal_loop_operational_proof_status.invariants_all_true'));
         $this->assertSame(0, data_get($payload, 'agent_control_plane_terminal_loop_operational_proof_status.violation_count'));
         $this->assertSame('available', data_get($payload, 'agent_control_plane_terminal_loop_operational_proof_status.auto_replenishment_status'));
@@ -265,6 +270,7 @@ final class AtlasAiSelfConstructionAgentControlPlaneTerminalLoopOperationalProof
             '--agent-control-plane-terminal-loop-operational-proof-status' => true,
             '--persist-terminal-loop-operational-proof-binding' => true,
             '--actor' => 'cli-proof-agent',
+            '--proof-id' => 'cli-proof-binding',
             '--json' => true,
         ]);
 

@@ -52,6 +52,7 @@ final class StreamController extends Controller
         'patch_applied' => ArtifactNames::PATCH_APPLY_RESULT,
         'scope_guarded' => ArtifactNames::SCOPE_GUARD_RECEIPT,
         'receipt_ready' => ArtifactNames::VERIFICATION_RECEIPT,
+        'senior_loop_completed' => ArtifactNames::SENIOR_ENGINEER_LOOP_EXECUTION,
     ];
 
     public function __construct(
@@ -141,6 +142,11 @@ final class StreamController extends Controller
             ];
 
             $this->emit('receipt', $this->redactPayload($runId, $payload));
+        }
+
+        $seniorLoopExecution = $this->storage->read($runId, ArtifactNames::SENIOR_ENGINEER_LOOP_EXECUTION);
+        if ($seniorLoopExecution !== null) {
+            $this->emit('senior_loop_execution', $this->redactPayload($runId, $seniorLoopExecution));
         }
 
         $this->emit('stream_closed', [

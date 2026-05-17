@@ -27,6 +27,15 @@ final class PlanEndpointTest extends AtlasDevHttpTestCase
         $this->assertArrayHasKey('hashes', $data);
         $this->assertArrayHasKey('task_contract', $data['hashes']);
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $data['hashes']['task_contract']);
+        $this->assertArrayHasKey('senior_loop', $data);
+        $this->assertSame('atlas.dev.senior_engineer_loop_audit.v1', $data['senior_loop']['schema_version']);
+        $this->assertSame('passed', $data['senior_loop']['status']);
+        $this->assertSame([], $data['senior_loop']['blockers']);
+        $this->assertArrayHasKey('senior_engineer_loop_audit.json', $data['persisted_artifact_refs']);
+
+        $storage = $this->app->make(ReceiptStorage::class);
+        $audit = $storage->read((string) $data['run_id'], ArtifactNames::SENIOR_ENGINEER_LOOP_AUDIT);
+        $this->assertSame($data['senior_loop']['audit_hash'], $audit['audit_hash'] ?? null);
     }
 
     public function test_plan_never_resolves_or_calls_claude_cli_gateway(): void

@@ -41,6 +41,8 @@ final class ShowController extends Controller
         'verification_receipt' => ArtifactNames::VERIFICATION_RECEIPT,
         'fast_path_telemetry' => ArtifactNames::FAST_PATH_TELEMETRY,
         'run_cancellation' => ArtifactNames::RUN_CANCELLATION,
+        'senior_engineer_loop_audit' => ArtifactNames::SENIOR_ENGINEER_LOOP_AUDIT,
+        'senior_engineer_loop_execution' => ArtifactNames::SENIOR_ENGINEER_LOOP_EXECUTION,
     ];
 
     public function __construct(
@@ -86,6 +88,8 @@ final class ShowController extends Controller
         $receipt = $this->storage->read($runId, ArtifactNames::VERIFICATION_RECEIPT);
         $scope = $this->storage->read($runId, ArtifactNames::SCOPE_GUARD_RECEIPT);
         $diffParse = $this->storage->read($runId, ArtifactNames::DIFF_PARSE_RESULT);
+        $seniorLoop = $this->storage->read($runId, ArtifactNames::SENIOR_ENGINEER_LOOP_AUDIT);
+        $seniorLoopExecution = $this->storage->read($runId, ArtifactNames::SENIOR_ENGINEER_LOOP_EXECUTION);
         $diffPreview = $this->diffPreview($diffParse);
         if (is_array($receipt) && $diffPreview !== null) {
             $receipt['ui_hints'] = array_merge(
@@ -139,6 +143,8 @@ final class ShowController extends Controller
                 'scope_guard_receipt_hash' => is_array($scope) ? ($scope['receipt_hash'] ?? null) : null,
                 'persisted_artifact_refs' => $artifactRefs,
                 'diff_preview' => $diffPreview,
+                'senior_loop' => is_array($seniorLoop) ? $seniorLoop : null,
+                'senior_loop_execution' => is_array($seniorLoopExecution) ? $seniorLoopExecution : null,
                 'receipt' => is_array($receipt) ? $receipt : null,
             ],
         ], 200);

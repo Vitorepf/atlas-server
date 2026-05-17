@@ -128,6 +128,10 @@ final class PipelineRunExecutorHttpSmokeTest extends AtlasDevHttpTestCase
         $response->assertJsonPath('data.provider_call.model_family', SonnetClaudeCliAdapter::MODEL_FAMILY);
         $response->assertJsonPath('data.provider_call.provider_calls', 1);
         $response->assertJsonPath('data.provider_call.exit_code', 0);
+        $response->assertJsonPath('data.senior_loop_execution.schema_version', 'atlas.dev.senior_engineer_loop_execution.v1');
+        $response->assertJsonPath('data.senior_loop_execution.status', 'passed');
+        $response->assertJsonPath('data.senior_loop_execution.run_summary.completion_state', CompletionSummary::STATUS_PASSED);
+        $response->assertJsonPath('data.senior_loop_execution.learning.auto_apply', false);
         $this->assertSame(
             [],
             $response->json('data.provider_call.error_codes'),
@@ -147,6 +151,10 @@ final class PipelineRunExecutorHttpSmokeTest extends AtlasDevHttpTestCase
         // task_kind / risk_level honestly mirrored from compact_sdd.json.
         $receiptPayload = $this->readArtifact($plan['run_id'], ArtifactNames::VERIFICATION_RECEIPT);
         $this->assertIsArray($receiptPayload, 'verification_receipt.json must exist on disk');
+        $seniorExecution = $this->readArtifact($plan['run_id'], ArtifactNames::SENIOR_ENGINEER_LOOP_EXECUTION);
+        $this->assertIsArray($seniorExecution, 'senior_engineer_loop_execution.json must exist on disk');
+        $this->assertSame('passed', $seniorExecution['status']);
+        $this->assertSame([], $seniorExecution['blockers']);
         $receipt = VerificationReceipt::fromArray($receiptPayload);
         $this->assertSame($expectedTaskKind, $receipt->taskKind);
         $this->assertSame($expectedRiskLevel, $receipt->riskLevel);
@@ -189,10 +197,28 @@ final class PipelineRunExecutorHttpSmokeTest extends AtlasDevHttpTestCase
         // form must not survive into the HTTP body.
         $this->assertArrayNotHasKey('persisted_receipt_paths', $response->json('data'));
         $this->assertIsArray($response->json('data.persisted_receipt_refs'));
+        $response->assertJsonPath('data.senior_loop_execution.status', 'passed');
         foreach ($response->json('data.persisted_receipt_refs') as $ref) {
             $this->assertIsString($ref);
             $this->assertStringStartsWith('receipts/'.$plan['run_id'].'/', $ref);
         }
+
+        $seniorExecution = $this->readArtifact($plan['run_id'], ArtifactNames::SENIOR_ENGINEER_LOOP_EXECUTION);
+        $this->assertIsArray($seniorExecution, 'senior_engineer_loop_execution.json must exist after real run.');
+        $this->assertSame('atlas.dev.senior_engineer_loop_execution.v1', $seniorExecution['schema_version']);
+        $this->assertSame('passed', $seniorExecution['status']);
+        $this->assertSame(false, $seniorExecution['learning']['auto_apply']);
+        $this->assertSame('programming_curator', $seniorExecution['learning']['curator']);
+        $this->assertSame(
+            'receipts/'.$plan['run_id'].'/'.ArtifactNames::SENIOR_ENGINEER_LOOP_AUDIT,
+            $seniorExecution['run_summary']['plan_audit_ref'],
+        );
+
+        $this->withHeaders($this->headers)
+            ->get('/ai/interactions/atlas-dev/runs/'.$plan['run_id'])
+            ->assertStatus(200)
+            ->assertJsonPath('data.senior_loop_execution.status', 'passed')
+            ->assertJsonPath('data.senior_loop_execution.learning.auto_apply', false);
     }
 
     public function test_invalid_compact_sdd_returns_422_and_provider_is_never_called(): void

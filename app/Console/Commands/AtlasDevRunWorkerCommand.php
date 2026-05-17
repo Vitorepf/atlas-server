@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Http\Controllers\AtlasDev\Support\CompactSddUnavailableException;
+use App\Http\Controllers\AtlasDev\Support\RunExecutionResult;
 use App\Http\Controllers\AtlasDev\Support\RunExecutor;
 use App\Services\Ai\Programming\AtlasDev\Persistence\ArtifactNames;
 use App\Services\Ai\Programming\AtlasDev\Persistence\ReceiptStorage;
@@ -12,6 +13,7 @@ use App\Services\Ai\Programming\AtlasDev\RunIndex\AtlasDevRunIndexRepository;
 use App\Services\Ai\Programming\AtlasDev\Schemas\LightTaskContract;
 use App\Services\Ai\Programming\AtlasDev\Schemas\OperationEnvelope;
 use App\Services\Ai\Programming\AtlasDev\Schemas\ProviderPromptProjection;
+use App\Services\Ai\Programming\AtlasDev\SeniorLoop\SeniorEngineerLoopExecutionReporter;
 use App\Support\AtlasSecurity;
 use Illuminate\Console\Command;
 use Throwable;
@@ -29,6 +31,7 @@ final class AtlasDevRunWorkerCommand extends Command
         private readonly RunExecutor $executor,
         private readonly ReceiptStorage $storage,
         private readonly AtlasDevRunIndexRepository $runIndex,
+        private readonly SeniorEngineerLoopExecutionReporter $seniorLoopReporter,
     ) {
         parent::__construct();
     }
@@ -94,6 +97,7 @@ final class AtlasDevRunWorkerCommand extends Command
                 expectedCompactSddHash: $expectedCompactSddHash,
             );
 
+            $this->persistSeniorLoopExecution($envelope, $taskContract, $result);
             $this->runIndex->updateCompletion($runId, $result->completionState, $result->verificationReceiptHash);
             $this->recordRunState($runId, 'complete', [
                 'completion_state' => $result->completionState,
@@ -123,6 +127,29 @@ final class AtlasDevRunWorkerCommand extends Command
 
             return self::FAILURE;
         }
+    }
+
+    private function persistSeniorLoopExecution(
+        OperationEnvelope $envelope,
+        LightTaskContract $taskContract,
+        RunExecutionResult $result,
+    ): void {
+        if ($this->storage->exists($envelope->runId, ArtifactNames::SENIOR_ENGINEER_LOOP_EXECUTION)) {
+            return;
+        }
+
+        $execution = $this->seniorLoopReporter->fromRunResult(
+            envelope: $envelope,
+            taskContract: $taskContract,
+            result: $result,
+            planAudit: $this->storage->read($envelope->runId, ArtifactNames::SENIOR_ENGINEER_LOOP_AUDIT),
+        );
+
+        $this->storage->writeAtomic(
+            $envelope->runId,
+            ArtifactNames::SENIOR_ENGINEER_LOOP_EXECUTION,
+            $execution->toCanonicalArray(),
+        );
     }
 
     /**

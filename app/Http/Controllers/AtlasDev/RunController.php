@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\AtlasDev;
 
 use App\Http\Controllers\AtlasDev\Support\CompactSddUnavailableException;
+use App\Http\Controllers\AtlasDev\Support\RunExecutionResult;
 use App\Http\Controllers\AtlasDev\Support\RunExecutor;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\AtlasDev\RunRequest;
@@ -17,6 +18,7 @@ use App\Services\Ai\Programming\AtlasDev\Schemas\OperationEnvelope;
 use App\Services\Ai\Programming\AtlasDev\Schemas\ProviderPromptProjection;
 use App\Services\Ai\Programming\AtlasDev\Security\ConfirmationTokenResult;
 use App\Services\Ai\Programming\AtlasDev\Security\ConfirmationTokenService;
+use App\Services\Ai\Programming\AtlasDev\SeniorLoop\SeniorEngineerLoopExecutionReporter;
 use App\Services\Ai\Programming\AtlasDev\Surface\HttpResponseRedactor;
 use App\Support\AtlasSecurity;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
@@ -47,6 +49,7 @@ final class RunController extends Controller
         private readonly ConfigRepository $config,
         private readonly AtlasDevRunIndexRepository $runIndex,
         private readonly RunWorkerDispatcher $workerDispatcher,
+        private readonly SeniorEngineerLoopExecutionReporter $seniorLoopReporter,
         private readonly HttpResponseRedactor $redactor = new HttpResponseRedactor,
     ) {}
 
@@ -282,6 +285,7 @@ final class RunController extends Controller
             expectedCompactSddHash: $expectedCompactSddHash,
         );
 
+        $seniorLoopExecution = $this->persistSeniorLoopExecution($envelope, $taskContract, $result);
         $this->runIndex->updateCompletion($runId, $result->completionState, $result->verificationReceiptHash);
 
         // F-04: redact persisted receipt paths into provider-safe refs before
@@ -295,8 +299,37 @@ final class RunController extends Controller
 
         return array_merge($body, [
             'run_id' => $runId,
+            'senior_loop_execution' => $seniorLoopExecution,
             'task_contract_hash' => $providedHash,
         ]);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function persistSeniorLoopExecution(
+        OperationEnvelope $envelope,
+        LightTaskContract $taskContract,
+        RunExecutionResult $result,
+    ): array {
+        if ($this->storage->exists($envelope->runId, ArtifactNames::SENIOR_ENGINEER_LOOP_EXECUTION)) {
+            return $this->storage->read($envelope->runId, ArtifactNames::SENIOR_ENGINEER_LOOP_EXECUTION) ?? [];
+        }
+
+        $execution = $this->seniorLoopReporter->fromRunResult(
+            envelope: $envelope,
+            taskContract: $taskContract,
+            result: $result,
+            planAudit: $this->storage->read($envelope->runId, ArtifactNames::SENIOR_ENGINEER_LOOP_AUDIT),
+        );
+
+        $this->storage->writeAtomic(
+            $envelope->runId,
+            ArtifactNames::SENIOR_ENGINEER_LOOP_EXECUTION,
+            $execution->toCanonicalArray(),
+        );
+
+        return $execution->toProviderSafeArray();
     }
 
     /**

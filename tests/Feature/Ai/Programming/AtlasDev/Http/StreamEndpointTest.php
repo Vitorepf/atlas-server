@@ -145,6 +145,38 @@ final class StreamEndpointTest extends AtlasDevHttpTestCase
         $this->assertStringContainsString('return 42;', $body);
     }
 
+    public function test_stream_emits_senior_loop_execution_event_when_persisted(): void
+    {
+        $plan = $this->postPlan($this->defaultRepairPayload());
+        $runId = $plan['run_id'];
+
+        $this->app->make(ReceiptStorage::class)->writeAtomic(
+            $runId,
+            ArtifactNames::SENIOR_ENGINEER_LOOP_EXECUTION,
+            [
+                'blockers' => [],
+                'debug_loop' => ['mode' => 'single_attempt_verification'],
+                'execution_hash' => str_repeat('f', 64),
+                'learning' => ['auto_apply' => false],
+                'provider_safe' => true,
+                'run_id' => $runId,
+                'run_summary' => ['completion_state' => 'passed'],
+                'schema_version' => 'atlas.dev.senior_engineer_loop_execution.v1',
+                'status' => 'passed',
+                'steps' => [],
+            ],
+        );
+
+        $body = (string) $this->withHeaders($this->headers)
+            ->get('/ai/interactions/atlas-dev/runs/'.$runId.'/stream')
+            ->streamedContent();
+
+        $this->assertStringContainsString('senior_loop_completed', $body);
+        $this->assertStringContainsString('event: senior_loop_execution', $body);
+        $this->assertStringContainsString('"schema_version":"atlas.dev.senior_engineer_loop_execution.v1"', $body);
+        $this->assertStringContainsString('"status":"passed"', $body);
+    }
+
     /**
      * F-04 regression: SSE crosses the same HTTP boundary as the Show endpoint
      * and MUST run the receipt payload through HttpResponseRedactor before

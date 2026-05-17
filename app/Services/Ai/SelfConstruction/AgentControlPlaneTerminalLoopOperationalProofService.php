@@ -30,7 +30,8 @@ final class AgentControlPlaneTerminalLoopOperationalProofService
      */
     public function prove(array $options = []): array
     {
-        $proofId = $this->safeToken((string) ($options['proof_id'] ?? (string) Str::ulid()), 'proof');
+        $requestedProofId = trim((string) ($options['proof_id'] ?? ''));
+        $proofId = $this->safeToken($requestedProofId !== '' ? $requestedProofId : (string) Str::ulid(), 'proof');
         $actor = $this->safeToken((string) ($options['actor'] ?? 'terminal-loop-proof'), 'terminal-loop-proof');
         $tag = 'terminal_loop_operational_proof_'.$proofId;
 
@@ -98,7 +99,7 @@ final class AgentControlPlaneTerminalLoopOperationalProofService
             'target_min_claimable_tasks' => 1,
             'max_new_tasks' => 1,
         ]);
-        $resumePacket = $this->resumePacket($actor, $tag, $afterDigest);
+        $resumePacket = $this->resumePacket($actor, $proofId, $tag, $afterDigest);
         $resumePacketHash = $this->stableHash($resumePacket);
         $invariants = [
             'before_digest_started_with_empty_lane' => (int) data_get($beforeDigest, 'queue_health.claimable_task_count', -1) === 0
@@ -708,22 +709,24 @@ final class AgentControlPlaneTerminalLoopOperationalProofService
      * @param  array<string, mixed>  $digest
      * @return array<string, mixed>
      */
-    private function resumePacket(string $actor, string $tag, array $digest): array
+    private function resumePacket(string $actor, string $proofId, string $tag, array $digest): array
     {
+        $proofIdArg = '--proof-id='.$this->safeToken($proofId, 'proof');
         $tagArg = '--queue-tag='.$this->safeToken($tag, 'terminal-loop');
         $commonArgs = '--actor='.$actor.' --target-min-claimable-tasks=1 --max-new-tasks=1 '.$tagArg;
         $resumeCommands = [
             'inspect_health' => 'php artisan atlas:ai:self-construction --agent-control-plane-terminal-loop-health-digest-status '.$commonArgs.' --json',
             'preview_next_worker_bootstrap' => 'php artisan atlas:ai:self-construction --agent-control-plane-terminal-worker-bootstrap-status --terminal-worker-bootstrap-preview '.$commonArgs.' --json',
             'replenish_and_claim_next_worker' => 'php artisan atlas:ai:self-construction --agent-control-plane-terminal-worker-bootstrap-status '.$commonArgs.' --json',
-            'run_bounded_operational_proof' => 'php artisan atlas:ai:self-construction --agent-control-plane-terminal-loop-operational-proof-status --actor='.$actor.' --json',
+            'run_bounded_operational_proof' => 'php artisan atlas:ai:self-construction --agent-control-plane-terminal-loop-operational-proof-status --actor='.$actor.' '.$proofIdArg.' --json',
         ];
-        $nextCycleCertificate = $this->nextCycleCertificate($tagArg, $resumeCommands, $digest);
+        $nextCycleCertificate = $this->nextCycleCertificate($tagArg, $proofIdArg, $resumeCommands, $digest);
 
         return [
             'schema_version' => 'atlas.self_construction.agent_control_plane_terminal_loop_operational_resume_packet.v1',
             'mode' => 'read_only_terminal_loop_resume_packet',
             'actor' => $actor,
+            'proof_id' => $proofId,
             'queue_tags' => [$tag],
             'can_resume_without_chat_history' => (bool) data_get($digest, 'loop_decision.can_loop_without_chat_history', false),
             'safe_to_start_new_worker' => (bool) data_get($digest, 'loop_decision.safe_to_start_new_worker', false),
@@ -754,19 +757,21 @@ final class AgentControlPlaneTerminalLoopOperationalProofService
      * @param  array<string, mixed>  $digest
      * @return array<string, mixed>
      */
-    private function nextCycleCertificate(string $tagArg, array $resumeCommands, array $digest): array
+    private function nextCycleCertificate(string $tagArg, string $proofIdArg, array $resumeCommands, array $digest): array
     {
         $commandsToCheck = [
             'inspect_health' => $resumeCommands['inspect_health'] ?? '',
             'preview_next_worker_bootstrap' => $resumeCommands['preview_next_worker_bootstrap'] ?? '',
             'replenish_and_claim_next_worker' => $resumeCommands['replenish_and_claim_next_worker'] ?? '',
+            'run_bounded_operational_proof' => $resumeCommands['run_bounded_operational_proof'] ?? '',
         ];
         $commandChecks = [];
         foreach ($commandsToCheck as $name => $command) {
+            $expectedLaneArgument = $name === 'run_bounded_operational_proof' ? $proofIdArg : $tagArg;
             $commandChecks[] = [
                 'name' => $name,
                 'command_present' => $command !== '',
-                'lane_bound' => $command !== '' && str_contains($command, $tagArg),
+                'lane_bound' => $command !== '' && str_contains($command, $expectedLaneArgument),
                 'provider_safe' => $command !== ''
                     && ! str_contains($command, 'codex cli')
                     && ! str_contains($command, 'codex-cli')

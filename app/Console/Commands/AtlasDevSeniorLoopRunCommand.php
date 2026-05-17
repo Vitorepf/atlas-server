@@ -4,28 +4,27 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
-use App\Services\Ai\Programming\AtlasDev\Persistence\ArtifactNames;
-use App\Services\Ai\Programming\AtlasDev\Pipeline\AtlasDevFastPathOrchestrator;
+use App\Services\Ai\Programming\AtlasDev\SeniorLoop\SeniorEngineerLoopExecutor;
 use Illuminate\Console\Command;
 
-final class AtlasDevSeniorLoopAuditCommand extends Command
+final class AtlasDevSeniorLoopRunCommand extends Command
 {
-    protected $signature = 'atlas:dev:senior-loop:audit
-        {--workspace= : Existing workspace to audit; defaults to an isolated fixture workspace}
-        {--intent= : Intent to audit; defaults to a scoped repair task}
+    protected $signature = 'atlas:dev:senior-loop:run
+        {--workspace= : Existing workspace to mutate; defaults to an isolated fixture workspace}
+        {--intent= : Intent to run; defaults to a scoped repair task}
+        {--keep-workspace : Keep the generated fixture workspace}
         {--json : Emit canonical JSON}
-        {--strict : Exit non-zero when the senior loop is not fully proven}';
+        {--strict : Exit non-zero when the operational loop does not pass}';
 
-    protected $description = 'Audit the Atlas Dev Senior Engineer Loop capability projection.';
+    protected $description = 'Run the Atlas Dev Senior Engineer Loop operational path end-to-end.';
 
-    public function handle(
-        AtlasDevFastPathOrchestrator $orchestrator,
-    ): int {
+    public function handle(SeniorEngineerLoopExecutor $executor): int
+    {
         [$workspace, $created] = $this->resolveWorkspace();
         $intent = (string) ($this->option('intent') ?: 'Fix the failing test in src/SmokeSubject.php: greeting returns helo atlas but tests expect hello atlas. Change only src/SmokeSubject.php and run composer test.');
 
         try {
-            $plan = $orchestrator->planOnly(
+            $execution = $executor->run(
                 surfaceId: 'atlas_desktop_ai',
                 workspace: $workspace,
                 rawIntent: $intent,
@@ -36,20 +35,13 @@ final class AtlasDevSeniorLoopAuditCommand extends Command
                 surfaceHints: [
                     'composer_mode' => 'programming',
                     'composer_task' => 'repair',
-                    'thread_id' => 'senior-engineer-loop-audit',
+                    'thread_id' => 'senior-engineer-loop-run',
                 ],
             );
-
-            $audit = $plan->seniorLoopAudit;
-            if ($audit === null) {
-                throw new \RuntimeException('Senior Engineer Loop audit was not produced by the plan orchestrator.');
-            }
-
-            $payload = $audit->toCanonicalArray();
-            $payload['persisted_ref'] = $plan->persistedArtifactRefs()[ArtifactNames::SENIOR_ENGINEER_LOOP_AUDIT]
-                ?? 'receipts/'.$plan->envelope->runId.'/'.ArtifactNames::SENIOR_ENGINEER_LOOP_AUDIT;
+            $payload = $execution->toCanonicalArray();
+            $payload['persisted_ref'] = 'receipts/'.$execution->runId.'/senior_engineer_loop_execution.json';
         } finally {
-            if ($created) {
+            if ($created && ! (bool) $this->option('keep-workspace')) {
                 $this->rmrf($workspace);
             }
         }
@@ -57,10 +49,7 @@ final class AtlasDevSeniorLoopAuditCommand extends Command
         if ((bool) $this->option('json')) {
             $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
         } else {
-            $this->components->twoColumnDetail('Atlas Dev Senior Engineer Loop', (string) $payload['status']);
-            foreach ((array) $payload['capabilities'] as $capability => $passed) {
-                $this->components->twoColumnDetail((string) $capability, $passed ? 'passed' : 'blocked');
-            }
+            $this->components->twoColumnDetail('Atlas Dev Senior Engineer Loop run', (string) ($payload['status'] ?? 'unknown'));
         }
 
         return (bool) $this->option('strict') && ($payload['status'] ?? null) !== 'passed'
@@ -78,7 +67,7 @@ final class AtlasDevSeniorLoopAuditCommand extends Command
             return [realpath($workspace) ?: $workspace, false];
         }
 
-        $workspace = sys_get_temp_dir().'/atlas-dev-senior-loop-'.bin2hex(random_bytes(4));
+        $workspace = sys_get_temp_dir().'/atlas-dev-senior-loop-run-'.bin2hex(random_bytes(4));
         mkdir($workspace.'/src', 0o755, true);
         mkdir($workspace.'/tests', 0o755, true);
         mkdir($workspace.'/.git/refs/heads', 0o755, true);

@@ -89,7 +89,6 @@ final class PlanController extends Controller
         }
 
         $summary = $plan->toSummaryArray();
-
         $this->runIndex->upsertFromPlan(
             runId: $plan->envelope->runId,
             surfaceId: $plan->envelope->surfaceId,
@@ -139,6 +138,7 @@ final class PlanController extends Controller
                 'blockers' => array_values($plan->blockers),
                 'is_executable' => $plan->routing->kind === RoutingDecision::ATLAS_DEV_FAST_PATH,
             ],
+            'senior_engineer_loop' => $plan->seniorLoopAudit?->toProviderSafeArray(),
         ]);
 
         // F-04: strip any absolute workspace prefix from string values that

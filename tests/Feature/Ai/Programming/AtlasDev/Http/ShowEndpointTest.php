@@ -64,15 +64,14 @@ final class ShowEndpointTest extends AtlasDevHttpTestCase
             ])
             ->assertStatus(200);
 
-        // The fake executor doesn't actually persist artifacts, so the show
-        // endpoint reports has_receipt=false but plan-side artifacts present.
-        // We exercise the runtime path explicitly when needed in a future
-        // integration test.
         $response = $this->withHeaders($this->headers)
             ->get('/ai/interactions/atlas-dev/runs/'.$runId);
 
         $response->assertStatus(200);
         $response->assertJsonPath('data.has_plan', true);
+        $response->assertJsonPath('data.senior_loop_execution.schema_version', 'atlas.dev.senior_engineer_loop_execution.v1');
+        $response->assertJsonPath('data.senior_loop_execution.status', 'passed');
+        $response->assertJsonPath('data.persisted_artifact_refs.senior_engineer_loop_execution', "receipts/{$runId}/senior_engineer_loop_execution.json");
         $this->assertSame($plan['hashes']['task_contract'], $response->json('data.task_contract_hash'));
     }
 

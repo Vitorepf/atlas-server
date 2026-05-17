@@ -181,6 +181,8 @@ final class AtlasDesktopAiAdapterTest extends TestCase
         $this->assertArrayHasKey('mini_programming_spec', $response['artifacts']);
         $this->assertArrayHasKey('task_contract', $response['artifacts']);
         $this->assertArrayHasKey('prompt_projection', $response['artifacts']);
+        $this->assertArrayHasKey('senior_engineer_loop_audit', $response['artifacts']);
+        $this->assertSame('passed', $response['senior_loop']['status']);
     }
 
     public function test_format_plan_only_ui_hints_contexto_renders_discovery_and_open_brain(): void
@@ -236,6 +238,20 @@ final class AtlasDesktopAiAdapterTest extends TestCase
         $this->assertSame('pending', $indicators['verificacao']['state']);
         $this->assertSame('pending', $indicators['repair']['state']);
         $this->assertSame($result->taskContract->repairPolicy->maxAttempts, $indicators['repair']['max_attempts']);
+    }
+
+    public function test_ui_hints_senior_loop_panel_projects_audit_without_inventing_facts(): void
+    {
+        $result = $this->runPlanOnly('corrija o teste falhando em tests/Unit/Services/Foo/FooServiceTest.php');
+
+        $panel = $this->adapter()->formatPlanOnly($result)['ui_hints']['panel_senior_loop'];
+
+        $this->assertSame($result->seniorLoopAudit?->status, $panel['state']);
+        $this->assertSame($result->seniorLoopAudit?->auditHash, $panel['audit_hash']);
+        $this->assertSame($result->seniorLoopAudit?->capabilities, $panel['capabilities']);
+        $this->assertSame($result->seniorLoopAudit?->blockers, $panel['blockers']);
+        $this->assertSame($result->seniorLoopAudit?->multiStepPlan, $panel['multi_step_plan']);
+        $this->assertSame($result->seniorLoopAudit?->learningHandoff, $panel['learning_handoff']);
     }
 
     public function test_ui_hints_never_invents_routing_decision(): void

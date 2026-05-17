@@ -667,6 +667,8 @@ Os artefatos canonicos operacionais sao **17**, agrupados em quatro camadas. Sch
 | `PatchApplyResult` | receipt da aplicacao do patch no workspace antes de scope guard e verification |
 | `ScopeGuardReceipt` | diff vs `LightTaskContract.allowed_files` + watched/forbidden |
 | `VerificationReceipt` | gates + tests + cost + completion + escalation (schema `atlas.dev.verification_receipt.v1`) |
+| `SeniorEngineerLoopAudit` | audit plan-time de ambiguidade, plano multi-step, architecture-aware editing, cockpit, learning handoff e hardening |
+| `SeniorEngineerLoopExecution` | receipt operacional pós-Run/worker para execução, debug loop, verification e handoff para curator/error ledger |
 | `FailureCapsule` | input determinístico para repair (gate, command, exit_code, primary_error_excerpt, failure_signature, decision) |
 | `EscalationDecision` | quando vira Forge (target, reasons, signals, score) |
 
@@ -701,6 +703,7 @@ Cada item novo do fast path precisa de cert antes de entrar no fluxo real:
 | `forge_escalation_thresholds` | thresholds derivados de sinais observaveis |
 | `provider_prompt_projection` | prompt gerado de contratos, sem campos obrigatorios ausentes |
 | `verification_receipt` | evidence minima, gates e completion state testados |
+| `senior_engineer_loop` | audit e execução operational provam Plan -> Run -> gates -> learning handoff sem auto-aplicar |
 | `fast_path_error_ledger` | falha, missed escalation e aprendizado operacional registrados |
 
 Gates **nao-negociaveis** para qualquer write:
@@ -1043,7 +1046,7 @@ Apos Fatia 5, esta equipe **encerra**. Outra equipe (Medicao / Rivals) toma o fl
 | 5 | Code namespace | `app/Services/Ai/Programming/AtlasDev/{Schemas,Discovery,Gate,Persistence,...}` | 2026-05-16 |
 | 6 | Provider lock | `claude_cli` + Sonnet, sem fallback | 2026-05-16 |
 | 7 | Schema de receipt | `atlas.dev.verification_receipt.v1` | 2026-05-16 |
-| 8 | Artefatos canonicos | 17 artefatos operacionais em 4 camadas (Plano/Contexto/Receipt/Telemetria) | 2026-05-16 |
+| 8 | Artefatos canonicos | Artefatos operacionais em 4 camadas (Plano/Contexto/Receipt/Telemetria), incluindo receipts Senior Engineer Loop | 2026-05-16 |
 | 9 | Ordem de fatias | 0 -> 1 -> 1.5 -> 2 -> 3 -> 4 -> 5; nao pular | 2026-05-16 |
 | 10 | Surface inicial | Atlas AI Desktop Mac via `surface_id=atlas_desktop_ai` | 2026-05-16 |
 | 11 | Relacao com Governance | Atlas Dev gates sao projecoes de Governance ou Dev-only justificados que nao contradizem Governance | 2026-05-16 |

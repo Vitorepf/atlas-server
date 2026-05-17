@@ -80,7 +80,70 @@ final class RunEndpointTest extends AtlasDevHttpTestCase
         $response->assertJsonPath('data.provider_call.provider', 'claude_cli');
         $response->assertJsonPath('data.provider_call.model_family', 'sonnet');
         $response->assertJsonPath('data.provider_call.provider_calls', 1);
+        $response->assertJsonPath('data.senior_loop_execution.schema_version', 'atlas.dev.senior_engineer_loop_execution.v1');
+        $response->assertJsonPath('data.senior_loop_execution.status', 'passed');
+        $response->assertJsonPath('data.senior_loop_execution.run_summary.completion_state', 'passed');
+        $response->assertJsonPath('data.senior_loop_execution.learning.auto_apply', false);
         $this->assertCount(1, $this->fakeExecutor->calls);
+
+        $storage = $this->app->make(ReceiptStorage::class);
+        $persisted = $storage->read($plan['run_id'], ArtifactNames::SENIOR_ENGINEER_LOOP_EXECUTION);
+        $this->assertIsArray($persisted);
+        $this->assertSame('passed', $persisted['status']);
+    }
+
+    public function test_run_failure_records_senior_loop_learning_handoff_to_error_ledger(): void
+    {
+        $this->fakeExecutor = new FakeRunExecutor(new RunExecutionResult(
+            completionState: 'failed',
+            scopeGuardStatus: 'passed',
+            verificationStatus: 'failed',
+            persistedReceiptPaths: [],
+            providerCallSummary: [
+                'provider' => 'claude_cli',
+                'model_family' => 'sonnet',
+                'provider_calls' => 1,
+                'exit_code' => 0,
+                'duration_ms' => 1200,
+                'tokens_in' => 100,
+                'tokens_out' => 50,
+                'estimated_cost_usd' => 0.01,
+                'error_codes' => ['verification_failed'],
+            ],
+            verificationReceiptHash: str_repeat('a', 64),
+            scopeGuardReceiptHash: str_repeat('b', 64),
+            diffHash: str_repeat('c', 64),
+        ));
+        $this->app->instance(RunExecutor::class, $this->fakeExecutor);
+
+        $plan = $this->plan();
+
+        $response = $this->withHeaders($this->headers)
+            ->postJson('/ai/interactions/atlas-dev/run', [
+                'run_id' => $plan['run_id'],
+                'task_contract_hash' => $plan['task_contract_hash'],
+                'confirmation_token' => $plan['confirmation_token'],
+                'operator_confirmed' => true,
+            ]);
+
+        $response->assertStatus(200);
+        $response->assertJsonPath('data.completion_state', 'failed');
+        $response->assertJsonPath('data.senior_loop_execution.status', 'failed');
+        $response->assertJsonPath('data.senior_loop_execution.debug_loop.mode', 'bounded_repair_triage');
+        $response->assertJsonPath('data.senior_loop_execution.debug_loop.failure_capsules.0.attempt_index', 0);
+        $response->assertJsonPath('data.senior_loop_execution.debug_loop.failure_capsules.0.decision', 'retry');
+        $response->assertJsonPath('data.senior_loop_execution.learning.error_ledger_recorded', true);
+        $response->assertJsonPath('data.senior_loop_execution.learning.error_ledger_ref', "receipts/{$plan['run_id']}/error_ledger.v1.json");
+        $response->assertJsonPath('data.senior_loop_execution.learning.auto_apply', false);
+
+        $storage = $this->app->make(ReceiptStorage::class);
+        $ledger = $storage->readVersion($plan['run_id'], ArtifactNames::ERROR_LEDGER_BASE, 1);
+        $this->assertIsArray($ledger);
+        $this->assertSame('failed', $ledger['completion_state']);
+        $this->assertSame('missed_test', $ledger['actual_failure_mode']);
+        $capsule = $storage->read($plan['run_id'], ArtifactNames::FAILURE_CAPSULE_BASE.'.0.json');
+        $this->assertIsArray($capsule);
+        $this->assertSame('verification_gate', $capsule['gate']);
     }
 
     public function test_run_after_response_mode_accepts_without_inline_completion_payload(): void

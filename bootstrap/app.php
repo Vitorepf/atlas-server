@@ -63,6 +63,7 @@ use App\Console\Commands\AtlasDevDesktopEnableCommand;
 use App\Console\Commands\AtlasDevDesktopGoalAuditCommand;
 use App\Console\Commands\AtlasDevDesktopRealSmokeCommand;
 use App\Console\Commands\AtlasDevSeniorLoopAuditCommand;
+use App\Console\Commands\AtlasDevSeniorLoopRunCommand;
 use App\Console\Commands\AtlasDevSmokeCommand;
 use App\Console\Commands\AtlasEngineeringApiContractCommand;
 use App\Console\Commands\AtlasEngineeringBenchmarkCalibrateCommand;
@@ -226,6 +227,7 @@ return Application::configure(basePath: dirname(__DIR__))
         AtlasDevDesktopEnableCommand::class,
         AtlasDevDesktopRealSmokeCommand::class,
         AtlasDevSeniorLoopAuditCommand::class,
+        AtlasDevSeniorLoopRunCommand::class,
         AtlasDevSmokeCommand::class,
         AtlasEngineeringBenchmarkCalibrateCommand::class,
         AtlasEngineeringBenchmarkCommand::class,

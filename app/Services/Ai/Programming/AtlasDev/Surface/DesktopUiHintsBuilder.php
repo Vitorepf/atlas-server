@@ -52,6 +52,7 @@ final class DesktopUiHintsBuilder
                 workspace: $result->envelope->workspace,
             ),
             'inline_indicators' => $this->buildInlineIndicators($result),
+            'panel_senior_loop' => $this->buildSeniorLoopPanel($result),
             'execution_placeholders' => [
                 // Plan-only run: nothing executed yet. Surface MUST treat null
                 // as "not produced" and never invent placeholder facts.
@@ -59,6 +60,29 @@ final class DesktopUiHintsBuilder
                 'tests' => ['state' => 'pending', 'value' => null],
                 'receipt' => ['state' => 'pending', 'value' => null],
             ],
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function buildSeniorLoopPanel(PlanOnlyResult $result): array
+    {
+        if ($result->seniorLoopAudit === null) {
+            return [
+                'state' => 'pending',
+                'audit' => null,
+            ];
+        }
+
+        return [
+            'state' => $result->seniorLoopAudit->status,
+            'audit_hash' => $result->seniorLoopAudit->auditHash,
+            'capabilities' => $result->seniorLoopAudit->capabilities,
+            'blockers' => $result->seniorLoopAudit->blockers,
+            'panels' => $result->seniorLoopAudit->desktopCockpit['panels'] ?? [],
+            'learning_handoff' => $result->seniorLoopAudit->learningHandoff,
+            'multi_step_plan' => $result->seniorLoopAudit->multiStepPlan,
         ];
     }
 

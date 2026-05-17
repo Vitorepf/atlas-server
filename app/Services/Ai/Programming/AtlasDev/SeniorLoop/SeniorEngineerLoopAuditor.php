@@ -14,12 +14,12 @@ final class SeniorEngineerLoopAuditor
     public function audit(PlanOnlyResult $plan, ?array $desktopGoalAudit = null): SeniorEngineerLoopAudit
     {
         $capabilities = [
-            'ambiguity_resolution_engine' => true,
-            'multi_step_work_planner' => true,
+            'ambiguity_resolution_engine' => $this->ambiguityResolutionCovered($plan),
+            'multi_step_work_planner' => $this->multiStepPlanCovered($plan),
             'autonomous_debug_loop' => $plan->taskContract->validationCommands !== [],
             'architecture_aware_editing' => $this->architectureAware($plan),
-            'desktop_engineer_cockpit' => true,
-            'learning_error_ledger_curator_flow' => true,
+            'desktop_engineer_cockpit' => $this->desktopCockpitCovered($plan),
+            'learning_error_ledger_curator_flow' => $this->learningHandoffCovered($plan),
             'enterprise_hardening' => $this->enterpriseHardening($plan, $desktopGoalAudit),
         ];
 
@@ -56,6 +56,64 @@ final class SeniorEngineerLoopAuditor
             && $plan->miniSpec->forbiddenFiles !== []
             && $plan->taskContract->maxFilesChanged >= count($plan->miniSpec->allowedFiles)
             && $plan->promptProjection->isSendable();
+    }
+
+    private function ambiguityResolutionCovered(PlanOnlyResult $plan): bool
+    {
+        if ($plan->discovery->isBlocking()) {
+            return $plan->discovery->missingRefs !== []
+                && in_array('discovery_blocking_ambiguity', $plan->routing->blockers, true);
+        }
+
+        return $plan->discovery->likelyFiles !== []
+            && in_array($plan->discovery->confidence, [
+                'confirmed_fact',
+                'strong_inference',
+                'hypothesis',
+            ], true);
+    }
+
+    private function multiStepPlanCovered(PlanOnlyResult $plan): bool
+    {
+        $refs = $plan->persistedArtifactRefs();
+
+        foreach ($this->multiStepPlan($plan) as $step) {
+            $evidenceRef = (string) ($step['evidence_ref'] ?? '');
+            if ($evidenceRef === '' || ! in_array($evidenceRef, $refs, true)) {
+                return false;
+            }
+            if (! in_array((string) ($step['status'] ?? ''), ['completed', 'ready', 'manual_review'], true)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private function desktopCockpitCovered(PlanOnlyResult $plan): bool
+    {
+        $cockpit = $this->desktopCockpit($plan);
+        $panels = array_values((array) ($cockpit['panels'] ?? []));
+
+        foreach (['intent', 'ambiguity', 'plan', 'scope', 'verification', 'receipt', 'learning'] as $requiredPanel) {
+            if (! in_array($requiredPanel, $panels, true)) {
+                return false;
+            }
+        }
+
+        return ($cockpit['run_id'] ?? null) === $plan->envelope->runId
+            && ($cockpit['supports_cancel_retry_resume'] ?? null) === true;
+    }
+
+    private function learningHandoffCovered(PlanOnlyResult $plan): bool
+    {
+        $handoff = $this->learningHandoff($plan);
+
+        return ($handoff['auto_apply'] ?? null) === false
+            && ($handoff['curator'] ?? null) === 'programming_curator'
+            && ($handoff['proposal_inbox_required'] ?? null) === true
+            && str_contains((string) ($handoff['error_ledger_ref'] ?? ''), $plan->envelope->runId)
+            && (array) ($handoff['signals'] ?? []) !== [];
     }
 
     /**

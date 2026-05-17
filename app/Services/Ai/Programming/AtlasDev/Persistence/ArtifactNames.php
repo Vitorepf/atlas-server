@@ -54,5 +54,7 @@ final class ArtifactNames
 
     public const SENIOR_ENGINEER_LOOP_AUDIT = 'senior_engineer_loop_audit.json';
 
+    public const SENIOR_ENGINEER_LOOP_EXECUTION = 'senior_engineer_loop_execution.json';
+
     private function __construct() {}
 }

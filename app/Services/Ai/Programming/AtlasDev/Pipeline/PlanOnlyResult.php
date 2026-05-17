@@ -12,6 +12,7 @@ use App\Services\Ai\Programming\AtlasDev\Schemas\MiniProgrammingSpec;
 use App\Services\Ai\Programming\AtlasDev\Schemas\OpenBrainProgrammingProjection;
 use App\Services\Ai\Programming\AtlasDev\Schemas\OperationEnvelope;
 use App\Services\Ai\Programming\AtlasDev\Schemas\ProviderPromptProjection;
+use App\Services\Ai\Programming\AtlasDev\SeniorLoop\SeniorEngineerLoopAudit;
 
 /**
  * Result of {@see AtlasDevFastPathOrchestrator::planOnly()}.
@@ -43,6 +44,7 @@ final class PlanOnlyResult
         public readonly RoutingDecision $routing,
         public readonly array $persistedArtifactPaths,
         public readonly array $blockers,
+        public readonly ?SeniorEngineerLoopAudit $seniorLoopAudit = null,
     ) {}
 
     public function routingKind(): string
@@ -128,6 +130,7 @@ final class PlanOnlyResult
             'persisted_artifact_refs' => $this->persistedArtifactRefs(),
             'prompt_sendable' => $this->promptProjection->isSendable(),
             'read_only_answer' => $this->readOnlyAnswer(),
+            'senior_loop' => $this->seniorLoopAudit?->toProviderSafeArray(),
         ];
     }
 

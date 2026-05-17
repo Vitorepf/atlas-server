@@ -11,6 +11,7 @@ use App\Services\Ai\Programming\AtlasDev\Persistence\ArtifactNames;
 use App\Services\Ai\Programming\AtlasDev\Persistence\ReceiptStorage;
 use App\Services\Ai\Programming\AtlasDev\PromptProjection\ProviderPromptBuilder;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Contracts\AtlasDevSchemaContract;
+use App\Services\Ai\Programming\AtlasDev\SeniorLoop\SeniorEngineerLoopAuditor;
 
 /**
  * Atlas Dev fast-path orchestrator — plan-only entry point.
@@ -112,6 +113,29 @@ class AtlasDevFastPathOrchestrator
             routing: $routing,
         );
 
+        $result = new PlanOnlyResult(
+            envelope: $envelope,
+            classification: $classification,
+            riskLevel: $finalRisk,
+            compactSdd: $compactSdd,
+            contextPlan: $contextPlan,
+            discovery: $discovery,
+            projection: $projection,
+            miniSpec: $miniSpec,
+            taskContract: $taskContract,
+            promptProjection: $promptProjection,
+            routing: $routing,
+            persistedArtifactPaths: $persisted,
+            blockers: $routing->blockers,
+        );
+
+        $seniorLoopAudit = (new SeniorEngineerLoopAuditor)->audit($result);
+        $persisted[ArtifactNames::SENIOR_ENGINEER_LOOP_AUDIT] = $this->receiptStorage->writeAtomic(
+            $envelope->runId,
+            ArtifactNames::SENIOR_ENGINEER_LOOP_AUDIT,
+            $seniorLoopAudit->toCanonicalArray(),
+        );
+
         return new PlanOnlyResult(
             envelope: $envelope,
             classification: $classification,
@@ -126,6 +150,7 @@ class AtlasDevFastPathOrchestrator
             routing: $routing,
             persistedArtifactPaths: $persisted,
             blockers: $routing->blockers,
+            seniorLoopAudit: $seniorLoopAudit,
         );
     }
 

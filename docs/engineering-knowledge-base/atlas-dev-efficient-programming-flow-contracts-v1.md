@@ -259,6 +259,8 @@ Default desta fase (decisao locked 2026-05-16):
   - `patch_apply_result.json` (sempre persistido no run; `status=skipped` quando nao ha patch)
   - `scope_guard_receipt.json`
   - `verification_receipt.json`
+  - `senior_engineer_loop_audit.json` (audit plan-time do patamar Senior Engineer)
+  - `senior_engineer_loop_execution.json` (receipt operacional apos Run/worker)
   - `failure_capsule.<attempt>.json` (uma por tentativa, se houver)
   - `escalation_decision.json` (se aplicavel)
   - `telemetry.json`
@@ -266,6 +268,13 @@ Default desta fase (decisao locked 2026-05-16):
   - `attachments/<sha256>.<ext>` (multimodal blobs, quando `OperationEnvelope.attachments[].ref = sha256:<hash>`)
 
 `provider_call_result.json` e artefato interno de auditoria/replay: pode carregar stdout/stderr redigidos do provider e nao deve ser serializado em HTTP sem reducao. Responses de surface recebem apenas hash, tamanhos, exit metadata e `persisted_receipt_refs`.
+
+`senior_engineer_loop_audit.json` prova, no Plan, a cobertura de resolucao de
+ambiguidade, plano multi-step, architecture-aware editing, cockpit Desktop,
+learning handoff e hardening enterprise. `senior_engineer_loop_execution.json`
+prova, depois do Run/worker, a execução operacional: provider ou fast path
+deterministico, diff/patch, scope guard, verification, debug loop e handoff para
+ErrorLedger/Programming Curator sem auto-aplicar aprendizado.
 
 `diff_parse_result.json` preserva a decisao do parser (`patch | no_patch_needed | blocked | invalid`), changed files, hash do diff e erros de parse. Isso impede falhas opacas: se o provider responder fora do contrato, o run pode falhar honestamente e ainda deixar evidencia suficiente para reparar prompt/parser sem repetir chamada paga.
 

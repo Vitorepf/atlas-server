@@ -43414,6 +43414,11 @@ final class AtlasSelfConstructionReadinessService
             'atlas_self_construction_final_completion_readiness_gate_implementation_packet',
             'atlas_self_construction_final_completion_readiness_gate_service',
             'atlas_self_construction_final_completion_readiness_gate_status_projection',
+            'atlas_self_programming_os_transition_readiness_contract',
+            'atlas_self_programming_os_transition_readiness_preflight',
+            'atlas_self_programming_os_transition_readiness_implementation_packet',
+            'atlas_self_programming_os_transition_readiness_service',
+            'atlas_self_programming_os_transition_readiness_status_projection',
             'atlas_self_construction_completion_finalization_gate_contract',
             'atlas_self_construction_completion_finalization_gate_preflight',
             'atlas_self_construction_completion_finalization_gate_implementation_packet',
@@ -77702,6 +77707,76 @@ final class AtlasSelfConstructionReadinessService
                 'terminal_loop_operational_proof_expected_binding_schema' => (string) data_get($result, 'terminal_loop_operational_proof_expected_binding_schema', ''),
                 'command_to_refresh_terminal_loop_operational_proof' => (string) data_get($result, 'command_to_refresh_terminal_loop_operational_proof', ''),
                 'command_to_rerun_audit_with_terminal_loop_operational_proof' => (string) data_get($result, 'command_to_rerun_audit_with_terminal_loop_operational_proof', ''),
+                'self_programming_os_transition_status' => (string) data_get($result, 'self_programming_os_transition_status', ''),
+                'self_programming_os_transition_blockers' => (array) data_get($result, 'self_programming_os_transition_blockers', []),
+                'self_programming_safety_contract_hash' => (string) data_get($result, 'self_programming_safety_contract_hash', ''),
+                'self_programming_runtime_activation_allowed' => (bool) data_get($result, 'self_programming_os_transition_readiness.runtime_activation_allowed', false),
+                'self_programming_allowed' => (bool) data_get($result, 'self_programming_os_transition_readiness.self_programming_allowed', false),
+            ],
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function atlasSelfProgrammingOsTransitionReadinessContract(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('atlas_self_programming_os_transition_readiness', 'Atlas Self-Programming OS Transition Readiness', 'atlas.self_programming.transition_readiness.v1', AtlasSelfConstructionFinalCompletionReadinessGateService::class, 'contract');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function atlasSelfProgrammingOsTransitionReadinessPreflight(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('atlas_self_programming_os_transition_readiness', 'Atlas Self-Programming OS Transition Readiness', 'atlas.self_programming.transition_readiness.v1', AtlasSelfConstructionFinalCompletionReadinessGateService::class, 'preflight');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function atlasSelfProgrammingOsTransitionReadinessImplementationPacket(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('atlas_self_programming_os_transition_readiness', 'Atlas Self-Programming OS Transition Readiness', 'atlas.self_programming.transition_readiness.v1', AtlasSelfConstructionFinalCompletionReadinessGateService::class, 'implementation_packet');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function atlasSelfProgrammingOsTransitionReadinessStatus(array $options = []): array
+    {
+        $gate = (new AtlasSelfConstructionFinalCompletionReadinessGateService($this))->evaluate($options);
+        $transition = (array) data_get($gate, 'self_programming_os_transition_readiness', []);
+        $transition['source_final_completion_readiness_gate_status'] = (string) data_get($gate, 'status', '');
+        $transition['source_final_completion_readiness_gate_hash'] = (string) data_get($gate, 'gate_hash', '');
+        $transition['source_completion_audit_hash'] = (string) data_get($gate, 'completion_audit_hash', '');
+        $transition['source_completion_audit_failed_criteria'] = (array) data_get($gate, 'completion_audit_failed_criteria', []);
+        $transition['completion_claim_allowed'] = (bool) data_get($gate, 'completion_claim_allowed', false);
+        $transition['next_stage_allowed'] = (bool) data_get($gate, 'next_stage_allowed', false);
+
+        return $this->wrapCertificationWorkbenchStatus(
+            keyPrefix: 'atlas_self_programming_os_transition_readiness',
+            label: 'Atlas Self-Programming OS Transition Readiness',
+            payload: $transition,
+            statusKey: 'status',
+            extraStatusFields: [
+                'next_stage_name' => (string) data_get($transition, 'next_stage_name', ''),
+                'self_construction_complete' => (bool) data_get($transition, 'self_construction_complete', false),
+                'contract_design_allowed' => (bool) data_get($transition, 'contract_design_allowed', false),
+                'runtime_activation_allowed' => (bool) data_get($transition, 'runtime_activation_allowed', false),
+                'self_programming_allowed' => (bool) data_get($transition, 'self_programming_allowed', false),
+                'provider_call_allowed' => (bool) data_get($transition, 'provider_call_allowed', false),
+                'token_spend_allowed' => (bool) data_get($transition, 'token_spend_allowed', false),
+                'blockers' => (array) data_get($transition, 'blockers', []),
+                'safety_contract_path' => (string) data_get($transition, 'safety_contract_path', ''),
+                'safety_contract_hash' => (string) data_get($transition, 'safety_contract_hash', ''),
+                'source_final_completion_readiness_gate_status' => (string) data_get($transition, 'source_final_completion_readiness_gate_status', ''),
+                'source_final_completion_readiness_gate_hash' => (string) data_get($transition, 'source_final_completion_readiness_gate_hash', ''),
+                'source_completion_audit_hash' => (string) data_get($transition, 'source_completion_audit_hash', ''),
             ],
         );
     }
@@ -79754,6 +79829,7 @@ final class AtlasSelfConstructionReadinessService
             statusKey: 'status',
             extraStatusFields: [
                 'actor' => (string) data_get($result, 'actor'),
+                'proof_id' => (string) data_get($result, 'proof_id'),
                 'task_packet_id' => (string) data_get($result, 'task_packet_id'),
                 'lease_id' => (string) data_get($result, 'lease_id'),
                 'prepare_event' => (string) data_get($result, 'prepare_event'),
