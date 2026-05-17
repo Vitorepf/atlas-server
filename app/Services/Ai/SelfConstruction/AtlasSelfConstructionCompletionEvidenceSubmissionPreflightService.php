@@ -67,7 +67,7 @@ final class AtlasSelfConstructionCompletionEvidenceSubmissionPreflightService
                 id: 'final_completion_audit',
                 status: (string) data_get($completionAudit, 'status', 'incomplete'),
                 ready: $completionAuditReady,
-                command: (string) data_get($blockerExplainer, 'command_plan.completion_audit', ''),
+                command: $this->completionAuditWithTerminalLoopOperationalProofCommand($blockerExplainer),
                 persistCommand: '',
                 requiredBefore: ['runtime_promotion_receipt', 'real_provider_smoke', 'human_completion_receipt'],
                 evidenceHash: (string) data_get($completionAudit, 'completion_audit_hash', ''),
@@ -114,7 +114,7 @@ final class AtlasSelfConstructionCompletionEvidenceSubmissionPreflightService
             'ready_step_count' => $readySteps,
             'blocked_step_count' => count($orderedSteps) - $readySteps,
             'next_required_submission' => $firstBlocked['id'] ?? 'rerun_completion_audit',
-            'next_required_command' => (string) ($firstBlocked['command'] ?? data_get($blockerExplainer, 'command_plan.completion_audit', '')),
+            'next_required_command' => (string) ($firstBlocked['command'] ?? $this->completionAuditWithTerminalLoopOperationalProofCommand($blockerExplainer)),
             'next_required_persist_command' => (string) ($firstBlocked['persist_command'] ?? ''),
             'completion_audit_hash' => (string) data_get($completionAudit, 'completion_audit_hash', ''),
             'completion_evidence_status_hash' => (string) data_get($completionEvidence, 'completion_evidence_status_hash', ''),
@@ -281,9 +281,9 @@ final class AtlasSelfConstructionCompletionEvidenceSubmissionPreflightService
             'required_reruns_after_each_persist' => [
                 $this->terminalLoopOperationalProofCommand(),
                 'php artisan atlas:ai:self-construction --atlas-self-construction-completion-evidence-submission-preflight-status --json',
-                'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --json',
+                $this->completionAuditWithTerminalLoopOperationalProofCommand($blockerExplainer),
             ],
-            'final_success_command' => (string) data_get($blockerExplainer, 'command_plan.completion_audit', 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --json'),
+            'final_success_command' => $this->completionAuditWithTerminalLoopOperationalProofCommand($blockerExplainer),
             'final_success_predicate' => 'completion_audit.status=complete AND completion_allowed=true AND failed_count=0',
             'never_automatic' => [
                 'operator_signature_not_generated_by_atlas',
@@ -318,7 +318,7 @@ final class AtlasSelfConstructionCompletionEvidenceSubmissionPreflightService
             'current_step' => $currentStep,
             'current_status' => (string) ($current['status'] ?? 'unknown'),
             'next_required_submission' => $currentStep,
-            'exact_next_command' => (string) ($current['command'] ?? data_get($blockerExplainer, 'command_plan.completion_audit', '')),
+            'exact_next_command' => (string) ($current['command'] ?? $this->completionAuditWithTerminalLoopOperationalProofCommand($blockerExplainer)),
             'exact_next_persist_command' => (string) ($current['persist_command'] ?? ''),
             'can_resume_without_chat_history' => true,
             'requires_fresh_preflight_before_persist' => true,
@@ -345,7 +345,7 @@ final class AtlasSelfConstructionCompletionEvidenceSubmissionPreflightService
                 'refresh_submission_preflight' => 'php artisan atlas:ai:self-construction --atlas-self-construction-completion-evidence-submission-preflight-status --json',
                 'refresh_operator_submission_readiness' => 'php artisan atlas:ai:self-construction --atlas-self-construction-operator-evidence-submission-readiness-status --json',
                 'refresh_final_operator_closure_corridor' => 'php artisan atlas:ai:self-construction --atlas-self-construction-final-operator-evidence-closure-corridor-status --json',
-                'refresh_completion_audit' => (string) data_get($blockerExplainer, 'command_plan.completion_audit', 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --json'),
+                'refresh_completion_audit' => $this->completionAuditWithTerminalLoopOperationalProofCommand($blockerExplainer),
             ],
             'stop_conditions' => [
                 'stop_if_current_step_changed_after_resume',
@@ -391,7 +391,7 @@ final class AtlasSelfConstructionCompletionEvidenceSubmissionPreflightService
         $completionAuditHash = (string) data_get($completionAudit, 'completion_audit_hash', '');
         $completionEvidenceStatusHash = (string) data_get($completionEvidence, 'completion_evidence_status_hash', '');
         $refreshSubmissionPreflight = 'php artisan atlas:ai:self-construction --atlas-self-construction-completion-evidence-submission-preflight-status --json';
-        $refreshCompletionAudit = (string) data_get($blockerExplainer, 'command_plan.completion_audit', 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --json');
+        $refreshCompletionAudit = $this->completionAuditWithTerminalLoopOperationalProofCommand($blockerExplainer);
 
         $replaySteps = array_values(array_map(function (array $step) use ($refreshSubmissionPreflight, $refreshCompletionAudit): array {
             $stepId = (string) ($step['id'] ?? '');
@@ -522,7 +522,7 @@ final class AtlasSelfConstructionCompletionEvidenceSubmissionPreflightService
             'current_step' => $currentStep,
             'current_status' => (string) ($current['status'] ?? 'unknown'),
             'current_step_ready' => (bool) ($current['ready'] ?? false),
-            'next_draft_or_check_command' => (string) ($current['command'] ?? data_get($blockerExplainer, 'command_plan.completion_audit', '')),
+            'next_draft_or_check_command' => (string) ($current['command'] ?? $this->completionAuditWithTerminalLoopOperationalProofCommand($blockerExplainer)),
             'next_persist_command' => (string) ($current['persist_command'] ?? ''),
             'required_before_current_step' => (array) ($current['required_before'] ?? []),
             'required_operator_inputs' => $requiredInputsByStep[$currentStep] ?? [],
@@ -541,9 +541,9 @@ final class AtlasSelfConstructionCompletionEvidenceSubmissionPreflightService
             'proof_commands_after_each_persist' => [
                 'php artisan atlas:ai:self-construction --agent-control-plane-terminal-loop-operational-proof-status --json',
                 'php artisan atlas:ai:self-construction --atlas-self-construction-completion-evidence-submission-preflight-status --json',
-                'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --json',
+                $this->completionAuditWithTerminalLoopOperationalProofCommand($blockerExplainer),
             ],
-            'final_success_command' => (string) data_get($blockerExplainer, 'command_plan.completion_audit', 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --json'),
+            'final_success_command' => $this->completionAuditWithTerminalLoopOperationalProofCommand($blockerExplainer),
             'final_success_predicate' => 'completion_audit.status=complete AND completion_allowed=true AND failed_count=0',
             'operator_must_follow_order' => true,
             'parallel_submission_allowed' => false,
@@ -583,8 +583,11 @@ final class AtlasSelfConstructionCompletionEvidenceSubmissionPreflightService
             'mode' => 'read_only_terminal_loop_closure_proof_packet',
             'status' => 'operator_or_ci_should_refresh_before_final_persist',
             'proof_command' => $this->terminalLoopOperationalProofCommand(),
-            'audit_command_with_binding' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --agent-control-plane-terminal-loop-operational-proof-json=@/path/to/terminal-loop-operational-proof-binding.json --json',
+            'proof_binding_persist_command' => $this->terminalLoopOperationalProofBindingPersistCommand(),
+            'audit_command_with_binding' => $this->completionAuditWithTerminalLoopOperationalProofCommand($blockerExplainer),
+            'audit_command_with_canonical_binding' => $this->completionAuditWithCanonicalTerminalLoopOperationalProofCommand(),
             'expected_binding_schema' => 'atlas.self_construction.agent_control_plane_terminal_loop_operational_proof_audit_binding_packet.v1',
+            'expected_binding_artifact_path' => $this->terminalLoopOperationalProofBindingArtifactPath(),
             'required_before_final_completion_receipt' => true,
             'required_before_human_completion_receipt_persist' => true,
             'completion_audit_hash' => (string) data_get($completionAudit, 'completion_audit_hash', ''),
@@ -599,7 +602,7 @@ final class AtlasSelfConstructionCompletionEvidenceSubmissionPreflightService
             ],
             'operator_steps' => [
                 'run_terminal_loop_operational_proof_status',
-                'save_completion_audit_binding_packet_from_payload',
+                'persist_completion_audit_binding_packet_to_canonical_operator_submission_path',
                 'rerun_completion_audit_with_agent_control_plane_terminal_loop_operational_proof_json',
                 'continue_runtime_promotion_real_provider_smoke_human_receipt_sequence_only_if_audit_still_reports_expected_blockers',
             ],
@@ -689,6 +692,31 @@ final class AtlasSelfConstructionCompletionEvidenceSubmissionPreflightService
     private function terminalLoopOperationalProofCommand(): string
     {
         return 'php artisan atlas:ai:self-construction --agent-control-plane-terminal-loop-operational-proof-status --json';
+    }
+
+    private function terminalLoopOperationalProofBindingPersistCommand(): string
+    {
+        return 'php artisan atlas:ai:self-construction --agent-control-plane-terminal-loop-operational-proof-status --persist-terminal-loop-operational-proof-binding --json';
+    }
+
+    /** @param array<string, mixed> $blockerExplainer */
+    private function completionAuditWithTerminalLoopOperationalProofCommand(array $blockerExplainer): string
+    {
+        return (string) data_get(
+            $blockerExplainer,
+            'command_plan.completion_audit_with_terminal_loop_operational_proof',
+            'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --agent-control-plane-terminal-loop-operational-proof-json=@/path/to/terminal-loop-operational-proof-binding.json --json',
+        );
+    }
+
+    private function completionAuditWithCanonicalTerminalLoopOperationalProofCommand(): string
+    {
+        return 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --agent-control-plane-terminal-loop-operational-proof-json=@'.$this->terminalLoopOperationalProofBindingArtifactPath().' --json';
+    }
+
+    private function terminalLoopOperationalProofBindingArtifactPath(): string
+    {
+        return 'storage/app/private/atlas/self-construction/operator-submissions/terminal-loop-operational-proof-binding.json';
     }
 
     /**

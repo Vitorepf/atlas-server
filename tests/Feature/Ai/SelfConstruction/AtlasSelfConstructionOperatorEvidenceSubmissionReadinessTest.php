@@ -78,11 +78,23 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessTest extends
         );
         $this->assertSame(3, data_get($payload, 'operator_completion_proof_bundle.missing_proof_count'));
         $this->assertFalse(data_get($payload, 'operator_completion_proof_bundle.ready_for_final_completion_audit'));
+        $this->assertStringContainsString(
+            '--persist-terminal-loop-operational-proof-binding',
+            (string) data_get($payload, 'operator_completion_proof_bundle.proof_commands.persist_terminal_loop_operational_proof_binding'),
+        );
+        $this->assertStringContainsString(
+            '--persist-terminal-loop-operational-proof-binding',
+            (string) data_get($payload, 'operator_evidence_closure_runbook.terminal_loop_operational_proof_binding_persist_command'),
+        );
         $this->assertFalse(data_get($payload, 'operator_completion_proof_bundle.can_persist_from_proof_bundle'));
         $this->assertFalse(data_get($payload, 'operator_completion_proof_bundle.can_promote_completion_from_proof_bundle'));
         $this->assertStringContainsString(
-            '--atlas-self-construction-os-completion-audit-status',
+            '--agent-control-plane-terminal-loop-operational-proof-json=@/path/to/terminal-loop-operational-proof-binding.json',
             data_get($payload, 'operator_completion_proof_bundle.proof_commands.completion_audit'),
+        );
+        $this->assertStringContainsString(
+            '--atlas-self-construction-os-completion-audit-status',
+            data_get($payload, 'operator_completion_proof_bundle.proof_commands.completion_audit_diagnostic'),
         );
         $this->assertStringContainsString(
             '--agent-control-plane-terminal-loop-operational-proof-status',
@@ -91,6 +103,14 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessTest extends
         $this->assertStringContainsString(
             '--agent-control-plane-terminal-loop-operational-proof-json=@/path/to/terminal-loop-operational-proof-binding.json',
             data_get($payload, 'operator_completion_proof_bundle.proof_commands.completion_audit_with_terminal_loop_operational_proof'),
+        );
+        $this->assertStringContainsString(
+            '--agent-control-plane-terminal-loop-operational-proof-json=@storage/app/private/atlas/self-construction/operator-submissions/terminal-loop-operational-proof-binding.json',
+            data_get($payload, 'operator_completion_proof_bundle.proof_commands.completion_audit_with_canonical_terminal_loop_operational_proof'),
+        );
+        $this->assertSame(
+            'storage/app/private/atlas/self-construction/operator-submissions/terminal-loop-operational-proof-binding.json',
+            data_get($payload, 'operator_completion_proof_bundle.terminal_loop_operational_proof_canonical_binding_path'),
         );
         $this->assertTrue((bool) data_get($payload, 'operator_completion_proof_bundle.terminal_loop_operational_proof_required_before_final_audit'));
         $this->assertSame(
@@ -128,6 +148,10 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessTest extends
         $this->assertStringContainsString(
             '--agent-control-plane-terminal-loop-operational-proof-json=@/path/to/terminal-loop-operational-proof-binding.json',
             data_get($payload, 'operator_evidence_closure_runbook.completion_audit_with_terminal_loop_operational_proof_command'),
+        );
+        $this->assertStringContainsString(
+            '--agent-control-plane-terminal-loop-operational-proof-json=@storage/app/private/atlas/self-construction/operator-submissions/terminal-loop-operational-proof-binding.json',
+            data_get($payload, 'operator_evidence_closure_runbook.completion_audit_with_canonical_terminal_loop_operational_proof_command'),
         );
         $this->assertTrue((bool) data_get($payload, 'operator_evidence_closure_runbook.terminal_loop_operational_proof_required_before_final_audit'));
         $this->assertFalse(data_get($payload, 'operator_evidence_closure_runbook.can_execute_from_runbook'));
@@ -750,6 +774,14 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessTest extends
         $this->assertStringContainsString(
             '--agent-control-plane-terminal-loop-operational-proof-json=@/path/to/terminal-loop-operational-proof-binding.json',
             data_get($status, 'agent_control_plane_atlas_self_construction_operator_evidence_submission_readiness_status.operator_completion_audit_with_terminal_loop_operational_proof_command'),
+        );
+        $this->assertStringContainsString(
+            '--agent-control-plane-terminal-loop-operational-proof-json=@storage/app/private/atlas/self-construction/operator-submissions/terminal-loop-operational-proof-binding.json',
+            data_get($status, 'agent_control_plane_atlas_self_construction_operator_evidence_submission_readiness_status.operator_completion_audit_with_canonical_terminal_loop_operational_proof_command'),
+        );
+        $this->assertSame(
+            'storage/app/private/atlas/self-construction/operator-submissions/terminal-loop-operational-proof-binding.json',
+            data_get($status, 'agent_control_plane_atlas_self_construction_operator_evidence_submission_readiness_status.operator_completion_terminal_loop_operational_proof_canonical_binding_path'),
         );
         $this->assertSame(
             5,

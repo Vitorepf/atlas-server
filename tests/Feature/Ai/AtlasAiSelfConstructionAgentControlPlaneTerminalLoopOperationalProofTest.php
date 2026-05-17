@@ -28,8 +28,8 @@ final class AtlasAiSelfConstructionAgentControlPlaneTerminalLoopOperationalProof
         $this->assertTrue($proof['invariants_all_true']);
         $this->assertSame(0, $proof['violation_count']);
         $this->assertTrue(data_get($proof, 'operational_readiness_matrix.all_true'));
-        $this->assertSame(10, data_get($proof, 'operational_readiness_matrix.row_count'));
-        $this->assertSame(10, data_get($proof, 'operational_readiness_matrix.passed_row_count'));
+        $this->assertSame(11, data_get($proof, 'operational_readiness_matrix.row_count'));
+        $this->assertSame(11, data_get($proof, 'operational_readiness_matrix.passed_row_count'));
         $this->assertSame(0, data_get($proof, 'operational_readiness_matrix.failed_row_count'));
         $this->assertSame([], data_get($proof, 'operational_readiness_matrix.failed_rows'));
         $this->assertSame('auto_replenishment_completed', $proof['prepare_event']);
@@ -52,6 +52,15 @@ final class AtlasAiSelfConstructionAgentControlPlaneTerminalLoopOperationalProof
         $this->assertSame('review_evidence', $proof['post_cycle_cycle_supervisor_cycle_state']);
         $this->assertSame('review_completed_dry_run_evidence_and_rerun_digest', $proof['post_cycle_cycle_supervisor_next_command_purpose']);
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $proof['post_cycle_cycle_supervisor_hash']);
+        $this->assertSame('terminal_loop_end_to_end_contract_available', $proof['post_cycle_end_to_end_contract_status']);
+        $this->assertTrue($proof['post_cycle_end_to_end_contract_all_required_surfaces_present']);
+        $this->assertSame([], $proof['post_cycle_end_to_end_contract_failed_check_ids']);
+        $this->assertContains('auto_replenishment', $proof['post_cycle_end_to_end_contract_covered_capabilities']);
+        $this->assertContains('validation', $proof['post_cycle_end_to_end_contract_covered_capabilities']);
+        $this->assertContains('leases', $proof['post_cycle_end_to_end_contract_covered_capabilities']);
+        $this->assertContains('evidence', $proof['post_cycle_end_to_end_contract_covered_capabilities']);
+        $this->assertContains('retomada', $proof['post_cycle_end_to_end_contract_covered_capabilities']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $proof['post_cycle_end_to_end_contract_hash']);
         $this->assertSame('passed', data_get($proof, 'recovery_resume_proof.status'));
         $this->assertSame('recoverable_released_task', data_get($proof, 'recovery_resume_proof.recoverability_before_recovery'));
         $this->assertSame('build_resume_packet_ready', data_get($proof, 'recovery_resume_proof.resume_packet_event'));
@@ -137,6 +146,12 @@ final class AtlasAiSelfConstructionAgentControlPlaneTerminalLoopOperationalProof
         $this->assertSame('review_evidence', data_get($proof, 'completion_audit_binding_packet.proof_payload.post_cycle_cycle_supervisor.cycle_state'));
         $this->assertSame('review_completed_dry_run_evidence_and_rerun_digest', data_get($proof, 'completion_audit_binding_packet.proof_payload.post_cycle_cycle_supervisor.next_command_purpose'));
         $this->assertSame($proof['post_cycle_cycle_supervisor_hash'], data_get($proof, 'completion_audit_binding_packet.proof_payload.post_cycle_cycle_supervisor.hash'));
+        $this->assertSame('terminal_loop_end_to_end_contract_available', data_get($proof, 'completion_audit_binding_packet.proof_payload.post_cycle_end_to_end_contract.status'));
+        $this->assertTrue(data_get($proof, 'completion_audit_binding_packet.proof_payload.post_cycle_end_to_end_contract.all_required_surfaces_present'));
+        $this->assertSame([], data_get($proof, 'completion_audit_binding_packet.proof_payload.post_cycle_end_to_end_contract.failed_check_ids'));
+        $this->assertContains('auto_replenishment', data_get($proof, 'completion_audit_binding_packet.proof_payload.post_cycle_end_to_end_contract.covered_capabilities'));
+        $this->assertContains('retomada', data_get($proof, 'completion_audit_binding_packet.proof_payload.post_cycle_end_to_end_contract.covered_capabilities'));
+        $this->assertSame($proof['post_cycle_end_to_end_contract_hash'], data_get($proof, 'completion_audit_binding_packet.proof_payload.post_cycle_end_to_end_contract.hash'));
         $this->assertSame(0, data_get($proof, 'completion_audit_binding_packet.proof_payload.post_cycle_cleanup_state.claimed_task_count'));
         $this->assertSame(0, data_get($proof, 'completion_audit_binding_packet.proof_payload.post_cycle_cleanup_state.active_lease_count'));
         $this->assertSame(0, data_get($proof, 'completion_audit_binding_packet.proof_payload.post_cycle_cleanup_state.recoverable_lease_count'));
@@ -202,6 +217,9 @@ final class AtlasAiSelfConstructionAgentControlPlaneTerminalLoopOperationalProof
         $this->assertTrue(data_get($proof, 'invariants.partial_supply_bootstrap_preserves_queue_and_leases'));
         $this->assertTrue(data_get($proof, 'invariants.no_claimed_task_after_completion'));
         $this->assertTrue(data_get($proof, 'invariants.post_cycle_cycle_supervisor_reviews_evidence'));
+        $this->assertTrue(data_get($proof, 'invariants.post_cycle_end_to_end_contract_available'));
+        $this->assertTrue(data_get($proof, 'invariants.post_cycle_end_to_end_contract_covers_required_loop_surfaces'));
+        $this->assertTrue(data_get($proof, 'invariants.post_cycle_end_to_end_contract_is_read_only'));
         $this->assertTrue(data_get($proof, 'invariants.operational_readiness_matrix_all_true'));
         $this->assertTrue(data_get($proof, 'invariants.resume_packet_ready_for_next_terminal'));
         $this->assertTrue(data_get($proof, 'invariants.runtime_safety_all_false'));
@@ -239,12 +257,52 @@ final class AtlasAiSelfConstructionAgentControlPlaneTerminalLoopOperationalProof
         $this->assertSame('review_evidence', data_get($payload, 'agent_control_plane_terminal_loop_operational_proof_status.post_cycle_cycle_supervisor_cycle_state'));
         $this->assertSame('review_completed_dry_run_evidence_and_rerun_digest', data_get($payload, 'agent_control_plane_terminal_loop_operational_proof_status.post_cycle_cycle_supervisor_next_command_purpose'));
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'agent_control_plane_terminal_loop_operational_proof_status.post_cycle_cycle_supervisor_hash'));
+        $this->assertSame('terminal_loop_end_to_end_contract_available', data_get($payload, 'agent_control_plane_terminal_loop_operational_proof_status.post_cycle_end_to_end_contract_status'));
+        $this->assertTrue(data_get($payload, 'agent_control_plane_terminal_loop_operational_proof_status.post_cycle_end_to_end_contract_all_required_surfaces_present'));
+        $this->assertSame([], data_get($payload, 'agent_control_plane_terminal_loop_operational_proof_status.post_cycle_end_to_end_contract_failed_check_ids'));
+        $this->assertContains('auto_replenishment', data_get($payload, 'agent_control_plane_terminal_loop_operational_proof_status.post_cycle_end_to_end_contract_covered_capabilities'));
+        $this->assertContains('retomada', data_get($payload, 'agent_control_plane_terminal_loop_operational_proof_status.post_cycle_end_to_end_contract_covered_capabilities'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'agent_control_plane_terminal_loop_operational_proof_status.post_cycle_end_to_end_contract_hash'));
+        $this->assertSame('atlas.self_construction.agent_control_plane_terminal_loop_operational_resume_packet.v1', data_get($payload, 'agent_control_plane_terminal_loop_operational_proof_status.resume_packet_schema'));
+        $this->assertSame('read_only_terminal_loop_resume_packet', data_get($payload, 'agent_control_plane_terminal_loop_operational_proof_status.resume_packet_mode'));
+        $this->assertSame('cli-proof-one', data_get($payload, 'agent_control_plane_terminal_loop_operational_proof_status.resume_packet_proof_id'));
+        $this->assertSame(['terminal_loop_operational_proof_cli-proof-one'], data_get($payload, 'agent_control_plane_terminal_loop_operational_proof_status.resume_packet_queue_tags'));
         $this->assertTrue(data_get($payload, 'agent_control_plane_terminal_loop_operational_proof_status.resume_packet_can_resume_without_chat_history'));
         $this->assertFalse(data_get($payload, 'agent_control_plane_terminal_loop_operational_proof_status.resume_packet_safe_to_start_new_worker'));
         $this->assertSame('replenish_task_supply', data_get($payload, 'agent_control_plane_terminal_loop_operational_proof_status.resume_packet_recommended_action'));
+        $this->assertSame('fleet_resume_rollup_clear', data_get($payload, 'agent_control_plane_terminal_loop_operational_proof_status.resume_packet_resume_rollup_status'));
+        $this->assertFalse(data_get($payload, 'agent_control_plane_terminal_loop_operational_proof_status.resume_packet_resume_attention_required'));
+        $this->assertFalse(data_get($payload, 'agent_control_plane_terminal_loop_operational_proof_status.resume_packet_resume_can_claim_from_rollup'));
+        $this->assertFalse(data_get($payload, 'agent_control_plane_terminal_loop_operational_proof_status.resume_packet_resume_can_recover_from_rollup'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'agent_control_plane_terminal_loop_operational_proof_status.resume_packet_resume_rollup_hash'));
+        $this->assertSame('fleet_operator_handoff_replenish_before_launch', data_get($payload, 'agent_control_plane_terminal_loop_operational_proof_status.resume_packet_operator_handoff_status'));
+        $this->assertSame('replenish_task_supply_then_recheck_digest', data_get($payload, 'agent_control_plane_terminal_loop_operational_proof_status.resume_packet_operator_handoff_next_action'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'agent_control_plane_terminal_loop_operational_proof_status.resume_packet_operator_handoff_hash'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'agent_control_plane_terminal_loop_operational_proof_status.resume_packet_health_digest_hash'));
+        $this->assertSame([
+            'inspect_health',
+            'preview_next_worker_bootstrap',
+            'replenish_and_claim_next_worker',
+            'run_bounded_operational_proof',
+        ], data_get($payload, 'agent_control_plane_terminal_loop_operational_proof_status.resume_packet_command_keys'));
+        $this->assertStringContainsString('--queue-tag=terminal_loop_operational_proof_cli-proof-one', data_get($payload, 'agent_control_plane_terminal_loop_operational_proof_status.resume_packet_commands.inspect_health'));
+        $this->assertStringContainsString('--queue-tag=terminal_loop_operational_proof_cli-proof-one', data_get($payload, 'agent_control_plane_terminal_loop_operational_proof_status.resume_packet_commands.preview_next_worker_bootstrap'));
+        $this->assertStringContainsString('--queue-tag=terminal_loop_operational_proof_cli-proof-one', data_get($payload, 'agent_control_plane_terminal_loop_operational_proof_status.resume_packet_commands.replenish_and_claim_next_worker'));
+        $this->assertStringContainsString('--proof-id=cli-proof-one', data_get($payload, 'agent_control_plane_terminal_loop_operational_proof_status.resume_packet_commands.run_bounded_operational_proof'));
+        $this->assertSame('atlas.self_construction.agent_control_plane_terminal_loop_next_cycle_certificate.v1', data_get($payload, 'agent_control_plane_terminal_loop_operational_proof_status.resume_packet_next_cycle_certificate.schema_version'));
         $this->assertSame('next_cycle_replenishment_required', data_get($payload, 'agent_control_plane_terminal_loop_operational_proof_status.resume_packet_next_cycle_status'));
         $this->assertSame('replenish_and_claim_next_worker', data_get($payload, 'agent_control_plane_terminal_loop_operational_proof_status.resume_packet_next_safe_command_key'));
         $this->assertTrue(data_get($payload, 'agent_control_plane_terminal_loop_operational_proof_status.resume_packet_all_commands_lane_bound'));
+        $this->assertFalse(data_get($payload, 'agent_control_plane_terminal_loop_operational_proof_status.resume_packet_next_cycle_certificate.requires_provider'));
+        $this->assertFalse(data_get($payload, 'agent_control_plane_terminal_loop_operational_proof_status.resume_packet_next_cycle_certificate.requires_token_spend'));
+        $this->assertSame([
+            'do_not_call_provider',
+            'do_not_spend_tokens',
+            'do_not_dispatch_real_work',
+            'do_not_mark_real_completion',
+            'do_not_depend_on_chat_history',
+        ], data_get($payload, 'agent_control_plane_terminal_loop_operational_proof_status.resume_packet_forbidden_actions'));
+        $this->assertSame(5, data_get($payload, 'agent_control_plane_terminal_loop_operational_proof_status.resume_packet_forbidden_action_count'));
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'agent_control_plane_terminal_loop_operational_proof_status.resume_packet_hash'));
         $this->assertSame('passed', data_get($payload, 'agent_control_plane_terminal_loop_operational_proof_status.recovery_resume_proof_status'));
         $this->assertSame('requeue_released_task_via_recovery', data_get($payload, 'agent_control_plane_terminal_loop_operational_proof_status.recovery_resume_safe_next_action'));
@@ -282,7 +340,7 @@ final class AtlasAiSelfConstructionAgentControlPlaneTerminalLoopOperationalProof
         $this->assertSame(0, data_get($payload, 'agent_control_plane_terminal_loop_operational_proof_status.partial_supply_bootstrap_post_cleanup_claimable_count'));
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'agent_control_plane_terminal_loop_operational_proof_status.partial_supply_bootstrap_gate_proof_hash'));
         $this->assertTrue(data_get($payload, 'agent_control_plane_terminal_loop_operational_proof_status.operational_readiness_matrix_all_true'));
-        $this->assertSame(10, data_get($payload, 'agent_control_plane_terminal_loop_operational_proof_status.operational_readiness_matrix_row_count'));
+        $this->assertSame(11, data_get($payload, 'agent_control_plane_terminal_loop_operational_proof_status.operational_readiness_matrix_row_count'));
         $this->assertSame(0, data_get($payload, 'agent_control_plane_terminal_loop_operational_proof_status.operational_readiness_matrix_failed_row_count'));
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'agent_control_plane_terminal_loop_operational_proof_status.operational_readiness_matrix_hash'));
         $this->assertFalse(data_get($payload, 'agent_control_plane_terminal_loop_operational_proof_status.completion_real_allowed'));

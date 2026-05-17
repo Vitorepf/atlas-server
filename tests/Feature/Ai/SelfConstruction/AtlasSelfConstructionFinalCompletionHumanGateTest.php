@@ -105,8 +105,10 @@ final class AtlasSelfConstructionFinalCompletionHumanGateTest extends TestCase
 
         $this->assertArrayHasKey('refresh_completion_audit', $commands);
         $this->assertArrayHasKey('refresh_terminal_loop_operational_proof', $commands);
+        $this->assertArrayHasKey('persist_terminal_loop_operational_proof_binding', $commands);
         $this->assertArrayHasKey('refresh_completion_audit_with_terminal_loop_operational_proof', $commands);
         $this->assertStringContainsString('terminal-loop-operational-proof-status', (string) $commands['refresh_terminal_loop_operational_proof']);
+        $this->assertStringContainsString('--persist-terminal-loop-operational-proof-binding', (string) $commands['persist_terminal_loop_operational_proof_binding']);
         $this->assertStringContainsString('--agent-control-plane-terminal-loop-operational-proof-json=', (string) $commands['refresh_completion_audit_with_terminal_loop_operational_proof']);
         $this->assertSame(
             'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --runtime-promotion-receipt-json=@/path/to/runtime-promotion.json --persist-runtime-promotion-receipt --json',

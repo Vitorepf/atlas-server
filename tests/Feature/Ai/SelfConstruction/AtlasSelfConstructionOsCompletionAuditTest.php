@@ -212,7 +212,11 @@ final class AtlasSelfConstructionOsCompletionAuditTest extends TestCase
         $this->assertArrayHasKey('token_cost_capture_requirements', $smokeRunbook);
         $this->assertArrayHasKey('work_product_collection_requirements', $smokeRunbook);
         $this->assertContains('persist_passed_real_provider_smoke', (array) data_get($smokeRunbook, 'kill_switch.forbidden_after_abort', []));
+        $this->assertStringContainsString('real-provider-smoke-draft-status', (string) data_get($smokeRunbook, 'kill_switch.atlas_side_abort_diagnostic_command'));
         $this->assertTrue((bool) data_get($smokeRunbook, 'rollback_expectations.no_atlas_owned_state_mutated'));
+        $this->assertTrue((bool) data_get($smokeRunbook, 'rollback_expectations.aborted_smoke_must_be_recorded_as_non_passing_operator_evidence'));
+        $this->assertTrue((bool) data_get($smokeRunbook, 'rollback_expectations.aborted_smoke_must_not_be_persisted_as_passed_completion_evidence'));
+        $this->assertTrue((bool) data_get($smokeRunbook, 'rollback_expectations.no_completion_evidence_persistence_for_aborted_smoke'));
     }
 
     public function test_audit_doc_anchors_point_at_real_contract_doc(): void
@@ -336,6 +340,8 @@ final class AtlasSelfConstructionOsCompletionAuditTest extends TestCase
             'terminal_loop_cycle_supervisor_present',
             'terminal_loop_cycle_supervisor_launch_path_verified',
             'terminal_loop_cycle_supervisor_evidence_review_path_verified',
+            'terminal_loop_fleet_launch_runbook_present',
+            'terminal_loop_fleet_launch_runbook_ready_path_verified',
         ] as $invariant) {
             $this->assertArrayHasKey($invariant, $block['invariants']);
         }

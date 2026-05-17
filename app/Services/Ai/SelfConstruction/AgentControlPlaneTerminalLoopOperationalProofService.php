@@ -170,6 +170,22 @@ final class AgentControlPlaneTerminalLoopOperationalProofService
                 && (bool) data_get($afterDigest, 'terminal_loop_cycle_supervisor.can_call_provider_from_supervisor') === false
                 && (bool) data_get($afterDigest, 'terminal_loop_cycle_supervisor.can_spend_tokens_from_supervisor') === false
                 && (string) data_get($afterDigest, 'terminal_loop_cycle_supervisor.terminal_loop_cycle_supervisor_hash') !== '',
+            'post_cycle_end_to_end_contract_available' => (string) data_get($afterDigest, 'terminal_loop_end_to_end_contract.schema_version') === AgentControlPlaneTerminalLoopHealthDigestService::END_TO_END_LOOP_CONTRACT_SCHEMA_VERSION
+                && (string) data_get($afterDigest, 'terminal_loop_end_to_end_contract.status') === 'terminal_loop_end_to_end_contract_available'
+                && (bool) data_get($afterDigest, 'terminal_loop_end_to_end_contract.all_required_surfaces_present', false)
+                && data_get($afterDigest, 'terminal_loop_end_to_end_contract.failed_check_ids', []) === []
+                && preg_match('/^[a-f0-9]{64}$/', (string) data_get($afterDigest, 'terminal_loop_end_to_end_contract.terminal_loop_end_to_end_contract_hash', '')) === 1,
+            'post_cycle_end_to_end_contract_covers_required_loop_surfaces' => count(array_diff(
+                ['auto_replenishment', 'validation', 'leases', 'evidence', 'retomada', 'lane_isolation', 'cycle_supervision', 'operator_handoff'],
+                (array) data_get($afterDigest, 'terminal_loop_end_to_end_contract.covered_capabilities', []),
+            )) === 0,
+            'post_cycle_end_to_end_contract_is_read_only' => (bool) data_get($afterDigest, 'terminal_loop_end_to_end_contract.can_execute_from_contract', true) === false
+                && (bool) data_get($afterDigest, 'terminal_loop_end_to_end_contract.can_replenish_from_contract', true) === false
+                && (bool) data_get($afterDigest, 'terminal_loop_end_to_end_contract.can_recover_from_contract', true) === false
+                && (bool) data_get($afterDigest, 'terminal_loop_end_to_end_contract.can_claim_from_contract', true) === false
+                && (bool) data_get($afterDigest, 'terminal_loop_end_to_end_contract.can_complete_from_contract', true) === false
+                && (bool) data_get($afterDigest, 'terminal_loop_end_to_end_contract.can_call_provider_from_contract', true) === false
+                && (bool) data_get($afterDigest, 'terminal_loop_end_to_end_contract.can_spend_tokens_from_contract', true) === false,
             'post_cycle_digest_can_resume_without_chat_history' => (bool) data_get($afterDigest, 'loop_decision.can_loop_without_chat_history', false),
             'resume_packet_ready_for_next_terminal' => (bool) data_get($resumePacket, 'can_resume_without_chat_history', false)
                 && (string) data_get($resumePacket, 'recommended_action', '') !== ''
@@ -193,6 +209,7 @@ final class AgentControlPlaneTerminalLoopOperationalProofService
             'resume_packet_hash' => $resumePacketHash,
             'post_cycle_health_digest_hash' => (string) data_get($afterDigest, 'terminal_loop_health_digest_hash', ''),
             'post_cycle_cycle_supervisor_hash' => (string) data_get($afterDigest, 'terminal_loop_cycle_supervisor.terminal_loop_cycle_supervisor_hash', ''),
+            'post_cycle_end_to_end_contract_hash' => (string) data_get($afterDigest, 'terminal_loop_end_to_end_contract.terminal_loop_end_to_end_contract_hash', ''),
         ]);
         $invariants['operational_readiness_matrix_all_true'] = (bool) $operationalReadinessMatrix['all_true'];
         $violations = array_keys(array_filter($invariants, static fn (bool $passed): bool => ! $passed));
@@ -238,6 +255,12 @@ final class AgentControlPlaneTerminalLoopOperationalProofService
             'post_cycle_cycle_supervisor_cycle_state' => (string) data_get($afterDigest, 'terminal_loop_cycle_supervisor.cycle_state', ''),
             'post_cycle_cycle_supervisor_next_command_purpose' => (string) data_get($afterDigest, 'terminal_loop_cycle_supervisor.next_command_purpose', ''),
             'post_cycle_cycle_supervisor_hash' => (string) data_get($afterDigest, 'terminal_loop_cycle_supervisor.terminal_loop_cycle_supervisor_hash', ''),
+            'post_cycle_end_to_end_contract_status' => (string) data_get($afterDigest, 'terminal_loop_end_to_end_contract.status', ''),
+            'post_cycle_end_to_end_contract_all_required_surfaces_present' => (bool) data_get($afterDigest, 'terminal_loop_end_to_end_contract.all_required_surfaces_present', false),
+            'post_cycle_end_to_end_contract_covered_capabilities' => (array) data_get($afterDigest, 'terminal_loop_end_to_end_contract.covered_capabilities', []),
+            'post_cycle_end_to_end_contract_failed_check_ids' => (array) data_get($afterDigest, 'terminal_loop_end_to_end_contract.failed_check_ids', []),
+            'post_cycle_end_to_end_contract_next_safe_command_purpose' => (string) data_get($afterDigest, 'terminal_loop_end_to_end_contract.next_safe_command_purpose', ''),
+            'post_cycle_end_to_end_contract_hash' => (string) data_get($afterDigest, 'terminal_loop_end_to_end_contract.terminal_loop_end_to_end_contract_hash', ''),
             'invariants' => $invariants,
             'invariants_all_true' => $violations === [],
             'violations' => $violations,
@@ -300,6 +323,14 @@ final class AgentControlPlaneTerminalLoopOperationalProofService
                 'cycle_state' => (string) data_get($proof, 'post_cycle_cycle_supervisor_cycle_state', ''),
                 'next_command_purpose' => (string) data_get($proof, 'post_cycle_cycle_supervisor_next_command_purpose', ''),
                 'hash' => (string) data_get($proof, 'post_cycle_cycle_supervisor_hash', ''),
+            ],
+            'post_cycle_end_to_end_contract' => [
+                'status' => (string) data_get($proof, 'post_cycle_end_to_end_contract_status', ''),
+                'all_required_surfaces_present' => (bool) data_get($proof, 'post_cycle_end_to_end_contract_all_required_surfaces_present', false),
+                'covered_capabilities' => (array) data_get($proof, 'post_cycle_end_to_end_contract_covered_capabilities', []),
+                'failed_check_ids' => (array) data_get($proof, 'post_cycle_end_to_end_contract_failed_check_ids', []),
+                'next_safe_command_purpose' => (string) data_get($proof, 'post_cycle_end_to_end_contract_next_safe_command_purpose', ''),
+                'hash' => (string) data_get($proof, 'post_cycle_end_to_end_contract_hash', ''),
             ],
             'post_cycle_cleanup_state' => [
                 'claimed_task_count' => (int) data_get($proof, 'post_cycle_cleanup_state.claimed_task_count', data_get($proof, 'post_cycle_claimed_task_count', 0)),
@@ -557,6 +588,16 @@ final class AgentControlPlaneTerminalLoopOperationalProofService
                 ],
                 $invariants,
                 [$hashes['post_cycle_cycle_supervisor_hash'] ?? ''],
+            ),
+            $this->matrixRow(
+                'post_cycle_end_to_end_loop_contract',
+                [
+                    'post_cycle_end_to_end_contract_available',
+                    'post_cycle_end_to_end_contract_covers_required_loop_surfaces',
+                    'post_cycle_end_to_end_contract_is_read_only',
+                ],
+                $invariants,
+                [$hashes['post_cycle_end_to_end_contract_hash'] ?? ''],
             ),
             $this->matrixRow(
                 'post_cycle_health_and_runtime_safety',

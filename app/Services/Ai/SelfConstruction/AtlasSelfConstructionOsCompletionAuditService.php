@@ -1092,6 +1092,10 @@ final class AtlasSelfConstructionOsCompletionAuditService
                 && class_exists(AgentControlPlaneTaskQueueOrchestrator::class),
             'terminal_loop_cycle_supervisor_evidence_review_path_verified' => class_exists(AgentControlPlaneTerminalLoopHealthDigestService::class)
                 && class_exists(AgentControlPlaneTaskQueueOrchestrator::class),
+            'terminal_loop_fleet_launch_runbook_present' => class_exists(AgentControlPlaneTerminalLoopHealthDigestService::class)
+                && defined(AgentControlPlaneTerminalLoopHealthDigestService::class.'::FLEET_LAUNCH_RUNBOOK_SCHEMA_VERSION'),
+            'terminal_loop_fleet_launch_runbook_ready_path_verified' => class_exists(AgentControlPlaneTerminalLoopHealthDigestService::class)
+                && class_exists(AgentControlPlaneTaskQueueOrchestrator::class),
             'certification_cleanup_leaves_no_recoverable_terminal_loop_artifacts' => class_exists(AgentControlPlaneTerminalLoopHealthDigestService::class)
                 && class_exists(AgentControlPlaneTaskLeaseRecoveryService::class),
             'worker_invalid_scope_rejected' => class_exists(AgentControlPlaneOneShotWorkerPacketService::class)

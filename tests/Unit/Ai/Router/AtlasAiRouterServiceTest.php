@@ -101,6 +101,35 @@ class AtlasAiRouterServiceTest extends TestCase
         $this->assertTrue(data_get($decision->handoffPayload, 'intent_kernel.planning_required'));
     }
 
+    public function test_routes_pesquise_prompt_to_research(): void
+    {
+        $decision = app(AtlasAiRouterService::class)->decide([
+            'input_text' => 'Pesquise o melhor caminho tecnico e separe fato de inferencia',
+            'payload' => [
+                'surface_id' => 'atlas_desktop_ai',
+            ],
+        ]);
+
+        $this->assertSame(AtlasAiRouterDecision::FLOW_RESEARCH, $decision->flowId);
+        $this->assertSame('research_like_intent', $decision->routingReason);
+        $this->assertSame('research', data_get($decision->handoffPayload, 'intent_kernel.intent_class'));
+    }
+
+    public function test_routes_debug_workspace_prompt_to_debug_with_dev_alternative(): void
+    {
+        $decision = app(AtlasAiRouterService::class)->decide([
+            'input_text' => 'Debug esse stacktrace no workspace atlas e rode o menor teste relevante.',
+            'payload' => [
+                'surface_id' => 'atlas_desktop_ai',
+                'workspace' => '/repo',
+            ],
+        ]);
+
+        $this->assertSame(AtlasAiRouterDecision::FLOW_DEBUG, $decision->flowId);
+        $this->assertSame('logs_or_stacktrace_signal', $decision->routingReason);
+        $this->assertContains(AtlasAiRouterDecision::FLOW_DEV, $decision->alternativeFlowIds);
+    }
+
     public function test_slash_plan_overrides_auto_routing(): void
     {
         $decision = app(AtlasAiRouterService::class)->decide([

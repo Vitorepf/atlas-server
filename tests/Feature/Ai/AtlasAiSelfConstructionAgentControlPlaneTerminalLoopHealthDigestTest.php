@@ -119,6 +119,25 @@ final class AtlasAiSelfConstructionAgentControlPlaneTerminalLoopHealthDigestTest
         $this->assertFalse(data_get($digest, 'terminal_loop_cycle_supervisor.can_replenish_from_supervisor'));
         $this->assertFalse(data_get($digest, 'terminal_loop_cycle_supervisor.can_call_provider_from_supervisor'));
         $this->assertNotEmpty(data_get($digest, 'terminal_loop_cycle_supervisor.terminal_loop_cycle_supervisor_hash'));
+        $this->assertSame(
+            AgentControlPlaneTerminalLoopHealthDigestService::END_TO_END_LOOP_CONTRACT_SCHEMA_VERSION,
+            data_get($digest, 'terminal_loop_end_to_end_contract.schema_version'),
+        );
+        $this->assertSame('terminal_loop_end_to_end_contract_available', data_get($digest, 'terminal_loop_end_to_end_contract.status'));
+        $this->assertTrue(data_get($digest, 'terminal_loop_end_to_end_contract.all_required_surfaces_present'));
+        $this->assertSame([], data_get($digest, 'terminal_loop_end_to_end_contract.failed_check_ids'));
+        $this->assertContains('auto_replenishment', data_get($digest, 'terminal_loop_end_to_end_contract.covered_capabilities'));
+        $this->assertContains('validation', data_get($digest, 'terminal_loop_end_to_end_contract.covered_capabilities'));
+        $this->assertContains('leases', data_get($digest, 'terminal_loop_end_to_end_contract.covered_capabilities'));
+        $this->assertContains('evidence', data_get($digest, 'terminal_loop_end_to_end_contract.covered_capabilities'));
+        $this->assertContains('retomada', data_get($digest, 'terminal_loop_end_to_end_contract.covered_capabilities'));
+        $this->assertStringContainsString('--agent-control-plane-task-auto-replenishment-status', data_get($digest, 'terminal_loop_end_to_end_contract.next_safe_command'));
+        $this->assertFalse(data_get($digest, 'terminal_loop_end_to_end_contract.can_execute_from_contract'));
+        $this->assertFalse(data_get($digest, 'terminal_loop_end_to_end_contract.can_replenish_from_contract'));
+        $this->assertFalse(data_get($digest, 'terminal_loop_end_to_end_contract.can_recover_from_contract'));
+        $this->assertFalse(data_get($digest, 'terminal_loop_end_to_end_contract.can_claim_from_contract'));
+        $this->assertFalse(data_get($digest, 'terminal_loop_end_to_end_contract.can_complete_from_contract'));
+        $this->assertNotEmpty(data_get($digest, 'terminal_loop_end_to_end_contract.terminal_loop_end_to_end_contract_hash'));
         $this->assertFalse(data_get($digest, 'runtime_safety.dispatch_allowed'));
         $this->assertFalse(data_get($digest, 'runtime_safety.provider_call_allowed'));
     }
@@ -176,6 +195,103 @@ final class AtlasAiSelfConstructionAgentControlPlaneTerminalLoopHealthDigestTest
         $this->assertTrue(data_get($digest, 'terminal_loop_cycle_supervisor.next_command_is_lane_bound'));
         $this->assertSame(2, data_get($digest, 'terminal_loop_cycle_supervisor.operator_loop_contract.max_recommended_terminals_per_batch'));
         $this->assertFalse(data_get($digest, 'terminal_loop_cycle_supervisor.can_claim_from_supervisor'));
+        $this->assertSame(
+            AgentControlPlaneTerminalLoopHealthDigestService::FLEET_LAUNCH_RUNBOOK_SCHEMA_VERSION,
+            data_get($digest, 'terminal_loop_fleet_launch_runbook.schema_version'),
+        );
+        $this->assertSame('fleet_launch_runbook_ready', data_get($digest, 'terminal_loop_fleet_launch_runbook.status'));
+        $this->assertTrue(data_get($digest, 'terminal_loop_fleet_launch_runbook.safe_to_copy_after_operator_review'));
+        $this->assertTrue(data_get($digest, 'terminal_loop_fleet_launch_runbook.can_resume_without_chat_history'));
+        $this->assertSame(2, data_get($digest, 'terminal_loop_fleet_launch_runbook.terminal_count'));
+        $this->assertCount(2, data_get($digest, 'terminal_loop_fleet_launch_runbook.terminal_steps'));
+        $this->assertStringContainsString('--actor=operator-b-fleet-01', data_get($digest, 'terminal_loop_fleet_launch_runbook.terminal_steps.0.command'));
+        $this->assertContains('copy_each_terminal_command_into_separate_terminal', data_get($digest, 'terminal_loop_fleet_launch_runbook.ordered_operator_sequence'));
+        $this->assertStringContainsString('--agent-control-plane-terminal-loop-health-digest-status', data_get($digest, 'terminal_loop_fleet_launch_runbook.resume_after_interruption.resume_command'));
+        $this->assertTrue(data_get($digest, 'terminal_loop_fleet_launch_runbook.resume_after_interruption.requires_fresh_health_digest_before_starting_more_terminals'));
+        $this->assertContains('health_digest_no_longer_ready', data_get($digest, 'terminal_loop_fleet_launch_runbook.stop_conditions'));
+        $this->assertFalse(data_get($digest, 'terminal_loop_fleet_launch_runbook.can_start_terminals_from_runbook'));
+        $this->assertFalse(data_get($digest, 'terminal_loop_fleet_launch_runbook.can_execute_commands_from_runbook'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($digest, 'terminal_loop_fleet_launch_runbook.terminal_loop_fleet_launch_runbook_hash'));
+        $this->assertSame('terminal_loop_end_to_end_contract_available', data_get($digest, 'terminal_loop_end_to_end_contract.status'));
+        $this->assertTrue(data_get($digest, 'terminal_loop_end_to_end_contract.all_required_surfaces_present'));
+        $this->assertStringContainsString('--agent-control-plane-terminal-worker-bootstrap-status', data_get($digest, 'terminal_loop_end_to_end_contract.next_safe_command'));
+        $this->assertStringContainsString('--agent-control-plane-terminal-loop-health-digest-status', data_get($digest, 'terminal_loop_end_to_end_contract.resume_without_chat_history_command'));
+    }
+
+    public function test_cli_status_exposes_fleet_launch_commands_when_workers_are_ready(): void
+    {
+        $orchestrator = $this->orchestrator();
+        $orchestrator->prepareAndEnqueue(['task_packet' => $this->input('cli-ready-1'), 'queue' => ['tags' => ['cli-ready-lane']]]);
+        $orchestrator->prepareAndEnqueue(['task_packet' => $this->input('cli-ready-2'), 'queue' => ['tags' => ['cli-ready-lane']]]);
+
+        Artisan::call('atlas:ai:self-construction', [
+            '--agent-control-plane-terminal-loop-health-digest-status' => true,
+            '--actor' => 'cli-ready-operator',
+            '--target-min-claimable-tasks' => 2,
+            '--max-new-tasks' => 2,
+            '--queue-tag' => ['cli-ready-lane'],
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+        $status = data_get($payload, 'agent_control_plane_terminal_loop_health_digest_status');
+
+        $this->assertSame('ready', data_get($status, 'status'));
+        $this->assertSame('continue_or_start_terminal_workers', data_get($status, 'recommended_action'));
+        $this->assertTrue(data_get($status, 'safe_to_start_new_worker'));
+        $this->assertSame('fleet_launch_plan_ready', data_get($status, 'terminal_loop_fleet_launch_plan_status'));
+        $this->assertSame(2, data_get($status, 'terminal_loop_fleet_recommended_terminal_count'));
+        $this->assertTrue(data_get($status, 'terminal_loop_fleet_safe_to_start_now'));
+        $this->assertCount(2, data_get($status, 'terminal_loop_fleet_terminal_assignments'));
+        $this->assertCount(2, data_get($status, 'terminal_loop_fleet_copy_paste_terminal_commands'));
+        $this->assertSame('cli-ready-operator-fleet-01', data_get($status, 'terminal_loop_fleet_terminal_assignments.0.actor'));
+        $this->assertSame('cli-ready-operator-fleet-02', data_get($status, 'terminal_loop_fleet_terminal_assignments.1.actor'));
+        $this->assertStringContainsString('--actor=cli-ready-operator-fleet-01', data_get($status, 'terminal_loop_fleet_copy_paste_terminal_commands.0'));
+        $this->assertStringContainsString('--actor=cli-ready-operator-fleet-02', data_get($status, 'terminal_loop_fleet_copy_paste_terminal_commands.1'));
+        $this->assertStringContainsString('--queue-tag=cli-ready-lane', data_get($status, 'terminal_loop_fleet_copy_paste_terminal_commands.0'));
+        $this->assertStringContainsString('--agent-control-plane-terminal-worker-bootstrap-status', data_get($status, 'terminal_loop_fleet_copy_paste_terminal_commands.0'));
+        $this->assertTrue(data_get($status, 'terminal_loop_fleet_start_policy.operator_must_start_terminals_manually'));
+        $this->assertContains('do_not_share_one_claimed_packet_between_terminals', data_get($status, 'terminal_loop_fleet_forbidden_shortcuts'));
+        $this->assertStringContainsString('--agent-control-plane-terminal-loop-health-digest-status', data_get($status, 'terminal_loop_fleet_post_launch_observability_commands.health_digest'));
+        $this->assertSame('fleet_operator_handoff_launch_workers', data_get($status, 'terminal_loop_fleet_operator_handoff_status'));
+        $this->assertSame('start_recommended_terminal_workers', data_get($status, 'terminal_loop_fleet_operator_handoff_next_action'));
+        $this->assertStringContainsString('--actor=cli-ready-operator-fleet-01', data_get($status, 'terminal_loop_fleet_operator_handoff_primary_command'));
+        $this->assertStringContainsString('--agent-control-plane-terminal-loop-health-digest-status', data_get($status, 'terminal_loop_fleet_operator_handoff_copy_paste_commands.health_digest'));
+        $this->assertContains('start_recommended_terminal_workers', data_get($status, 'terminal_loop_fleet_operator_handoff_ordered_sequence'));
+        $this->assertContains('confirm_queue_tags_match_terminal_lane', data_get($status, 'terminal_loop_fleet_operator_handoff_operator_checks'));
+        $this->assertFalse(data_get($status, 'terminal_loop_fleet_operator_handoff_can_execute'));
+        $this->assertSame('cycle_worker_launch_ready', data_get($status, 'terminal_loop_cycle_supervisor_status'));
+        $this->assertStringContainsString('--actor=cli-ready-operator-fleet-01', data_get($status, 'terminal_loop_cycle_supervisor_next_command'));
+        $this->assertSame(2, data_get($status, 'terminal_loop_cycle_supervisor_operator_loop_contract.max_recommended_terminals_per_batch'));
+        $this->assertFalse(data_get($status, 'terminal_loop_cycle_supervisor_can_execute'));
+        $this->assertSame(
+            AgentControlPlaneTerminalLoopHealthDigestService::FLEET_LAUNCH_RUNBOOK_SCHEMA_VERSION,
+            data_get($status, 'terminal_loop_fleet_launch_runbook_schema'),
+        );
+        $this->assertSame('fleet_launch_runbook_ready', data_get($status, 'terminal_loop_fleet_launch_runbook_status'));
+        $this->assertTrue(data_get($status, 'terminal_loop_fleet_launch_runbook_safe_to_copy_after_operator_review'));
+        $this->assertTrue(data_get($status, 'terminal_loop_fleet_launch_runbook_can_resume_without_chat_history'));
+        $this->assertSame(2, data_get($status, 'terminal_loop_fleet_launch_runbook_terminal_count'));
+        $this->assertCount(2, data_get($status, 'terminal_loop_fleet_launch_runbook_terminal_steps'));
+        $this->assertStringContainsString('--actor=cli-ready-operator-fleet-01', data_get($status, 'terminal_loop_fleet_launch_runbook_terminal_steps.0.command'));
+        $this->assertContains('copy_each_terminal_command_into_separate_terminal', data_get($status, 'terminal_loop_fleet_launch_runbook_ordered_sequence'));
+        $this->assertStringContainsString('--agent-control-plane-terminal-loop-health-digest-status', data_get($status, 'terminal_loop_fleet_launch_runbook_resume_command'));
+        $this->assertTrue(data_get($status, 'terminal_loop_fleet_launch_runbook_requires_fresh_digest_before_more_terminals'));
+        $this->assertContains('confirm_no_recoverable_leases', data_get($status, 'terminal_loop_fleet_launch_runbook_operator_checks'));
+        $this->assertContains('health_digest_no_longer_ready', data_get($status, 'terminal_loop_fleet_launch_runbook_stop_conditions'));
+        $this->assertFalse(data_get($status, 'terminal_loop_fleet_launch_runbook_can_start_terminals'));
+        $this->assertFalse(data_get($status, 'terminal_loop_fleet_launch_runbook_can_execute_commands'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($status, 'terminal_loop_fleet_launch_runbook_hash'));
+        $this->assertSame('terminal_loop_end_to_end_contract_available', data_get($status, 'terminal_loop_end_to_end_contract_status'));
+        $this->assertTrue(data_get($status, 'terminal_loop_end_to_end_contract_all_required_surfaces_present'));
+        $this->assertSame([], data_get($status, 'terminal_loop_end_to_end_contract_failed_check_ids'));
+        $this->assertContains('auto_replenishment', data_get($status, 'terminal_loop_end_to_end_contract_covered_capabilities'));
+        $this->assertContains('retomada', data_get($status, 'terminal_loop_end_to_end_contract_covered_capabilities'));
+        $this->assertStringContainsString('--agent-control-plane-terminal-worker-bootstrap-status', data_get($status, 'terminal_loop_end_to_end_contract_next_safe_command'));
+        $this->assertStringContainsString('--agent-control-plane-terminal-loop-health-digest-status', data_get($status, 'terminal_loop_end_to_end_contract_resume_without_chat_history_command'));
+        $this->assertFalse(data_get($status, 'terminal_loop_end_to_end_contract_can_execute'));
+        $this->assertFalse(data_get($status, 'terminal_loop_end_to_end_contract_can_claim'));
+        $this->assertNotEmpty(data_get($status, 'terminal_loop_end_to_end_contract_hash'));
     }
 
     public function test_digest_blocks_fleet_launch_until_claimable_supply_meets_target(): void

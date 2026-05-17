@@ -183,7 +183,7 @@ Persistencia:
 - `router_decision` em `AiTraceResource`
 - diagnostics em telemetry score components
 
-## Specialist Flow Runtime Contract
+## [Specialist Flow Runtime Contract]
 
 O Router decide o fluxo, mas fluxos leves tambem precisam carregar um contrato
 auditavel antes da resposta do provider. O schema canonico inicial e:
@@ -243,7 +243,7 @@ Campos minimos do `receipt`:
 O `contract_hash` e deterministico para o mesmo contrato. Isso permite comparar
 payload, resource e telemetry sem depender de timestamp.
 
-## Specialist Flow Execution Packet
+## [Specialist Flow Execution Packet]
 
 Depois do runtime contract, o Atlas gera um pacote de execucao do handler:
 
@@ -290,7 +290,7 @@ Handlers iniciais:
 secao propria, para que o provider execute o fluxo com contrato visivel. A API e
 a telemetry tambem devem expor o execution packet.
 
-## Persistencia de Specialist Flow
+## [Persistencia de Specialist Flow]
 
 O registro persistente canonico e:
 
@@ -322,7 +322,7 @@ Ele guarda:
 carregada. `AiTraceMetricAggregator` prefere a tabela persistida e so cai para
 `ai_jobs.payload` quando o registro ainda nao existe.
 
-## Flow Status Read Model
+## [Flow Status Read Model]
 
 O endpoint canonico de UX/auditoria para Desktop e API e:
 
@@ -364,7 +364,7 @@ Implementacao atual:
 - rota `/ai/interactions/{trace}/flow-status`
 - teste `test_flow_status_endpoint_returns_enterprise_audit_read_model`
 
-## Router Runtime Readiness Gate
+## [Router Runtime Readiness Gate]
 
 O gate canonico para declarar se o Router Runtime + Specialist Flows estao
 instalados em nivel enterprise auditavel e:
@@ -398,7 +398,7 @@ Checks minimos:
 O gate nao executa provider, nao edita workspace e nao grava dados. Ele e uma
 prova operacional de instalacao/contrato para Desktop, outras IAs e operadores.
 
-## Router Runtime Bootstrap
+## [Router Runtime Bootstrap]
 
 O contrato canonico para Desktop/API renderizar o Router Runtime sem hardcode e:
 
@@ -492,13 +492,8 @@ Evidencia minima:
 
 - `AtlasAiRouterService` com unit tests.
 - `ai_router_decisions` persistindo `flow_id` e motivo.
-- `/ai/interactions` injeta `atlas_ai_router`.
-- `/ai/interactions` injeta `specialist_flow_runtime` para fluxos leves.
-- `/ai/interactions` injeta `specialist_flow_execution` para fluxos leves.
-- `AiTraceResource` expõe RouterDecision.
-- `AiTraceResource` expõe Specialist Flow Runtime.
-- `AiTraceResource` expõe Specialist Flow Execution.
-- `AiTraceResource` expõe Specialist Flow Execution Record persistido.
+- `/ai/interactions` injeta RouterDecision, Specialist Flow Runtime e Specialist Flow Execution.
+- `AiTraceResource` expõe RouterDecision, runtime, execution e execution record persistido.
 - telemetry inclui Router e Specialist Flow diagnostics.
 - docs-health passa.
 
@@ -512,18 +507,8 @@ Evidencia minima:
 
 ## Exemplos
 
-- "Implemente endpoint" + workspace -> `atlas_dev`.
-- "Revise esse diff" + diff -> `atlas_review`.
-- "Investigue este traceback" -> `atlas_debug`.
-- "Planeje antes de implementar" -> `atlas_plan`.
-- "Pesquise estado da arte" -> `atlas_research`.
-- "Vamos pensar juntos" -> `atlas_conversation`.
-- Tela Atlas Code -> `atlas_forge`.
+Workspace -> `atlas_dev`; diff -> `atlas_review`; traceback -> `atlas_debug`; plano -> `atlas_plan`; pesquisa -> `atlas_research`; conversa -> `atlas_conversation`; Atlas Code -> `atlas_forge`.
 
 ## Proximas Acoes
 
-1. Transformar `specialist_flow_runtime` em handlers executaveis por fluxo.
-2. Criar contracts docs proprios para research/explain/debug/review/conversation.
-3. Expor RouterDecision e Specialist Flow Runtime no Desktop.
-4. Ampliar tests de matriz.
-5. Rodar hardening com docs-health, Pint e suites de Atlas AI/Dev.
+Concluir execucao externa Claude Code/Codex aprovada, depois acoplar UX pesada.

@@ -28,6 +28,7 @@ final class AtlasSelfConstructionCompletionFinalizationGateService
      */
     public function evaluate(array $options = []): array
     {
+        $terminalLoopProofJsonReference = $this->terminalLoopOperationalProofJsonReference($options);
         $completionAudit = (array) ($options['completion_audit']
             ?? (new AtlasSelfConstructionOsCompletionAuditService($this->readiness))->audit([
                 'completion_receipt' => (array) ($options['completion_receipt'] ?? []),
@@ -162,6 +163,7 @@ final class AtlasSelfConstructionCompletionFinalizationGateService
             failed: $failed,
             nextStageBlockers: $nextStageBlockers,
             completionClaimAllowed: $completionClaimAllowed,
+            terminalLoopProofJsonReference: $terminalLoopProofJsonReference,
         );
 
         $payload = [
@@ -191,7 +193,12 @@ final class AtlasSelfConstructionCompletionFinalizationGateService
             'terminal_loop_operational_proof_required_before_completion_claim' => true,
             'terminal_loop_operational_proof_expected_binding_schema' => 'atlas.self_construction.agent_control_plane_terminal_loop_operational_proof_audit_binding_packet.v1',
             'command_to_refresh_terminal_loop_operational_proof' => $this->terminalLoopOperationalProofCommand(),
-            'command_to_rerun_audit_with_terminal_loop_operational_proof' => $this->completionAuditWithTerminalLoopOperationalProofCommand(),
+            'command_to_persist_terminal_loop_operational_proof_binding' => $this->terminalLoopOperationalProofBindingPersistCommand(),
+            'command_to_capture_snapshot_after_terminal_loop_operational_proof' => $this->captureSnapshotAfterTerminalLoopOperationalProofCommand(),
+            'command_to_rerun_audit_with_terminal_loop_operational_proof' => $this->completionAuditWithTerminalLoopOperationalProofCommand($terminalLoopProofJsonReference),
+            'terminal_loop_operational_proof_json_reference' => $terminalLoopProofJsonReference,
+            'final_verification_sequence' => $this->finalVerificationSequence($terminalLoopProofJsonReference),
+            'completion_audit_green_requires_current_snapshot_after_terminal_loop_proof' => true,
             'completion_evidence_status_hash' => (string) data_get($completionEvidence, 'completion_evidence_status_hash', ''),
             'completion_audit_status' => (string) data_get($completionAudit, 'status'),
             'completion_audit_failed_criteria' => (array) data_get($completionAudit, 'failed_criteria', []),
@@ -233,6 +240,7 @@ final class AtlasSelfConstructionCompletionFinalizationGateService
         array $failed,
         array $nextStageBlockers,
         bool $completionClaimAllowed,
+        string $terminalLoopProofJsonReference = '',
     ): array {
         $failedCriteria = (array) data_get($completionAudit, 'failed_criteria', []);
         $blockerClassification = (array) data_get($completionAudit, 'blocker_classification', []);
@@ -259,19 +267,26 @@ final class AtlasSelfConstructionCompletionFinalizationGateService
             'human_signed_completion_receipt_status' => (string) data_get($completionEvidence, 'human_signed_completion_receipt.status', ''),
             'operator_evidence_readiness_command' => 'php artisan atlas:ai:self-construction --atlas-self-construction-operator-evidence-submission-readiness-status --json',
             'terminal_loop_operational_proof_command' => $this->terminalLoopOperationalProofCommand(),
+            'terminal_loop_operational_proof_binding_persist_command' => $this->terminalLoopOperationalProofBindingPersistCommand(),
+            'capture_snapshot_after_terminal_loop_operational_proof_command' => $this->captureSnapshotAfterTerminalLoopOperationalProofCommand(),
             'completion_audit_command' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --json',
-            'completion_audit_with_terminal_loop_operational_proof_command' => $this->completionAuditWithTerminalLoopOperationalProofCommand(),
-            'finalization_gate_command' => 'php artisan atlas:ai:self-construction --atlas-self-construction-completion-finalization-gate-status --json',
+            'completion_audit_with_terminal_loop_operational_proof_command' => $this->completionAuditWithTerminalLoopOperationalProofCommand($terminalLoopProofJsonReference),
+            'terminal_loop_operational_proof_json_reference' => $terminalLoopProofJsonReference,
+            'finalization_gate_command' => $this->completionFinalizationGateCommand($terminalLoopProofJsonReference),
             'ordered_next_commands' => [
                 'php artisan atlas:ai:self-construction --atlas-self-construction-operator-evidence-submission-readiness-status --json',
                 $this->terminalLoopOperationalProofCommand(),
-                $this->completionAuditWithTerminalLoopOperationalProofCommand(),
-                'php artisan atlas:ai:self-construction --atlas-self-construction-completion-finalization-gate-status --json',
+                $this->terminalLoopOperationalProofBindingPersistCommand(),
+                $this->captureSnapshotAfterTerminalLoopOperationalProofCommand(),
+                $this->completionAuditWithTerminalLoopOperationalProofCommand($terminalLoopProofJsonReference),
+                $this->completionFinalizationGateCommand($terminalLoopProofJsonReference),
             ],
+            'final_verification_sequence' => $this->finalVerificationSequence($terminalLoopProofJsonReference),
             'required_success_predicate' => [
                 'completion_audit_status_must_be_complete' => (string) data_get($completionAudit, 'status') === 'complete',
                 'completion_audit_failed_criteria_must_be_empty' => $failedCriteria === [],
                 'terminal_loop_operational_proof_must_be_bound_and_passed' => $this->terminalLoopOperationalProofAccepted($completionAudit),
+                'release_snapshot_must_be_current_after_terminal_loop_operational_proof' => true,
                 'completion_evidence_hashes_must_match_audit' => (bool) data_get($checks, 'evidence_hashes_match_completion_audit.passed', false),
                 'finalization_gate_failed_checks_must_be_empty' => $failed === [],
                 'completion_claim_allowed_must_be_true' => $completionClaimAllowed,
@@ -302,9 +317,61 @@ final class AtlasSelfConstructionCompletionFinalizationGateService
         return 'php artisan atlas:ai:self-construction --agent-control-plane-terminal-loop-operational-proof-status --json';
     }
 
-    private function completionAuditWithTerminalLoopOperationalProofCommand(): string
+    private function terminalLoopOperationalProofBindingPersistCommand(): string
     {
-        return 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --agent-control-plane-terminal-loop-operational-proof-json=@/path/to/terminal-loop-operational-proof-binding.json --json';
+        return 'php artisan atlas:ai:self-construction --agent-control-plane-terminal-loop-operational-proof-status --persist-terminal-loop-operational-proof-binding --json';
+    }
+
+    private function captureSnapshotAfterTerminalLoopOperationalProofCommand(): string
+    {
+        return 'php artisan atlas:ai:self-construction --agent-control-plane-replay-snapshot-store-capture --json';
+    }
+
+    private function completionAuditWithTerminalLoopOperationalProofCommand(string $proofJsonReference = ''): string
+    {
+        $reference = $proofJsonReference !== '' ? $proofJsonReference : '@/path/to/terminal-loop-operational-proof-binding.json';
+
+        return 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --agent-control-plane-terminal-loop-operational-proof-json='.$reference.' --json';
+    }
+
+    private function completionFinalizationGateCommand(string $proofJsonReference = ''): string
+    {
+        $suffix = $proofJsonReference !== ''
+            ? ' --agent-control-plane-terminal-loop-operational-proof-json='.$proofJsonReference
+            : '';
+
+        return 'php artisan atlas:ai:self-construction --atlas-self-construction-completion-finalization-gate-status'.$suffix.' --json';
+    }
+
+    /** @return list<array<string, mixed>> */
+    private function finalVerificationSequence(string $proofJsonReference = ''): array
+    {
+        return [
+            [
+                'id' => 'refresh_terminal_loop_operational_proof_and_export_binding',
+                'command' => $this->terminalLoopOperationalProofBindingPersistCommand(),
+                'may_make_release_snapshot_stale' => true,
+            ],
+            [
+                'id' => 'capture_replay_snapshot_after_terminal_loop_operational_proof',
+                'command' => $this->captureSnapshotAfterTerminalLoopOperationalProofCommand(),
+                'must_run_after' => 'refresh_terminal_loop_operational_proof_and_export_binding',
+            ],
+            [
+                'id' => 'rerun_completion_audit_with_terminal_loop_operational_proof_binding',
+                'command' => $this->completionAuditWithTerminalLoopOperationalProofCommand($proofJsonReference),
+                'must_run_after' => 'capture_replay_snapshot_after_terminal_loop_operational_proof',
+                'success_predicate' => 'completion_audit.status=complete AND completion_allowed=true AND failed_count=0',
+            ],
+        ];
+    }
+
+    /** @param array<string, mixed> $options */
+    private function terminalLoopOperationalProofJsonReference(array $options): string
+    {
+        $reference = trim((string) ($options['agent_control_plane_terminal_loop_operational_proof_json'] ?? ''));
+
+        return str_starts_with($reference, '@') ? $reference : '';
     }
 
     /** @param array<string, mixed> $completionAudit */

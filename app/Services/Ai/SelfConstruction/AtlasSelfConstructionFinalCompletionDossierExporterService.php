@@ -43,14 +43,15 @@ final class AtlasSelfConstructionFinalCompletionDossierExporterService
     {
         $persistExport = (bool) ($options['persist_export'] ?? false);
 
+        $humanGateOptions = [];
+        foreach (['completion_audit', 'completion_evidence', 'completion_receipt', 'runtime_promotion_receipt', 'real_provider_smoke'] as $key) {
+            if (isset($options[$key]) && is_array($options[$key]) && $options[$key] !== []) {
+                $humanGateOptions[$key] = $options[$key];
+            }
+        }
+
         $humanGate = (array) ($options['final_completion_human_gate']
-            ?? (new AtlasSelfConstructionFinalCompletionHumanGateService($this->readiness))->build([
-                'completion_audit' => (array) ($options['completion_audit'] ?? []),
-                'completion_evidence' => (array) ($options['completion_evidence'] ?? []),
-                'completion_receipt' => (array) ($options['completion_receipt'] ?? []),
-                'runtime_promotion_receipt' => (array) ($options['runtime_promotion_receipt'] ?? []),
-                'real_provider_smoke' => (array) ($options['real_provider_smoke'] ?? []),
-            ]));
+            ?? (new AtlasSelfConstructionFinalCompletionHumanGateService($this->readiness))->build($humanGateOptions));
 
         $completionAudit = (array) data_get($humanGate, 'completion_audit', []);
         $prereqMatrix = (array) data_get($humanGate, 'prerequisite_matrix', []);

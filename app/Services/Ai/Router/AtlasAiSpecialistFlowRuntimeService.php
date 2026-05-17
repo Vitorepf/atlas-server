@@ -100,6 +100,12 @@ class AtlasAiSpecialistFlowRuntimeService
                 ],
                 'forbidden_actions' => ['modify_workspace', 'claim_implementation_completed', 'skip_risk_assessment'],
             ]),
+            'atlas_conversation' => array_merge($base, [
+                'execution_mode' => 'conversation',
+                'output_contract' => ['direct_answer', 'clarifying_question_when_needed', 'handoff_suggestion_when_scope_changes'],
+                'required_evidence' => ['router_decision'],
+                'forbidden_actions' => ['pretend_workspace_access', 'silently_change_flow'],
+            ]),
             default => array_merge($base, [
                 'execution_mode' => 'conversation',
                 'output_contract' => ['direct_answer', 'clarifying_question_when_needed', 'handoff_suggestion_when_scope_changes'],

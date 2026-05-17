@@ -611,6 +611,7 @@ final class AtlasSelfConstructionCompletionEvidenceCertificationTest extends Tes
         $this->assertArrayHasKey('persist_real_provider_smoke', data_get($payload, 'agent_control_plane_atlas_self_construction_os_completion_operator_action_packet.commands'));
         $this->assertArrayHasKey('persist_human_completion_receipt', data_get($payload, 'agent_control_plane_atlas_self_construction_os_completion_operator_action_packet.commands'));
         $this->assertArrayHasKey('refresh_terminal_loop_operational_proof', data_get($payload, 'agent_control_plane_atlas_self_construction_os_completion_operator_action_packet.commands'));
+        $this->assertArrayHasKey('persist_terminal_loop_operational_proof_binding', data_get($payload, 'agent_control_plane_atlas_self_construction_os_completion_operator_action_packet.commands'));
         $this->assertArrayHasKey('run_completion_audit_with_terminal_loop_operational_proof', data_get($payload, 'agent_control_plane_atlas_self_construction_os_completion_operator_action_packet.commands'));
         $this->assertArrayNotHasKey('persist_completion_evidence', data_get($payload, 'agent_control_plane_atlas_self_construction_os_completion_operator_action_packet.commands'));
         $this->assertStringNotContainsString(

@@ -3,10 +3,49 @@
 namespace Tests\Unit\Ai\Router;
 
 use App\Services\Ai\Router\AtlasAiSpecialistFlowExecutionService;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 class AtlasAiSpecialistFlowExecutionServiceTest extends TestCase
 {
+    #[DataProvider('specialistFlowExecutionProvider')]
+    public function test_builds_distinct_execution_contract_for_each_specialist_flow(
+        string $flowId,
+        string $handlerId,
+        string $responseShape,
+        string $auditCheck,
+        string $qualityRubric,
+        string $completionCheck,
+        string $failureMode,
+    ): void {
+        $data = $this->service()->apply([
+            'input_text' => 'Hyperflow specialist flow contract',
+            'payload' => [
+                'specialist_flow_runtime' => [
+                    'schema_version' => 'atlas.ai.specialist_flow_runtime.v1',
+                    'flow_id' => $flowId,
+                    'delegation' => ['status' => 'not_delegated'],
+                    'receipt' => [
+                        'receipt_id' => 'sfr_'.$flowId,
+                        'contract_hash' => str_repeat('a', 64),
+                    ],
+                ],
+            ],
+        ]);
+
+        $execution = data_get($data, 'payload.specialist_flow_execution');
+
+        $this->assertSame('atlas.ai.specialist_flow_execution.v1', $execution['schema_version']);
+        $this->assertSame('ready_for_provider', $execution['status']);
+        $this->assertSame($flowId, $execution['flow_id']);
+        $this->assertSame($handlerId, $execution['handler_id']);
+        $this->assertContains($responseShape, $execution['response_shape']);
+        $this->assertContains($auditCheck, $execution['audit_checks']);
+        $this->assertContains($qualityRubric, $execution['quality_rubric']);
+        $this->assertContains($completionCheck, $execution['completion_checks']);
+        $this->assertContains($failureMode, $execution['failure_modes']);
+    }
+
     public function test_builds_ready_for_provider_execution_packet(): void
     {
         $data = $this->service()->apply([
@@ -100,5 +139,20 @@ class AtlasAiSpecialistFlowExecutionServiceTest extends TestCase
     private function service(): AtlasAiSpecialistFlowExecutionService
     {
         return new AtlasAiSpecialistFlowExecutionService;
+    }
+
+    /**
+     * @return array<string,array{0:string,1:string,2:string,3:string,4:string,5:string,6:string}>
+     */
+    public static function specialistFlowExecutionProvider(): array
+    {
+        return [
+            'research' => ['atlas_research', 'atlas_research_grounded_answer_handler', 'claims_table', 'source_refs_or_uncertainty_present', 'claims_are_traceable', 'material_claims_have_source_or_uncertainty', 'fake_citation'],
+            'debug' => ['atlas_debug', 'atlas_debug_triage_handler', 'likely_causes', 'no_invented_logs', 'diagnostics_are_reproducible', 'no_fix_claim_without_execution', 'fix_claim_without_test'],
+            'review' => ['atlas_review', 'atlas_review_findings_first_handler', 'findings', 'findings_first', 'severity_is_defensible', 'findings_precede_summary', 'summary_before_findings'],
+            'explain' => ['atlas_explain', 'atlas_explain_read_only_handler', 'plain_language_explanation', 'no_side_effect_claims', 'scope_boundaries_are_clear', 'no_workspace_action_claimed', 'claiming_files_changed'],
+            'conversation' => ['atlas_conversation', 'atlas_conversation_direct_handler', 'direct_answer', 'handoff_when_scope_changes', 'handoff_boundary_is_visible', 'scope_change_gets_handoff_suggestion', 'pretending_workspace_access'],
+            'plan' => ['atlas_plan', 'atlas_plan_engineering_plan_handler', 'risk_register', 'execution_flow_recommended', 'plan_is_executable', 'milestones_have_validation_evidence', 'planning_as_completed_work'],
+        ];
     }
 }

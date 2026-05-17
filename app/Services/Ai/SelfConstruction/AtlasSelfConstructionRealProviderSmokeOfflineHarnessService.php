@@ -54,6 +54,8 @@ final class AtlasSelfConstructionRealProviderSmokeOfflineHarnessService
                 'token_spend_observed',
                 'claim_to_completion_observed',
                 'work_product_collected',
+                'operator_supplied_evidence',
+                'real_provider_run_observed_by_operator',
             ],
             'forbidden_flags' => [
                 'provider_called_by_atlas',
@@ -81,6 +83,8 @@ final class AtlasSelfConstructionRealProviderSmokeOfflineHarnessService
                 'token_spend_observed' => true,
                 'claim_to_completion_observed' => true,
                 'work_product_collected' => true,
+                'operator_supplied_evidence' => true,
+                'real_provider_run_observed_by_operator' => true,
                 'provider_called_by_atlas' => false,
                 'token_spent_by_atlas' => false,
                 'dispatch_allowed' => false,

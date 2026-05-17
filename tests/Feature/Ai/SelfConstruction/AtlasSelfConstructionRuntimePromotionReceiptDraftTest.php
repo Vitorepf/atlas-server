@@ -59,7 +59,7 @@ final class AtlasSelfConstructionRuntimePromotionReceiptDraftTest extends TestCa
         $this->assertSame($draft['runtime_promotion_basis_hash'], data_get($draft, 'receipt_payload.runtime_promotion_basis_hash'));
         $this->assertSame($draft['runtime_promotion_closure_basis_hash'], data_get($draft, 'receipt_payload.runtime_promotion_closure_basis_hash'));
         $this->assertSame($draft['expected_runtime_gap_matrix_hash_for_promotion_receipt'], data_get($draft, 'receipt_payload.runtime_gap_matrix_hash'));
-        $this->assertSame($draft['candidate_gap_ids'], data_get($draft, 'receipt_payload.promoted_gap_ids'));
+        $this->assertSame($draft['blocked_gap_ids'], data_get($draft, 'receipt_payload.promoted_gap_ids'));
         $this->assertFalse(data_get($draft, 'receipt_payload.execution_allowed'));
         $this->assertFalse(data_get($draft, 'receipt_payload.dispatch_allowed'));
         $this->assertFalse(data_get($draft, 'receipt_payload.self_programming_allowed'));
@@ -92,6 +92,23 @@ final class AtlasSelfConstructionRuntimePromotionReceiptDraftTest extends TestCa
         $this->assertTrue(Storage::disk('local')->exists('atlas/self-construction/os-completion/runtime-promotion-receipts/registry.json'));
         $this->assertFalse($ready['execution_allowed']);
         $this->assertFalse($ready['runtime_write_allowed']);
+    }
+
+    public function test_receipt_draft_promotes_all_blocked_runtime_rows_not_only_candidates(): void
+    {
+        $draft = (new AtlasSelfConstructionRuntimePromotionReceiptDraftService)->build($this->matrixWithBlockedNonCandidate(), [
+            'signed_by' => 'vitorepf',
+            'reason' => 'Operator reviewed the current runtime promotion candidates and approves this receipt without enabling execution directly.',
+        ]);
+
+        $this->assertSame('ready_for_operator_persistence', $draft['status'], json_encode(data_get($draft, 'verification.violations'), JSON_THROW_ON_ERROR));
+        $this->assertSame([
+            'adapter_execution_runtime',
+            'automatic_dispatch_scheduler_codex_real_invoker_post_start_receipt_contract_runtime',
+        ], $draft['blocked_gap_ids']);
+        $this->assertSame(['adapter_execution_runtime'], $draft['candidate_gap_ids']);
+        $this->assertSame($draft['blocked_gap_ids'], data_get($draft, 'receipt_payload.promoted_gap_ids'));
+        $this->assertArrayHasKey('automatic_dispatch_scheduler_codex_real_invoker_post_start_receipt_contract_runtime', data_get($draft, 'receipt_payload.graduation_evidence_hashes'));
     }
 
     public function test_receipt_draft_command_exposes_status_and_quartet(): void
@@ -183,6 +200,33 @@ final class AtlasSelfConstructionRuntimePromotionReceiptDraftTest extends TestCa
 
         return [
             'rows' => $rows,
+            'runtime_gap_matrix_hash' => str_repeat('1', 64),
+            'expected_runtime_gap_matrix_hash_for_promotion_receipt' => str_repeat('2', 64),
+            'runtime_promotion_basis_hash' => str_repeat('3', 64),
+            'runtime_promotion_closure_basis_hash' => str_repeat('4', 64),
+        ];
+    }
+
+    /** @return array<string, mixed> */
+    private function matrixWithBlockedNonCandidate(): array
+    {
+        return [
+            'rows' => [
+                [
+                    'gap_id' => 'adapter_execution_runtime',
+                    'runtime_y' => false,
+                    'runtime_y_candidate' => true,
+                    'runtime_enabled' => false,
+                    'graduation_evidence_hash' => str_repeat('a', 64),
+                ],
+                [
+                    'gap_id' => 'automatic_dispatch_scheduler_codex_real_invoker_post_start_receipt_contract_runtime',
+                    'runtime_y' => false,
+                    'runtime_y_candidate' => false,
+                    'runtime_enabled' => false,
+                    'graduation_evidence_hash' => str_repeat('b', 64),
+                ],
+            ],
             'runtime_gap_matrix_hash' => str_repeat('1', 64),
             'expected_runtime_gap_matrix_hash_for_promotion_receipt' => str_repeat('2', 64),
             'runtime_promotion_basis_hash' => str_repeat('3', 64),

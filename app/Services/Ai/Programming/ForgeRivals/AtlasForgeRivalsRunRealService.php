@@ -2239,8 +2239,20 @@ TS,
         // explicit clock is the Rivals source of truth.
         $proc->setIdleTimeout(null);
 
-        $stdoutBuf = '';
-        $stderrBuf = '';
+        $paths = $this->paths->paths($runId);
+        $artifactDir = $this->artifactDir($paths['evidence'], $caseSubdir);
+        @mkdir($artifactDir, 0o755, true);
+        $stdoutPath = $artifactDir.'/'.$arm.'_provider_stdout.log';
+        $stderrPath = $artifactDir.'/'.$arm.'_provider_stderr.log';
+        file_put_contents($stdoutPath, '');
+        file_put_contents($stderrPath, '');
+        $stdoutHash = hash_init('sha256');
+        $stderrHash = hash_init('sha256');
+        $stdoutBytes = 0;
+        $stderrBytes = 0;
+        $stdoutTail = '';
+        $stderrTail = '';
+        $isolationSample = '';
         $startedAtMonotonic = microtime(true);
         $lastProviderOutputAt = $startedAtMonotonic;
         $lastHeartbeatAt = $startedAtMonotonic;
@@ -2254,7 +2266,11 @@ TS,
                 $newStdout = (string) $proc->getIncrementalOutput();
                 $newStderr = (string) $proc->getIncrementalErrorOutput();
                 if ($newStdout !== '') {
-                    $stdoutBuf .= $newStdout;
+                    $stdoutBytes += strlen($newStdout);
+                    hash_update($stdoutHash, $newStdout);
+                    file_put_contents($stdoutPath, $newStdout, FILE_APPEND);
+                    $stdoutTail = $this->appendTail($stdoutTail, $newStdout, 2000);
+                    $isolationSample = $this->appendTail($isolationSample, $newStdout, 262144);
                     $sawProviderOutput = true;
                     $this->events->event($runId, 'provider_stdout_chunk', [
                         'arm' => $arm,
@@ -2263,7 +2279,11 @@ TS,
                     ]);
                 }
                 if ($newStderr !== '') {
-                    $stderrBuf .= $newStderr;
+                    $stderrBytes += strlen($newStderr);
+                    hash_update($stderrHash, $newStderr);
+                    file_put_contents($stderrPath, $newStderr, FILE_APPEND);
+                    $stderrTail = $this->appendTail($stderrTail, $newStderr, 2000);
+                    $isolationSample = $this->appendTail($isolationSample, $newStderr, 262144);
                     $sawProviderOutput = true;
                     $this->events->event($runId, 'provider_stderr_chunk', [
                         'arm' => $arm,
@@ -2329,22 +2349,38 @@ TS,
         }
 
         $exit = (int) ($proc->getExitCode() ?? -1);
-        $stdoutBuf .= (string) $proc->getIncrementalOutput();
-        $stderrBuf .= (string) $proc->getIncrementalErrorOutput();
+        $finalStdout = (string) $proc->getIncrementalOutput();
+        if ($finalStdout !== '') {
+            $stdoutBytes += strlen($finalStdout);
+            hash_update($stdoutHash, $finalStdout);
+            file_put_contents($stdoutPath, $finalStdout, FILE_APPEND);
+            $stdoutTail = $this->appendTail($stdoutTail, $finalStdout, 2000);
+            $isolationSample = $this->appendTail($isolationSample, $finalStdout, 262144);
+        }
+        $finalStderr = (string) $proc->getIncrementalErrorOutput();
+        if ($finalStderr !== '') {
+            $stderrBytes += strlen($finalStderr);
+            hash_update($stderrHash, $finalStderr);
+            file_put_contents($stderrPath, $finalStderr, FILE_APPEND);
+            $stderrTail = $this->appendTail($stderrTail, $finalStderr, 2000);
+            $isolationSample = $this->appendTail($isolationSample, $finalStderr, 262144);
+        }
+        $stdoutDigest = hash_final($stdoutHash);
+        $stderrDigest = hash_final($stderrHash);
 
         $this->events->event($runId, 'provider_finished', [
             'arm' => $arm,
             'exit_code' => $exit,
             'killed' => $killed,
             'timeout_reason' => $timeoutReason,
-            'stdout_tail' => substr($stdoutBuf, -500),
-            'stderr_tail' => substr($stderrBuf, -500),
+            'stdout_tail' => substr($stdoutTail, -500),
+            'stderr_tail' => substr($stderrTail, -500),
         ]);
 
-        $logPaths = $this->writeProviderLogs($runId, $arm, $stdoutBuf, $stderrBuf, $caseSubdir);
+        $logPaths = ['stdout_path' => $stdoutPath, 'stderr_path' => $stderrPath];
         $patch = $this->capturePatch($runId, $arm, $worktree, $case, $caseSubdir);
         $scope = $this->scopeCheck($worktree, $case);
-        $isolation = $this->detectProviderIsolationLeak($runId, $arm, $stdoutBuf, $stderrBuf);
+        $isolation = $this->detectProviderIsolationLeak($runId, $arm, $isolationSample, '');
         $workspaceBlockers = array_values(array_unique(array_merge(
             $scope['blockers'],
             $isolation['blockers'],
@@ -2366,12 +2402,12 @@ TS,
             'killed' => $killed,
             'timeout' => $killed,
             'timeout_reason' => $timeoutReason,
-            'stdout_hash' => hash('sha256', $stdoutBuf),
-            'stderr_hash' => hash('sha256', $stderrBuf),
-            'stdout_bytes' => strlen($stdoutBuf),
-            'stderr_bytes' => strlen($stderrBuf),
-            'stdout_tail' => substr($stdoutBuf, -2000),
-            'stderr_tail' => substr($stderrBuf, -2000),
+            'stdout_hash' => $stdoutDigest,
+            'stderr_hash' => $stderrDigest,
+            'stdout_bytes' => $stdoutBytes,
+            'stderr_bytes' => $stderrBytes,
+            'stdout_tail' => $stdoutTail,
+            'stderr_tail' => $stderrTail,
             'stdout_path' => $logPaths['stdout_path'],
             'stderr_path' => $logPaths['stderr_path'],
             'token_cost' => null,
@@ -2843,6 +2879,16 @@ PROMPT;
         file_put_contents($stderrPath, $stderr);
 
         return ['stdout_path' => $stdoutPath, 'stderr_path' => $stderrPath];
+    }
+
+    private function appendTail(string $current, string $chunk, int $limit): string
+    {
+        $tail = $current.$chunk;
+        if (strlen($tail) <= $limit) {
+            return $tail;
+        }
+
+        return substr($tail, -$limit);
     }
 
     /**

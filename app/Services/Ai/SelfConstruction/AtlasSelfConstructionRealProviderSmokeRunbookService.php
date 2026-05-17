@@ -89,7 +89,7 @@ final class AtlasSelfConstructionRealProviderSmokeRunbookService
         ];
         $killSwitch = [
             'abort_command' => 'operator may abort the real provider run at any time; Atlas does not own provider processes',
-            'atlas_side_cancel_command' => 'php artisan atlas:ai:self-construction --atlas-self-construction-real-provider-smoke-draft-status --real-provider-smoke-json=@/path/to/aborted-smoke-preimage.json --json',
+            'atlas_side_abort_diagnostic_command' => 'php artisan atlas:ai:self-construction --atlas-self-construction-real-provider-smoke-draft-status --real-provider-smoke-json=@/path/to/aborted-smoke-preimage.json --json',
             'cancel_must_record_aborted_status' => true,
             'token_ceiling_hard_stop' => 'if provider exceeds the declared token ceiling, abort; do not persist a passed smoke',
             'wallclock_ceiling_seconds_recommended' => 1800,
@@ -102,7 +102,9 @@ final class AtlasSelfConstructionRealProviderSmokeRunbookService
         ];
         $rollbackExpectations = [
             'no_atlas_owned_state_mutated' => true,
-            'aborted_smoke_must_be_persisted_as_aborted_not_passed' => true,
+            'aborted_smoke_must_be_recorded_as_non_passing_operator_evidence' => true,
+            'aborted_smoke_must_not_be_persisted_as_passed_completion_evidence' => true,
+            'no_completion_evidence_persistence_for_aborted_smoke' => true,
             'partial_evidence_treated_as_aborted' => true,
             'required_post_abort_evidence' => [
                 'operator_approval_receipt_hash',
@@ -151,8 +153,9 @@ final class AtlasSelfConstructionRealProviderSmokeRunbookService
                 'persist_real_provider_smoke' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --real-provider-smoke-json=@/path/to/real-provider-smoke.json --persist-completion-evidence --json',
                 'verify_completion_evidence' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --json',
                 'refresh_terminal_loop_operational_proof' => $this->terminalLoopOperationalProofCommand(),
-                'run_completion_audit' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --json',
+                'run_completion_audit' => $this->completionAuditWithTerminalLoopOperationalProofCommand(),
                 'run_completion_audit_with_terminal_loop_operational_proof' => $this->completionAuditWithTerminalLoopOperationalProofCommand(),
+                'run_completion_audit_diagnostic' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --json',
             ],
             'terminal_loop_operational_proof_required_before_final_audit' => true,
             'terminal_loop_operational_proof_expected_binding_schema' => 'atlas.self_construction.agent_control_plane_terminal_loop_operational_proof_audit_binding_packet.v1',

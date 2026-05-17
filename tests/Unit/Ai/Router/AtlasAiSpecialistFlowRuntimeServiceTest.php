@@ -3,10 +3,48 @@
 namespace Tests\Unit\Ai\Router;
 
 use App\Services\Ai\Router\AtlasAiSpecialistFlowRuntimeService;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 class AtlasAiSpecialistFlowRuntimeServiceTest extends TestCase
 {
+    #[DataProvider('specialistFlowRuntimeProvider')]
+    public function test_emits_distinct_runtime_contract_for_each_specialist_flow(
+        string $flowId,
+        string $executionMode,
+        string $outputContract,
+        string $requiredEvidence,
+        string $forbiddenAction,
+    ): void {
+        $data = $this->service()->apply([
+            'input_text' => 'Hyperflow specialist runtime',
+            'payload' => [
+                'surface_id' => 'atlas_desktop_ai',
+                'atlas_ai_router' => [
+                    'flow_id' => $flowId,
+                    'flow_origin' => 'router_auto',
+                    'command_intent' => str_replace('atlas_', '', $flowId),
+                    'routing_reason' => 'hyperflow_test',
+                    'handoff_payload' => [
+                        'surface_id' => 'atlas_desktop_ai',
+                        'workspace_present' => false,
+                    ],
+                ],
+            ],
+        ]);
+
+        $runtime = data_get($data, 'payload.specialist_flow_runtime');
+
+        $this->assertSame('atlas.ai.specialist_flow_runtime.v1', $runtime['schema_version']);
+        $this->assertSame($flowId, $runtime['flow_id']);
+        $this->assertSame($executionMode, $runtime['execution_mode']);
+        $this->assertContains($outputContract, $runtime['output_contract']);
+        $this->assertContains($requiredEvidence, $runtime['required_evidence']);
+        $this->assertContains($forbiddenAction, $runtime['forbidden_actions']);
+        $this->assertSame('atlas.ai.specialist_flow_receipt.v1', data_get($runtime, 'receipt.schema_version'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($runtime, 'receipt.contract_hash'));
+    }
+
     public function test_emits_auditable_research_runtime_contract(): void
     {
         $data = $this->service()->apply([
@@ -118,5 +156,20 @@ class AtlasAiSpecialistFlowRuntimeServiceTest extends TestCase
     private function service(): AtlasAiSpecialistFlowRuntimeService
     {
         return new AtlasAiSpecialistFlowRuntimeService;
+    }
+
+    /**
+     * @return array<string,array{0:string,1:string,2:string,3:string,4:string}>
+     */
+    public static function specialistFlowRuntimeProvider(): array
+    {
+        return [
+            'research' => ['atlas_research', 'source_grounded_answer', 'claims_table', 'source_refs_or_uncertainty_statement', 'hide_uncertainty'],
+            'debug' => ['atlas_debug', 'diagnostic_triage', 'next_debug_steps', 'logs_or_missing_logs_statement', 'invent_log_lines'],
+            'review' => ['atlas_review', 'diff_or_artifact_review', 'findings_first', 'diff_or_review_scope', 'bury_findings_after_summary'],
+            'explain' => ['atlas_explain', 'read_only_explanation', 'plain_language_explanation', 'context_refs_or_scope_statement', 'claim_code_was_changed'],
+            'conversation' => ['atlas_conversation', 'conversation', 'direct_answer', 'router_decision', 'pretend_workspace_access'],
+            'plan' => ['atlas_plan', 'engineering_plan', 'risk_register', 'risk_assessment', 'claim_implementation_completed'],
+        ];
     }
 }

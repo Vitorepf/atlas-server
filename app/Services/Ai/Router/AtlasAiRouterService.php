@@ -104,8 +104,19 @@ final class AtlasAiRouterService
             return $this->decision(AtlasAiRouterDecision::FLOW_REVIEW, 'router_auto', 'review', 'diff_or_pr_attachment', 'strong', $surfaceId, $workspace, $rawIntent, [AtlasAiRouterDecision::FLOW_DEV], $intent);
         }
 
-        if ($this->containsAny($haystack, ['stack trace', 'traceback', 'logs', 'log ', 'erro em producao', 'erro em produção', 'exception', 'observability'])) {
-            return $this->decision(AtlasAiRouterDecision::FLOW_DEBUG, 'router_auto', 'debug', 'logs_or_stacktrace_signal', 'strong', $surfaceId, $workspace, $rawIntent, [AtlasAiRouterDecision::FLOW_RESEARCH], $intent);
+        if ($this->containsAny($haystack, ['stack trace', 'stacktrace', 'traceback', 'debug ', 'debugue', 'logs', 'log ', 'erro em producao', 'erro em produção', 'exception', 'observability'])) {
+            return $this->decision(
+                AtlasAiRouterDecision::FLOW_DEBUG,
+                'router_auto',
+                'debug',
+                'logs_or_stacktrace_signal',
+                'strong',
+                $surfaceId,
+                $workspace,
+                $rawIntent,
+                $workspace !== null ? [AtlasAiRouterDecision::FLOW_DEV] : [AtlasAiRouterDecision::FLOW_RESEARCH],
+                $intent,
+            );
         }
 
         if ($this->containsAny($haystack, ['obra ', 'multi-semana', 'multi semana', 'sistema inteiro', 'sistema todo', 'app inteiro', 'one shot enterprise', 'one-shot enterprise'])) {
@@ -150,7 +161,7 @@ final class AtlasAiRouterService
             );
         }
 
-        if ($this->containsAny($haystack, ['pesquisa', 'pesquisar', 'research', 'fontes', 'referencias', 'referências', 'estado da arte', 'como funciona', 'how does', 'difference between', 'qual a diferença'])) {
+        if ($this->containsAny($haystack, ['pesquisa', 'pesquise', 'pesquisar', 'research', 'fontes', 'referencias', 'referências', 'estado da arte', 'como funciona', 'how does', 'difference between', 'qual a diferença'])) {
             return $this->decision(AtlasAiRouterDecision::FLOW_RESEARCH, 'router_auto', 'research', 'research_like_intent', 'strong', $surfaceId, $workspace, $rawIntent, [AtlasAiRouterDecision::FLOW_CONVERSATION], $intent);
         }
 

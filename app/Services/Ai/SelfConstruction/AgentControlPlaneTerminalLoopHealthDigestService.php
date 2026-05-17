@@ -32,6 +32,10 @@ final class AgentControlPlaneTerminalLoopHealthDigestService
 
     public const CYCLE_SUPERVISOR_SCHEMA_VERSION = 'atlas.self_construction.agent_control_plane_terminal_loop_cycle_supervisor.v1';
 
+    public const FLEET_LAUNCH_RUNBOOK_SCHEMA_VERSION = 'atlas.self_construction.agent_control_plane_terminal_loop_fleet_launch_runbook.v1';
+
+    public const END_TO_END_LOOP_CONTRACT_SCHEMA_VERSION = 'atlas.self_construction.agent_control_plane_terminal_loop_end_to_end_contract.v1';
+
     public const MODE = 'read_only_agent_control_plane_terminal_loop_health_digest';
 
     private const OPERATOR_ONLY_COMPLETION_CRITERIA = [
@@ -160,6 +164,26 @@ final class AgentControlPlaneTerminalLoopHealthDigestService
             laneIsolation: $fleetLaneIsolation,
             commands: $commands,
         );
+        $fleetLaunchRunbook = $this->fleetLaunchRunbook(
+            actor: $actor,
+            queueTags: $queueTags,
+            launchPlan: $fleetLaunchPlan,
+            replenishmentPlan: $fleetReplenishmentPlan,
+            operatorHandoff: $fleetOperatorHandoff,
+            cycleSupervisor: $cycleSupervisor,
+        );
+        $endToEndLoopContract = $this->endToEndLoopContract(
+            commands: $commands,
+            launchPlan: $fleetLaunchPlan,
+            replenishmentPlan: $fleetReplenishmentPlan,
+            resumeRollup: $fleetResumeRollup,
+            evidenceRollup: $fleetEvidenceRollup,
+            workerEligibility: $workerEligibility,
+            operatorHandoff: $fleetOperatorHandoff,
+            laneIsolation: $fleetLaneIsolation,
+            cycleSupervisor: $cycleSupervisor,
+            launchRunbook: $fleetLaunchRunbook,
+        );
         $payload = [
             'schema_version' => self::SCHEMA_VERSION,
             'mode' => self::MODE,
@@ -218,6 +242,8 @@ final class AgentControlPlaneTerminalLoopHealthDigestService
             'terminal_loop_fleet_operator_handoff' => $fleetOperatorHandoff,
             'terminal_loop_fleet_lane_isolation' => $fleetLaneIsolation,
             'terminal_loop_cycle_supervisor' => $cycleSupervisor,
+            'terminal_loop_fleet_launch_runbook' => $fleetLaunchRunbook,
+            'terminal_loop_end_to_end_contract' => $endToEndLoopContract,
             'next_commands' => $commands,
             'observability' => [
                 'bootstrap_preview_command' => $commands['preview_bootstrap'],
@@ -251,11 +277,127 @@ final class AgentControlPlaneTerminalLoopHealthDigestService
                 'terminal_loop_fleet_lane_isolation_does_not_claim_tasks',
                 'terminal_loop_cycle_supervisor_does_not_execute_next_command',
                 'terminal_loop_cycle_supervisor_does_not_mutate_queue_or_leases',
+                'terminal_loop_fleet_launch_runbook_does_not_start_terminals',
+                'terminal_loop_fleet_launch_runbook_does_not_run_commands',
+                'terminal_loop_end_to_end_contract_does_not_run_commands',
+                'terminal_loop_end_to_end_contract_does_not_mutate_queue_or_leases',
             ],
         ];
         $payload['terminal_loop_health_digest_hash'] = $this->hashPayload($payload);
 
         return $payload;
+    }
+
+    /**
+     * @param  array<string, string>  $commands
+     * @param  array<string, mixed>  $launchPlan
+     * @param  array<string, mixed>  $replenishmentPlan
+     * @param  array<string, mixed>  $resumeRollup
+     * @param  array<string, mixed>  $evidenceRollup
+     * @param  array<string, mixed>  $workerEligibility
+     * @param  array<string, mixed>  $operatorHandoff
+     * @param  array<string, mixed>  $laneIsolation
+     * @param  array<string, mixed>  $cycleSupervisor
+     * @param  array<string, mixed>  $launchRunbook
+     * @return array<string, mixed>
+     */
+    private function endToEndLoopContract(
+        array $commands,
+        array $launchPlan,
+        array $replenishmentPlan,
+        array $resumeRollup,
+        array $evidenceRollup,
+        array $workerEligibility,
+        array $operatorHandoff,
+        array $laneIsolation,
+        array $cycleSupervisor,
+        array $launchRunbook,
+    ): array {
+        $runtimeFlags = $this->runtimeFlags();
+        $checks = [
+            'auto_replenishment_surface_present' => str_contains((string) ($commands['replenish_tasks'] ?? ''), '--agent-control-plane-task-auto-replenishment-status')
+                && (string) data_get($replenishmentPlan, 'schema_version', '') === self::FLEET_REPLENISHMENT_PLAN_SCHEMA_VERSION,
+            'validation_surface_present' => (string) data_get($workerEligibility, 'schema_version', '') === 'atlas.self_construction.agent_control_plane_terminal_loop_worker_task_eligibility.v1'
+                && array_key_exists('violation_count', $workerEligibility),
+            'lease_surface_present' => str_contains((string) ($commands['inspect_or_recover_leases'] ?? ''), '--agent-control-plane-task-lease-recovery-status')
+                && (string) data_get($resumeRollup, 'schema_version', '') === self::FLEET_RESUME_ROLLUP_SCHEMA_VERSION,
+            'evidence_surface_present' => (string) data_get($evidenceRollup, 'schema_version', '') === self::FLEET_EVIDENCE_ROLLUP_SCHEMA_VERSION
+                && array_key_exists('ready_for_operator_review', $evidenceRollup),
+            'resume_surface_present' => (bool) data_get($launchRunbook, 'resume_after_interruption.can_resume_without_chat_history', false)
+                && (string) data_get($launchRunbook, 'resume_after_interruption.resume_command', '') !== '',
+            'lane_isolation_surface_present' => (string) data_get($laneIsolation, 'schema_version', '') === self::FLEET_LANE_ISOLATION_SCHEMA_VERSION
+                && array_key_exists('all_commands_lane_bound', $laneIsolation),
+            'cycle_supervisor_surface_present' => (string) data_get($cycleSupervisor, 'schema_version', '') === self::CYCLE_SUPERVISOR_SCHEMA_VERSION
+                && (string) data_get($cycleSupervisor, 'next_command', '') !== '',
+            'operator_handoff_surface_present' => (string) data_get($operatorHandoff, 'schema_version', '') === self::FLEET_OPERATOR_HANDOFF_SCHEMA_VERSION
+                && (string) data_get($operatorHandoff, 'primary_command', '') !== '',
+            'fleet_launch_surface_present' => (string) data_get($launchPlan, 'schema_version', '') === self::FLEET_LAUNCH_PLAN_SCHEMA_VERSION
+                && array_key_exists('safe_to_start_now', $launchPlan),
+            'all_surfaces_are_read_only' => (bool) data_get($launchPlan, 'can_execute_from_digest', true) === false
+                && (bool) data_get($launchPlan, 'can_claim_from_digest', true) === false
+                && (bool) data_get($replenishmentPlan, 'can_replenish_from_digest', true) === false
+                && (bool) data_get($resumeRollup, 'can_recover_from_rollup', true) === false
+                && in_array('fleet_evidence_rollup_does_not_mark_real_completion', (array) data_get($evidenceRollup, 'non_execution_guarantees', []), true)
+                && (bool) data_get($operatorHandoff, 'can_execute_from_handoff', true) === false
+                && (bool) data_get($cycleSupervisor, 'can_execute_next_command', true) === false
+                && (bool) data_get($launchRunbook, 'can_execute_commands_from_runbook', true) === false,
+            'runtime_flags_all_false' => ! in_array(true, array_map(
+                static fn (mixed $flag): bool => (bool) $flag,
+                $runtimeFlags,
+            ), true),
+        ];
+        $failedChecks = array_keys(array_filter($checks, static fn (bool $passed): bool => ! $passed));
+        $contract = [
+            'schema_version' => self::END_TO_END_LOOP_CONTRACT_SCHEMA_VERSION,
+            'status' => $failedChecks === [] ? 'terminal_loop_end_to_end_contract_available' : 'terminal_loop_end_to_end_contract_blocked',
+            'covered_capabilities' => [
+                'auto_replenishment',
+                'validation',
+                'leases',
+                'evidence',
+                'retomada',
+                'lane_isolation',
+                'cycle_supervision',
+                'operator_handoff',
+            ],
+            'checks' => $checks,
+            'failed_check_ids' => $failedChecks,
+            'check_count' => count($checks),
+            'passed_check_count' => count($checks) - count($failedChecks),
+            'all_required_surfaces_present' => $failedChecks === [],
+            'next_safe_command' => (string) data_get($cycleSupervisor, 'next_command', ''),
+            'next_safe_command_purpose' => (string) data_get($cycleSupervisor, 'next_command_purpose', ''),
+            'next_safe_command_requires_operator_execution' => true,
+            'resume_without_chat_history_command' => (string) data_get($launchRunbook, 'resume_after_interruption.resume_command', ''),
+            'source_hashes' => [
+                'fleet_launch_plan_hash' => (string) data_get($launchPlan, 'terminal_loop_fleet_launch_plan_hash', ''),
+                'fleet_replenishment_plan_hash' => (string) data_get($replenishmentPlan, 'terminal_loop_fleet_replenishment_plan_hash', ''),
+                'fleet_resume_rollup_hash' => (string) data_get($resumeRollup, 'terminal_loop_fleet_resume_rollup_hash', ''),
+                'fleet_evidence_rollup_hash' => (string) data_get($evidenceRollup, 'terminal_loop_fleet_evidence_rollup_hash', ''),
+                'fleet_operator_handoff_hash' => (string) data_get($operatorHandoff, 'terminal_loop_fleet_operator_handoff_hash', ''),
+                'fleet_lane_isolation_hash' => (string) data_get($laneIsolation, 'terminal_loop_fleet_lane_isolation_hash', ''),
+                'cycle_supervisor_hash' => (string) data_get($cycleSupervisor, 'terminal_loop_cycle_supervisor_hash', ''),
+                'fleet_launch_runbook_hash' => (string) data_get($launchRunbook, 'terminal_loop_fleet_launch_runbook_hash', ''),
+            ],
+            'forbidden_actions' => [
+                'do_not_treat_contract_as_permission_to_execute_commands',
+                'do_not_replenish_without_operator_running_the_returned_command',
+                'do_not_recover_leases_without_operator_running_the_returned_command',
+                'do_not_claim_or_complete_work_from_this_read_only_contract',
+                'do_not_promote_self_construction_or_self_programming_from_this_contract',
+            ],
+            'runtime_safety' => $runtimeFlags,
+            'can_execute_from_contract' => false,
+            'can_replenish_from_contract' => false,
+            'can_recover_from_contract' => false,
+            'can_claim_from_contract' => false,
+            'can_complete_from_contract' => false,
+            'can_call_provider_from_contract' => false,
+            'can_spend_tokens_from_contract' => false,
+        ];
+        $contract['terminal_loop_end_to_end_contract_hash'] = $this->hashPayload($contract);
+
+        return $contract;
     }
 
     /**
@@ -994,6 +1136,103 @@ final class AgentControlPlaneTerminalLoopHealthDigestService
     }
 
     /**
+     * @param  list<string>  $queueTags
+     * @param  array<string, mixed>  $launchPlan
+     * @param  array<string, mixed>  $replenishmentPlan
+     * @param  array<string, mixed>  $operatorHandoff
+     * @param  array<string, mixed>  $cycleSupervisor
+     * @return array<string, mixed>
+     */
+    private function fleetLaunchRunbook(
+        string $actor,
+        array $queueTags,
+        array $launchPlan,
+        array $replenishmentPlan,
+        array $operatorHandoff,
+        array $cycleSupervisor,
+    ): array {
+        $terminalAssignments = (array) data_get($launchPlan, 'terminal_assignments', []);
+        $terminalSteps = array_values(array_map(
+            static fn (array $terminal): array => [
+                'step_id' => 'start_terminal_'.str_pad((string) ((int) ($terminal['terminal_index'] ?? 0)), 2, '0', STR_PAD_LEFT),
+                'terminal_index' => (int) ($terminal['terminal_index'] ?? 0),
+                'actor' => (string) ($terminal['actor'] ?? ''),
+                'queue_tags' => (array) ($terminal['queue_tags'] ?? []),
+                'command' => (string) ($terminal['execute_bootstrap_command'] ?? ''),
+                'preview_command' => (string) ($terminal['preview_bootstrap_command'] ?? ''),
+                'recover_before_retry_command' => (string) ($terminal['recover_before_retry_command'] ?? ''),
+                'one_terminal_one_packet_at_a_time' => (bool) ($terminal['one_terminal_one_packet_at_a_time'] ?? false),
+            ],
+            $terminalAssignments,
+        ));
+        $ready = (string) data_get($launchPlan, 'status') === 'fleet_launch_plan_ready'
+            && (bool) data_get($launchPlan, 'safe_to_start_now')
+            && $terminalSteps !== [];
+
+        $runbook = [
+            'schema_version' => self::FLEET_LAUNCH_RUNBOOK_SCHEMA_VERSION,
+            'status' => $ready ? 'fleet_launch_runbook_ready' : 'fleet_launch_runbook_blocked',
+            'actor' => $this->safeCommandToken($actor, 'operator'),
+            'queue_tags' => $queueTags,
+            'can_resume_without_chat_history' => true,
+            'safe_to_copy_after_operator_review' => $ready,
+            'terminal_count' => count($terminalSteps),
+            'max_safe_parallel_terminals' => (int) data_get($cycleSupervisor, 'operator_loop_contract.max_safe_parallel_terminals', 6),
+            'terminal_steps' => $terminalSteps,
+            'ordered_operator_sequence' => array_values(array_filter([
+                data_get($replenishmentPlan, 'should_replenish_now') ? 'run_replenishment_command_before_launch' : null,
+                'rerun_health_digest_before_launch',
+                $ready ? 'copy_each_terminal_command_into_separate_terminal' : null,
+                $ready ? 'wait_for_each_worker_to_return_to_bootstrap_or_evidence_review' : null,
+                'rerun_post_launch_health_digest',
+                'inspect_queue_and_leases',
+                'run_multi_agent_loop_certification_if_needed',
+            ])),
+            'copy_paste_terminal_commands' => (array) data_get($launchPlan, 'copy_paste_terminal_commands', []),
+            'post_launch_observability_commands' => (array) data_get($launchPlan, 'post_launch_observability_commands', []),
+            'operator_handoff_primary_command' => (string) data_get($operatorHandoff, 'primary_command', ''),
+            'cycle_supervisor_next_command' => (string) data_get($cycleSupervisor, 'next_command', ''),
+            'resume_after_interruption' => [
+                'status' => 'resume_from_health_digest',
+                'resume_command' => (string) data_get($launchPlan, 'post_launch_observability_commands.health_digest', ''),
+                'can_resume_without_chat_history' => true,
+                'requires_fresh_health_digest_before_starting_more_terminals' => true,
+                'recover_before_any_new_claim' => (bool) data_get($cycleSupervisor, 'operator_loop_contract.recover_before_any_new_claim', false),
+            ],
+            'operator_checks_before_starting' => [
+                'confirm_no_recoverable_leases',
+                'confirm_terminal_count_matches_recommended_terminal_count',
+                'confirm_each_command_contains_requested_queue_tags',
+                'confirm_worker_task_eligibility_status_available',
+                'confirm_no_parallel_session_changed_the_lane_since_digest',
+            ],
+            'stop_conditions' => [
+                'any_terminal_reports_scope_violation',
+                'any_terminal_reports_evidence_hash_mismatch',
+                'recoverable_leases_appear',
+                'health_digest_no_longer_ready',
+                'operator_requests_stop',
+            ],
+            'source_hashes' => [
+                'fleet_launch_plan_hash' => (string) data_get($launchPlan, 'terminal_loop_fleet_launch_plan_hash', ''),
+                'fleet_replenishment_plan_hash' => (string) data_get($replenishmentPlan, 'terminal_loop_fleet_replenishment_plan_hash', ''),
+                'operator_handoff_hash' => (string) data_get($operatorHandoff, 'terminal_loop_fleet_operator_handoff_hash', ''),
+                'cycle_supervisor_hash' => (string) data_get($cycleSupervisor, 'terminal_loop_cycle_supervisor_hash', ''),
+            ],
+            'can_start_terminals_from_runbook' => false,
+            'can_execute_commands_from_runbook' => false,
+            'can_claim_from_runbook' => false,
+            'can_complete_from_runbook' => false,
+            'can_call_provider_from_runbook' => false,
+            'can_spend_tokens_from_runbook' => false,
+            'completion_real_allowed' => false,
+        ];
+        $runbook['terminal_loop_fleet_launch_runbook_hash'] = $this->hashPayload($runbook);
+
+        return $runbook;
+    }
+
+    /**
      * @return list<string>
      */
     private function fleetBlockedReasons(
@@ -1291,6 +1530,8 @@ final class AgentControlPlaneTerminalLoopHealthDigestService
             'terminal_loop_fleet_operator_handoff_hash',
             'terminal_loop_fleet_lane_isolation_hash',
             'terminal_loop_cycle_supervisor_hash',
+            'terminal_loop_fleet_launch_runbook_hash',
+            'terminal_loop_end_to_end_contract_hash',
         ]);
 
         return hash('sha256', (string) json_encode($stable, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));

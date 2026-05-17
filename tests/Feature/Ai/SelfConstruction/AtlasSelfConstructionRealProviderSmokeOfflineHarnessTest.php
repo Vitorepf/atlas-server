@@ -22,6 +22,10 @@ final class AtlasSelfConstructionRealProviderSmokeOfflineHarnessTest extends Tes
         $this->assertTrue((bool) $a['dry_run_only']);
         $this->assertSame($a['harness_hash'], $b['harness_hash']);
         $this->assertContains('provider_run_id', $a['required_evidence_fields']);
+        $this->assertContains('operator_supplied_evidence', $a['required_observation_flags']);
+        $this->assertContains('real_provider_run_observed_by_operator', $a['required_observation_flags']);
+        $this->assertTrue((bool) data_get($a, 'evidence_template.operator_supplied_evidence'));
+        $this->assertTrue((bool) data_get($a, 'evidence_template.real_provider_run_observed_by_operator'));
         $this->assertContains('provider_called_by_atlas', $a['forbidden_flags']);
     }
 

@@ -34,6 +34,7 @@ class AiTelemetryScorecardService
         $count = (clone $base)->count();
         $tools = $this->toolMetrics($since, $until, $basis, $exclusiveUntil);
         $atlasDecide = $this->atlasDecideMetrics($base);
+        $hyperflow = $this->hyperflowMetrics($since, $until, $exclusiveUntil);
 
         return [
             'available' => true,
@@ -106,8 +107,102 @@ class AiTelemetryScorecardService
             // queryable by-tool breakdowns. Joins to summary's window via trace_id.
             'tools' => $tools,
             'atlas_decide' => $atlasDecide,
+            'hyperflow' => $hyperflow,
             'risks' => $this->risks($base, $tools),
             'recent_low_score' => $this->recentLowScore($base),
+        ];
+    }
+
+    /**
+     * Hyperflow aggregate observability is read from RouterDecision and Specialist
+     * Flow execution records. It is intentionally table-based so operators can
+     * inspect routing/delegation behavior even before provider quality scoring is
+     * recomputed into ai_trace_metric_summaries.
+     *
+     * @return array<string,mixed>
+     */
+    private function hyperflowMetrics(CarbonInterface $since, CarbonInterface $until, bool $exclusiveUntil): array
+    {
+        if (! Schema::hasTable('ai_specialist_flow_executions') || ! Schema::hasTable('ai_router_decisions')) {
+            return ['available' => false];
+        }
+
+        $untilOperator = $exclusiveUntil ? '<' : '<=';
+        $executions = DB::table('ai_specialist_flow_executions')
+            ->where('created_at', '>=', $since)
+            ->where('created_at', $untilOperator, $until)
+            ->get(['flow_id', 'status', 'delegation_status', 'delegation_target_flow_id', 'execution_payload']);
+        $routerDecisions = DB::table('ai_router_decisions')
+            ->where('created_at', '>=', $since)
+            ->where('created_at', $untilOperator, $until)
+            ->get(['flow_id', 'was_overridden']);
+
+        $executionCount = $executions->count();
+        $delegatedCount = $executions
+            ->filter(fn ($row): bool => (string) ($row->status ?? '') === 'delegated' || (string) ($row->delegation_status ?? '') === 'delegate_to_other_flow')
+            ->count();
+        $overrideCount = $routerDecisions
+            ->filter(fn ($row): bool => (bool) ($row->was_overridden ?? false))
+            ->count();
+        $qualityRefs = [];
+        $failureRefs = [];
+
+        $byFlow = $executions
+            ->groupBy(fn ($row): string => (string) ($row->flow_id ?: 'unknown'))
+            ->map(function (Collection $rows, string $flowId) use (&$qualityRefs, &$failureRefs): array {
+                $flowDelegatedCount = $rows
+                    ->filter(fn ($row): bool => (string) ($row->status ?? '') === 'delegated' || (string) ($row->delegation_status ?? '') === 'delegate_to_other_flow')
+                    ->count();
+                $qualityCount = 0;
+                $failureCount = 0;
+
+                foreach ($rows as $row) {
+                    $payload = $this->jsonPayload($row->execution_payload ?? null);
+                    foreach ((array) ($payload['quality_rubric'] ?? []) as $ref) {
+                        $ref = (string) $ref;
+                        $qualityRefs[$ref] = ($qualityRefs[$ref] ?? 0) + 1;
+                        $qualityCount++;
+                    }
+                    foreach ((array) ($payload['failure_modes'] ?? []) as $ref) {
+                        $ref = (string) $ref;
+                        $failureRefs[$ref] = ($failureRefs[$ref] ?? 0) + 1;
+                        $failureCount++;
+                    }
+                }
+
+                return [
+                    'bucket' => $flowId,
+                    'executions' => $rows->count(),
+                    'ready_for_provider_count' => $rows->where('status', 'ready_for_provider')->count(),
+                    'delegated_count' => $flowDelegatedCount,
+                    'delegation_rate' => $rows->count() > 0 ? round($flowDelegatedCount / $rows->count(), 4) : null,
+                    'quality_rubric_ref_count' => $qualityCount,
+                    'failure_mode_ref_count' => $failureCount,
+                    'delegation_targets' => $rows
+                        ->pluck('delegation_target_flow_id')
+                        ->filter()
+                        ->values()
+                        ->unique()
+                        ->all(),
+                ];
+            })
+            ->values()
+            ->all();
+
+        ksort($qualityRefs);
+        ksort($failureRefs);
+
+        return [
+            'available' => true,
+            'executions' => $executionCount,
+            'delegated_count' => $delegatedCount,
+            'delegation_rate' => $executionCount > 0 ? round($delegatedCount / $executionCount, 4) : null,
+            'router_decisions' => $routerDecisions->count(),
+            'router_override_count' => $overrideCount,
+            'router_override_rate' => $routerDecisions->count() > 0 ? round($overrideCount / $routerDecisions->count(), 4) : null,
+            'by_flow' => $byFlow,
+            'quality_rubric_refs' => $qualityRefs,
+            'failure_mode_refs' => $failureRefs,
         ];
     }
 
@@ -389,6 +484,24 @@ class AiTelemetryScorecardService
             ])
             ->values()
             ->all();
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function jsonPayload(mixed $value): array
+    {
+        if (is_array($value)) {
+            return $value;
+        }
+
+        if (! is_string($value) || trim($value) === '') {
+            return [];
+        }
+
+        $decoded = json_decode($value, true);
+
+        return is_array($decoded) ? $decoded : [];
     }
 
     /**

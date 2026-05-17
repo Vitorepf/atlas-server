@@ -24,6 +24,8 @@ final class AtlasSelfConstructionOperatorEvidenceArtifactTemplatePackTest extend
         $this->assertArrayHasKey('runtime_promotion_receipt_template', $payload['templates']);
         $this->assertArrayHasKey('real_provider_smoke_preimage_template', $payload['templates']);
         $this->assertArrayHasKey('human_completion_receipt_template', $payload['templates']);
+        $this->assertSame('atlas.self_construction.human_signed_completion_receipt.v1', data_get($payload, 'templates.human_completion_receipt_template.schema_version'));
+        $this->assertSame('atlas.self_construction.human_completion_receipt_verifier.v1', data_get($payload, 'templates.human_completion_receipt_template.verifier_schema_version'));
         $this->assertSame('atlas.self_construction.operator_evidence_submission_bundle.v1', data_get($payload, 'operator_submission_bundle.schema_version'));
         $this->assertSame(3, data_get($payload, 'operator_submission_bundle.artifact_count'));
         $this->assertSame('runtime_promotion_receipt', data_get($payload, 'operator_execution_plan.current_step'));
@@ -187,6 +189,7 @@ final class AtlasSelfConstructionOperatorEvidenceArtifactTemplatePackTest extend
 
         $human = $artifacts[2];
         $this->assertSame('human_completion_receipt', $human['artifact']);
+        $this->assertSame('atlas.self_construction.human_signed_completion_receipt.v1', $human['schema_version']);
         $this->assertContains('human_signed_os_complete_receipt_present', $human['blocks_completion_criteria']);
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $human['payload_template_json_sha256']);
         $this->assertStringContainsString('@storage/app/atlas/self-construction/operator-submissions/completion-receipt.json', $human['command_to_compute_hash_saved_file']);
@@ -351,6 +354,27 @@ final class AtlasSelfConstructionOperatorEvidenceArtifactTemplatePackTest extend
         $this->assertSame('atlas.self_construction_agent_control_plane_atlas_self_construction_operator_evidence_artifact_template_pack_status.v1', $status['schema_version']);
         $this->assertSame('available', $status['status']);
         $this->assertFalse($status['execution_allowed']);
+        $this->assertSame('not_requested', data_get($status, 'agent_control_plane_atlas_self_construction_operator_evidence_artifact_template_pack_status.operator_draft_workspace_status'));
+        $this->assertFalse((bool) data_get($status, 'agent_control_plane_atlas_self_construction_operator_evidence_artifact_template_pack_status.operator_draft_workspace_persisted'));
+        $this->assertSame('', data_get($status, 'agent_control_plane_atlas_self_construction_operator_evidence_artifact_template_pack_status.operator_draft_workspace_directory'));
+        $this->assertFalse((bool) data_get($status, 'agent_control_plane_atlas_self_construction_operator_evidence_artifact_template_pack_status.operator_draft_workspace_can_persist_completion_evidence'));
+        $this->assertFalse((bool) data_get($status, 'agent_control_plane_atlas_self_construction_operator_evidence_artifact_template_pack_status.operator_draft_workspace_can_promote_completion'));
+
+        Storage::fake('local');
+        $persistedStatus = app(AtlasSelfConstructionReadinessService::class)->atlasSelfConstructionOperatorEvidenceArtifactTemplatePackStatus([
+            'persist_operator_draft_workspace' => true,
+        ]);
+        $statusBlock = (array) data_get($persistedStatus, 'agent_control_plane_atlas_self_construction_operator_evidence_artifact_template_pack_status', []);
+        $this->assertSame('persisted_placeholder_drafts', $statusBlock['operator_draft_workspace_status']);
+        $this->assertTrue($statusBlock['operator_draft_workspace_persisted']);
+        $this->assertStringStartsWith('atlas/self-construction/operator-submissions/draft-workspaces/', $statusBlock['operator_draft_workspace_directory']);
+        $this->assertStringEndsWith('/manifest.json', $statusBlock['operator_draft_workspace_manifest_path']);
+        $this->assertSame(3, $statusBlock['operator_draft_workspace_artifact_count']);
+        $this->assertSame('runtime_promotion_receipt', $statusBlock['operator_draft_workspace_next_required_submission']);
+        $this->assertStringContainsString('--atlas-self-construction-operator-evidence-draft-hash-finalizer-status', $statusBlock['operator_draft_workspace_finalize_hashes_command']);
+        $this->assertStringContainsString('--publish-operator-draft-workspace', $statusBlock['operator_draft_workspace_publish_command']);
+        $this->assertFalse($statusBlock['operator_draft_workspace_can_persist_completion_evidence']);
+        $this->assertFalse($statusBlock['operator_draft_workspace_can_promote_completion']);
 
         foreach ([
             'atlas-self-construction-operator-evidence-artifact-template-pack-contract',

@@ -174,6 +174,9 @@ final class AgentControlPlaneMultiAgentLoopCertificationService
             && $this->terminalLoopCycleSupervisorPresent();
         $invariants['terminal_loop_cycle_supervisor_launch_path_verified'] = (bool) ($terminalFleetLaunchPlanProbe['cycle_supervisor_launch_path_verified'] ?? false);
         $invariants['terminal_loop_cycle_supervisor_evidence_review_path_verified'] = (bool) ($terminalFleetEvidenceRollupProbe['cycle_supervisor_evidence_review_path_verified'] ?? false);
+        $invariants['terminal_loop_fleet_launch_runbook_present'] = $invariants['terminal_loop_health_digest_present']
+            && $this->terminalLoopFleetLaunchRunbookPresent();
+        $invariants['terminal_loop_fleet_launch_runbook_ready_path_verified'] = (bool) ($terminalFleetLaunchPlanProbe['fleet_launch_runbook_ready_path_verified'] ?? false);
         $invariants['terminal_worker_bootstrap_rejects_invalid_worker_scope'] = (bool) ($terminalBootstrapProbe['invalid_scope_rejected'] ?? false);
         $invariants['terminal_worker_bootstrap_preview_read_only'] = (bool) ($terminalBootstrapProbe['preview_read_only'] ?? false);
         $invariants['terminal_worker_bootstrap_partial_supply_blocks_before_claim'] = (bool) ($terminalBootstrapProbe['partial_supply_blocks_before_claim'] ?? false);
@@ -1128,6 +1131,30 @@ final class AgentControlPlaneMultiAgentLoopCertificationService
             && data_get($digest, 'terminal_loop_cycle_supervisor.can_execute_next_command') === false
             && data_get($digest, 'terminal_loop_cycle_supervisor.can_claim_from_supervisor') === false
             && data_get($digest, 'terminal_loop_cycle_supervisor.terminal_loop_cycle_supervisor_hash') !== null;
+        $runbookSteps = (array) data_get($digest, 'terminal_loop_fleet_launch_runbook.terminal_steps', []);
+        $runbookCommands = array_values(array_filter(array_map(
+            static fn (array $step): string => (string) ($step['command'] ?? ''),
+            $runbookSteps,
+        )));
+        $runbookReadyPathVerified = (string) data_get($digest, 'terminal_loop_fleet_launch_runbook.schema_version') === AgentControlPlaneTerminalLoopHealthDigestService::FLEET_LAUNCH_RUNBOOK_SCHEMA_VERSION
+            && (string) data_get($digest, 'terminal_loop_fleet_launch_runbook.status') === 'fleet_launch_runbook_ready'
+            && (bool) data_get($digest, 'terminal_loop_fleet_launch_runbook.safe_to_copy_after_operator_review') === true
+            && (bool) data_get($digest, 'terminal_loop_fleet_launch_runbook.can_resume_without_chat_history') === true
+            && (int) data_get($digest, 'terminal_loop_fleet_launch_runbook.terminal_count') === $probeTerminalCount
+            && count($runbookSteps) === $probeTerminalCount
+            && $runbookCommands !== []
+            && count(array_filter(
+                $runbookCommands,
+                static fn (string $command): bool => str_contains($command, '--agent-control-plane-terminal-worker-bootstrap-status')
+                    && str_contains($command, '--queue-tag='.$queueTag),
+            )) === count($runbookCommands)
+            && in_array('copy_each_terminal_command_into_separate_terminal', (array) data_get($digest, 'terminal_loop_fleet_launch_runbook.ordered_operator_sequence', []), true)
+            && str_contains((string) data_get($digest, 'terminal_loop_fleet_launch_runbook.resume_after_interruption.resume_command'), '--agent-control-plane-terminal-loop-health-digest-status')
+            && (bool) data_get($digest, 'terminal_loop_fleet_launch_runbook.resume_after_interruption.requires_fresh_health_digest_before_starting_more_terminals') === true
+            && in_array('health_digest_no_longer_ready', (array) data_get($digest, 'terminal_loop_fleet_launch_runbook.stop_conditions', []), true)
+            && data_get($digest, 'terminal_loop_fleet_launch_runbook.can_start_terminals_from_runbook') === false
+            && data_get($digest, 'terminal_loop_fleet_launch_runbook.can_execute_commands_from_runbook') === false
+            && data_get($digest, 'terminal_loop_fleet_launch_runbook.terminal_loop_fleet_launch_runbook_hash') !== null;
 
         return [
             'status' => $readyPathVerified ? 'available' : 'blocked',
@@ -1150,6 +1177,10 @@ final class AgentControlPlaneMultiAgentLoopCertificationService
             'cycle_supervisor_next_command_is_lane_bound' => (bool) data_get($digest, 'terminal_loop_cycle_supervisor.next_command_is_lane_bound'),
             'cycle_supervisor_launch_path_verified' => $cycleSupervisorLaunchPathVerified,
             'cycle_supervisor_hash' => (string) data_get($digest, 'terminal_loop_cycle_supervisor.terminal_loop_cycle_supervisor_hash'),
+            'fleet_launch_runbook_status' => (string) data_get($digest, 'terminal_loop_fleet_launch_runbook.status'),
+            'fleet_launch_runbook_terminal_count' => (int) data_get($digest, 'terminal_loop_fleet_launch_runbook.terminal_count'),
+            'fleet_launch_runbook_ready_path_verified' => $runbookReadyPathVerified,
+            'fleet_launch_runbook_hash' => (string) data_get($digest, 'terminal_loop_fleet_launch_runbook.terminal_loop_fleet_launch_runbook_hash'),
             'can_execute_from_digest' => (bool) data_get($digest, 'terminal_loop_fleet_launch_plan.can_execute_from_digest'),
             'can_claim_from_digest' => (bool) data_get($digest, 'terminal_loop_fleet_launch_plan.can_claim_from_digest'),
             'blocked_reasons' => (array) data_get($digest, 'terminal_loop_fleet_launch_plan.blocked_reasons', []),
@@ -2437,6 +2468,14 @@ final class AgentControlPlaneMultiAgentLoopCertificationService
                 'value' => (bool) ($invariants['terminal_loop_cycle_supervisor_evidence_review_path_verified'] ?? false),
                 'why' => 'The evidence-rollup probe proves the cycle supervisor selects review_evidence before more replenishment when completed dry-run evidence is ready for operator review.',
             ],
+            'terminal_loop_fleet_launch_runbook_present' => [
+                'value' => (bool) ($invariants['terminal_loop_fleet_launch_runbook_present'] ?? false),
+                'why' => 'The read-only terminal loop health digest emits a fleet launch runbook with numbered terminal steps, copy-paste commands, post-launch observability commands, interruption-resume instructions and non-execution flags.',
+            ],
+            'terminal_loop_fleet_launch_runbook_ready_path_verified' => [
+                'value' => (bool) ($invariants['terminal_loop_fleet_launch_runbook_ready_path_verified'] ?? false),
+                'why' => 'The fleet-launch probe proves the runbook becomes ready on a worker-eligible tagged lane, carries one lane-bound command per recommended terminal, requires a fresh health digest before more terminals, and cannot execute or start terminals from the runbook.',
+            ],
             'certification_cleanup_leaves_no_recoverable_terminal_loop_artifacts' => [
                 'value' => (bool) ($invariants['certification_cleanup_leaves_no_recoverable_terminal_loop_artifacts'] ?? false),
                 'why' => 'After pruning the run-scoped synthetic packets and leases, the certification asks the read-only terminal-loop health digest to prove there are zero claimed packets, zero active leases and zero recoverable lease/task artifacts left by the run.',
@@ -2511,6 +2550,8 @@ final class AgentControlPlaneMultiAgentLoopCertificationService
             'terminal_loop_cycle_supervisor_present',
             'terminal_loop_cycle_supervisor_launch_path_verified',
             'terminal_loop_cycle_supervisor_evidence_review_path_verified',
+            'terminal_loop_fleet_launch_runbook_present',
+            'terminal_loop_fleet_launch_runbook_ready_path_verified',
             'certification_cleanup_leaves_no_recoverable_terminal_loop_artifacts',
             'terminal_worker_bootstrap_rejects_invalid_worker_scope',
             'terminal_worker_bootstrap_completion_evidence_template_present',
@@ -2661,5 +2702,25 @@ final class AgentControlPlaneMultiAgentLoopCertificationService
             && data_get($digest, 'terminal_loop_cycle_supervisor.can_claim_from_supervisor') === false
             && data_get($digest, 'terminal_loop_cycle_supervisor.can_call_provider_from_supervisor') === false
             && data_get($digest, 'terminal_loop_cycle_supervisor.can_spend_tokens_from_supervisor') === false;
+    }
+
+    private function terminalLoopFleetLaunchRunbookPresent(): bool
+    {
+        $digest = (new AgentControlPlaneTerminalLoopHealthDigestService)->digest([
+            'actor' => 'multi-agent-certification-launch-runbook-probe',
+            'target_min_claimable_tasks' => 1,
+            'max_new_tasks' => 1,
+            'queue_tags' => ['multi-agent-certification-launch-runbook-probe'],
+        ]);
+
+        return (string) data_get($digest, 'terminal_loop_fleet_launch_runbook.schema_version') === AgentControlPlaneTerminalLoopHealthDigestService::FLEET_LAUNCH_RUNBOOK_SCHEMA_VERSION
+            && (string) data_get($digest, 'terminal_loop_fleet_launch_runbook.status') !== ''
+            && (bool) data_get($digest, 'terminal_loop_fleet_launch_runbook.can_resume_without_chat_history') === true
+            && data_get($digest, 'terminal_loop_fleet_launch_runbook.terminal_loop_fleet_launch_runbook_hash') !== null
+            && data_get($digest, 'terminal_loop_fleet_launch_runbook.can_start_terminals_from_runbook') === false
+            && data_get($digest, 'terminal_loop_fleet_launch_runbook.can_execute_commands_from_runbook') === false
+            && data_get($digest, 'terminal_loop_fleet_launch_runbook.can_claim_from_runbook') === false
+            && data_get($digest, 'terminal_loop_fleet_launch_runbook.can_call_provider_from_runbook') === false
+            && data_get($digest, 'terminal_loop_fleet_launch_runbook.can_spend_tokens_from_runbook') === false;
     }
 }

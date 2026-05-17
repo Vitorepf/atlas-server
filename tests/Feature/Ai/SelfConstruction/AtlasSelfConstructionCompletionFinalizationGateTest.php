@@ -37,9 +37,23 @@ final class AtlasSelfConstructionCompletionFinalizationGateTest extends TestCase
         $this->assertFalse((bool) data_get($gate, 'completion_finalization_operator_handoff.can_promote_completion_from_handoff'));
         $this->assertTrue((bool) data_get($gate, 'terminal_loop_operational_proof_required_before_completion_claim'));
         $this->assertStringContainsString('terminal-loop-operational-proof-status', (string) data_get($gate, 'command_to_refresh_terminal_loop_operational_proof'));
+        $this->assertStringContainsString('--persist-terminal-loop-operational-proof-binding', (string) data_get($gate, 'command_to_persist_terminal_loop_operational_proof_binding'));
+        $this->assertStringContainsString('--agent-control-plane-replay-snapshot-store-capture', (string) data_get($gate, 'command_to_capture_snapshot_after_terminal_loop_operational_proof'));
         $this->assertStringContainsString('--agent-control-plane-terminal-loop-operational-proof-json=', (string) data_get($gate, 'command_to_rerun_audit_with_terminal_loop_operational_proof'));
         $this->assertStringContainsString('terminal-loop-operational-proof-status', (string) data_get($gate, 'completion_finalization_operator_handoff.terminal_loop_operational_proof_command'));
+        $this->assertStringContainsString('--persist-terminal-loop-operational-proof-binding', (string) data_get($gate, 'completion_finalization_operator_handoff.terminal_loop_operational_proof_binding_persist_command'));
+        $this->assertStringContainsString('--agent-control-plane-replay-snapshot-store-capture', (string) data_get($gate, 'completion_finalization_operator_handoff.capture_snapshot_after_terminal_loop_operational_proof_command'));
         $this->assertStringContainsString('--agent-control-plane-terminal-loop-operational-proof-json=', (string) data_get($gate, 'completion_finalization_operator_handoff.completion_audit_with_terminal_loop_operational_proof_command'));
+        $this->assertSame([
+            'refresh_terminal_loop_operational_proof_and_export_binding',
+            'capture_replay_snapshot_after_terminal_loop_operational_proof',
+            'rerun_completion_audit_with_terminal_loop_operational_proof_binding',
+        ], array_column((array) data_get($gate, 'final_verification_sequence', []), 'id'));
+        $this->assertSame(
+            'capture_replay_snapshot_after_terminal_loop_operational_proof',
+            data_get($gate, 'completion_finalization_operator_handoff.final_verification_sequence.1.id'),
+        );
+        $this->assertTrue((bool) data_get($gate, 'completion_audit_green_requires_current_snapshot_after_terminal_loop_proof'));
         $this->assertMatchesRegularExpression(
             '/^[a-f0-9]{64}$/',
             (string) data_get($gate, 'completion_finalization_operator_handoff.completion_finalization_operator_handoff_hash'),
@@ -86,6 +100,7 @@ final class AtlasSelfConstructionCompletionFinalizationGateTest extends TestCase
         );
         $this->assertTrue((bool) data_get($gate, 'completion_finalization_operator_handoff.required_success_predicate.completion_claim_allowed_must_be_true'));
         $this->assertTrue((bool) data_get($gate, 'completion_finalization_operator_handoff.required_success_predicate.terminal_loop_operational_proof_must_be_bound_and_passed'));
+        $this->assertTrue((bool) data_get($gate, 'completion_finalization_operator_handoff.required_success_predicate.release_snapshot_must_be_current_after_terminal_loop_operational_proof'));
     }
 
     public function test_finalization_gate_blocks_green_audit_without_terminal_loop_operational_proof_binding(): void
@@ -159,6 +174,43 @@ final class AtlasSelfConstructionCompletionFinalizationGateTest extends TestCase
         $this->assertTrue((bool) $summary['terminal_loop_operational_proof_green']);
         $this->assertSame('passed', $summary['terminal_loop_operational_proof_status']);
         $this->assertSame(str_repeat('a', 64), $summary['terminal_loop_operational_proof_hash']);
+        $this->assertStringContainsString('--agent-control-plane-replay-snapshot-store-capture', (string) $summary['command_to_capture_snapshot_after_terminal_loop_operational_proof']);
+        $this->assertSame(3, (int) $summary['final_verification_sequence_step_count']);
+        $this->assertSame('capture_replay_snapshot_after_terminal_loop_operational_proof', $summary['final_verification_sequence'][1]['id']);
+        $this->assertTrue((bool) $summary['completion_audit_green_requires_current_snapshot_after_terminal_loop_proof']);
+    }
+
+    public function test_finalization_handoff_preserves_terminal_loop_proof_path_in_next_commands(): void
+    {
+        $reference = '@/tmp/terminal-loop-operational-proof-binding.json';
+        $gate = $this->service()->evaluate([
+            'completion_audit' => $this->auditAllPassedExcept(['runtime_gap_matrix_all_runtime_y'], withOperationalProof: true),
+            'completion_evidence' => $this->evidenceAllGreen(),
+            'agent_control_plane_terminal_loop_operational_proof_json' => $reference,
+        ]);
+
+        $this->assertSame($reference, $gate['terminal_loop_operational_proof_json_reference']);
+        $this->assertSame($reference, data_get($gate, 'completion_finalization_operator_handoff.terminal_loop_operational_proof_json_reference'));
+        $this->assertStringContainsString(
+            '--agent-control-plane-terminal-loop-operational-proof-json='.$reference,
+            (string) $gate['command_to_rerun_audit_with_terminal_loop_operational_proof'],
+        );
+        $this->assertStringContainsString(
+            '--agent-control-plane-terminal-loop-operational-proof-json='.$reference,
+            (string) data_get($gate, 'completion_finalization_operator_handoff.completion_audit_with_terminal_loop_operational_proof_command'),
+        );
+        $this->assertStringContainsString(
+            '--agent-control-plane-terminal-loop-operational-proof-json='.$reference,
+            (string) data_get($gate, 'completion_finalization_operator_handoff.finalization_gate_command'),
+        );
+        $this->assertStringContainsString(
+            '--agent-control-plane-terminal-loop-operational-proof-json='.$reference,
+            (string) data_get($gate, 'completion_finalization_operator_handoff.ordered_next_commands.4'),
+        );
+        $this->assertStringContainsString(
+            '--agent-control-plane-terminal-loop-operational-proof-json='.$reference,
+            (string) data_get($gate, 'completion_finalization_operator_handoff.ordered_next_commands.5'),
+        );
     }
 
     public function test_finalization_gate_blocks_when_green_audit_and_completion_evidence_hashes_drift(): void

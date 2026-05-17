@@ -83,12 +83,12 @@ final class AtlasAiIntentKernelService
     {
         return [
             'review_like' => $this->hasDiffOrPr($attachments, $haystack),
-            'debug_like' => $this->containsAny($haystack, ['stack trace', 'traceback', 'logs', 'log ', 'erro em producao', 'erro em produção', 'exception', 'observability']),
+            'debug_like' => $this->containsAny($haystack, ['stack trace', 'stacktrace', 'traceback', 'debug ', 'debugue', 'logs', 'log ', 'erro em producao', 'erro em produção', 'exception', 'observability']),
             'forge_like' => $this->containsAny($haystack, ['obra ', 'multi-semana', 'multi semana', 'sistema inteiro', 'sistema todo', 'app inteiro', 'one shot enterprise', 'one-shot enterprise']),
             'plan_like' => $this->containsAny($haystack, ['planeje', 'planejar', 'plano', 'plan ', 'planning', 'roadmap', 'estruture', 'arquitetura antes', 'antes de implementar']),
             'patch_like' => $this->containsAny($haystack, ['implemente', 'implementa', 'corrija', 'corrigir', 'refatore', 'refactor', 'mude ', 'altere ', 'crie ', 'adicione ', 'fix ', 'implement ', 'patch']),
             'explain_like' => $this->containsAny($haystack, ['explique', 'explica', 'explain', 'resuma', 'summarize']),
-            'research_like' => $this->containsAny($haystack, ['pesquisa', 'pesquisar', 'research', 'fontes', 'referencias', 'referências', 'estado da arte', 'como funciona', 'how does', 'difference between', 'qual a diferença']),
+            'research_like' => $this->containsAny($haystack, ['pesquisa', 'pesquise', 'pesquisar', 'research', 'fontes', 'referencias', 'referências', 'estado da arte', 'como funciona', 'how does', 'difference between', 'qual a diferença']),
         ];
     }
 

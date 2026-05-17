@@ -19,6 +19,7 @@ use App\Console\Commands\AtlasAiArchitectureValidateCommand;
 use App\Console\Commands\AtlasAiDecideCommand;
 use App\Console\Commands\AtlasAiDomainsCommand;
 use App\Console\Commands\AtlasAiDynamicComputeMarketCommand;
+use App\Console\Commands\AtlasAiHyperflowCommand;
 use App\Console\Commands\AtlasAiLedgerCommand;
 use App\Console\Commands\AtlasAiLedgerProjectionCommand;
 use App\Console\Commands\AtlasAiLocalRagBenchmarkCommand;
@@ -159,6 +160,7 @@ return Application::configure(basePath: dirname(__DIR__))
         AtlasAiDecideCommand::class,
         AtlasAiDomainsCommand::class,
         AtlasAiDynamicComputeMarketCommand::class,
+        AtlasAiHyperflowCommand::class,
         AtlasAiLedgerCommand::class,
         AtlasAiLedgerProjectionCommand::class,
         AtlasAiLocalRagBenchmarkCommand::class,

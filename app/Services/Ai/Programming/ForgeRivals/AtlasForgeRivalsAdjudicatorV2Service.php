@@ -514,6 +514,7 @@ final class AtlasForgeRivalsAdjudicatorV2Service
             'suspicious_results' => $suspicious,
             'human_review_required' => $humanReviewRequired,
             'valid' => $valid,
+            'evidence_freshness' => $this->resolveEvidenceFreshness($atlasReceipt, $rivalReceipt),
             'claim_ready' => false,
             'winner_reason' => $this->buildCaseWinnerReason($winner, $atlasScore, $rivalScore, $margin, $suspicious, $allHardFailures),
         ];
@@ -665,6 +666,7 @@ final class AtlasForgeRivalsAdjudicatorV2Service
             'suspicious_results' => $suspicious,
             'human_review_required' => $humanReviewRequired,
             'valid' => $valid,
+            'evidence_freshness' => $this->resolveEvidenceFreshness($atlasReceipt, $rivalReceipt),
             'claim_ready' => false,
             'winner_reason' => $this->buildCaseWinnerReason($winner, $atlasScore, $rivalScore, $margin, $suspicious, $hardFailures),
         ];
@@ -2107,9 +2109,9 @@ final class AtlasForgeRivalsAdjudicatorV2Service
         $entries = [];
         $atlasArm = $arms[0] ?? [];
         $rivalArm = $arms[1] ?? [];
-        $now = (new \DateTimeImmutable('now', new \DateTimeZone('UTC')))->format(\DateTimeInterface::ATOM);
 
         foreach ($cases as $c) {
+            $freshness = (string) ($c['evidence_freshness'] ?? 'unknown');
             foreach ([['atlas', $atlasArm], ['rival', $rivalArm]] as [$armKey, $armData]) {
                 $score = $c['scores'][$armKey] ?? null;
                 $valid = (bool) $c['valid'] && $score !== null;
@@ -2127,7 +2129,7 @@ final class AtlasForgeRivalsAdjudicatorV2Service
                     'confidence' => $confidence,
                     'valid' => $valid,
                     'hard_failure_reason' => $valid ? null : ($c['hard_failures'][0] ?? 'unknown_invalidation'),
-                    'freshness' => $now,
+                    'freshness' => $freshness,
                     'cost_estimate' => null,
                     'duration_ms' => null,
                     'case_id' => (string) $c['case_id'],
@@ -2139,6 +2141,41 @@ final class AtlasForgeRivalsAdjudicatorV2Service
         }
 
         return $entries;
+    }
+
+    /**
+     * Use evidence timestamps, not wall-clock adjudication time, so the same
+     * input produces the same ledger projection and adjudication hash.
+     *
+     * @param  array<string,mixed>  $atlasReceipt
+     * @param  array<string,mixed>  $rivalReceipt
+     */
+    private function resolveEvidenceFreshness(array $atlasReceipt, array $rivalReceipt): string
+    {
+        $candidates = [];
+        foreach ([$atlasReceipt, $rivalReceipt] as $receipt) {
+            foreach (['finished_at', 'completed_at', 'recorded_at', 'started_at'] as $key) {
+                $value = trim((string) ($receipt[$key] ?? ''));
+                if ($value !== '') {
+                    $candidates[] = $value;
+                    break;
+                }
+            }
+        }
+
+        if ($candidates === []) {
+            return 'unknown';
+        }
+
+        usort($candidates, static function (string $a, string $b): int {
+            try {
+                return (new \DateTimeImmutable($a))->getTimestamp() <=> (new \DateTimeImmutable($b))->getTimestamp();
+            } catch (\Throwable) {
+                return strcmp($a, $b);
+            }
+        });
+
+        return (string) end($candidates);
     }
 
     /**
@@ -2158,9 +2195,6 @@ final class AtlasForgeRivalsAdjudicatorV2Service
 
     /**
      * Recursively sort associative keys so the JSON encoding is determinístic.
-     *
-     * @param  mixed  $value
-     * @return mixed
      */
     private function canonicalize(mixed $value): mixed
     {
@@ -2217,7 +2251,6 @@ final class AtlasForgeRivalsAdjudicatorV2Service
     }
 
     /**
-     * @param  mixed  $value
      * @return list<string>
      */
     private function stringList(mixed $value): array

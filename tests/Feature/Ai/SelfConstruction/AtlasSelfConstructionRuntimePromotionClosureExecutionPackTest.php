@@ -74,11 +74,16 @@ final class AtlasSelfConstructionRuntimePromotionClosureExecutionPackTest extend
             'rerun_runtime_gap_matrix',
             'rerun_completion_audit',
             'refresh_terminal_loop_operational_proof',
+            'persist_terminal_loop_operational_proof_binding',
             'rerun_completion_audit_with_terminal_loop_operational_proof',
         ], $stepIds);
         $this->assertStringContainsString(
             'terminal-loop-operational-proof-status',
             (string) data_get($payload, 'exact_commands.refresh_terminal_loop_operational_proof'),
+        );
+        $this->assertStringContainsString(
+            '--persist-terminal-loop-operational-proof-binding',
+            (string) data_get($payload, 'exact_commands.persist_terminal_loop_operational_proof_binding'),
         );
         $this->assertStringContainsString(
             '--agent-control-plane-terminal-loop-operational-proof-json=',

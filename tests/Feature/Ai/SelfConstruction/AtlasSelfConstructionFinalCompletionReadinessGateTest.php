@@ -150,13 +150,22 @@ final class AtlasSelfConstructionFinalCompletionReadinessGateTest extends TestCa
         $this->assertStringContainsString('atlas:ai:self-construction', (string) $gate['command_to_rerun_audit']);
         $this->assertStringContainsString('completion-audit-status', (string) $gate['command_to_rerun_audit']);
         $this->assertStringContainsString('terminal-loop-operational-proof-status', (string) $gate['command_to_refresh_terminal_loop_operational_proof']);
+        $this->assertStringContainsString('--persist-terminal-loop-operational-proof-binding', (string) $gate['command_to_persist_terminal_loop_operational_proof_binding']);
+        $this->assertStringContainsString('--agent-control-plane-replay-snapshot-store-capture', (string) $gate['command_to_capture_snapshot_after_terminal_loop_operational_proof']);
         $this->assertStringContainsString('--agent-control-plane-terminal-loop-operational-proof-json=', (string) $gate['command_to_rerun_audit_with_terminal_loop_operational_proof']);
+        $this->assertSame([
+            'refresh_terminal_loop_operational_proof_and_export_binding',
+            'capture_replay_snapshot_after_terminal_loop_operational_proof',
+            'rerun_completion_audit_with_terminal_loop_operational_proof_binding',
+        ], array_column((array) $gate['final_verification_sequence'], 'id'));
+        $this->assertTrue((bool) $gate['completion_audit_green_requires_current_snapshot_after_terminal_loop_proof']);
         $this->assertTrue((bool) $gate['terminal_loop_operational_proof_required_before_completion_claim']);
         $this->assertSame(
             'atlas.self_construction.agent_control_plane_terminal_loop_operational_proof_audit_binding_packet.v1',
             $gate['terminal_loop_operational_proof_expected_binding_schema'],
         );
         $this->assertTrue((bool) data_get($gate, 'safety_invariants.completion_claim_requires_terminal_loop_operational_proof_binding'));
+        $this->assertTrue((bool) data_get($gate, 'safety_invariants.completion_claim_requires_current_snapshot_after_terminal_loop_operational_proof'));
         $this->assertTrue((bool) data_get($gate, 'safety_invariants.self_programming_transition_requires_self_construction_complete'));
         $this->assertTrue((bool) data_get($gate, 'safety_invariants.self_programming_transition_requires_safety_contract'));
         $this->assertTrue((bool) data_get($gate, 'safety_invariants.self_programming_transition_does_not_enable_runtime'));
@@ -176,7 +185,12 @@ final class AtlasSelfConstructionFinalCompletionReadinessGateTest extends TestCa
             $summary['terminal_loop_operational_proof_expected_binding_schema'],
         );
         $this->assertStringContainsString('terminal-loop-operational-proof-status', (string) $summary['command_to_refresh_terminal_loop_operational_proof']);
+        $this->assertStringContainsString('--persist-terminal-loop-operational-proof-binding', (string) $summary['command_to_persist_terminal_loop_operational_proof_binding']);
+        $this->assertStringContainsString('--agent-control-plane-replay-snapshot-store-capture', (string) $summary['command_to_capture_snapshot_after_terminal_loop_operational_proof']);
         $this->assertStringContainsString('--agent-control-plane-terminal-loop-operational-proof-json=', (string) $summary['command_to_rerun_audit_with_terminal_loop_operational_proof']);
+        $this->assertSame(3, (int) $summary['final_verification_sequence_step_count']);
+        $this->assertSame('capture_replay_snapshot_after_terminal_loop_operational_proof', $summary['final_verification_sequence'][1]['id']);
+        $this->assertTrue((bool) $summary['completion_audit_green_requires_current_snapshot_after_terminal_loop_proof']);
         $this->assertSame('blocked', (string) $summary['self_programming_os_transition_status']);
         $this->assertContains('self_construction_os_not_complete', (array) $summary['self_programming_os_transition_blockers']);
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $summary['self_programming_safety_contract_hash']);
@@ -202,7 +216,20 @@ final class AtlasSelfConstructionFinalCompletionReadinessGateTest extends TestCa
         $this->assertFalse((bool) $summary['provider_call_allowed']);
         $this->assertFalse((bool) $summary['token_spend_allowed']);
         $this->assertContains('self_construction_os_not_complete', (array) $summary['blockers']);
+        $this->assertIsArray($summary['source_completion_audit_failed_criteria']);
+        $this->assertFalse((bool) $summary['completion_claim_allowed']);
+        $this->assertFalse((bool) $summary['next_stage_allowed']);
         $this->assertSame('docs/engineering-knowledge-base/self-construction/self-programming-safety-contract.md', $summary['safety_contract_path']);
+        $this->assertSame(
+            'storage/app/private/atlas/self-construction/operator-submissions/terminal-loop-operational-proof-binding.json',
+            (string) $summary['terminal_loop_operational_proof_canonical_binding_path'],
+        );
+        $this->assertStringContainsString('--atlas-self-programming-os-transition-readiness-status', (string) $summary['transition_readiness_command_with_canonical_terminal_loop_binding']);
+        $this->assertStringContainsString('--atlas-self-construction-os-completion-audit-status', (string) $summary['completion_audit_command_with_canonical_terminal_loop_binding']);
+        $this->assertStringContainsString(
+            '--agent-control-plane-terminal-loop-operational-proof-json=@storage/app/private/atlas/self-construction/operator-submissions/terminal-loop-operational-proof-binding.json',
+            (string) $summary['transition_readiness_command_with_canonical_terminal_loop_binding'],
+        );
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $summary['safety_contract_hash']);
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $summary['source_final_completion_readiness_gate_hash']);
     }
@@ -238,6 +265,7 @@ final class AtlasSelfConstructionFinalCompletionReadinessGateTest extends TestCa
         $this->assertFalse((bool) $summary['runtime_activation_allowed']);
         $this->assertFalse((bool) $summary['self_programming_allowed']);
         $this->assertContains('self_construction_os_not_complete', (array) $summary['blockers']);
+        $this->assertStringContainsString('--agent-control-plane-terminal-loop-operational-proof-json=@storage/app/private/atlas/self-construction/operator-submissions/terminal-loop-operational-proof-binding.json', (string) $summary['completion_audit_command_with_canonical_terminal_loop_binding']);
     }
 
     public function test_agent_control_plane_lists_self_programming_transition_readiness_capabilities(): void
@@ -269,6 +297,17 @@ final class AtlasSelfConstructionFinalCompletionReadinessGateTest extends TestCa
         $this->assertSame('blocked', (string) $payload['finalization_gate_status']);
         $this->assertSame('structural_probe_no_persistence_no_registry_side_effects', (string) $payload['finalization_gate_evaluation_mode']);
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $payload['finalization_gate_hash']);
+        $this->assertSame(
+            'storage/app/private/atlas/self-construction/operator-submissions/terminal-loop-operational-proof-binding.json',
+            (string) $payload['terminal_loop_operational_proof_canonical_binding_path'],
+        );
+        $this->assertStringContainsString('--atlas-self-programming-os-transition-readiness-status', (string) $payload['transition_readiness_command_with_canonical_terminal_loop_binding']);
+        $this->assertStringContainsString('--atlas-self-programming-safety-contract-certification-status', (string) $payload['safety_contract_certification_command_with_canonical_terminal_loop_binding']);
+        $this->assertStringContainsString('--atlas-self-construction-os-completion-audit-status', (string) $payload['completion_audit_command_with_canonical_terminal_loop_binding']);
+        $this->assertStringContainsString(
+            '--agent-control-plane-terminal-loop-operational-proof-json=@storage/app/private/atlas/self-construction/operator-submissions/terminal-loop-operational-proof-binding.json',
+            (string) $payload['safety_contract_certification_command_with_canonical_terminal_loop_binding'],
+        );
         $this->assertFalse((bool) $payload['finalization_gate_terminal_loop_green']);
         $this->assertTrue((bool) $payload['finalization_gate_terminal_loop_required_before_completion_claim']);
         $this->assertFalse((bool) $payload['finalization_gate_completion_claim_allowed']);
@@ -347,9 +386,52 @@ final class AtlasSelfConstructionFinalCompletionReadinessGateTest extends TestCa
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $summary['worker_task_eligibility_certification_hash']);
         $this->assertContains('self_construction_os_not_complete', (array) $summary['transition_blockers']);
         $this->assertSame('docs/engineering-knowledge-base/self-construction/self-programming-safety-contract.md', $summary['safety_contract_path']);
+        $this->assertSame(
+            'storage/app/private/atlas/self-construction/operator-submissions/terminal-loop-operational-proof-binding.json',
+            (string) $summary['terminal_loop_operational_proof_canonical_binding_path'],
+        );
+        $this->assertStringContainsString('--atlas-self-programming-os-transition-readiness-status', (string) $summary['transition_readiness_command_with_canonical_terminal_loop_binding']);
+        $this->assertStringContainsString('--atlas-self-programming-safety-contract-certification-status', (string) $summary['safety_contract_certification_command_with_canonical_terminal_loop_binding']);
+        $this->assertStringContainsString('--atlas-self-construction-os-completion-audit-status', (string) $summary['completion_audit_command_with_canonical_terminal_loop_binding']);
+        $this->assertStringContainsString(
+            '--agent-control-plane-terminal-loop-operational-proof-json=@storage/app/private/atlas/self-construction/operator-submissions/terminal-loop-operational-proof-binding.json',
+            (string) $summary['completion_audit_command_with_canonical_terminal_loop_binding'],
+        );
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $summary['safety_contract_hash']);
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $summary['certification_hash']);
         $this->assertSame([], (array) $summary['failed_check_ids']);
+    }
+
+    public function test_self_programming_safety_contract_certification_exposes_live_finalization_gate_when_proof_path_is_supplied(): void
+    {
+        $reference = '@/tmp/terminal-loop-operational-proof-binding.json';
+        $audit = $this->auditAllPassedExcept(['runtime_gap_matrix_all_runtime_y'], includeTerminalLoopProof: true);
+        $audit['criteria'][] = [
+            'id' => 'agent_control_plane_terminal_loop_certification_green',
+            'passed' => true,
+            'evidence' => ['status' => 'available'],
+        ];
+        $payload = (new AtlasSelfProgrammingSafetyContractCertificationService(
+            new AtlasSelfConstructionReadinessService(new AtlasSelfConstructionReservationRepository),
+        ))->certify([
+            'completion_audit' => $audit,
+            'agent_control_plane_terminal_loop_operational_proof_json' => $reference,
+        ]);
+
+        $this->assertSame('available', $payload['status']);
+        $this->assertSame($reference, $payload['terminal_loop_operational_proof_json_reference']);
+        $this->assertTrue((bool) $payload['live_finalization_gate_available']);
+        $this->assertSame('blocked', (string) $payload['live_finalization_gate_status']);
+        $this->assertTrue((bool) $payload['live_finalization_gate_terminal_loop_green']);
+        $this->assertSame('passed', (string) $payload['live_finalization_gate_terminal_loop_proof_status']);
+        $this->assertStringContainsString(
+            '--agent-control-plane-terminal-loop-operational-proof-json='.$reference,
+            (string) $payload['live_finalization_gate_command'],
+        );
+        $this->assertStringContainsString(
+            '--agent-control-plane-terminal-loop-operational-proof-json='.$reference,
+            (string) $payload['live_finalization_gate_audit_with_binding_command'],
+        );
     }
 
     public function test_cli_exposes_self_programming_safety_contract_certification_quartet(): void
@@ -396,6 +478,25 @@ final class AtlasSelfConstructionFinalCompletionReadinessGateTest extends TestCa
         $this->assertContains('atlas_self_programming_safety_contract_certification_implementation_packet', $capabilities);
         $this->assertContains('atlas_self_programming_safety_contract_certification_service', $capabilities);
         $this->assertContains('atlas_self_programming_safety_contract_certification_status_projection', $capabilities);
+    }
+
+    public function test_gate_preserves_terminal_loop_proof_path_in_final_verification_commands(): void
+    {
+        $reference = '@/tmp/terminal-loop-operational-proof-binding.json';
+        $gate = $this->gate()->evaluate([
+            'completion_audit' => $this->auditAllPassedExcept(['runtime_gap_matrix_all_runtime_y']),
+            'agent_control_plane_terminal_loop_operational_proof_json' => $reference,
+        ]);
+
+        $this->assertSame($reference, $gate['terminal_loop_operational_proof_json_reference']);
+        $this->assertStringContainsString(
+            '--agent-control-plane-terminal-loop-operational-proof-json='.$reference,
+            (string) $gate['command_to_rerun_audit_with_terminal_loop_operational_proof'],
+        );
+        $this->assertStringContainsString(
+            '--agent-control-plane-terminal-loop-operational-proof-json='.$reference,
+            (string) data_get($gate, 'final_verification_sequence.2.command'),
+        );
     }
 
     private function gate(): AtlasSelfConstructionFinalCompletionReadinessGateService

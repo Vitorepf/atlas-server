@@ -64,11 +64,25 @@ final class AtlasSelfConstructionCompletionEvidenceSubmissionPreflightTest exten
             '--agent-control-plane-terminal-loop-operational-proof-status',
             data_get($payload, 'operator_closure_command_replay.proof_commands_after_each_persist.terminal_loop_operational_proof'),
         );
+        $this->assertStringContainsString(
+            '--agent-control-plane-terminal-loop-operational-proof-json=@/path/to/terminal-loop-operational-proof-binding.json',
+            data_get($payload, 'operator_closure_command_replay.proof_commands_after_each_persist.completion_audit'),
+        );
         $this->assertSame('atlas.self_construction.terminal_loop_closure_proof_packet.v1', data_get($payload, 'terminal_loop_closure_proof.schema_version'));
         $this->assertSame('operator_or_ci_should_refresh_before_final_persist', data_get($payload, 'terminal_loop_closure_proof.status'));
         $this->assertTrue(data_get($payload, 'terminal_loop_closure_proof.required_before_final_completion_receipt'));
         $this->assertStringContainsString('--agent-control-plane-terminal-loop-operational-proof-status', data_get($payload, 'terminal_loop_closure_proof.proof_command'));
+        $this->assertStringContainsString('--persist-terminal-loop-operational-proof-binding', data_get($payload, 'terminal_loop_closure_proof.proof_binding_persist_command'));
+        $this->assertSame(
+            'storage/app/private/atlas/self-construction/operator-submissions/terminal-loop-operational-proof-binding.json',
+            data_get($payload, 'terminal_loop_closure_proof.expected_binding_artifact_path'),
+        );
+        $this->assertContains('persist_completion_audit_binding_packet_to_canonical_operator_submission_path', data_get($payload, 'terminal_loop_closure_proof.operator_steps'));
         $this->assertStringContainsString('--agent-control-plane-terminal-loop-operational-proof-json=@/path/to/terminal-loop-operational-proof-binding.json', data_get($payload, 'terminal_loop_closure_proof.audit_command_with_binding'));
+        $this->assertStringContainsString(
+            '--agent-control-plane-terminal-loop-operational-proof-json=@storage/app/private/atlas/self-construction/operator-submissions/terminal-loop-operational-proof-binding.json',
+            data_get($payload, 'terminal_loop_closure_proof.audit_command_with_canonical_binding'),
+        );
         $this->assertContains('post_cycle_cycle_supervisor_review_evidence', data_get($payload, 'terminal_loop_closure_proof.acceptance_criteria'));
         $this->assertContains('stop_if_post_cycle_cycle_supervisor_is_not_review_evidence', data_get($payload, 'terminal_loop_closure_proof.stop_conditions'));
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) data_get($payload, 'terminal_loop_closure_proof.terminal_loop_closure_proof_packet_hash'));
@@ -133,6 +147,10 @@ final class AtlasSelfConstructionCompletionEvidenceSubmissionPreflightTest exten
         $this->assertContains('operator_signed_human_completion_receipt_json', data_get($payload, 'operator_handoff_packet.required_operator_inputs'));
         $this->assertFalse((bool) data_get($payload, 'operator_handoff_packet.parallel_submission_allowed'));
         $this->assertSame('completion_audit.status=complete AND completion_allowed=true AND failed_count=0', data_get($payload, 'operator_execution_plan.final_success_predicate'));
+        $this->assertStringContainsString(
+            '--agent-control-plane-terminal-loop-operational-proof-json=@/path/to/terminal-loop-operational-proof-binding.json',
+            data_get($payload, 'operator_execution_plan.final_success_command'),
+        );
     }
 
     public function test_submission_preflight_exposes_readiness_and_cli_surface(): void
@@ -151,6 +169,14 @@ final class AtlasSelfConstructionCompletionEvidenceSubmissionPreflightTest exten
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) data_get($status, 'agent_control_plane_atlas_self_construction_completion_evidence_submission_preflight_status.operator_closure_command_replay_hash'));
         $this->assertSame('operator_or_ci_should_refresh_before_final_persist', data_get($status, 'agent_control_plane_atlas_self_construction_completion_evidence_submission_preflight_status.terminal_loop_closure_proof_status'));
         $this->assertTrue(data_get($status, 'agent_control_plane_atlas_self_construction_completion_evidence_submission_preflight_status.terminal_loop_closure_proof_required_before_final_receipt'));
+        $this->assertSame(
+            'storage/app/private/atlas/self-construction/operator-submissions/terminal-loop-operational-proof-binding.json',
+            data_get($status, 'agent_control_plane_atlas_self_construction_completion_evidence_submission_preflight_status.terminal_loop_closure_proof_canonical_binding_path'),
+        );
+        $this->assertStringContainsString(
+            '--agent-control-plane-terminal-loop-operational-proof-json=@storage/app/private/atlas/self-construction/operator-submissions/terminal-loop-operational-proof-binding.json',
+            data_get($status, 'agent_control_plane_atlas_self_construction_completion_evidence_submission_preflight_status.terminal_loop_closure_proof_audit_command_with_canonical_binding'),
+        );
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) data_get($status, 'agent_control_plane_atlas_self_construction_completion_evidence_submission_preflight_status.terminal_loop_closure_proof_packet_hash'));
         $this->assertSame('available', data_get($status, 'agent_control_plane_atlas_self_construction_completion_evidence_submission_preflight_status.operator_command_surface_status'));
         $this->assertGreaterThanOrEqual(9, (int) data_get($status, 'agent_control_plane_atlas_self_construction_completion_evidence_submission_preflight_status.operator_command_count'));
@@ -233,6 +259,7 @@ final class AtlasSelfConstructionCompletionEvidenceSubmissionPreflightTest exten
                 'draft_human_completion_receipt' => 'php artisan atlas:ai:self-construction --atlas-self-construction-human-completion-receipt-draft-status --json',
                 'persist_human_completion_receipt' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --persist-completion-evidence --json',
                 'completion_audit' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --json',
+                'completion_audit_with_terminal_loop_operational_proof' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --agent-control-plane-terminal-loop-operational-proof-json=@/path/to/terminal-loop-operational-proof-binding.json --json',
             ],
         ];
     }

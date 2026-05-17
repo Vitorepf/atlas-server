@@ -61,9 +61,11 @@ final class AtlasSelfConstructionRealProviderSmokeClosureExecutionPackTest exten
             'rerun_completion_evidence_status',
             'rerun_completion_audit',
             'refresh_terminal_loop_operational_proof',
+            'persist_terminal_loop_operational_proof_binding',
             'rerun_completion_audit_with_terminal_loop_operational_proof',
         ], $result['ordered_operator_steps']);
         $this->assertStringContainsString('terminal-loop-operational-proof-status', (string) data_get($result, 'exact_commands.refresh_terminal_loop_operational_proof'));
+        $this->assertStringContainsString('--persist-terminal-loop-operational-proof-binding', (string) data_get($result, 'exact_commands.persist_terminal_loop_operational_proof_binding'));
         $this->assertStringContainsString('--agent-control-plane-terminal-loop-operational-proof-json=', (string) data_get($result, 'exact_commands.rerun_completion_audit_with_terminal_loop_operational_proof'));
         $this->assertTrue((bool) data_get($result, 'runbook.terminal_loop_operational_proof_required_before_final_audit'));
         $this->assertArrayHasKey('run_completion_audit_with_terminal_loop_operational_proof', (array) data_get($result, 'runbook.commands'));

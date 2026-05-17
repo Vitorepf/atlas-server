@@ -113,7 +113,7 @@ final class AtlasSelfConstructionOperatorEvidenceArtifactTemplatePackService
 
         $humanReceiptTemplate = [
             'kind' => 'human_completion_receipt_template',
-            'schema_version' => AtlasSelfConstructionHumanCompletionReceiptVerifierService::SCHEMA_VERSION,
+            'schema_version' => AtlasSelfConstructionHumanSignedCompletionReceiptService::SCHEMA_VERSION,
             'template_hash' => (string) data_get($operatorPacket, 'template_hashes.human_completion_receipt_template_hash', ''),
             'payload_template' => $humanTemplate,
             'required_fields' => ['receipt_id', 'signed_by', 'reason', 'completion_audit_hash', 'release_dossier_hash', 'replay_diff_hash', 'runtime_gap_matrix_hash', 'runtime_promotion_receipt_hash', 'real_provider_smoke_hash', 'certification_status_batch_hash', 'receipt_hash'],
@@ -126,6 +126,7 @@ final class AtlasSelfConstructionOperatorEvidenceArtifactTemplatePackService
             'command_to_persist' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --completion-receipt-json=@/path/to/completion-receipt.json --persist-completion-evidence --json',
             'draft_command' => 'php artisan atlas:ai:self-construction --atlas-self-construction-human-completion-receipt-draft-status --runtime-promotion-receipt-json=@/path/to/runtime-promotion.json --real-provider-smoke-json=@/path/to/real-provider-smoke.json --signed-by="<operator>" --reason="<operator reason with at least 32 chars>" --json',
             'verifier_service' => AtlasSelfConstructionHumanCompletionReceiptVerifierService::class,
+            'verifier_schema_version' => AtlasSelfConstructionHumanCompletionReceiptVerifierService::SCHEMA_VERSION,
             'draft_service' => AtlasSelfConstructionHumanCompletionReceiptDraftService::class,
             'runbook' => (new AtlasSelfConstructionHumanCompletionReceiptRunbookService)->build($humanTemplate),
             'current_context_hashes' => [

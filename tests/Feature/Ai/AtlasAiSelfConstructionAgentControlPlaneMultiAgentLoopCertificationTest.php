@@ -117,6 +117,17 @@ final class AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopCertificationT
         $this->assertSame('available', (string) $cert['status']);
         $this->assertTrue((bool) $cert['invariants_all_true']);
         $this->assertSame(0, (int) $cert['violation_count']);
+        $this->assertTrue((bool) $cert['invariants']['terminal_loop_fleet_launch_runbook_present']);
+        $this->assertTrue((bool) $cert['invariants']['terminal_loop_fleet_launch_runbook_ready_path_verified']);
+        $this->assertTrue((bool) data_get($cert, 'canonical_invariant_matrix.invariants.terminal_loop_fleet_launch_runbook_present.value'));
+        $this->assertTrue((bool) data_get($cert, 'canonical_invariant_matrix.invariants.terminal_loop_fleet_launch_runbook_ready_path_verified.value'));
+        $this->assertTrue((bool) data_get($cert, 'canonical_invariant_matrix.invariants.safe_for_parallel_terminal_loop.value'));
+        $this->assertNotContains('terminal_loop_fleet_launch_runbook_present', data_get($cert, 'canonical_invariant_matrix.violations'));
+        $this->assertNotContains('terminal_loop_fleet_launch_runbook_ready_path_verified', data_get($cert, 'canonical_invariant_matrix.violations'));
+        $this->assertSame('fleet_launch_runbook_ready', data_get($cert, 'terminal_loop_fleet_launch_plan_probe.fleet_launch_runbook_status'));
+        $this->assertSame(3, data_get($cert, 'terminal_loop_fleet_launch_plan_probe.fleet_launch_runbook_terminal_count'));
+        $this->assertTrue((bool) data_get($cert, 'terminal_loop_fleet_launch_plan_probe.fleet_launch_runbook_ready_path_verified'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($cert, 'terminal_loop_fleet_launch_plan_probe.fleet_launch_runbook_hash'));
     }
 
     public function test_certification_prunes_run_scoped_queue_and_lease_artifacts(): void

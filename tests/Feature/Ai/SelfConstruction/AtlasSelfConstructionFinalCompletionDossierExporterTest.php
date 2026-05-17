@@ -98,6 +98,47 @@ final class AtlasSelfConstructionFinalCompletionDossierExporterTest extends Test
         $this->assertContains('final_completion_dossier_exporter_does_not_promote_completion', (array) data_get($payload, 'machine_json.non_execution_guarantees', []));
     }
 
+    public function test_status_projection_exposes_blockers_next_commands_and_export_metadata(): void
+    {
+        $status = (new AtlasSelfConstructionReadinessService(new AtlasSelfConstructionReservationRepository))
+            ->atlasSelfConstructionFinalCompletionDossierExporterStatus([
+                'final_completion_human_gate' => $this->humanGateOptions(blockedRuntime: true)['final_completion_human_gate'],
+            ]);
+
+        $summary = (array) data_get($status, 'agent_control_plane_atlas_self_construction_final_completion_dossier_exporter_status', []);
+
+        $this->assertSame('export_ready', $summary['status']);
+        $this->assertSame('incomplete', $summary['final_audit_status']);
+        $this->assertFalse((bool) $summary['final_audit_complete']);
+        $this->assertContains('runtime_gap_matrix_all_runtime_y', (array) $summary['failed_blockers']);
+        $this->assertSame(count((array) $summary['failed_blockers']), $summary['failed_blocker_count']);
+        $this->assertGreaterThan(0, $summary['next_command_count']);
+        $this->assertSame(count((array) $summary['next_commands']), $summary['next_command_count']);
+        $this->assertTrue((bool) collect((array) $summary['next_commands'])->contains(
+            static fn (string $command): bool => str_contains($command, 'terminal-loop-operational-proof-status'),
+        ));
+        $this->assertGreaterThan(0, $summary['markdown_byte_size']);
+        $this->assertFalse((bool) $summary['export_persisted']);
+        $this->assertSame('', $summary['export_path']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $summary['exporter_hash']);
+        $this->assertFalse((bool) $summary['completion_claim_allowed']);
+    }
+
+    public function test_status_projection_builds_current_audit_when_no_override_is_supplied(): void
+    {
+        $status = (new AtlasSelfConstructionReadinessService(new AtlasSelfConstructionReservationRepository))
+            ->atlasSelfConstructionFinalCompletionDossierExporterStatus();
+
+        $summary = (array) data_get($status, 'agent_control_plane_atlas_self_construction_final_completion_dossier_exporter_status', []);
+
+        $this->assertSame('export_ready', $summary['status']);
+        $this->assertContains($summary['final_audit_status'], ['complete', 'incomplete']);
+        $this->assertGreaterThanOrEqual(0, $summary['failed_blocker_count']);
+        $this->assertGreaterThan(0, $summary['next_command_count']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $summary['exporter_hash']);
+        $this->assertFalse((bool) $summary['completion_claim_allowed']);
+    }
+
     private function exporter(): AtlasSelfConstructionFinalCompletionDossierExporterService
     {
         return new AtlasSelfConstructionFinalCompletionDossierExporterService(

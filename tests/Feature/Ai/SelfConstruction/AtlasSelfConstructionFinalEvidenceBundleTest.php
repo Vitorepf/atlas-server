@@ -88,13 +88,28 @@ final class AtlasSelfConstructionFinalEvidenceBundleTest extends TestCase
         $this->assertContains('do_not_accept_fake_provider_smoke', $bundle['final_operator_packet']['stop_conditions']);
         $this->assertContains('verify_runtime_promotion_closure_pack', $bundle['evidence_dependencies']['ordered_closure_path']);
         $this->assertContains('refresh_terminal_loop_operational_proof', $bundle['evidence_dependencies']['ordered_closure_path']);
+        $this->assertContains('capture_replay_snapshot_after_terminal_loop_operational_proof', $bundle['evidence_dependencies']['ordered_closure_path']);
         $this->assertContains('rerun_completion_audit_with_terminal_loop_operational_proof', $bundle['evidence_dependencies']['ordered_closure_path']);
         $this->assertArrayHasKey('completion_evidence_hash_composer', $bundle['final_operator_packet']['commands_to_rerun']);
         $this->assertArrayHasKey('completion_audit', $bundle['final_operator_packet']['commands_to_rerun']);
+        $this->assertStringContainsString(
+            '--agent-control-plane-terminal-loop-operational-proof-json=@/path/to/terminal-loop-operational-proof-binding.json',
+            $bundle['final_operator_packet']['commands_to_rerun']['completion_audit'],
+        );
+        $this->assertArrayHasKey('completion_audit_diagnostic', $bundle['final_operator_packet']['commands_to_rerun']);
         $this->assertArrayHasKey('terminal_loop_operational_proof', $bundle['final_operator_packet']['commands_to_rerun']);
+        $this->assertArrayHasKey('terminal_loop_operational_proof_binding_export', $bundle['final_operator_packet']['commands_to_rerun']);
         $this->assertArrayHasKey('completion_audit_with_terminal_loop_operational_proof', $bundle['final_operator_packet']['commands_to_rerun']);
         $this->assertTrue((bool) $bundle['final_operator_packet']['terminal_loop_operational_proof_required_before_completion_claim']);
         $this->assertArrayHasKey('capture_snapshot_if_stale', $bundle['final_operator_packet']['commands_to_rerun']);
+        $this->assertTrue($bundle['final_operator_packet']['completion_audit_green_requires_current_snapshot_after_terminal_loop_proof']);
+        $this->assertSame([
+            'refresh_terminal_loop_operational_proof_and_export_binding',
+            'capture_replay_snapshot_after_terminal_loop_operational_proof',
+            'rerun_completion_audit_with_terminal_loop_operational_proof_binding',
+        ], array_column($bundle['final_operator_packet']['final_verification_sequence'], 'id'));
+        $this->assertTrue($bundle['final_operator_packet']['final_verification_sequence'][0]['may_make_release_snapshot_stale']);
+        $this->assertSame('capture_snapshot_if_stale', $bundle['final_operator_packet']['final_verification_sequence'][1]['command_key']);
     }
 
     public function test_final_evidence_bundle_marks_completion_allowed_only_when_all_real_evidence_and_audit_are_green(): void
@@ -141,6 +156,39 @@ final class AtlasSelfConstructionFinalEvidenceBundleTest extends TestCase
 
         $encoded = json_encode($bundle, JSON_THROW_ON_ERROR);
         $this->assertJson($encoded);
+    }
+
+    public function test_final_evidence_bundle_status_surfaces_operator_blockers_and_proof_commands(): void
+    {
+        $status = app(AtlasSelfConstructionReadinessService::class)->atlasSelfConstructionFinalEvidenceBundleStatus($this->baseOptions());
+        $block = (array) data_get($status, 'agent_control_plane_atlas_self_construction_final_evidence_bundle_status', []);
+
+        $this->assertSame('available', $status['status']);
+        $this->assertSame(3, $block['blocker_count']);
+        $this->assertSame('collect_missing_real_evidence_and_rerun_completion_audit', $block['next_action']);
+        $this->assertContains('release_dossier', $block['what_is_ready']);
+        $this->assertContains('runtime_gap_matrix_all_runtime_y', $block['what_is_blocked']);
+        $this->assertContains('human_signed_os_complete_receipt_present', $block['what_is_blocked']);
+        $this->assertContains('end_to_end_real_provider_smoke_green', $block['what_is_blocked']);
+        $this->assertContains('runtime_promotion_receipt', $block['what_must_be_signed']);
+        $this->assertContains('human_signed_os_complete_receipt', $block['what_must_be_signed']);
+        $this->assertContains('real_provider_claim_to_completion_smoke', $block['what_must_be_run_with_real_provider']);
+        $this->assertFalse($block['runtime_promotion_ready']);
+        $this->assertFalse($block['real_provider_smoke_ready']);
+        $this->assertFalse($block['human_completion_receipt_ready']);
+        $this->assertTrue($block['release_dossier_ready']);
+        $this->assertFalse($block['terminal_loop_operational_proof_ready']);
+        $this->assertFalse($block['completion_audit_green']);
+        $this->assertStringContainsString('--atlas-self-construction-os-completion-evidence-status', $block['completion_evidence_status_command']);
+        $this->assertStringContainsString('--agent-control-plane-replay-snapshot-store-capture', $block['capture_snapshot_if_stale_command']);
+        $this->assertStringContainsString('--agent-control-plane-terminal-loop-operational-proof-status', $block['terminal_loop_operational_proof_command']);
+        $this->assertStringContainsString('--persist-terminal-loop-operational-proof-binding', $block['terminal_loop_operational_proof_binding_export_command']);
+        $this->assertStringContainsString('--agent-control-plane-terminal-loop-operational-proof-json=@/path/to/terminal-loop-operational-proof-binding.json', $block['completion_audit_command_with_terminal_loop_operational_proof']);
+        $this->assertSame(3, $block['final_verification_sequence_step_count']);
+        $this->assertSame('capture_replay_snapshot_after_terminal_loop_operational_proof', $block['final_verification_sequence'][1]['id']);
+        $this->assertTrue($block['completion_audit_green_requires_current_snapshot_after_terminal_loop_proof']);
+        $this->assertFalse($block['completion_claim_allowed']);
+        $this->assertFalse($block['final_completion_allowed']);
     }
 
     private function bundle(): AtlasSelfConstructionFinalEvidenceBundleService

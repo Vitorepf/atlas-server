@@ -36,6 +36,8 @@ maintenance:
 related_paths:
   - docs/engineering-knowledge-base/atlas-ai-router-runtime-enterprise-upgrade.md
   - docs/engineering-knowledge-base/atlas-dual-core-engineering-system.md
+  - docs/engineering-knowledge-base/atlas-hyperflow-certification-runbook-v1.md
+  - docs/engineering-knowledge-base/atlas-hyperflow-completion-audit-v1.md
   - docs/engineering-knowledge-base/atlas-dev-efficient-programming-flow-v1.md
   - docs/engineering-knowledge-base/atlas-forge-operating-system.md
   - docs/engineering-knowledge-base/atlas-ai-router-flow-routing-contract-v1.md
@@ -187,6 +189,10 @@ Contratos canonicos da operacao:
 - `atlas.ai.flow_status.v1`
 - `atlas.ai.router_runtime_readiness.v1`
 - `atlas.ai.router_runtime_bootstrap.v1`
+- `atlas.ai.hyperflow_certification.v1`
+- `atlas.ai.hyperflow_rivals_battery.v1`
+- `atlas.hyperflow.external_rivals_evidence_pack.v1`
+- `atlas.ai.hyperflow_completion_audit.v1`
 
 `atlas.ai.specialist_flow_execution.v1` deve carregar, para todos os specialist
 flows, `provider_prompt_contract`, `response_shape`, `audit_checks`,
@@ -302,9 +308,35 @@ viram, quando necessario, capacidade interna ou rival benchmark.
    SDD readiness, evidence refs, expected duration e governance gate.
 5. Observabilidade E Aprendizado: agregados por flow, qualidade, delegacao,
    override, falha e comparacao com Claude Code/Codex.
-6. Hyperflow 100x Certification: benchmark com bug/feature ambiguos, pesquisa,
-   review, debug, refactor e casos que devem ou nao virar Forge; mede acerto,
-   completude, evidencia, interacoes, tempo, custo, falsos claims e retrabalho.
+6. Hyperflow 100x Certification: endpoints `/ai/hyperflow/certification`,
+   `/ai/hyperflow/rivals-battery`, `/ai/hyperflow/rivals-battery/prepare`,
+   `/ai/hyperflow/rivals-battery/run` e
+   `/ai/hyperflow/rivals-battery/external-evidence`, incluindo template,
+   candidates, runbook, preflight, export e import;
+   mantém suite canonica com casos reais de bug/feature ambiguos, pesquisa,
+   review, debug, plano, conversa e Forge. A battery mede acerto de flow,
+   delegacao, contracts, receipts e auditabilidade, mas nao destrava claim contra
+   Claude Code/Codex sem execucao externa aprovada. O gate final exige
+   `external_provider_call=true`, baselines `claude_code` e `codex`/`codex_cli`,
+   `protocol_valid=true`, `comparable=true`, `operator_approved=true`,
+   `evidence_receipt_hash` de 64 chars e outcome aceito.
+
+## Certificacao Hyperflow
+
+A certificacao operacional fica no runbook canonico
+`atlas-hyperflow-certification-runbook-v1.md`.
+
+Resumo do caminho:
+
+```text
+prepare -> run -> template/preflight/export -> import -> certify
+```
+
+O caminho preferido para evidencia externa e exportar runs Forge/Rivals reais
+contra Claude Code e Codex CLI, importar o evidence pack Hyperflow e entao
+rodar `php artisan atlas:ai:hyperflow certify --json`. A certificacao falha
+fechado enquanto `rivals_battery.external_provider_execution` nao estiver
+provado.
 
 ## Gates De Conclusao
 

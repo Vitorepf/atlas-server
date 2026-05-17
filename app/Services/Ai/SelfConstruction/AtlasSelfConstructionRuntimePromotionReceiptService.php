@@ -32,14 +32,13 @@ final class AtlasSelfConstructionRuntimePromotionReceiptService
             $receipt = $this->latestReceipt();
         }
 
-        $candidateRows = array_values(array_filter(
+        $gapRows = array_values(array_filter(
             $rows,
-            static fn (array $row): bool => (bool) ($row['runtime_y_candidate'] ?? false) === true
-                && (bool) ($row['runtime_y'] ?? false) === false,
+            static fn (array $row): bool => (bool) ($row['runtime_y'] ?? false) === false,
         ));
-        $expectedGapIds = array_values(array_map(static fn (array $row): string => (string) ($row['gap_id'] ?? ''), $candidateRows));
+        $expectedGapIds = array_values(array_map(static fn (array $row): string => (string) ($row['gap_id'] ?? ''), $gapRows));
         $expectedGraduationHashes = [];
-        foreach ($candidateRows as $row) {
+        foreach ($gapRows as $row) {
             $gapId = (string) ($row['gap_id'] ?? '');
             if ($gapId !== '') {
                 $expectedGraduationHashes[$gapId] = (string) ($row['graduation_evidence_hash'] ?? '');
@@ -66,7 +65,7 @@ final class AtlasSelfConstructionRuntimePromotionReceiptService
         if ($expectedGapIds === [] || $promotedGapIds !== $expectedGapIds) {
             $violations[] = ['code' => 'promoted_gap_ids_do_not_match_runtime_gap_matrix'];
         }
-        foreach ($candidateRows as $row) {
+        foreach ($gapRows as $row) {
             if ((bool) ($row['runtime_enabled'] ?? false)) {
                 $violations[] = ['code' => 'runtime_enabled_before_runtime_promotion_receipt', 'gap_id' => (string) ($row['gap_id'] ?? '')];
             }

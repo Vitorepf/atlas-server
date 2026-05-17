@@ -158,12 +158,15 @@ final class AtlasSelfConstructionHumanCompletionReceiptClosureExecutionPackTest 
         $this->assertContains('ensure_real_provider_smoke_persisted', $stepIds);
         $this->assertContains('persist_human_completion_receipt', $stepIds);
         $this->assertContains('refresh_terminal_loop_operational_proof', $stepIds);
+        $this->assertContains('persist_terminal_loop_operational_proof_binding', $stepIds);
         $this->assertContains('rerun_completion_audit', $stepIds);
         $this->assertArrayHasKey('persist_human_completion_receipt', (array) data_get($pack, 'exact_commands', []));
         $this->assertArrayHasKey('refresh_terminal_loop_operational_proof', (array) data_get($pack, 'exact_commands', []));
+        $this->assertArrayHasKey('persist_terminal_loop_operational_proof_binding', (array) data_get($pack, 'exact_commands', []));
         $this->assertArrayHasKey('rerun_completion_audit_with_terminal_loop_operational_proof', (array) data_get($pack, 'exact_commands', []));
         $this->assertStringContainsString('--persist-completion-evidence', (string) data_get($pack, 'exact_commands.persist_human_completion_receipt'));
         $this->assertStringContainsString('terminal-loop-operational-proof-status', (string) data_get($pack, 'exact_commands.refresh_terminal_loop_operational_proof'));
+        $this->assertStringContainsString('--persist-terminal-loop-operational-proof-binding', (string) data_get($pack, 'exact_commands.persist_terminal_loop_operational_proof_binding'));
         $this->assertStringContainsString('--agent-control-plane-terminal-loop-operational-proof-json=', (string) data_get($pack, 'exact_commands.rerun_completion_audit_with_terminal_loop_operational_proof'));
     }
 

@@ -540,6 +540,62 @@ class AiTelemetryRouterAndDiagnosticsTest extends TestCase
         $this->assertSame(1.0, $byContext['gemini_long_context_or_multimodal']['degraded_rate']);
     }
 
+    public function test_scorecard_reports_hyperflow_aggregate_observability(): void
+    {
+        AiRouterDecision::query()->create([
+            'flow_id' => 'atlas_explain',
+            'selected_provider' => 'openai',
+            'signals' => [],
+            'reason' => 'r',
+            'was_overridden' => false,
+        ]);
+        AiRouterDecision::query()->create([
+            'flow_id' => 'atlas_debug',
+            'selected_provider' => 'claude_cli',
+            'signals' => [],
+            'reason' => 'r',
+            'was_overridden' => true,
+        ]);
+        AiSpecialistFlowExecution::query()->create([
+            'flow_id' => 'atlas_explain',
+            'handler_id' => 'atlas_explain_read_only_handler',
+            'status' => 'ready_for_provider',
+            'delegation_status' => 'not_delegated',
+            'execution_payload' => [
+                'quality_rubric' => ['scope_boundaries_are_clear'],
+                'failure_modes' => ['claiming_files_changed'],
+            ],
+        ]);
+        AiSpecialistFlowExecution::query()->create([
+            'flow_id' => 'atlas_debug',
+            'handler_id' => 'atlas_specialist_delegation_handler',
+            'status' => 'delegated',
+            'delegation_status' => 'delegate_to_other_flow',
+            'delegation_target_flow_id' => 'atlas_dev',
+            'execution_payload' => [
+                'quality_rubric' => ['target_flow_is_justified'],
+                'failure_modes' => ['executing_delegated_work'],
+            ],
+        ]);
+
+        $scorecard = app(AiTelemetryScorecardService::class)
+            ->build(now()->subHour(), now()->addMinute());
+        $hyperflow = $scorecard['hyperflow'];
+        $byFlow = collect($hyperflow['by_flow'])->keyBy('bucket');
+
+        $this->assertTrue($hyperflow['available']);
+        $this->assertSame(2, $hyperflow['executions']);
+        $this->assertSame(1, $hyperflow['delegated_count']);
+        $this->assertEqualsWithDelta(0.5, $hyperflow['delegation_rate'], 0.0001);
+        $this->assertSame(2, $hyperflow['router_decisions']);
+        $this->assertSame(1, $hyperflow['router_override_count']);
+        $this->assertEqualsWithDelta(0.5, $hyperflow['router_override_rate'], 0.0001);
+        $this->assertSame(1, $byFlow['atlas_debug']['delegated_count']);
+        $this->assertSame(['atlas_dev'], $byFlow['atlas_debug']['delegation_targets']);
+        $this->assertSame(1, $hyperflow['quality_rubric_refs']['scope_boundaries_are_clear']);
+        $this->assertSame(1, $hyperflow['failure_mode_refs']['executing_delegated_work']);
+    }
+
     public function test_diagnostics_groups_events_by_phase(): void
     {
         $trace = $this->seedTrace('openai', 'gpt-4o', 100, 50);
@@ -765,6 +821,7 @@ class AiTelemetryRouterAndDiagnosticsTest extends TestCase
         Schema::create('ai_router_decisions', function (Blueprint $table): void {
             $table->uuid('id')->primary();
             $table->uuid('trace_id')->nullable()->index();
+            $table->string('flow_id', 80)->nullable();
             $table->string('mode', 32)->default('direct');
             $table->string('selected_provider', 32);
             $table->string('fallback_provider', 32)->nullable();

@@ -12,6 +12,8 @@ final class AtlasSelfProgrammingSafetyContractCertificationService
 
     private const SAFETY_CONTRACT_PATH = 'docs/engineering-knowledge-base/self-construction/self-programming-safety-contract.md';
 
+    private const TERMINAL_LOOP_OPERATIONAL_PROOF_CANONICAL_BINDING_PATH = 'storage/app/private/atlas/self-construction/operator-submissions/terminal-loop-operational-proof-binding.json';
+
     public function __construct(
         private readonly AtlasSelfConstructionReadinessService $readiness,
     ) {}
@@ -22,12 +24,16 @@ final class AtlasSelfProgrammingSafetyContractCertificationService
      */
     public function certify(array $options = []): array
     {
+        $terminalLoopProofJsonReference = $this->terminalLoopOperationalProofJsonReference($options);
         $transition = (array) data_get(
             (new AtlasSelfConstructionFinalCompletionReadinessGateService($this->readiness))->evaluate($options),
             'self_programming_os_transition_readiness',
             [],
         );
         $finalizationGate = $this->finalizationGateStructuralProbe();
+        $liveFinalizationGate = $terminalLoopProofJsonReference !== ''
+            ? (new AtlasSelfConstructionCompletionFinalizationGateService($this->readiness))->evaluate($options)
+            : [];
         $workerTaskEligibility = $this->workerTaskEligibilityProbe();
         $path = self::SAFETY_CONTRACT_PATH;
         $absolutePath = base_path($path);
@@ -116,6 +122,10 @@ final class AtlasSelfProgrammingSafetyContractCertificationService
             'generated_at' => CarbonImmutable::now()->toIso8601String(),
             'safety_contract_path' => $path,
             'safety_contract_hash' => $hash,
+            'terminal_loop_operational_proof_canonical_binding_path' => self::TERMINAL_LOOP_OPERATIONAL_PROOF_CANONICAL_BINDING_PATH,
+            'transition_readiness_command_with_canonical_terminal_loop_binding' => $this->transitionReadinessCommandWithCanonicalTerminalLoopBinding(),
+            'safety_contract_certification_command_with_canonical_terminal_loop_binding' => $this->safetyContractCertificationCommandWithCanonicalTerminalLoopBinding(),
+            'completion_audit_command_with_canonical_terminal_loop_binding' => $this->completionAuditCommandWithCanonicalTerminalLoopBinding(),
             'transition_status' => (string) data_get($transition, 'status', ''),
             'transition_blockers' => (array) data_get($transition, 'blockers', []),
             'finalization_gate_status' => (string) data_get($finalizationGate, 'status', ''),
@@ -130,6 +140,17 @@ final class AtlasSelfProgrammingSafetyContractCertificationService
             'finalization_gate_operator_handoff_status' => (string) data_get($finalizationGate, 'completion_finalization_operator_handoff.status', ''),
             'finalization_gate_operator_handoff_hash' => (string) data_get($finalizationGate, 'completion_finalization_operator_handoff_hash', ''),
             'finalization_gate_current_required_operator_artifact' => (string) data_get($finalizationGate, 'completion_finalization_operator_handoff.current_required_operator_artifact', ''),
+            'terminal_loop_operational_proof_json_reference' => $terminalLoopProofJsonReference,
+            'live_finalization_gate_available' => $liveFinalizationGate !== [],
+            'live_finalization_gate_status' => (string) data_get($liveFinalizationGate, 'status', ''),
+            'live_finalization_gate_hash' => (string) data_get($liveFinalizationGate, 'completion_finalization_gate_hash', ''),
+            'live_finalization_gate_terminal_loop_green' => (bool) data_get($liveFinalizationGate, 'terminal_loop_green', false),
+            'live_finalization_gate_terminal_loop_proof_status' => (string) data_get($liveFinalizationGate, 'checks.terminal_loop_green.evidence.operational_proof_status', ''),
+            'live_finalization_gate_terminal_loop_proof_hash' => (string) data_get($liveFinalizationGate, 'checks.terminal_loop_green.evidence.operational_proof_hash', ''),
+            'live_finalization_gate_failed_check_ids' => (array) data_get($liveFinalizationGate, 'failed_check_ids', []),
+            'live_finalization_gate_completion_audit_failed_criteria' => (array) data_get($liveFinalizationGate, 'completion_audit_failed_criteria', []),
+            'live_finalization_gate_command' => (string) data_get($liveFinalizationGate, 'completion_finalization_operator_handoff.finalization_gate_command', ''),
+            'live_finalization_gate_audit_with_binding_command' => (string) data_get($liveFinalizationGate, 'command_to_rerun_audit_with_terminal_loop_operational_proof', ''),
             'worker_task_eligibility_status' => (string) data_get($workerTaskEligibility, 'status', ''),
             'worker_task_eligibility_certification_hash' => (string) data_get($workerTaskEligibility, 'certification_hash', ''),
             'worker_task_eligibility_violation_count' => (int) data_get($workerTaskEligibility, 'violation_count', 0),
@@ -163,6 +184,7 @@ final class AtlasSelfProgrammingSafetyContractCertificationService
                 'self_programming_safety_contract_certification_does_not_dispatch_work',
                 'self_programming_safety_contract_certification_does_not_persist_receipts',
                 'self_programming_safety_contract_certification_requires_worker_task_eligibility_before_next_stage',
+                'self_programming_safety_contract_certification_uses_canonical_terminal_loop_binding_only_as_evidence',
             ],
         ];
         $payload['certification_hash'] = $this->stableHash($payload);
@@ -283,6 +305,29 @@ final class AtlasSelfProgrammingSafetyContractCertificationService
             'completion_audit' => $completionAudit,
             'completion_evidence' => $completionEvidence,
         ]);
+    }
+
+    /** @param array<string, mixed> $options */
+    private function terminalLoopOperationalProofJsonReference(array $options): string
+    {
+        $reference = trim((string) ($options['agent_control_plane_terminal_loop_operational_proof_json'] ?? ''));
+
+        return str_starts_with($reference, '@') ? $reference : '';
+    }
+
+    private function transitionReadinessCommandWithCanonicalTerminalLoopBinding(): string
+    {
+        return 'php artisan atlas:ai:self-construction --atlas-self-programming-os-transition-readiness-status --agent-control-plane-terminal-loop-operational-proof-json=@'.self::TERMINAL_LOOP_OPERATIONAL_PROOF_CANONICAL_BINDING_PATH.' --json';
+    }
+
+    private function safetyContractCertificationCommandWithCanonicalTerminalLoopBinding(): string
+    {
+        return 'php artisan atlas:ai:self-construction --atlas-self-programming-safety-contract-certification-status --agent-control-plane-terminal-loop-operational-proof-json=@'.self::TERMINAL_LOOP_OPERATIONAL_PROOF_CANONICAL_BINDING_PATH.' --json';
+    }
+
+    private function completionAuditCommandWithCanonicalTerminalLoopBinding(): string
+    {
+        return 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --agent-control-plane-terminal-loop-operational-proof-json=@'.self::TERMINAL_LOOP_OPERATIONAL_PROOF_CANONICAL_BINDING_PATH.' --json';
     }
 
     /** @param array<string, mixed> $payload */

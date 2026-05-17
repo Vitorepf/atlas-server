@@ -178,6 +178,13 @@ final class AtlasSelfConstructionRuntimePromotionClosureExecutionPackService
                 producedArtifacts: ['terminal_loop_operational_proof_audit_binding_packet'],
             ),
             $this->step(
+                id: 'persist_terminal_loop_operational_proof_binding',
+                summary: 'Persist the Terminal Loop Operational Proof audit binding packet to the canonical operator-submission path.',
+                canRunAutomatically: true,
+                command: $this->terminalLoopOperationalProofBindingPersistCommand(),
+                producedArtifacts: ['canonical_terminal_loop_operational_proof_binding_json'],
+            ),
+            $this->step(
                 id: 'rerun_completion_audit_with_terminal_loop_operational_proof',
                 summary: 'Rerun completion audit with the Terminal Loop Operational Proof binding so final closure includes loop evidence.',
                 canRunAutomatically: true,
@@ -195,9 +202,11 @@ final class AtlasSelfConstructionRuntimePromotionClosureExecutionPackService
             'pre_submission_verify' => 'php artisan atlas:ai:self-construction --atlas-self-construction-runtime-promotion-receipt-pre-submission-verifier-status --runtime-promotion-receipt-json=@/path/to/runtime-promotion.json --json',
             'persist_receipt' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --runtime-promotion-receipt-json=@/path/to/runtime-promotion.json --persist-runtime-promotion-receipt --json',
             'rerun_runtime_gap_matrix' => 'php artisan atlas:ai:self-construction --atlas-self-construction-runtime-gap-matrix --json',
-            'rerun_completion_audit' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --json',
+            'rerun_completion_audit' => $this->completionAuditWithTerminalLoopOperationalProofCommand(),
             'refresh_terminal_loop_operational_proof' => $this->terminalLoopOperationalProofCommand(),
+            'persist_terminal_loop_operational_proof_binding' => $this->terminalLoopOperationalProofBindingPersistCommand(),
             'rerun_completion_audit_with_terminal_loop_operational_proof' => $this->completionAuditWithTerminalLoopOperationalProofCommand(),
+            'rerun_completion_audit_diagnostic' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --json',
         ];
 
         $status = 'blocked_operator_runtime_promotion_receipt_required';
@@ -311,6 +320,11 @@ final class AtlasSelfConstructionRuntimePromotionClosureExecutionPackService
     private function terminalLoopOperationalProofCommand(): string
     {
         return 'php artisan atlas:ai:self-construction --agent-control-plane-terminal-loop-operational-proof-status --json';
+    }
+
+    private function terminalLoopOperationalProofBindingPersistCommand(): string
+    {
+        return 'php artisan atlas:ai:self-construction --agent-control-plane-terminal-loop-operational-proof-status --persist-terminal-loop-operational-proof-binding --json';
     }
 
     private function completionAuditWithTerminalLoopOperationalProofCommand(): string

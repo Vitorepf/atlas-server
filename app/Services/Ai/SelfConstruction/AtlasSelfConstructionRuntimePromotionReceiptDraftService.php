@@ -18,6 +18,10 @@ final class AtlasSelfConstructionRuntimePromotionReceiptDraftService
     public function build(array $runtimeGapMatrix, array $options = []): array
     {
         $rows = (array) data_get($runtimeGapMatrix, 'rows', []);
+        $gapRows = array_values(array_filter(
+            $rows,
+            static fn (array $row): bool => (bool) ($row['runtime_y'] ?? false) === false,
+        ));
         $candidateRows = array_values(array_filter(
             $rows,
             static fn (array $row): bool => (bool) ($row['runtime_y_candidate'] ?? false) === true
@@ -31,7 +35,7 @@ final class AtlasSelfConstructionRuntimePromotionReceiptDraftService
         }
 
         $graduationHashes = [];
-        foreach ($candidateRows as $row) {
+        foreach ($gapRows as $row) {
             $gapId = (string) ($row['gap_id'] ?? '');
             if ($gapId !== '') {
                 $graduationHashes[$gapId] = (string) ($row['graduation_evidence_hash'] ?? '');
@@ -45,7 +49,7 @@ final class AtlasSelfConstructionRuntimePromotionReceiptDraftService
             'runtime_gap_matrix_hash' => (string) data_get($runtimeGapMatrix, 'expected_runtime_gap_matrix_hash_for_promotion_receipt', ''),
             'runtime_promotion_basis_hash' => (string) data_get($runtimeGapMatrix, 'runtime_promotion_basis_hash', ''),
             'runtime_promotion_closure_basis_hash' => (string) data_get($runtimeGapMatrix, 'runtime_promotion_closure_basis_hash', ''),
-            'promoted_gap_ids' => array_values(array_map(static fn (array $row): string => (string) ($row['gap_id'] ?? ''), $candidateRows)),
+            'promoted_gap_ids' => array_values(array_map(static fn (array $row): string => (string) ($row['gap_id'] ?? ''), $gapRows)),
             'graduation_evidence_hashes' => $graduationHashes,
             'receipt_hash' => '',
             'runtime_promotion_approved' => true,
@@ -109,8 +113,10 @@ final class AtlasSelfConstructionRuntimePromotionReceiptDraftService
             'persistence_blocker' => $persistenceBlocker,
             'receipt_path' => (string) data_get($persistence, 'receipt_path', ''),
             'missing_operator_inputs' => $missingOperatorInputs,
-            'candidate_gap_ids' => array_values(array_keys($graduationHashes)),
+            'candidate_gap_ids' => array_values(array_map(static fn (array $row): string => (string) ($row['gap_id'] ?? ''), $candidateRows)),
             'candidate_count' => count($candidateRows),
+            'blocked_gap_ids' => array_values(array_map(static fn (array $row): string => (string) ($row['gap_id'] ?? ''), $gapRows)),
+            'blocked_gap_count' => count($gapRows),
             'runtime_gap_matrix_hash' => (string) data_get($runtimeGapMatrix, 'runtime_gap_matrix_hash', ''),
             'expected_runtime_gap_matrix_hash_for_promotion_receipt' => (string) data_get($runtimeGapMatrix, 'expected_runtime_gap_matrix_hash_for_promotion_receipt', ''),
             'runtime_promotion_basis_hash' => (string) data_get($runtimeGapMatrix, 'runtime_promotion_basis_hash', ''),

@@ -35,4 +35,26 @@ class AtlasAiIntentKernelServiceTest extends TestCase
         $this->assertSame('medium', $intent['risk_level']);
         $this->assertTrue($intent['workspace_present']);
     }
+
+    public function test_classifies_pesquise_prompt_as_research(): void
+    {
+        $intent = app(AtlasAiIntentKernelService::class)->classify([
+            'input_text' => 'Pesquise o melhor caminho tecnico e separe fato de inferencia',
+            'payload' => ['surface_id' => 'atlas_desktop_ai'],
+        ]);
+
+        $this->assertSame('research', $intent['intent_class']);
+        $this->assertTrue($intent['research_required']);
+    }
+
+    public function test_classifies_debug_workspace_prompt_as_debug(): void
+    {
+        $intent = app(AtlasAiIntentKernelService::class)->classify([
+            'input_text' => 'Debug esse stacktrace no workspace atlas',
+            'payload' => ['workspace' => '/repo'],
+        ]);
+
+        $this->assertSame('debug', $intent['intent_class']);
+        $this->assertSame('medium', $intent['risk_level']);
+    }
 }

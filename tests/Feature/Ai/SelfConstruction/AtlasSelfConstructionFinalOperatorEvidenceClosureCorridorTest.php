@@ -35,6 +35,14 @@ final class AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorTest extend
         $this->assertTrue((bool) data_get($payload, 'terminal_loop_closure_proof.required_before_human_completion_receipt_persist'));
         $this->assertStringContainsString('--agent-control-plane-terminal-loop-operational-proof-status', data_get($payload, 'terminal_loop_closure_proof.proof_command'));
         $this->assertStringContainsString('--agent-control-plane-terminal-loop-operational-proof-json=@/path/to/terminal-loop-operational-proof-binding.json', data_get($payload, 'terminal_loop_closure_proof.audit_command_with_binding'));
+        $this->assertStringContainsString(
+            '--agent-control-plane-terminal-loop-operational-proof-json=@storage/app/private/atlas/self-construction/operator-submissions/terminal-loop-operational-proof-binding.json',
+            data_get($payload, 'terminal_loop_closure_proof.audit_command_with_canonical_binding'),
+        );
+        $this->assertSame(
+            'storage/app/private/atlas/self-construction/operator-submissions/terminal-loop-operational-proof-binding.json',
+            data_get($payload, 'terminal_loop_closure_proof.expected_binding_artifact_path'),
+        );
         $this->assertContains('post_cycle_cycle_supervisor_review_evidence', data_get($payload, 'terminal_loop_closure_proof.acceptance_criteria'));
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) data_get($payload, 'terminal_loop_closure_proof.terminal_loop_closure_proof_packet_hash'));
         $this->assertContains('human_signed_os_complete_receipt_present', data_get($payload, 'current_completion_audit.blocker_classification.human_blockers'));
@@ -152,7 +160,7 @@ final class AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorTest extend
         $this->assertContains('signed_by', $nextAction['required_inputs']);
         $this->assertContains('operator_signed_runtime_promotion_receipt', $nextAction['missing_inputs']);
         $this->assertContains('placeholder_signed_by', $nextAction['forbidden_shortcuts']);
-        $this->assertContains(
+        $this->assertNotContains(
             'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --json',
             $nextAction['proof_commands_after_action'],
         );
@@ -237,6 +245,14 @@ final class AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorTest extend
         $this->assertSame('runtime_promotion', $runbook['current_step_phase']);
         $this->assertSame(16, $runbook['step_count']);
         $this->assertSame(4, $runbook['blocked_artifact_count']);
+        $this->assertTrue($runbook['blocked_artifact_count_includes_final_completion_audit']);
+        $this->assertSame(3, $runbook['operator_evidence_blocked_artifact_count']);
+        $this->assertSame([
+            'runtime_promotion_receipt',
+            'real_provider_smoke',
+            'human_completion_receipt',
+        ], $runbook['operator_evidence_blocked_artifact_ids']);
+        $this->assertTrue($runbook['final_completion_audit_blocked']);
         $this->assertContains('real_provider_smoke', $runbook['blocked_artifact_ids']);
         $this->assertContains('final_completion_audit', $runbook['blocked_artifact_ids']);
         $this->assertStringContainsString('--atlas-self-construction-runtime-promotion-receipt-draft-status', $runbook['current_step_command']);
@@ -452,6 +468,8 @@ final class AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorTest extend
         $this->assertArrayHasKey('real_provider_smoke', $matrix);
         $this->assertArrayHasKey('human_completion_receipt', $matrix);
         $this->assertArrayHasKey('final_completion_audit', $matrix);
+        $this->assertSame('atlas.self_construction.human_signed_completion_receipt.v1', data_get($payload, 'artifact_contracts.human_completion_receipt.schema_version'));
+        $this->assertSame('atlas.self_construction.human_completion_receipt_verifier.v1', data_get($payload, 'artifact_contracts.human_completion_receipt.verifier_schema_version'));
 
         foreach ($matrix as $row) {
             $this->assertArrayHasKey('required_fields', $row);
@@ -518,6 +536,15 @@ final class AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorTest extend
         $this->assertSame('operator_evidence_remaining', $meter['status']);
         $this->assertSame(4, $meter['artifact_count']);
         $this->assertGreaterThanOrEqual(1, $meter['blocked_artifact_count']);
+        $this->assertTrue($meter['blocked_artifact_count_includes_final_completion_audit']);
+        $this->assertSame(3, $meter['operator_evidence_artifact_count']);
+        $this->assertSame(3, $meter['operator_evidence_blocked_artifact_count']);
+        $this->assertSame([
+            'runtime_promotion_receipt',
+            'real_provider_smoke',
+            'human_completion_receipt',
+        ], $meter['operator_evidence_blocked_artifact_ids']);
+        $this->assertTrue($meter['final_completion_audit_blocked']);
         $this->assertLessThanOrEqual(100, $meter['progress_percent']);
         $this->assertSame('runtime_promotion_receipt', $meter['current_required_artifact']);
         $this->assertSame('draft_runtime_promotion_receipt', $meter['current_step_id']);
@@ -752,6 +779,20 @@ final class AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorTest extend
             4,
             data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.operator_execution_runbook_blocked_artifact_count'),
         );
+        $this->assertTrue((bool) data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.operator_execution_runbook_blocked_artifact_count_includes_final_completion_audit'));
+        $this->assertSame(
+            3,
+            data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.operator_execution_runbook_operator_evidence_blocked_artifact_count'),
+        );
+        $this->assertSame(
+            [
+                'runtime_promotion_receipt',
+                'real_provider_smoke',
+                'human_completion_receipt',
+            ],
+            data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.operator_execution_runbook_operator_evidence_blocked_artifact_ids'),
+        );
+        $this->assertTrue((bool) data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.operator_execution_runbook_final_completion_audit_blocked'));
         $this->assertTrue((bool) data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.operator_execution_runbook_can_resume_without_chat_history'));
         $this->assertMatchesRegularExpression(
             '/^[a-f0-9]{64}$/',
@@ -886,8 +927,20 @@ final class AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorTest extend
             data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.terminal_loop_closure_proof_command'),
         );
         $this->assertStringContainsString(
+            '--persist-terminal-loop-operational-proof-binding',
+            data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.terminal_loop_closure_proof_binding_persist_command'),
+        );
+        $this->assertStringContainsString(
             '--agent-control-plane-terminal-loop-operational-proof-json=@/path/to/terminal-loop-operational-proof-binding.json',
             data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.terminal_loop_closure_proof_audit_command_with_binding'),
+        );
+        $this->assertStringContainsString(
+            '--agent-control-plane-terminal-loop-operational-proof-json=@storage/app/private/atlas/self-construction/operator-submissions/terminal-loop-operational-proof-binding.json',
+            data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.terminal_loop_closure_proof_audit_command_with_canonical_binding'),
+        );
+        $this->assertSame(
+            'storage/app/private/atlas/self-construction/operator-submissions/terminal-loop-operational-proof-binding.json',
+            data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.terminal_loop_closure_proof_canonical_binding_path'),
         );
         $this->assertSame(
             'atlas.self_construction.agent_control_plane_terminal_loop_operational_proof_audit_binding_packet.v1',
@@ -913,6 +966,20 @@ final class AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorTest extend
             1,
             data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.operator_completion_progress_meter_blocked_artifact_count'),
         );
+        $this->assertTrue((bool) data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.operator_completion_progress_meter_blocked_artifact_count_includes_final_completion_audit'));
+        $this->assertSame(
+            3,
+            data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.operator_completion_progress_meter_operator_evidence_blocked_artifact_count'),
+        );
+        $this->assertSame(
+            [
+                'runtime_promotion_receipt',
+                'real_provider_smoke',
+                'human_completion_receipt',
+            ],
+            data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.operator_completion_progress_meter_operator_evidence_blocked_artifact_ids'),
+        );
+        $this->assertTrue((bool) data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.operator_completion_progress_meter_final_completion_audit_blocked'));
         $this->assertSame(
             'runtime_promotion_receipt',
             data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.operator_completion_progress_meter_current_required_artifact'),
